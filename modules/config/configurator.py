@@ -42,6 +42,7 @@ class Configurator():
         self.p12_items = [
             "nodeadmin", "key_location", "p12_name", "wallet_alias", "passphrase"
         ]
+        self.profile_name_list = [] 
         
         if "help" in argv_list:
             self.prepare_configuration("edit_config")
@@ -746,6 +747,7 @@ class Configurator():
 
         print("")
         self.profile = f"[{self.profile_details['profile_name']}]"
+        self.profile_name_list.append(self.profile_details['profile_name'])
         
         
     def manual_build_node_type(self,profile=False):
@@ -1649,15 +1651,20 @@ class Configurator():
 
 
     def build_service_file(self,command_obj):
-        # profile=(str) # profile that service file is created against
+        # profiles=(list of str) # profiles that service file is created against
         # action=(str) # Updating, Creating for user review
         var = SimpleNamespace(**command_obj)
             
         progress = {
-            "text_start": f"{var.action} Service files",
-            "status": "running"
+            "text_start": f"{var.action} Service file",
+            "status": "running",
+            "newline": True,
         }
-        self.c.functions.print_cmd_status(progress)
+        for profile in var.profiles:
+            self.c.functions.print_cmd_status({
+                **progress,
+                "brackets": profile,
+            })
         
         self.node_service.create_service_bash_file({
             "create_file_type": "service_file",
@@ -1667,14 +1674,15 @@ class Configurator():
         # multiple edits that cause the need to recreate the bash file
         # and the file will be only temporarily created.
         
-        self.c.functions.print_cmd_status({
-            **progress,
-            "status": "complete",
-            "newline": True,
-        })
+        for profile in var.profiles:
+            self.c.functions.print_cmd_status({
+                **progress,
+                "status": "complete",
+                "newline": True,
+            })
         
 
-    def build_yaml(self,is_sorted=False):
+    def build_yaml(self,quiet=False):
         # correlates to migration class - build_yaml
         
         # self.build_known_skelton(1)
@@ -1694,8 +1702,7 @@ class Configurator():
             "status_color": "yellow",
             "newline": False,
         }
-        if not is_sorted:
-            self.c.functions.print_cmd_status(progress)
+        self.c.functions.print_cmd_status(progress)
 
         self.migrate.create_n_write_yaml()
         
@@ -1803,21 +1810,14 @@ class Configurator():
                 "status_color": "green",
                 "newline": True,
             })
-            user_confirm = self.c.functions.confirm_action({
-                "yes_no_default": "y",
-                "return_on": "y",
-                "prompt": "Review the created configuration?",
-                "exit_if": False
-            })   
-            if user_confirm:           
-                self.c.view_yaml_config("migrate")
-                
-            self.c.functions.print_header_title({
-                "line1": "CONFIGURATOR UPDATED",
-                "show_titles": False,
-                "newline": "both",
-                "clear": True
-            })
+            if not quiet:
+                self.ask_review_config()
+                self.c.functions.print_header_title({
+                    "line1": "CONFIGURATOR UPDATED",
+                    "show_titles": False,
+                    "newline": "both",
+                    "clear": True
+                })
             
             self.move_config_backups()
             self.prepare_configuration("edit_config",True) # rebuild 
@@ -2374,9 +2374,18 @@ class Configurator():
                 self.config_obj["global_p12"][key] = new_globals[key]
         else:
             self.manual_build(False)
+            self.restart_needed = False
+            
+        self.build_yaml(True)    
 
-        self.build_yaml()    
-        
+        if not p12_only:
+            self.build_known_skelton(1)
+            self.build_service_file({
+                "profiles": self.profile_name_list,
+                "action": "Create",
+            })   
+            self.ask_review_config() 
+    
     
     def delete_profile(self,profile):
         self.c.functions.print_header_title({
@@ -2520,7 +2529,7 @@ class Configurator():
                     self.config_obj["profiles"][replace_link_p][dir_p] = dir_value.replace(old_profile,new_profile)
                 
         self.build_service_file({
-            "profile": new_profile,
+            "profiles": [new_profile],
             "action": "Updating",
         })
         
@@ -2554,7 +2563,7 @@ class Configurator():
         self.manual_build_service(profile)
         self.cleanup_service_file(self.config_obj["profiles"][profile]["service"])
         self.c.config_obj["profiles"][profile]["service"] = self.profile_details["service"]
-        self.build_service_file({"profile": profile, "action": "Create"})
+        self.build_service_file({"profiles": [profile], "action": "Create"})
         
         
     def edit_enable_disable_profile(self, profile, task="None"):
@@ -3083,6 +3092,17 @@ class Configurator():
         system(f"mv {self.config_path}cn-config_yaml_* {backup_dir} > /dev/null 2>&1")
         self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
 
-                                
+        
+    def ask_review_config(self):
+        user_confirm = self.c.functions.confirm_action({
+            "yes_no_default": "y",
+            "return_on": "y",
+            "prompt": "Review the created configuration?",
+            "exit_if": False
+        })   
+        if user_confirm:           
+            self.c.view_yaml_config("migrate")     
+            
+                               
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")
