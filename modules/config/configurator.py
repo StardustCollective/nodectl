@@ -749,31 +749,58 @@ class Configurator():
         
         
     def manual_build_node_type(self,profile=False):
-        default = "validator" if not profile else self.profile_details["node_type"]
+        # default = "validator" if not profile else self.profile_details["node_type"]
         profile = self.profile if not profile else profile
 
         self.manual_section_header(profile,"NODE TYPE")
         
-        questions = {
-            "node_type": {
-                "question": f"  {colored('The type of Node this VPS will become','cyan')}",
-                "description": "There are only two options: 'validator' and 'genesis'. Unless you are an advanced State Channel or Global Layer0 administrator, the 'validator' option should be chosen.",
-                "default": default,
-                "required": False,
-            },
-        }
-
-        while True:
-            node_vars = self.ask_confirm_questions(questions)
-            if node_vars["node_type"] == "validator" or node_vars["node_type"] == "genesis":
-                break
+        if self.detailed:
             self.c.functions.print_paragraphs([
-                ["invalid node type, try again [",0,"red"],
-                ["validator",-1,"yellow","bold"], ["] or [",-1,"red"],
-                ["genesis",-1,"yellow","bold"], ["] only.",-1,"red"], ["",1],
+                ["",1], ["There are only two options: 'validator' and 'genesis'. Unless you are an advanced State Channel or Global Layer0 administrator, the 'validator' option should be chosen.",2,"white","bold"],
             ])
             
+        self.c.functions.print_paragraphs([
+            ["Constellation Node Types",1,"yellow,on_blue"],
+            ["=","half","blue","bold"],
+            ["V",-1,"magenta","bold"], [")",-1,"magenta"], ["alidator",-1,"magenta"], ["",1,],
+            ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["enesis",-1,"magenta"], ["",1,],
+            ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]            
+        ])
+        
+        option = self.c.functions.get_user_keypress({
+            "prompt": "KEY PRESS an option",
+            "prompt_color": "cyan",
+            "options": ["V","G","Q"],
+        })
+        
+        if option.lower() == "q":
+            return False
+        if option.lower() == "v":
+            node_vars = {"node_type": "validator"}
+        if option.lower() == "g":
+            node_vars = {"node_type": "genesis"}
+            
+        # questions = {
+        #     "node_type": {
+        #         "question": f"  {colored('The type of Node this VPS will become','cyan')}",
+        #         "description": "There are only two options: 'validator' and 'genesis'. Unless you are an advanced State Channel or Global Layer0 administrator, the 'validator' option should be chosen.",
+        #         "default": default,
+        #         "required": False,
+        #     },
+        # }
+
+        # while True:
+        #     node_vars = self.ask_confirm_questions(questions)
+        #     if node_vars["node_type"] == "validator" or node_vars["node_type"] == "genesis":
+        #         break
+        #     self.c.functions.print_paragraphs([
+        #         ["invalid node type, try again [",0,"red"],
+        #         ["validator",-1,"yellow","bold"], ["] or [",-1,"red"],
+        #         ["genesis",-1,"yellow","bold"], ["] only.",-1,"red"], ["",1],
+        #     ])
+            
         self.profile_details.update(node_vars)
+        return True
         
         
     def manual_build_layer(self,profile=False):
@@ -1178,7 +1205,7 @@ class Configurator():
         
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["You can setup your Node to use the",0], ["default",0,"magenta"], ["PRO score",0,"yellow"],
+                ["",1], ["You can setup your Node to use the",0], ["default",0,"magenta"], ["PRO score",0,"yellow"],
                 ["and",0], ["seed list",0,"yellow"], ["elements.",2,"magenta"],
             ])
             
@@ -1284,9 +1311,9 @@ class Configurator():
             self.migrate.keep_pass_visible = True
             self.manual_section_header(profile,"P12 UPDATES")
             self.c.functions.print_paragraphs([
-                ["",1], ["You are requesting to update the [",-1],["p12",-1,"yellow","bold"], 
-                ["] settings for the configuration profile [",-1],
-                [profile,-1,"yellow","bold"],["]. ",-1],["",1],
+                ["",1], ["You are requesting to update the [",-1,"magenta"],["p12",-1,"yellow","bold"], 
+                ["] settings for the configuration profile [",-1,"magenta"],
+                [profile,-1,"yellow","bold"],["]. ",-1,"magenta"],["",2],
             ])
 
         self.profile_details["p12_passphrase_global"] = 'False'          
@@ -2191,7 +2218,7 @@ class Configurator():
                     })
                     
                 elif option == "14":
-                    self.manual_build_node_type(profile)
+                    do_build_yaml = do_build_profile = self.manual_build_node_type(profile)
                     called_option = "Node type modification"
                     
                 elif option == "15":
