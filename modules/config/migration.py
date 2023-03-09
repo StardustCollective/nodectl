@@ -446,11 +446,6 @@ class Migration():
                 newfile.write(self.yaml)
             newfile.close()
             
-            # sort by layer
-            # with open("/var/tessellation/nodectl/cn-config.yaml","w") as newfile:
-            #     newfile.write(self.yaml)
-            # newfile.close()
-            
             self.functions.print_cmd_status({
                 "text_start": "Creating configuration file",
                 "status": "complete",

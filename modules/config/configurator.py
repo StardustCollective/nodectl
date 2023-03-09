@@ -1624,6 +1624,16 @@ class Configurator():
 
     def build_yaml(self,is_sorted=False):
         # correlates to migration class - build_yaml
+        
+        # self.build_known_skelton(1)
+        # sorted_profile_obj =  sorted(self.config_obj["profiles"].items(), key = lambda x: x[1]["layer"])
+        sorted_profile_obj =  sorted(self.config_obj["profiles"].items(), key = lambda x: (x[1]["layer"], x[0]))
+        sorted_config_obj = {"profiles": {}}
+        for profile in sorted_profile_obj:
+            sorted_config_obj["profiles"][profile[0]] = profile[1]
+        self.config_obj["profiles"] = sorted_config_obj["profiles"]
+        # self.build_yaml(True)
+        
         progress = {
             "text_start": "building",
             "brackets": "cn-config.yaml",
@@ -1735,50 +1745,47 @@ class Configurator():
         self.move_config_backups()
         
         if complete:
-            if not is_sorted:
-                self.build_known_skelton(1)
-                sorted_profile_obj =  sorted(self.config_obj["profiles"].items(), key = lambda x: x[1]["layer"])
-                sorted_config_obj = {"profiles": {}}
-                for profile in sorted_profile_obj:
-                    sorted_config_obj["profiles"][profile[0]] = profile[1]
-                self.config_obj["profiles"] = sorted_config_obj["profiles"]
-                self.build_yaml(True)
-            else:
-                self.c.functions.print_cmd_status({
-                    **progress,
-                    "status": "complete",
-                    "status_color": "green",
-                    "newline": True,
-                })
-                user_confirm = self.c.functions.confirm_action({
-                    "yes_no_default": "y",
-                    "return_on": "y",
-                    "prompt": "Review the created configuration?",
-                    "exit_if": False
-                })   
-                if user_confirm:           
-                    self.c.view_yaml_config("migrate")
+            self.c.functions.print_cmd_status({
+                **progress,
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+            })
+            user_confirm = self.c.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": "Review the created configuration?",
+                "exit_if": False
+            })   
+            if user_confirm:           
+                self.c.view_yaml_config("migrate")
+                
+            self.c.functions.print_header_title({
+                "line1": "CONFIGURATOR UPDATED",
+                "show_titles": False,
+                "newline": "both",
+                "clear": True
+            })
+            
+            self.move_config_backups()
+            self.prepare_configuration("edit_config",True) # rebuild 
+            
+            press_any = False
+            if self.upgrade_needed:            
+                self.c.functions.print_paragraphs([
+                    ["WARNING:",0,"yellow,on_blue","bold"],["This Node will need to be upgraded in order for changes to take affect.",2,"yellow"],
+                    ["sudo nodectl upgrade",2,"grey,on_yellow","bold"],
+                ])
+                press_any = True
+            elif self.restart_needed:
+                self.c.functions.print_paragraphs([
+                    ["WARNING:",0,"yellow,on_blue","bold"],["This Node will need to be restarted in order for changes to take affect.",2,"yellow"],
+                    [" sudo nodectl restart -p all ",2,"grey,on_yellow","bold"],
+                ])
+                press_any = True
+            if press_any:
+                self.c.functions.print_any_key()
                     
-                self.c.functions.print_header_title({
-                    "line1": "CONFIGURATOR UPDATED",
-                    "show_titles": False,
-                    "newline": "both",
-                    "clear": True
-                })
-                
-                self.move_config_backups()
-                self.prepare_configuration("edit_config",True) # rebuild 
-                
-                if self.upgrade_needed:            
-                    self.c.functions.print_paragraphs([
-                        ["WARNING:",0,"yellow,on_blue","bold"],["This Node will need to be upgraded in order for changes to take affect.",2,"yellow"],
-                        ["sudo nodectl upgrade",2,"grey,on_yellow","bold"],
-                    ])
-                elif self.restart_needed:
-                    self.c.functions.print_paragraphs([
-                        ["WARNING:",0,"yellow,on_blue","bold"],["This Node will need to be restarted in order for changes to take affect.",2,"yellow"],
-                        [" sudo nodectl restart -p all ",2,"grey,on_yellow","bold"],
-                    ])
         else:
             self.error_messages.error_code_messages({
                 "error_code": "cfr-1177",
@@ -1943,13 +1950,15 @@ class Configurator():
     def edit_profile_sections(self,topic="EDIT"):
         menu_options = []
         
-        self.c.functions.print_header_title({
-            "line1": "CONFIGURATOR SECTION",
-            "line2": f"{topic}",
-            "show_titles": False,
-            "newline": "top",
-            "clear": True
-        })
+        def print_config_section():
+            self.c.functions.print_header_title({
+                "line1": "CONFIGURATOR SECTION",
+                "line2": f"{topic}",
+                "show_titles": False,
+                "newline": "top",
+                "clear": True
+            })
+        print_config_section()
 
         profile = self.profile_to_edit
         
@@ -1974,7 +1983,7 @@ class Configurator():
         self.profile_details = {}
                         
         while True:
-            do_build_profile = do_build_yaml = True
+            do_build_profile = do_build_yaml = do_print_title = True 
             do_terminate = False
             option = 0
             
@@ -2034,6 +2043,7 @@ class Configurator():
                 return
             elif option == "r":
                 self.c.view_yaml_config("migrate")
+                print_config_section()
             elif option == "h":
                 self.show_help()
 
@@ -2048,7 +2058,7 @@ class Configurator():
                 }
 
                 if option == "1":
-                    self.edit_enable_disable_profile(profile)
+                    do_build_yaml = do_build_profile = self.edit_enable_disable_profile(profile)
                     
                 elif option == "2":
                     do_terminate = do_build_yaml = self.edit_profile_name(profile)
@@ -2165,6 +2175,9 @@ class Configurator():
                         ["sudo nodectl configure",2]
                     ])
                     exit(0)
+                    
+                if do_print_title:
+                    print_config_section()
 
 
     def edit_auto_restart(self):
@@ -2489,8 +2502,11 @@ class Configurator():
                 new = "False"; new_v = "enable"
                 old_v = "disable"
             
-            if self.edit_confirm_choice(new_v,old_v,"enable", profile):
+            confirmation = self.edit_confirm_choice(new_v,old_v,"enable", profile)
+            if confirmation:
                 self.profile_details["enable"] = new
+                return True
+            return False
 
         
     def edit_confirm_choice(self, old, new, section, profile):
