@@ -516,6 +516,8 @@ class Configuration():
         attempts = 0
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
         profile_obj = self.config_obj["profiles"]; self.profile_obj = profile_obj
+        self.functions.print_clear_line()
+        
         for profile in profile_obj.keys():
             if profile_obj[profile]["enable"] and self.action != "edit_config":
                 if profile_obj[profile]["layer0_link"]["layer0_host"] == "self":
