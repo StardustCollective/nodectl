@@ -1,9 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
-from os import system, path, environ, mkdir
+from os import system, path, environ, makedirs
 from sys import exit
-from time import sleep
 from getpass import getpass, getuser
 from types import SimpleNamespace
 from copy import deepcopy
@@ -1098,7 +1097,10 @@ class Configurator():
         self.manual_section_header(title_profile,"DIRECTORY STRUCTURE")
     
         if self.detailed:
-            self.c.functions.print_paragraphs([["You can setup your Node to use the default directories for all definable directories.",2,"magenta"]])
+            self.c.functions.print_paragraphs([
+                ["",1], ["You can setup your Node to use the default directories for all definable directories.",2,"magenta"],
+                [" IMPORTANT ",0,"white,on_blue"], ["Directories being migrated to (and from) must already exist.",2],
+            ])
             
         dir_default = self.c.functions.confirm_action({
             "prompt": "Use defaults?",
@@ -2706,21 +2708,22 @@ class Configurator():
         migration_dirs["profile"] = profile
                 
         def file_dir_error(directory, new_path):
-            self.c.functions.print_paragraphs({
-                ["An error occurred attempting to automate the creation of [",-1,"red"],[new_path,-1,"yellow","bold"],
+            self.c.functions.print_clear_line()
+            self.c.functions.print_paragraphs([
+                ["An error occurred attempting to automate the creation of [",-1,"red"],[f"{new_path}",-1,"yellow","bold"],
                 ["]",-1,"red"],[f". In the event that you are attempting to point your Node's {directory} towards",0,"red"],
                 ["an external storage device, nodectl will continue the configuration change without migrating",0,"red"],
                 [f"the {directory} to the new user defined location.",0,"red"],["nodectl will leave this up to the Node Operator.",2],
-            })
+            ])
             if directory == "snapshots":
-                self.c.functions.print_paragraphs({
-                ["In the event you are attempting to change the location of your snapshot storage to an external device please keep",0],
-                ["in mind that not migrating your snapshots should",0], ["not",0,"red"], ["cause any issues; other than, you may",0],
-                ["incur extra I/O on your Node while the snapshots are re-downloaded for proper Node functionality",2],
-                
-                ["Also",0], ["warning",0,"yellow","bold"], ["attempting to share snapshot external storage between multiple Nodes",0],
-                ["for any operations other than 'reading', may cause race conditions and 'out of memory' errors.",2],
-                })
+                self.c.functions.print_paragraphs([
+                    ["In the event you are attempting to change the location of your snapshot storage to an external device please keep",0],
+                    ["in mind that not migrating your snapshots should",0], ["not",0,"red"], ["cause any issues; other than, you may",0],
+                    ["incur extra I/O on your Node while the snapshots are re-downloaded for proper Node functionality",2],
+                    
+                    ["Also",0], ["warning",0,"yellow","bold"], ["attempting to share snapshot external storage between multiple Nodes",0],
+                    ["for any operations other than 'reading', may cause race conditions and 'out of memory' errors.",2],
+                ])
                          
         def check_for_default(directory, new_path, old_path):
             path_list = [new_path,old_path]; updated_path_list = []
@@ -2735,7 +2738,8 @@ class Configurator():
         profile = migration_dirs.pop("profile")   
         for directory, values in migration_dirs.items():
             status = "skipped"
-
+            status_color = "yellow"
+            
             if values["changed"]:
                 new_path = values["new_name"]
                 old_path = values["old_name"]
@@ -2756,16 +2760,17 @@ class Configurator():
                         
                     progress = {
                         "text_start": "Migrating directory",
-                        "brackets": new_path,
+                        "brackets": directory,
                         "text_end": "location",
                         "status": "migrating",
+                        "status_color": "magenta",
                         "delay": .8,
                     }                    
                     self.c.functions.print_cmd_status(progress)
                             
                     if not path.exists(new_path):
                         try:
-                            mkdir(new_path)
+                            makedirs(new_path)
                         except Exception as e:
                             self.log.logger.error(f"unable to create new [{new_path}] directory from configurator - migration issue | error [{e}]")
                             file_dir_error(directory, new_path)
@@ -2779,12 +2784,15 @@ class Configurator():
                         elif old_path != "disable":
                             old_path = f"{old_path}/" if old_path[-1] != "/" else old_path
                             new_path = f"{new_path}/" if new_path[-1] != "/" else new_path
+                            
+                        if old_path != new_path:
                             if directory == "snapshots":
                                 self.c.functions.print_paragraphs([
                                     ["",1], [" NOTE: ",0,"grey,on_red","bold"],
                                     ["The snapshot directory may be very large and take some time to transfer.",0,"yellow"],
-                                    ["Please exercise patience during the migration.",2,"yellow"]
+                                    ["Please exercise patience during the migration.",1,"yellow"]
                                 ])
+                            
                             with ThreadPoolExecutor() as executor:
                                 self.c.functions.event = True
                                 _ = executor.submit(self.c.functions.print_spinner,{
@@ -2822,14 +2830,13 @@ class Configurator():
                                         "status": "skipped",
                                         "status_color": "yellow",
                                     })
+                            status = "complete"
+                            status_color = "green"
                                     
-
-                    if do_migration:
-                        status = "complete"
- 
                 self.c.functions.print_cmd_status({
                     **progress,
                     "status": status,
+                    "status_color": status_color,
                     "newline": True
                 })
         

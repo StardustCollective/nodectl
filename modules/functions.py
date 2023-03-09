@@ -1878,7 +1878,9 @@ class Functions():
             status_color = "red" if status == "failed" else status_color
 
         padding = 50 - (len(text_start)+(len(brackets)-2)) if brackets else 55 - len(text_start)
-
+        if padding < 0:
+            padding = 0
+            
         status = colored(status,status_color,attrs=['bold'])
                 
         text_start = colored(text_start,text_color,attrs=['bold']) if bold else colored(text_start,text_color)
