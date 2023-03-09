@@ -837,7 +837,7 @@ class Configurator():
         if profile:
             host_default = self.profile_details["host"]
             port_default = self.profile_details["host_port"]
-            https_default = "y" if self.profile_details["https"] else "n"
+            https_default = "y" if self.profile_details["https"] == "True" else "n"
             required = False
         else:
             host_default = None; https_default = "n"; port_default = "80"; profile = self.profile
@@ -866,7 +866,25 @@ class Configurator():
                 "v_type": "bool"
             },
         }
-        self.profile_details.update(self.ask_confirm_questions(questions))
+        answers = self.ask_confirm_questions(questions)
+        if answers["https"] == "y" and answers["host_port"] != "443":
+            self.c.functions.print_paragraphs([
+                [" NOTE ",0,"white,on_red"], ["Hypertext Transfer Protocol Secure will not properly function",0,"red"],
+                ["unless TCP",0,"red"], ["443",0,"yellow","bold"], ["is the default port number.",0,"red"],
+                ["nodectl will automatically correct this.",2,"red"],
+                ["Review configuration for auto corrected values, upon update completion.",2]
+            ])
+            answers["https"] = "n"
+        elif answers["https"] == "n" and answers["host_port"] == "443":
+            self.c.functions.print_paragraphs([
+                [" NOTE ",0,"white,on_red"], ["Hypertext Transfer Protocol must be set to secure",0,"red"],
+                ["when default TCP number",0,"red"], ["443",0,"yellow","bold"], ["is the port number.",0,"red"], 
+                ["nodectl will automatically correct the key [",0,"red"], ["https",-1,"yellow"], ["].",-1,"red"],["",2],
+                ["Review configuration for auto corrected values, upon update completion.",1]
+            ])
+            answers["https"] = "y"
+            
+        self.profile_details.update(answers)
 
             
     def manual_build_tcp(self,profile=False):
@@ -1322,7 +1340,12 @@ class Configurator():
                     else:
                         input_value = input(question)
                         if v_type == "bool":
-                            input_value = "yes" if input_value.lower() == "y" or input_value.lower() == "yes" else "no"  
+                            if input_value.lower() == "y" or input_value.lower() == "yes":
+                                input_value = "y" 
+                            elif input_value.lower() == "n" or input_value.lower() == "no":
+                                input_value = "n"
+                            else:
+                                input_value = ""
                                              
                     if required and input_value.strip() == "":
                         print(colored("  valid entry required","red"))
