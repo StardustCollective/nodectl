@@ -446,7 +446,7 @@ class Configuration():
             self.config_obj["profiles"].pop(profile)
 
             
-    def setup_passwd(self):
+    def setup_passwd(self,force=False):
         def verify_passwd(passwd, profile):
             clear, top_new_line, show_titles = False, False, True 
             if profile == "global" and ( not self.config_obj["upgrader"] or self.argv_list[1] != "upgrade" ):
@@ -478,7 +478,7 @@ class Configuration():
             self.config_obj["global_cli_pass"] = True
             passwd = False
 
-        if self.is_passphrase_required():
+        if self.is_passphrase_required() or force:
             verify_passwd(passwd,"global")  
         
         if not self.config_obj["all_global"]:
@@ -524,6 +524,7 @@ class Configuration():
                     print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
                     profile_obj[profile]["layer0_link"]["layer0_host"] = self.functions.get_ext_ip() 
                 if profile_obj[profile]["layer0_link"]["layer0_key"] == "self":
+                    self.setup_passwd(True)
                     while True:
                         print(f"{print_str}{colored('link host public key','yellow')}",end="\r")
                         if not write_out:
