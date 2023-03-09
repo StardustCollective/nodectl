@@ -353,9 +353,10 @@ class ShellHandler:
             "leave","start","stop","restart","join", 
             "nodectl_upgrade","upgrade_nodectl_testnet",
         ]
-                
-        if self.functions.config_obj["auto_restart"]["enable"]:
-            self.auto_restart_enabled = True
+            
+        if self.called_command is not "install":    
+            if self.functions.config_obj["auto_restart"]["enable"]:
+                self.auto_restart_enabled = True
             
         if self.called_command in kill_auto_restart_commands:
             self.log.logger.warn(f"cli request {self.called_command} received. DISABLING auto_restart if enabled")
