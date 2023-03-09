@@ -2097,6 +2097,7 @@ class Configurator():
                 elif option == "4":
                     self.manual_build_layer(profile)
                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
+                    called_option = "layer modification"
                     self.verify_edit_options({
                         "keys": ["layer"],
                         "error": "layer",
@@ -2106,6 +2107,7 @@ class Configurator():
                 elif option == "5":
                     self.manual_build_edge_point(profile)
                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
+                    called_option = "Edge Point Modification"
                     self.verify_edit_options({
                         "keys": ["host","host_port","https"],
                         "error": "Edge Point",
@@ -2114,11 +2116,13 @@ class Configurator():
             
                 elif option == "6":
                     self.manual_build_environment(profile)
+                    called_option = "Environment modification"
                     
                 elif option == "7":
                     self.tcp_change_preparation(profile)
                     self.manual_build_tcp(profile)
                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [TCP build] [{self.action}]"
+                    called_option = "TCP modification"
                     self.verify_edit_options({
                         "keys": ["public","p2p","cli"],
                         "error": "TCP API ports",
@@ -2132,6 +2136,7 @@ class Configurator():
                     
                 elif option == "9":
                     do_terminate = do_build_yaml = self.manual_build_link(profile)
+                    called_option = "Layer0 link"
                     if do_build_yaml:
                         self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer link] [{self.action}]"
                         self.verify_edit_options({
@@ -2142,10 +2147,12 @@ class Configurator():
                                     
                 elif option == "10":
                     self.migrate_directories(profile)
+                    called_option = "Directory structure modification"
                     
                 elif option == "11":
                     self.manual_build_memory(profile)
                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
+                    called_option = "Memory modification"
                     self.verify_edit_options({
                         "keys": ["java_jvm_xms","java_jvm_xmx","java_jvm_xss"],
                         "error": "Java Memory Heap",
@@ -2154,6 +2161,7 @@ class Configurator():
                     
                 elif option == "12":
                     self.manual_build_p12(profile)
+                    called_option = "P12 modification"
                     keys = []; types = []
                     if self.profile_details["key_location"] != "global":
                         keys.append("key_location")
@@ -2172,6 +2180,7 @@ class Configurator():
                     
                 elif option == "13":
                     self.manual_build_pro(profile)
+                    called_option = "PRO modification"
                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
                     self.verify_edit_options({
                         "keys": ["seed_location"],
@@ -2181,9 +2190,11 @@ class Configurator():
                     
                 elif option == "14":
                     self.manual_build_node_type(profile)
+                    called_option = "Node type modification"
                     
                 elif option == "15":
                     self.manual_build_description(profile)
+                    called_option = "Description modification"
                     
                 if do_build_profile:
                     self.build_profile()
