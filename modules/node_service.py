@@ -611,11 +611,19 @@ class Node():
                     })
                 return "skip_timer"
         self.log.logger.debug(f"changing service state method - action [{action}] service [{service_display}] caller = [{caller}] - issuing systemctl command")
+
+        bashCommand = f"systemctl daemon-reload" # done for extra stability
+        _ = self.functions.process_command({
+            "bashCommand": bashCommand,
+            "proc_action": "poll"
+        })
+        
         bashCommand = f"systemctl {action} {service_name}"
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "poll"
         })
+        
         if action == "start":
             # clean up for a little more security of passphrases and cleaner installation
             system(f"rm {self.env_conf_file} {self.temp_bash_file} > /dev/null 2>&1")

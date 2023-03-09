@@ -170,8 +170,7 @@ class Configurator():
     
         
     def new_config(self):
-        self.upgrade_needed = True
-        
+        self.restart_needed = False
         self.c.functions.print_header_title({
             "line1": "NODECTL",
             "line2": "create new configuration",
@@ -243,8 +242,15 @@ class Configurator():
             self.profiles()
         elif option == "m":
             self.manual_build()
-            self.build_yaml()
+            
+        self.build_yaml(True)
+        self.upgrade_needed = True
         
+        self.build_service_file({
+            "profiles": self.profile_name_list,
+            "action": "Create",
+            "rebuild": True
+        })   
 
     # =====================================================
     # PRE-DEFINED PROFILE BUILD METHODS
@@ -1455,7 +1461,8 @@ class Configurator():
         try:
             profiles.append(self.profile_details["profile_name"])
         except:
-            profiles = ["dag-l0","dag-l1"]
+            # pre-defined selected
+            self.profile_name_list = profiles = ["dag-l0","dag-l1"]
             layers = ["0","1"]
             tcp_ports = [["9000","9001","9002"],["9010","9011","9012"]]
             java = [["1024M","7G","256K"],["1024M","3G","256K"]]
@@ -1654,6 +1661,9 @@ class Configurator():
         # profiles=(list of str) # profiles that service file is created against
         # action=(str) # Updating, Creating for user review
         var = SimpleNamespace(**command_obj)
+        
+        if var.rebuild:
+            self.build_known_skelton(1)
             
         progress = {
             "text_start": f"{var.action} Service file",
@@ -1680,6 +1690,9 @@ class Configurator():
                 "status": "complete",
                 "newline": True,
             })
+            
+        if var.rebuild:
+            self.ask_review_config()
         
 
     def build_yaml(self,quiet=False):
@@ -2379,13 +2392,12 @@ class Configurator():
         self.build_yaml(True)    
 
         if not p12_only:
-            self.build_known_skelton(1)
             self.build_service_file({
                 "profiles": self.profile_name_list,
                 "action": "Create",
+                "rebuild": True,
             })   
-            self.ask_review_config() 
-    
+                 
     
     def delete_profile(self,profile):
         self.c.functions.print_header_title({
