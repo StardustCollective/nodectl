@@ -2171,7 +2171,7 @@ class Configurator():
                     self.c.functions.print_paragraphs([
                         [called_option,0,"green","bold"],["process has completed successfully.",2,"magenta"],
                         ["Please restart the",0,"magenta"],["configurator",0,"yellow,on_blue","bold"],
-                        ["to reload the configuration and properly continue if any further editing is necessary.",1,"magenta"],
+                        ["to reload the new configuration before continuing, if any further editing is necessary.",1,"magenta"],
                         ["sudo nodectl configure",2]
                     ])
                     exit(0)
@@ -2410,8 +2410,8 @@ class Configurator():
         })
             
         notice = [
-            ["",1], ["NOTICE",0,"blue,on_yellow","bold,underline"], 
-            ["The Node's",0],["service name",0,"cyan","underline"], ["has not changed.",2],
+            ["",1], [ "NOTICE ",0,"blue,on_yellow","bold,underline"], 
+            ["The Node's",0,"yellow"],["service name",0,"cyan","underline"], ["has not changed.",2,"yellow"],
             ["Although this is",0],["not",0,"yellow","bold,underline"],
             ["an issue and your Node will not be affected; moreover, this is being conveyed in case the Node Administrator wants to correlate the",0],
             ["service name",0,"cyan","underline"], ["with the",0], ["profile name",0,"cyan","underline"], [".",2]
@@ -2432,12 +2432,27 @@ class Configurator():
         self.c.config_obj["profiles"][new_profile] = self.c.config_obj["profiles"].pop(old_profile)
         self.config_obj["profiles"][new_profile] = self.config_obj["profiles"].pop(old_profile)
         
+        dir_progress = {
+            "text_start": "updating directory structure",
+            "status_color": "yellow",
+            "newline": True,
+        }
         dirs = ["snapshots","backups","uploads"]
+        self.c.functions.print_cmd_status({
+            "text_start": "Update data link dependencies",
+            "status_color": "green",
+            "status": "complete",
+            "newline": True,
+        })
         for replace_link_p in self.c.config_obj["profiles"].keys():
             if self.c.config_obj["profiles"][replace_link_p]["layer0_link"]["link_profile"] == old_profile:
                 self.config_obj["profiles"][replace_link_p]["link_profile"] = new_profile
             for dir_p in dirs:
                 if old_profile in self.config_obj["profiles"][replace_link_p][dir_p]: 
+                    self.c.functions.print_cmd_status({
+                        **dir_progress,
+                        "status": dir_p,
+                    })
                     dir_value = self.config_obj["profiles"][replace_link_p][dir_p]
                     self.config_obj["profiles"][replace_link_p][dir_p] = dir_value.replace(old_profile,new_profile)
                 
