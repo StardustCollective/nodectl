@@ -1233,11 +1233,18 @@ class Configurator():
                 "status": "complete",
                 "newline": True,
             })
-            self.profile_details = {
-                **self.profile_details,
-                "seed_location": "/var/tessellation/",
-                "seed_file": "seed-list"
-            }            
+            if int(self.profile_details["layer"]) < 1:
+                self.profile_details = {
+                    **self.profile_details,
+                    "seed_location": "/var/tessellation/",
+                    "seed_file": "seed-list"
+                }      
+            else:
+                self.profile_details = {
+                    **self.profile_details,
+                    "seed_location": "disable",
+                    "seed_file": "disable"
+                }                         
             print("")
         else:
             if profile:
