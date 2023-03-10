@@ -343,8 +343,10 @@ class Error_codes():
                     ["file is in the proper format.",2,"red"],
                     
                     ["This error may have been caused by",0,"magenta"], ["manual intervention",0, "red","underline"],
-                    ["of the configuration file. Manual editing on the configuration file should be left to advanced Administrators only. Alternatively, it is advised to use the command:",1,"magenta"],
-                    ["sudo nodectl configure",2],
+                    ["of the configuration file. Manual editing on the configuration file should be left to advanced Administrators only.",2,"magenta"],
+                    ["The configuration file may have been corrupted due to an interruption during configuration by nodectl.",2,"magenta"],
+                    ["Alternatively, it is advised to attempt to correct issues via nodectl's configure option or use nodectl to build a new configuration.",1,"magenta"],
+                    ["Use command:",0,"yellow"], ["sudo nodectl configure",2],
                 ])
            
         self.print_error()

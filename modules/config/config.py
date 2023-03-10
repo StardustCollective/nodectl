@@ -679,25 +679,30 @@ class Configuration():
 
     def validate_global_setting(self):
         global_count = 0
-        for profile in self.config_obj["profiles"].keys():
-            g_tests = []
-            g_tests.append(self.config_obj["profiles"][profile]["p12"]["p12_name"])
-            g_tests.append(self.config_obj["profiles"][profile]["p12"]["passphrase"])
-            if g_tests.count("global") != 0 and g_tests.count("global") != len(g_tests):
-                self.validated = False
-                self.error_list.append({
-                    "title":"global settings issue",
-                    "section": "p12",
-                    "profile": profile,
-                    "missing_keys": None, 
-                    "type": "global",
-                    "key": "p12_name, passphrase",
-                    "special_case": None,
-                    "value": "skip"
-                })
-            elif g_tests.count("global") != 0:
-                # test if everything is set to global
-                global_count += 1
+        
+        try:
+            for profile in self.config_obj["profiles"].keys():
+                g_tests = []
+                g_tests.append(self.config_obj["profiles"][profile]["p12"]["p12_name"])
+                g_tests.append(self.config_obj["profiles"][profile]["p12"]["passphrase"])
+                if g_tests.count("global") != 0 and g_tests.count("global") != len(g_tests):
+                    self.validated = False
+                    self.error_list.append({
+                        "title":"global settings issue",
+                        "section": "p12",
+                        "profile": profile,
+                        "missing_keys": None, 
+                        "type": "global",
+                        "key": "p12_name, passphrase",
+                        "special_case": None,
+                        "value": "skip"
+                    })
+                elif g_tests.count("global") != 0:
+                    # test if everything is set to global
+                    global_count += 1
+        except:
+            self.send_error("cfg-705","format","existence")
+
             
         if len(self.config_obj["profiles"].keys()) == global_count:
             self.config_obj["all_global"] = True
@@ -1248,13 +1253,13 @@ class Configuration():
             pass
                 
                 
-    def send_error(self,code):
+    def send_error(self,code,extra="existence",extra2=None):
         self.log.logger.critical(f"configuration file [cn-config.yaml] error code [{code}] not reachable - should be in /var/tessellation/nodectl/")
         self.error_messages.error_code_messages({
             "error_code": code,
             "line_code": "config_error",
-            "extra": "existence",
-            "extra2": None
+            "extra": extra,
+            "extra2": extra2
         }) 
         
         

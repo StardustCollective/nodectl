@@ -137,9 +137,9 @@ class Configurator():
                 "newline": top_newline
             })
             
-            if self.action == "edit" or self.action == "help":
+            if (self.action == "edit" or self.action == "help") and option != "reset":
                 option = "e"
-            elif self.action == "new":
+            elif self.action == "new" and option != "reset":
                 option = "n"
             else:
                 self.c.functions.print_paragraphs([
@@ -162,15 +162,18 @@ class Configurator():
             self.backup_config()
             
             if option.lower() == "n":
-                self.is_new_config = True
-                self.skip_convert = True
+                self.is_new_config = self.skip_convert = True
                 self.new_config()
             elif option.lower() == "e":
+                self.is_new_config = self.skip_convert = False
                 self.edit_config()
+                
+            option = "reset"
     
         
     def new_config(self):
         self.restart_needed = False
+        do_build = False
         self.c.functions.print_header_title({
             "line1": "NODECTL",
             "line2": "create new configuration",
@@ -220,14 +223,11 @@ class Configurator():
         ])  
             
 
-        if self.debug:
-            option = "p"
-        else:
-            option = self.c.functions.get_user_keypress({
-                "prompt": "KEY PRESS an option",
-                "prompt_color": "cyan",
-                "options": ["P","M","R","Q"]
-            })
+        option = self.c.functions.get_user_keypress({
+            "prompt": "KEY PRESS an option",
+            "prompt_color": "cyan",
+            "options": ["P","M","R","Q"]
+        })
         
         if option == "r":
             return
@@ -239,18 +239,19 @@ class Configurator():
         self.build_config_obj()
                 
         if option == "p":
-            self.profiles()
+            do_build = self.profiles()
         elif option == "m":
-            self.manual_build()
+            do_build = self.manual_build()
+
+        if do_build:            
+            self.build_yaml(True)
+            self.upgrade_needed = True
             
-        self.build_yaml(True)
-        self.upgrade_needed = True
-        
-        self.build_service_file({
-            "profiles": self.profile_name_list,
-            "action": "Create",
-            "rebuild": True
-        })   
+            self.build_service_file({
+                "profiles": self.profile_name_list,
+                "action": "Create",
+                "rebuild": True
+            })   
 
     # =====================================================
     # PRE-DEFINED PROFILE BUILD METHODS
@@ -294,7 +295,7 @@ class Configurator():
             })
         
         if option == "r":
-            return
+            return False
         elif option == "q":
             cprint("  Configuration manipulation quit by Operator","magenta")
             exit(0)
@@ -347,6 +348,8 @@ class Configurator():
                     if non_global:
                         self.preserve_pass = False
                         self.get_p12_details(f"dag-l{n}")
+                        
+        return True
 
 
     # =====================================================
@@ -383,7 +386,7 @@ class Configurator():
                     "return_on": "y",
                     "exit_if": False                
                 })
-                
+            
             if self.preserve_pass and get_existing_global:
                 self.prepare_configuration(f"edit_config")
                 self.config_obj["global_p12"] = self.c.config_obj["global_p12"]
@@ -1744,7 +1747,7 @@ class Configurator():
                         if details["p12_passphrase_global"] == "True" or self.is_all_global:
                             details[p_detail] = "global"
                     except:
-                        if self.action == "new" or self.profile_details["p12_passphrase_global"] == "True" or self.is_all_global:
+                        if self.action == "new" or self.is_all_global:
                             details[p_detail] = "global"
 
                 elif self.is_all_global:
@@ -3090,6 +3093,8 @@ class Configurator():
                          
     def move_config_backups(self):
         # move any backup configs out of the config dir and into the backup dir
+        backup_dir = "empty"
+        
         try:
             for key in self.c.config_obj["profiles"].keys():
                 backup_dir = self.c.config_obj["profiles"][key]["dirs"]["backups"]
@@ -3100,9 +3105,20 @@ class Configurator():
                 break 
                        
         if backup_dir == "default":
-            backup_dir = "/var/tessellation/backups/"        
-        system(f"mv {self.config_path}cn-config_yaml_* {backup_dir} > /dev/null 2>&1")
-        self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
+            backup_dir = "/var/tessellation/backups/"  
+                  
+        if backup_dir == "empty":
+            self.log.logger.warn("backup migration skipped.")
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1],["Configuration not moved to proper backup directory due to cancellation request.",1,"red"],
+                    ["location retained:",0,"red"], [f"{self.config_path}",1,"yellow","bold"],
+                    ["Configurations may contain sensitive information, please handle removal manually.",1,"magenta"]
+                ])
+                self.c.functions.print_any_key()
+        else:
+            system(f"mv {self.config_path}cn-config_yaml_* {backup_dir} > /dev/null 2>&1")
+            self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
 
         
     def ask_review_config(self):
