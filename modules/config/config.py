@@ -73,7 +73,7 @@ class Configuration():
 
     def is_passphrase_required(self):
         passphrase_required_list = [
-            "start","stop","upgrade","restart",
+            "start","stop","upgrade","restart","check_seedlist",
             "nodeid","id","export_private_key",
             "leave","join", "upgrade",
             "passwd","clean_snapshots","clean_files",
