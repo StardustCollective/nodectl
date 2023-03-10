@@ -24,7 +24,7 @@ class AutoRestart():
         self.functions.auto_restart = True
         self.functions.set_default_variables(thread_profile)
 
-        debug_short_timer = False # secondary debug mechanism for faster testing
+        debug_short_timer = True # secondary debug mechanism for faster testing
         self.debug = False # full debug - disable restart and join actions
         self.allow_upgrade = allow_upgrade # only want one thread to attempt auto_upgrade
         self.retry_tolerance = 50
@@ -119,11 +119,15 @@ class AutoRestart():
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  setup profiles - initializing known profile sessions and state | all profile [{self.profile_names}]")
         self.profile_states = {}
         
-        self.auto_upgrade = False
+        self.auto_upgrade = self.passphrase_warning = False
         if self.functions.config_obj["auto_restart"]["auto_upgrade"] and self.allow_upgrade:
             self.auto_upgrade = True
+        if self.functions.config_obj["global_cli_pass"]:
+            self.passphrase_warning = True
             
         for profile in self.profile_names:
+            if self.functions.config_obj["profiles"][profile]["p12"]["cli_pass"]:
+                self.passphrase_warning = True
             self.profile_states[profile] = {}
             self.profile_states[profile]["remote_session"] = None
             self.profile_states[profile]["local_session"] = None
@@ -457,9 +461,7 @@ class AutoRestart():
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler | profile: [{self.node_service.profile}] [127.0.0.1] port [{self.node_service.api_ports['public']}] - testing or retesting state...")
             self.update_profile_states()
             state = self.profile_states[self.node_service.profile]['node_state'] # readability
-            # layer_one_state = self.profile_states[self.profile_names[1]]['node_state'] # readability
-            # layer_zero_state = self.profile_states[self.profile_names[0]]['node_state'] # readability
-            
+
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler - profile [{self.node_service.profile}] found | state [{state}]")
             
             if "Ready" in state or "Observing" in state: # Ready, Observing, WaitingForReady, WaitingForObserving  
@@ -492,33 +494,39 @@ class AutoRestart():
         self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] -  restart handler - invoked | profile [{self.thread_profile}]")
 
         while True:
-            self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] -  restart handler - timer invoked thread [{self.thread_profile}] - sleeping [{self.timer}] seconds")
-            sleep(self.timer)
-            self.log.logger.info(f">>>> auto_restart - thread [{self.thread_profile}] -  restart handler - thread [{self.thread_profile}] timer expired [{self.timer}] seconds elapsed, checking sessions.") 
-        
-            self.version_check_handler()
-            
-            self.update_profile_states()   
-            action = self.profile_states[self.node_service.profile]["action"]
-            match = self.profile_states[self.node_service.profile]["match"]
-            state = self.profile_states[self.node_service.profile]["node_state"]
-            extra_wait_time = random.choice(self.random_times)
-            
-            if action == "ep_wait":
-                self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - LOAD BALANCER NOT REACHABLE | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
-                self.wait_for_ep_looper()
-            elif match and action == "NoActionNeeded":
-                self.log.logger.info(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - SESSION MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+            if self.passphrase_warning:
+                self.log.logger.error("auto_restart - restart handler - found possible manual passphrase requirement - auto_restart will not be able to proper authenticate on restart requirement, sleeping [20 minutes].")
+                sleep(1200)
+                self.log.logger.info("auto_restart - restart handler - re-checking if configuration has been updated...")
+                self.setup_profile_states()
             else:
-                self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  restart handler - random sleep before executing restart request | sleep [{extra_wait_time}s]")
-                sleep(extra_wait_time)
-                if not match:
-                    self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
-                elif action == "restart_full":
-                    self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED but SESSION MATCH | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
-                elif action == "join_only":
-                    self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - JOIN ONLY ACTION NEEDED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
-                self.silent_restart(action)
+                self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] -  restart handler - timer invoked thread [{self.thread_profile}] - sleeping [{self.timer}] seconds")
+                sleep(self.timer)
+                self.log.logger.info(f">>>> auto_restart - thread [{self.thread_profile}] -  restart handler - thread [{self.thread_profile}] timer expired [{self.timer}] seconds elapsed, checking sessions.") 
+            
+                self.version_check_handler()
+                
+                self.update_profile_states()   
+                action = self.profile_states[self.node_service.profile]["action"]
+                match = self.profile_states[self.node_service.profile]["match"]
+                state = self.profile_states[self.node_service.profile]["node_state"]
+                extra_wait_time = random.choice(self.random_times)
+                
+                if action == "ep_wait":
+                    self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - LOAD BALANCER NOT REACHABLE | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                    self.wait_for_ep_looper()
+                elif match and action == "NoActionNeeded":
+                    self.log.logger.info(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - SESSION MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                else:
+                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  restart handler - random sleep before executing restart request | sleep [{extra_wait_time}s]")
+                    sleep(extra_wait_time)
+                    if not match:
+                        self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                    elif action == "restart_full":
+                        self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED but SESSION MATCH | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                    elif action == "join_only":
+                        self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - JOIN ONLY ACTION NEEDED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                    self.silent_restart(action)
 
 
 if __name__ == "__main__":
