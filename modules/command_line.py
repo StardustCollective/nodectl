@@ -1775,7 +1775,8 @@ class CLI():
                             "simple": True,
                         })
 
-                        ready_states = ["Ready","ReadyToJoin"]
+
+                        ready_states = list(zip(*self.functions.get_node_states("ready_states")))[0]
                         if peer_test_results in ready_states:  # ReadyToJoin and Ready
                             break
                         else:
@@ -1910,6 +1911,9 @@ class CLI():
         max_timer = 300
         peer_count = old_peer_count = src_peer_count = increase_check = 0
 
+        states = list(zip(*self.functions.get_node_states("on_network")))[0]
+        break_states = list(zip(*self.functions.get_node_states("past_observing")))[0]
+        
         if not skip_title:
             self.print_title(f"Joining {called_profile}")  
         
@@ -2035,8 +2039,7 @@ class CLI():
                             "simple": True,
                         })
                         if not watch_peer_counts:
-                            states = list(zip(*self.functions.get_node_states("on_network")))[0]
-                            if state == "Ready" or (single_profile and state in states):
+                            if state in break_states or (single_profile and state in states):
                                 print_update()
                                 result = True
                                 break
@@ -2045,10 +2048,12 @@ class CLI():
                     connect_threshold = peer_count/src_peer_count
                     if peer_count >= src_peer_count: 
                         result = True
-                    elif connect_threshold >= defined_connection_threshold and increase_check > 1:
-                        tolerance_result = True
                     else:
-                        old_peer_count = peer_count
+                        if connect_threshold >= defined_connection_threshold and increase_check > 1:
+                            if state in break_states:
+                                tolerance_result = True
+                        else:
+                            old_peer_count = peer_count
                 except Exception as e:
                     self.log.logger.error(f"cli-join - {e}")
                 
@@ -2056,7 +2061,7 @@ class CLI():
                 if allocated_time % 1 == 0:  
                     print_update()
                         
-                if result or tolerance_result or allocated_time > max_timer or increase_check > 4:
+                if result or tolerance_result or allocated_time > max_timer or increase_check > 8: # 8*5=40
                     if increase_check > 3:
                         self.functions.print_cmd_status({
                             "text_start": "No new nodes discovered for ~40 seconds",

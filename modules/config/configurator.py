@@ -81,6 +81,7 @@ class Configurator():
         
 
     def setup(self):
+        option = "start"
         while True:
             top_newline = "bottom"
             self.c.functions.print_header_title({
@@ -1841,6 +1842,14 @@ class Configurator():
                     "newline": "both",
                     "clear": True
                 })
+                self.c.functions.print_cmd_status({
+                    "text_start": "Validating",
+                    "brackets": "new",
+                    "text_end": "config",
+                    "status": "please wait",
+                    "status_color": "yellow",
+                    "newline": True,
+                })
             
             self.move_config_backups()
             self.prepare_configuration("edit_config",True) # rebuild 
@@ -1947,10 +1956,6 @@ class Configurator():
                 ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
                 ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
                 ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
-
-                ["Note:",0,"yellow","bold"], ["The functionality of the Auto Restart section has",0], ["not",0,"red","bold"], ["be implemented for this current release; rather, it is a placeholder for future enablement.  Please continue to use the manual commands to enable and disable auto restart.",2],
-                
-                ["To enable this feature, please see:",1], ["sudo nodectl auto_restart help",2,"green"]
             ])
 
             if self.debug:
@@ -1968,11 +1973,21 @@ class Configurator():
             elif option == "m":
                 return
             elif option == "a":
-                self.edit_append_profile_global(False),
+                self.edit_append_profile_global(False)
             elif option == "g": 
-                self.edit_append_profile_global(True),
+                self.edit_append_profile_global(True)
             elif option == "r":
-                self.edit_auto_restart(),
+                self.edit_auto_restart()
+                if self.detailed:
+                    self.c.functions.print_paragraphs([
+                        [" WARNING ",0,"white,on_blue"], ["auto_restart was modified in the configuration.",1,"magenta"],
+                        ["The configurator will not",0,"magenta"], ["disable/enable",0,"red","underline"], 
+                        ["any instances of auto_restart automatically.",1,"magenta"],
+                        ["To enable issue :",0,"yellow"], ["udo nodectl auto_restart enable",1],
+                        ["To disable issue:",0,"yellow"], ["sudo nodectl auto_restart disable",2],
+                    ])
+                    self.c.functions.print_any_key()
+                
             else:
                 cprint("  Configuration manipulation quit by Operator","magenta")
                 exit(0)            
@@ -2274,6 +2289,8 @@ class Configurator():
         })
         
         warning = False
+        self.restart_needed = self.upgrade_needed = False
+        
         keys = list(self.c.config_obj["profiles"].keys())
         keys.append("global_p12")
         for profile in keys:

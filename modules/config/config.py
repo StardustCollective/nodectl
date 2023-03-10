@@ -28,12 +28,16 @@ class Configuration():
         self.log.logger.info("configuration setup initialized")
         
         self.argv_list = command_obj["argv_list"]
+        
+
+            
         if "help" in self.argv_list[0]:
             return
 
         self.config_obj = {}
         self.error_list = []
         self.error_found = False  # for configurator
+        self.auto_restart = True if "auto_restart" in self.argv_list or "service_restart" in self.argv_list else False
         
         try:
             self.called_command = self.argv_list[1]
@@ -516,7 +520,9 @@ class Configuration():
         attempts = 0
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
         profile_obj = self.config_obj["profiles"]; self.profile_obj = profile_obj
-        self.functions.print_clear_line()
+        
+        if not self.auto_restart:
+            self.functions.print_clear_line()
         
         for profile in profile_obj.keys():
             if profile_obj[profile]["enable"] and self.action != "edit_config":

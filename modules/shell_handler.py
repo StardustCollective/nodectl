@@ -354,7 +354,7 @@ class ShellHandler:
             "nodectl_upgrade","upgrade_nodectl_testnet",
         ]
             
-        if self.called_command is not "install":    
+        if self.called_command != "install":    
             if self.functions.config_obj["auto_restart"]["enable"]:
                 self.auto_restart_enabled = True
             
@@ -666,7 +666,7 @@ class ShellHandler:
                     )
                 thread_wait(thread_list,timeout=None,return_when=concurrent.futures.FIRST_EXCEPTION)
                 self.log.logger.critical("shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
-                system(f'sudo systemctl restart node_restart@"enable" > /dev/null 2>&1')
+                # system(f'sudo systemctl restart node_restart@"enable" > /dev/null 2>&1')
                 
         if action == "disable":
             if not self.auto_restart_pid:
@@ -709,7 +709,7 @@ class ShellHandler:
 
                 return
         
-        if action == "check_pid" or action == "current_pid":
+        if action == "check_pid" or action == "current_pid" or action =="status":
             self.functions.print_clear_line()
             self.functions.print_cmd_status({
                 "text_start": "node",

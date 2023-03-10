@@ -733,7 +733,6 @@ class Node():
                         start = 1
 
                     state = self.functions.test_peer_state({
-                        "test_address": self.source_node_choice,
                         "profile": link_profile,
                         "simple": True
                     })

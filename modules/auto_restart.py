@@ -24,7 +24,7 @@ class AutoRestart():
         self.functions.auto_restart = True
         self.functions.set_default_variables(thread_profile)
 
-        debug_short_timer = True # secondary debug mechanism for faster testing
+        debug_short_timer = False # secondary debug mechanism for faster testing
         self.debug = False # full debug - disable restart and join actions
         self.allow_upgrade = allow_upgrade # only want one thread to attempt auto_upgrade
         self.retry_tolerance = 50

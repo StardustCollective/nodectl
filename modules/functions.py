@@ -36,7 +36,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.0.34b"
+        self.node_nodectl_version = "v2.0.40b"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -157,7 +157,6 @@ class Functions():
             if command_obj["which"] != "nodectl":
                 self.set_default_variables(profile)
                 
-            self.log.logger.info(f"version requested [{var.which}]")
             if var.which == "nodectl":
                 self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}]")
                 return {"node_nodectl_version":self.node_nodectl_version}
@@ -493,6 +492,17 @@ class Functions():
                 ('WaitingForObserving','wo*'),
                 ('Ready',''),
             ]
+        elif types == "past_observing":
+            node_states = [
+                ('WaitingForReady','wr*'),
+                ('Ready',''),
+            ]            
+        elif types == "ready_states":
+            node_states = [
+                ('ReadyToJoin','rj*'),
+                ('Ready',''),
+            ]            
+        
                         
         return node_states
     
@@ -588,7 +598,7 @@ class Functions():
         local_only = ["self","localhost","127.0.0.1"]
         if specific_ip in local_only:
             return {
-                "ip": self.ip_address,
+                "ip": self.get_ext_ip(),
                 "publicPort": self.config_obj["profiles"][profile]["ports"]["public"],
                 "p2pPort": self.config_obj["profiles"][profile]["ports"]["p2p"],
                 "cli": self.config_obj["profiles"][profile]["ports"]["cli"],
@@ -883,30 +893,37 @@ class Functions():
         self.default_profile = False
         
         if profile != "skip":
-            for layer in range(0,3):
-                if self.default_profile:
-                    break
-                for i_profile in self.config_obj["profiles"]:
-                    if profile != None and profile != "all":
-                        i_profile = profile
-                    profile_layer = self.config_obj["profiles"][i_profile]["layer"]
-                    profile_enable = self.config_obj["profiles"][i_profile]["enable"]
-                    if profile_layer == layer and profile_enable:
-                        self.default_profile = i_profile
-                        host_port = self.config_obj["profiles"][self.default_profile]["edge_point"]["host_port"]
-                        
-                        uri = self.set_api_url(
-                            self.config_obj["profiles"][self.default_profile]["edge_point"]["host"],
-                            host_port,
-                            "" # no post_fix
-                        )
+            try:
+                for layer in range(0,3):
+                    if self.default_profile:
+                        break
+                    for i_profile in self.config_obj["profiles"]:
+                        if profile != None and profile != "all":
+                            i_profile = profile
+                        profile_layer = self.config_obj["profiles"][i_profile]["layer"]
+                        profile_enable = self.config_obj["profiles"][i_profile]["enable"]
+                        if profile_layer == layer and profile_enable:
+                            self.default_profile = i_profile
+                            host_port = self.config_obj["profiles"][self.default_profile]["edge_point"]["host_port"]
+                            
+                            uri = self.set_api_url(
+                                self.config_obj["profiles"][self.default_profile]["edge_point"]["host"],
+                                host_port,
+                                "" # no post_fix
+                            )
 
-                        self.default_edge_point = {
-                            "host": self.config_obj["profiles"][self.default_profile]["edge_point"]["host"],
-                            "host_port": host_port,
-                            "uri": uri
-                        } 
-                        break # on 1st and lowest layer   
+                            self.default_edge_point = {
+                                "host": self.config_obj["profiles"][self.default_profile]["edge_point"]["host"],
+                                "host_port": host_port,
+                                "uri": uri
+                            } 
+                            break # on 1st and lowest layer   
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "fnt-924",
+                    "line_code": "profile_error",
+                    "extra": profile,
+                })
             
         self.config_obj["node_profile_states"] = {}  # initialize 
         self.ip_address = self.get_ext_ip()
@@ -1483,6 +1500,7 @@ class Functions():
         current_source_node = command_obj.get("current_source_node",False)
         skip_thread = command_obj.get("skip_thread",False)
         spinner = command_obj.get("spinner", False)
+        spinner = False if self.auto_restart else spinner
         
         results = {
             "node_on_src": False,
