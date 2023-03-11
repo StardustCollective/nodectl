@@ -5,7 +5,7 @@ from termcolor import colored
 from time import sleep
 from copy import deepcopy
 from re import match
-from os import system, path
+from os import system, path, get_terminal_size
 from sys import exit
 
 from .migration import Migration
@@ -279,10 +279,22 @@ class Configuration():
             print(colored(json.dumps(self.config_obj,indent=3),"cyan",attrs=['bold']))
             exit(1)
             
+        do_more = False if "-np" in self.argv_list else True
+        console_size = get_terminal_size()
+        more_break = round(console_size.lines)-15
+        more = False
+        
         if path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
             with open("/var/tessellation/nodectl/cn-config.yaml","r") as file:
-                for line in file:
+                for n,line in enumerate(file):
                     print(colored(line.strip("\n"),"blue",attrs=['bold']))
+                    if do_more and n % more_break == 0 and n > 0:
+                        more = self.functions.print_any_key({
+                            "quit_option": "q",
+                            "newline": "both",
+                        })
+                        if more:
+                            break
             file.close()
 
             print(f'\n{"  ":=<50}')
@@ -301,7 +313,7 @@ class Configuration():
             self.send_error("cfg-220") 
 
         if action == "migrate":
-            self.functions.print_any_key()
+            self.functions.print_any_key({})
             return
         exit(0)
                 

@@ -1868,7 +1868,7 @@ class Configurator():
                 ])
                 press_any = True
             if press_any:
-                self.c.functions.print_any_key()
+                self.c.functions.print_any_key({})
                     
         else:
             self.error_messages.error_code_messages({
@@ -1921,7 +1921,7 @@ class Configurator():
     # =====================================================
     
     def edit_config(self):
-            # rebuild config
+        return_option = "init"
         while True:
             self.prepare_configuration("edit_config",True)
             
@@ -1949,27 +1949,29 @@ class Configurator():
                 "newline": "bottom"
             })
 
-            self.c.functions.print_paragraphs([
-                ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
-                ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
-                ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
-                ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
-                ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
-                ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
-            ])
+            options = ["E","A","G","R","M","Q"]
+            if return_option not in options:
+                self.c.functions.print_paragraphs([
+                    ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
+                    ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
+                    ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
+                    ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
+                    ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
+                    ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
+                ])
 
-            if self.debug:
-                option = "e"
-            else:
+                return_option = "init" # reset
                 option = self.c.functions.get_user_keypress({
                     "prompt": "KEY PRESS an option",
                     "prompt_color": "cyan",
-                    "options": ["E","A","G","R","M","Q"]
+                    "options": options
                 })
+            else:
+                option = return_option.lower()
             
             if option == "e":
                 self.edit_profiles()
-                self.edit_profile_sections()
+                return_option = self.edit_profile_sections()
             elif option == "m":
                 return
             elif option == "a":
@@ -1986,11 +1988,11 @@ class Configurator():
                         ["To enable issue :",0,"yellow"], ["udo nodectl auto_restart enable",1],
                         ["To disable issue:",0,"yellow"], ["sudo nodectl auto_restart disable",2],
                     ])
-                    self.c.functions.print_any_key()
+                    self.c.functions.print_any_key({})
                 
             else:
                 cprint("  Configuration manipulation quit by Operator","magenta")
-                exit(0)            
+                exit(0)  
 
                 
     def edit_profiles(self):
@@ -2110,6 +2112,10 @@ class Configurator():
             section = colored(")eview Config","magenta")
             print(self.wrapper.fill(f"{p_option}{section}")) 
                     
+            p_option = colored(" P","magenta",attrs=["bold"])
+            section = colored(")rofile Menu","magenta")
+            print(self.wrapper.fill(f"{p_option}{section}")) 
+                    
             p_option = colored(" M","magenta",attrs=["bold"])
             section = colored(")ain Menu","magenta")
             print(self.wrapper.fill(f"{p_option}{section}")) 
@@ -2119,7 +2125,7 @@ class Configurator():
             print(self.wrapper.fill(f"{p_option}{section}")) 
             print("")
 
-            options2 = ["H","R","M","Q"]
+            options2 = ["H","R","M","P","Q"]
             option_list.extend(options2)
             
             option = self.c.functions.get_user_keypress({
@@ -2131,6 +2137,8 @@ class Configurator():
         
             if option == "m":
                 return
+            elif option == "p":
+                return "E"
             elif option == "r":
                 self.c.view_yaml_config("migrate")
                 print_config_section()
@@ -2724,7 +2732,7 @@ class Configurator():
                 })
                 print(colored("  existing config not found","red"))
                 
-            self.c.functions.print_any_key()
+            self.c.functions.print_any_key({})
 
         self.is_file_backedup = True       
 
@@ -3144,7 +3152,7 @@ class Configurator():
                     ["location retained:",0,"red"], [f"{self.config_path}",1,"yellow","bold"],
                     ["Configurations may contain sensitive information, please handle removal manually.",1,"magenta"]
                 ])
-                self.c.functions.print_any_key()
+                self.c.functions.print_any_key({})
         else:
             system(f"mv {self.config_path}cn-config_yaml_* {backup_dir} > /dev/null 2>&1")
             self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")

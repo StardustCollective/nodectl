@@ -138,7 +138,7 @@ class Installer():
             ["sudo nodectl configure",2],
         ])
         
-        self.functions.print_any_key()
+        self.functions.print_any_key({})
 
         m_progress = {
             "text_start": "Creating",

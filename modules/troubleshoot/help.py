@@ -559,7 +559,7 @@ def build_help(command_obj):
         help_text += title("auto restart")
         help_text += f'''
   The {colored('auto_restart','cyan')} takes a single argument.
-    - enable, disable or check_pid
+    - enable, disable, status, or check_pid
   
   You can setup {colored('nodectl','blue',attrs=['bold'])} to handle and control auto_restart
   from its configuration file.  By {colored('default','green')} this feature is disabled.  
@@ -673,6 +673,8 @@ def build_help(command_obj):
   check if auto_restart is running by searching for
   the process id ({colored('pid','white',attrs=['bold'])}) of the auto_restart service
   # {colored('sudo nodectl auto_restart check_pid','cyan')}
+   or
+  # {colored('sudo nodectl auto_restart status','cyan')}
   
   '''      
         
@@ -747,9 +749,14 @@ def build_help(command_obj):
   nodectl uses a configuration file in YAML format.
   This command will offer the Node Operator the ability to review
   the contents of this YAML file {colored('cn-config.yaml','cyan')}.
-     
+  
+  options:
+  {colored('-np','cyan')} : no pagination
+  
   optional switch:
   {colored('-vc','green')} 
+  
+  
   '''      
   
     if extended == "check_version":

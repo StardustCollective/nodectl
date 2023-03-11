@@ -1937,12 +1937,32 @@ class Functions():
         sleep(delay)
         
         
-    def print_any_key(self):
-        self.get_user_keypress({
-            "prompt": "Press any key to continue",
+    def print_any_key(self,command_obj):
+        quit_option = command_obj.get("quit_option",False)
+        newline = command_obj.get("newline",False)
+        key_pressed = None
+        
+        if newline == "top" or newline == "both":
+            print("")
+            
+        prompt = "Press any key to continue"
+        options = ["any_key"]
+        if quit_option:
+            prompt = "Press any key or 'q' to quit"
+            options = ["any_key","q"]
+            
+        key_pressed = self.get_user_keypress({
+            "prompt": prompt,
             "prompt_color": "yellow",
-            "options": ["any_key"]
+            "options": options,
         })
+        
+        if newline == "bottom" or newline == "both":
+            print("")
+            
+        if quit_option and quit_option == key_pressed.lower():
+            return True
+        return
         
         
     def print_paragraphs(self,paragraphs,wrapper_obj=None):
