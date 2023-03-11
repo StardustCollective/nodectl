@@ -403,7 +403,7 @@ class ShellHandler:
         self.log.logger.info("testing permissions")
         progress = {
             "status": "running",
-            "text_start": "Checking system permissions",
+            "text_start": "Check permissions & versioning",
         }
         self.functions.print_cmd_status(progress) 
         time.sleep(.8)
@@ -419,7 +419,7 @@ class ShellHandler:
                 err_warn_color = "red"
             
             self.functions.print_cmd_status({
-                "text_start": "Checking system permissions",
+                "text_start": "Check permissions & versioning",
                 "status": err_warn,
                 "status_color": err_warn_color,
                 "newline": True,
