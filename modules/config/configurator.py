@@ -2570,6 +2570,7 @@ class Configurator():
         self.build_service_file({
             "profiles": [new_profile],
             "action": "Updating",
+            "rebuild": False,
         })
         
         progress = {
@@ -2602,7 +2603,11 @@ class Configurator():
         self.manual_build_service(profile)
         self.cleanup_service_file(self.config_obj["profiles"][profile]["service"])
         self.c.config_obj["profiles"][profile]["service"] = self.profile_details["service"]
-        self.build_service_file({"profiles": [profile], "action": "Create"})
+        self.build_service_file({
+            "profiles": [profile], 
+            "action": "Create",
+            "rebuild": False,
+            })
         
         
     def edit_enable_disable_profile(self, profile, task="None"):
