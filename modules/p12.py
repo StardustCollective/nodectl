@@ -68,9 +68,7 @@ class P12Class():
         try:
             self.p12_file_location = self.functions.config_obj["global_p12"]["key_store"]
         except:
-            if self.existing_p12:
-                self.p12_file_location = self.existing_p12
-            else:
+            if not self.existing_p12:
                 self.p12_file_location = f"/home/{self.user.username}/tessellation/"
             # path will be created if it doesn't exist at p12 generation (generate method)
             print(colored("\n  Default location for your p12 file storage created","cyan").ljust(40,"."))
@@ -85,7 +83,8 @@ class P12Class():
     def ask_for_p12name(self):
         if self.existing_p12:
             name = self.existing_p12.split("/")
-            self.p12_filename = name[-1]
+            self.p12_filename = name.pop(-1)
+            self.p12_file_location = "/".join(name)+'/'
             return
             
         self.functions.print_header_title({
@@ -96,12 +95,49 @@ class P12Class():
         })
         default_value = f"{self.user.username}-node.p12"
         
+        def test_for_exist():
+            p12_full_path = f"/home/{self.user.username}/tessellation/{self.p12_filename}"
+            if path.exists(p12_full_path):
+                status = "skipped"
+                status_color = "red"
+                cprint("  Existing p12 file found.","red",attrs=["bold"])
+                confirm = self.functions.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": "remove existing p12?",
+                    "exit_if": False
+                })
+                progress = {
+                    "text_start": "removing",
+                    "brackets": self.p12_filename,
+                    "status": "running",
+                    "status_color": "yellow",
+                }
+                self.functions.print_cmd_status(progress)
+                if confirm:
+                    system(f"sudo rm {p12_full_path} > /dev/null 2>&1")
+                    status = "complete"
+                    status_color = "green"
+                    
+                self.functions.print_cmd_status({
+                    **progress,
+                    "status": status,
+                    "status_color": status_color,
+                    "newline": True,
+                })
+                if not confirm:
+                    self.functions.print_paragraphs([
+                      [" WARNING ",0,"white,on_red"], ["exising p12 not removed",0,"red"],
+                      ["unexpected results may ensue...",1,"red"],  
+                    ])
+                
         while True:
             cprint("  Please enter a name for your p12","magenta")
             ask_question = colored("  private key file [","magenta")+colored(default_value,"yellow",attrs=["bold"])+colored("] : ","magenta")
             value = input(ask_question)
             if value == "" or not value:
                 self.p12_filename = default_value
+                test_for_exist()
                 break
             else:
                 prompt_str = colored("Please confirmed that: ",'cyan')+colored(value,"yellow",attrs=['bold'])+colored(" is correct","cyan")
@@ -113,6 +149,7 @@ class P12Class():
                 })
                 if confirm:
                     self.p12_filename = value
+                    test_for_exist()
                     if self.validate_value("^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
                         self.log.logger.info(f"p12 file accepted [{value}]")
                         break

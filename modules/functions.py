@@ -10,6 +10,7 @@ from subprocess import Popen, PIPE, call, run
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from termcolor import colored, cprint
+from copy import copy
 from time import sleep, perf_counter
 from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
@@ -18,6 +19,7 @@ from platform import platform
 from re import sub, compile
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir
 from sys import exit, stdout
+from pathlib import Path
 from types import SimpleNamespace
 from packaging import version
 from datetime import datetime
@@ -36,7 +38,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.0.40b"
+        self.node_nodectl_version = "v2.0.41b"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -867,6 +869,37 @@ class Functions():
                         #         return_data.append(v[value])
             return return_data
 
+
+    def get_list_of_files(self,command_obj):
+        paths = command_obj.get("paths") # list
+        files = command_obj.get("files") # list - *.extention or full file name
+        
+        excludes = [command_obj.get("exclude_paths",False)] # list
+        excludes.append(command_obj.get("exclude_files",False)) # list
+        
+        possible_found = {}
+        
+        for i_path in paths:
+            try:
+                for file in files:
+                    for n,f_path in enumerate(Path(f'/{i_path}').rglob(file)):
+                        possible_found[f"{n+1}"] = f"{f_path}"
+            except:
+                self.log.logger.warn(f"unable to process path search | [/{i_path}/]")
+            
+        clean_up = copy(possible_found) 
+        for n,exclude in enumerate(excludes):  
+            if exclude:
+                for item in exclude:
+                    for key, found in clean_up.items():
+                        if n < 1:
+                            if item == found[1:]:
+                                possible_found.pop(key)
+                        else:
+                            if item in found:
+                                possible_found.pop(key)
+                
+        return possible_found
 
     # =============================
     # setter functions

@@ -1,7 +1,6 @@
 from os import makedirs, system, path, environ
 from time import sleep
 from termcolor import colored, cprint
-from pathlib import Path
 
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
@@ -66,7 +65,22 @@ class Installer():
     
 
     def verify_existing(self):
-        if path.exists("/var/tessellation"):
+        found_files = self.functions.get_list_of_files({
+            "paths": ["/var/tessellation/","/home/nodeadmin/"],
+            "files": ["*"],
+            "exclude_paths": ["/var/tessellation/nodectl"],
+            "exclude_files": ["nodectl.log"],
+        })
+        found_files2 = self.functions.get_list_of_files({
+            "paths": ["/etc/systemd/system/"],
+            "files": ["cnng-*","node_restart*"],
+        })
+        
+        if len(found_files) > 0 or len(found_files2) > 0:
+            if len(found_files) > 0:
+                self.log.logger.warn("install found possible existing tessellation core components")
+            if len(found_files2) > 0:
+                self.log.logger.warn("install found possible existing nodectl service components")
             self.functions.print_paragraphs([
                 ["",2], [" WARNING ",0,"yellow,on_red"], ["An existing Tessellation installation may be present on this server.  Preforming a fresh installation on top of an existing installation can produce",0,"red"],
                 ["unexpected",0,"red","bold,underline"], ["results.",2,"red"],
@@ -104,6 +118,8 @@ class Installer():
             "config_obj": self.fun_obj,
             "caller": "install",
         })
+        
+        
         migrate.config_details = {
             "passphrase": self.p12_session.p12_password,
             "keystore": self.p12_session.p12_file_location,
@@ -357,15 +373,11 @@ class Installer():
 
     def migrate_existing_p12(self):
         current_user = "root" if not self.user.installing_user else self.user.installing_user
-        possible_found = {}
-        paths = ["root","home"]
 
-        for i_path in paths:
-            try:
-                for n,f_path in enumerate(Path(f'/{i_path}').rglob('*.p12')):
-                    possible_found[f"{n+1}"] = f"{f_path}"
-            except:
-                self.log.logger.warn(f"unable to process path search | [/{i_path}/]")
+        possible_found = self.functions.get_list_of_files({
+            "paths": ["root","home","/var/tessellation/"],
+            "files": ["*.p12"],
+        })
         
         verb = "Possible P12 file"
         user_action = "Please select an option"
@@ -449,9 +461,9 @@ class Installer():
 
     def download_seedlist(self):
         self.config = Configuration({
-            "action": "normal",
+            "action": "edit_config",
             "implement": True,
-            "argv_list": ["install"]
+            "argv_list": ["install","empty"] # needs two positional values
         }) 
         self.cli.node_service.functions.config_obj = self.config.config_obj
         self.cli.functions.config_obj = self.config.config_obj
@@ -484,6 +496,7 @@ class Installer():
         self.functions.print_header_title({
           "line1": "INSTALLATION COMPLETE",
           "newline": "both",
+          "clear": False,
         })
         
         self.functions.print_paragraphs([

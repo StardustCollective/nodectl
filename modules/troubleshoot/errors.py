@@ -37,7 +37,7 @@ class Error_codes():
                 ["Tessellation critical files are missing.",2],
             ])
             
-        elif var.error_code == "not_new_install":
+        elif "not_new_install" in str(var.line_code):
             self.functions.print_paragraphs([
                 ["Are you sure this was a clean installation?",2,"red","bold"],
                 ["Unable to process some information that is necessary for the installation of Tessellation to be successful.",2,"red","bold"],

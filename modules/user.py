@@ -1,6 +1,6 @@
 import re
 
-from os import system, path, mkdir, getenv
+from os import system, path, makedirs, getenv
 from getpass import getpass, getuser
 from shutil import copyfile
 from termcolor import colored, cprint
@@ -126,7 +126,7 @@ class UserClass:
             return
         
         print(""); cprint(f"  We need to create a password for {self.username} user","cyan")
-        self.print_password_descriptions(8,"password")
+        self.print_password_descriptions(10,"password")
         
         self.functions.print_paragraphs([
             ["This password will allow access to enter",0,"white"], ["sudo",0,"cyan","bold"], ["(superuser do).",2,"white"],
@@ -136,7 +136,7 @@ class UserClass:
             [f"\"{self.username} user password to access sudo (administrator) rights on the Node.\"",2]
         ])
         
-        self.password = self.get_verify_password(8,self.username,"password")
+        self.password = self.get_verify_password(10,self.username,"password")
         
         
     def print_password_descriptions(self,length,type,already_user=False):
@@ -155,7 +155,7 @@ class UserClass:
                     ["single or double quotes.",2,"magenta"],
                     
                     [f"This {type} should be {length} in length.",1],
-                    [" WARNING ",0,"grey,on_yellow","bold"], ["nodectl does not work well with",0,"red"], ["section signs",0,"yellow","underline"], ["special characters.",2,"red"], 
+                    [" WARNING ",0,"grey,on_yellow","bold"], ["nodectl does not work well with",0,"red"], ["section signs",0,"yellow","bold"], ["special characters.",2,"red"], 
         ] 
 
         if already_user:
@@ -323,16 +323,64 @@ class UserClass:
         dest_dir = f"/home/{self.username}/.ssh/"
         dest_dir_file = dest_dir+self.file
         src_dir_file = f"/root/.ssh/"+self.file
-            
+        disable_root_user = True
+        warning = False
+        
         end_status, end_color = "completed", "green"
+        
         if not path.exists(dest_dir):
-            mkdir(dest_dir)
+            makedirs(dest_dir)
+            
         if path.isfile(f"/root/.ssh/{self.file}"):
             copyfile(src_dir_file,dest_dir_file)
-        else:
+        elif path.isfile(dest_dir_file):
+            self.functions.print_paragraphs([
+                ["",1], [f"Found the {self.username} user ssh key file already?",1,"yellow"],
+                ["Are you sure this is a new installation?",1,"red"],
+                ["nodectl will skip this step",1],
+            ])            
+        elif path.isfile(f"/root/.ssh/backup_{self.file}"):
+            disable_root_user = False
+            
+            self.functions.print_paragraphs([
+                ["",1],["Found the root user ssh key file was disabled?",0,"red"],
+                ["Are you sure this is a new installation?",1,"red"],
+                
+                [f"Do you want to install disabled SSH key from the root user to the new {self.username}?",1],
+            ])
+                
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": "Confirm:",
+                "exit_if": False
+            })  
+            status = "skipped"
+            status_color = "red"
+            progress = {
+                "text_start": "removing",
+                "brackets": self.file,
+                "status": "running",
+                "status_color": "yellow",
+            }
+            self.functions.print_cmd_status(progress)      
+            if confirm:
+                copyfile(f"/root/.ssh/backup_{self.file}",dest_dir_file) 
+                status = "complete"
+                status_color = "green"
+            self.functions.print_cmd_status({
+                **progress,
+                "status": status,
+                "status_color": status_color,
+                "newline": True,
+            })  
+            warning = True if status == "skipped" else warning
+            
+        if warning:
             self.functions.print_paragraphs([
                 ["",2], [" WARNING ",0,"white,on_magenta"], ["Installation was not able to find an",0,"red"],
-                ["'authorized keys'",0,"yellow","bold"], ["file, skipping step! Are you sure this has not already been done?",1,"red"]
+                ["'authorized keys'",0,"yellow","bold"], ["file. Skipping step!",2,"red"],
+                ["Are you sure this has not already been done?",1,"red"]
             ])
             end_status, end_color = "skipped", "red"
             
@@ -366,7 +414,8 @@ class UserClass:
             "newline": True,
         })
         
-        self.disable_root_user()
+        if disable_root_user:
+            self.disable_root_user()
 
 
     def disable_root_user(self):
