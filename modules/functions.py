@@ -38,7 +38,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.0.41b"
+        self.node_nodectl_version = "v2.0.0"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return

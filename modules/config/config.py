@@ -507,6 +507,9 @@ class Configuration():
                         passwd = False
                     if self.is_passphrase_required():
                         verify_passwd(passwd,profile)
+                else:
+                    self.config_obj["profiles"][profile]["p12"]["passphrase"] = self.config_obj["global_p12"]["passphrase"]
+
         
     
     def setup_self_settings(self):

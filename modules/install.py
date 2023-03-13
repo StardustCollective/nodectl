@@ -531,7 +531,7 @@ class Installer():
             ["Please follow the instructions below, as indicated.",2],
             ["1",0,"magenta","bold"], [")",-1,"magenta"], ["Submit your NodeID to Constellation Admins.",1,"cyan"],
             ["2",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node.",1,"cyan"],
-            ["3",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl check_seedlist",1,"cyan"],
+            ["3",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl check_seedlist -p dag-l0",1,"cyan"],
             ["4",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",2,"cyan"],
             ["enod!",2,"white","bold"],
         ])        

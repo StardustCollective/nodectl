@@ -763,9 +763,9 @@ class Node():
 
                 if not self.auto_restart:
                     self.functions.print_paragraphs([
-                        ["",1], ["In order to properly join the a",0,"yellow"],[" Layer 1 ",0,"yellow,on_red"], ["",-1], 
-                        ["network, if a",0,"yellow"], [" layer 0 ",0,"yellow,on_red"], ["Node appropriated to link to against",0,"yellow"],
-                        ["must be available and in",0,"yellow"], ["Ready",0,"green","bold,underline"], ["state.",2,"yellow"],
+                        ["",1], ["In order to properly join the a",0,"yellow"],[" Layer 1 ",0,"red"], ["",-1], 
+                        ["network, if a",0,"yellow"], [" layer 0 ",0,"red"], ["Node appropriated to link to against",0,"yellow"],
+                        ["must be available and in",0,"yellow"], ["Ready",0,"green","bold"], ["state.",2,"yellow"],
                         
                         ["You can exit now, wait",0,"magenta"], ["5",0,"red"], ["to",0,"magenta"], ["10",0,"red"], ["minutes and then attempt to rejoin",0,"magenta"],
                         ["or restart again...",2,"magenta"],

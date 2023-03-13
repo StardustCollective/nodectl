@@ -1985,7 +1985,7 @@ class Configurator():
                         [" WARNING ",0,"white,on_blue"], ["auto_restart was modified in the configuration.",1,"magenta"],
                         ["The configurator will not",0,"magenta"], ["disable/enable",0,"red","underline"], 
                         ["any instances of auto_restart automatically.",1,"magenta"],
-                        ["To enable issue :",0,"yellow"], ["udo nodectl auto_restart enable",1],
+                        ["To enable issue :",0,"yellow"], ["sudo nodectl auto_restart enable",1],
                         ["To disable issue:",0,"yellow"], ["sudo nodectl auto_restart disable",2],
                     ])
                     self.c.functions.print_any_key({})
