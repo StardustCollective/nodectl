@@ -5,7 +5,7 @@ from os import system, path, environ, makedirs
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
-from copy import deepcopy
+from copy import deepcopy, copy
 from .migration import Migration
 from .config import Configuration
 from ..troubleshoot.logger import Logging
@@ -1366,6 +1366,10 @@ class Configurator():
     # =====================================================
           
     def ask_confirm_questions(self, questions, confirm=True):
+        alternative_confirm_keys = questions.get("alt_confirm_dict",{})
+        if len(alternative_confirm_keys) > 0:
+            alternative_confirm_keys = questions.pop("alt_confirm_dict")
+            
         while True:
             value_dict = {}
             
@@ -1409,6 +1413,11 @@ class Configurator():
 
             user_confirm = True
             if confirm:
+                confirm_dict = copy(value_dict)
+                if len(alternative_confirm_keys) > 0:
+                    for new_key, org_key in alternative_confirm_keys.items():
+                        confirm_dict[new_key] = confirm_dict.pop(org_key)
+                    
                 self.c.functions.print_header_title({
                     "line1": "CONFIRM VALUES",
                     "show_titles": False,
@@ -1421,7 +1430,7 @@ class Configurator():
                     ["n",0,"bold"], ["here and reenter the correct value.",2,"yellow"]
                 ]            
                 
-                for key, value in value_dict.items():
+                for key, value in confirm_dict.items():
                     paragraphs.append([f"{key.replace('_',' ')}:",0,"magenta"])
                     paragraphs.append([value,1,"yellow","bold"])                        
                 self.c.functions.print_paragraphs(paragraphs)
@@ -1671,6 +1680,7 @@ class Configurator():
     def build_service_file(self,command_obj):
         # profiles=(list of str) # profiles that service file is created against
         # action=(str) # Updating, Creating for user review
+        # rebuild=(bool) # do we need to rebuild the configuration before continuing
         var = SimpleNamespace(**command_obj)
         
         if var.rebuild:
@@ -2356,6 +2366,10 @@ class Configurator():
                 "description": auto_upgrade_desc,
                 "default": "y" if upgrade == "disable" else "n",
                 "required": False,
+            },
+            "alt_confirm_dict": {
+                f"{restart} auto_restart": "auto_restart",
+                f"{upgrade} auto_upgrade": "auto_upgrade",
             }
         }
         

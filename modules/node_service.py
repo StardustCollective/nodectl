@@ -394,8 +394,8 @@ class Node():
                
         # ===========================================
 
-        restart_build = command_obj.get("skip_restart_build",True)
         single_profile = command_obj.get("single_profile",False)
+        rebuild_restart = command_obj.get("rebuild_restart",False)
         create_file_type = command_obj["create_file_type"]
         profiles = self.config_obj["profiles"]  # pull profiles out of configuration
         
@@ -422,7 +422,7 @@ class Node():
                 return
             sleep(.5)
         
-        if not restart_build and not path.isfile("/etc/systemd/system/node_restart@.service"):
+        if rebuild_restart or not path.isfile("/etc/systemd/system/node_restart@.service"):
             service = self.create_files({"file": "service_restart"})        
             service_dir_file = "/etc/systemd/system/node_restart@.service"
             with open(service_dir_file,'w') as file:

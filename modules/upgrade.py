@@ -74,7 +74,7 @@ class Upgrader():
                 
                 
     def upgrade_process(self):
-        # self.print_section("Verify Node Upgrade")
+        self.print_section("Verify Node Upgrade")
         self.version_obj = self.cli.check_nodectl_upgrade_path({
             "called_command": "upgrade",
             "argv_list": []
