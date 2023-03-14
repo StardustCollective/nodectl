@@ -10,7 +10,7 @@ Detailed instructions on usage and features can be found on [Constellation Netwo
 
 ## NODECTL CODE DETAILS
 
-Constellation Network's **nodect** was created and designed by **Constellation Network** to **simplify** and pull out the complexity associated with running a **Constellation Network Validator Node**.  
+**nodectl** was designed to **simplify** and reduce the complexity associated with running a **Constellation Network Validator Node**.  
 
 For someone in the know, it is "easy to say" that a Node for any project is simple to deploy, just takes a little eblow grease and away you go!  
 
@@ -33,7 +33,7 @@ Documentation consists of:
   - operation
 
 ## Internals
-**nodectl** is written [currently] in Python3.  It is a combination of object oritentation and functional programming.  **nodectl** is integrated into three components main components.
+**nodectl** is written in Python3. It is a combination of object oriented and functional programming.  **nodectl** is integrated into three components main components.
 
 #### Core Components
 - core functionality
@@ -93,13 +93,6 @@ flowchart TD
   aa --> a
   E --> B
 ```
-
-## INSTALLATION
-
-nodectl code can be downloaded to and run from a dedicated directory from the code off a dedicated directory, and then it can be run from `main.py`.
-
-nodectl is designed to be compiled into a single binary executible and run as a single file with `+x` mode.  Code compiled into a a bianry called `nodectl`.
-
 *please see [Constellation Network's Documenation hub](https://docs.constellationnetwork.io/nodes).*
 
 
