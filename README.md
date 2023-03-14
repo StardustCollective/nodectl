@@ -4,9 +4,9 @@
 ## Description
 
 ## TL;DR
-nodectl is a command line utility designed to run on a Debian Linux operating system.  It is speciifcally designed to enhance and simplify the creation, day-to-day managment, and upgrade of a **Constellation Network Validator [ or genesis ] Node**.
+nodectl is a command line utility designed to run on a Debian Linux operating system.  It is speciifcally designed to enhance and simplify the creation, day-to-day managment, and upgrade of a **Constellation Network Validator [ or Genesis ] Node**.
 
-Detailed instructions on usage and features can be found on [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/)
+Detailed instructions on usage and features can be found on [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/nodes)
 
 ## NODECTL CODE DETAILS
 
@@ -16,13 +16,13 @@ For someone in the know, it is "easy to say" that a Node for any project is simp
 
 Unfortunately, the truth is; unless you have technical know how, no matter what simplistic tools are presented, there will be learning curves, trial and error, and some requirement to pay attention to detail.
 
-With this in mind, **nodectl** was created to take a true **Systems and Site Reliability Engineering** out of the requirements to run a **Node**; morevoer, **nodectl** is designed to help you build your Node, run your Node, and administer your Node, with extensive documentation, help commands, and **community backing**. 
+With this in mind, **nodectl** was created to take a true **Systems and Site Reliability Engineering** out of the requirements to run a **Node**; moreover, **nodectl** is designed to help you build your Node, run your Node, and administer your Node, with extensive documentation, help commands, and **community backing**. 
 
 **nodectl** can be a powerful **utility** to help ease your journey to being a **Constellation Network Node Operator** and **Datapenuer**. 
 
 ## Usage
 
-Extensive help has been written up and offered through [Constellation Network's Documenation hub](https://docs.constellationnetwork.io/).  
+Extensive help has been written up and offered through [Constellation Network's Documenation hub](https://docs.constellationnetwork.io/nodes).  
 
 *In order to avoid making necessary updates in muliple locations, this open source project's documentataion pertaining to the operations of use of nodectl will be present on Constellation Network's Documentation Hub:*
 
@@ -66,7 +66,7 @@ flowchart TD
   I[Install nodectl]
   i[Install Constellation Network's Tessellation]
   M[Manual Configuration]
-  P[Preconfigured Profiles]
+  P[PreConfigured Profiles]
   m[MainNet]
   t[TestNet]
   r[restarts]
@@ -76,7 +76,7 @@ flowchart TD
   a[auto_restart]
   au[auto_upgrade]
   
-  D -- wget --> I -- sudo nodectl install --> B --> P ==> m
+  D -- wget --> I -- sudo nodectl install --> B -- preferred --> P ==> m
   P ==> t 
   B --> M --> t
   t -- automated --> i
@@ -100,6 +100,6 @@ nodectl code can be downloaded to and run from a dedicated directory from the co
 
 nodectl is designed to be compiled into a single binary executible and run as a single file with `+x` mode.  Code compiled into a a bianry called `nodectl`.
 
-*please see 
+*please see [Constellation Network's Documenation hub](https://docs.constellationnetwork.io/nodes).*
 
 
