@@ -38,7 +38,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.0.0"
+        self.node_nodectl_version = "v2.0.1"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -960,6 +960,7 @@ class Functions():
             
         self.config_obj["node_profile_states"] = {}  # initialize 
         self.ip_address = self.get_ext_ip()
+        self.check_config_testnet_mainnet()
                 
 
     def set_default_directories(self):
@@ -1416,10 +1417,7 @@ class Functions():
         # this method will need to be refactored as new State Channels
         # register with Node Garage or Constellation (depending)
         try:
-            if "testnet" in self.config_obj["profiles"][self.default_profile]["edge_point"]["host"]:
-                self.network_name = "testnet"               
-            else:
-                self.network_name = "mainnet"
+            self.network_name = self.config_obj["profiles"][self.default_profile]["environment"]             
         except:
             while True:
                 self.print_clear_line()
@@ -1451,18 +1449,7 @@ class Functions():
                     "newline": True,
                 })
                 return
-            
-                # input_str = f"  {colored('Are you using TestNet or MainNet? [','cyan')}{colored('mainnet','yellow',attrs=['bold'])}{colored('] ','cyan')}"
-                # network = input(input_str)
-                # if network.lower().strip() == "":
-                #     self.network_name = "mainnet"
-                #     return
-                # elif network.lower() != "mainnet" and network.lower() != "testnet":
-                #     cprint("  invalid: mainnet or testnet","red")
-                # else:
-                #     self.network_name = network.lower()
-                #     return
-                
+
             
     def check_for_help(self,argv_list,extended):
         if "help" in argv_list:

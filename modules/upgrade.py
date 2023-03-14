@@ -74,11 +74,6 @@ class Upgrader():
                 
                 
     def upgrade_process(self):
-        self.print_section("Verify Node Upgrade")
-        self.version_obj = self.cli.check_nodectl_upgrade_path({
-            "called_command": "upgrade",
-            "argv_list": []
-        })
 
         self.handle_verification()
         
@@ -115,6 +110,12 @@ class Upgrader():
     
     
     def handle_verification(self):
+        self.print_section("Verify Node Upgrade")
+        self.version_obj = self.cli.check_nodectl_upgrade_path({
+            "called_command": "upgrade",
+            "argv_list": []
+        })
+        
         self.config_copy = self.functions.config_obj
         verify = Configuration({
             "implement": False,
