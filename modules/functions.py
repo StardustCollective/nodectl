@@ -1419,36 +1419,37 @@ class Functions():
         try:
             self.network_name = self.config_obj["profiles"][self.default_profile]["environment"]             
         except:
-            while True:
-                self.print_clear_line()
+            if not self.network_name:
+                while True:
+                    self.print_clear_line()
 
-                self.print_paragraphs([
-                    ["nodectl",0,"blue","bold"], ["needs to know if your Node will be running on",0],
-                    ["mainnet",0,"yellow","bold,underline"], ["or",0], ["testnet",0,"yellow","bold,underline"],
-                    [":",-1],["",2],
+                    self.print_paragraphs([
+                        ["nodectl",0,"blue","bold"], ["needs to know if your Node will be running on",0],
+                        ["mainnet",0,"yellow","bold,underline"], ["or",0], ["testnet",0,"yellow","bold,underline"],
+                        [":",-1],["",2],
+                        
+                        ["OPTIONS",1,"magenta","bold"], ["-------",1,"magenta"],
+                        ["M",0,"magenta","bold"], [")",-1,"magenta"], ["ainNet",-1,"magenta"],["",1],
+                        ["T",0,"magenta","bold"], [")",-1,"magenta"], ["estNet",-1,"magenta"],["",1],
+                        ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
+                    ])
+
+                    options_dict = {"M": "mainnet", "T": "testnet", "Q": "Q"}
+                    option = self.get_user_keypress({
+                        "prompt": "KEY PRESS an option",
+                        "prompt_color": "cyan",
+                        "quit_option": "Q",
+                        "options": list(options_dict.keys())
+                    })
                     
-                    ["OPTIONS",1,"magenta","bold"], ["-------",1,"magenta"],
-                    ["M",0,"magenta","bold"], [")",-1,"magenta"], ["ainNet",-1,"magenta"],["",1],
-                    ["T",0,"magenta","bold"], [")",-1,"magenta"], ["estNet",-1,"magenta"],["",1],
-                    ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
-                ])
-
-                options_dict = {"M": "mainnet", "T": "testnet", "Q": "Q"}
-                option = self.get_user_keypress({
-                    "prompt": "KEY PRESS an option",
-                    "prompt_color": "cyan",
-                    "quit_option": "Q",
-                    "options": list(options_dict.keys())
-                })
-                
-                self.network_name = options_dict[option.upper()]
-                self.print_cmd_status({
-                    "text_start": "Node environment set",
-                    "status": self.network_name,
-                    "status_color": "green",
-                    "newline": True,
-                })
-                return
+                    self.network_name = options_dict[option.upper()]
+                    self.print_cmd_status({
+                        "text_start": "Node environment set",
+                        "status": self.network_name,
+                        "status_color": "green",
+                        "newline": True,
+                    })
+                    return
 
             
     def check_for_help(self,argv_list,extended):
