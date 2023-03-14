@@ -33,7 +33,7 @@ Documentation consists of:
   - operation
 
 ## Internals
-**nodectl** is written [currently] in Python3.  It is a combination of object oritentation and functional programming.  **nodectl** is integrated into three components main components.
+**nodectl** is written in Python3. It is a combination of object oriented and functional programming.  **nodectl** is integrated into three components main components.
 
 #### Core Components
 - core functionality
