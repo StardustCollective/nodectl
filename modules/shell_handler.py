@@ -86,10 +86,12 @@ class ShellHandler:
         self.check_auto_restart()
         self.check_skip_services()
         self.check_for_profile_requirements()
+
         if "all" in self.argv:
             self.check_all_profile()     
 
         cli = self.build_cli_obj()
+        cli.check_for_new_versions()
         
         restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
         service_change_commands = ["start","stop","leave"]

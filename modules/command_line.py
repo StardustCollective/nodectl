@@ -1390,7 +1390,11 @@ class CLI():
 
     def check_for_new_versions(self,current_tess_check=False):
         self.functions.get_service_status()
-        self.version_obj = self.functions.get_version({"which":"all"})
+        if current_tess_check:
+            self.version_obj = self.functions.get_version({"which":"all"})
+        else:
+            self.version_obj = self.functions.get_version({"which":"nodectl_all"})
+            
         nodectl_good = False
         tess_good = False
         
@@ -1399,7 +1403,7 @@ class CLI():
                 self.version_obj["latest_nodectl_version"] = self.functions.cleaner(self.version_obj["latest_nodectl_version"],"new_line")
                 
                 upgrade_command = "upgrade_nodectl_testnet"
-                if self.functions.config_obj["profiles"][self.functions.default_profile]["environment"] == "testnet":
+                if self.functions.config_obj["profiles"][self.functions.default_profile]["environment"] == "mainnet":
                     upgrade_command = "upgrade_nodectl"
                 self.functions.print_paragraphs([
                     ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["nodectl",0,"cyan","bold"], ["was detected:",0],
