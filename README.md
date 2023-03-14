@@ -54,7 +54,7 @@ flowchart TD
   E --> B <--> A;
 ```
 
-WorkFlow:
+## NODECTL workflow
 
 ```mermaid
 flowchart TD
@@ -96,8 +96,10 @@ flowchart TD
 
 ## INSTALLATION
 
-nodectl can be run directory from the code off a dedicated directory
+nodectl code can be downloaded to and run from a dedicated directory from the code off a dedicated directory, and then it can be run from `main.py`.
 
-nodectl is designed to be compiled into a single binary executible and run as a single file with `+x` mode.
+nodectl is designed to be compiled into a single binary executible and run as a single file with `+x` mode.  Code compiled into a a bianry called `nodectl`.
+
+*please see 
 
 
