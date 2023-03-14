@@ -10,7 +10,7 @@ Detailed instructions on usage and features can be found on [Constellation Netwo
 
 ## NODECTL CODE DETAILS
 
-Constellation Network's **nodect** was created and designed by **Constellation Network** to **simplify** and pull out the complexity associated with running a **Constellation Network Validator Node**.  
+**nodect** was designed to **simplify** and reduce the complexity associated with running a **Constellation Network Validator Node**.  
 
 For someone in the know, it is "easy to say" that a Node for any project is simple to deploy, just takes a little eblow grease and away you go!  
 
