@@ -1247,7 +1247,7 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         
         self.print_title("Check Seed List Request")
-        
+
         if self.functions.config_obj["profiles"][profile]["pro"]["seed_location"] == "disable":
             self.functions.print_paragraphs([
                 ["Seed list is disabled for profile [",0], [profile,-1,"yellow","bold"],
@@ -1408,7 +1408,7 @@ class CLI():
                     upgrade_command = "upgrade_nodectl"
                 self.functions.print_paragraphs([
                     ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["nodectl",0,"cyan","bold"], ["was detected:",0],
-                    [self.version_obj['latest_nodectl_version'],2,"yellow","bold"],
+                    [self.version_obj['latest_nodectl_version'],1,"yellow","bold"],
                     
                     ["To upgrade issue:",0], [f"sudo nodectl {upgrade_command}",1,"green"]
                 ])
@@ -1423,7 +1423,7 @@ class CLI():
                 if not self.check_versions_called:
                     self.functions.print_paragraphs([
                         ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["Tessellation",0,"cyan","bold"], ["was detected:",0],
-                        [self.version_obj['cluster_tess_version'],2,"yellow","bold"],
+                        [self.version_obj['cluster_tess_version'],1,"yellow","bold"],
                         
                         ["To upgrade issue:",0], [f"sudo nodectl upgrade",1,"green"]
                     ])
@@ -2898,7 +2898,7 @@ class CLI():
                 [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [testnet_mainnet,1,"yellow","bold"],
                 ["You are currently on:",0], [current_env.upper(),1,"yellow"],
                 ["  version:",0], [version_obj['node_nodectl_version'],1,"yellow"],
-                ["available:",0], [f'v{version_obj["latest_nodectl_version"]}',1,"yellow"],
+                ["available:",0], [f'{version_obj["latest_nodectl_version"]}',1,"yellow"],
             ])
             self.functions.confirm_action({
                 "yes_no_default": "n",

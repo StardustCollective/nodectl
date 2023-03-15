@@ -38,7 +38,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.0.2"
+        self.node_nodectl_version = "v2.1.0"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -594,9 +594,9 @@ class Functions():
         return_value = command_obj.get("return_value", desired_value)
         specific_ip = command_obj.get("specific_ip",False)
         spinner = command_obj.get("spinner",False)
-        
+        cluster_info = []
         max_range = 10
-        
+            
         api_str = "/cluster/info"
         if api_endpoint_type == "consensus":
             if self.config_obj["profiles"][profile]["layer"] == 0:
@@ -623,6 +623,8 @@ class Functions():
                 })
             except Exception as e:
                 self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
+                pass
+            
             cluster_info.pop()
             
             for n in range(0,max_range):
@@ -1464,6 +1466,15 @@ class Functions():
             })  
     
     
+    def check_valid_profile(self,profile):
+        if profile not in self.config_obj["profiles"].keys():
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-603",
+                "line_code": "profile_error",
+                "extra": profile,
+            })
+            
+            
     # =============================
     # is functions
     # =============================      
@@ -2072,8 +2083,7 @@ class Functions():
                 print(console_setup.fill(line))
                 for _ in range(1,newlines):
                     print("") # newlines 
-        
-            
+                    
             
     def print_spinner(self,command_obj):
         msg = command_obj.get("msg")

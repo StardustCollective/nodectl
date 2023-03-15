@@ -474,7 +474,10 @@ class ShellHandler:
         
         if self.help_requested:
             return
-        
+
+        if "-p" in self.argv:
+            self.functions.check_valid_profile(self.argv[self.argv.index("-p")+1])
+                    
         need_profile_list = [
             "find","quick_check","logs",
             "start","stop","restart",
@@ -673,11 +676,11 @@ class ShellHandler:
                 
         if action == "disable":
             if not self.auto_restart_pid:
-                self.auto_restart_pid = "unknown"
+                self.auto_restart_pid = "disabled"
             if cli:
                 end_status = "not running"
                 end_color = "blue"
-                if self.auto_restart_pid != "unknown":
+                if self.auto_restart_pid != "disabled":
                     end_status = "complete"
                     end_color = "green"
                     self.functions.print_clear_line()
@@ -701,7 +704,7 @@ class ShellHandler:
                     "newline": True,
                 })
                 
-                if self.auto_restart_pid != "unknown":
+                if self.auto_restart_pid != "disabled":
                     verb = "of next" if manual else "of"
                     if self.auto_restart_enabled:
                         cprint(f"  Auto Restart will reengage at completion {verb} requested task","green")
@@ -748,7 +751,7 @@ class ShellHandler:
             ])
             exit(1)
                         
-        if self.auto_restart_pid and self.auto_restart_pid != "unknown":
+        if self.auto_restart_pid and self.auto_restart_pid != "disabled":
             if self.auto_restart_enabled:
                 self.functions.print_paragraphs([
                     ["",1], ["Node restart service does not need to be restarted because pid [",0,"green"],

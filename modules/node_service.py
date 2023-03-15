@@ -999,9 +999,9 @@ nodectl:
 
         elif var.file == "upgrade":
             if var.testnet_mainnet == "testnet":
-                url = "https://github.com/netmet1/constellation_testnet_nodectl/releases/download/vNODECTL_VERSION/nodectl_ARCH"
+                url = "https://github.com/netmet1/constellation_testnet_nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
             else:
-                url = "https://github.com/netmet1/constellation_nodectl/releases/download/vNODECTL_VERSION/nodectl_ARCH"
+                url = "https://github.com/netmet1/constellation_nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
                 
             cur_file = '''#!/bin/bash
 
@@ -1041,8 +1041,8 @@ exit 0
 '''
             else:
                 cur_file2 += '''
-echo "${yellow}This version of nodectl ${pink}DOES NOT ${yellow}require an upgrade be performed"
-read -e -p "${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
+echo "  ${yellow}This version of nodectl ${pink}DOES NOT ${yellow}require an upgrade be performed"
+read -e -p "  ${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
 exit 0
 '''
         return cur_file+cur_file2
