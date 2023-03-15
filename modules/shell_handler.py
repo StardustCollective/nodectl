@@ -64,7 +64,9 @@ class ShellHandler:
                 "profile_names": self.profile_names,
                 "config_obj": self.functions.config_obj
             }   
-            return CLI(command_obj)
+            cli = CLI(command_obj)
+            cli.check_for_new_versions()
+            return cli 
         return None
     
          
@@ -91,7 +93,6 @@ class ShellHandler:
             self.check_all_profile()     
 
         cli = self.build_cli_obj()
-        cli.check_for_new_versions()
         
         restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
         service_change_commands = ["start","stop","leave"]

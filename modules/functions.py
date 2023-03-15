@@ -9,7 +9,7 @@ from requests import get
 from subprocess import Popen, PIPE, call, run
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from termcolor import colored, cprint
+from termcolor import colored, cprint, RESET
 from copy import copy
 from time import sleep, perf_counter
 from shlex import split as shlexsplit
@@ -38,7 +38,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.0.1"
+        self.node_nodectl_version = "v2.0.2"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -2045,7 +2045,7 @@ class Functions():
                         c_attrs = current[2].split(",")
                         line = colored(line,c_attrs[0],c_attrs[1])
                     else:
-                        line = colored(line,current[2])    
+                        line = colored(line,current[2])
                 except:
                     line = colored(line,"cyan")
 
@@ -2064,9 +2064,10 @@ class Functions():
                 last_line = ""
                 
             if do_print:
-                print(console_setup.fill(line))
+                print(console_setup.fill(line),RESET); print("",colored(RESET))
                 for _ in range(1,newlines):
-                    print("") # newlines                
+                    print("") # newlines 
+        
             
             
     def print_spinner(self,command_obj):
