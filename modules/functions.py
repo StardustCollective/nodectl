@@ -2064,7 +2064,7 @@ class Functions():
                 last_line = ""
                 
             if do_print:
-                print(console_setup.fill(line),RESET); print("",colored(RESET))
+                print(console_setup.fill(line))
                 for _ in range(1,newlines):
                     print("") # newlines 
         

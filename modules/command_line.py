@@ -2010,11 +2010,13 @@ class CLI():
             for allocated_time in range(0,max_timer):
                 sleep(1)
                 
-                if allocated_time % 5 == 0 or allocated_time < 1:  # 5 second mark or second attempt
-                    src_peer_count = self.functions.get_peer_count({
-                        "profile": self.profile,
-                        "count_only": True,
-                    })
+                if allocated_time % 5 == 0 or allocated_time < 1:  # 5 second mark or first attempt
+                    if allocated_time % 10 == 0 or allocated_time < 1:
+                        # re-check source every 10 seconds
+                        src_peer_count = self.functions.get_peer_count({
+                            "profile": self.profile,
+                            "count_only": True,
+                        })
 
                     peer_count = self.functions.get_peer_count({
                         "peer_obj": {"ip": "127.0.0.1"},
@@ -2085,12 +2087,12 @@ class CLI():
             elif not result and not tolerance_result:
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
-                    ["",1], ["WARNING",0,"yellow,on_red","bold"], ["Issue may be present?",0,"red"],
+                    ["",1], [" WARNING ",0,"yellow,on_red","bold"], ["Issue may be present?",0,"red"],
                     ["Please issue the following command to review the Node's details.",1,"red"], 
                     ["sudo nodectl check-connection -p <profile_name>",1],
                     ["Follow instructions if error persists",2,"red"],
                     
-                    ["NOTE",0,"grey,on_green"], ["Missing a few Nodes on the Hypergraph independent of the network, is",0,"green"],
+                    [" NOTE ",0,"grey,on_green"], ["Missing a few Nodes on the Hypergraph independent of the network, is",0,"green"],
                     ["not an issue.  There will be other Nodes leaving and joining the network; possibly, at all times.",1,"green"],
                 ])
                 
@@ -2104,7 +2106,7 @@ class CLI():
         if peer_count < src_peer_count and not watch_peer_counts:
             call_type = "upgrade" if upgrade else "default"
             self.functions.print_paragraphs([
-                ["ok",0,"green"], ["that peer count < cluster peer count",1,"yellow"],
+                [" ok ",0,"grey,on_green"], ["that peer count < cluster peer count",1,"yellow"],
                 ["watch mode was",0,"yellow"], ["not",0,"red"], [f"chosen by {call_type}.",1,"yellow"],
             ])
             if not upgrade:
@@ -2876,7 +2878,7 @@ class CLI():
         if testnet_mainnet != current_env:
             self.log.logger.warn(f"Upgrade nodectl [{testnet_mainnet}] to new version request while on [testnet]")
             self.functions.print_paragraphs([
-                ["WARNING",0,"yellow,on_red"], ["This will upgrade",0,"green"], [testnet_mainnet,1,"yellow","bold"],
+                [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [testnet_mainnet,1,"yellow","bold"],
                 ["You are currently on:",0], [current_env.upper(),1,"yellow"],
                 ["version:",0], [version_obj['latest_nodectl_version'],1,"yellow"],
                 ["NODECTL UPGRADE TERMINATED WITH NO ACTION",1,"red","bold"],
@@ -2890,7 +2892,7 @@ class CLI():
             ])
         else:
             self.functions.print_paragraphs([
-                ["WARNING",0,"yellow,on_red"], ["This will upgrade",0,"green"], [testnet_mainnet,1,"yellow","bold"],
+                [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [testnet_mainnet,1,"yellow","bold"],
                 ["You are currently on:",0], [current_env.upper(),1,"yellow"],
                 ["  version:",0], [version_obj['node_nodectl_version'],1,"yellow"],
                 ["available:",0], [f'v{version_obj["latest_nodectl_version"]}',1,"yellow"],
