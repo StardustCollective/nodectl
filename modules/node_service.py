@@ -1041,6 +1041,7 @@ exit 0
 '''
             else:
                 cur_file2 += '''
+echo "${yellow}This version of nodectl ${pink}DOES NOT ${yellow}require an upgrade be performed"
 read -e -p "${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
 exit 0
 '''

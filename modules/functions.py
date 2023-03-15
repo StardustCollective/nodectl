@@ -53,13 +53,10 @@ class Functions():
         # constellation specific statics
         self.be_mainnet = "https://be-mainnet.constellationnetwork.io"
         
-        # set this to True if upgrade command is required and you want to offer 
-        # Node Operator to be offered ability to upgrade 
-        self.upgrade_nodectl_required = True  
-        
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
         self.node_tess_version = "v0.0.0"
         self.latest_nodectl_version = "v0.0.0"
+        self.upgrade_path = False
         self.version_obj = {}
 
         # Tessellation reusable lists
@@ -142,16 +139,23 @@ class Functions():
                 self.cluster_tess_version = f"v{version[0]}"
                     
             def get_latest_nodectl(network):
+                self.pull_upgrade_path()
+                self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
                 if network == "testnet": 
-                    cmd = "curl -s https://raw.githubusercontent.com/netmet1/constellation_testnet_nodectl/main/versioning"               
-                else:
-                    cmd = "curl -s https://raw.githubusercontent.com/netmet1/constellation_nodectl/main/versioning"
+                    self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
+                
+                # self.version_obj["nodectl_latest_obj"] = version_details.content.decode("utf-8").replace("\n","").replace(" ","") 
+                # self.latest_nodectl_version = version_details["version"]
+                # if network == "testnet": 
+                #     cmd = "curl -s https://raw.githubusercontent.com/netmet1/constellation_testnet_nodectl/main/versioning"               
+                # else:
+                #     cmd = "curl -s https://raw.githubusercontent.com/netmet1/constellation_nodectl/main/versioning"
                     
-                self.latest_nodectl_version = self.process_command({
-                    "bashCommand": cmd,
-                    "proc_action": "wait"
-                })
-                self.latest_nodectl_version = self.latest_nodectl_version.strip()
+                # self.latest_nodectl_version = self.process_command({
+                #     "bashCommand": cmd,
+                #     "proc_action": "wait"
+                # })
+                # self.latest_nodectl_version = self.latest_nodectl_version.strip()
             
             # =========================================================================================
 
@@ -207,14 +211,15 @@ class Functions():
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
                         "cluster_tess_version": self.cluster_tess_version,
-                        "latest_nodectl_version": self.latest_nodectl_version
+                        "latest_nodectl_version": self.latest_nodectl_version,
+                        "upgrade_path": self.upgrade_path
                     }
                 else:
                     return {
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
-
-                        "latest_nodectl_version": self.latest_nodectl_version
+                        "latest_nodectl_version": self.latest_nodectl_version,
+                        "upgrade_path": self.upgrade_path
                     }
 
 

@@ -1296,19 +1296,19 @@ class CLI():
         self.version_obj = self.functions.get_version({"which":"all"}) # rebuild the version object
         versions = SimpleNamespace(**self.version_obj)
         
-        self.functions.pull_upgrade_path()
         if not self.functions.upgrade_path:
-            return
+            self.functions.pull_upgrade_path()
+            if not self.functions.upgrade_path:
+                return
         
         upgrade_path = self.functions.upgrade_path["path"]
         next_upgrade_path = upgrade_path[0]    
         
         if versions.node_nodectl_version != upgrade_path[0]:
-            for _ in range(0,2):
-                for version in upgrade_path:
-                    test = self.functions.is_new_version(versions.node_nodectl_version,version)
-                    if test == "current_less_than":
-                        next_upgrade_path = version
+            for version in upgrade_path:
+                test = self.functions.is_new_version(versions.node_nodectl_version,version)
+                if test == "current_less_than":
+                    next_upgrade_path = version
 
             if next_upgrade_path != upgrade_path[0]:
                 self.functions.print_clear_line()
@@ -1328,7 +1328,8 @@ class CLI():
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
-                    ["nodectl",0,"blue","bold"], ["may",0,"red"], ["not",0,"red","underline,bold"], ["be at the correct version.",2,"red"],
+                    ["nodectl",0,"blue","bold"], ["may",0,"red"], ["not",0,"red","underline,bold"],
+                    ["be running on the correct version.",2,"red"],
                 ])   
                 
         if next_upgrade_path != upgrade_path[0]:
@@ -2872,7 +2873,9 @@ class CLI():
                 "extra": e,
             })
 
-        version_obj = self.functions.get_version({"which":"all"})
+        version_obj = self.functions.version_obj # readability
+        if len(self.functions.version_obj) < 1:
+            version_obj = self.functions.get_version({"which":"all"})
         self.functions.print_clear_line()
                  
         if testnet_mainnet != current_env:
@@ -2919,7 +2922,7 @@ class CLI():
             upgrade_file = self.node_service.create_files({
                 "file": "upgrade",
                 "testnet_mainnet": testnet_mainnet,
-                "upgrade_required": self.functions.upgrade_nodectl_required
+                "upgrade_required": True if version_obj["upgrade_path"][testnet_mainnet]["upgrade"] == "True" else False
             })
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",version_obj["latest_nodectl_version"])
             upgrade_file = upgrade_file.replace("ARCH",arch)
