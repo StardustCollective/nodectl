@@ -881,7 +881,7 @@ class CLI():
             {
                 "header_elements" : {
                 "TESS LATEST": self.version_obj["cluster_tess_version"],
-                "NODECTL LATEST": f"v{self.version_obj['latest_nodectl_version']}",
+                "NODECTL LATEST": self.version_obj['latest_nodectl_version'],
                 },
                 "spacing": spacing
             },
@@ -2909,7 +2909,7 @@ class CLI():
             arch = self.functions.get_arch()
             self.functions.print_paragraphs([
                 ["Upgrading nodectl version from",0], [f"{version_obj['node_nodectl_version']}",0,"yellow"], ["to",0],
-                [f"v{version_obj['latest_nodectl_version']}",2,"yellow"],
+                [f"{version_obj['latest_nodectl_version']}",2,"yellow"],
                 
                 ["Detected architecture:",0], [arch,1,"yellow"],
                 ["WARNING",0,"yellow,on_red"], ["nodectl will exit to upgrade.",1],
