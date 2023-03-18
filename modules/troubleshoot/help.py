@@ -1196,11 +1196,17 @@ def build_help(command_obj):
   (see below)
   
   Search the Constellation Backend explorer and
-  pull the last 50 ordinals pertaining to rewards
-  issued by Constellation Network on the MainNet.
+  pull the last 50 global snapshots.
   
+  The command will output a paginated list of
+  DAG addresses and the amount of DAG accumulated
+  per DAG address over the course of the time
+  between the START SNAPSHOT timestamp listed
+  and the END SNAPSHOT timestamp listed.
+  
+  This only pertains to global MainNet rewards*
   This does not apply to TestNet rewards*
-
+  
   Order of arguments does not matter.
   
   short argument:
@@ -1212,12 +1218,12 @@ def build_help(command_obj):
   {colored('-np','green')} no pagination (do not paginate)
   
   Note: Currently this command only searches on the MainNet layer0
-        network.  The profile option can be used if the Node Operator
+        global network.  The profile option can be used if the Node Operator
         is searching their own DAG address associated with the profile
         they specify (if using different wallets per profile).
         
         If the -f is used, the -p will be ignored unless the profile
-        fails to be present on the Node.
+        fails to be present on the Node (exist in the configuration).
         
   Example Usage
   -------------
