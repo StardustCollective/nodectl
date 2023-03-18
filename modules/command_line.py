@@ -1,7 +1,8 @@
 import re
 
 from time import sleep, perf_counter
-from os import system, path, SEEK_END, SEEK_CUR
+from datetime import datetime
+from os import system, path, get_terminal_size, SEEK_END, SEEK_CUR
 from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
@@ -806,7 +807,125 @@ class CLI():
                 
                 print(" ") # spacer        
                     
+        
+    def show_current_rewards(self,command_list):
+        self.functions.check_for_help(command_list,"show_current_rewards") 
+        reward_amount = dict()
+        error = True
+        color = "red"
+        title = "NODE P12"
+        profile = self.functions.default_profile
+        
+        for _ in range(0,5): # 5 attempts
+            data = self.functions.get_snapshot({
+                "action": "last50",
+            })   
+            
+            try:
+                start_time = datetime.strptime(data[-1],"%Y-%m-%dT%H:%M:%S.%fZ")
+                end_time = datetime.strptime(data[1],"%Y-%m-%dT%H:%M:%S.%fZ")
+                elapsed_time = end_time - start_time
+            except:
+                self.log.logger.error("received data from backend that wasn't parsable, trying again")
+                sleep(2)
+            else:
+                error = False
+                break
+            
+        if error:
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-831",
+                "line_code": "api_error",
+                "extra": None,
+            })
+            
+        if "-p" in command_list:
+            profile = command_list[command_list.index("-p")+1]
+            self.functions.check_valid_profile(profile)
+            
+        if "-f" in command_list:
+            search_dag_addr = command_list[command_list.index("-f")+1]
+            self.functions.is_valid_address("dag",False,search_dag_addr)
+        else:
+            self.cli_grab_id({
+                "dag_addr_only": True,
+                "command": "dag",
+                "argv_list": ["-p",profile]
+            })
+            search_dag_addr = self.nodeid.strip("\n")
+
+        for reward in data:
+            if isinstance(reward,list) and len(reward) >0:
+                # Function excepts an interlaced list of address, amount
+                for item in reward:
+                    for addr_amt in item.values():
+                        if isinstance(addr_amt,str):
+                            if addr_amt == search_dag_addr:
+                                color = "green"
+                            test = reward_amount.get(addr_amt,False)
+                            if not test:
+                                reward_amount[addr_amt] = 0
+                            key_address = addr_amt
+                        elif isinstance(addr_amt,int):
+                            reward_amount[key_address] += addr_amt
+        
+        first = reward_amount.popitem()                        
+        print_out_list = [
+            {
+                "header_elements": {
+                "START SNAP": data[-1],
+                "STOP SNAP": data[1],
+                },
+                "spacing": 25,
+            },
+            {
+                "header_elements": {
+                "ELAPSED TIME": f"~{round((elapsed_time.seconds/60),2)}m",
+                "REWARDED COUNT": len(reward_amount),
+                },
+            },
+            {
+                "header_elements": {
+                "-BLANK-":None,
+                f"{title} ADDRESS FOUND (green or red)": colored(search_dag_addr,color),
+                },
+            },
+            {
+                "header_elements": {
+                "REWARDED DAG ADDRESSES": first[0],
+                "AMOUNT REWARDED": first[1]/1e8,
+                },
+                "spacing": 40,
+            },
+        ]
+        
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements,
+            })   
+        
+        do_more = False if "-np" in command_list else True
+        if do_more:
+            console_size = get_terminal_size()
+            more_break = round(console_size.lines)-20   
+            
+        for n, (address, amount) in enumerate(reward_amount.items()):
+            if do_more and n % more_break == 0 and n > 0:
+                more = self.functions.print_any_key({
+                    "quit_option": "q",
+                    "newline": "both",
+                })
+                if more:
+                    break
                 
+            amount = amount/1e8
+            amount = "{:,.3f}".format(amount)
+            if address == search_dag_addr:
+                print(f"  {colored(address,color)}  {colored(amount,color)}{colored('**','yellow',attrs=['bold'])}")
+            else:
+                print(f"  {address}  {amount}")        
+    
+        
     # ==========================================
     # update commands
     # ==========================================
@@ -2229,6 +2348,8 @@ class CLI():
         argv_list = command_obj.get("argv_list",[None])
         command = command_obj.get("command")
         return_success = command_obj.get("return_success",False)
+        dag_address_only = command_obj.get("dag_addr_only",False)
+        
         profile = self.profile
         ip_address = None
         is_global = True
@@ -2343,6 +2464,8 @@ class CLI():
                 self.nodeid = nodeid
                 self.functions.event = False            
 
+        if dag_address_only:
+            return
         
         if command == "dag":
             # this creates a print /r status during retrieval so placed here to not affect output

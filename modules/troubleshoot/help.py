@@ -29,7 +29,7 @@ def build_help(command_obj):
   @netmet72
   {colored("----------------------","cyan")}
   usage:  sudo nodectl [ help [-h], status [-s], start, stop, leave, join,
-                         health, sec, price, show_node_states [-sns],
+                         health, sec, price, show_node_states [-sns], show_current_rewards [-scr],
                          find, peers, whoami, list, check_seedlist, update_seedlist [-usl],
                          export_private_key, change_ssh_port <port>, 
                          restart, restart_only, slow_restart [-sr], check_seedlist_participation [-clsp],
@@ -141,6 +141,10 @@ def build_help(command_obj):
     list    | - show a list of all the profiles
                 currently available on this version
                 of nodectl.
+                
+    show_current_rewards  | - shows the last 50 ordinals finds dag
+                              addresses found and amount accumulated
+                              in the current approximate time frame.
              
     log -l <log_type> -g <grep_word> -f  | - show logs for requested log type
     
@@ -1185,6 +1189,58 @@ def build_help(command_obj):
   '''
   
         
+    if extended == "show_current_rewards":
+        help_text += title(extended)
+        help_text += f'''
+  This command takes several parameters
+  (see below)
+  
+  Search the Constellation Backend explorer and
+  pull the last 50 ordinals pertaining to rewards
+  issued by Constellation Network on the MainNet.
+  
+  This does not apply to TestNet rewards*
+
+  Order of arguments does not matter.
+  
+  short argument:
+  {colored('-scr','magenta')}
+  
+  optional:
+  {colored('-p <profile>','green')}
+  {colored('-f <source_dag_address>','green')}
+  {colored('-np','green')} no pagination (do not paginate)
+  
+  Note: Currently this command only searches on the MainNet layer0
+        network.  The profile option can be used if the Node Operator
+        is searching their own DAG address associated with the profile
+        they specify (if using different wallets per profile).
+        
+        If the -f is used, the -p will be ignored unless the profile
+        fails to be present on the Node.
+        
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl show_current_rewards help','cyan')}
+  # {colored('sudo nodectl -scr help','cyan')}
+
+  If the {colored('-p <profile>','green')} if not specified, nodectl
+  will use the first known profile. The profile will be ignored
+  if the -f option is entered.
+  # {colored('sudo nodectl show_current_rewards','cyan')}
+  # {colored('sudo nodectl show_current_rewards -p <profile_name>','cyan')}
+
+  If the {colored('-f <dag_address>','green')} is specified, nodectl
+  will the requested DAG address against the MainNet explorer.
+  # {colored('sudo nodectl show_current_rewards -f <dag_address>','cyan')}
+  
+  If the {colored('-np','green')} is not specified nodectl 
+  will attempt to paginate the output to the 
+  current known screen height.
+  
+  '''
+      
     if extended == "find":
         help_text += title(extended)
         help_text += f'''

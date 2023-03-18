@@ -4,6 +4,7 @@ import json
 import urllib3
 
 from getpass import getuser
+from re import match
 from textwrap import TextWrapper
 from requests import get
 from subprocess import Popen, PIPE, call, run
@@ -38,7 +39,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.1.0"
+        self.node_nodectl_version = "v2.2.0"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -51,7 +52,7 @@ class Functions():
         self.hardcode_api_port = 443
         
         # constellation specific statics
-        self.be_mainnet = "https://be-mainnet.constellationnetwork.io"
+        self.be_mainnet = "be-mainnet.constellationnetwork.io"
         
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
         self.node_tess_version = "v0.0.0"
@@ -845,18 +846,22 @@ class Functions():
         ordinal = command_obj.get("ordinal",False)
         return_type = "list"
         return_data = []
+        error_secs = 2
         
+        be_uri = f"https://{self.be_mainnet}/"
         if action == "latest":
-            uri = f"{self.be_mainnet}/global-snapshots/latest"
+            uri = f"{be_uri}global-snapshots/latest"
             return_values = ["timestamp","ordinal"]
+        elif action == "last50":
+            uri = f"{be_uri}global-snapshots?limit=50"
+            return_values = ["rewards","timestamp"]
+            return_type = "dict_interlace"
         elif action == "ordinal":
-            uri = f"{self.be_mainnet}/global-snapshots/{ordinal}"
+            uri = f"{be_uri}global-snapshots/{ordinal}"
         elif action == "rewards":
-            uri = f"{self.be_mainnet}/global-snapshots/{ordinal}/rewards"
+            uri = f"{be_uri}global-snapshots/{ordinal}/rewards"
             return_values = ["destination"]
             return_type = "dict"
-        
-        error_secs = .5
         
         try:
             results = get(uri,verify=False,timeout=2).json()
@@ -871,9 +876,11 @@ class Functions():
                 elif return_type == "dict":
                     for v in results:
                         return_data.append(v[value])
-                        # for key in v.keys():
-                        #     if key == value:
-                        #         return_data.append(v[value])
+                elif return_type == "dict_interlace":
+                    for value in results:
+                        for iv in return_values:
+                            return_data.append(value[iv])
+
             return return_data
 
 
@@ -907,6 +914,7 @@ class Functions():
                                 possible_found.pop(key)
                 
         return possible_found
+
 
     # =============================
     # setter functions
@@ -1140,7 +1148,7 @@ class Functions():
 
             for n in range(10):
                 try:
-                    url =f"{self.be_mainnet}/addresses/{wallet}/balance"
+                    url =f"https://{self.be_mainnet}/addresses/{wallet}/balance"
                     balance = get(url,verify=True,timeout=2).json()
                     balance = balance["data"]
                     balance = balance["balance"]
@@ -1467,6 +1475,9 @@ class Functions():
     
     
     def check_valid_profile(self,profile):
+        if profile == "all":
+            return
+        
         if profile not in self.config_obj["profiles"].keys():
             self.error_messages.error_code_messages({
                 "error_code": "fnt-603",
@@ -1502,6 +1513,25 @@ class Functions():
             return False    
 
     
+    def is_valid_address(self,v_type,return_on,address):
+        valid = False
+        reg_expression = "^[D][A][G][a-zA-Z0-9]{37}$"
+        if v_type == "nodeid":
+            reg_expression = "^[a-f0-9]{128}$"
+            
+        if match(reg_expression,address):
+            valid = True
+        if return_on:
+            return valid
+        
+        if not valid:
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-1524",
+                "line_code": "invalid_address",
+                "extra": v_type,
+                "extra2": address,
+            })
+        
     # =============================
     # test functions
     # =============================  
@@ -1849,7 +1879,7 @@ class Functions():
         
         
     def print_show_output(self,function_obj):
-        
+        # -BLANK- is reserved word for this function
         status_header, status_results = "",""
         header_elements = function_obj["header_elements"]
         cols = {}  # custom spacing per column
@@ -1886,14 +1916,17 @@ class Functions():
         #for header, value in header_elements.items():
         for i, (header, value) in enumerate(header_elements.items()):
             spacing = d_spacing
-            if str(i) in cols:
-                    spacing = cols[str(i)]
-            status_header += colored(f"  {header: <{spacing}}",header_color,attrs=[header_attr])
-            try:
-                status_results += f"  {value: <{spacing}}"
-            except:
-                value = "unavailable".ljust(spacing," ")
-                status_results += f"  {value: <{spacing}}"
+            if header == "-BLANK-":
+                print("")
+            else:
+                if str(i) in cols:
+                        spacing = cols[str(i)]
+                status_header += colored(f"  {header: <{spacing}}",header_color,attrs=[header_attr])
+                try:
+                    status_results += f"  {value: <{spacing}}"
+                except:
+                    value = "unavailable".ljust(spacing," ")
+                    status_results += f"  {value: <{spacing}}"
                 
         print(status_header)
         print(status_results)

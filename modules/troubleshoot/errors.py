@@ -148,8 +148,11 @@ class Error_codes():
                 ["Timed Out or Error encountered while waiting for API. Are you sure the",0,"red","bold"],
                 ["Node",0,"yellow","underline"], ["service(s) are running?",2,"red","bold"],
                 ["Make sure your",0,"magenta"], ["firewall",0,"magenta","underline"], ["has the proper TCP ports opened.",2,"magenta"],
-                ["Profile:",0,], [var.extra,2,"yellow","bold"],
             ])
+            if var.extra != None:
+                self.functions.print_paragraphs([
+                    ["Profile:",0,], [var.extra,2,"yellow","bold"],
+                ])
             
             
         elif var.line_code == "seed-list":
@@ -190,6 +193,15 @@ class Error_codes():
                 ["Please be diligent and review your Node's security, and other settings!",2,"magenta","bold"],
                 ["Try issuing command:",1,"yellow"],
                 ["sudo nodectl sec",2],
+            ])            
+            
+            
+        elif var.line_code == "invalid_address":
+            self.log.logger.critical(f"attempt to use an invalid {var.extra} address detected [{var.extra2}]")
+            self.functions.print_paragraphs([
+                ["Invalid",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["address may have been entered.",2,"red","bold"],
+                ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered",2,"red","bold"],
+                ["Address Entered:",0,"yellow","bold"],[var.extra2,2],
             ])            
             
             

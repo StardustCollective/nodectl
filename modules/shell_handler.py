@@ -188,6 +188,8 @@ class ShellHandler:
 
         elif self.called_command == "list":
             cli.show_list(self.argv)  
+        elif self.called_command == "show_current_rewards" or self.called_command == "_scr":
+            cli.show_current_rewards(self.argv)  
         elif self.called_command == "find":
             cli.cli_find(self.argv)
         elif self.called_command == "peers":
@@ -201,9 +203,7 @@ class ShellHandler:
         elif self.called_command == "reboot":
             cli.cli_reboot(self.argv)
         elif self.called_command in node_id_commands:
-            command = "nodeid"
-            if self.called_command == "dag":
-                command = "dag"
+            command = "dag" if self.called_command == "dag" else "nodeid"
             cli.cli_grab_id({
                 "command": command,
                 "argv_list": self.argv
@@ -471,12 +471,14 @@ class ShellHandler:
         # check if default profile needs to be set
         self.log.logger.debug(f"checking profile requirements | command [{self.called_command}]") 
         need_profile = False
+        called_profile = False
         
         if self.help_requested:
             return
 
         if "-p" in self.argv:
-            self.functions.check_valid_profile(self.argv[self.argv.index("-p")+1])
+            called_profile = self.argv[self.argv.index("-p")+1]
+            self.functions.check_valid_profile(called_profile)
                     
         need_profile_list = [
             "find","quick_check","logs",
@@ -493,7 +495,7 @@ class ShellHandler:
             need_profile = True
             if "help" in self.argv:
                 pass
-            elif len(self.argv) == 0 or ("-p" not in self.argv or self.argv[self.argv.index("-p")+1] == "empty"):
+            elif len(self.argv) == 0 or ("-p" not in self.argv or called_profile == "empty"):
                 self.functions.print_help({
                     "usage_only": True,
                     "hint": "profile"
@@ -501,7 +503,7 @@ class ShellHandler:
                 
         if need_profile and self.called_command != "empty":
             if "-p" in self.argv:
-                self.profile = self.argv[self.argv.index("-p")+1]
+                self.profile = called_profile
      
     # =============  
     
