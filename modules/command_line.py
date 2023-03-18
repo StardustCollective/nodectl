@@ -873,8 +873,8 @@ class CLI():
         print_out_list = [
             {
                 "header_elements": {
-                "START SNAP": data[-1],
-                "STOP SNAP": data[1],
+                "START SNAPSHOT": data[-1],
+                "STOP SNAPSHOT": data[1],
                 },
                 "spacing": 25,
             },
