@@ -1214,15 +1214,22 @@ def build_help(command_obj):
   
   optional:
   {colored('-p <profile>','green')}
-  {colored('-f <source_dag_address>','green')}
+  {colored('-w <dag_wallet_address>','green')}
+  {colored('-s <snapshot_history_size>','green')}
   {colored('-np','green')} no pagination (do not paginate)
   
+  If a wallet address is not specified the first known wallet address
+  obtained from the configuration will be used.  If a {colored('-p <profile>','green')} is specified
+  the wallet address known to entered profile will be used.
+  
+  If a {colored('-s <snapshot_history_size>','green')} is specified the history
+  size entered will be used.  Must be between 10 and 200 snapshots.  The default
+  value is 50.
+  
   Note: Currently this command only searches on the MainNet layer0
-        global network.  The profile option can be used if the Node Operator
-        is searching their own DAG address associated with the profile
-        they specify (if using different wallets per profile).
+        global network..
         
-        If the -f is used, the -p will be ignored unless the profile
+        If the{colored('-w <dag_wallet_address>','green')} is used, the {colored('-p <dag_wallet_address>','red')} will be ignored unless the profile
         fails to be present on the Node (exist in the configuration).
         
   Example Usage

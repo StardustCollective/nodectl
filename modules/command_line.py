@@ -813,17 +813,39 @@ class CLI():
         reward_amount = dict()
         error = True
         color = "red"
-        title = "NODE P12"
+        found = "FALSE"
+        title = "NDOE P12"
         profile = self.functions.default_profile
+        snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
         
+        try:
+            if int(snapshot_size) > 375 or int(snapshot_size) < 10:
+                self.functions.print_paragraphs([
+                    [" INPUT ERROR ",0,"white,on_red"], ["the",0,"red"],
+                    ["-s",0], ["option in the command",0,"red"], ["show_current_rewards",0], 
+                    ["must be in the range between [",0,"red"], ["10",-1,"yellow","bold"], ["] and [",-1,"red"],
+                    ["375",-1,"yellow","bold"], ["], please try again.",-1,"red"],["",2],
+                ])
+                cprint("  show_current_reward -s option must be in range between [10] and [375]","red",attrs=["bold"])
+                return
+        except:
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-826",
+                "line_code": "input_error",
+                "extra": None,
+            })            
+                
         for _ in range(0,5): # 5 attempts
             data = self.functions.get_snapshot({
-                "action": "last50",
+                "action": "history",
+                "history": snapshot_size
             })   
             
             try:
                 start_time = datetime.strptime(data[-1],"%Y-%m-%dT%H:%M:%S.%fZ")
-                end_time = datetime.strptime(data[1],"%Y-%m-%dT%H:%M:%S.%fZ")
+                end_time = datetime.strptime(data[2],"%Y-%m-%dT%H:%M:%S.%fZ")
+                start_ordinal = data[-2]
+                end_ordinal = data[1]
                 elapsed_time = end_time - start_time
             except:
                 self.log.logger.error("received data from backend that wasn't parsable, trying again")
@@ -843,9 +865,10 @@ class CLI():
             profile = command_list[command_list.index("-p")+1]
             self.functions.check_valid_profile(profile)
             
-        if "-f" in command_list:
-            search_dag_addr = command_list[command_list.index("-f")+1]
+        if "-w" in command_list:
+            search_dag_addr = command_list[command_list.index("-w")+1]
             self.functions.is_valid_address("dag",False,search_dag_addr)
+            title = "REQ WALLET"
         else:
             self.cli_grab_id({
                 "dag_addr_only": True,
@@ -862,6 +885,7 @@ class CLI():
                         if isinstance(addr_amt,str):
                             if addr_amt == search_dag_addr:
                                 color = "green"
+                                found = "TRUE"
                             test = reward_amount.get(addr_amt,False)
                             if not test:
                                 reward_amount[addr_amt] = 0
@@ -869,25 +893,35 @@ class CLI():
                         elif isinstance(addr_amt,int):
                             reward_amount[key_address] += addr_amt
         
-        first = reward_amount.popitem()                        
+        first = reward_amount.popitem()  
+        title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"                      
         print_out_list = [
             {
                 "header_elements": {
                 "START SNAPSHOT": data[-1],
-                "STOP SNAPSHOT": data[1],
+                "STOP SNAPSHOT": data[2],
+                },
+                "spacing": 25,
+            },
+            {
+                "header_elements": {
+                "START ORDINAL": start_ordinal,
+                "END ORDINAL": end_ordinal,
                 },
                 "spacing": 25,
             },
             {
                 "header_elements": {
                 "ELAPSED TIME": f"~{round((elapsed_time.seconds/60),2)}m",
+                "SNAPSHOTS": snapshot_size,
                 "REWARDED COUNT": len(reward_amount),
                 },
+                "spacing": 14,
             },
             {
                 "header_elements": {
                 "-BLANK-":None,
-                f"{title} ADDRESS FOUND (green or red)": colored(search_dag_addr,color),
+                f"{title}": colored(search_dag_addr,color),
                 },
             },
             {

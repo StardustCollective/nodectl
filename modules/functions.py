@@ -844,6 +844,7 @@ class Functions():
     def get_snapshot(self,command_obj):
         action = command_obj.get("action","latest")
         ordinal = command_obj.get("ordinal",False)
+        history = command_obj.get("history",50)
         return_type = "list"
         return_data = []
         error_secs = 2
@@ -852,9 +853,9 @@ class Functions():
         if action == "latest":
             uri = f"{be_uri}global-snapshots/latest"
             return_values = ["timestamp","ordinal"]
-        elif action == "last50":
-            uri = f"{be_uri}global-snapshots?limit=50"
-            return_values = ["rewards","timestamp"]
+        elif action == "history":
+            uri = f"{be_uri}global-snapshots?limit={history}"
+            return_values = ["rewards","ordinal","timestamp"]
             return_type = "dict_interlace"
         elif action == "ordinal":
             uri = f"{be_uri}global-snapshots/{ordinal}"
