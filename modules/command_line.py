@@ -814,7 +814,7 @@ class CLI():
         error = True
         color = "red"
         found = "FALSE"
-        title = "NDOE P12"
+        title = "NODE P12"
         profile = self.functions.default_profile
         snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
         
