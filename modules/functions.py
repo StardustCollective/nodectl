@@ -855,8 +855,7 @@ class Functions():
             return_values = ["timestamp","ordinal"]
         elif action == "history":
             uri = f"{be_uri}global-snapshots?limit={history}"
-            return_values = ["rewards","ordinal","timestamp"]
-            return_type = "dict_interlace"
+            return_type = "raw"
         elif action == "ordinal":
             uri = f"{be_uri}global-snapshots/{ordinal}"
         elif action == "rewards":
@@ -871,16 +870,15 @@ class Functions():
             self.log.logger.warn(f"attempt to access backend explorer failed with | [{e}]")
             sleep(error_secs)
         else:
-            for value in return_values:
-                if return_type == "list":
-                    return_data.append(results[value])
-                elif return_type == "dict":
-                    for v in results:
-                        return_data.append(v[value])
-                elif return_type == "dict_interlace":
-                    for value in results:
-                        for iv in return_values:
-                            return_data.append(value[iv])
+            if return_type == "raw":
+                return_data = results
+            else:
+                for value in return_values:
+                    if return_type == "list":
+                        return_data.append(results[value])
+                    elif return_type == "dict":
+                        for v in results:
+                            return_data.append(v[value])
 
             return return_data
 

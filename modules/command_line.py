@@ -819,7 +819,7 @@ class CLI():
         snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
         
         try:
-            if int(snapshot_size) > 375 or int(snapshot_size) < 10:
+            if int(snapshot_size) > 375 or int(snapshot_size) < 1:
                 self.functions.print_paragraphs([
                     [" INPUT ERROR ",0,"white,on_red"], ["the",0,"red"],
                     ["-s",0], ["option in the command",0,"red"], ["show_current_rewards",0], 
@@ -842,10 +842,10 @@ class CLI():
             })   
             
             try:
-                start_time = datetime.strptime(data[-1],"%Y-%m-%dT%H:%M:%S.%fZ")
-                end_time = datetime.strptime(data[2],"%Y-%m-%dT%H:%M:%S.%fZ")
-                start_ordinal = data[-2]
-                end_ordinal = data[1]
+                start_time = datetime.strptime(data[-1]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
+                end_time = datetime.strptime(data[0]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
+                start_ordinal = data[-1]["ordinal"]
+                end_ordinal = data[0]["ordinal"]
                 elapsed_time = end_time - start_time
             except:
                 self.log.logger.error("received data from backend that wasn't parsable, trying again")
@@ -877,29 +877,49 @@ class CLI():
             })
             search_dag_addr = self.nodeid.strip("\n")
 
-        for reward in data:
-            if isinstance(reward,list) and len(reward) >0:
-                # Function excepts an interlaced list of address, amount
-                for item in reward:
-                    for addr_amt in item.values():
-                        if isinstance(addr_amt,str):
-                            if addr_amt == search_dag_addr:
-                                color = "green"
-                                found = "TRUE"
-                            test = reward_amount.get(addr_amt,False)
-                            if not test:
-                                reward_amount[addr_amt] = 0
-                            key_address = addr_amt
-                        elif isinstance(addr_amt,int):
-                            reward_amount[key_address] += addr_amt
+        for rewards in data:
+            for reward in rewards["rewards"]:
+                if reward["destination"] in reward_amount:
+                    reward_amount[reward["destination"]] += reward["amount"]
+                    color = "green"; found == "TRUE"
+                else:
+                    reward_amount[reward["destination"]] = reward["amount"]
+                
+        # for reward in data:
+        #     if isinstance(reward,list) and len(reward) > 0:
+        #         # Function excepts an interlaced list of address, amount
+        #         for item in reward:
+        #             for addr_amt in item.values():
+        #                 if isinstance(addr_amt,str):
+        #                     if addr_amt == search_dag_addr:
+        #                         color = "green"
+        #                         found = "TRUE"
+        #                     test = reward_amount.get(addr_amt,False)
+        #                     if not test:
+        #                         reward_amount[addr_amt] = 0
+        #                     key_address = addr_amt
+        #                 elif isinstance(addr_amt,int):
+        #                     reward_amount[key_address] += addr_amt
         
         first = reward_amount.popitem()  
-        title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"                      
+        title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"   
+        
+        hours = False
+        elapsed_time = elapsed_time.seconds/60
+        if elapsed_time > 60:
+            elapsed_time = elapsed_time/60
+            hours = True   
+        elapsed_time = round(elapsed_time,2) 
+        elapsed = f"~{elapsed_time}M"
+        if hours:
+            elapsed = f"~{elapsed_time}H"
+        
+                           
         print_out_list = [
             {
                 "header_elements": {
-                "START SNAPSHOT": data[-1],
-                "STOP SNAPSHOT": data[2],
+                "START SNAPSHOT": data[-1]["timestamp"],
+                "STOP SNAPSHOT": data[0]["timestamp"],
                 },
                 "spacing": 25,
             },
@@ -912,7 +932,7 @@ class CLI():
             },
             {
                 "header_elements": {
-                "ELAPSED TIME": f"~{round((elapsed_time.seconds/60),2)}m",
+                "ELAPSED TIME": elapsed,
                 "SNAPSHOTS": snapshot_size,
                 "REWARDED COUNT": len(reward_amount),
                 },
@@ -927,7 +947,7 @@ class CLI():
             {
                 "header_elements": {
                 "REWARDED DAG ADDRESSES": first[0],
-                "AMOUNT REWARDED": first[1]/1e8,
+                "AMOUNT REWARDED": "{:,.3f}".format(first[1]/1e8)
                 },
                 "spacing": 40,
             },
@@ -952,8 +972,7 @@ class CLI():
                 if more:
                     break
                 
-            amount = amount/1e8
-            amount = "{:,.3f}".format(amount)
+            amount = "{:,.3f}".format(amount/1e8)
             if address == search_dag_addr:
                 print(f"  {colored(address,color)}  {colored(amount,color)}{colored('**','yellow',attrs=['bold'])}")
             else:
