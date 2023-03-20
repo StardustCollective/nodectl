@@ -1223,7 +1223,7 @@ def build_help(command_obj):
   the wallet address known to entered profile will be used.
   
   If a {colored('-s <snapshot_history_size>','green')} is specified the history
-  size entered will be used.  Must be between 10 and 200 snapshots.  The default
+  size entered will be used.  Must be between 10 and 375 snapshots.  The default
   value is 50.
   
   Note: Currently this command only searches on the MainNet layer0
@@ -1244,9 +1244,9 @@ def build_help(command_obj):
   # {colored('sudo nodectl show_current_rewards','cyan')}
   # {colored('sudo nodectl show_current_rewards -p <profile_name>','cyan')}
 
-  If the {colored('-f <dag_address>','green')} is specified, nodectl
+  If the {colored('-w <dag_address>','green')} is specified, nodectl
   will the requested DAG address against the MainNet explorer.
-  # {colored('sudo nodectl show_current_rewards -f <dag_address>','cyan')}
+  # {colored('sudo nodectl show_current_rewards -w <dag_address>','cyan')}
   
   If the {colored('-np','green')} is not specified nodectl 
   will attempt to paginate the output to the 
