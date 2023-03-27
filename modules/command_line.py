@@ -7,6 +7,7 @@ from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
+from secrets import compare_digest
 
 from modules.p12 import P12Class
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
@@ -2787,7 +2788,7 @@ class CLI():
                 pass_request = f'{colored("  Confirm your","green")} {colored(verb,"cyan",attrs=["bold"])} {colored("passphrase","green")}: '
                 pass2 = getpass(pass_request)
             
-                if pass1 == pass2:
+                if compare_digest(pass1,pass2):
                     if "'" not in pass1 and '"' not in pass2:
                         if len(pass1) > 9:
                             passphrases.append(pass1)

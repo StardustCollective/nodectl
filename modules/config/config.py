@@ -7,6 +7,7 @@ from copy import deepcopy
 from re import match
 from os import system, path, get_terminal_size
 from sys import exit
+from secrets import compare_digest
 
 from .migration import Migration
 from ..troubleshoot.errors import Error_codes

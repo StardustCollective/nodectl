@@ -6,6 +6,8 @@ from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
 from copy import deepcopy, copy
+from secrets import compare_digest
+
 from .migration import Migration
 from .config import Configuration
 from ..troubleshoot.logger import Logging
@@ -486,7 +488,7 @@ class Configurator():
                 while True:
                     confirm = True
                     p12_pass = self.ask_confirm_questions(pass_questions,False)
-                    if p12_pass["passphrase"] != p12_pass["pass2"]:
+                    if not compare_digest(p12_pass["passphrase"],p12_pass["pass2"]):
                         confirm = False
                         cprint("  passphrase did not match","red",attrs=["bold"])
                     if '"' in p12_pass["pass2"]:

@@ -4,6 +4,7 @@ from os import system, path, makedirs, getenv
 from getpass import getpass, getuser
 from shutil import copyfile
 from termcolor import colored, cprint
+from secrets import compare_digest
 
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
@@ -202,7 +203,7 @@ class UserClass:
             pass1 = getpass(colored(first,"magenta"))
             pass2 = getpass(colored(second,"magenta"))
 
-            if pass1 != pass2:
+            if not compare_digest(pass1,pass2):
                 results.append("match")
         
             if not self.migrating_p12:
