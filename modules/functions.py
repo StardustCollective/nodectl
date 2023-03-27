@@ -1157,7 +1157,7 @@ class Functions():
                 "color": "magenta",
             })                     
 
-            for n in range(10):
+            for n in range(5):
                 try:
                     url =f"https://{self.be_mainnet}/addresses/{wallet}/balance"
                     balance = get(url,verify=True,timeout=2).json()
@@ -1168,7 +1168,7 @@ class Functions():
                     if n == 9:
                         self.log.logger(f"pull pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
-                    sleep(5)
+                    sleep(1.5)
                 break   
             self.event = False              
         
