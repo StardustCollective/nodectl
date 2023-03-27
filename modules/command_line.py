@@ -2357,6 +2357,7 @@ class CLI():
         dag_address_only = command_obj.get("dag_addr_only",False)
         
         profile = self.profile
+        nodeid = ""
         ip_address = None
         is_global = True
         api_port = False
@@ -2456,11 +2457,11 @@ class CLI():
             else:
                 cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
         
-        if ip_address == None:
+        if ip_address == None and "-w" not in argv_list:
             with ThreadPoolExecutor() as executor:
                 self.functions.event = True
                 _ = executor.submit(self.functions.print_spinner,{
-                    "msg": f"Pulling Node ID, please wait",
+                    "msg": f"Pulling {title}, please wait",
                     "color": "magenta",
                 })                     
                 nodeid = self.functions.process_command({
@@ -2475,12 +2476,11 @@ class CLI():
         
         if command == "dag":
             # this creates a print /r status during retrieval so placed here to not affect output
-            # wallet_balance = self.functions.pull_node_balance("127.0.0.1",nodeid.strip())
-            wallet_balance = {
-                "balance_dag": 10000,
-                "balance_usd": "$10,000",
-                "dag_price": "0.04",
-            }
+            if "-w" in argv_list:
+                nodeid = argv_list[argv_list.index("-w")+1]
+                self.functions.is_valid_address("dag",False,nodeid)
+                
+            wallet_balance = self.functions.pull_node_balance("127.0.0.1",nodeid.strip())
             wallet_balance = SimpleNamespace(**wallet_balance)
 
 
@@ -2560,20 +2560,22 @@ class CLI():
                 
             if not "-b" in argv_list:
                 total_rewards = 0
-                data = self.get_and_verify_snapshots(350)
+                data = self.get_and_verify_snapshots(375)
+                elapsed = data["elapsed_time"]
                 data = data["data"]
                 show_title = True
+                found = False
                 data_point = 0
-                nodeid = "DAG88kJjiNm7aYbR4rHVBKQcgsYs7RqybdkUPXxf"
                 
                 do_more = False if "-np" in argv_list else True
                 if do_more:
                     console_size = get_terminal_size()
                     more_break = round(console_size.lines)-20  
-                                     
-                for rewards in data:
-                    for n, reward in enumerate(rewards["rewards"]):
+
+                for n, rewards in enumerate(data):
+                    for reward in rewards["rewards"]:
                         if reward["destination"] == nodeid:
+                            found = True
                             total_rewards += reward["amount"]
                             if show_title:
                                 show_title = False
@@ -2613,13 +2615,14 @@ class CLI():
                                             return
                                         show_title = True  
                             data_point += 1 
-                elapsed = self.functions.get_date_time({
-                    "action": "estimate_elapsed",
-                    "elapsed": data["elapsed_time"]
-                })
-                self.functions.print_paragraphs([
-                    [" Elapsed Time:",0], [elapsed,1,"green"]
-                ])                                         
+                if found:
+                    elapsed = self.functions.get_date_time({
+                        "action": "estimate_elapsed",
+                        "elapsed": elapsed
+                    })
+                    self.functions.print_paragraphs([
+                        ["",1],["Elapsed Time:",0], [elapsed,1,"green"]
+                    ])                                         
         if return_success:    
             if nodeid == "unable to derive":
                 return False 
