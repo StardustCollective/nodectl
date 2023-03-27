@@ -548,11 +548,23 @@ class Functions():
         action = command_obj.get("action",False)
         backward = command_obj.get("backward",True) 
         r_days = command_obj.get("days",False) # requested days
+        elapsed = command_obj.get("elapsed",False)
         
         if action == "date":
             return datetime.now().strftime("%Y-%m-%d")
         elif action == "datetime":
             return datetime.now().strftime("%Y-%m-%d-%H:%M:%SZ")
+        elif action == "estimate_elapsed":
+            hours = False
+            elapsed_time = elapsed.seconds/60
+            if elapsed_time > 60:
+                elapsed_time = elapsed_time/60
+                hours = True   
+            elapsed_time = round(elapsed_time,2) 
+            elapsed = f"~{elapsed_time}M"
+            if hours:
+                elapsed = f"~{elapsed_time}H"
+            return elapsed
         else:
             # if the action is an 
             return_val = datetime.now()+timedelta(days=r_days)

@@ -811,7 +811,6 @@ class CLI():
     def show_current_rewards(self,command_list):
         self.functions.check_for_help(command_list,"show_current_rewards") 
         reward_amount = dict()
-        error = True
         color = "red"
         found = "FALSE"
         title = "NODE P12"
@@ -834,32 +833,8 @@ class CLI():
                 "line_code": "input_error",
                 "extra": None,
             })            
-                
-        for _ in range(0,5): # 5 attempts
-            data = self.functions.get_snapshot({
-                "action": "history",
-                "history": snapshot_size
-            })   
-            
-            try:
-                start_time = datetime.strptime(data[-1]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
-                end_time = datetime.strptime(data[0]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
-                start_ordinal = data[-1]["ordinal"]
-                end_ordinal = data[0]["ordinal"]
-                elapsed_time = end_time - start_time
-            except:
-                self.log.logger.error("received data from backend that wasn't parsable, trying again")
-                sleep(2)
-            else:
-                error = False
-                break
-            
-        if error:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-831",
-                "line_code": "api_error",
-                "extra": None,
-            })
+        
+        data = self.get_and_verify_snapshots(snapshot_size)        
             
         if "-p" in command_list:
             profile = command_list[command_list.index("-p")+1]
@@ -877,56 +852,34 @@ class CLI():
             })
             search_dag_addr = self.nodeid.strip("\n")
 
-        for rewards in data:
+        for rewards in data["data"]:
             for reward in rewards["rewards"]:
                 if reward["destination"] in reward_amount:
                     reward_amount[reward["destination"]] += reward["amount"]
-                    color = "green"; found == "TRUE"
+                    color = "green"; found = "TRUE"
                 else:
                     reward_amount[reward["destination"]] = reward["amount"]
-                
-        # for reward in data:
-        #     if isinstance(reward,list) and len(reward) > 0:
-        #         # Function excepts an interlaced list of address, amount
-        #         for item in reward:
-        #             for addr_amt in item.values():
-        #                 if isinstance(addr_amt,str):
-        #                     if addr_amt == search_dag_addr:
-        #                         color = "green"
-        #                         found = "TRUE"
-        #                     test = reward_amount.get(addr_amt,False)
-        #                     if not test:
-        #                         reward_amount[addr_amt] = 0
-        #                     key_address = addr_amt
-        #                 elif isinstance(addr_amt,int):
-        #                     reward_amount[key_address] += addr_amt
         
         first = reward_amount.popitem()  
         title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"   
         
-        hours = False
-        elapsed_time = elapsed_time.seconds/60
-        if elapsed_time > 60:
-            elapsed_time = elapsed_time/60
-            hours = True   
-        elapsed_time = round(elapsed_time,2) 
-        elapsed = f"~{elapsed_time}M"
-        if hours:
-            elapsed = f"~{elapsed_time}H"
-        
+        elapsed = self.functions.get_date_time({
+            "action": "estimate_elapsed",
+            "elapsed": data["elapsed_time"]
+        })
                            
         print_out_list = [
             {
                 "header_elements": {
-                "START SNAPSHOT": data[-1]["timestamp"],
-                "STOP SNAPSHOT": data[0]["timestamp"],
+                "START SNAPSHOT": data["data"][-1]["timestamp"],
+                "STOP SNAPSHOT": data["data"][0]["timestamp"],
                 },
                 "spacing": 25,
             },
             {
                 "header_elements": {
-                "START ORDINAL": start_ordinal,
-                "END ORDINAL": end_ordinal,
+                "START ORDINAL": data["start_ordinal"],
+                "END ORDINAL": data["end_ordinal"],
                 },
                 "spacing": 25,
             },
@@ -2427,7 +2380,7 @@ class CLI():
             ip_address = self.functions.config_obj["profiles"][profile]["edge_point"]["host"]
             api_port = self.functions.config_obj["profiles"][profile]["edge_point"]["host_port"]
             outside_node_request = True
-                     
+                          
         self.log.logger.info(f"Request to display nodeid | type {command}")
 
         action_obj = {
@@ -2522,8 +2475,14 @@ class CLI():
         
         if command == "dag":
             # this creates a print /r status during retrieval so placed here to not affect output
-            wallet_balance = self.functions.pull_node_balance("127.0.0.1",nodeid.strip())
+            # wallet_balance = self.functions.pull_node_balance("127.0.0.1",nodeid.strip())
+            wallet_balance = {
+                "balance_dag": 10000,
+                "balance_usd": "$10,000",
+                "dag_price": "0.04",
+            }
             wallet_balance = SimpleNamespace(**wallet_balance)
+
 
         # clear anything off the top of screen
         self.functions.print_clear_line()
@@ -2597,7 +2556,70 @@ class CLI():
                 self.functions.print_show_output({
                     "header_elements" : header_elements
                 })  
-        
+                
+                
+            if not "-b" in argv_list:
+                total_rewards = 0
+                data = self.get_and_verify_snapshots(350)
+                data = data["data"]
+                show_title = True
+                data_point = 0
+                nodeid = "DAG88kJjiNm7aYbR4rHVBKQcgsYs7RqybdkUPXxf"
+                
+                do_more = False if "-np" in argv_list else True
+                if do_more:
+                    console_size = get_terminal_size()
+                    more_break = round(console_size.lines)-20  
+                                     
+                for rewards in data:
+                    for n, reward in enumerate(rewards["rewards"]):
+                        if reward["destination"] == nodeid:
+                            total_rewards += reward["amount"]
+                            if show_title:
+                                show_title = False
+                                print_out_list = [
+                                    {
+                                        "header_elements": {
+                                            "TIMESTAMP": data[n]["timestamp"],
+                                            "ORDINAL": data[n]["ordinal"],
+                                            "REWARD": reward["amount"]/1e8,
+                                            "TOTAL REWARDS": total_rewards/1e8
+                                        },
+                                        "spacing": 25,
+                                        "1": 10,
+                                        "2": 13,
+                                    },
+                                ]
+                                
+                                for header_elements in print_out_list:
+                                    self.functions.print_show_output({
+                                        "header_elements" : header_elements
+                                    })
+                            else: 
+                                if reward["amount"]/1e8 > 0:
+                                    self.functions.print_paragraphs([
+                                        [f'{data[n]["timestamp"]}  ',0,"white"],
+                                        [f'{data[n]["ordinal"]: <11}',0,"white"],
+                                        [f'{reward["amount"]/1e8: <14}',0,"white"],
+                                        [f'{total_rewards/1e8}',1,"white"],
+                                    ])                                    
+                                    if do_more and data_point % more_break == 0 and data_point > 0:
+                                        more = self.functions.print_any_key({
+                                            "quit_option": "q",
+                                            "newline": "both",
+                                        })
+                                        if more:
+                                            cprint("  Terminated by Node Operator","red")
+                                            return
+                                        show_title = True  
+                            data_point += 1 
+                elapsed = self.functions.get_date_time({
+                    "action": "estimate_elapsed",
+                    "elapsed": data["elapsed_time"]
+                })
+                self.functions.print_paragraphs([
+                    [" Elapsed Time:",0], [elapsed,1,"green"]
+                ])                                         
         if return_success:    
             if nodeid == "unable to derive":
                 return False 
@@ -3116,7 +3138,44 @@ class CLI():
             self.log.logger.info(f"Upgrade nodectl to new version successfully completed")
             return 0 
 
+    # ==========================================
+    # reusable methods
+    # ==========================================
 
+    def get_and_verify_snapshots(self,snapshot_size):
+        error = True
+        return_data = {}
+        for _ in range(0,5): # 5 attempts
+            data = self.functions.get_snapshot({
+                "action": "history",
+                "history": snapshot_size
+            })   
+            
+            try:
+                start_time = datetime.strptime(data[-1]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
+                end_time = datetime.strptime(data[0]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
+                return_data["start_ordinal"] = data[-1]["ordinal"]
+                return_data["end_ordinal"] = data[0]["ordinal"]
+                return_data["elapsed_time"] = end_time - start_time
+            except Exception as e:
+                self.log.logger.error(f"received data from backend that wasn't parsable, trying again | [{e}]")
+                sleep(2)
+            else:
+                error = False
+                return_data["start_time"] = start_time
+                return_data["end_time"] = end_time
+                return_data["data"] = data
+                break
+            
+        if error:
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-3151",
+                "line_code": "api_error",
+                "extra": None,
+            })
+        
+        return return_data
+                    
     # ==========================================
     # print commands
     # ==========================================
