@@ -935,20 +935,49 @@ def build_help(command_obj):
   The {colored('dag','cyan')} command takes no arguments and attempts to display the {colored('$DAG','yellow')} 
   wallet details associated with the p12 file found on the system (from the configuration).
   
+  required:
+  {colored('-p <profile_name>','green')}
+  
+  optional:
+  {colored('-w <DAG_address>','green')} 
+  {colored('-b '),'green'} ( brief )
+  {colored('-np '),'green'} ( no pagination )
+  
+  
      {colored('IP ADDRESS','yellow')}:  The IP address of the Node the command was issued against.
   {colored('P12 FILE NAME','yellow')}:  Name of the p12 file found on the Node.
    {colored('$DAG ADDRESS','yellow')}:  The address associated with your p12 Node's wallet.
    {colored('$DAG BALANCE','yellow')}:  Balance of $DAG tokens found for your wallet, in the ledger.
      {colored('$USD VALUE','yellow')}:  Converts the $DAG tokens to $USD based on the current price per $DAG.
      {colored('$DAG PRICE','yellow')}:  Price CoinGecko returns for the $DAG at the current moment of the command issuance.
-                         
+              
+  It the {colored('-b','cyan')} command is not specified, immediately following the main wallet output information
+  (as shown above) a table of data related to the last 350 snapshots will be presented to the
+  Node operator.  This will include:
+    - {colored('TIMESTAMP','yellow')}
+    - {colored('ORDINAL','yellow')}
+    - {colored('REWARD OF THAT SNAPSHOT','yellow')}
+    - {colored('TOTAL REWARDS FOR SNAPSHOT TIME FRAME','yellow')}
+  
+  Finally the estimated time period which included the last 350 snapshots
+  will be displayed.
+  
   Example Usage
   -------------
   show this help screen
   # {colored('sudo nodectl dag help','cyan')}
   
   show dag information
-  # {colored('sudo nodectl dag','cyan')}
+  # {colored('sudo nodectl dag -p <profile_name>','cyan')}
+  
+  show dag information for another wallet
+  # {colored('sudo nodectl dag -p <profile_name> -w <DAG_wallet_address>','cyan')}
+  
+  show dag wallet balances only
+  # {colored('sudo nodectl dag -p <profile_name> -b','cyan')}
+  
+  show full dag wallet details but do not paginate
+  # {colored('sudo nodectl dag -p <profile_name> -np','cyan')}
    
   '''      
         
