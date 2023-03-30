@@ -252,13 +252,21 @@ class Error_codes():
                 
                 ["This Node's network configuration may be incorrect, please check profile configuration.",2,"magenta"],
                 
-                ["Hints:",1,"yellow","bold"],
-                ["  - p12 passphrase is correct",1],
-                ["  - p12 p12 keystore location is correct",1],
-                ["  - p12 name is correct",1],
-                ["  - p12 alias is correct",1],
-                ["  - p12 private key file is corrupted",2],
-            ])            
+            ]) 
+            if var.extra == "invalid":           
+                self.functions.print_paragraphs([                
+                    ["Hints:",1,"yellow","bold"],
+                    ["  - node id must be 128 byte public key hex encoded value",2],
+                ])   
+            else:         
+                self.functions.print_paragraphs([                
+                    ["Hints:",1,"yellow","bold"],
+                    ["  - p12 passphrase is correct",1],
+                    ["  - p12 p12 keystore location is correct",1],
+                    ["  - p12 name is correct",1],
+                    ["  - p12 alias is correct",1],
+                    ["  - p12 private key file is corrupted",2],
+                ])            
             if var.extra == "config":
                 self.functions.print_paragraphs([
                     ["Configuration setup failed",2,"red","bold"]

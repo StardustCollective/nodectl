@@ -2715,35 +2715,30 @@ class CLI():
             })  
             
         
-    def cli_dag_to_node(self,argv_list):
-        dag = argv_list[0]
-        dag = "f1322ca97b3374caa38deb14cce786e47cb8cfdbb58dddb14b1fce698b1830c6f8bbf5dfc47b60464ce3fe7b7d66930d05e5de86177ba36891629bbd6da1fc84"
-        # dag = "ec1fb6d31a82f8f1cc444215e357b144b9d3fae2f1322ca97b3374caa38deb14cce786e47cb8cfdbb58dddb14b1fce698b1830c6f8bbf5dfc47b60464ce3fe7b7d66930d05e5de86177ba36891629bbd6da1fc84"
-        # dag = "f1322ca97b3374caa38deb14cce786e47cb8cfdbb58dddb14b1fce698b1830c6f8bbf5dfc47b60464ce3fe7b7d66930d05e5de86177ba36891629bbd6da1fc84ec1fb6d31a82f8f1cc444215e357b144b9d3fae2"
-        # dag = "f1322ca97b3374caa38deb14cce786e47cb8cfdbb58dddb14b1fce698b1830c6"
-        # dag = "f8bbf5dfc47b60464ce3fe7b7d66930d05e5de86177ba36891629bbd6da1fc84"
-        # dag = 'ec1fb6d31a82f8f1cc444215e357b144b9d3fae2'
-        # dag = 'ec:1f:b6:d3:1a:82:f8:f1:cc:44:42:15:e3:57:b1:44:b9:d3:fa:e2'
-        dag2 = "DAG2uPgWYdsf4HNxXTbVgTg7Cne1SShTaYvR827N"
-        # dag2 = "uPgWYdsf4HNxXTbVgTg7Cne1SShTaYvR827N"
-        if self.primary_command == "dag2node":
-            pass
+    def cli_nodeid2dag(self,argv_list):
+        pkcs_prefix = "3056301006072a8648ce3d020106052b8104000a03420004"  # PKCS prefix + 04 required byte
+        
+        try:
+            nodeid = argv_list[0]
+        except:
+            nodeid = 0  # force error
         else:
-            # dags = dag.split(":")
-            dags = [dag[i:i+2] for i in range(0, len(dag), 2)]
-            dag_str = ""
-            for dag in dags:
-                dag = dag.encode('UTF-8')
-                dag = sha256(dag)
-                dag = dag.hexdigest()
-                dag_str = f"{dag_str}{dag}"
-                # dag = dag[0:36]  
-            dag = base58.b58encode(bytes.fromhex(dag))  
-            dag = dag[0:36] 
-            # dag = base58.b58encode(dag)   
-            dag = dag.decode()
-            check_digits = re.sub('[^0-9]+','',dag)
-                  
+            output_nodeid = f"{nodeid[0:8]}...{nodeid[-8:]}"
+        
+        if len(nodeid) == 128:
+            nodeid = f"{pkcs_prefix}{nodeid}"
+        else:
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-2735",
+                "line_code": "node_id_issue",
+                "extra": "invalid"
+            })
+
+        nodeid = sha256( bytes.fromhex(nodeid)).hexdigest()
+        nodeid = base58.b58encode(bytes.fromhex(nodeid)).decode()
+        nodeid = nodeid[len(nodeid)-36:]  
+
+        check_digits = re.sub('[^0-9]+','',nodeid)
         check_digit = 0
         for n in check_digits:
             check_digit += int(n)
@@ -2751,14 +2746,24 @@ class CLI():
         if check_digit > 9:
             check_digit = check_digit % 9
             
-        dag_address = f"DAG{check_digit}{dag}"
-        print(dag_address)
+        dag_address = f"DAG{check_digit}{nodeid}"
 
+        print_out_list = [
+            {
+                "header_elements" : {
+                "NODEID": output_nodeid,
+                "DAG ADDRESS": dag_address
+                },
+            },
+        ]
+        
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })  
         
         return
-        
-        b'CaeRad2NUAzzRubDDWg5cbhH7w9TdPFf4Nvo94iAw9Zk'
-    
+
                  
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")

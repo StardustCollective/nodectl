@@ -196,8 +196,8 @@ class ShellHandler:
             cli.show_peers(self.argv)
         elif self.called_command == "whoami":
             cli.show_ip(self.argv)
-        elif self.called_command == "dag2node" or self.called_command == "node2dag":
-            cli.cli_dag_to_node(self.argv)
+        elif self.called_command == "nodeid2dag":
+            cli.cli_nodeid2dag(self.argv)
         elif self.called_command == "show_node_states" or self.called_command == "_sns":
             cli.show_node_states(self.argv)
         elif self.called_command == "passwd12":
