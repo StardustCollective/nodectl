@@ -22,7 +22,7 @@ def build_help(command_obj):
       "clean_snapshots","check_seedlist", "export_private_key",
       "update_seedlist", "check_source_connection","health","sec",
       "price","markets", "upgrade_path", "refresh_binaries", 
-      "check_seedlist_participation", "check_version"
+      "check_seedlist_participation", "check_version",
     ]
     
     help_text = f'''
@@ -149,6 +149,7 @@ def build_help(command_obj):
     log -l <log_type> -g <grep_word> -f  | - show logs for requested log type
     
     whoami  | - show your system's external ip
+    nodeid2dag | - convert nodeid to dag wallet address
     
     id                  | - show your system's node id address
     nodeid              | - show your system's node id address
@@ -1173,7 +1174,23 @@ def build_help(command_obj):
   profile name of the network you are searching.
   
   example)
-  {colored('sudo nodectl whoami -id <node_id> -p <profile>','cyan')}
+  # {colored('sudo nodectl whoami -id <node_id> -p <profile>','cyan')}
+  '''
+        
+        
+    if extended == "nodeid2dag":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored('nodeid2dag','cyan')} command will take in a required
+  128 byte hexadecimal string and converts it into 
+  its associated Constellation Network DAG 
+  wallet address.
+  
+  required:
+  {colored('<node id>','green')}
+  
+  example)
+  # {colored('sudo nodectl nodeid2dag <node_id>','cyan')}
   '''
         
         

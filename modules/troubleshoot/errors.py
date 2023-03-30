@@ -164,6 +164,15 @@ class Error_codes():
             ])
             
             
+        elif var.line_code == "off_network":
+            self.log.logger.critical(f"attempt to issue command that returned empty values. Is the Node on the network?")
+            self.functions.print_paragraphs([
+                ["Something isn't quite right?",2,"bold","red"],
+                ["nodectl",0,"red","bold,underline"], ["was unable to access data associated with the command entered?",1,"red","bold"],
+                ["Are you sure this Node is on the HyperGraph?",2,"red","bold"],
+            ])
+            
+            
         elif var.line_code == "join":
             self.log.logger.critical("attempt to join cluster failed.")
             self.functions.print_paragraphs([

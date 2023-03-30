@@ -39,7 +39,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.3.0"
+        self.node_nodectl_version = "v2.4.0"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -638,7 +638,13 @@ class Functions():
                 self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                 pass
             
-            cluster_info.pop()
+            try:
+                cluster_info.pop()
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "fun-645",
+                    "line_code": "off-network",
+                })
             
             for n in range(0,max_range):
                 node = random.choice(cluster_info)

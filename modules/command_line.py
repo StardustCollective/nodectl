@@ -2716,6 +2716,7 @@ class CLI():
             
         
     def cli_nodeid2dag(self,argv_list):
+        self.functions.check_for_help(argv_list,"nodeid2dag")
         pkcs_prefix = "3056301006072a8648ce3d020106052b8104000a03420004"  # PKCS prefix + 04 required byte
         
         try:
