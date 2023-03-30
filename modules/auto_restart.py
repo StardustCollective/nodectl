@@ -24,7 +24,7 @@ class AutoRestart():
         self.functions.auto_restart = True
         self.functions.set_default_variables(thread_profile)
 
-        debug_short_timer = False # secondary debug mechanism for faster testing
+        debug_short_timer = True # secondary debug mechanism for faster testing
         self.debug = False # full debug - disable restart and join actions
         self.allow_upgrade = allow_upgrade # only want one thread to attempt auto_upgrade
         self.retry_tolerance = 50
@@ -361,28 +361,39 @@ class AutoRestart():
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - initiated - profile [{self.node_service.profile}] ")
         attempts = 1
         notice_warning = ""
+        warning = False
+        auto_upgrade_success = True
+        
         while True:
             versions = self.functions.test_n_check_version("get")
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version checked | [{versions}]")
             try:
                 if versions[0] == versions[1]:
                     self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions matched | Hypergraph [{versions[0]}] Node [{versions[1]}]")
-                    return True
+                    if not self.auto_upgrade or auto_upgrade_success:
+                        return True
+                    elif self.auto_upgrade and not auto_upgrade_success:
+                        self.log.logger.error("auto_restart - auto_upgrade - was unsuccessful downloading new version.")
+                    warning = True
             except Exception as e:
                 self.log.logger.critical(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - and we received an error [{e}] - sleeping 10m")
                 sleep(self.sleep_on_critical) # ten minutes
             self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - versions matched | Hypergraph [{versions[0]}] Node [{versions[1]}] - entering attempts looper [180] delay")
             if self.auto_upgrade:
                 notice_warning = "auto_upgrade to obtain "
-                self.node_service.download_constellation_binaries({
+                auto_upgrade_success = self.node_service.download_constellation_binaries({
                     "print_version": False,
                     "action": "auto_restart",
                     "download_version": versions[0],
                 })
+                if not auto_upgrade_success:
+                    warning = True
             else:
                 self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] - auto_upgrade disabled.")
                 notice_warning = "node operator to obtain "
-            attempts = self.attempts_looper(attempts,f"pausing for {notice_warning}new version",30,10,True)
+            if warning:
+                attempts = self.attempts_looper(attempts,f"pausing for {notice_warning}new version",30,10,True)
+            warning = False
            
            
     def stop_start_handler(self,action):

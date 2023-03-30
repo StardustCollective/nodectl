@@ -166,24 +166,26 @@ class Node():
                 if auto_restart:
                     if copy_state == "complete":
                         self.log.logger.debug(f"auto_restart - auto_upgrade - node_service - completed successfully [{file}]")
-                        return
+                        return True
                     sleep(2)
-                    attempts = attempts =+ 1
+                    attempts = attempts + 1
                     if attempts > 3:
                         self.log.logger.critical(f"auto_restart - auto_upgrade - node service is unable to download [{file}]")
+                        return False
                     self.log.logger.error(f"auto_restart - auto_upgrade - node service is unable to download [{file}] trying again attempt [{attempts}]")
-                    copy_state = "complete"
                 else:
                     cur_pos = screen_print_download_results(file)
                     file_obj_copy["cur_pos"] = cur_pos
                     return file_obj_copy
-
             
         if action == "auto_restart":
+            result = True
             for file in files:
                 if file != "cur_pos": 
-                    _ = threaded_download([file_obj,file,self.auto_restart])
-            return
+                    single_result = threaded_download([file_obj,file,self.auto_restart]) # not threaded with auto_restart
+                    if not single_result: 
+                        result = False # once set to false, don't update again
+            return result
         
         if not self.auto_restart:
             for file in files:

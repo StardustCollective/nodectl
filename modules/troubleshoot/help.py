@@ -939,11 +939,10 @@ def build_help(command_obj):
   {colored('-p <profile_name>','green')}
   
   optional:
-  {colored('-w <DAG_address>','green')} 
-  {colored('-b '),'green'} ( brief )
-  {colored('-np '),'green'} ( no pagination )
-  
-  
+  {colored(' -w <DAG_address>','green')}
+  {colored(' -b ','green')} ( brief )
+  {colored('-np ','green')} ( no pagination )
+    
      {colored('IP ADDRESS','yellow')}:  The IP address of the Node the command was issued against.
   {colored('P12 FILE NAME','yellow')}:  Name of the p12 file found on the Node.
    {colored('$DAG ADDRESS','yellow')}:  The address associated with your p12 Node's wallet.
@@ -954,6 +953,7 @@ def build_help(command_obj):
   It the {colored('-b','cyan')} command is not specified, immediately following the main wallet output information
   (as shown above) a table of data related to the last 350 snapshots will be presented to the
   Node operator.  This will include:
+  
     - {colored('TIMESTAMP','yellow')}
     - {colored('ORDINAL','yellow')}
     - {colored('REWARD OF THAT SNAPSHOT','yellow')}

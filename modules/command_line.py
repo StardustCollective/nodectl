@@ -1,5 +1,7 @@
 import re
+import base58
 
+from hashlib import sha256
 from time import sleep, perf_counter
 from datetime import datetime
 from os import system, path, get_terminal_size, SEEK_END, SEEK_CUR
@@ -2599,7 +2601,7 @@ class CLI():
                                         "header_elements" : header_elements
                                     })
                             else: 
-                                if reward["amount"]/1e8 > 0:
+                                if reward["amount"] > 9999999:
                                     self.functions.print_paragraphs([
                                         [f'{data[n]["timestamp"]}  ',0,"white"],
                                         [f'{data[n]["ordinal"]: <11}',0,"white"],
@@ -2677,6 +2679,9 @@ class CLI():
         if source_obj["ip"] == "127.0.0.1" or source_obj["ip"] == "self":
             source_obj["ip"] = self.ip_address
 
+        if len(target_ip) > 127:
+            target_ip = f"{target_ip[:8]}...{target_ip[-8:]}"
+            
         spacing = 21            
         print_out_list = [
             {
@@ -2709,7 +2714,52 @@ class CLI():
                 "header_elements" : header_elements
             })  
             
-                     
+        
+    def cli_dag_to_node(self,argv_list):
+        dag = argv_list[0]
+        dag = "f1322ca97b3374caa38deb14cce786e47cb8cfdbb58dddb14b1fce698b1830c6f8bbf5dfc47b60464ce3fe7b7d66930d05e5de86177ba36891629bbd6da1fc84"
+        # dag = "ec1fb6d31a82f8f1cc444215e357b144b9d3fae2f1322ca97b3374caa38deb14cce786e47cb8cfdbb58dddb14b1fce698b1830c6f8bbf5dfc47b60464ce3fe7b7d66930d05e5de86177ba36891629bbd6da1fc84"
+        # dag = "f1322ca97b3374caa38deb14cce786e47cb8cfdbb58dddb14b1fce698b1830c6f8bbf5dfc47b60464ce3fe7b7d66930d05e5de86177ba36891629bbd6da1fc84ec1fb6d31a82f8f1cc444215e357b144b9d3fae2"
+        # dag = "f1322ca97b3374caa38deb14cce786e47cb8cfdbb58dddb14b1fce698b1830c6"
+        # dag = "f8bbf5dfc47b60464ce3fe7b7d66930d05e5de86177ba36891629bbd6da1fc84"
+        # dag = 'ec1fb6d31a82f8f1cc444215e357b144b9d3fae2'
+        # dag = 'ec:1f:b6:d3:1a:82:f8:f1:cc:44:42:15:e3:57:b1:44:b9:d3:fa:e2'
+        dag2 = "DAG2uPgWYdsf4HNxXTbVgTg7Cne1SShTaYvR827N"
+        # dag2 = "uPgWYdsf4HNxXTbVgTg7Cne1SShTaYvR827N"
+        if self.primary_command == "dag2node":
+            pass
+        else:
+            # dags = dag.split(":")
+            dags = [dag[i:i+2] for i in range(0, len(dag), 2)]
+            dag_str = ""
+            for dag in dags:
+                dag = dag.encode('UTF-8')
+                dag = sha256(dag)
+                dag = dag.hexdigest()
+                dag_str = f"{dag_str}{dag}"
+                # dag = dag[0:36]  
+            dag = base58.b58encode(bytes.fromhex(dag))  
+            dag = dag[0:36] 
+            # dag = base58.b58encode(dag)   
+            dag = dag.decode()
+            check_digits = re.sub('[^0-9]+','',dag)
+                  
+        check_digit = 0
+        for n in check_digits:
+            check_digit += int(n)
+            
+        if check_digit > 9:
+            check_digit = check_digit % 9
+            
+        dag_address = f"DAG{check_digit}{dag}"
+        print(dag_address)
+
+        
+        return
+        
+        b'CaeRad2NUAzzRubDDWg5cbhH7w9TdPFf4Nvo94iAw9Zk'
+    
+                 
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")
         self.functions.check_for_help(command_list,"passwd12")
