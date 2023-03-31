@@ -241,10 +241,10 @@ class Node():
         # after new State Channel requirements are identified
         # ===============================
         
+        self.log.logger.debug("node service - download seed list initiated...")
         profile = command_obj.get("profile",self.profile)
         install_upgrade = command_obj.get("install_upgrade",True)
-        
-        self.log.logger.debug("node service - download seed list initiated...")
+        download_version = command_obj.get("download_version","default")
         environment_name = self.functions.config_obj["profiles"][profile]["environment"]
         seed_path = self.functions.config_obj["profiles"][profile]["pro"]["seed_path"]    
         
@@ -276,22 +276,22 @@ class Node():
             })
         
         # includes seed-list access-list  
-        if self.version_obj == None or self.version_obj['cluster_tess_version'] == "v0.0.0":
-            try:
-                self.version_obj['cluster_tess_version'] = self.functions.get_version({
-                    "which": "cluster_tess",
-                    "print_message": print_message,
-                    "action": command_obj.get("action","normal")
-                })
-            except Exception as e:
-                self.log.logger.error(f"could not properly retrieve cluster version [{e}]")
-
+        if download_version == "default":
+            if self.version_obj == None or self.version_obj['cluster_tess_version'] == "v0.0.0":
+                try:
+                    download_version = self.functions.get_version({
+                        "which": "cluster_tess",
+                        "print_message": print_message,
+                        "action": command_obj.get("action","normal")
+                    })
+                except Exception as e:
+                    self.log.logger.error(f"could not properly retrieve cluster version [{e}]")
         
         self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
         if environment_name == "testnet":
             bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
         else:
-            bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{self.version_obj['cluster_tess_version']}/mainnet-seedlist -O {seed_path} -o /dev/null"
+            bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
             
         if not self.auto_restart:
             self.functions.print_cmd_status(progress)
