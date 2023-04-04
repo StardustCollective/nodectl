@@ -655,7 +655,11 @@ class ShellHandler:
 
        
     def auto_restart_handler(self,action,cli=False,manual=False):
-        warning = False  
+        restart_request = warning = False  
+        if action == "restart":
+            action = "disable"
+            restart_request = True
+            
         if action == "service_start":
             self.log.logger.info("auto_restart - restart session threader - invoked.")
 
@@ -676,7 +680,8 @@ class ShellHandler:
                     )
                 thread_wait(thread_list,timeout=None,return_when=concurrent.futures.FIRST_EXCEPTION)
                 self.log.logger.critical("shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
-                # system(f'sudo systemctl restart node_restart@"enable" > /dev/null 2>&1')
+                action = "disable"
+                restart_request = True # if the thread returns without a failure, this should not happen, attempt a restart
                 
         if action == "disable":
             if not self.auto_restart_pid:
@@ -685,7 +690,7 @@ class ShellHandler:
                 end_status = "not running"
                 end_color = "blue"
                 if self.auto_restart_pid != "disabled":
-                    end_status = "complete"
+                    end_status = "disabled"
                     end_color = "green"
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
@@ -708,7 +713,7 @@ class ShellHandler:
                     "newline": True,
                 })
                 
-                if self.auto_restart_pid != "disabled":
+                if self.auto_restart_pid != "disabled" and not restart_request:
                     verb = "of next" if manual else "of"
                     if self.auto_restart_enabled:
                         cprint(f"  Auto Restart will reengage at completion {verb} requested task","green")
@@ -717,7 +722,14 @@ class ShellHandler:
                     self.log.logger.debug(f"auto_restart process pid: [{self.auto_restart_pid}] killed") 
                     self.auto_restart_pid = False # reset 
 
-                return
+                if restart_request:
+                    system('sudo systemctl start node_restart@"enable" > /dev/null 2>&1')
+                    cprint("  auto_restart restart request completed.","green",attrs=["bold"])
+                    time.sleep(.5)
+                    self.get_auto_restart_pid()
+                    action = "check_pid"
+                else:
+                    return
         
         if action == "check_pid" or action == "current_pid" or action =="status":
             self.functions.print_clear_line()

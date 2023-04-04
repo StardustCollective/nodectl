@@ -19,8 +19,6 @@ class Logging():
     def log_setup(self):
         logger = logging.getLogger("nodectl_logging")
         if not len(logger.handlers):
-            logger.setLevel(logging.INFO)
-
             formatter = logging.Formatter(
                 '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',
                 '%b %d %H:%M:%S')
@@ -30,6 +28,8 @@ class Logging():
             log_handler.setFormatter(formatter)
 
             logger.addHandler(log_handler)
+            logger.setLevel(logging.INFO)
+            
         self.logger = logger
 
     def check_for_log_file(self):
