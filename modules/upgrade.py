@@ -4,6 +4,7 @@ from time import sleep
 from termcolor import colored, cprint
 from re import match
 from types import SimpleNamespace
+from hurry.filesize import size, alternative
 
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
@@ -254,6 +255,7 @@ class Upgrader():
                 self.download_version = input(version_str)
             if not self.download_version:
                 self.download_version = self.version_obj['cluster_tess_version']
+                self.download_version = "v2.0.0-alpha.2"
                 break
             else:
                 if self.download_version[0] == "V":
@@ -471,35 +473,71 @@ class Upgrader():
         # v1.12.0 > v2.0.0 only
         for n in range(0,2):
             if path.isdir(f"/var/tessellation/layer{n}/"): 
+                
                 with ThreadPoolExecutor() as executor:
                     if n == 0:
+                        snap_migration = False
+                        snapshot = self.functions.get_dir_size(f"/var/tessellation/layer{n}/")
+                        
                         self.functions.print_paragraphs([
-                            ["A",0], ["possible",0,"yellow"], ["migration from version [",0],
+                            ["",1], ["A",0], ["possible",0,"yellow"], ["migration from version [",0],
                             ["v1.x.x",-1,"yellow","bold"], ["] to [",-1], ["v2.x.x",-1,"yellow","bold"],
-                            ["] has been detected.",-1],
-                            ["The next steps may take some time to complete.",0],
-                            ["Please exercise patience",0,"magenta"], ["during the migration.",1],
-                        ])
-                        progress ={
-                            "text_start": "Handling migration snapshots",
-                            "status": "running",
-                            "dotted_animation": True,
-                        }
-                        self.functions.status_dots = True
-                        _ = executor.submit(self.functions.print_cmd_status,progress)
+                            ["] has been detected.",-1],["",2],
+                            
+                            ["This Validator Node holds",0], [size(snapshot,system=alternative),0,"yellow"], ["of snapshot files currently.",2],
+                            
+                            ["If you are an",0], ["advanced",0,"red","underline"], ["Node Operator, and your Node currently is using this data to retrieve historical or other references",0],
+                            ["related to any specific requirements you have regarding the snapshots, you should retain them.",2],
 
-                        cmd = "sudo find /var/tessellation/layer0/data/snapshot/ -type f -mtime +30 -delete > /dev/null 2>&1"
-                        system(cmd)
-                        self.functions.status_dots = False
-                        self.functions.print_cmd_status({
-                            **progress,
-                            "dotted_animation": False,
-                            "status": "complete",
-                            "status_color": "green",
-                            "newline": True,
-                        })    
+                            ["If you do",0,"green"], ["not",0, "green","bold"], ["use historical data and simply run your Node",0,"green"],
+                            ["to participate in the Hypergraph operations as a simple Validator, you should choose",0,"green"],
+                            ['no [n]',0,"yellow","bold"], ["for the following question.",2,"green"],
+                        ])
+                        
+                        prompt = "Do you want to retain and migrate your snapshot data during this migration?"                        
+                        snap_migration = self.functions.confirm_action({
+                            "yes_no_default": "n",
+                            "return_on": "y",
+                            "prompt": prompt,
+                            "exit_if": False,
+                        })
+                        
+                        if snap_migration:
+                            self.functions.print_paragraphs([
+                                ["The next steps may take u to 45 minutes to complete.",0],
+                                ["During this time you will be presented with a",0],["running",0,"yellow"],["indicator.  Please do not interrupt the migration",0],
+                                ["until it completes, to avoid migration corruption.",2],
+                                ["Please exercise patience",0,"magenta"], ["during the migration.",1],
+                            ])
+                            
+                            progress ={
+                                "text_start": "Handling migration snapshots",
+                                "status": "running",
+                                "dotted_animation": True,
+                            }
+                            self.functions.status_dots = True
+                            _ = executor.submit(self.functions.print_cmd_status,progress)
+
+
+                            cmd = "sudo find /var/tessellation/layer0/data/snapshot/ -type f -mtime +30 -delete > /dev/null 2>&1"
+                            system(cmd)
+                            self.functions.status_dots = False
+                            self.functions.print_cmd_status({
+                                **progress,
+                                "dotted_animation": False,
+                                "status": "complete",
+                                "status_color": "green",
+                                "newline": True,
+                            }) 
 
                     sleep(.3)
+                    if not snap_migration:
+                        self.functions.print_cmd_status({
+                            "text_start": "Skipping snapshot migration",
+                            "newline": True,
+                            "text_color": "green"
+                        })
+                                                
                     progress = {
                         "text_start": "Migrating legacy",
                         "brackets": f"layer{n} > dag-l{n}",
@@ -513,8 +551,10 @@ class Upgrader():
                         self.functions.status_dots = True
                         _ = executor.submit(self.functions.print_cmd_status,progress)
 
-                        cmd = f"rsync -a --remove-source-files /var/tessellation/layer{n}/ /var/tessellation/dag-l{n}/ > /dev/null 2>&1"
-                        system(cmd)
+                        if snap_migration:
+                            cmd = f"rsync -a --remove-source-files /var/tessellation/layer{n}/ /var/tessellation/dag-l{n}/ > /dev/null 2>&1"
+                            system(cmd)
+                            
                         cmd = f"rm -rf /var/tessellation/layer{n}/ > /dev/null 2>&1"
                         system(cmd)
                         

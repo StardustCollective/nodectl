@@ -531,7 +531,7 @@ class Configurator():
                     ["If you need to create a p12 private key file:",1,"yellow"],
                     ["sudo nodectl generate_p12",2],
 
-                    ["nodectl",0,"blue","bold"], ["has three configuration options for access into various State Channels or Layer0 channels via a user defined configuration profile.",2],
+                    ["nodectl",0,"blue","bold"], ["has three configuration options for access into various Metagraphs or Layer0 channels via a user defined configuration profile.",2],
 
                 ]
                 self.c.functions.print_paragraphs(paragraphs)
@@ -542,7 +542,7 @@ class Configurator():
                 print(wrapper.fill(f"{colored('1','magenta',attrs=['bold'])}{colored(': Global     - Setup a global wallet that will work with all profiles.','magenta')}"))
                 print(wrapper.fill(f"{colored('2','magenta',attrs=['bold'])}{colored(': Dedicated  – Setup a unique p12 file per profile.','magenta')}"))
                 
-                text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the Node to have State Channels that uses dedicated (individual) wallets, per State Channel or Layer0 network."
+                text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the Node to have Metagraphs that uses dedicated (individual) wallets, per State Channel or Layer0 network."
                 print(wrapper.fill(f"{colored('3','magenta',attrs=['bold'])}{colored(text3,'magenta')}"))
             
             self.is_all_global = self.c.functions.confirm_action({
@@ -826,7 +826,7 @@ class Configurator():
         questions = {
             "layer": {
                 "question": f"  {colored(f'What blockchain (DLT) layer is this profile {profile} running','cyan')}",
-                "description": "The distributed layer technology 'DLT' generally called the blockchain ($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid integer (number) between 0 and 4, for the 5 available layers. State Channels are generally always layer 1.",
+                "description": "The distributed layer technology 'DLT' generally called the blockchain ($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid integer (number) between 0 and 4, for the 5 available layers. Metagraphs are generally always layer 1.",
                 "default": default,
                 "required": False,
             },
@@ -1175,7 +1175,7 @@ class Configurator():
             snapshot_instructions += "This directory can get really large and needs to be maintained. Some administrators will want to move this "
             snapshot_instructions += "directory to a network attached (or other) location. This location must be a mounted directory. For inexperienced or"
             snapshot_instructions += "non-technical Node Operators, it is advised to enter in the key word 'default' here. Also note that for some Layer "
-            snapshot_instructions += "1 State Channels (including Constellation's DAG State Channel) the snapshots directory should be set to 'disable' "
+            snapshot_instructions += "1 Metagraphs (including Constellation's DAG State Channel) the snapshots directory should be set to 'disable' "
             snapshot_instructions += "as it is not used. Consult with the State Channel user guides or with their administrators for proper directory "
             snapshot_instructions += "locations. The snapshot directory should be set from the onset of the Node setup, it is dangerous to change its location "
             snapshot_instructions += "'after-the-fact'.  THIS DIRECTORY SHOULD BE A FULL PATH "

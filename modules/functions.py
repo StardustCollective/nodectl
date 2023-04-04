@@ -1446,7 +1446,7 @@ class Functions():
     def check_config_testnet_mainnet(self):
         # if there is not a configuration (during installation)
         # check what the primary network is
-        # this method will need to be refactored as new State Channels
+        # this method will need to be refactored as new Metagraphs
         # register with Node Garage or Constellation (depending)
         try:
             self.network_name = self.config_obj["profiles"][self.default_profile]["environment"]             

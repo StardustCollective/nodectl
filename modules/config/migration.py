@@ -123,16 +123,17 @@ class Migration():
             self.functions.print_paragraphs(paragraphs)
             
         if disclaimer:
+            self.printer_config_header()
             paragraphs = [
                 ["",1],["nodectl v2",0,"cyan","bold"], ["introduces the ability to use different Node wallets",0,"blue","bold"],
-                ["(p12 private keys)",0,"yellow"], ["per profile",0,"blue","bold"], ["(layer0 and/or layer1 State Channels)",0,"yellow"],[".",-1,"blue","bold"],
+                ["(p12 private keys)",0,"yellow"], ["per profile",0,"blue","bold"], ["(layer0 and/or layer1 Metagraphs)",0,"yellow"],[".",-1,"blue","bold"],
                 ["",2],
                 
                 ["A new concept for",0,"blue","bold"], ["nodectl v2",0,"cyan","bold"], ["includes a",0,"blue","bold"],
                 ["GLOBAL",0,"yellow,on_magenta","bold"], ["section within the configuration that can be used to assign a single p12 to all or some",0,"blue","bold"],
                 ["of the profiles, on your Node.",2,"blue","bold"],
                 
-                ["The p12 content details from the Node's",0,"blue","bold"], ["global p12",0,"yellow"], ["cn-node",0, "cyan"],
+                ["The p12 content details from the Node's",0,"blue","bold"], ["global p12",0,"yellow"], ["cn-node",0,"cyan","underline"],["",0],
                 ["file including credentials will be added to the",0,"blue","bold"], ["global p12",0,"yellow"],
                 ["section of the new configuration file.",2,"blue","bold"],
                 
@@ -272,16 +273,16 @@ class Migration():
         self.log.logger.warn("backing up legacy cn-node file to [/var/tessellation/backups] this file should be removed at a later date.")
         
         self.functions.print_paragraphs([
-            ["",1], ["THE",0,"red","bold"], ["cn-node",0, "yellow","underline"], 
+            ["",1], [" DANGER ",0,"yellow,on_red"], ["THE",0,"red","bold"], ["cn-node",0, "yellow","underline"], 
             ["FILE MAY CONTAIN A P12 PASSPHRASE, FOR SECURITY PURPOSES, PLEASE REMOVE AS NECESSARY!",2,"red","bold"],
             
-            ["After the",0], ["migration",0,"cyan","underline"], ["is complete, the",0], 
-            ["upgrader",0,"yellow","bold"], ["will continue and will prompt you to remove the contents of the backup directory",0],
-            ["where the",0], [" cn-node ",0,"white,on_blue"], ["has been backed up within.  If you choose to empty the contents",0],
-            ["of this directory, you will remove the backup",0], ["cn-node",0,"cyan","underline"], ["file.",2],
+            [" CAUTION ",0,"red,on_yellow"],["After the",0,"yellow"], ["migration",0,"cyan","underline"], ["is complete, the",0,"yellow"], 
+            ["upgrader",0,"magenta","bold"], ["will continue and will prompt you to remove the contents of the backup directory",0,"yellow"],
+            ["where the",0,"yellow"], [" cn-node ",0,"white,on_blue"], ["has been backed up within. If you choose to empty the contents",0,"yellow"],
+            ["of this directory, you will remove the backup",0,"yellow"], ["cn-node",0,"cyan","underline"], ["file.",2,"yellow"],
             
-            ["backup filename:",0], [f"cn-node.{datetime}backup",1,"yellow"],
-            ["backup location:",0], ["/var/tessellation/backups/",1,"yellow"],
+            ["backup filename:",0], [f"cn-node.{datetime}backup",1,"magenta"],
+            ["backup location:",0], ["/var/tessellation/backups/",1,"magenta"],
         ])
 
     # =======================================================
