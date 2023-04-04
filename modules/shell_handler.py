@@ -734,7 +734,7 @@ class ShellHandler:
                     return
         
         if action == "check_pid" or action == "current_pid" or action =="status":
-            config_restart = self.functions.config_obj["auto_restart"]["auto_restart"]
+            config_restart = self.functions.config_obj["auto_restart"]["enable"]
             config_restart_color = "green" if config_restart else "red"
             config_upgrade = self.functions.config_obj["auto_restart"]["auto_upgrade"]
             config_upgrade_color = "green" if config_upgrade else "red"

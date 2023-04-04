@@ -255,7 +255,6 @@ class Upgrader():
                 self.download_version = input(version_str)
             if not self.download_version:
                 self.download_version = self.version_obj['cluster_tess_version']
-                self.download_version = "v2.0.0-alpha.2"
                 break
             else:
                 if self.download_version[0] == "V":
