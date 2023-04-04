@@ -656,6 +656,9 @@ class ShellHandler:
        
     def auto_restart_handler(self,action,cli=False,manual=False):
         restart_request = warning = False  
+        if "--auto_grade" in self.argv:
+            self.functions.config_obj["auto_restart"]["auto_upgrade"] = True
+            
         if action == "restart":
             action = "disable"
             restart_request = True
@@ -680,8 +683,7 @@ class ShellHandler:
                     )
                 thread_wait(thread_list,timeout=None,return_when=concurrent.futures.FIRST_EXCEPTION)
                 self.log.logger.critical("shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
-                action = "disable"
-                restart_request = True # if the thread returns without a failure, this should not happen, attempt a restart
+                self.log.logger.warn("shell handler auto restart handler service periodic restart may have been triggered")
                 
         if action == "disable":
             if not self.auto_restart_pid:
@@ -732,6 +734,11 @@ class ShellHandler:
                     return
         
         if action == "check_pid" or action == "current_pid" or action =="status":
+            config_restart = self.functions.config_obj["auto_restart"]["auto_restart"]
+            config_restart_color = "green" if config_restart else "red"
+            config_upgrade = self.functions.config_obj["auto_restart"]["auto_upgrade"]
+            config_upgrade_color = "green" if config_upgrade else "red"
+            
             self.functions.print_clear_line()
             self.functions.print_cmd_status({
                 "text_start": "node",
@@ -740,7 +747,22 @@ class ShellHandler:
                 "status": self.auto_restart_pid,
                 "status_color": "magenta",
                 "newline": True,
+            })            
+            
+            self.functions.print_cmd_status({
+                "text_start": "node configuration auto_restart enabled",
+                "status": config_restart,
+                "status_color": config_restart_color,
+                "newline": True,
             })
+            
+            self.functions.print_cmd_status({
+                "text_start": "node configuration auto_upgrade enabled",
+                "status": config_upgrade,
+                "status_color": config_upgrade_color,
+                "newline": True,
+            })
+            
             return
         
         if action != "enable":  # change back to action != "empty" when enabled in prod

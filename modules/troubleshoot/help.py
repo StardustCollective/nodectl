@@ -563,8 +563,19 @@ def build_help(command_obj):
     if extended == "auto_restart":
         help_text += title("auto restart")
         help_text += f'''
-  The {colored('auto_restart','cyan')} takes a single argument.
-    - enable, disable, status, or check_pid
+  The {colored('auto_restart','cyan')} takes arguments.
+  
+  {colored('  - enable','green')}
+  {colored('  - disable','green')}
+  {colored('  - restart','green')}
+  {colored('  - status','green')}
+  {colored('  - check_pid','green')}
+  
+  optional switch:
+  {colored('--auto_upgrade','green')} 
+  
+  {colored('IMPORTANT','red',attrs=['bold'])} 
+  {colored('Do not rely on auto_restart completely as it is not "fool proof".','red')}
   
   You can setup {colored('nodectl','blue',attrs=['bold'])} to handle and control auto_restart
   from its configuration file.  By {colored('default','green')} this feature is disabled.  
@@ -634,11 +645,14 @@ def build_help(command_obj):
     - upgrade
   
   {colored('AUTO UPGRADE','green')}
-  Auto upgrade can only be enabled in the configuration file.  
   You can enable this feature by issuing:
   {colored('sudo nodectl configure -e','cyan')}
   
   {colored('Auto upgrade','cyan')} can only be enabled with auto restart enabled.
+  
+  Optionally if you are not using the configuration, you can enable auto_upgrade
+  by issuing the optional {colored('--auto_upgrade','cyan')} switch when enabling
+  auto_restart from the command line.
   
   During a Tessellation upgrade, the session will change.  This will trigger
   an auto restart.  During the restart, nodectl will identify the version of 
@@ -669,14 +683,22 @@ def build_help(command_obj):
   # {colored('sudo nodectl configure','cyan')}
   choose Edit --> Auto Restart Section
   
-  manual enable auto_restart
+  manual enable auto_restart services
   # {colored('sudo nodectl auto_restart enable','cyan')}
+  
+  manual enable auto_restart services with auto_upgrade
+  # {colored('sudo nodectl auto_restart enable --auto_upgrade','cyan')}
 
-  manual disable auto_restart
+  manual disable auto_restart services
   # {colored('sudo nodectl auto_restart disable','cyan')}
 
+  manual restart auto_restart services
+  # {colored('sudo nodectl auto_restart restart','cyan')}
+
   check if auto_restart is running by searching for
-  the process id ({colored('pid','white',attrs=['bold'])}) of the auto_restart service
+  the process id ({colored('pid','white',attrs=['bold'])}) of the auto_restart service.
+  The command will also show status of auto features set in
+  the configuration.
   # {colored('sudo nodectl auto_restart check_pid','cyan')}
    or
   # {colored('sudo nodectl auto_restart status','cyan')}

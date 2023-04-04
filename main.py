@@ -2,7 +2,7 @@
 from sys import argv, exit
 from modules.shell_handler import ShellHandler
 from termcolor import colored
-from modules.logger import Logging
+from modules.troubleshoot.logger import Logging
 from modules.config.config import Configuration
 from modules.config.configurator import Configurator
 

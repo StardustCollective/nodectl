@@ -19,7 +19,7 @@ class Logging():
     def log_setup(self):
         logger = logging.getLogger("nodectl_logging")
         if not len(logger.handlers):
-            logger.setLevel(logging.DEBUG)
+            logger.setLevel(logging.INFO)
 
             formatter = logging.Formatter(
                 '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',

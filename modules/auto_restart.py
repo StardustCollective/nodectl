@@ -1,5 +1,6 @@
 
 from time import sleep
+from sys import exit
 import random
 
 from .node_service import Node
@@ -256,6 +257,7 @@ class AutoRestart():
         if self.profile_states[self.thread_profile]["layer"] == 0 and self.node_service.profile == self.thread_profile and self.profile_states[self.node_service.profile]["action"] == "restart_full":
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  set session detected profile [{self.node_service.profile}] - resetting observing timer.")
             self.profile_states[self.node_service.profile]["observing_timer"] = 0
+    
     
     # LOOPERS
     def attempts_looper(self,attempts,action,sec,max_attempts,critical_sleep):

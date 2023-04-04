@@ -917,6 +917,8 @@ Environment="SCRIPT_ARGS=%I"
 ExecStart=nodectl service_restart $SCRIPT_ARGS &
 Restart=always
 RestartSec=15
+RuntimeMaxSec=14400
+
 [Install]
 WantedBy=multi-user.target
 '''
