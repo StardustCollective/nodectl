@@ -433,12 +433,13 @@ class Node():
             system(f"chmod 644 {service_dir_file} > /dev/null 2>&1")        
 
 
-    def build_service(self):
+    def build_service(self,restart_build=False):
         self.log.logger.debug("build services method called [build services]")
         build_files = ["service_file","service_bash"]
         for b_file in build_files:
             self.create_service_bash_file({
                 "create_file_type": b_file,
+                "rebuild_restart": restart_build,
             })
                      
 

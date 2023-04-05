@@ -659,6 +659,13 @@ class ShellHandler:
         if "--auto_grade" in self.argv:
             self.functions.config_obj["auto_restart"]["auto_upgrade"] = True
             
+        pid_color = "green"
+        end_status = "enabled"
+        if not self.auto_restart_pid:
+            self.auto_restart_pid = "disabled"
+            end_status = "not running"
+            pid_color = "blue"  
+              
         if action == "restart":
             action = "disable"
             restart_request = True
@@ -686,13 +693,11 @@ class ShellHandler:
                 self.log.logger.warn("shell handler auto restart handler service periodic restart may have been triggered")
                 
         if action == "disable":
-            if not self.auto_restart_pid:
-                self.auto_restart_pid = "disabled"
             if cli:
                 end_status = "not running"
                 end_color = "blue"
                 if self.auto_restart_pid != "disabled":
-                    end_status = "disabled"
+                    end_status = "disabled" # because disabling
                     end_color = "green"
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
@@ -735,33 +740,40 @@ class ShellHandler:
         
         if action == "check_pid" or action == "current_pid" or action =="status":
             config_restart = self.functions.config_obj["auto_restart"]["enable"]
+            config_restart = "True" if config_restart else "False"
             config_restart_color = "green" if config_restart else "red"
             config_upgrade = self.functions.config_obj["auto_restart"]["auto_upgrade"]
+            config_upgrade = "True" if config_upgrade else "False"
             config_upgrade_color = "green" if config_upgrade else "red"
-            
             self.functions.print_clear_line()
-            self.functions.print_cmd_status({
-                "text_start": "node",
-                "brackets": "auto_restart",
-                "text_end": "service found pid",
-                "status": self.auto_restart_pid,
-                "status_color": "magenta",
-                "newline": True,
-            })            
+            self.functions.print_paragraphs([
+                ["AUTO RESTART STATUS CHECK",1,"yellow","bold"]
+            ])
             
-            self.functions.print_cmd_status({
-                "text_start": "node configuration auto_restart enabled",
-                "status": config_restart,
-                "status_color": config_restart_color,
-                "newline": True,
-            })
+            print_out_list = [
+                {
+                    "-BLANK-" :None,
+                    "SERVICE PROCESS FOUND (PID)": f"{colored(self.auto_restart_pid,pid_color)}"
+                }
+            ]
             
-            self.functions.print_cmd_status({
-                "text_start": "node configuration auto_upgrade enabled",
-                "status": config_upgrade,
-                "status_color": config_upgrade_color,
-                "newline": True,
-            })
+            for header_elements in print_out_list:
+                self.functions.print_show_output({
+                    "header_elements" : header_elements
+            })          
+            print_out_list = [
+                {
+                    "AUTO RESTART": colored(f'{config_restart: <{20}}',config_restart_color),
+                    "AUTO UPGRADE": colored(config_upgrade,config_upgrade_color),
+                }
+            ]
+            self.functions.print_paragraphs([
+                ["",1],["CONFIGURATION SETTINGS",1,"blue","bold"]
+            ])            
+            for header_elements in print_out_list:
+                self.functions.print_show_output({
+                    "header_elements" : header_elements
+            })          
             
             return
         
@@ -789,7 +801,7 @@ class ShellHandler:
             ])
             exit(1)
                         
-        if self.auto_restart_pid and self.auto_restart_pid != "disabled":
+        if self.auto_restart_pid != "disabled":
             if self.auto_restart_enabled:
                 self.functions.print_paragraphs([
                     ["",1], ["Node restart service does not need to be restarted because pid [",0,"green"],

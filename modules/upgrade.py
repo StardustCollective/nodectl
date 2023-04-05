@@ -635,7 +635,7 @@ class Upgrader():
             "right_just": 54,
         }
         self.functions.print_cmd_status(progress)
-        self.cli.node_service.build_service()
+        self.cli.node_service.build_service(True) # True to rebuild restart_service
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
