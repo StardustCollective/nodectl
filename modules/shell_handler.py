@@ -438,8 +438,9 @@ class ShellHandler:
             if force:
                 self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                 self.functions.print_paragraphs([
-                    [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, this {self.install_upgrade} will continue at the Node Operator's",0,"yellow"],
-                    ["own risk and decision.",1,"yellow"]
+                    [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
+                    [f"this {self.install_upgrade}. It will continue at the Node Operator's",0,"yellow"],
+                    ["own risk and decision.",1,"yellow","underline"]
                 ])
             else:
                 self.log.logger.warn(f"an attempt to {self.install_upgrade} with an older nodectl detected {current}")  

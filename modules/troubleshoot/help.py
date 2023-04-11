@@ -1138,9 +1138,12 @@ def build_help(command_obj):
         the {colored('X','yellow')} is an integer (number).
         example) {colored('v2.0.0','cyan')}
   {colored('-f','green')} - {colored('force','cyan')}
-        If specified at the command line, nodectl will not check version specifications when accompanied
-        by the {colored('-ni','cyan')} parameter.  This will by-pass warning messages if you are attempting
-        to install versions of nodectl or Tessellation that are not current.
+        If specified at the command line, nodectl will not check version 
+        specifications when accompanied by the {colored('-ni','cyan')} or {colored('-v','cyan')} parameter.  
+        This will by-pass warning messages if you are attempting
+        to install versions of nodectl or Tessellation that are not current, 
+        custom, or that do not meet the current standard versioning 
+        format specifications.
   
   {colored('IMPORTANT','red',attrs=['bold'])}: This is not the same as the {colored('upgrade_nodectl','cyan')} command.
   

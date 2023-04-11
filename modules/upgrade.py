@@ -20,8 +20,7 @@ class Upgrader():
         self.log.logger.info("System Upgrade called, initializing upgrade.")
         
         self.var = SimpleNamespace(**command_obj)
-        self.non_interactive = False
-        self.download_version = False
+        self.non_interactive = self.download_version = self.forced = False
         
         self.debug = command_obj.get("debug",False)
         
@@ -257,14 +256,15 @@ class Upgrader():
                 self.download_version = self.version_obj['cluster_tess_version']
                 break
             else:
-                if self.download_version[0] == "V":
-                    self.download_version = self.download_version.replace("V","v")
-                elif self.download_version[0] != "v": 
-                    self.download_version = f"v{self.download_version}"
+                if not self.forced:
+                    if self.download_version[0] == "V":
+                        self.download_version = self.download_version.replace("V","v")
+                    elif self.download_version[0] != "v": 
+                        self.download_version = f"v{self.download_version}"
                     
                 if self.functions.is_version_valid(self.download_version):
                     confirm = True
-                    if "-f" in self.var.argv_list:
+                    if self.forced:
                         self.functions.print_paragraphs([
                             [" WARNING ",0,"red,on_yellow"], ["forcing to version [",0,"yellow"],
                             [self.download_version,-1,"cyan","bold"], ["]",-1,"yellow"],["",1],
@@ -282,6 +282,22 @@ class Upgrader():
                             })
                     if confirm:                        
                         break
+                    
+                elif self.forced:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"red,on_yellow"], ["A forced version was found that did not pass",0],
+                        ["the version verification test; moreover, this version will be used",0],
+                        ["and may result in an invalid version download.",1],
+                        ["version:",0,"yellow"], [self.download_version,1,"magenta"],
+                    ])
+                    self.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "prompt": "Continue with selected version?",
+                        "exit_if": True
+                    })
+                    break
+                
             self.functions.print_paragraphs([
                 ["Invalid version [",0,"red"], [self.download_version,-1,"yellow","bold"], ["] inputted, try again",-1,"red"],["",1],
             ])
@@ -470,12 +486,12 @@ class Upgrader():
         self.update_system_prompt()
               
         # v1.12.0 > v2.0.0 only
+        snap_migration = False
         for n in range(0,2):
             if path.isdir(f"/var/tessellation/layer{n}/"): 
                 
                 with ThreadPoolExecutor() as executor:
                     if n == 0:
-                        snap_migration = False
                         snapshot = self.functions.get_dir_size(f"/var/tessellation/layer{n}/")
                         
                         self.functions.print_paragraphs([
@@ -880,18 +896,19 @@ class Upgrader():
         
     
     def setup_argv_list(self):
-        for item in self.var.argv_list:
-            if item == "-v":
-                self.download_version = self.var.argv_list[self.var.argv_list.index("-v")+1]
-                if not self.functions.is_version_valid(self.download_version):
-                    self.error_messages.error_code_messages({
-                        "error_code": "upg-550",
-                        "line_code": "input_error",
-                        "extra": "-v <version format vX.X.X>"
-                    })
-            if item == "-ni":
-                self.non_interactive = True        
-                    
+        if "-f" in self.var.argv_list:
+            self.forced = True  
+        if "-v" in self.var.argv_list:
+            self.download_version = self.var.argv_list[self.var.argv_list.index("-v")+1]
+            if not self.functions.is_version_valid(self.download_version) and not self.forced:
+                self.error_messages.error_code_messages({
+                    "error_code": "upg-550",
+                    "line_code": "input_error",
+                    "extra": "-v <version format vX.X.X>"
+                })
+        if "-ni" in self.var.argv_list:
+            self.non_interactive = True      
+            
                     
     def node_id_error_handler(self,count):
         count_max = 4
