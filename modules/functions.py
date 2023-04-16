@@ -39,7 +39,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.5.1"
+        self.node_nodectl_version = "v2.5.2"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -848,14 +848,15 @@ class Functions():
         return self.key_pressed.lower()
 
 
-    def get_dir_size(self, path="."):
+    def get_dir_size(self, r_path="."):
         total = 0
-        with scandir(path) as it:
-            for entry in it:
-                if entry.is_file():
-                    total += entry.stat().st_size
-                elif entry.is_dir():
-                    total += self.get_dir_size(entry.path)
+        if path.exists(r_path):
+            with scandir(r_path) as it:
+                for entry in it:
+                    if entry.is_file():
+                        total += entry.stat().st_size
+                    elif entry.is_dir():
+                        total += self.get_dir_size(entry.path)
         return total
 
  

@@ -805,7 +805,8 @@ class ShellHandler:
         if self.auto_restart_pid != "disabled":
             if self.auto_restart_enabled:
                 self.functions.print_paragraphs([
-                    ["",1], ["Node restart service does not need to be restarted because pid [",0,"green"],
+                    ["",1], ["Node restart service",0,"green"], 
+                    ["does not",0,"green","underline"], ["need to be restarted because pid [",0,"green"],
                     [str(self.auto_restart_pid),-1,"yellow","bold"],
                     ["] was found already.",-1,"green"],["",1]
                 ])
