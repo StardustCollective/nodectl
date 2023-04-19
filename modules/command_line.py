@@ -2744,7 +2744,7 @@ class CLI():
         for n in check_digits:
             check_digit += int(n)
             
-        if check_digit > 9:
+        if check_digit > 8:
             check_digit = check_digit % 9
             
         dag_address = f"DAG{check_digit}{nodeid}"
