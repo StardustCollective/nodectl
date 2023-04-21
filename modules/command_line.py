@@ -421,6 +421,15 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         count_args = ["-p", profile]
         sip = {}
+        nodeid = ""
+        
+        details = True if "--details" in command_list else False
+        do_more = False if "-np" in command_list else True
+        if do_more:
+            console_size = get_terminal_size()
+            more_break = round(console_size.lines)-20 
+            if "--extended" in command_list:
+                more_break = round(more_break/3) 
         
         if "-t" in command_list:
             sip = self.functions.get_info_from_edge_point({
@@ -455,31 +464,63 @@ class CLI():
                 "extra2": None
             })      
                   
-        header_elements = {
-            "NETWORK PEERS FOUND": peer_results["peer_list"], # peer_results[2],
-            "SEARCH NODE IP": None,
-            "PROFILE": None
-        }
+        print_out_list = [
+            {
+                "PROFILE": profile,
+                "SEARCH NODE IP": sip["ip"],
+                "SN PUBLIC PORT": sip['publicPort']
+            },
+        ]
         
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })  
+
         if sip["ip"] == "127.0.0.1":
             sip["ip"] = self.ip_address
-            
-        status_header, status_results = "",""
-        for header, value in header_elements.items():
-            status_header += colored(f"  {header: <24}","blue",attrs=["bold"])
-            if header == "NETWORK PEERS FOUND":
-                for n,ip in enumerate(value):
-                    if n == 0:
-                        first_ip = str(ip.strip())+colored(peer_results["state_list"][n],"yellow",attrs=["bold"])
-                        status_results += f"  {first_ip: <37}"
-                        status_results += f"  {sip['ip']: <24}"
-                        status_results += f"  {profile}\n"
-                    else:
-                        other_ip = str(ip).strip()+colored(peer_results["state_list"][n],"yellow",attrs=["bold"])
-                        status_results += f"  {other_ip: <24}"+"\n"
+
+        print_header = True
+        peer_title1 = colored("NETWORK PEER IP","blue",attrs=["bold"])
+        peer_title2 = colored("NODE ID","blue",attrs=["bold"])
+        peer_title3 = colored("WALLET","blue",attrs=["bold"])
+        status_header = f"  {peer_title1: <36}"
+        status_header += f"{peer_title2: <36}"
+        status_header += f"{peer_title3: <36}"
+        
+        for item, peer in enumerate(peer_results["peer_list"]):
+            public_port = peer_results["peers_publicport"][item]
+            nodeid = self.cli_grab_id({
+                "dag_addr_only": True,
+                "argv_list": ["-p",profile,"-t",peer,"--port",public_port]
+            })
+            wallet = self.cli_nodeid2dag([nodeid, "return_only"])
+            if do_more and item % more_break == 0 and item > 0:
+                more = self.functions.print_any_key({
+                    "quit_option": "q",
+                    "newline": "both",
+                })
+                if more:
+                    break
+                print_header = True
                 
-        print(status_header)
-        print(status_results)
+            print_peer = f"{peer}:{public_port}" 
+            if "--extended" in command_list:
+                status_results  = f"  {colored('PEER IP:','blue',attrs=['bold'])} {print_peer}\n"                      
+                status_results += f"  {colored(' WALLET:','blue',attrs=['bold'])} {wallet}\n"                      
+                status_results += f"  {colored('NODE ID:','blue',attrs=['bold'])} {nodeid}\n"                      
+            else:
+                spacing = 23
+                nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
+                wallet = f"{wallet[0:8]}....{wallet[-8:]}"
+                status_results = f"  {print_peer: <{spacing}}"                      
+                status_results += f"{nodeid: <{spacing}}"                      
+                status_results += f"{wallet: <{spacing}}"        
+                          
+            if print_header:    
+                print(status_header)
+                print_header = False
+            print(status_results)
 
 
     def show_ip(self,argv_list):
@@ -2357,6 +2398,7 @@ class CLI():
         argv_list = command_obj.get("argv_list",[None])
         command = command_obj.get("command")
         return_success = command_obj.get("return_success",False)
+        outside_node_request = command_obj.get("outside_node_request",False)
         dag_address_only = command_obj.get("dag_addr_only",False)
         
         profile = self.profile
@@ -2364,7 +2406,6 @@ class CLI():
         ip_address = None
         is_global = True
         api_port = False
-        outside_node_request = False
         nodeid_to_ip = False
         
         if "-t" in argv_list:
@@ -2384,7 +2425,10 @@ class CLI():
             ip_address = self.functions.config_obj["profiles"][profile]["edge_point"]["host"]
             api_port = self.functions.config_obj["profiles"][profile]["edge_point"]["host_port"]
             outside_node_request = True
-                          
+
+        if "--port" in argv_list:
+            api_port = argv_list[argv_list.index("--port")+1] 
+                                
         self.log.logger.info(f"Request to display nodeid | type {command}")
 
         action_obj = {
@@ -2421,15 +2465,27 @@ class CLI():
                     "color": "magenta",
                 })                     
                 if outside_node_request:
-                    cluster_ips = self.functions.get_cluster_info_list({
-                        "ip_address": ip_address,
-                        "port": api_port,
-                        "api_endpoint": "/cluster/info",
-                        "error_secs": 3,
-                        "attempt_range": 3,
-                    })  
-                    
-                    cluster_ips.pop()       
+                    for n in range(0,4):
+                        cluster_ips = self.functions.get_cluster_info_list({
+                            "ip_address": ip_address,
+                            "port": api_port,
+                            "api_endpoint": "/cluster/info",
+                            "error_secs": 3,
+                            "attempt_range": 3,
+                        })  
+                        
+                        try:
+                            cluster_ips.pop()   
+                        except:
+                            if n > 2:
+                                self.error_messages.error_code_messages({
+                                    "error_code": "cmd-2484",
+                                    "line_code": "node_id_issue"
+                                })
+                            sleep(1)
+                        else:
+                            break
+                            
                     for desired_ip in cluster_ips:
                         if desired_ip["id"] == nodeid:     
                             ip_address = desired_ip["ip"]
@@ -2475,7 +2531,7 @@ class CLI():
                 self.functions.event = False            
 
         if dag_address_only:
-            return
+            return nodeid
         
         if command == "dag":
             # this creates a print /r status during retrieval so placed here to not affect output
@@ -2749,6 +2805,9 @@ class CLI():
             
         dag_address = f"DAG{check_digit}{nodeid}"
 
+        if "return_only" in argv_list:
+            return dag_address
+        
         print_out_list = [
             {
                 "header_elements" : {

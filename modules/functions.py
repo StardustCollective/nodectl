@@ -392,6 +392,7 @@ class Functions():
         peers_observing = list()
         peers_waitingforready = list()
         peers_ready = list()
+        peers_publicport = list()
 
         node_online = False
         node_states = self.get_node_states()
@@ -440,6 +441,7 @@ class Functions():
                             return
                         node_online = True
                         peer_list.append(line['ip'])
+                        peers_publicport.append(line['publicPort'])
                         if line["state"] == "Ready":
                             peers_ready.append(line['ip'])  # count ready nodes
                         state_list.append("*")
@@ -454,6 +456,7 @@ class Functions():
                                 elif line["state"] == "WaitingForReady":
                                     peers_waitingforready.append(line['ip'])
                                 peer_list.append(line['ip'])
+                                peers_publicport.append(line['publicPort'])
                                 state_list.append(state[1])
             except Exception as e:
                 self.log.logger.error(f"get peer count - an error occurred attempting to review the line items on a /cluster/info api request | error [{e}]")
@@ -461,6 +464,7 @@ class Functions():
             
             return {
                 "peer_list": peer_list,
+                "peers_publicport": peers_publicport,
                 "state_list": state_list,
                 "observing": peers_observing,
                 "waitingforready": peers_waitingforready,
