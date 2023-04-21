@@ -2412,7 +2412,7 @@ class CLI():
         
         profile = self.profile
         nodeid = ""
-        ip_address = None
+        ip_address = "127.0.0.1" # default
         is_global = True
         api_port = False
         nodeid_to_ip = False
@@ -2458,7 +2458,8 @@ class CLI():
         if command == "dag":
             cmd = "java -jar /var/tessellation/cl-wallet.jar show-address"
             title = "DAG ADDRESS"
-        elif ip_address != None:
+        
+        if ip_address != "127.0.0.1":
             if target:
                 t_ip = self.functions.get_info_from_edge_point({
                     "profile": self.profile,
@@ -2533,7 +2534,7 @@ class CLI():
             else:
                 cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
         
-        if ip_address == None and "-w" not in argv_list:
+        if ip_address == "127.0.0.1" and "-w" not in argv_list:
             with ThreadPoolExecutor() as executor:
                 self.functions.event = True
                 _ = executor.submit(self.functions.print_spinner,{
@@ -2555,8 +2556,11 @@ class CLI():
             if "-w" in argv_list:
                 nodeid = argv_list[argv_list.index("-w")+1]
                 self.functions.is_valid_address("dag",False,nodeid)
-                
-            wallet_balance = self.functions.pull_node_balance("127.0.0.1",nodeid.strip())
+            
+            if ip_address == "127.0.0.1":
+                ip_address = self.ip_address
+                    
+            wallet_balance = self.functions.pull_node_balance(ip_address,nodeid.strip())
             wallet_balance = SimpleNamespace(**wallet_balance)
 
 

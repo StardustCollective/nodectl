@@ -708,7 +708,7 @@ class Functions():
                 session = get(api_url,verify=False,timeout=2).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
-                if n > 8:
+                if n == tolerance-1:
                     self.log.logger.warn(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
                     return None
                 sleep(1.5)
