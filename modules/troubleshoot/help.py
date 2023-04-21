@@ -502,6 +502,24 @@ def build_help(command_obj):
   {colored('-t <target_node>','green')} ( ip or hostname )
   {colored('-c','green')} count peers
   
+  extended:
+  {colored('--basic','green')}
+  {colored('--extended','green')}
+  
+  Normal output from the peers command will show all the peers
+  seen on a given Metagraph or the HyperGraph (profile dependent)
+  this will include:
+    - node ip with public port 
+      - 10.10.10.10:1000 = 10.10.10.10 with public TCP port of 1000
+    - nodeid (shortened)
+    - DAG wallet shortened
+    
+  You can utilize the {colored('--basic','green')} switch to force
+  nodectl to only show the PEER IP:TCP PORT column
+    
+  You can utilize the {colored('--extended','green')} switch to force
+  nodectl to only show all fields in long format.
+  
   Dictionary
   ----------
   *   > Indicates the ip searched against
@@ -540,8 +558,13 @@ def build_help(command_obj):
 
   example usage for a profile called {colored('dag-l0','white',attrs=['bold'])}
   # {colored('sudo nodectl peers -p dag-l0','cyan')}
+
+  example usage for {colored('--basic','white',attrs=['bold'])}
+  # {colored('sudo nodectl peers -p dag-l0 --basic','cyan')}
+
+  example usage for {colored('--extended','white',attrs=['bold'])}
+  # {colored('sudo nodectl peers -p dag-l0 --extended','cyan')}
         '''
-        
         
     if extended == "show_node_states":
         extended_switch = "-sns"
