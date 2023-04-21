@@ -422,8 +422,8 @@ class CLI():
         count_args = ["-p", profile]
         sip = {}
         nodeid = ""
+        is_basic = False
         
-        details = True if "--details" in command_list else False
         do_more = False if "-np" in command_list else True
         if do_more:
             console_size = get_terminal_size()
@@ -485,16 +485,22 @@ class CLI():
         peer_title2 = colored("NODE ID","blue",attrs=["bold"])
         peer_title3 = colored("WALLET","blue",attrs=["bold"])
         status_header = f"  {peer_title1: <36}"
-        status_header += f"{peer_title2: <36}"
-        status_header += f"{peer_title3: <36}"
+        if "--basic" in command_list:
+            is_basic = True
+        else:
+            status_header += f"{peer_title2: <36}"
+            status_header += f"{peer_title3: <36}"
         
         for item, peer in enumerate(peer_results["peer_list"]):
             public_port = peer_results["peers_publicport"][item]
-            nodeid = self.cli_grab_id({
-                "dag_addr_only": True,
-                "argv_list": ["-p",profile,"-t",peer,"--port",public_port]
-            })
-            wallet = self.cli_nodeid2dag([nodeid, "return_only"])
+            
+            if not is_basic:
+                nodeid = self.cli_grab_id({
+                    "dag_addr_only": True,
+                    "argv_list": ["-p",profile,"-t",peer,"--port",public_port]
+                })
+                wallet = self.cli_nodeid2dag([nodeid, "return_only"])
+                
             if do_more and item % more_break == 0 and item > 0:
                 more = self.functions.print_any_key({
                     "quit_option": "q",
@@ -508,7 +514,10 @@ class CLI():
             if "--extended" in command_list:
                 status_results  = f"  {colored('PEER IP:','blue',attrs=['bold'])} {print_peer}\n"                      
                 status_results += f"  {colored(' WALLET:','blue',attrs=['bold'])} {wallet}\n"                      
-                status_results += f"  {colored('NODE ID:','blue',attrs=['bold'])} {nodeid}\n"                      
+                status_results += f"  {colored('NODE ID:','blue',attrs=['bold'])} {nodeid}\n" 
+            elif is_basic:
+                spacing = 23
+                status_results = f"  {print_peer: <{spacing}}"                        
             else:
                 spacing = 23
                 nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
