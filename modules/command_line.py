@@ -2416,12 +2416,14 @@ class CLI():
         is_global = True
         api_port = False
         nodeid_to_ip = False
+        target = False
         
         if "-t" in argv_list:
             try:
                 ip_address = argv_list[argv_list.index("-t")+1]
             except:
                 argv_list.append("help")
+            target = True
 
         self.functions.check_for_help(argv_list,command)
                 
@@ -2457,6 +2459,12 @@ class CLI():
             cmd = "java -jar /var/tessellation/cl-wallet.jar show-address"
             title = "DAG ADDRESS"
         elif ip_address != None:
+            if target:
+                t_ip = self.functions.get_info_from_edge_point({
+                    "profile": self.profile,
+                    "specific_ip": ip_address,
+                })
+                api_port = t_ip["publicPort"]
             if not api_port:
                 try: 
                     api_port = self.functions.config_obj["profiles"][profile]["ports"]["public"]
