@@ -2416,7 +2416,7 @@ class CLI():
         is_global = True
         api_port = False
         nodeid_to_ip = False
-        target = False
+        target = is_self = False
         
         if "-t" in argv_list:
             try:
@@ -2559,6 +2559,7 @@ class CLI():
             
             if ip_address == "127.0.0.1":
                 ip_address = self.ip_address
+                is_self = True
                     
             wallet_balance = self.functions.pull_node_balance(ip_address,nodeid.strip())
             wallet_balance = SimpleNamespace(**wallet_balance)
@@ -2567,7 +2568,7 @@ class CLI():
         # clear anything off the top of screen
         self.functions.print_clear_line()
 
-        if ip_address != None:
+        if not is_self:
             print_out_list = [
                 {
                     "header_elements" : {
