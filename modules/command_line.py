@@ -2551,7 +2551,12 @@ class CLI():
                 self.nodeid = nodeid
                 if command == "dag" and not wallet_only:
                     nodeid = self.cli_nodeid2dag([nodeid.strip(),"return_only"]) # convert to dag address
-                self.functions.event = False            
+                    
+                if ip_address == "127.0.0.1":
+                    ip_address = self.ip_address
+                    is_self = True
+                    
+                self.functions.event = False  
 
         if dag_address_only:
             return nodeid
@@ -2561,9 +2566,6 @@ class CLI():
             if wallet_only:
                 # nodeid = argv_list[argv_list.index("-w")+1]
                 self.functions.is_valid_address("dag",False,nodeid)
-            elif ip_address == "127.0.0.1":
-                    ip_address = self.ip_address
-                    is_self = True
                     
             wallet_balance = self.functions.pull_node_balance(ip_address,nodeid.strip())
             wallet_balance = SimpleNamespace(**wallet_balance)
