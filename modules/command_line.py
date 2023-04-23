@@ -2410,54 +2410,53 @@ class CLI():
         outside_node_request = command_obj.get("outside_node_request",False)
         dag_address_only = command_obj.get("dag_addr_only",False)
         
-        profile = self.profile
+        profile = self.profile # default
         nodeid = ""
         ip_address = "127.0.0.1" # default
         is_global = True
-        api_port = False
-        nodeid_to_ip = False
-        target = is_self = False
+        api_port = nodeid_to_ip = target = is_self = cmd = print_out_list = False
+        wallet_only = True if "-w" in argv_list else False
+        title = "NODE ID" if command == "nodeid" else "DAG ADDRESS"
         
-        if "-t" in argv_list:
-            try:
-                ip_address = argv_list[argv_list.index("-t")+1]
-            except:
-                argv_list.append("help")
-            target = True
-
         self.functions.check_for_help(argv_list,command)
                 
-        if "-p" in argv_list:
+        if "-p" in argv_list:  # profile
             profile = argv_list[argv_list.index("-p")+1] 
             is_global = False
-                
-        if "-id" in argv_list:
-            nodeid = argv_list[argv_list.index("-id")+1]   
-            ip_address = self.functions.config_obj["profiles"][profile]["edge_point"]["host"]
-            api_port = self.functions.config_obj["profiles"][profile]["edge_point"]["host_port"]
-            outside_node_request = True
 
-        if "--port" in argv_list:
-            api_port = argv_list[argv_list.index("--port")+1] 
+        if not wallet_only:
+            if "-t" in argv_list:
+                try:
+                    ip_address = argv_list[argv_list.index("-t")+1]
+                except:
+                    argv_list.append("help")
+                target = True
                                 
+            if "-id" in argv_list and command == "nodeid": # already have id?
+                nodeid = argv_list[argv_list.index("-id")+1]   
+                ip_address = self.functions.config_obj["profiles"][profile]["edge_point"]["host"]
+                api_port = self.functions.config_obj["profiles"][profile]["edge_point"]["host_port"]
+                outside_node_request = True
+
+            if "--port" in argv_list:
+                api_port = argv_list[argv_list.index("--port")+1] 
+        else:
+            outside_node_request = True
+            nodeid = argv_list[argv_list.index("-w")+1] 
+                                         
         self.log.logger.info(f"Request to display nodeid | type {command}")
 
-        action_obj = {
-            "caller": "command_line",
-            "action": command,
-            "config_obj": self.functions.config_obj,
-        }
-        p12 = P12Class(action_obj,False)
-        p12.extract_export_config_env({
-            "is_global": is_global,
-            "profile": profile,
-        }) 
-        
-        title = "NODE ID"
-        
-        if command == "dag":
-            cmd = "java -jar /var/tessellation/cl-wallet.jar show-address"
-            title = "DAG ADDRESS"
+        if not outside_node_request and not target:
+            action_obj = {
+                "caller": "command_line",
+                "action": command,
+                "config_obj": self.functions.config_obj,
+            }
+            p12 = P12Class(action_obj,False)
+            p12.extract_export_config_env({
+                "is_global": is_global,
+                "profile": profile,
+            }) 
         
         if ip_address != "127.0.0.1":
             if target:
@@ -2466,6 +2465,8 @@ class CLI():
                     "specific_ip": ip_address,
                 })
                 api_port = t_ip["publicPort"]
+                nodeid = t_ip["id"]
+                
             if not api_port:
                 try: 
                     api_port = self.functions.config_obj["profiles"][profile]["ports"]["public"]
@@ -2515,7 +2516,7 @@ class CLI():
                     else:
                         nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
 
-                else:
+                elif not nodeid:
                     nodeid = self.functions.get_api_node_info({
                         "api_host": ip_address,
                         "api_port": api_port,
@@ -2534,18 +2535,22 @@ class CLI():
             else:
                 cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
         
-        if ip_address == "127.0.0.1" and "-w" not in argv_list:
+        if (ip_address == "127.0.0.1" and not wallet_only) or command == "dag":
             with ThreadPoolExecutor() as executor:
-                self.functions.event = True
-                _ = executor.submit(self.functions.print_spinner,{
-                    "msg": f"Pulling {title}, please wait",
-                    "color": "magenta",
-                })                     
-                nodeid = self.functions.process_command({
-                    "bashCommand": cmd,
-                    "proc_action": "poll"
-                })
+                if not nodeid:
+                    self.functions.event = True
+                    _ = executor.submit(self.functions.print_spinner,{
+                        "msg": f"Pulling {title}, please wait",
+                        "color": "magenta",
+                    })                     
+                    nodeid = self.functions.process_command({
+                        "bashCommand": cmd,
+                        "proc_action": "poll"
+                    })
+                    
                 self.nodeid = nodeid
+                if command == "dag" and not wallet_only:
+                    nodeid = self.cli_nodeid2dag([nodeid.strip(),"return_only"]) # convert to dag address
                 self.functions.event = False            
 
         if dag_address_only:
@@ -2553,13 +2558,12 @@ class CLI():
         
         if command == "dag":
             # this creates a print /r status during retrieval so placed here to not affect output
-            if "-w" in argv_list:
-                nodeid = argv_list[argv_list.index("-w")+1]
+            if wallet_only:
+                # nodeid = argv_list[argv_list.index("-w")+1]
                 self.functions.is_valid_address("dag",False,nodeid)
-            
-            if ip_address == "127.0.0.1":
-                ip_address = self.ip_address
-                is_self = True
+            elif ip_address == "127.0.0.1":
+                    ip_address = self.ip_address
+                    is_self = True
                     
             wallet_balance = self.functions.pull_node_balance(ip_address,nodeid.strip())
             wallet_balance = SimpleNamespace(**wallet_balance)
@@ -2568,7 +2572,7 @@ class CLI():
         # clear anything off the top of screen
         self.functions.print_clear_line()
 
-        if not is_self:
+        if not is_self and not wallet_only:
             print_out_list = [
                 {
                     "header_elements" : {
@@ -2588,10 +2592,11 @@ class CLI():
                 },
             ]
             
-        for header_elements in print_out_list:
-            self.functions.print_show_output({
-                "header_elements" : header_elements
-            })   
+        if print_out_list:
+            for header_elements in print_out_list:
+                self.functions.print_show_output({
+                    "header_elements" : header_elements
+                })   
         
         if "-wr" in argv_list:
             nodeidwr = []
