@@ -1,5 +1,6 @@
 import re
 import base58
+import csv
 
 from hashlib import sha256
 from time import sleep, perf_counter
@@ -421,9 +422,29 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         count_args = ["-p", profile]
         sip = {}
-        nodeid = ""
-        is_basic = False
+        nodeid = csv_file_name = ""
+        is_basic = create_csv = False
         
+        if "--csv" in command_list:
+            self.functions.print_paragraphs([
+                [" NOTE ",0,"blue,on_yellow"], 
+                ["The",0],["--csv",0,"yellow","bold"],
+                ["option will default to both the option",0],["--extended",0,"yellow","bold"],
+                ["and will also default to",0],["<date>-peers-data.csv",0,"yellow","bold"],
+                ["if the",0],["--output <file_name>",0,"yellow","bold"],
+                ["is not specified, please see help for details.",2],
+            ])
+            create_csv = True 
+            if "--output" in command_list:
+                csv_file_name = command_list[command_list.index("--output")+1]
+            else:
+                prefix = self.functions.get_date_time({"action": "datetime"})
+                csv_file_name = f"{prefix}-peers-data.csv"
+            if "--basic" in command_list: 
+                command_list.remove("--basic")
+            if "--extended" not in command_list: 
+                command_list.extend(["--extended","-np"])
+                
         do_more = False if "-np" in command_list else True
         if do_more:
             console_size = get_terminal_size()
@@ -515,6 +536,19 @@ class CLI():
                 status_results  = f"  {colored('PEER IP:','blue',attrs=['bold'])} {print_peer}\n"                      
                 status_results += f"  {colored(' WALLET:','blue',attrs=['bold'])} {wallet}\n"                      
                 status_results += f"  {colored('NODE ID:','blue',attrs=['bold'])} {nodeid}\n" 
+                if create_csv:
+                    csv_header = ["Peer Ip","Wallet","Node Id"]
+                    csv_row = [print_peer,wallet,nodeid]
+                    if item == 0:
+                        self.functions.create_n_write_csv({
+                        "file": csv_file_name,
+                        "row": csv_header
+                        })
+                    self.functions.create_n_write_csv({
+                        "file": csv_file_name,
+                        "row": csv_row
+                    })
+                        
             elif is_basic:
                 spacing = 23
                 status_results = f"  {print_peer: <{spacing}}"                        
@@ -525,11 +559,29 @@ class CLI():
                 status_results = f"  {print_peer: <{spacing}}"                      
                 status_results += f"{nodeid: <{spacing}}"                      
                 status_results += f"{wallet: <{spacing}}"        
-                          
-            if print_header:    
-                print(status_header)
-                print_header = False
-            print(status_results)
+  
+            if create_csv and item == 0:
+                print("")
+                self.functions.print_cmd_status({
+                    "text_start": "Creating",
+                    "brackets": csv_file_name,
+                    "text_end": "file",
+                    "status": "running",
+                    "newline": True,
+                })
+            elif not create_csv:
+                if print_header:    
+                    print(status_header)
+                    print_header = False
+                print(status_results)
+        
+        if create_csv: 
+            self.log.logger.info(f"csv file created: location: [{self.config_obj['profiles'][profile]['dirs']['uploads']}] filename [{csv_file_name}]") 
+            self.functions.print_paragraphs([
+                ["CSV created successfully",1,"green","bold"],
+                ["filename:",0,], [csv_file_name,1,"yellow","bold"],
+                ["location:",0,], [self.config_obj['profiles'][profile]['dirs']['uploads'],1,"yellow","bold"]
+            ])  
 
 
     def show_ip(self,argv_list):

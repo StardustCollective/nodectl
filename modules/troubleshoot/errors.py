@@ -306,6 +306,14 @@ class Error_codes():
             ])         
             
             
+        elif var.line_code == "internal_error":
+            self.log.logger.warn(f"invalid program error reached, please contact developer, exited program.")
+            self.functions.print_paragraphs([
+                ["nodectl encountered an invalid error internal error.",2,"red","bold"],
+                ["If issue persists please contact a developer or system administrator",2],
+            ])         
+            
+            
         elif var.line_code == "profile_build_error":
             self.log.logger.warn(f"during configuration yaml build an error occurred: error [{var.extra}], exited program.")
             self.functions.print_paragraphs([

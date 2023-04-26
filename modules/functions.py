@@ -2,6 +2,7 @@ import math
 import random
 import json
 import urllib3
+import csv
 
 from getpass import getuser
 from re import match
@@ -1781,7 +1782,32 @@ class Functions():
     def create_coingecko_obj(self):
         self.log.logger.info(f"creating CoinGeckoAPI Object")
         self.cg = CoinGeckoAPI()   
-                
+            
+    
+    def create_n_write_csv(self, command_obj):
+        full_path = command_obj.get("file",False)
+        row = command_obj.get("row",False)
+        rows = command_obj.get("rows",False)
+
+        if row and rows or not full_path:
+            self.log.logger("csv error detected, cannot write or row and rows in the same call.")
+            self.error_messages.error_code({
+                "line_code": "fnt-1795",
+                "error_code": "internal_error"
+            })
+        
+        rows = [row] if row else rows
+            
+        write_append = "w"
+        if path.isfile(full_path):
+            write_append = "a"
+            
+        with open(full_path, write_append, newline='') as file:
+            writer = csv.writer(file, dialect='excel')
+            writer.writerows(rows)
+            
+            
+            
     # =============================
     # print functions
     # =============================  
