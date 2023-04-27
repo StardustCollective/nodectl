@@ -439,11 +439,12 @@ class CLI():
                 csv_file_name = command_list[command_list.index("--output")+1]
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
-                csv_file_name = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}/{prefix}-peers-data.csv"
+                csv_file_name = f"{prefix}-peers-data.csv"
             if "--basic" in command_list: 
                 command_list.remove("--basic")
             if "--extended" not in command_list: 
                 command_list.extend(["--extended","-np"])
+            csv_path = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}{csv_file_name}"
                 
         do_more = False if "-np" in command_list else True
         if do_more:
@@ -541,11 +542,11 @@ class CLI():
                     csv_row = [print_peer,wallet,nodeid]
                     if item == 0:
                         self.functions.create_n_write_csv({
-                        "file": csv_file_name,
+                        "file": csv_path,
                         "row": csv_header
                         })
                     self.functions.create_n_write_csv({
-                        "file": csv_file_name,
+                        "file": csv_path,
                         "row": csv_row
                     })
                         
