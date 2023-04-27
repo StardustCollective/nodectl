@@ -501,6 +501,10 @@ def build_help(command_obj):
   optional:
   {colored('-t <target_node>','green')} ( ip or hostname )
   {colored('-c','green')} count peers
+  {colored('--csv','green')} create csv output instead of print out
+  {colored('--output <file_name>','green')} used with --csv to create
+                                            custom file name for csv
+                                            output.
   
   extended:
   {colored('--basic','green')}
@@ -553,7 +557,7 @@ def build_help(command_obj):
   
   source target ip address to count against.
   # {colored('sudo nodectl peers -p <profile_name> -t <ip_address or hostname> -c','cyan')}
-
+  
   =======
 
   example usage for a profile called {colored('dag-l0','white',attrs=['bold'])}
@@ -564,6 +568,14 @@ def build_help(command_obj):
 
   example usage for {colored('--extended','white',attrs=['bold'])}
   # {colored('sudo nodectl peers -p dag-l0 --extended','cyan')}
+  
+  =======
+    
+  create a csv file 
+  # {colored('sudo nodectl peers -p <profile_name> --csv','cyan')}
+  create a csv file named test.csv
+  # {colored('sudo nodectl peers -p <profile_name> --csv --output test.csv','cyan')}
+  
         '''
         
     if extended == "show_node_states":
@@ -988,7 +1000,11 @@ def build_help(command_obj):
   {colored(' -w <DAG_address>','green')}
   {colored(' -b ','green')} ( brief )
   {colored('-np ','green')} ( no pagination )
-    
+  {colored('--csv','green')} create csv output instead of print out
+  {colored('--output <file_name>','green')} used with --csv to create
+                                            custom file name for csv
+                                            output.
+                                                
      {colored('IP ADDRESS','yellow')}:  The IP address of the Node the command was issued against.
   {colored('P12 FILE NAME','yellow')}:  Name of the p12 file found on the Node.
    {colored('$DAG ADDRESS','yellow')}:  The address associated with your p12 Node's wallet.
@@ -1024,7 +1040,11 @@ def build_help(command_obj):
   
   show full dag wallet details but do not paginate
   # {colored('sudo nodectl dag -p <profile_name> -np','cyan')}
-   
+
+  create a csv file 
+  # {colored('sudo nodectl dag -p <profile_name> --csv','cyan')}
+  create a csv file named test.csv
+  # {colored('sudo nodectl dag -p <profile_name> --csv --output test.csv','cyan')}
   '''      
         
         
@@ -1311,7 +1331,11 @@ def build_help(command_obj):
   {colored('-w <dag_wallet_address>','green')}
   {colored('-s <snapshot_history_size>','green')}
   {colored('-np','green')} no pagination (do not paginate)
-  
+  {colored('--csv','green')} create csv output instead of print out
+  {colored('--output <file_name>','green')} used with --csv to create
+                                            custom file name for csv
+                                            output.
+                                              
   If a wallet address is not specified the first known wallet address
   obtained from the configuration will be used.  If a {colored('-p <profile>','green')} is specified
   the wallet address known to entered profile will be used.
@@ -1345,7 +1369,11 @@ def build_help(command_obj):
   If the {colored('-np','green')} is not specified nodectl 
   will attempt to paginate the output to the 
   current known screen height.
-  
+    
+  create a csv file 
+  # {colored('sudo nodectl show_current_rewards --csv','cyan')}
+  create a csv file named test.csv
+  # {colored('sudo nodectl show_current_rewards --csv --output test.csv','cyan')}
   '''
       
     if extended == "find":
