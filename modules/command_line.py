@@ -2531,6 +2531,7 @@ class CLI():
         api_port = nodeid_to_ip = target = is_self = cmd = print_out_list = False
         wallet_only = True if "-w" in argv_list else False
         title = "NODE ID" if command == "nodeid" else "DAG ADDRESS"
+        create_csv = False
         
         self.functions.check_for_help(argv_list,command)
                 
@@ -2676,6 +2677,22 @@ class CLI():
             return nodeid
         
         if command == "dag":
+            if "--csv" in argv_list:
+                self.functions.print_cmd_status({
+                    "text_start": "Create csv for",
+                    "brackets": "show dag rewards",
+                    "status": "running"
+                })
+                create_csv = True 
+                if "-np" not in argv_list:
+                    argv_list.append("-np")
+                if "--output" in argv_list:
+                    csv_file_name = argv_list[argv_list.index("--output")+1]
+                else:
+                    prefix = self.functions.get_date_time({"action": "datetime"})
+                    csv_file_name = f"{prefix}-{nodeid[0:8]}-{nodeid[-8:]}-show-dag-data.csv"
+                csv_path = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}{csv_file_name}"
+
             # this creates a print /r status during retrieval so placed here to not affect output
             if wallet_only:
                 # nodeid = argv_list[argv_list.index("-w")+1]
@@ -2686,7 +2703,8 @@ class CLI():
 
 
         # clear anything off the top of screen
-        self.functions.print_clear_line()
+        if not create_csv:
+            self.functions.print_clear_line()
 
         if not is_self and not wallet_only:
             print_out_list = [
@@ -2696,7 +2714,7 @@ class CLI():
                     },
                 },
             ]
-        elif not outside_node_request:            
+        elif not outside_node_request and not create_csv:            
             self.show_ip([None])
             print_out_list = [
                 {
@@ -2740,26 +2758,41 @@ class CLI():
             },
         ]
         
-        for header_elements in print_out_list:
-            self.functions.print_show_output({
-                "header_elements" : header_elements
+        if create_csv:
+            self.functions.create_n_write_csv({
+                "file": csv_path,
+                "rows": [
+                        ["ip address","dag address"],
+                        [ip_address,nodeid],
+                        ["balance","usd value","dag price"],
+                        [
+                            wallet_balance.balance_dag,
+                            wallet_balance.balance_usd,
+                            wallet_balance.dag_price
+                        ]
+                    ]
             })
-                       
-        if command == "dag":
-            print_out_list = [
-                {
-                    "$DAG BALANCE": f"{wallet_balance.balance_dag: <20}",
-                    "$USD VALUE": f"{wallet_balance.balance_usd}",
-                    "$DAG PRICE": f"{wallet_balance.dag_price}",
-                }
-            ]
-        
+        else:
             for header_elements in print_out_list:
                 self.functions.print_show_output({
                     "header_elements" : header_elements
-                })  
-                
-                
+                })
+                       
+        if command == "dag":
+            if not create_csv:
+                print_out_list = [
+                    {
+                        "$DAG BALANCE": f"{wallet_balance.balance_dag: <20}",
+                        "$USD VALUE": f"{wallet_balance.balance_usd}",
+                        "$DAG PRICE": f"{wallet_balance.dag_price}",
+                    }
+                ]
+            
+                for header_elements in print_out_list:
+                    self.functions.print_show_output({
+                        "header_elements" : header_elements
+                    })  
+                                
             if not "-b" in argv_list:
                 total_rewards = 0
                 data = self.get_and_verify_snapshots(375)
@@ -2781,50 +2814,94 @@ class CLI():
                             total_rewards += reward["amount"]
                             if show_title:
                                 show_title = False
-                                print_out_list = [
-                                    {
-                                        "header_elements": {
-                                            "TIMESTAMP": data[n]["timestamp"],
-                                            "ORDINAL": data[n]["ordinal"],
-                                            "REWARD": reward["amount"]/1e8,
-                                            "TOTAL REWARDS": total_rewards/1e8
-                                        },
-                                        "spacing": 25,
-                                        "1": 10,
-                                        "2": 13,
-                                    },
-                                ]
-                                
-                                for header_elements in print_out_list:
-                                    self.functions.print_show_output({
-                                        "header_elements" : header_elements
+                                if create_csv:
+                                    self.functions.create_n_write_csv({
+                                        "file": csv_path,
+                                        "rows": [
+                                                ["timestamp","ordinal","reward","cumulative"],
+                                                [
+                                                    data[n]["timestamp"],
+                                                    data[n]["ordinal"],
+                                                    reward["amount"]/1e8,
+                                                    total_rewards/1e8
+                                                ]
+                                            ]
                                     })
+                                else:
+                                    print_out_list = [
+                                        {
+                                            "header_elements": {
+                                                "TIMESTAMP": data[n]["timestamp"],
+                                                "ORDINAL": data[n]["ordinal"],
+                                                "REWARD": reward["amount"]/1e8,
+                                                "TOTAL REWARDS": total_rewards/1e8
+                                            },
+                                            "spacing": 25,
+                                            "1": 10,
+                                            "2": 13,
+                                        },
+                                    ]
+                                    
+                                    for header_elements in print_out_list:
+                                        self.functions.print_show_output({
+                                            "header_elements" : header_elements
+                                        })
                             else: 
                                 if reward["amount"] > 9999999:
-                                    self.functions.print_paragraphs([
-                                        [f'{data[n]["timestamp"]}  ',0,"white"],
-                                        [f'{data[n]["ordinal"]: <11}',0,"white"],
-                                        [f'{reward["amount"]/1e8: <14}',0,"white"],
-                                        [f'{total_rewards/1e8}',1,"white"],
-                                    ])                                    
-                                    if do_more and data_point % more_break == 0 and data_point > 0:
-                                        more = self.functions.print_any_key({
-                                            "quit_option": "q",
-                                            "newline": "both",
+                                    if create_csv:
+                                        self.functions.create_n_write_csv({
+                                            "file": csv_path,
+                                            "row": [
+                                                        data[n]["timestamp"],
+                                                        data[n]["ordinal"],
+                                                        reward["amount"]/1e8,
+                                                        total_rewards/1e8
+                                                   ]
                                         })
-                                        if more:
-                                            cprint("  Terminated by Node Operator","red")
-                                            return
-                                        show_title = True  
+                                    else:
+                                        self.functions.print_paragraphs([
+                                            [f'{data[n]["timestamp"]}  ',0,"white"],
+                                            [f'{data[n]["ordinal"]: <11}',0,"white"],
+                                            [f'{reward["amount"]/1e8: <14}',0,"white"],
+                                            [f'{total_rewards/1e8}',1,"white"],
+                                        ])                                    
+                                        if do_more and data_point % more_break == 0 and data_point > 0:
+                                            more = self.functions.print_any_key({
+                                                "quit_option": "q",
+                                                "newline": "both",
+                                            })
+                                            if more:
+                                                cprint("  Terminated by Node Operator","red")
+                                                return
+                                            show_title = True  
                             data_point += 1 
+                            
                 if found:
                     elapsed = self.functions.get_date_time({
                         "action": "estimate_elapsed",
                         "elapsed": elapsed
                     })
+                    
+                if create_csv:
+                    self.functions.print_cmd_status({
+                        "text_start": "Create csv for",
+                        "brackets": "show dag rewards",
+                        "status": "complete",
+                        "newline": True,
+                    })
+                    
+                if found:
                     self.functions.print_paragraphs([
                         ["",1],["Elapsed Time:",0], [elapsed,1,"green"]
-                    ])                                         
+                    ])  
+        
+        if create_csv:
+            self.functions.print_paragraphs([
+                ["CSV created successfully",1,"green","bold"],
+                ["filename:",0,], [csv_file_name,1,"yellow","bold"],
+                ["location:",0,], [self.config_obj['profiles'][profile]['dirs']['uploads'],1,"yellow","bold"]
+            ])  
+                                                   
         if return_success:    
             if nodeid == "unable to derive":
                 return False 
