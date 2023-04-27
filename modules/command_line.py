@@ -439,7 +439,7 @@ class CLI():
                 csv_file_name = command_list[command_list.index("--output")+1]
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
-                csv_file_name = f"{prefix}-peers-data.csv"
+                csv_file_name = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}/{prefix}-peers-data.csv"
             if "--basic" in command_list: 
                 command_list.remove("--basic")
             if "--extended" not in command_list: 
@@ -576,7 +576,7 @@ class CLI():
                 print(status_results)
         
         if create_csv: 
-            self.log.logger.info(f"csv file created: location: [{self.config_obj['profiles'][profile]['dirs']['uploads']}] filename [{csv_file_name}]") 
+            self.log.logger.info(f"csv file created: location: [{csv_file_name}]") 
             self.functions.print_paragraphs([
                 ["CSV created successfully",1,"green","bold"],
                 ["filename:",0,], [csv_file_name,1,"yellow","bold"],
@@ -921,6 +921,7 @@ class CLI():
         title = "NODE P12"
         profile = self.functions.default_profile
         snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
+        create_csv = False
         
         try:
             if int(snapshot_size) > 375 or int(snapshot_size) < 1:
@@ -956,6 +957,23 @@ class CLI():
                 "argv_list": ["-p",profile]
             })
             search_dag_addr = self.nodeid.strip("\n")
+
+        if "--csv" in command_list:
+            self.functions.print_cmd_status({
+                "text_start": "Create csv for",
+                "brackets": "show current rewards",
+                "status": "running"
+            })
+            create_csv = True 
+            if "-np" not in command_list:
+                command_list.append("-np")
+            if "--output" in command_list:
+                csv_file_name = command_list[command_list.index("--output")+1]
+            else:
+                prefix = self.functions.get_date_time({"action": "datetime"})
+                csv_file_name = f"{prefix}-{search_dag_addr[0:8]}-{search_dag_addr[-8:]}-rewards-data.csv"
+            csv_path = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}{csv_file_name}"
+
 
         for rewards in data["data"]:
             for reward in rewards["rewards"]:
@@ -1011,10 +1029,34 @@ class CLI():
             },
         ]
         
-        for header_elements in print_out_list:
-            self.functions.print_show_output({
-                "header_elements" : header_elements,
-            })   
+        if create_csv:
+            self.log.logger.info(f"current rewards command is creating csv file [{csv_file_name}] and adding headers")
+            csv_headers = [
+                
+                ["General"],
+                
+                ["start ordinal","end ordinal","snapshot count","start snapshot",
+                 "end snapshot","dag address count"],
+                
+                [data["start_ordinal"],data["end_ordinal"],snapshot_size,data["data"][-1]["timestamp"],
+                 data["data"][0]["timestamp"],len(reward_amount)],
+                 
+                ["rewards"],
+                
+                ["DAG address","amount rewards"],
+                [first[0],"{:,.3f}".format(first[1]/1e8)],
+
+            ]
+                
+            self.functions.create_n_write_csv({
+                "file": csv_path,
+                "rows": csv_headers
+            })
+        else:
+            for header_elements in print_out_list:
+                self.functions.print_show_output({
+                    "header_elements" : header_elements,
+                })   
         
         do_more = False if "-np" in command_list else True
         if do_more:
@@ -1031,11 +1073,30 @@ class CLI():
                     break
                 
             amount = "{:,.3f}".format(amount/1e8)
-            if address == search_dag_addr:
-                print(f"  {colored(address,color)}  {colored(amount,color)}{colored('**','yellow',attrs=['bold'])}")
+            if create_csv:
+                self.functions.create_n_write_csv({
+                    "file": csv_path,
+                    "row": [address,amount]
+                })
             else:
-                print(f"  {address}  {amount}")        
+                if address == search_dag_addr:
+                    print(f"  {colored(address,color)}  {colored(amount,color)}{colored('**','yellow',attrs=['bold'])}")
+                else:
+                    print(f"  {address}  {amount}")        
     
+        if create_csv:
+            self.log.logger.info(f"csv file created: location: [{csv_path}]") 
+            self.functions.print_cmd_status({
+                "text_start": "Create csv for",
+                "brackets": "show current rewards",
+                "newline": True,
+                "status": "complete"
+            })
+            self.functions.print_paragraphs([
+                ["CSV created successfully",1,"green","bold"],
+                ["filename:",0,], [csv_file_name,1,"yellow","bold"],
+                ["location:",0,], [self.config_obj['profiles'][profile]['dirs']['uploads'],1,"yellow","bold"]
+            ])  
         
     # ==========================================
     # update commands
