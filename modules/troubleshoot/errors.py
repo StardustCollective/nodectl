@@ -331,6 +331,17 @@ class Error_codes():
             ])            
             
             
+        elif var.line_code == "invalid_output_file":
+            self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program. file not allowed")
+            self.functions.print_paragraphs([
+                ["System detected an attempt to output data to an invalid output location.",0,"red","bold"],
+                ["nodectl is setup to output files to the default uploads directory.  If an alternate directory location is desired, please modified the",0,"red","bold"],
+                ["nodectl configuration via:",0,"red","bold"],["sudo nodectl configure",2],
+                [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
+                ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
+            ])            
+            
+            
         elif var.line_code == "profile_error":
             self.log.logger.critical(f"invalid profile entered for execution [{var.extra}]")
             self.functions.print_paragraphs([

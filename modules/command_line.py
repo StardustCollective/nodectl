@@ -426,26 +426,30 @@ class CLI():
         is_basic = create_csv = False
         
         if "--csv" in command_list:
-            self.functions.print_paragraphs([
-                [" NOTE ",0,"blue,on_yellow"], 
-                ["The",0],["--csv",0,"yellow","bold"],
-                ["option will default to both the option",0],["--extended",0,"yellow","bold"],
-                ["and will also default to",0],["<date>-peers-data.csv",0,"yellow","bold"],
-                ["if the",0],["--output <file_name>",0,"yellow","bold"],
-                ["is not specified, please see help for details.",2],
-            ])
+            if not "--output" in command_list:
+                self.functions.print_paragraphs([
+                    [" NOTE ",0,"blue,on_yellow"], 
+                    ["The",0],["--csv",0,"yellow","bold"],
+                    ["option will default to include:",0],["--extended",2,"yellow","bold"],
+                ])
             create_csv = True 
             if "--output" in command_list:
                 csv_file_name = command_list[command_list.index("--output")+1]
+                if "/" in csv_file_name:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cmd-442",
+                        "line_code": "invalid_output_file",
+                        "extra": csv_file_name
+                    })
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
                 csv_file_name = f"{prefix}-peers-data.csv"
+                
             if "--basic" in command_list: 
                 command_list.remove("--basic")
-            if "--extended" not in command_list: 
-                command_list.extend(["--extended","-np"])
+            command_list.extend(["--extended","-np"])
             csv_path = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}{csv_file_name}"
-                
+            
         do_more = False if "-np" in command_list else True
         if do_more:
             console_size = get_terminal_size()
@@ -587,18 +591,31 @@ class CLI():
 
     def show_ip(self,argv_list):
         self.log.logger.info(f"whoami request for password initiated.")
+        ip_address = self.ip_address
         
         if "-id" in argv_list:
-            if "-p" in argv_list:
+            if "-p" in argv_list: # only required for "-id"
+                profile = argv_list[argv_list.index("-p")+1]
+                id = argv_list[argv_list.index("-id")+1]
                 try:
-                    self.cli_grab_id({
-                        "command":"id",
-                        "argv_list": argv_list
-                    })
-                    return
+                    list = self.functions.get_cluster_info_list({
+                        "ip_address": self.config_obj["profiles"][profile]["edge_point"]["host"],
+                        "port": self.config_obj["profiles"][profile]["edge_point"]["host_port"],
+                        "api_endpoint": "/cluster/info",
+                        "error_secs": 3,
+                        "attempt_range": 3,
+                    })   
                 except Exception as e:
                     self.log.logger.error(f"request to find node id request failed | error [{e}]")
                     argv_list.append("help")
+                                
+                try:
+                    for item in list:
+                        if item["id"] == id:
+                            ip_address = colored(item["ip"],"yellow")
+                            break
+                except:
+                    ip_address = colored("nodeid not found","red")    
             else: 
                 argv_list.append("help")    
         
@@ -606,7 +623,7 @@ class CLI():
             
         print_out_list = [
             {
-                "IP ADDRESS".ljust(30): str(self.ip_address),
+                "IP ADDRESS".ljust(30): str(ip_address),
             },
         ]
     
@@ -970,6 +987,12 @@ class CLI():
                 command_list.append("-np")
             if "--output" in command_list:
                 csv_file_name = command_list[command_list.index("--output")+1]
+                if "/" in csv_file_name:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cmd-442",
+                        "line_code": "invalid_output_file",
+                        "extra": csv_file_name
+                    })
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
                 csv_file_name = f"{prefix}-{search_dag_addr[0:8]}-{search_dag_addr[-8:]}-rewards-data.csv"
@@ -1548,7 +1571,7 @@ class CLI():
             return 0
 
         self.cli_grab_id({
-            "command":"id",
+            "command":"nodeid",
             "is_global": False,
             "profile": profile,
         })
@@ -2546,12 +2569,6 @@ class CLI():
                 except:
                     argv_list.append("help")
                 target = True
-                                
-            if "-id" in argv_list and command == "nodeid": # already have id?
-                nodeid = argv_list[argv_list.index("-id")+1]   
-                ip_address = self.functions.config_obj["profiles"][profile]["edge_point"]["host"]
-                api_port = self.functions.config_obj["profiles"][profile]["edge_point"]["host_port"]
-                outside_node_request = True
 
             if "--port" in argv_list:
                 api_port = argv_list[argv_list.index("--port")+1] 
@@ -2688,6 +2705,12 @@ class CLI():
                     argv_list.append("-np")
                 if "--output" in argv_list:
                     csv_file_name = argv_list[argv_list.index("--output")+1]
+                    if "/" in csv_file_name:
+                        self.error_messages.error_code_messages({
+                            "error_code": "cmd-442",
+                            "line_code": "invalid_output_file",
+                            "extra": csv_file_name
+                        })
                 else:
                     prefix = self.functions.get_date_time({"action": "datetime"})
                     csv_file_name = f"{prefix}-{nodeid[0:8]}-{nodeid[-8:]}-show-dag-data.csv"
