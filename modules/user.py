@@ -305,7 +305,7 @@ class UserClass:
         confirm = self.functions.confirm_action({
             "yes_no_default": "y",
             "return_on": "y",
-            "prompt": "If you use an SSH key pair?",
+            "prompt": "Did you use an SSH key pair?",
             "prompt_color": "magenta",
             "exit_if": False
         })
@@ -428,7 +428,7 @@ class UserClass:
             ["users.",2],
             
             ["Access should be disabled so that",0,"white","bold"], ["only",0,"white","bold,underline"], ["the",0,"white","bold"],
-            ["Node Adminstrator",0,"white","bold,underline"], ["has access to this VPS with the",0,"white","bold"], 
+            ["Node Administrator",0,"white","bold,underline"], ["has access to this VPS with the",0,"white","bold"], 
             [self.username,0,"yellow","bold"], ["user.",2,"white","bold"],
             
             ["This is recommended.",2,"magenta","bold"],                

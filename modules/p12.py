@@ -189,7 +189,7 @@ class P12Class():
         self.functions.print_paragraphs([
             ["This passphrase will allow you to authenticate to the",0], ["Hypergrpah",0,"yellow","bold"],[".",-1],["",1],
             ["This passphrase will allow you to authenticate to your Node's",0], ["Wallet",0,"yellow","bold"],[".",-1],["",1],
-            ["You should create a",0], ["unqiue",0,"yellow","bold"], ["passphrase and write it down!",2],
+            ["You should create a",0], ["unique",0,"yellow","bold"], ["passphrase and write it down!",2],
             ["We recommend you save this to a secure location and, do",0], ["NOT",0,"yellow,on_red","bold,underline"],
             ["forget the passphrase!",2],
             ["In your notes:",1,"white","bold"],

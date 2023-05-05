@@ -277,6 +277,7 @@ class Node():
         
         # includes seed-list access-list  
         if download_version == "default":
+            download_version = self.version_obj['cluster_tess_version']
             if self.version_obj == None or self.version_obj['cluster_tess_version'] == "v0.0.0":
                 try:
                     download_version = self.functions.get_version({
@@ -298,10 +299,10 @@ class Node():
         
         # execute download and test for zero file size   
         for n in range(0,4):
-            # self.functions.process_command({
-            #     "bashCommand": bashCommand,
-            #     "proc_action": "timeout"
-            # })
+            self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "timeout"
+            })
             self.log.logger.debug(f"Attempting to download seedlist with command: [{bashCommand}]")
             system(bashCommand)
             if path.exists(seed_path):
