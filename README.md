@@ -22,7 +22,7 @@ With this in mind, **nodectl** was created to take a true **Systems and Site Rel
 
 ## Usage
 
-Extensive help has been written up and offered through [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/nodes).  
+Extensive help has been written up and offered through [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/valdiate).  
 
 *In order to avoid making necessary updates in multiple locations, this open source project's documentation pertaining to the operations of use of nodectl will be present on Constellation Network's Documentation Hub:*
 
@@ -95,6 +95,6 @@ flowchart TD
 ```
 
 ## OTHER DETAILS
-*please see [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/nodes).*
+*please see [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/validate).*
 
 
