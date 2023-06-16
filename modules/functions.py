@@ -40,7 +40,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.7.1"
+        self.node_nodectl_version = "v2.8.0"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -55,6 +55,10 @@ class Functions():
         # constellation specific statics
         self.be_mainnet = "be-mainnet.constellationnetwork.io"
         
+        # constellation nodectl statics
+        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        
+        # versioning
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
         self.node_tess_version = "v0.0.0"
         self.latest_nodectl_version = "v0.0.0"
@@ -1349,7 +1353,7 @@ class Functions():
     def pull_upgrade_path(self):
         for n in range(0,4):
             try:
-                upgrade_path = get("https://raw.githubusercontent.com/netmet1/constellation_nodectl/main/upgrade_path.json")
+                upgrade_path = get(self.upgrade_path_path)
             except:
                 if n == 3:
                     self.log.logger.error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")

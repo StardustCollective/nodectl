@@ -2870,7 +2870,7 @@ class CLI():
                                             "header_elements" : header_elements
                                         })
                             else: 
-                                if reward["amount"] > 9999999:
+                                if reward["amount"] > 999999:
                                     if create_csv:
                                         self.functions.create_n_write_csv({
                                             "file": csv_path,

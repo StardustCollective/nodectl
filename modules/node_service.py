@@ -1007,7 +1007,7 @@ nodectl:
             if var.testnet_mainnet == "testnet":
                 url = "https://github.com/netmet1/constellation_testnet_nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
             else:
-                url = "https://github.com/netmet1/constellation_nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
+                url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
                 
             cur_file = '''#!/bin/bash
 
