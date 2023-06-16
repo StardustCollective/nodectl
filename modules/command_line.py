@@ -3252,10 +3252,10 @@ class CLI():
         if "help" in var.argv_list:
             show_help = True
         else:
-            if "-p" not in var.argv_list and var.command == "change_ssh_port":
+            if "--port" not in var.argv_list and var.command == "change_ssh_port":
                 show_help = True
-            elif "-p" in var.argv_list:
-                port_no = var.argv_list[var.argv_list.index("-p")+1]
+            elif "--port" in var.argv_list:
+                port_no = var.argv_list[var.argv_list.index("--port")+1]
             else:
                 port_no = 22
                 

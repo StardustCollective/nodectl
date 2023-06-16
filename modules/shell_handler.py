@@ -498,6 +498,9 @@ class ShellHandler:
             need_profile = True
             if "help" in self.argv:
                 pass
+            elif self.called_command == "logs" and "nodectl" in self.argv:
+                # logs command exception
+                pass
             elif len(self.argv) == 0 or ("-p" not in self.argv or called_profile == "empty"):
                 self.functions.print_help({
                     "usage_only": True,

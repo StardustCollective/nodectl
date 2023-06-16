@@ -206,7 +206,7 @@ def build_help(command_obj):
     
     enable_root_ssh  | - have nodectl reenable access to your root user    
     
-    change_ssh_port <port> | - change the port number used to access your
+    change_ssh_port -p <port> | - change the port number used to access your
                                Node via the SSH protocol.  The port number
                                should be between 1024 and 65535.  Please be
                                careful not to use a port already in use or
@@ -1846,7 +1846,7 @@ def build_help(command_obj):
   the ssh configuration and restarting the SSH daemon.
 
   required:
-  {colored('-p <new_port_number>','green')}
+  {colored('--port <new_port_number>','green')}
   
   Port number must be between {colored("1024","cyan")} and {colored("65535","cyan")}
   
@@ -1867,7 +1867,7 @@ def build_help(command_obj):
   
   ({colored("It is not recommended to use the same port as this example on your Node","yellow")})
   change the port from 22 to 33333
-  # {colored(f'sudo nodectl change_ssh_port -p 33333','cyan')}  
+  # {colored(f'sudo nodectl change_ssh_port --port 33333','cyan')}  
   ''' 
         
         
