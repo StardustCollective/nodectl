@@ -149,21 +149,6 @@ class Functions():
                 self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
                 if network == "testnet": 
                     self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
-                
-                # self.version_obj["nodectl_latest_obj"] = version_details.content.decode("utf-8").replace("\n","").replace(" ","") 
-                # self.latest_nodectl_version = version_details["version"]
-                # if network == "testnet": 
-                #     cmd = "curl -s https://raw.githubusercontent.com/netmet1/constellation_testnet_nodectl/main/versioning"               
-                # else:
-                #     cmd = "curl -s https://raw.githubusercontent.com/netmet1/constellation_nodectl/main/versioning"
-                    
-                # self.latest_nodectl_version = self.process_command({
-                #     "bashCommand": cmd,
-                #     "proc_action": "wait"
-                # })
-                # self.latest_nodectl_version = self.latest_nodectl_version.strip()
-            
-            # =========================================================================================
 
             profile = None if var.action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
