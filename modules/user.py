@@ -203,8 +203,14 @@ class UserClass:
             pass1 = getpass(colored(first,"magenta"))
             pass2 = getpass(colored(second,"magenta"))
 
-            if not compare_digest(pass1,pass2):
-                results.append("match")
+            try:
+                if not compare_digest(pass1,pass2):
+                    results.append("match")
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "usr-211",
+                    "line_code": "invalid_passphrase_pass",
+                })
         
             if not self.migrating_p12:
                 if len(pass1) < length:
