@@ -1457,11 +1457,12 @@ class Functions():
                         
                         ["OPTIONS",1,"magenta","bold"], ["-------",1,"magenta"],
                         ["M",0,"magenta","bold"], [")",-1,"magenta"], ["ainNet",-1,"magenta"],["",1],
+                        ["I",0,"magenta","bold"], [")",-1,"magenta"], ["ntegrationNet",-1,"magenta"],["",1],
                         ["T",0,"magenta","bold"], [")",-1,"magenta"], ["estNet",-1,"magenta"],["",1],
                         ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
                     ])
 
-                    options_dict = {"M": "mainnet", "T": "testnet", "Q": "Q"}
+                    options_dict = {"M": "mainnet", "T": "testnet", "I": "integrationnet", "Q": "Q"}
                     option = self.get_user_keypress({
                         "prompt": "KEY PRESS an option",
                         "prompt_color": "cyan",

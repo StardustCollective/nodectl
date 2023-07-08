@@ -282,11 +282,12 @@ class Configurator():
 
         self.c.functions.print_paragraphs([
             ["1",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation MainNet",1,"magenta"], 
-            ["2",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation TestNet",1,"magenta"], 
+            ["2",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation IntegrationNet",1,"magenta"], 
+            ["3",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation TestNet",1,"magenta"], 
             ["R",0,"magenta","bold"], [")",-1,"magenta"], ["R",0,"magenta","underline"], ["eturn to Main Menu",-1,"magenta"], ["",1],
             ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
         ])
-        options = ["1","2","R","Q"]
+        options = ["1","2","3,","R","Q"]
         
         if self.debug:
             option = "1"
@@ -320,6 +321,10 @@ class Configurator():
             self.edge_host1 = "l1-lb-mainnet.constellationnetwork.io"
             self.environment = "mainnet"
         elif option == "2":
+            self.edge_host0 = "l0-lb-integrationnet.constellationnetwork.io"
+            self.edge_host1 = "l1-lb-integrationnet.constellationnetwork.io"
+            self.environment = "testnet"
+        elif option == "3":
             self.edge_host0 = "l0-lb-testnet.constellationnetwork.io"
             self.edge_host1 = "l1-lb-testnet.constellationnetwork.io"
             self.environment = "testnet"
@@ -1485,20 +1490,27 @@ class Configurator():
         except:
             # pre-defined selected
             self.profile_name_list = profiles = ["dag-l0","dag-l1"]
+            if "integrationnet" in self.edge_host0:
+                self.profile_name_list = profiles = ["intnet-l0","intnet-l1"]
+                
             layers = ["0","1"]
             tcp_ports = [["9000","9001","9002"],["9010","9011","9012"]]
             java = [["1024M","7G","256K"],["1024M","3G","256K"]]
             p12 = ["global","global","global","global","global"]; p12 = [p12,p12]
             node_type = ["validator","validator"]
-            services = ["node_l0","node_l1"]
+            
+            services = ["node_l0","node_l1"] 
+            if "integrationnet" in self.edge_host0:
+                services = ["intnetserv_l0","intnetserv_l1"]   
+                
             dirs = [["default","default","default"],["disable","default","default"]]
             host = [self.edge_host0,self.edge_host1]
             environment = self.environment
             description = [
-                "Constellation Network Global Layer0",
-                "Constellation Network Layer1 State Channel"
+                "Constellation Network Global Hypergraph",
+                "Constellation Network Layer1 Metagraph" 
             ]
-            link_zero = [["False","None","None","None","None"],["True","self","self","self","dag-l0"]]
+            link_zero = [["False","None","None","None","None"],["True","self","self","self",profiles[0]]]
             https = "False"
             port = ["80","80"]
             seed_location = ["/var/tessellation/","disable"]
