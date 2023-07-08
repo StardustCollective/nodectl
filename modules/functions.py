@@ -511,11 +511,20 @@ class Functions():
     
     def get_ext_ip(self):
         bashCommand = "curl -s https://ipv4.icanhazip.com/"
-        ip = self.process_command({
-                "bashCommand": bashCommand,
-                "proc_action": "timeout"
-        })
         
+        try:
+            ip = self.process_command({
+                    "bashCommand": bashCommand,
+                    "proc_action": "timeout"
+            })
+        except Exception as e:
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-522",
+                "line_code": "dependency",
+                "extra": "curl",
+                "extra2": e,
+            })
+            
         if isinstance(ip, bytes):
             ip = ip.decode('utf-8')
         try:

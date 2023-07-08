@@ -323,7 +323,7 @@ class Configurator():
         elif option == "2":
             self.edge_host0 = "l0-lb-integrationnet.constellationnetwork.io"
             self.edge_host1 = "l1-lb-integrationnet.constellationnetwork.io"
-            self.environment = "testnet"
+            self.environment = "dev"
         elif option == "3":
             self.edge_host0 = "l0-lb-testnet.constellationnetwork.io"
             self.edge_host1 = "l1-lb-testnet.constellationnetwork.io"
