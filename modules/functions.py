@@ -645,7 +645,7 @@ class Functions():
                 cluster_info.pop()
             except:
                 self.error_messages.error_code_messages({
-                    "error_code": "fun-645",
+                    "error_code": "fun-648",
                     "line_code": "off-network",
                 })
             
