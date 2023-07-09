@@ -1515,7 +1515,11 @@ class Configurator():
             ]
             link_zero = [["False","None","None","None","None"],["True","self","self","self",profiles[0]]]
             https = "False"
+            
             port = ["80","80"]
+            if "integrationnet" in self.edge_host0 or "dev" in self.environment:
+                port = ["9000","9010"]
+                
             seed_location = ["/var/tessellation/","disable"]
             seed_file = ["seed-list","disable"]
             enable = "True"

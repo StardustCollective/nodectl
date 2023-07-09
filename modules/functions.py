@@ -143,14 +143,14 @@ class Functions():
                     elif network == "integrationnet":
                         # use the hardcoded version
                         api_host = self.i_hardcode_api_host
-                        api_port = self.hardcode_api_port
+                        api_port = 9000
                        
-                # version = self.get_api_node_info({
-                #     "api_host": api_host,
-                #     "api_port": api_port,
-                #     "info_list": ["version"]
-                # },2)  # tolerance of 2
-                version = ["1.11.3"]
+                version = self.get_api_node_info({
+                    "api_host": api_host,
+                    "api_port": api_port,
+                    "info_list": ["version"]
+                },2)  # tolerance of 2
+                # version = ["1.11.3"]  # debugging
                 self.cluster_tess_version = f"v{version[0]}"
                     
             def get_latest_nodectl(network):
