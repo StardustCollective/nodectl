@@ -10,4 +10,8 @@
     "version": "v2.7.1",
     "upgrade": "True"
   },
+  "integrationnet": {
+    "version": "v2.8.0",
+    "upgrade": "False"
+  },
 }
