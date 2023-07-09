@@ -1,12 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
-from os import system, path, environ, makedirs
+from os import system, path, environ, makedirs, listdir
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
 from copy import deepcopy, copy
 from secrets import compare_digest
+from time import sleep
 
 from .migration import Migration
 from .config import Configuration
@@ -69,7 +70,7 @@ class Configurator():
         self.c = Configuration({
             "action": action,
             "implement": implement,
-            "argv_list": [action]
+            "argv_list": [action],
         })
         if not self.profile_details:
             self.profile_details = {}
@@ -248,13 +249,15 @@ class Configurator():
 
         if do_build:            
             self.build_yaml(True)
-            self.upgrade_needed = True
+            self.upgrade_needed = False
             
             self.build_service_file({
                 "profiles": self.profile_name_list,
                 "action": "Create",
                 "rebuild": True
-            })   
+            }) 
+            
+            self.cleanup_create_snapshot_dirs()  
 
     # =====================================================
     # PRE-DEFINED PROFILE BUILD METHODS
@@ -1192,12 +1195,13 @@ class Configurator():
             snapshot_instructions += "exit with an inaccessible error."
             
             questions = {
-                "snapshots": {
-                    "question": f"  {colored('Enter a valid','cyan')} {colored('snapshots','yellow')} {colored('directory','cyan')}",
-                    "description": snapshot_instructions,
-                    "required": False,
-                    "default": sn_default,
-                },
+                # disabling in order to refactor for incremental snapshots
+                # "snapshots": {
+                #     "question": f"  {colored('Enter a valid','cyan')} {colored('snapshots','yellow')} {colored('directory','cyan')}",
+                #     "description": snapshot_instructions,
+                #     "required": False,
+                #     "default": sn_default,
+                # },
                 "uploads": {
                     "question": f"  {colored('Enter a valid','cyan')} {colored('uploads','yellow')} {colored('directory','cyan')}",
                     "description": f"The uploads directory is where any files that may be needed for troubleshooting or analysis are placed by nodectl. This directory should be a full path!",
@@ -1213,6 +1217,8 @@ class Configurator():
             }
             
             answers = self.ask_confirm_questions(questions)
+            # temp until refactor is completed
+            answers["snapshots"] = sn_default
             
             for directory, c_path in answers.items():
                 if c_path != "disable" and c_path != "default" and c_path[-1] != "/":
@@ -2987,6 +2993,65 @@ class Configurator():
         })        
                 
 
+    def cleanup_create_snapshot_dirs(self):
+        found_snap = False
+        self.log.logger.info("configuator is verifying snapshot data directory existance and contents.")
+        
+        for profile in self.config_obj["profiles"].keys():
+            if self.config_obj["profiles"][profile]["layer"] == "0":
+                found_snap_list = [
+                    f"/var/tessellation/{profile}/data/snapshot",
+                    f"/var/tessellation/{profile}/data/incremental_snapshot",
+                    f"/var/tessellation/{profile}/data/incremental_snapshot_tmp",
+                ]
+                for lookup_path in found_snap_list:
+                    if path.isdir(lookup_path) and listdir(lookup_path):
+                        self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
+                        found_snap = True
+                        break
+                    elif not path.isdir(lookup_path):
+                        makedirs(lookup_path)
+                    
+                if found_snap:
+                    self.log.logger.info("configuartor cleaning up old snapshots")
+                    self.c.functions.print_paragraphs([
+                        ["",1], ["An existing",0], ["snapshot",0,"cyan","bold"],
+                        ["directory struture exists",1],
+                        ["profile:",0], [profile,1,"yellow"],
+                        ["This may cause unexpected errors and conflicts, nodectl will remove snapshot contents from this directory",2,"red","bold"],
+                    ])
+                    user_confirm = self.c.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "prompt": "Remove snapshot contents?",
+                        "exit_if": False
+                    })   
+                    if user_confirm:  
+                        progress = {
+                            "text_start": "Cleaning",
+                            "brackets": profile,
+                            "text_end": "snapshots",
+                            "status": "running",
+                            "status_color": "yellow",
+                        }         
+                        self.c.functions.print_cmd_status({
+                            **progress
+                        })
+                        system(f"rm -rf /var/tessellation/{profile}/data/")
+                        sleep(1)
+                        for new_dir in found_snap_list:
+                            makedirs(new_dir)
+                        self.c.functions.print_cmd_status({
+                            **progress,
+                            "status": "complete",
+                            "status_color": "green",
+                            "newline": True,
+                        })  
+                        sleep(1.5) # allow Node Operator to see results
+                    else:
+                        self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.")                  
+    
+        
     def tcp_change_preparation(self,profile):
         if self.detailed:
             self.c.functions.print_paragraphs([
