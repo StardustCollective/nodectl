@@ -287,7 +287,7 @@ class Configurator():
             ["R",0,"magenta","bold"], [")",-1,"magenta"], ["R",0,"magenta","underline"], ["eturn to Main Menu",-1,"magenta"], ["",1],
             ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
         ])
-        options = ["1","2","3,","R","Q"]
+        options = ["1","2","3","R","Q"]
         
         if self.debug:
             option = "1"
@@ -321,8 +321,11 @@ class Configurator():
             self.edge_host1 = "l1-lb-mainnet.constellationnetwork.io"
             self.environment = "mainnet"
         elif option == "2":
-            self.edge_host0 = "l0-lb-integrationnet.constellationnetwork.io"
-            self.edge_host1 = "l1-lb-integrationnet.constellationnetwork.io"
+            # self.edge_host0 = "l0-lb-integrationnet.constellationnetwork.io"
+            # self.edge_host1 = "l1-lb-integrationnet.constellationnetwork.io"
+            self.edge_host0 = "3.101.147.116"
+            self.edge_host1 = "3.101.147.116"
+            # self.environment = "integrationnet"
             self.environment = "dev"
         elif option == "3":
             self.edge_host0 = "l0-lb-testnet.constellationnetwork.io"
@@ -1490,7 +1493,7 @@ class Configurator():
         except:
             # pre-defined selected
             self.profile_name_list = profiles = ["dag-l0","dag-l1"]
-            if "integrationnet" in self.edge_host0:
+            if "integrationnet" in self.edge_host0 or "dev" in self.environment:
                 self.profile_name_list = profiles = ["intnet-l0","intnet-l1"]
                 
             layers = ["0","1"]
@@ -1500,7 +1503,7 @@ class Configurator():
             node_type = ["validator","validator"]
             
             services = ["node_l0","node_l1"] 
-            if "integrationnet" in self.edge_host0:
+            if "integrationnet" in self.edge_host0 or "dev" in self.environment:
                 services = ["intnetserv_l0","intnetserv_l1"]   
                 
             dirs = [["default","default","default"],["disable","default","default"]]

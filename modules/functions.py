@@ -50,6 +50,8 @@ class Functions():
         # used for installation 
         self.m_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
         self.t_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
+        # self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
+        self.i_hardcode_api_host = "3.101.147.116"
         self.hardcode_api_port = 443
         
         # constellation specific statics
@@ -120,6 +122,8 @@ class Functions():
                     self.node_tess_version = self.node_tess_version.strip("\n")
                 except:
                     self.node_tess_version = "X.X.X"
+                if self.node_tess_version == "":
+                    self.node_tess_version = "X.X.X"
                 if not "v" in self.node_tess_version and not "V" in self.node_tess_version:
                     self.node_tess_version = f"v{self.node_tess_version}"  
                     
@@ -136,12 +140,17 @@ class Functions():
                         # use the hardcoded version
                         api_host = self.t_hardcode_api_host
                         api_port = self.hardcode_api_port
+                    elif network == "integrationnet":
+                        # use the hardcoded version
+                        api_host = self.i_hardcode_api_host
+                        api_port = self.hardcode_api_port
                        
-                version = self.get_api_node_info({
-                    "api_host": api_host,
-                    "api_port": api_port,
-                    "info_list": ["version"]
-                },2)  # tolerance of 2
+                # version = self.get_api_node_info({
+                #     "api_host": api_host,
+                #     "api_port": api_port,
+                #     "info_list": ["version"]
+                # },2)  # tolerance of 2
+                version = ["1.11.3"]
                 self.cluster_tess_version = f"v{version[0]}"
                     
             def get_latest_nodectl(network):
@@ -149,6 +158,8 @@ class Functions():
                 self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
                 if network == "testnet": 
                     self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
+                elif network == "integrationnet":
+                    self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
 
             profile = None if var.action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
@@ -996,7 +1007,7 @@ class Functions():
             
         self.config_obj["node_profile_states"] = {}  # initialize 
         self.ip_address = self.get_ext_ip()
-        self.check_config_testnet_mainnet()
+        self.check_config_environment()
                 
 
     def set_default_directories(self):
@@ -1447,7 +1458,7 @@ class Functions():
                 exit(1) # auto_restart not affected  
             
 
-    def check_config_testnet_mainnet(self):
+    def check_config_environment(self):
         # if there is not a configuration (during installation)
         # check what the primary network is
         # this method will need to be refactored as new Metagraphs
@@ -1487,6 +1498,11 @@ class Functions():
                         "newline": True,
                     })
                     return
+                
+        if self.network_name == "dev":
+            # integrationnet started from dev environment - renaming here
+            # This will be changed in future versions of Tessellation
+            self.network_name = "integrationnet"
 
             
     def check_for_help(self,argv_list,extended):

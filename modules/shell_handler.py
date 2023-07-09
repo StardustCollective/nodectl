@@ -944,7 +944,7 @@ class ShellHandler:
             
         self.update_os()
         
-        self.functions.check_config_testnet_mainnet()
+        self.functions.check_config_environment()
         self.installer = Installer({
             "ip_address": self.ip_address,
             "existing_p12": self.has_existing_p12,
