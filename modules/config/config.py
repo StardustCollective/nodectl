@@ -1201,7 +1201,7 @@ class Configuration():
             
         if not self.validated:
             self.functions.print_paragraphs([
-                [" WARNING! ",2,"yellow,on_red","bold"], ["CONFIGURATION FILE DO NOT VALIDATE",1,"red"],
+                [" WARNING! ",2,"yellow,on_red","bold"], ["CONFIGURATION FILE DID NOT VALIDATE",1,"red"],
                 ["Issues Found:",0,"yellow"], [str(len(self.error_list)),2,"red"],
             ])
 

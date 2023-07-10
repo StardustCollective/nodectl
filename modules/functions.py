@@ -1499,10 +1499,10 @@ class Functions():
                     })
                     return
                 
-        if self.network_name == "dev":
+        # if self.network_name == "dev":
             # integrationnet started from dev environment - renaming here
             # This will be changed in future versions of Tessellation
-            self.network_name = "integrationnet"
+        #   self.network_name = "integrationnet"
 
             
     def check_for_help(self,argv_list,extended):
