@@ -319,7 +319,7 @@ class Migration():
                 "nodegaragexmx": "7G",
                 "nodegaragexss": "256K",
                 "nodegaragenodetype": "validator",
-                "nodegaragedescription": "Constellation Network Global Layer0",
+                "nodegaragedescription": "Constellation Network Global Hypergraph",
                 "nodegaragesnaphostsdir": "default",
                 "nodegaragebackupsdir": "default",
                 "nodegarageuploadsdir": "default",
@@ -331,23 +331,33 @@ class Migration():
                 "nodegarageseedlistloc": "/var/tessellation/",
                 "nodegarageseedlistfile": "seed-list",
             }
+
+            link_profile = "dag-l0"
+            if self.config_details['environment'] == "integrationnet":
+                rebuild_obj["nodegarageenvironment"] = "integrationnet"
+                rebuild_obj["nodegarageedgehost"] = "3.101.147.116"
+                rebuild_obj["nodegarageprofile"] = f"intnet-l{n}" 
+                rebuild_obj["nodegarageservice"] = f"intnetserv_l{n}"
+                rebuild_obj["nodegarageedgeporthost"] = f"90{n}0"
+                link_profile = "intnet-l0"        
+                                        
             if n == 1:
                 # rewrite for layer1
                 rebuild_obj["nodegarage0layerkey"] = "self"
                 rebuild_obj["nodegarage0layerhost"] = "self"
                 rebuild_obj["nodegarage0layerport"] = str(ports[0][0])
-                rebuild_obj["ndoegarage0layerlink"] = "dag-l0"
+                rebuild_obj["ndoegarage0layerlink"] = link_profile
                 rebuild_obj["nodegaragesnaphostsdir"] = "disable"
                 rebuild_obj["nodegaragexmx"] = "3G"
-                rebuild_obj["nodegaragedescription"] = "Constellation Network Layer1 State Channel" 
+                rebuild_obj["nodegaragedescription"] = "Constellation Network Layer1 Metagraph" 
                 rebuild_obj["nodegarageseedlistloc"] = "disable"
-                rebuild_obj["nodegarageseedlistfile"] = "disable" 
-                
-                
+                rebuild_obj["nodegarageseedlistfile"] = "disable"
+
             rebuild_obj["create_file"] = "config_yaml_profile"
             self.yaml += self.build_yaml(rebuild_obj) 
     
-                   
+
+           
     def build_yaml(self,rebuild_obj): 
 
         create_file = rebuild_obj.pop("create_file")

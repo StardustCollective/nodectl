@@ -822,7 +822,7 @@ class Upgrader():
             self.functions.print_paragraphs([
                 ["Please wait while [",0], [profile,-1,"yellow","bold"], ["] attempts to join the network.",-1],["",1],
             ])
-            if profile == "dag-l1":
+            if self.config_copy["profiles"][profile]["layer"] != "0":
                 self.functions.print_paragraphs([
                     ["NOTE:",0,"yellow,on_magenta","bold"], ["Layer1",0,"cyan","underline"], ["networks will not join the Hypergraph until its",0],
                     ["Layer0",0,"cyan","underline"], ["linked profile changes to",0], ["Ready",0,"green","bold"], ["state, this could take up to a",0],

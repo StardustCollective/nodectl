@@ -158,7 +158,7 @@ class Error_codes():
         elif var.line_code == "seed-list":
             self.log.logger.critical("attempt to download seed list failed or resulted in a zero file size.")
             self.functions.print_paragraphs([
-                ["Something isn't quite right?",2,"bold","red"],
+                ["Something isn't quite right?",2,"red","bold"],
                 ["nodectl",0,"red","bold,underline"], ["was unable to download the seed-list associated with the Global Layer0",2,"red","bold"],
                 ["Please check your outbound Internet access and try again later.",2,"yellow","bold"],
             ])
@@ -167,16 +167,17 @@ class Error_codes():
         elif var.line_code == "off_network":
             self.log.logger.critical(f"attempt to issue command that returned empty values. Is the Node on the network?")
             self.functions.print_paragraphs([
-                ["Something isn't quite right?",2,"bold","red"],
+                ["Something isn't quite right?",2,"red","bold"],
                 ["nodectl",0,"red","bold,underline"], ["was unable to access data associated with the command entered?",1,"red","bold"],
                 ["Are you sure this Node is on the HyperGraph?",2,"red","bold"],
+                ["Network Unreachable",2,"bold","magenta"]
             ])
             
             
         elif var.line_code == "join":
             self.log.logger.critical("attempt to join cluster failed.")
             self.functions.print_paragraphs([
-                ["Something isn't quite right?",2,"bold","red"],
+                ["Something isn't quite right?",2,"red","bold"],
                 ["nodectl",0,"red","bold,underline"], ["detected you are not",0,"red","bold"], ["properly joined to the",0,"red","bold"],
                 ["Hypergraph.",2,"yellow","bold"],
                 ["Are you sure your",0,"red","bold"], ["Node",0,"yellow","bold,underline"], 
@@ -202,6 +203,13 @@ class Error_codes():
                 ["Please be diligent and review your Node's security, and other settings!",2,"magenta","bold"],
                 ["Try issuing command:",1,"yellow"],
                 ["sudo nodectl sec",2],
+            ])            
+            
+        elif var.line_code == "invalid_passphrase_pass":
+            self.log.logger.critical("password validation check failed.")
+            self.functions.print_paragraphs([
+                ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
+                ["was detected?",0,"red"],
             ])            
             
             
@@ -259,7 +267,7 @@ class Error_codes():
                 ["Tessellation attempted to extract and derive the",0,"red","bold"], ["nodeid",0,"magenta","bold"],
                 ["from this Node unsuccessfully.",2,"red","bold"],
                 
-                ["This Node's network configuration may be incorrect, please check profile configuration.",2,"magenta"],
+                ["This Node's network configuration may be incorrect, please check profile configuration. You may have corrupted binaries?",2,"magenta"],
                 
             ]) 
             if var.extra == "invalid":           
@@ -271,10 +279,11 @@ class Error_codes():
                 self.functions.print_paragraphs([                
                     ["Hints:",1,"yellow","bold"],
                     ["  - p12 passphrase is correct",1],
-                    ["  - p12 p12 keystore location is correct",1],
+                    ["  - p12 keystore location is correct",1],
                     ["  - p12 name is correct",1],
                     ["  - p12 alias is correct",1],
                     ["  - p12 private key file is corrupted",2],
+                    ["  - try: sudo nodectl refresh_binaries",2],
                 ])            
             if var.extra == "config":
                 self.functions.print_paragraphs([
@@ -306,28 +315,23 @@ class Error_codes():
             ])         
             
             
-        elif var.line_code == "internal_error":
-            self.log.logger.warn(f"invalid program error reached, please contact developer, exited program.")
-            self.functions.print_paragraphs([
-                ["nodectl encountered an invalid error internal error.",2,"red","bold"],
-                ["If issue persists please contact a developer or system administrator",2],
-            ])         
-            
-            
-        elif var.line_code == "profile_build_error":
-            self.log.logger.warn(f"during configuration yaml build an error occurred: error [{var.extra}], exited program.")
-            self.functions.print_paragraphs([
-                ["During a configuration build, something went wrong.",2,"red","bold"],
-                ["Did you enter valid options?",2,"yellow"],
-            ])
-            
-            
         elif var.line_code == "file_not_found":
             self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program.")
             self.functions.print_paragraphs([
                 ["System has attempted to access a file that does not exist.",2,"red","bold"],
                 [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
+            ])            
+                        
+            
+        elif var.line_code == "dependency":
+            self.log.logger.critical(f"an error processig a command outside the realm of nodectl was encounted [{var.extra2}], exited program.")
+            self.functions.print_paragraphs([
+                ["An error has occured while attempting to process a distribution system command.",2,"red","bold"],
+                [" Missing Component: ",0,"blue,on_yellow","bold"], [var.extra,2],
+                ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
+                ["Try installing the dependency and try again",1],
+                ["sudo apt install",0,"yellow"], [var.extra,2,"yellow"],
             ])            
             
             

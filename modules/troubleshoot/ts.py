@@ -52,8 +52,10 @@ class Troubleshooter():
                         if "Joining to peer P2PContext" in line:
                             return (profile,"Peer to Peer port issue","join_error")
             except Exception as e:
-                self.log.logger.error(f"error attempting to open log file | file [{file}] | error [{e}]")
-
+                try:
+                    self.log.logger.error(f"error attempting to open log file | file [{file}] | error [{e}]")
+                except:
+                    self.log.logger.error(f"error attempting to open log file... file not present on system?")
         return False
     
 

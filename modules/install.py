@@ -179,13 +179,19 @@ class Installer():
                     
         self.log.logger.info("creating directories backups logs layer0 and layer1") 
         
+        layer0 = "dag-l0"
+        layer1 = "dag-l1"
+        if self.network_name == "integrationnet":
+            layer0 = "intnet-l0"
+            layer1 = "intnet-l1"
+            
         dir_obj = {
             "tessellation": "/var/tessellation/",
             "backups": "/var/tessellation/backups/",
             "uploads": "/var/tessellation/uploads/",
             "nodectl": "/var/tessellation/nodectl/",
-            "default_layer0": "/var/tessellation/dag-l0/data/snapshot",
-            "default_layer1": "/var/tessellation/dag-l1/",
+            "default_layer0": f"/var/tessellation/{layer0}/data/snapshot",
+            "default_layer1": f"/var/tessellation/{layer1}/",
         }
         for ux, dir in dir_obj.items():
             progress(ux,False)

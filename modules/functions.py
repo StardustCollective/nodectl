@@ -40,7 +40,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.7.1"
+        self.node_nodectl_version = "v2.8.0"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -50,11 +50,17 @@ class Functions():
         # used for installation 
         self.m_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
         self.t_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
+        # self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
+        self.i_hardcode_api_host = "3.101.147.116"
         self.hardcode_api_port = 443
         
         # constellation specific statics
         self.be_mainnet = "be-mainnet.constellationnetwork.io"
         
+        # constellation nodectl statics
+        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        
+        # versioning
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
         self.node_tess_version = "v0.0.0"
         self.latest_nodectl_version = "v0.0.0"
@@ -116,6 +122,8 @@ class Functions():
                     self.node_tess_version = self.node_tess_version.strip("\n")
                 except:
                     self.node_tess_version = "X.X.X"
+                if self.node_tess_version == "":
+                    self.node_tess_version = "X.X.X"
                 if not "v" in self.node_tess_version and not "V" in self.node_tess_version:
                     self.node_tess_version = f"v{self.node_tess_version}"  
                     
@@ -132,12 +140,17 @@ class Functions():
                         # use the hardcoded version
                         api_host = self.t_hardcode_api_host
                         api_port = self.hardcode_api_port
+                    elif network == "integrationnet":
+                        # use the hardcoded version
+                        api_host = self.i_hardcode_api_host
+                        api_port = 9000
                        
                 version = self.get_api_node_info({
                     "api_host": api_host,
                     "api_port": api_port,
                     "info_list": ["version"]
                 },2)  # tolerance of 2
+                # version = ["1.11.3"]  # debugging
                 self.cluster_tess_version = f"v{version[0]}"
                     
             def get_latest_nodectl(network):
@@ -145,21 +158,8 @@ class Functions():
                 self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
                 if network == "testnet": 
                     self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
-                
-                # self.version_obj["nodectl_latest_obj"] = version_details.content.decode("utf-8").replace("\n","").replace(" ","") 
-                # self.latest_nodectl_version = version_details["version"]
-                # if network == "testnet": 
-                #     cmd = "curl -s https://raw.githubusercontent.com/netmet1/constellation_testnet_nodectl/main/versioning"               
-                # else:
-                #     cmd = "curl -s https://raw.githubusercontent.com/netmet1/constellation_nodectl/main/versioning"
-                    
-                # self.latest_nodectl_version = self.process_command({
-                #     "bashCommand": cmd,
-                #     "proc_action": "wait"
-                # })
-                # self.latest_nodectl_version = self.latest_nodectl_version.strip()
-            
-            # =========================================================================================
+                elif network == "integrationnet":
+                    self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
 
             profile = None if var.action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
@@ -522,11 +522,20 @@ class Functions():
     
     def get_ext_ip(self):
         bashCommand = "curl -s https://ipv4.icanhazip.com/"
-        ip = self.process_command({
-                "bashCommand": bashCommand,
-                "proc_action": "timeout"
-        })
         
+        try:
+            ip = self.process_command({
+                    "bashCommand": bashCommand,
+                    "proc_action": "timeout"
+            })
+        except Exception as e:
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-522",
+                "line_code": "dependency",
+                "extra": "curl",
+                "extra2": e,
+            })
+            
         if isinstance(ip, bytes):
             ip = ip.decode('utf-8')
         try:
@@ -647,7 +656,7 @@ class Functions():
                 cluster_info.pop()
             except:
                 self.error_messages.error_code_messages({
-                    "error_code": "fun-645",
+                    "error_code": "fun-648",
                     "line_code": "off-network",
                 })
             
@@ -998,7 +1007,7 @@ class Functions():
             
         self.config_obj["node_profile_states"] = {}  # initialize 
         self.ip_address = self.get_ext_ip()
-        self.check_config_testnet_mainnet()
+        self.check_config_environment()
                 
 
     def set_default_directories(self):
@@ -1349,7 +1358,7 @@ class Functions():
     def pull_upgrade_path(self):
         for n in range(0,4):
             try:
-                upgrade_path = get("https://raw.githubusercontent.com/netmet1/constellation_nodectl/main/upgrade_path.json")
+                upgrade_path = get(self.upgrade_path_path)
             except:
                 if n == 3:
                     self.log.logger.error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
@@ -1449,7 +1458,7 @@ class Functions():
                 exit(1) # auto_restart not affected  
             
 
-    def check_config_testnet_mainnet(self):
+    def check_config_environment(self):
         # if there is not a configuration (during installation)
         # check what the primary network is
         # this method will need to be refactored as new Metagraphs
@@ -1468,11 +1477,12 @@ class Functions():
                         
                         ["OPTIONS",1,"magenta","bold"], ["-------",1,"magenta"],
                         ["M",0,"magenta","bold"], [")",-1,"magenta"], ["ainNet",-1,"magenta"],["",1],
+                        ["I",0,"magenta","bold"], [")",-1,"magenta"], ["ntegrationNet",-1,"magenta"],["",1],
                         ["T",0,"magenta","bold"], [")",-1,"magenta"], ["estNet",-1,"magenta"],["",1],
                         ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
                     ])
 
-                    options_dict = {"M": "mainnet", "T": "testnet", "Q": "Q"}
+                    options_dict = {"M": "mainnet", "T": "testnet", "I": "integrationnet", "Q": "Q"}
                     option = self.get_user_keypress({
                         "prompt": "KEY PRESS an option",
                         "prompt_color": "cyan",
@@ -1488,6 +1498,11 @@ class Functions():
                         "newline": True,
                     })
                     return
+                
+        # if self.network_name == "dev":
+            # integrationnet started from dev environment - renaming here
+            # This will be changed in future versions of Tessellation
+        #   self.network_name = "integrationnet"
 
             
     def check_for_help(self,argv_list,extended):
