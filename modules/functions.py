@@ -40,7 +40,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.8.0"
+        self.node_nodectl_version = "v2.8.1"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -50,8 +50,8 @@ class Functions():
         # used for installation 
         self.m_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
         self.t_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
-        # self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
-        self.i_hardcode_api_host = "3.101.147.116"
+        self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
+
         self.hardcode_api_port = 443
         
         # constellation specific statics
@@ -1745,10 +1745,26 @@ class Functions():
         file_path = command_obj["file_path"]
         search_line = command_obj["search_line"]
         replace_line = command_obj.get("replace_line",False)
-
+        skip_backup = command_obj.get("skip_backup",False)
+        all_first_last = command_obj.get("all_first_last","all")
+        
         file = file_path.split("/")
         file = file[-1]
         
+        def search_replace(done):
+            if search_line in line and not done:
+                if replace_line:
+                    temp_file.write(replace_line)
+                    if all_first_last != "all":
+                        done = True
+                else:
+                    system(f"rm {temp}")
+                    return True
+            else:
+                if replace_line:
+                    temp_file.write(line)  
+            return done  
+                    
         if replace_line:
             date = self.get_date_time({"action":"datetime"})
             try:
@@ -1759,33 +1775,50 @@ class Functions():
             except:
                 backup_dir = "./"
         
+        if not path.exists(file_path):
+            return "file_not_found"
         try:
             f = open(file_path)
         except:
             return "file_not_found"
         
         result = False
+        done = False
         temp = "/var/tmp/cnng_temp_file"
-        system(f"rm {temp} > /dev/null 2>&1") # makes sure no left over file from esc'ed method
         
-        with open("/var/tmp/cnng_temp_file","w") as temp_file:
-            if replace_line:
+        # makes sure no left over file from esc'ed method
+        system(f"rm {temp} > /dev/null 2>&1") 
+        system(f"rm {temp}_reverse > /dev/null 2>&1")
+                       
+        with open(temp,"w") as temp_file:
+            if replace_line and not skip_backup:
                 system(f"cp {file_path} {backup_dir}{file}_{date} > /dev/null 2>&1")
-            for line in f:
-                if search_line in line:
-                    if replace_line:
-                        temp_file.write(replace_line)
-                    else:
-                        system(f"rm {temp}")
-                        return True
-                else:
-                    if replace_line:
-                        temp_file.write(line)
+            if all_first_last == "last":
+                for line in reversed(list(f)):
+                    done = search_replace(done)
+            else:
+                for line in list(f):
+                    done = search_replace(done)
+
             f.close()
+                
+        if all_first_last == "last":
+            f = open(temp)
+            temp = f"{temp}_reverse"
+            with open(temp, "w") as temp_file:
+                search_line = ""
+                all_first_last = "all"
+                done = True            
+                for line in reversed(list(f)):
+                    done = search_replace(done)
+                    
+        f.close() # make sure closed properly                
                 
         if replace_line:
             system(f"cp {temp} {file_path} > /dev/null 2>&1")
-        system(f"rm {temp} > /dev/null 2>&1")
+        # use statics to avoid accidental file removal
+        system(f"rm /var/tmp/cnng_temp_file > /dev/null 2>&1")
+        system(f"rm /var/tmp/cnng_temp_file_reverse > /dev/null 2>&1")
         
         return result
 

@@ -332,10 +332,8 @@ class Configurator():
             self.edge_host1 = "l1-lb-mainnet.constellationnetwork.io"
             self.environment = "mainnet"
         elif option == "2":
-            # self.edge_host0 = "l0-lb-integrationnet.constellationnetwork.io"
-            # self.edge_host1 = "l1-lb-integrationnet.constellationnetwork.io"
-            self.edge_host0 = "3.101.147.116"
-            self.edge_host1 = "3.101.147.116"
+            self.edge_host0 = "l0-lb-integrationnet.constellationnetwork.io"
+            self.edge_host1 = "l1-lb-integrationnet.constellationnetwork.io"
             self.environment = "integrationnet"
         elif option == "3":
             self.edge_host0 = "l0-lb-testnet.constellationnetwork.io"
@@ -3039,7 +3037,7 @@ class Configurator():
             })    
             if user_confirm:
                 for profile in clean_up_old_list:
-                    system(f"rm -rf /var/tessellation/{profile}") 
+                    system(f"rm -rf /var/tessellation/{profile} > /dev/null 2>&1")
                     self.log.logger.info(f"configuration removed abandend profile [{profile}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
@@ -3098,7 +3096,7 @@ class Configurator():
                         self.c.functions.print_cmd_status({
                             **progress
                         })
-                        system(f"rm -rf /var/tessellation/{profile}/data/")
+                        system(f"rm -rf /var/tessellation/{profile}/data/ > /dev/null 2>&1")
                         sleep(1)
                         for new_dir in found_snap_list:
                             makedirs(new_dir)

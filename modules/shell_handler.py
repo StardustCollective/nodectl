@@ -211,7 +211,7 @@ class ShellHandler:
                 "argv_list": self.argv
             })
         elif self.called_command in upgrade_commands:
-            command = "mainnet"
+            environment = "mainnet"
             if "testnet" in self.called_command:
                 command = "testnet"
             return_value = cli.upgrade_nodectl({
