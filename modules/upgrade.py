@@ -563,12 +563,6 @@ class Upgrader():
                     "replace_line": f"        host_port: 80\n"
                 })
                 
-            
-                        
-        for n in range(0,2):
-            1 == 1
-            pass
-                
         self.service_file_manipulation() # default directories are setup in the verify_directories method
        
         # remove any private key file info to keep
