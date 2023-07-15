@@ -94,15 +94,16 @@ class ShellHandler:
 
         cli = self.build_cli_obj()
         
-        if cli.invalid_version:
-            self.functions.confirm_action({
-                "yes_no_default": "NO",
-                "return_on": "YES",
-                "strict": True,
-                "prompt_color": "red",
-                "prompt": "Are you sure you want to continue?",
-                "exit_if": True
-            })
+        if self.called_command != "install":
+            if cli.invalid_version:
+                self.functions.confirm_action({
+                    "yes_no_default": "NO",
+                    "return_on": "YES",
+                    "strict": True,
+                    "prompt_color": "red",
+                    "prompt": "Are you sure you want to continue?",
+                    "exit_if": True
+                })
             
         restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
         service_change_commands = ["start","stop","leave"]
@@ -926,7 +927,7 @@ class ShellHandler:
         self.has_existing_p12 = self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
-            "prompt": "Are you migrating over an existing p12 private key?",
+            "prompt": "Are you migrating an existing p12 private key to this Node?",
             "exit_if": False,
         })
         
