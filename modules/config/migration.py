@@ -335,11 +335,7 @@ class Migration():
             link_profile = "dag-l0"
             if self.config_details['environment'] == "integrationnet":
                 rebuild_obj["nodegarageenvironment"] = "integrationnet"
-<<<<<<< HEAD
                 rebuild_obj["nodegarageedgehost"] = f"l{n}-lb-integrationnet.constellationnetwork.io"
-=======
-                rebuild_obj["nodegarageedgehost"] = "3.101.147.116"
->>>>>>> main
                 rebuild_obj["nodegarageprofile"] = f"intnet-l{n}" 
                 rebuild_obj["nodegarageservice"] = f"intnetserv_l{n}"
                 rebuild_obj["nodegarageedgeporthost"] = f"90{n}0"

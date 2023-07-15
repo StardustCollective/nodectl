@@ -40,11 +40,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-<<<<<<< HEAD
         self.node_nodectl_version = "v2.8.1"
-=======
-        self.node_nodectl_version = "v2.8.0"
->>>>>>> main
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -54,13 +50,8 @@ class Functions():
         # used for installation 
         self.m_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
         self.t_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
-<<<<<<< HEAD
         self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
 
-=======
-        # self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
-        self.i_hardcode_api_host = "3.101.147.116"
->>>>>>> main
         self.hardcode_api_port = 443
         
         # constellation specific statics
@@ -170,7 +161,6 @@ class Functions():
                     self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
                 elif network == "integrationnet":
                     self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
-<<<<<<< HEAD
                 pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{self.latest_nodectl_version}"
                 pre_success = True
                 for n in range(0,3):
@@ -191,9 +181,6 @@ class Functions():
                     # self.release_details = pre_release # save for future use
                     self.pre_release = pre_release["prerelease"]  
         
-=======
-
->>>>>>> main
             profile = None if var.action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
                 self.set_default_variables(profile)
