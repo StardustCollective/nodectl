@@ -7,7 +7,6 @@ from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 
-
 class Cleaner():
     
     def __init__(self,command_obj):
@@ -177,7 +176,7 @@ class Cleaner():
             cprint("  Remove action cancelled","green",attrs=['bold'])
 
 
-    def find_or_replace_files(self, dir_type,dirs,action,time_check,ignore_list):
+    def find_or_replace_files(self,dir_type,dirs,action,time_check,ignore_list):
         # action = find_only or remove
         # single = single file ( or directory ) bool
         # time_check = time to check against
@@ -216,7 +215,7 @@ class Cleaner():
             log_path_list.append({
                 "layer": "na",
                 "log_path": f"/usr/local/bin/"
-            })              
+            })   
         else:
             # snapshots, backups, uploads
             for profile in dirs.keys():

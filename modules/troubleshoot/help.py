@@ -826,7 +826,7 @@ def build_help(command_obj):
   
   '''      
   
-    if extended == "check_version":
+    if extended == "check_versions":
         help_text += title(extended)
         help_text += f'''
   

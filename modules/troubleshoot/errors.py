@@ -267,7 +267,7 @@ class Error_codes():
                 ["Tessellation attempted to extract and derive the",0,"red","bold"], ["nodeid",0,"magenta","bold"],
                 ["from this Node unsuccessfully.",2,"red","bold"],
                 
-                ["This Node's network configuration may be incorrect, please check profile configuration.",2,"magenta"],
+                ["This Node's network configuration may be incorrect, please check profile configuration. You may have corrupted binaries?",2,"magenta"],
                 
             ]) 
             if var.extra == "invalid":           
@@ -283,6 +283,7 @@ class Error_codes():
                     ["  - p12 name is correct",1],
                     ["  - p12 alias is correct",1],
                     ["  - p12 private key file is corrupted",2],
+                    ["  - try: sudo nodectl refresh_binaries",2],
                 ])            
             if var.extra == "config":
                 self.functions.print_paragraphs([

@@ -94,11 +94,20 @@ class ShellHandler:
 
         cli = self.build_cli_obj()
         
+        if cli.invalid_version:
+            self.functions.confirm_action({
+                "yes_no_default": "NO",
+                "return_on": "YES",
+                "strict": True,
+                "prompt_color": "red",
+                "prompt": "Are you sure you want to continue?",
+                "exit_if": True
+            })
+            
         restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
         service_change_commands = ["start","stop","leave"]
         status_commands = ["status","_s","quick_status","_qs"]
         node_id_commands = ["id","dag","nodeid"]
-        upgrade_commands = ["upgrade_nodectl","upgrade_nodectl_testnet"]
         cv_commands = ["check_versions","_cv"]
         deprecated_clear_file_cmds = [
             "clear_uploads","_cul","_cls","clear_logs",
@@ -210,12 +219,15 @@ class ShellHandler:
                 "command": command,
                 "argv_list": self.argv
             })
-        elif self.called_command in upgrade_commands:
-            command = "mainnet"
-            if "testnet" in self.called_command:
-                command = "testnet"
+        elif self.called_command == "upgrade_nodectl_testnet":
+            cli.print_deprecated({
+                "command": self.called_command,
+                "version": "v2.8.0",
+                "new_command": "upgrade_nodectl"
+            })
+        elif self.called_command == "upgrade_nodectl":
             return_value = cli.upgrade_nodectl({
-                "command": command,
+                "argv_list": self.argv,
                 "help": self.argv[0]
             })
         elif self.called_command in ssh_commands:

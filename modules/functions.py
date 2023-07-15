@@ -40,7 +40,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.8.0"
+        self.node_nodectl_version = "v2.8.1"
         exclude_config = ["-v","_v","version"]
         if config_obj["caller"] in exclude_config:
             return
@@ -50,8 +50,8 @@ class Functions():
         # used for installation 
         self.m_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
         self.t_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
-        # self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
-        self.i_hardcode_api_host = "3.101.147.116"
+        self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
+
         self.hardcode_api_port = 443
         
         # constellation specific statics
@@ -101,7 +101,8 @@ class Functions():
         
         # handle auto_restart
         var.print_message = False if self.auto_restart else var.print_message
-
+        self.pre_release = False
+        
         with ThreadPoolExecutor() as executor:                            
             def print_msg():
                 if var.print_message:
@@ -160,7 +161,26 @@ class Functions():
                     self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
                 elif network == "integrationnet":
                     self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
-
+                pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{self.latest_nodectl_version}"
+                pre_success = True
+                for n in range(0,3):
+                    try:
+                        pre_release = get(pre_release_uri).json()
+                    except:
+                        sleep(1)
+                        self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
+                        pre_success = False
+                    else:
+                        break
+                    
+                if not pre_success:
+                    self.print_paragraphs([
+                        ["Unables to determine if this release is a pre-release, continuing anyway...",1,"red"]
+                    ])
+                else:
+                    # self.release_details = pre_release # save for future use
+                    self.pre_release = pre_release["prerelease"]  
+        
             profile = None if var.action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
                 self.set_default_variables(profile)
@@ -196,7 +216,8 @@ class Functions():
                 self.event = False
                 return {
                     "node_nodectl_version":self.node_nodectl_version,
-                    "latest_nodectl_version": self.latest_nodectl_version
+                    "latest_nodectl_version": self.latest_nodectl_version,
+                    "pre_release": self.pre_release
                 }
             else:
                 print_msg()
@@ -214,14 +235,16 @@ class Functions():
                         "node_tess_version": self.node_tess_version,
                         "cluster_tess_version": self.cluster_tess_version,
                         "latest_nodectl_version": self.latest_nodectl_version,
-                        "upgrade_path": self.upgrade_path
+                        "upgrade_path": self.upgrade_path,
+                        "pre_release": self.pre_release
                     }
                 else:
                     return {
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
                         "latest_nodectl_version": self.latest_nodectl_version,
-                        "upgrade_path": self.upgrade_path
+                        "upgrade_path": self.upgrade_path,
+                        "pre_release": self.pre_release
                     }
 
 
@@ -1745,10 +1768,26 @@ class Functions():
         file_path = command_obj["file_path"]
         search_line = command_obj["search_line"]
         replace_line = command_obj.get("replace_line",False)
-
+        skip_backup = command_obj.get("skip_backup",False)
+        all_first_last = command_obj.get("all_first_last","all")
+        
         file = file_path.split("/")
         file = file[-1]
         
+        def search_replace(done):
+            if search_line in line and not done:
+                if replace_line:
+                    temp_file.write(replace_line)
+                    if all_first_last != "all":
+                        done = True
+                else:
+                    system(f"rm {temp}")
+                    return True
+            else:
+                if replace_line:
+                    temp_file.write(line)  
+            return done  
+                    
         if replace_line:
             date = self.get_date_time({"action":"datetime"})
             try:
@@ -1759,33 +1798,50 @@ class Functions():
             except:
                 backup_dir = "./"
         
+        if not path.exists(file_path):
+            return "file_not_found"
         try:
             f = open(file_path)
         except:
             return "file_not_found"
         
         result = False
+        done = False
         temp = "/var/tmp/cnng_temp_file"
-        system(f"rm {temp} > /dev/null 2>&1") # makes sure no left over file from esc'ed method
         
-        with open("/var/tmp/cnng_temp_file","w") as temp_file:
-            if replace_line:
+        # makes sure no left over file from esc'ed method
+        system(f"rm {temp} > /dev/null 2>&1") 
+        system(f"rm {temp}_reverse > /dev/null 2>&1")
+                       
+        with open(temp,"w") as temp_file:
+            if replace_line and not skip_backup:
                 system(f"cp {file_path} {backup_dir}{file}_{date} > /dev/null 2>&1")
-            for line in f:
-                if search_line in line:
-                    if replace_line:
-                        temp_file.write(replace_line)
-                    else:
-                        system(f"rm {temp}")
-                        return True
-                else:
-                    if replace_line:
-                        temp_file.write(line)
+            if all_first_last == "last":
+                for line in reversed(list(f)):
+                    done = search_replace(done)
+            else:
+                for line in list(f):
+                    done = search_replace(done)
+
             f.close()
+                
+        if all_first_last == "last":
+            f = open(temp)
+            temp = f"{temp}_reverse"
+            with open(temp, "w") as temp_file:
+                search_line = ""
+                all_first_last = "all"
+                done = True            
+                for line in reversed(list(f)):
+                    done = search_replace(done)
+                    
+        f.close() # make sure closed properly                
                 
         if replace_line:
             system(f"cp {temp} {file_path} > /dev/null 2>&1")
-        system(f"rm {temp} > /dev/null 2>&1")
+        # use statics to avoid accidental file removal
+        system(f"rm /var/tmp/cnng_temp_file > /dev/null 2>&1")
+        system(f"rm /var/tmp/cnng_temp_file_reverse > /dev/null 2>&1")
         
         return result
 
@@ -2068,6 +2124,40 @@ class Functions():
             print("")       
             
         sleep(delay)
+        
+    
+    def print_option_menu(self,command_obj):
+        options = command_obj.get("options")
+        let_or_num = command_obj.get("let_or_num","num")
+        return_value = command_obj.get("return_value",False)
+        
+        prefix_list = []
+        spacing = 0
+        for n, option in enumerate(options):
+            prefix_list.append(str(n+1))
+            if let_or_num == "let":
+                prefix_list[n] = option[0].upper()
+                option = option[1::]
+                spacing = -1
+            self.print_paragraphs([
+                [prefix_list[n],-1,"cyan","bold"],[")",-1],
+                [option,spacing], ["",1],
+            ])
+
+        print("")
+        option = self.get_user_keypress({
+            "prompt": "KEY PRESS an option",
+            "prompt_color": "cyan",
+            "options": prefix_list,
+        })
+        
+        if not return_value:
+            return option
+        for return_option in options:
+            if let_or_num == "let":
+                if option == return_option[0]:
+                    return return_option
+            return options[int(option)-1]
         
         
     def print_any_key(self,command_obj):

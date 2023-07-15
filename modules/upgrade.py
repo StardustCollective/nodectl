@@ -5,6 +5,7 @@ from termcolor import colored, cprint
 from re import match
 from types import SimpleNamespace
 from hurry.filesize import size, alternative
+from copy import deepcopy
 
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
@@ -12,6 +13,7 @@ from .p12 import P12Class
 from .command_line import CLI
 from .troubleshoot.logger import Logging
 from .config.config import Configuration
+
 
 class Upgrader():
 
@@ -116,7 +118,7 @@ class Upgrader():
             "argv_list": []
         })
         
-        self.config_copy = self.functions.config_obj
+        self.config_copy = deepcopy(self.functions.config_obj)
         verify = Configuration({
             "implement": False,
             "action": "configure",
@@ -484,112 +486,81 @@ class Upgrader():
         
         self.fix_swap_issues()
         self.update_system_prompt()
-              
-        # v1.12.0 > v2.0.0 only
-        snap_migration = False
-        for n in range(0,2):
-            if path.isdir(f"/var/tessellation/layer{n}/"): 
-                
-                with ThreadPoolExecutor() as executor:
-                    if n == 0:
-                        snapshot = self.functions.get_dir_size(f"/var/tessellation/layer{n}/")
-                        
-                        self.functions.print_paragraphs([
-                            ["",1], ["A",0], ["possible",0,"yellow"], ["migration from version [",0],
-                            ["v1.x.x",-1,"yellow","bold"], ["] to [",-1], ["v2.x.x",-1,"yellow","bold"],
-                            ["] has been detected.",-1],["",2],
-                            
-                            ["This Validator Node holds",0], [size(snapshot,system=alternative),0,"yellow"], ["of snapshot files currently.",2],
-                            
-                            ["If you are an",0], ["advanced",0,"red","underline"], ["Node Operator, and your Node currently is using this data to retrieve historical or other references",0],
-                            ["related to any specific requirements you have regarding the snapshots, you should retain them.",2],
+        backup = False
+        confirm = True if self.non_interactive else False
 
-                            ["If you do",0,"green"], ["not",0, "green","bold"], ["use historical data and simply run your Node",0,"green"],
-                            ["to participate in the Hypergraph operations as a simple Validator, you should choose",0,"green"],
-                            ['no [n]',0,"yellow","bold"], ["for the following question.",2,"green"],
-                        ])
-                        
-                        prompt = "Do you want to retain and migrate your snapshot data during this migration?"                        
-                        snap_migration = self.functions.confirm_action({
-                            "yes_no_default": "n",
+        # version 2.8.0 to 2.8.1 integrationNet only
+        for profile in self.config_copy["profiles"].keys():
+            if self.config_copy["profiles"][profile]["environment"] == "integrationnet":
+                host = f"l{self.config_copy['profiles'][profile]['layer']}-lb-integrationnet.constellationnetwork.io"
+                if self.config_copy["profiles"][profile]["layer"] < 1:
+                    self.functions.print_cmd_status({
+                        "text_start": "Found environment",
+                        "brackets": "integrationnet",
+                        "status": "found",
+                        "newline": True,
+                    })
+                    self.functions.print_paragraphs([
+                        ["",1], ["A legacy integrationnet configuration variable",0],
+                        [self.config_copy["profiles"][profile]["edge_point"]["host"],0,"yellow","bold"],
+                        ["was found, this should be corrected.",2],
+                    ])
+                    if not confirm:
+                        confirm = self.functions.confirm_action({
+                            "prompt": "Would you like nodectl to update your configuration?",
+                            "yes_no_default": "y",
                             "return_on": "y",
-                            "prompt": prompt,
-                            "exit_if": False,
+                            "exit_if": False
                         })
                         
-                        if snap_migration:
-                            self.functions.print_paragraphs([
-                                ["The next steps may take u to 45 minutes to complete.",0],
-                                ["During this time you will be presented with a",0],["running",0,"yellow"],["indicator.  Please do not interrupt the migration",0],
-                                ["until it completes, to avoid migration corruption.",2],
-                                ["Please exercise patience",0,"magenta"], ["during the migration.",1],
-                            ])
-                            
-                            progress ={
-                                "text_start": "Handling migration snapshots",
-                                "status": "running",
-                                "dotted_animation": True,
-                            }
-                            self.functions.status_dots = True
-                            _ = executor.submit(self.functions.print_cmd_status,progress)
-
-
-                            cmd = "sudo find /var/tessellation/layer0/data/snapshot/ -type f -mtime +30 -delete > /dev/null 2>&1"
-                            system(cmd)
-                            self.functions.status_dots = False
-                            self.functions.print_cmd_status({
-                                **progress,
-                                "dotted_animation": False,
-                                "status": "complete",
-                                "status_color": "green",
-                                "newline": True,
-                            }) 
-
-                    sleep(.3)
-                    if not snap_migration:
-                        self.functions.print_cmd_status({
-                            "text_start": "Skipping snapshot migration",
-                            "newline": True,
-                            "text_color": "green"
-                        })
-                                                
+            if confirm:
+                # need to done for each layer independently in case user uses different
+                # edge hosts per profile
+                if not backup:
+                    backup = True
                     progress = {
-                        "text_start": "Migrating legacy",
-                        "brackets": f"layer{n} > dag-l{n}",
-                        "text_end": "dirs",
+                        "text_start": "Backing up config",
                         "status": "running",
-                        "dotted_animation": True,
+                        "newline": False,
                     }
-                    
-                with ThreadPoolExecutor() as executor:
-                    if path.isdir(f"/var/tessellation/layer{n}/"):
-                        self.functions.status_dots = True
-                        _ = executor.submit(self.functions.print_cmd_status,progress)
+                    self.functions.print_cmd_status(progress)
+                    backup_file = self.functions.get_date_time({"action": "datetime"})
+                    backup_file = f"cn-config_{backup_file}"
+                    try:
+                        system(f"cp /var/tessellation/nodectl/cn-config.yaml {self.config_copy['profiles'][profile]['dirs']['backups']}/{backup_file} > /dev/null 2>&1")
+                    except Exception as e:
+                        self.log.logger.error(f"unable to find directory location. error [{e}]")
+                        self.error_messages.error_code_messages({
+                            "error_code": "upg-531",
+                            "line_code": "file_not_found",
+                            "extra": f"cn-config.yaml or backup dir"
+                        })
+                    self.functions.print_cmd_status({
+                        **progress,
+                        "status": "complete",
+                        "status_color": "green",
+                        "newline": True,
+                    })
 
-                        if snap_migration:
-                            cmd = f"rsync -a --remove-source-files /var/tessellation/layer{n}/ /var/tessellation/dag-l{n}/ > /dev/null 2>&1"
-                            system(cmd)
-                            
-                        cmd = f"rm -rf /var/tessellation/layer{n}/ > /dev/null 2>&1"
-                        system(cmd)
-                        
-                        self.functions.status_dots = False
-                        self.functions.print_cmd_status({
-                            **progress,
-                            "dotted_animation": False,
-                            "status": "complete",
-                            "newline": True
-                        })
-                    else:
-                        self.functions.print_cmd_status({
-                            **progress,
-                            "status": "skipped",
-                            "newline": True
-                        })
-                        
-                self.functions.print_cmd_status({
-                    "text_start": "Remove legacy bash files",
-                    "brackets": f"cn-nodel{n}",
+                search = ""
+                search = f'        host: {self.config_copy["profiles"][profile]["edge_point"]["host"]}'
+                search2 = f"        host_port: 90{self.config_copy['profiles'][profile]['layer']}0"
+                all_first_last = "first"
+                if self.config_copy['profiles'][profile]['layer'] > 0:
+                    all_first_last = "last"
+                    
+                self.functions.test_or_replace_line_in_file({
+                    "file_path": "/var/tessellation/nodectl/cn-config.yaml",
+                    "search_line": search,
+                    "skip_backup": True,
+                    "all_first_last": all_first_last,
+                    "replace_line": f"        host: {host}\n"
+                })
+                self.functions.test_or_replace_line_in_file({
+                    "file_path": "/var/tessellation/nodectl/cn-config.yaml",
+                    "search_line": search2,
+                    "skip_backup": True,
+                    "replace_line": f"        host_port: 80\n"
                 })
                 
         self.service_file_manipulation() # default directories are setup in the verify_directories method
