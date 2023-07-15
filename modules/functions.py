@@ -101,7 +101,8 @@ class Functions():
         
         # handle auto_restart
         var.print_message = False if self.auto_restart else var.print_message
-
+        self.pre_release = False
+        
         with ThreadPoolExecutor() as executor:                            
             def print_msg():
                 if var.print_message:
@@ -160,7 +161,26 @@ class Functions():
                     self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
                 elif network == "integrationnet":
                     self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
-
+                pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{self.latest_nodectl_version}"
+                pre_success = True
+                for n in range(0,3):
+                    try:
+                        pre_release = get(pre_release_uri).json()
+                    except:
+                        sleep(1)
+                        self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
+                        pre_success = False
+                    else:
+                        break
+                    
+                if not pre_success:
+                    self.print_paragraphs([
+                        ["Unables to determine if this release is a pre-release, continuing anyway...",1,"red"]
+                    ])
+                else:
+                    # self.release_details = pre_release # save for future use
+                    self.pre_release = pre_release["prerelease"]  
+        
             profile = None if var.action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
                 self.set_default_variables(profile)
@@ -196,7 +216,8 @@ class Functions():
                 self.event = False
                 return {
                     "node_nodectl_version":self.node_nodectl_version,
-                    "latest_nodectl_version": self.latest_nodectl_version
+                    "latest_nodectl_version": self.latest_nodectl_version,
+                    "pre_release": self.pre_release
                 }
             else:
                 print_msg()
@@ -214,14 +235,16 @@ class Functions():
                         "node_tess_version": self.node_tess_version,
                         "cluster_tess_version": self.cluster_tess_version,
                         "latest_nodectl_version": self.latest_nodectl_version,
-                        "upgrade_path": self.upgrade_path
+                        "upgrade_path": self.upgrade_path,
+                        "pre_release": self.pre_release
                     }
                 else:
                     return {
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
                         "latest_nodectl_version": self.latest_nodectl_version,
-                        "upgrade_path": self.upgrade_path
+                        "upgrade_path": self.upgrade_path,
+                        "pre_release": self.pre_release
                     }
 
 
@@ -2101,6 +2124,40 @@ class Functions():
             print("")       
             
         sleep(delay)
+        
+    
+    def print_option_menu(self,command_obj):
+        options = command_obj.get("options")
+        let_or_num = command_obj.get("let_or_num","num")
+        return_value = command_obj.get("return_value",False)
+        
+        prefix_list = []
+        spacing = 0
+        for n, option in enumerate(options):
+            prefix_list.append(str(n+1))
+            if let_or_num == "let":
+                prefix_list[n] = option[0].upper()
+                option = option[1::]
+                spacing = -1
+            self.print_paragraphs([
+                [prefix_list[n],-1,"cyan","bold"],[")",-1],
+                [option,spacing], ["",1],
+            ])
+
+        print("")
+        option = self.get_user_keypress({
+            "prompt": "KEY PRESS an option",
+            "prompt_color": "cyan",
+            "options": prefix_list,
+        })
+        
+        if not return_value:
+            return option
+        for return_option in options:
+            if let_or_num == "let":
+                if option == return_option[0]:
+                    return return_option
+            return options[int(option)-1]
         
         
     def print_any_key(self,command_obj):

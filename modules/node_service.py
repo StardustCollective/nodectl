@@ -876,6 +876,8 @@ class Node():
         var = SimpleNamespace(**command_obj)
         var.environment_name = command_obj.get("environment_name","mainnet")
         var.upgrade_required = command_obj.get("upgrade_required",False)
+        var.pre_release = command_obj.get("pre_release",False)
+        
         cur_file2 = "" # initialize
         
         if var.file == "service_file":
@@ -1006,11 +1008,7 @@ nodectl:
 
 
         elif var.file == "upgrade":
-            if var.environment_name == "testnet":
-                url = "https://github.com/netmet1/constellation_testnet_nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
-            else:
-                url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
-                
+            url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
             cur_file = '''#!/bin/bash
 
 red='\033[1;31m'

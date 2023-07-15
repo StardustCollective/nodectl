@@ -5,6 +5,7 @@ from termcolor import colored, cprint
 from re import match
 from types import SimpleNamespace
 from hurry.filesize import size, alternative
+from copy import deepcopy
 
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
@@ -117,7 +118,7 @@ class Upgrader():
             "argv_list": []
         })
         
-        self.config_copy = self.functions.config_obj
+        self.config_copy = deepcopy(self.functions.config_obj)
         verify = Configuration({
             "implement": False,
             "action": "configure",
