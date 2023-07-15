@@ -1719,7 +1719,7 @@ class CLI():
                 self.version_obj["latest_nodectl_version"] = self.functions.cleaner(self.version_obj["latest_nodectl_version"],"new_line")
                 
                 upgrade_command = "upgrade_nodectl_testnet"
-                if self.functions.config_obj["profiles"][self.functions.default_profile]["environment"] == "mainnet":
+                if self.functions.config_obj["profiles"][self.functions.default_profile]["environment"] != "testnet":
                     upgrade_command = "upgrade_nodectl"
                 self.functions.print_paragraphs([
                     ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["nodectl",0,"cyan","bold"], ["was detected:",0],
@@ -2870,7 +2870,7 @@ class CLI():
                                             "header_elements" : header_elements
                                         })
                             else: 
-                                if reward["amount"] > 9999999:
+                                if reward["amount"] > 999999:
                                     if create_csv:
                                         self.functions.create_n_write_csv({
                                             "file": csv_path,
@@ -3252,10 +3252,10 @@ class CLI():
         if "help" in var.argv_list:
             show_help = True
         else:
-            if "-p" not in var.argv_list and var.command == "change_ssh_port":
+            if "--port" not in var.argv_list and var.command == "change_ssh_port":
                 show_help = True
-            elif "-p" in var.argv_list:
-                port_no = var.argv_list[var.argv_list.index("-p")+1]
+            elif "--port" in var.argv_list:
+                port_no = var.argv_list[var.argv_list.index("--port")+1]
             else:
                 port_no = 22
                 
@@ -3414,19 +3414,19 @@ class CLI():
     # ==========================================
 
     def upgrade_nodectl(self,command_obj):
-        testnet_mainnet = command_obj["command"]
+        environment_name = command_obj["command"]
         if command_obj["help"] == "help":
             self.functions.print_help({
                 "extended": "upgrade_nodectl"
             })
         
-        self.log.logger.info(f"Upgrade nodectl [{testnet_mainnet}] to new version request")
+        self.log.logger.info(f"Upgrade nodectl [{environment_name}] to new version request")
 
         try:
             current_env = self.functions.config_obj["profiles"][self.functions.default_profile]["environment"]
             self.functions.network_name = current_env
         except Exception as e:
-            self.log.logger.critical(f"unable to determine environment type [{testnet_mainnet}]")
+            self.log.logger.critical(f"unable to determine environment type [{environment_name}]")
             self.error_messages.error_code({
                 "error_code": "cmd-2778",
                 "line_code": "input_error",
@@ -3438,10 +3438,10 @@ class CLI():
             version_obj = self.functions.get_version({"which":"all"})
         self.functions.print_clear_line()
                  
-        if testnet_mainnet != current_env:
-            self.log.logger.warn(f"Upgrade nodectl [{testnet_mainnet}] to new version request while on [testnet]")
+        if environment_name != current_env:
+            self.log.logger.warn(f"Upgrade nodectl [{environment_name}] to new version request while on [testnet]")
             self.functions.print_paragraphs([
-                [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [testnet_mainnet,1,"yellow","bold"],
+                [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [environment_name,1,"yellow","bold"],
                 ["You are currently on:",0], [current_env.upper(),1,"yellow"],
                 ["version:",0], [version_obj['latest_nodectl_version'],1,"yellow"],
                 ["NODECTL UPGRADE TERMINATED WITH NO ACTION",1,"red","bold"],
@@ -3455,7 +3455,7 @@ class CLI():
             ])
         else:
             self.functions.print_paragraphs([
-                [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [testnet_mainnet,1,"yellow","bold"],
+                [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [environment_name,1,"yellow","bold"],
                 ["You are currently on:",0], [current_env.upper(),1,"yellow"],
                 ["  version:",0], [version_obj['node_nodectl_version'],1,"yellow"],
                 ["available:",0], [f'{version_obj["latest_nodectl_version"]}',1,"yellow"],
@@ -3481,8 +3481,8 @@ class CLI():
 
             upgrade_file = self.node_service.create_files({
                 "file": "upgrade",
-                "testnet_mainnet": testnet_mainnet,
-                "upgrade_required": True if version_obj["upgrade_path"][testnet_mainnet]["upgrade"] == "True" else False
+                "environment_name": environment_name,
+                "upgrade_required": True if version_obj["upgrade_path"][environment_name]["upgrade"] == "True" else False
             })
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",version_obj["latest_nodectl_version"])
             upgrade_file = upgrade_file.replace("ARCH",arch)

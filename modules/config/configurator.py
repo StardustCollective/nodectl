@@ -1,12 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
-from os import system, path, environ, makedirs
+from os import system, path, environ, makedirs, listdir
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
 from copy import deepcopy, copy
 from secrets import compare_digest
+from time import sleep
 
 from .migration import Migration
 from .config import Configuration
@@ -66,10 +67,17 @@ class Configurator():
             })
             return
         
+        if action == "new_config":
+            try:
+                self.old_last_cnconfig = deepcopy(self.c.config_obj)
+            except:
+                # init needs to pass through
+                pass
+            
         self.c = Configuration({
             "action": action,
             "implement": implement,
-            "argv_list": [action]
+            "argv_list": [action],
         })
         if not self.profile_details:
             self.profile_details = {}
@@ -248,13 +256,16 @@ class Configurator():
 
         if do_build:            
             self.build_yaml(True)
-            self.upgrade_needed = True
+            self.upgrade_needed = False
             
             self.build_service_file({
                 "profiles": self.profile_name_list,
                 "action": "Create",
                 "rebuild": True
-            })   
+            }) 
+            
+            self.cleanup_old_profiles()
+            self.cleanup_create_snapshot_dirs()  
 
     # =====================================================
     # PRE-DEFINED PROFILE BUILD METHODS
@@ -282,11 +293,12 @@ class Configurator():
 
         self.c.functions.print_paragraphs([
             ["1",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation MainNet",1,"magenta"], 
-            ["2",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation TestNet",1,"magenta"], 
+            ["2",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation IntegrationNet",1,"magenta"], 
+            ["3",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation TestNet",1,"magenta"], 
             ["R",0,"magenta","bold"], [")",-1,"magenta"], ["R",0,"magenta","underline"], ["eturn to Main Menu",-1,"magenta"], ["",1],
             ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
         ])
-        options = ["1","2","R","Q"]
+        options = ["1","2","3","R","Q"]
         
         if self.debug:
             option = "1"
@@ -320,6 +332,12 @@ class Configurator():
             self.edge_host1 = "l1-lb-mainnet.constellationnetwork.io"
             self.environment = "mainnet"
         elif option == "2":
+            # self.edge_host0 = "l0-lb-integrationnet.constellationnetwork.io"
+            # self.edge_host1 = "l1-lb-integrationnet.constellationnetwork.io"
+            self.edge_host0 = "3.101.147.116"
+            self.edge_host1 = "3.101.147.116"
+            self.environment = "integrationnet"
+        elif option == "3":
             self.edge_host0 = "l0-lb-testnet.constellationnetwork.io"
             self.edge_host1 = "l1-lb-testnet.constellationnetwork.io"
             self.environment = "testnet"
@@ -1184,12 +1202,13 @@ class Configurator():
             snapshot_instructions += "exit with an inaccessible error."
             
             questions = {
-                "snapshots": {
-                    "question": f"  {colored('Enter a valid','cyan')} {colored('snapshots','yellow')} {colored('directory','cyan')}",
-                    "description": snapshot_instructions,
-                    "required": False,
-                    "default": sn_default,
-                },
+                # disabling in order to refactor for incremental snapshots
+                # "snapshots": {
+                #     "question": f"  {colored('Enter a valid','cyan')} {colored('snapshots','yellow')} {colored('directory','cyan')}",
+                #     "description": snapshot_instructions,
+                #     "required": False,
+                #     "default": sn_default,
+                # },
                 "uploads": {
                     "question": f"  {colored('Enter a valid','cyan')} {colored('uploads','yellow')} {colored('directory','cyan')}",
                     "description": f"The uploads directory is where any files that may be needed for troubleshooting or analysis are placed by nodectl. This directory should be a full path!",
@@ -1205,6 +1224,8 @@ class Configurator():
             }
             
             answers = self.ask_confirm_questions(questions)
+            # temp until refactor is completed
+            answers["snapshots"] = sn_default
             
             for directory, c_path in answers.items():
                 if c_path != "disable" and c_path != "default" and c_path[-1] != "/":
@@ -1484,23 +1505,37 @@ class Configurator():
             profiles.append(self.profile_details["profile_name"])
         except:
             # pre-defined selected
+            environment = self.environment
+            
             self.profile_name_list = profiles = ["dag-l0","dag-l1"]
+            if "integrationnet" in environment:
+                self.profile_name_list = profiles = ["intnet-l0","intnet-l1"]
+                
             layers = ["0","1"]
             tcp_ports = [["9000","9001","9002"],["9010","9011","9012"]]
             java = [["1024M","7G","256K"],["1024M","3G","256K"]]
             p12 = ["global","global","global","global","global"]; p12 = [p12,p12]
             node_type = ["validator","validator"]
-            services = ["node_l0","node_l1"]
+            
+            services = ["node_l0","node_l1"] 
+            if "integrationnet" in environment:
+                services = ["intnetserv_l0","intnetserv_l1"]   
+                
             dirs = [["default","default","default"],["disable","default","default"]]
             host = [self.edge_host0,self.edge_host1]
-            environment = self.environment
+            
             description = [
-                "Constellation Network Global Layer0",
-                "Constellation Network Layer1 State Channel"
+                "Constellation Network Global Hypergraph",
+                "Constellation Network Layer1 Metagraph" 
             ]
-            link_zero = [["False","None","None","None","None"],["True","self","self","self","dag-l0"]]
+            link_zero = [["False","None","None","None","None"],["True","self","self","self",profiles[0]]]
             https = "False"
+            
             port = ["80","80"]
+            # temporary load balancer for integrationnet
+            if "integrationnet" in environment:
+                port = ["9000","9010"]
+                
             seed_location = ["/var/tessellation/","disable"]
             seed_file = ["seed-list","disable"]
             enable = "True"
@@ -2968,6 +3003,116 @@ class Configurator():
         })        
                 
 
+    def cleanup_old_profiles(self):
+        cleanup = False
+        clean_up_old_list = []
+        self.log.logger.info("configuator is verifying old profile cleanup.")
+        
+        for old_profile in self.old_last_cnconfig["profiles"].keys():
+            if old_profile not in self.config_obj["profiles"].keys():
+                cleanup = True
+                clean_up_old_list.append(old_profile)
+                self.log.logger.warn(f"configuration found abandend profile [{old_profile}]")
+        
+        for old_profile in clean_up_old_list:
+            self.c.functions.print_cmd_status({
+                "text_start": "Abandoned",
+                "brackets": old_profile,
+                "text_end": "profile",
+                "status": "found",
+                "color": "red",
+                "newline": True,
+            })
+            
+        if cleanup:
+            self.c.functions.print_paragraphs([
+                ["It is recommended to clean up old profiles to:",1,"magenta"],
+                ["  - Avoid conflicts",1],
+                ["  - Avoid undesired Node behavior",1],
+                ["  - Free up disk",2],
+            ])
+            user_confirm = self.c.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": "Remove old profiles?",
+                "exit_if": False
+            })    
+            if user_confirm:
+                for profile in clean_up_old_list:
+                    system(f"rm -rf /var/tessellation/{profile}") 
+                    self.log.logger.info(f"configuration removed abandend profile [{profile}]")      
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Removed",
+                        "brackets": profile,
+                        "text_end": "profile",
+                        "status": "complete",
+                        "color": "green",
+                        "newline": True,
+                    })
+                        
+    def cleanup_create_snapshot_dirs(self):
+        found_snap = False
+        self.log.logger.info("configuator is verifying snapshot data directory existance and contents.")
+                    
+        for profile in self.config_obj["profiles"].keys():
+            if self.config_obj["profiles"][profile]["layer"] == "1":
+                if not path.isdir(f"/var/tessellation/{profile}/"):
+                    makedirs(f"/var/tessellation/{profile}/")
+            elif self.config_obj["profiles"][profile]["layer"] == "0":
+                found_snap_list = [
+                    f"/var/tessellation/{profile}/data/snapshot",
+                    f"/var/tessellation/{profile}/data/incremental_snapshot",
+                    f"/var/tessellation/{profile}/data/incremental_snapshot_tmp",
+                ]
+                
+                for lookup_path in found_snap_list:
+                    if path.isdir(lookup_path) and listdir(lookup_path):
+                        self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
+                        found_snap = True
+                        break
+                    elif not path.isdir(lookup_path):
+                        makedirs(lookup_path)
+                    
+                if found_snap:
+                    self.log.logger.info("configuartor cleaning up old snapshots")
+                    self.c.functions.print_paragraphs([
+                        ["",1], ["An existing",0], ["snapshot",0,"cyan","bold"],
+                        ["directory structure exists",1], 
+                        ["profile:",0], [profile,1,"yellow"],
+                        ["This may cause unexpected errors and conflicts, nodectl will remove snapshot contents from this directory",2,"red","bold"],
+                    ])
+                    user_confirm = self.c.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "prompt": "Remove snapshot contents?",
+                        "exit_if": False
+                    })   
+                    if user_confirm:  
+                        progress = {
+                            "text_start": "Cleaning",
+                            "brackets": profile,
+                            "text_end": "snapshots",
+                            "status": "running",
+                            "status_color": "yellow",
+                        }         
+                        self.c.functions.print_cmd_status({
+                            **progress
+                        })
+                        system(f"rm -rf /var/tessellation/{profile}/data/")
+                        sleep(1)
+                        for new_dir in found_snap_list:
+                            makedirs(new_dir)
+                        self.c.functions.print_cmd_status({
+                            **progress,
+                            "status": "complete",
+                            "status_color": "green",
+                            "newline": True,
+                        })  
+                        sleep(1.5) # allow Node Operator to see results
+                    else:
+                        self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.")                  
+    
+        
     def tcp_change_preparation(self,profile):
         if self.detailed:
             self.c.functions.print_paragraphs([

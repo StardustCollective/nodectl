@@ -278,11 +278,15 @@ class Cleaner():
                                         print(f'{colored("  removing:","red")} {colored(pre_text,"cyan")} {file}',end="\r")
                                     system(f"rm -rf {file} > /dev/null 2>&1")
             except:
-                self.error_messages.error_code_messages({
-                    "error_code": "cln-291",
-                    "line_code": "upgrade_needed",
-                    "extra": "Missing Directories"
-                })
+                if dir_type == "config_change":
+                    self.log.logger.warn("during configuration change unable to find file to replace.")
+                    pass
+                else:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cln-291",
+                        "line_code": "upgrade_needed",
+                        "extra": "Missing Directories"
+                    })
                         
         converted_calc_size = size(calc_size, system=alternative)
         if calc_size == 0 and file_count == 0:

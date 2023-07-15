@@ -53,7 +53,7 @@ class Configuration():
         self.error_messages = Error_codes() 
         
         execute = command_obj["implement"]
-        self.action = command_obj["action"]
+        self.action = command_obj["action"]        
         self.yaml_file = '/var/tessellation/nodectl/cn-config.yaml'
         
         if "view" in self.action or self.action == "-vc":
@@ -1201,7 +1201,7 @@ class Configuration():
             
         if not self.validated:
             self.functions.print_paragraphs([
-                [" WARNING! ",2,"yellow,on_red","bold"], ["CONFIGURATION FILE DO NOT VALIDATE",1,"red"],
+                [" WARNING! ",2,"yellow,on_red","bold"], ["CONFIGURATION FILE DID NOT VALIDATE",1,"red"],
                 ["Issues Found:",0,"yellow"], [str(len(self.error_list)),2,"red"],
             ])
 
@@ -1244,10 +1244,16 @@ class Configuration():
                         self.functions.print_paragraphs([
                             [value_text,0,"yellow"], [error["value"],2,"red","bold"],
                         ]) 
+                    ok_to_ignore = True if error["key"] == "snapshots" else False
+                    
             except:
                 self.send_error("cfg-1094")
 
             if self.action == "edit_config":
+                if ok_to_ignore:
+                    self.functions.print_paragraphs([
+                        ["Issue found can safely be ignored for new configurations.",1,"green"],
+                    ])
                 return "error_found"
             
             print("")

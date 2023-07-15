@@ -291,6 +291,8 @@ class Node():
         self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
         if environment_name == "testnet":
             bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
+        elif environment_name == "integrationnet" or environment_name == "dev":
+            bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
         else:
             bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
             
@@ -868,11 +870,11 @@ class Node():
         
         
     def create_files(self,command_obj):
-        # file=(str), testnet_mainnet=(str) default "mainnet", upgrade_required=(bool) default False
+        # file=(str), environment_name=(str) default "mainnet", upgrade_required=(bool) default False
         # messy method so placed at the end of file for readability.
         
         var = SimpleNamespace(**command_obj)
-        var.testnet_mainnet = command_obj.get("testnet_mainnet","mainnet")
+        var.environment_name = command_obj.get("environment_name","mainnet")
         var.upgrade_required = command_obj.get("upgrade_required",False)
         cur_file2 = "" # initialize
         
@@ -1004,10 +1006,10 @@ nodectl:
 
 
         elif var.file == "upgrade":
-            if var.testnet_mainnet == "testnet":
+            if var.environment_name == "testnet":
                 url = "https://github.com/netmet1/constellation_testnet_nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
             else:
-                url = "https://github.com/netmet1/constellation_nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
+                url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
                 
             cur_file = '''#!/bin/bash
 
