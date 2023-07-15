@@ -1008,7 +1008,15 @@ nodectl:
 
 
         elif var.file == "upgrade":
+<<<<<<< HEAD
             url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
+=======
+            if var.environment_name == "testnet":
+                url = "https://github.com/netmet1/constellation_testnet_nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
+            else:
+                url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
+                
+>>>>>>> main
             cur_file = '''#!/bin/bash
 
 red='\033[1;31m'

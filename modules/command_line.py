@@ -1720,6 +1720,7 @@ class CLI():
             if not self.check_versions_called:
                 self.version_obj["latest_nodectl_version"] = self.functions.cleaner(self.version_obj["latest_nodectl_version"],"new_line")
                 
+<<<<<<< HEAD
                 if version_type == "current_greater":
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"],
@@ -1737,6 +1738,11 @@ class CLI():
                     return
 
                 upgrade_command = "upgrade_nodectl"
+=======
+                upgrade_command = "upgrade_nodectl_testnet"
+                if self.functions.config_obj["profiles"][self.functions.default_profile]["environment"] != "testnet":
+                    upgrade_command = "upgrade_nodectl"
+>>>>>>> main
                 self.functions.print_paragraphs([
                     ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["nodectl",0,"cyan","bold"], ["was detected:",0],
                     [self.version_obj['latest_nodectl_version'],1,"yellow","bold"],
@@ -3430,12 +3436,22 @@ class CLI():
     # ==========================================
 
     def upgrade_nodectl(self,command_obj):
+<<<<<<< HEAD
+=======
+        environment_name = command_obj["command"]
+>>>>>>> main
         if command_obj["help"] == "help":
             self.functions.print_help({
                 "extended": "upgrade_nodectl"
             })
+<<<<<<< HEAD
          
         env_set = set()
+=======
+        
+        self.log.logger.info(f"Upgrade nodectl [{environment_name}] to new version request")
+
+>>>>>>> main
         try:
             for profile in self.config_obj["profiles"].keys():
                 environment_name = self.config_obj["profiles"][profile]["environment"]
@@ -3461,8 +3477,22 @@ class CLI():
         if len(self.functions.version_obj) < 1:
             version_obj = self.functions.get_version({"which":"all"})
         self.functions.print_clear_line()
+<<<<<<< HEAD
 
         if not self.functions.is_new_version(version_obj["node_nodectl_version"],version_obj["latest_nodectl_version"]):
+=======
+                 
+        if environment_name != current_env:
+            self.log.logger.warn(f"Upgrade nodectl [{environment_name}] to new version request while on [testnet]")
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [environment_name,1,"yellow","bold"],
+                ["You are currently on:",0], [current_env.upper(),1,"yellow"],
+                ["version:",0], [version_obj['latest_nodectl_version'],1,"yellow"],
+                ["NODECTL UPGRADE TERMINATED WITH NO ACTION",1,"red","bold"],
+            ])
+            return 1
+        elif not self.functions.is_new_version(version_obj["node_nodectl_version"],version_obj["latest_nodectl_version"]):
+>>>>>>> main
             self.log.logger.error(f"Upgrade nodectl to new version request not needed {version_obj['node_nodectl_version']}.")
             self.functions.print_paragraphs([
                 ["Current version of nodectl:",0], [version_obj['node_nodectl_version'],0,"yellow"],
@@ -3470,10 +3500,17 @@ class CLI():
             ])
         else:
             self.functions.print_paragraphs([
+<<<<<<< HEAD
                 [" WARNING ",0,"yellow,on_red"], ["You are about to upgrade nodectl.",1,"green","bold"],
                 ["You are currently on:",0], [environment_name.upper(),1,"yellow"],
                 ["  current version:",0], [version_obj['node_nodectl_version'],1,"yellow"],
                 ["available version:",0], [f'{version_obj["latest_nodectl_version"]}',1,"yellow"],
+=======
+                [" WARNING ",0,"yellow,on_red"], ["This will upgrade",0,"green"], [environment_name,1,"yellow","bold"],
+                ["You are currently on:",0], [current_env.upper(),1,"yellow"],
+                ["  version:",0], [version_obj['node_nodectl_version'],1,"yellow"],
+                ["available:",0], [f'{version_obj["latest_nodectl_version"]}',1,"yellow"],
+>>>>>>> main
             ])
             if self.version_obj["pre_release"]:
                 self.functions.print_paragraphs([
@@ -3501,8 +3538,12 @@ class CLI():
             upgrade_file = self.node_service.create_files({
                 "file": "upgrade",
                 "environment_name": environment_name,
+<<<<<<< HEAD
                 "upgrade_required": True if version_obj["upgrade_path"][environment_name]["upgrade"] == "True" else False,
                 "pre_release": self.version_obj["pre_release"]
+=======
+                "upgrade_required": True if version_obj["upgrade_path"][environment_name]["upgrade"] == "True" else False
+>>>>>>> main
             })
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",version_obj["latest_nodectl_version"])
             upgrade_file = upgrade_file.replace("ARCH",arch)
