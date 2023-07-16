@@ -515,6 +515,7 @@ class Installer():
         success = self.cli.cli_grab_id({
             "command":"nodeid",
             "return_success": True,
+            "skip_display": True,
         })
         
         if not success:

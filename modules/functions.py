@@ -144,7 +144,7 @@ class Functions():
                     elif network == "integrationnet":
                         # use the hardcoded version
                         api_host = self.i_hardcode_api_host
-                        api_port = 9000
+                        api_port = self.hardcode_api_port
                        
                 version = self.get_api_node_info({
                     "api_host": api_host,
@@ -738,10 +738,10 @@ class Functions():
         result_list = []
         for n in range(0,tolerance):
             try:
-                session = get(api_url,verify=False,timeout=2).json()
+                session = get(api_url,verify=False,timeout=(2,2)).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
-                if n == tolerance-1:
+                if n > tolerance-1:
                     self.log.logger.warn(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
                     return None
                 sleep(1.5)
@@ -1824,6 +1824,9 @@ class Functions():
                     done = search_replace(done)
 
             f.close()
+        
+        if not replace_line:
+            result = done
                 
         if all_first_last == "last":
             f = open(temp)

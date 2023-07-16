@@ -338,7 +338,7 @@ class Migration():
                 rebuild_obj["nodegarageedgehost"] = f"l{n}-lb-integrationnet.constellationnetwork.io"
                 rebuild_obj["nodegarageprofile"] = f"intnet-l{n}" 
                 rebuild_obj["nodegarageservice"] = f"intnetserv_l{n}"
-                rebuild_obj["nodegarageedgeporthost"] = f"90{n}0"
+                # rebuild_obj["nodegarageedgeporthost"] = f"90{n}0"
                 link_profile = "intnet-l0"        
                                         
             if n == 1:

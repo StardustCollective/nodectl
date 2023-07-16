@@ -1530,9 +1530,6 @@ class Configurator():
             https = "False"
             
             port = ["80","80"]
-            # temporary load balancer for integrationnet
-            if "integrationnet" in environment:
-                port = ["9000","9010"]
                 
             seed_location = ["/var/tessellation/","disable"]
             seed_file = ["seed-list","disable"]
