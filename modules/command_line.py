@@ -1561,10 +1561,12 @@ class CLI():
         self.functions.check_for_help(command_list,"check_seedlist")
         found = colored("False","red",attrs=["bold"])
         profile = command_list[command_list.index("-p")+1]
-        
+        skip = True if "skip_warnings" in command_list else False
         self.print_title("Check Seed List Request")
 
         if self.functions.config_obj["profiles"][profile]["pro"]["seed_location"] == "disable":
+            if skip:
+                return True
             self.functions.print_paragraphs([
                 ["Seed list is disabled for profile [",0], [profile,-1,"yellow","bold"],
                 ["] unable to do a proper nodeid lookup",0], ["exiting.",2,"red"]
@@ -1575,6 +1577,7 @@ class CLI():
             "command":"nodeid",
             "is_global": False,
             "profile": profile,
+            "skip_display": skip
         })
            
         if self.nodeid:
@@ -1594,6 +1597,11 @@ class CLI():
             elif test:
                 found = colored("True","green",attrs=["bold"]) 
 
+        if skip:
+            if "True" in found:
+                return True
+            return False
+        
         print_out_list = [{
             "NODE ID FOUND ON SEED LIST": found,
         }]
@@ -1787,7 +1795,29 @@ class CLI():
             "newline": True,
         }
         self.functions.print_cmd_status(progress)
-        
+        found = self.check_seed_list(["-p",profile,"skip_warnings"])
+
+        self.functions.print_cmd_status({
+            "text_start": "Node found on Seed List",
+            "status": found,
+            "status_color": "green" if found == True else "red",
+            "newline": True,
+        })
+        if not found:
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["nodeid was not found on the seed list.",1,"red"]
+            ])
+            if not self.functions.confirm_action({
+                "prompt": "Continue in start action?",
+                "yes_no_default": "n",
+                "return_on": "y",
+                "exit_if": False
+            }):
+                self.functions.print_paragraphs([
+                    ["Action canceled by Operator",1,"green"]
+                ])
+                exit(0)
+            
         self.node_service.change_service_state({
             "profile": profile,
             "action": "start",
@@ -2687,7 +2717,7 @@ class CLI():
         
         if (ip_address == "127.0.0.1" and not wallet_only) or command == "dag":
             with ThreadPoolExecutor() as executor:
-                if not nodeid and not skip_display:
+                if not nodeid:
                     self.functions.event = True
                     _ = executor.submit(self.functions.print_spinner,{
                         "msg": f"Pulling {title}, please wait",
