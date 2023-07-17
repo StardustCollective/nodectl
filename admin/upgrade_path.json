@@ -3,7 +3,7 @@
     "v2.8.1","v2.7.1","v1.12.0","v1.11.7","v1.8.1","v0.14.1","v0.1.0"
   ],
   "testnet": {
-    "version": "v2.8.0",
+    "version": "v2.8.1",
     "upgrade": "False"
   },
   "mainnet": {
