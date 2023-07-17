@@ -132,6 +132,7 @@ dmypy.json
 # other
 /local_files_only
 /nodectl_binaries
+/admin/upgrade_path.json
 
 # misc
 .DS_Store
