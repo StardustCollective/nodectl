@@ -500,18 +500,23 @@ class Upgrader():
                         "status": "found",
                         "newline": True,
                     })
-                    self.functions.print_paragraphs([
-                        ["",1], ["A legacy integrationnet configuration variable",0],
-                        [self.config_copy["profiles"][profile]["edge_point"]["host"],0,"yellow","bold"],
-                        ["was found, this should be corrected.",2],
-                    ])
-                    if not confirm:
-                        confirm = self.functions.confirm_action({
-                            "prompt": "Would you like nodectl to update your configuration?",
-                            "yes_no_default": "y",
-                            "return_on": "y",
-                            "exit_if": False
-                        })
+                    if self.functions.test_or_replace_line_in_file({
+                        "file_path": "/var/tessellation/nodectl/cn-config.yaml",
+                        "search_line": "3.101.147.116",
+                        "skip_backup": True,
+                    }):
+                        self.functions.print_paragraphs([
+                            ["",1], ["A legacy integrationnet configuration variable",0],
+                            [self.config_copy["profiles"][profile]["edge_point"]["host"],0,"yellow","bold"],
+                            ["was found, this should be corrected.",2],
+                        ])
+                        if not confirm:
+                            confirm = self.functions.confirm_action({
+                                "prompt": "Would you like nodectl to update your configuration?",
+                                "yes_no_default": "y",
+                                "return_on": "y",
+                                "exit_if": False
+                            })
                         
             if confirm:
                 # need to done for each layer independently in case user uses different

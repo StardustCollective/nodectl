@@ -52,6 +52,7 @@ class ShellHandler:
 
     def build_cli_obj(self,skip_check=False):
         build_cli = self.check_non_cli_command() if skip_check == False else True
+        self.invalid_version = False
         if build_cli:
             command_obj = {
                 "caller": "shell_handler",
@@ -66,6 +67,7 @@ class ShellHandler:
             }   
             cli = CLI(command_obj)
             cli.check_for_new_versions()
+            self.invalid_version = cli.invalid_version
             return cli 
         return None
     
@@ -94,16 +96,15 @@ class ShellHandler:
 
         cli = self.build_cli_obj()
         
-        if self.called_command != "install":
-            if cli.invalid_version:
-                self.functions.confirm_action({
-                    "yes_no_default": "NO",
-                    "return_on": "YES",
-                    "strict": True,
-                    "prompt_color": "red",
-                    "prompt": "Are you sure you want to continue?",
-                    "exit_if": True
-                })
+        if self.invalid_version:
+            self.functions.confirm_action({
+                "yes_no_default": "NO",
+                "return_on": "YES",
+                "strict": True,
+                "prompt_color": "red",
+                "prompt": "Are you sure you want to continue?",
+                "exit_if": True
+            })
             
         restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
         service_change_commands = ["start","stop","leave"]
