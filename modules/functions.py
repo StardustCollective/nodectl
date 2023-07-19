@@ -3,6 +3,7 @@ import random
 import json
 import urllib3
 import csv
+import yaml
 
 from getpass import getuser
 from re import match
@@ -759,6 +760,30 @@ class Functions():
             return result_list
 
 
+    def get_from_api(self,url,utype,tolerance=5):
+        
+        for n in range(1,tolerance):
+            try:
+                if utype == "json":
+                    response = get(url,timeout=2).json()
+                else:
+                    response = get(url,timeout=2)
+            except Exception as e:
+                self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
+                if n > 1:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cfr-240",
+                        "line_code": "api_error",
+                        "extra2": url
+                    })
+            else:
+                if utype == "yaml_raw":
+                    return response.content.decode("utf-8").replace("\n","").replace(" ","")
+                elif utype == "yaml":
+                    return yaml.safe_load(response.content)
+                return response
+                        
+                    
     def get_service_status(self):
         # =========================
         # this needs to be migrated to node_services
@@ -1880,8 +1905,7 @@ class Functions():
             writer = csv.writer(file, dialect='excel')
             writer.writerows(rows)
             
-            
-            
+                        
     # =============================
     # print functions
     # =============================  

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from copy import deepcopy, copy
 from secrets import compare_digest
 from time import sleep
+from requests import get
 
 from .migration import Migration
 from .config import Configuration
@@ -226,6 +227,21 @@ class Configurator():
             "newline": "bottom",
         })
         
+        predefined_envs = []
+        url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/profiles'
+        url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/profiles"
+        repo_profiles = self.c.functions.get_from_api(url,"json")
+        repo_profiles = repo_profiles["payload"]["tree"]["items"]
+        
+        for repo_profile in repo_profiles:
+            if "profiles" in repo_profile["path"] and "yaml" in repo_profile["name"]:
+                f_url = f"{url_raw}/{repo_profile['name']}" 
+                details = self.c.functions.get_from_api(f_url,"yaml")
+                for profile in details["nodectl"]["profiles"].keys():
+                    environment = details["nodectl"]["profiles"][profile]["environment"]
+                    if environment not in predefined_envs:
+                        predefined_envs.append(environment)
+                
         self.c.functions.print_paragraphs([
             ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["redefined",-1,"magenta"],["Configuration",1,"magenta"], 
             ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["anual",-1,"magenta"], ["Configuration",1,"magenta"],

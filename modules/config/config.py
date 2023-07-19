@@ -512,7 +512,6 @@ class Configuration():
                     self.config_obj["profiles"][profile]["p12"]["passphrase"] = self.config_obj["global_p12"]["passphrase"]
 
         
-    
     def setup_self_settings(self):
         # configuration key word "self" for linking to global l0
         def grab_nodeid(profile):
@@ -832,13 +831,19 @@ class Configuration():
             ],
             "dirs": [
                 ["snapshots","path"],
+                ["incremental_snapshots","path"],
+                ["incremental_snapshots_tmp","path"],
                 ["backups","path"],
                 ["uploads","path"],
             ],
             "java": [
+                ["memory","key"],
                 ["xms","mem_size"],
                 ["xmx","mem_size"],
                 ["xss","mem_size"],
+                ["jars","key"],
+                ["layer0","host"],
+                ["layer1","host"],
             ],
             "p12": [
                 ["nodeadmin","str"],
