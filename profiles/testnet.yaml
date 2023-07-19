@@ -21,9 +21,9 @@ nodectl:
       layer: 0
       edge_point: 
         https: False
-        host: l0-lb-mainnet.constellationnetwork.io
+        host: l0-lb-testnet.constellationnetwork.io
         host_port: 80
-      environment: mainnet
+      environment: testnet
       ports:
         public: 9000
         p2p: 9001
@@ -59,9 +59,9 @@ nodectl:
       layer: 1
       edge_point: 
         https: False
-        host: l1-lb-mainnet.constellationnetwork.io
+        host: l1-lb-testnet.constellationnetwork.io
         host_port: 80
-      environment: mainnet
+      environment: testnet
       ports:
         public: 9010
         p2p: 9011

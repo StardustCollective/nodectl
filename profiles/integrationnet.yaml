@@ -16,19 +16,19 @@
 
 nodectl:
   profiles:
-    dag-l0:
+    intnet-l0:
       enable: True
       layer: 0
       edge_point: 
         https: False
-        host: l0-lb-mainnet.constellationnetwork.io
+        host: l0-lb-integrationnet.constellationnetwork.io
         host_port: 80
-      environment: mainnet
+      environment: integrationnet
       ports:
         public: 9000
         p2p: 9001
         cli: 9002
-      service: node_l0
+      service: intnetserv_l0
       layer0_link: 
         enable: False
         layer0_key: None
@@ -54,19 +54,19 @@ nodectl:
         seed_file: seed-list
       node_type: validator
       description: Constellation Network Global Hypergraph
-    dag-l1:
+    intnet-l1:
       enable: True
       layer: 1
       edge_point: 
         https: False
-        host: l1-lb-mainnet.constellationnetwork.io
+        host: l1-lb-integrationnet.constellationnetwork.io
         host_port: 80
-      environment: mainnet
+      environment: integrationnet
       ports:
         public: 9010
         p2p: 9011
         cli: 9012
-      service: node_l1
+      service: intnetserv_l1
       layer0_link: 
         enable: True
         layer0_key: self
