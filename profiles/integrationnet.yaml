@@ -15,6 +15,7 @@
 # =========================================================
 
 nodectl:
+  metagraph_name: "integrationnet"
   profiles:
     intnet-l0:
       enable: True
