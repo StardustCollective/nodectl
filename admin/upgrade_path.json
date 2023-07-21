@@ -7,11 +7,11 @@
     "upgrade": "False"
   },
   "mainnet": {
-    "version": "v2.8.0",
+    "version": "v2.8.1",
     "upgrade": "False"
   },
   "integrationnet": {
-    "version": "v2.8.0",
-    "upgrade": "False"
+    "version": "v2.8.1",
+    "upgrade": "True"
   },
 }
