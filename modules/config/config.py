@@ -29,9 +29,7 @@ class Configuration():
         self.log.logger.info("configuration setup initialized")
         
         self.argv_list = command_obj["argv_list"]
-        
 
-            
         if "help" in self.argv_list[0]:
             return
 
@@ -192,6 +190,7 @@ class Configuration():
         self.config_obj["global_cli_pass"] = False # initialize 
         self.config_obj["upgrader"] = False # initialize 
         self.config_obj["all_global"] = False # initialize 
+        self.global_section_keys = 5 # This needs to be changed if global sections are added
         
         self.validate_global_setting()
         try:
@@ -346,7 +345,9 @@ class Configuration():
         dirs = {
             "backups": "/var/tessellation/backups/",
             "uploads": "/var/tessellation/uploads/",
-            "snapshots": "/var/tessellation/cnng-profile_name/data/snapshot/"
+            "snapshot": "/var/tessellation/cnng-profile_name/data/snapshot/",
+            "incremental_snapshot": "/var/tessellation/cnng-profile_name/data/incremental_snapshot/",
+            "incremental_snapshot_tmp": "/var/tessellation/cnng-profile_name/data/incremental_snapshot_tmp/",
         }
         
         def create_path_variable(path, file):
@@ -432,10 +433,13 @@ class Configuration():
                 })
                     
             for dir, location in dirs.items():
-                if self.config_obj["profiles"][profile]["dirs"][dir] == "default":
-                    if dir == "snapshots":
-                        location = location.replace("cnng-profile_name",profile)
-                    self.config_obj["profiles"][profile]["dirs"][dir] = location                    
+                try:
+                    if self.config_obj["profiles"][profile]["dirs"][dir] == "default":
+                        if "snapshot" in dir:
+                            location = location.replace("cnng-profile_name",profile)
+                        self.config_obj["profiles"][profile]["dirs"][dir] = location    
+                except:
+                    error_found()       
                     
         self.config_obj["caller"] = None  # init key (used outside of this class)
             
@@ -604,16 +608,18 @@ class Configuration():
             "edge_point": ["https","host","host_port"],
             "ports": ["public","p2p","cli"],
             "layer0_link":  ["enable","layer0_key","layer0_host","layer0_port","link_profile"],
-            "dirs": ["snapshots","backups","uploads"],
-            "java":  ["xms","xmx","xss"],
+            "dirs": ["snapshot","incremental_snapshot","incremental_snapshot_tmp","backups","uploads"],
+            "java":  ["heaps","jars"],
+            "heaps": ["subkey","java","xms","xmx","xss"],
+            "jars": ["subkey","java","repository","layer0","layer1","data_api"],
             "p12": ["nodeadmin","key_location","p12_name","wallet_alias","passphrase"]
-            
         } 
                 
         prof_obj = self.config_obj["profiles"]
         missing_list = []
         
         for n, (k, v) in enumerate(self.test_dict.items()):
+            test_missing_values = v
             if n == 0:
                 self.obj = self.config_obj
                 missing = list(filter(test_missing,v))
@@ -627,11 +633,23 @@ class Configuration():
             if n > 0:
                 for profile in prof_obj:
                     if n == 1:
-                        self.obj = prof_obj[profile]
+                        try:
+                            self.obj = prof_obj[profile]
+                        except:
+                            pass
+                    elif v[0] == "subkey":
+                        try:
+                            self.obj = prof_obj[profile][v[1]][k]
+                        except KeyError:
+                            pass
+                        test_missing_values = v[2:] # remove identifer elements
                     else:
-                        self.obj = prof_obj[profile][k]
+                        try:
+                            self.obj = prof_obj[profile][k]
+                        except:
+                            pass
                                     
-                    missing = list(filter(test_missing,v))
+                    missing = list(filter(test_missing,test_missing_values))
                     if len(missing) > 0:
                         missing_list.append([profile, k, missing])
 
@@ -700,12 +718,17 @@ class Configuration():
 
     def validate_global_setting(self):
         global_count = 0
+        break_on = "auto_restart"
         
         try:
-            for profile in self.config_obj["profiles"].keys():
+            for profile in self.config_obj.keys():
+                if profile == break_on:
+                    break
+                # if p12 name is global, name, wallet and passphrase must be too
                 g_tests = []
-                g_tests.append(self.config_obj["profiles"][profile]["p12"]["p12_name"])
-                g_tests.append(self.config_obj["profiles"][profile]["p12"]["passphrase"])
+                g_tests.append(self.config_obj[profile]["p12_name"])
+                g_tests.append(self.config_obj[profile]["p12_passphrase"])
+                g_tests.append(self.config_obj[profile]["p12_alias"])
                 if g_tests.count("global") != 0 and g_tests.count("global") != len(g_tests):
                     self.validated = False
                     self.error_list.append({
@@ -714,23 +737,23 @@ class Configuration():
                         "profile": profile,
                         "missing_keys": None, 
                         "type": "global",
-                        "key": "p12_name, passphrase",
+                        "key": "p12_name, p12_passphrase, p12_alias",
                         "special_case": None,
                         "value": "skip"
                     })
-                elif g_tests.count("global") != 0:
+                if g_tests.count("global") > 0:
                     # test if everything is set to global
+                    g_tests.append(self.config_obj[profile]["p12_nodeadmin"])
+                    g_tests.append(self.config_obj[profile]["p12_key_location"])
+                if g_tests.count("global") == 5:
                     global_count += 1
         except:
             self.send_error("cfg-705","format","existence")
-
             
-        if len(self.config_obj["profiles"].keys()) == global_count:
+        if len(self.config_obj.keys())-self.global_section_keys == global_count:
             self.config_obj["all_global"] = True
             
-        if self.validated:
-            return True
-        return False
+        return self.validated
                   
 
     def validate_p12_exists(self):
@@ -796,6 +819,11 @@ class Configuration():
         # list values and each profile subsection below that...
         # =====================================================         
         self.schema = {
+            "metagraph": [
+                ["name","str"],
+                ["description","str"],
+                ["include","str"],
+            ],
             "profiles": [
                 ["enable","bool"],
                 ["layer","layer"],
@@ -830,20 +858,26 @@ class Configuration():
                 ["is_self","bool"], # automated value [not part of yaml]
             ],
             "dirs": [
-                ["snapshots","path"],
-                ["incremental_snapshots","path"],
-                ["incremental_snapshots_tmp","path"],
+                ["snapshot","path"],
+                ["incremental_snapshot","path"],
+                ["incremental_snapshot_tmp","path"],
                 ["backups","path"],
                 ["uploads","path"],
             ],
             "java": [
-                ["memory","key"],
+                ["heaps","key"],
+                ["jars","key"],
+            ],
+            "heaps": [
                 ["xms","mem_size"],
                 ["xmx","mem_size"],
                 ["xss","mem_size"],
-                ["jars","key"],
-                ["layer0","host"],
-                ["layer1","host"],
+            ],
+            "jars": [
+                ["repository","host"],
+                ["layer0","str",],
+                ["layer1","str"],
+                ["data_api","str"],
             ],
             "p12": [
                 ["nodeadmin","str"],
@@ -885,6 +919,13 @@ class Configuration():
         self.global_section_completed = {
             "global_p12": False,
             "auto_restart": False,
+            "metagraph": False,
+        }
+        
+        # handle tertiary nested keys
+        self.nested_sections = {
+            "heaps": "java",
+            "jars": "java",
         }
 
         
@@ -892,7 +933,7 @@ class Configuration():
         values = []
         types = []
         skip = False
-        
+
         for section, check_keys in self.schema.items():
             verify = True
             key_list = [x[0] for x in check_keys]
@@ -906,6 +947,11 @@ class Configuration():
             elif section in self.global_section_completed.keys():  # other key sections
                 try:
                     found_list = list(self.config_obj[section])
+                except:
+                    found_list = []
+            elif section in self.nested_sections.keys():
+                try:
+                    found_list = list(self.config_obj["profiles"][profile][self.nested_sections[section]][section])
                 except:
                     found_list = []
             else: # sub_keys
@@ -922,11 +968,12 @@ class Configuration():
                     pass # will force error
                 
             if sorted(key_list) != sorted(found_list): # main keys
+                error_profile = profile
                 if section in self.global_section_completed.keys() and self.global_section_completed[section]:
                     skip = True
                 if section in self.global_section_completed.keys():
                     self.global_section_completed[section] = True
-                    profile = "N/A"
+                    error_profile = "N/A"
                     
                 if not skip:
                     missing =  [x for x in key_list if x not in found_list]
@@ -934,7 +981,7 @@ class Configuration():
                     self.error_list.append({
                         "title": "key_existence",
                         "section": section,
-                        "profile": profile,
+                        "profile": error_profile,
                         "type": "key",
                         "key": "multiple",
                         "value": missing,
@@ -944,6 +991,8 @@ class Configuration():
                 for value in get_key_value_list:
                     if section == "profiles":
                         values.append(self.config_obj[section][profile][value[0]]) # first element of first list in list of lists
+                    elif section in self.nested_sections.keys():
+                        values.append(self.config_obj["profiles"][profile][self.nested_sections[section]][section][value[0]])
                     elif section in self.global_section_completed.keys():
                         values.append(self.config_obj[section][value[0]])
                     else:
@@ -957,14 +1006,19 @@ class Configuration():
                     if self.global_section_completed[section] == False: 
                         self.global_section_completed[section] = True
                         verify = True
+                    
+                # debug only
+                if section == "jars":
+                    1 == 1
                         
                 if verify:
+                    verified_profile = profile
                     if section in self.global_section_completed:
-                        profile = "N/A"
+                        verified_profile = "N/A"
                     self.verify_profile_types({
                         "section": section,
                         "values": values,
-                        "profile": profile,
+                        "profile": verified_profile,
                         "types": types,
                         "key_list": get_key_list
                     })  
@@ -1076,7 +1130,7 @@ class Configuration():
                 elif types[n] == "path":
                     if value != "global":
                         if "key_location" in keys or (value == "default" or value == "disable"):
-                            if value == "disable" and ( keys[n] != "snapshots" and keys[n] != "seed_location" ):
+                            if value == "disable" and ( "snapshot" not in keys[n] and keys[n] != "seed_location" ):
                                 title = "disable is an invalid keyword"
                                 validated = False
                         if value == "disable" and (profile == "N/A" or self.config_obj["profiles"][profile]["layer"] < 1):
@@ -1194,6 +1248,7 @@ class Configuration():
             "global": f"{global1} {global2} {global3}",
             "yaml": f"{yaml1} {yaml2} {yaml3}",
             "edge_point": "must be a valid host or ip address",
+            "host": "must be a valid host or ip address",
             "pro": "must be a valid existing path or file",
         }
         
@@ -1249,7 +1304,7 @@ class Configuration():
                         self.functions.print_paragraphs([
                             [value_text,0,"yellow"], [error["value"],2,"red","bold"],
                         ]) 
-                    ok_to_ignore = True if error["key"] == "snapshots" else False
+                    ok_to_ignore = True if "snapshot" in error["key"] else False
                     
             except:
                 self.send_error("cfg-1094")

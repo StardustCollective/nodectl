@@ -47,6 +47,7 @@ class Configurator():
             "nodeadmin", "key_location", "p12_name", "wallet_alias", "passphrase"
         ]
         self.profile_name_list = [] 
+        self.predefined_configuration = {}
         
         if "help" in argv_list:
             self.prepare_configuration("edit_config")
@@ -154,16 +155,15 @@ class Configurator():
             elif self.action == "new" and option != "reset":
                 option = "n"
             else:
-                self.c.functions.print_paragraphs([
-                    ["N",-1,"magenta","bold"], [")",-1,"magenta"], ["ew",-1,"magenta"], ["Configuration",1,"magenta"],
-                    ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["dit",-1,"magenta"], ["Existing Configuration",1,"magenta"],
-                    ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
-                ])
                 
-                option = self.c.functions.get_user_keypress({
-                    "prompt": "KEY PRESS an option",
-                    "prompt_color": "cyan",
-                    "options": ["N","E","Q"],
+                option = self.c.functions.print_option_menu({
+                    "options": [
+                        "New Configuration",
+                        "Edit Existing Configuration",
+                    ],
+                    "let_or_num": "let",
+                    "color": "magenta",
+                    "r_and_q": "q",
                 })
             
             if option.lower() == "q":
@@ -227,33 +227,14 @@ class Configurator():
             "newline": "bottom",
         })
         
-        predefined_envs = []
-        url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/profiles'
-        url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/profiles"
-        repo_profiles = self.c.functions.get_from_api(url,"json")
-        repo_profiles = repo_profiles["payload"]["tree"]["items"]
-        
-        for repo_profile in repo_profiles:
-            if "profiles" in repo_profile["path"] and "yaml" in repo_profile["name"]:
-                f_url = f"{url_raw}/{repo_profile['name']}" 
-                details = self.c.functions.get_from_api(f_url,"yaml")
-                for profile in details["nodectl"]["profiles"].keys():
-                    environment = details["nodectl"]["profiles"][profile]["environment"]
-                    if environment not in predefined_envs:
-                        predefined_envs.append(environment)
-                
-        self.c.functions.print_paragraphs([
-            ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["redefined",-1,"magenta"],["Configuration",1,"magenta"], 
-            ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["anual",-1,"magenta"], ["Configuration",1,"magenta"],
-            ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["eturn Main",-1,"magenta"], ["Menu",1,"magenta"],
-            ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
-        ])  
-            
-
-        option = self.c.functions.get_user_keypress({
-            "prompt": "KEY PRESS an option",
-            "prompt_color": "cyan",
-            "options": ["P","M","R","Q"]
+        option = self.c.functions.print_option_menu({
+            "options": [
+                "Predefined Configuration",
+                "Manual Configuration",
+            ],
+            "let_or_num": "let",
+            "color": "magenta",
+            "r_and_q": "both",
         })
         
         if option == "r":
@@ -302,28 +283,35 @@ class Configurator():
             ])
         
         self.c.functions.print_header_title({
-            "line1": "OPTIONS MENU",
+            "line1": "PREDEFINED OPTIONS",
             "show_titles": False,
             "newline": "bottom"
         })
 
-        self.c.functions.print_paragraphs([
-            ["1",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation MainNet",1,"magenta"], 
-            ["2",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation IntegrationNet",1,"magenta"], 
-            ["3",-1,"magenta","bold"], [")",-1,"magenta"], ["Constellation TestNet",1,"magenta"], 
-            ["R",0,"magenta","bold"], [")",-1,"magenta"], ["R",0,"magenta","underline"], ["eturn to Main Menu",-1,"magenta"], ["",1],
-            ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
-        ])
-        options = ["1","2","3","R","Q"]
+        predefined_envs = []
+        url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/profiles'
+        url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/profiles"
+        repo_profiles = self.c.functions.get_from_api(url,"json")
+        repo_profiles = repo_profiles["payload"]["tree"]["items"]
         
-        if self.debug:
-            option = "1"
-        else:
-            option = self.c.functions.get_user_keypress({
-                "prompt": "KEY PRESS an option",
-                "prompt_color": "cyan",
-                "options": options,
-            })
+        predefined_configs = {}
+        for repo_profile in repo_profiles:
+            if "profiles" in repo_profile["path"] and "yaml" in repo_profile["name"]:
+                f_url = f"{url_raw}/{repo_profile['name']}" 
+                details = self.c.functions.get_from_api(f_url,"yaml")
+                metagraph_name = details["nodectl"]["metagraph_name"] # readability 
+                predefined_envs.append(metagraph_name)
+                predefined_configs = {
+                    **predefined_configs,
+                    f"{metagraph_name}": details,
+                }
+                        
+        option = self.c.functions.print_option_menu({
+            "options": predefined_envs,
+            "r_and_q": "both",
+            "color": "green",
+            "return_value": True,
+        })
         
         if option == "r":
             return False
@@ -343,19 +331,9 @@ class Configurator():
         }
         self.c.functions.print_cmd_status(progress)
         
-        if option == "1":
-            self.edge_host0 = "l0-lb-mainnet.constellationnetwork.io"
-            self.edge_host1 = "l1-lb-mainnet.constellationnetwork.io"
-            self.environment = "mainnet"
-        elif option == "2":
-            self.edge_host0 = "l0-lb-integrationnet.constellationnetwork.io"
-            self.edge_host1 = "l1-lb-integrationnet.constellationnetwork.io"
-            self.environment = "integrationnet"
-        elif option == "3":
-            self.edge_host0 = "l0-lb-testnet.constellationnetwork.io"
-            self.edge_host1 = "l1-lb-testnet.constellationnetwork.io"
-            self.environment = "testnet"
-             
+        self.predefined_configuration = predefined_configs[option]
+        del predefined_configs
+                
         self.build_profile()
         self.c.functions.print_cmd_status({
             **progress,
@@ -554,14 +532,14 @@ class Configurator():
                 paragraphs = [
 
                     ["A",0], ["Validator Node",0,"blue","bold"], ["cannot access the Constellation Network Hypergraph",0],
-                    ["without a",0,"cyan"], ["p12 private key",0,"yellow","bold"], ["that is used to authenticate against network access regardless of PRO score or seedlist.",2],
+                    ["without a",0,"cyan"], ["p12 private key file",0,"yellow","bold"], ["that is used to authenticate against network access regardless of PRO score or seedlist.",2],
                     ["This same p12 key file is used as your Node’s wallet and derives the DAG address from the p12 file.",2],
                     
                     ["The p12 key file should have been created during installation:",1,'yellow'],  
                     ["sudo nodectl install",2], 
                     
-                    ["If you need to create a p12 private key file:",1,"yellow"],
-                    ["sudo nodectl generate_p12",2],
+                    # ["If you need to create a p12 private key file:",1,"yellow"],
+                    # ["sudo nodectl generate_p12",2],
 
                     ["nodectl",0,"blue","bold"], ["has three configuration options for access into various Metagraphs or Layer0 channels via a user defined configuration profile.",2],
 
@@ -808,15 +786,16 @@ class Configurator():
         self.c.functions.print_paragraphs([
             ["Constellation Node Types",1,"yellow,on_blue"],
             ["=","half","blue","bold"],
-            ["V",-1,"magenta","bold"], [")",-1,"magenta"], ["alidator",-1,"magenta"], ["",1,],
-            ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["enesis",-1,"magenta"], ["",1,],
-            ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]            
         ])
-        
-        option = self.c.functions.get_user_keypress({
-            "prompt": "KEY PRESS an option",
-            "prompt_color": "cyan",
-            "options": ["V","G","Q"],
+
+        option = self.c.functions.print_option_menu({
+            "options": [
+                "Validator",
+                "Genesis",
+            ],
+            "let_or_num": "let",
+            "r_and_q": "q",
+            "color": "magenta",
         })
         
         if option.lower() == "q":

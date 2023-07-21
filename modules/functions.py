@@ -2157,6 +2157,11 @@ class Functions():
         options = command_obj.get("options")
         let_or_num = command_obj.get("let_or_num","num")
         return_value = command_obj.get("return_value",False)
+        color = command_obj.get("color","cyan")
+        
+        # If r_and_q is set ("r","q" or "both")
+        # make sure if using "let" option, "r" and "q" do not conflict
+        r_and_q = command_obj.get("r_and_q",False)
         
         prefix_list = []
         spacing = 0
@@ -2167,11 +2172,26 @@ class Functions():
                 option = option[1::]
                 spacing = -1
             self.print_paragraphs([
-                [prefix_list[n],-1,"cyan","bold"],[")",-1],
-                [option,spacing], ["",1],
+                [prefix_list[n],-1,color,"bold"],[")",-1,color],
+                [option,spacing,color], ["",1],
             ])
 
-        print("")
+        if r_and_q:
+            if r_and_q == "both" or r_and_q == "r":
+                self.print_paragraphs([
+                    ["R",0,color,"bold"], [")",-1,color], ["eturn to Main Menu",-1,color], ["",1],
+                ])
+                prefix_list.append("R")
+                options.append("r")
+            if r_and_q == "both" or r_and_q == "q":
+                self.print_paragraphs([
+                    ["Q",-1,color,"bold"], [")",-1,color], ["uit",-1,color], ["",2],                
+                ])
+                prefix_list.append("Q")
+                options.append("q")
+        else:
+            print("")
+            
         option = self.get_user_keypress({
             "prompt": "KEY PRESS an option",
             "prompt_color": "cyan",
@@ -2184,7 +2204,10 @@ class Functions():
             if let_or_num == "let":
                 if option == return_option[0]:
                     return return_option
-            return options[int(option)-1]
+            try:
+                return options[int(option)-1]
+            except:
+                return option # r_and_q exception
         
         
     def print_any_key(self,command_obj):
