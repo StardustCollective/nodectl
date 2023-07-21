@@ -15,7 +15,10 @@
 # =========================================================
 
 nodectl:
-  metagraph_name: "integrationnet"
+  metagraph: 
+    name: integrationnet
+    description: Constellation Network IntgrationNet Metagraph
+    include: disabled
   profiles:
     intnet-l0:
       enable: True
@@ -41,9 +44,16 @@ nodectl:
         backups: default
         uploads: default
       java:
-        xms: 1024M
-        xmx: 7G
-        xss: 256K
+        heaps:
+          xms: 1024M
+          xmx: 7G
+          xss: 256K
+        jars:
+          repository: default
+          layer0: default
+          layer1: default
+          datal1: default
+          repository: default
       p12:
         nodeadmin: global
         key_location: global
@@ -73,15 +83,22 @@ nodectl:
         layer0_key: self
         layer0_host: self
         layer0_port: 9000
-        link_profile: dag-l0
+        link_profile: intnet-l0
       dirs:
         snapshots: disable
         backups: default
         uploads: default
       java:
-        xms: 1024M
-        xmx: 3G
-        xss: 256K
+        heaps:
+          xms: 1024M
+          xmx: 3G
+          xss: 256K
+        jars:
+          repository: default
+          layer0: default
+          layer1: default
+          datal1: default
+          repository: default
       p12:
         nodeadmin: global
         key_location: global

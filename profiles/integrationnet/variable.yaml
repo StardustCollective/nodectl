@@ -1,0 +1,30 @@
+---
+# NODECTL CONFIGURATION FILE
+# @netmet72
+# =========================================================
+# IMPORTANT IMPORTANT IMPORTANT IMPORTANT
+#
+# It is discouraged to update this file manually.  nodectl may
+# update this file through automation at any time, causing any
+# changes you make to be lost.
+#
+# Do NOT update this file unless you know what you are
+# doing !!  Please see the Constellation Network
+# documentation hub for details on how to configure
+# this file.
+#
+# Metagraph Custom
+#
+# Evironment variables and command line arguments
+# key pairs in this file will added to envrionment
+# variables prior to java jar execution.
+#
+# Argvs key pairs will be added to the command line
+# prior to Java jar execution
+# =========================================================
+
+metagraphs:
+  env_vars: 
+    enable: False
+  argvs:
+    enabled: False
