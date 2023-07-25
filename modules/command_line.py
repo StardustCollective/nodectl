@@ -134,6 +134,7 @@ class CLI():
             "req": "list",
             "profile": None,
         })
+        profile_list = [x for x in profile_list if "global" not in x]
         
         for key,value in command_obj.items():
             if key == "-p" and (value == "all" or value == "empty"):
@@ -208,7 +209,7 @@ class CLI():
                 }
                 
             output = setup_output()
-            self.config_obj["node_profile_states"][called_profile] = output["join_state"].strip()  # to speed up restarts and upgrades
+            self.config_obj["global_elements"]["node_profile_states"][called_profile] = output["join_state"].strip()  # to speed up restarts and upgrades
             
             if not self.skip_build:
                 if rebuild:
@@ -232,14 +233,14 @@ class CLI():
                                 
                 print_out_list = [
                     {
-                        "SERVICE": self.functions.config_obj["node_service_status"][called_profile],
+                        "SERVICE": self.functions.config_obj["global_elements"]["node_service_status"][called_profile],
                         "JOIN STATE": output["join_state"],
                         "PROFILE": called_profile
                     },
                     {
-                        "PUBLIC API TCP":self.functions.config_obj["profiles"][called_profile]["ports"]["public"],
-                        "P2P API TCP": self.functions.config_obj["profiles"][called_profile]["ports"]["p2p"],
-                        "CLI API TCP": self.functions.config_obj["profiles"][called_profile]["ports"]["cli"]
+                        "PUBLIC API TCP":self.functions.config_obj[called_profile]["public_port"],
+                        "P2P API TCP": self.functions.config_obj[called_profile]["p2p_port"],
+                        "CLI API TCP": self.functions.config_obj[called_profile]["cli_port"]
                     },
                     {
                         "CURRENT SESSION": output["cluster_session"],
@@ -449,7 +450,7 @@ class CLI():
             if "--basic" in command_list: 
                 command_list.remove("--basic")
             command_list.extend(["--extended","-np"])
-            csv_path = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}{csv_file_name}"
+            csv_path = f"{self.config_obj[profile]['uploads']}{csv_file_name}"
             
         do_more = False if "-np" in command_list else True
         if do_more:
@@ -586,7 +587,7 @@ class CLI():
             self.functions.print_paragraphs([
                 ["CSV created successfully",1,"green","bold"],
                 ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                ["location:",0,], [self.config_obj['profiles'][profile]['dirs']['uploads'],1,"yellow","bold"]
+                ["location:",0,], [self.config_obj[profile]['uploads'],1,"yellow","bold"]
             ])  
 
 
@@ -600,8 +601,8 @@ class CLI():
                 id = argv_list[argv_list.index("-id")+1]
                 try:
                     list = self.functions.get_cluster_info_list({
-                        "ip_address": self.config_ob[profile]["edge_point"]["host"],
-                        "port": self.config_ob[profile]["edge_point"]["host_port"],
+                        "ip_address": self.config_obj[profile]["edge_point"],
+                        "port": self.config_obj[profile]["edge_point_tcp_port"],
                         "api_endpoint": "/cluster/info",
                         "error_secs": 3,
                         "attempt_range": 3,
@@ -814,9 +815,9 @@ class CLI():
                     "PROFILE DESCRIPTION": profile_descr[n],
                 },
                 {
-                    "PUBLIC API TCP":self.functions.config_obj["profiles"][profile]["ports"]["public"],
-                    "P2P API TCP": self.functions.config_obj["profiles"][profile]["ports"]["p2p"],
-                    "CLI API TCP": self.functions.config_obj["profiles"][profile]["ports"]["cli"]
+                    "PUBLIC API TCP":self.functions.config_obj[profile]["public_port"],
+                    "P2P API TCP": self.functions.config_obj[profile]["p2p_port"],
+                    "CLI API TCP": self.functions.config_obj[profile]["cli_port"]
                 },
             ]
             
@@ -875,18 +876,18 @@ class CLI():
         })
 
         for profile in profile_names:
-            if path.exists(self.config_ob[profile]["pro"]["seed_path"]):
+            if path.exists(self.config_obj[profile]["seed_path"]):
                 found_list = list(); not_found_list = list()
                 cluster_ips = self.functions.get_cluster_info_list({
-                    "ip_address": self.config_ob[profile]["edge_point"]["host"],
-                    "port": self.config_ob[profile]["edge_point"]["host_port"],
+                    "ip_address": self.config_obj[profile]["edge_point"],
+                    "port": self.config_obj[profile]["edge_point_tcp_port"],
                     "api_endpoint": "/cluster/info",
                     "error_secs": 3,
                     "attempt_range": 3,
                 })   
                 count = cluster_ips.pop()   
                 count["seedlist_count"] = 0
-                with open(self.config_ob[profile]["pro"]["seed_path"],"r") as seed_file:
+                with open(self.config_obj[profile]["seed_path"],"r") as seed_file:
                     for line in seed_file:
                         found = False
                         line = line.strip("\n")
@@ -997,7 +998,7 @@ class CLI():
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
                 csv_file_name = f"{prefix}-{search_dag_addr[0:8]}-{search_dag_addr[-8:]}-rewards-data.csv"
-            csv_path = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}{csv_file_name}"
+            csv_path = f"{self.config_obj[profile]['uploads']}{csv_file_name}"
 
 
         for rewards in data["data"]:
@@ -1120,7 +1121,7 @@ class CLI():
             self.functions.print_paragraphs([
                 ["CSV created successfully",1,"green","bold"],
                 ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                ["location:",0,], [self.config_obj['profiles'][profile]['dirs']['uploads'],1,"yellow","bold"]
+                ["location:",0,], [self.config_obj[profile]['uploads'],1,"yellow","bold"]
             ])  
         
     # ==========================================
@@ -1135,7 +1136,7 @@ class CLI():
         self.functions.print_clear_line()
         self.print_title("Update Seed list")
         
-        if "disable" in self.functions.config_obj["profiles"][profile]["pro"]["seed_path"]:
+        if "disable" in self.functions.config_obj[profile]["seed_path"]:
             self.functions.print_paragraphs([
                 ["Seed list is disabled for profile [",0,"red"],
                 [profile,-1,"yellow","bold"],
@@ -1162,10 +1163,10 @@ class CLI():
         self.skip_services = True
         self.version_check_needed = True
                 
-        self.functions.network_name = self.config_ob[self.profile_names[0]]["environment"]
+        self.functions.network_name = self.config_obj[self.profile_names[0]]["environment"]
         if "-p" in command_list:
             try:
-                self.functions.network_name = self.config_ob[command_list[command_list.index("-p")+1]]["environment"]
+                self.functions.network_name = self.config_obj[command_list[command_list.index("-p")+1]]["environment"]
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-848",
@@ -1564,7 +1565,7 @@ class CLI():
         skip = True if "skip_warnings" in command_list else False
         self.print_title("Check Seed List Request")
 
-        if self.functions.config_obj["profiles"][profile]["pro"]["seed_location"] == "disable":
+        if self.functions.config_obj[profile]["seed_location"] == "disable":
             if skip:
                 return True
             self.functions.print_paragraphs([
@@ -1583,7 +1584,7 @@ class CLI():
         if self.nodeid:
             self.nodeid = self.functions.cleaner(self.nodeid,"new_line")
             test = self.functions.test_or_replace_line_in_file({
-              "file_path": self.functions.config_obj["profiles"][profile]["pro"]["seed_path"],
+              "file_path": self.functions.config_obj[profile]["seed_path"],
               "search_line": self.nodeid
             })
 
@@ -2179,7 +2180,7 @@ class CLI():
                             }
                     
                     if cli_join_cmd or restart_type != "restart_only":
-                        environment = self.functions.config_obj["profiles"][profile]["environment"]
+                        environment = self.functions.config_obj[profile]["environment"]
                         self.print_title(f"Joining [{environment}] [{profile}]")   
 
                         self.cli_join({
@@ -2293,11 +2294,11 @@ class CLI():
                 "newLine": True
             })
         
-        if self.functions.config_obj["profiles"][called_profile]["layer"] < 1 and not single_profile:
+        if self.functions.config_obj[called_profile]["layer"] < 1 and not single_profile:
             found_dependency = False
             if not watch_peer_counts: # check to see if we can skip waiting for Ready
-                for link_profile in self.functions.config_obj["profiles"].keys():
-                    if self.functions.config_obj["profiles"][link_profile]["layer0_link"]["link_profile"] == called_profile:
+                for link_profile in self.functions.config_obj.keys():
+                    if self.functions.config_obj[link_profile]["layer0_link_profile"] == called_profile:
                         found_dependency = True
                         break
             if not found_dependency:
@@ -2343,7 +2344,7 @@ class CLI():
             "interactive": watch_peer_counts,
         })
       
-        if self.config_ob[called_profile]["layer"] > 0:
+        if self.config_obj[called_profile]["layer"] > 0:
             if "L0 not Ready" in str(join_result):
                 color = "red"
                 attempt = " attempt"
@@ -2369,7 +2370,7 @@ class CLI():
                 end='\r')
 
             
-        if self.config_ob[called_profile]["layer"] == 0 or (self.config_ob[called_profile]["layer"] > 0 and color == "green"):
+        if self.config_obj[called_profile]["layer"] == 0 or (self.config_obj[called_profile]["layer"] > 0 and color == "green"):
             for allocated_time in range(0,max_timer):
                 sleep(1)
                 
@@ -2512,7 +2513,7 @@ class CLI():
         
         sleep(command_obj.get("delay",0))
 
-        api_port = self.functions.config_obj["profiles"][profile]["ports"]["public"]
+        api_port = self.functions.config_obj[profile]["public_port"]
         slow = ""
         
         if self.slow_flag:
@@ -2649,7 +2650,7 @@ class CLI():
                 
             if not api_port:
                 try: 
-                    api_port = self.functions.config_obj["profiles"][profile]["ports"]["public"]
+                    api_port = self.functions.config_obj[profile]["public_port"]
                 except:
                     self.error_messages.error_code_messages({
                         "error_code": "cmd_1953",
@@ -2762,7 +2763,7 @@ class CLI():
                 else:
                     prefix = self.functions.get_date_time({"action": "datetime"})
                     csv_file_name = f"{prefix}-{nodeid[0:8]}-{nodeid[-8:]}-show-dag-data.csv"
-                csv_path = f"{self.config_obj['profiles'][profile]['dirs']['uploads']}{csv_file_name}"
+                csv_path = f"{self.config_obj[profile]['uploads']}{csv_file_name}"
 
             # this creates a print /r status during retrieval so placed here to not affect output
             if wallet_only:
@@ -2971,7 +2972,7 @@ class CLI():
                 self.functions.print_paragraphs([
                     ["CSV created successfully",1,"green","bold"],
                     ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                    ["location:",0,], [self.config_obj['profiles'][profile]['dirs']['uploads'],1,"yellow","bold"]
+                    ["location:",0,], [self.config_obj[profile]['uploads'],1,"yellow","bold"]
                 ])  
                                                    
         if return_success:    
@@ -3136,7 +3137,7 @@ class CLI():
             ["This is a",0,"white","bold"], ["dangerous",0,"red","bold,underline"], ["command.",2,"white","bold"],
             ["A",0], ["backup",0,"cyan","underline"], ["of your old",0], ["p12",0, "yellow"], 
             ["file will be placed in the following Node VPS location.",1],
-            ["directory:",0], [self.functions.config_obj["profiles"][profile]["directory_backups"],2,"yellow","bold"]
+            ["directory:",0], [self.functions.config_obj[profile]["directory_backups"],2,"yellow","bold"]
         ])
 
         if self.functions.confirm_action({
@@ -3159,8 +3160,8 @@ class CLI():
         while True:
             validated = True
             
-            p12_name = f'{colored("  Enter your","green")} {colored("p12","cyan",attrs=["bold"])} {colored("file name","green")}: '
-            p12_name = input(p12_name)
+            p12_key_name = f'{colored("  Enter your","green")} {colored("p12","cyan",attrs=["bold"])} {colored("file name","green")}: '
+            p12_key_name = input(p12_key_name)
             
             p12_location = f'{colored("  Enter your","green")} {colored("p12","cyan",attrs=["bold"])} {colored("path location","green")}: '
             p12_location = input(p12_location)
@@ -3168,11 +3169,11 @@ class CLI():
             if p12_location[-1] != "/":
                 p12_location = f"{p12_location}/"
             
-            if not path.exists(f"{p12_location}{p12_name}"):
+            if not path.exists(f"{p12_location}{p12_key_name}"):
                 validated = False
                 
             if validated:
-                p12_list = [p12_name]
+                p12_list = [p12_key_name]
                 p12_list.append(p12_location)
                 break
             
@@ -3182,7 +3183,7 @@ class CLI():
                 ["",1],
                 ["p12 file identified was",0,"red"], ["not",0,"yellow","bold"], 
                 ["found in Node Operator entered location; otherwise, the path or file name may be wrong.",1,"red"],
-                ["p12 full path:",0], [f"{p12_location}{p12_name}",2,"yellow"]
+                ["p12 full path:",0], [f"{p12_location}{p12_key_name}",2,"yellow"]
             ])
         
         passphrases = []
@@ -3234,7 +3235,7 @@ class CLI():
         result = p12.change_passphrase({
             "original": passphrases[0],
             "new": passphrases[1],
-            "p12_name": p12_name,
+            "p12_key_name": p12_key_name,
             "p12_location": p12_location
         })
 
@@ -3243,7 +3244,7 @@ class CLI():
             status = "successful"
             color = "green"
             self.functions.print_paragraphs([
-                ["",1], [f"The passphrase for",0,"green"], [p12_name,0,"white","bold"],
+                ["",1], [f"The passphrase for",0,"green"], [p12_key_name,0,"white","bold"],
                 ["was successfully changed.  Please update your configuration.",1,"green"],
                 ["command:",0], ["sudo nodectl configure",2,"blue","bold"]
             ])
@@ -3252,7 +3253,7 @@ class CLI():
             status = "failed"
             color = "red"
             self.functions.print_paragraphs([
-                ["",1], [f"The passphrase for",0,"red"], [p12_name,0,"white","bold"],
+                ["",1], [f"The passphrase for",0,"red"], [p12_key_name,0,"white","bold"],
                 ["was not changed.  Please review your settings and try again.",2,"red"],
                 ["error:",0,"red"], [result,1,"yellow"]
             ])
@@ -3316,9 +3317,10 @@ class CLI():
             else:
                 if port_no != 22 and not install:
                     invalid_ports = []
-                    for profile in self.functions.config_obj["profiles"].keys():
-                        for used_port in self.functions.config_obj["profiles"][profile]["ports"].values():
-                            invalid_ports.append(used_port)
+                    for profile in self.functions.config_obj.keys():
+                        for used_port in self.functions.config_obj[profile].keys():
+                            if "port" in used_port:
+                                invalid_ports.append(self.functions.config_obj[profile][used_port])
                             
                     for inv in invalid_ports:
                             if port_no < 1024 or port_no > 65535 or port_no == inv:
@@ -3364,7 +3366,7 @@ class CLI():
             backup_dir = "/var/tmp"
             if not install:
                 profile = self.functions.pull_profile({"req":"default_profile"})
-                backup_dir = self.functions.config_obj["profiles"][profile]["directory_backups"]
+                backup_dir = self.functions.config_obj[profile]["directory_backups"]
             
             if not path.exists(backup_dir):
                 self.log.logger.warn(f"backup dir did not exist, attempting to create [{backup_dir}]")
@@ -3470,9 +3472,9 @@ class CLI():
          
         env_set = set()
         try:
-            for profile in self.config_ob.keys():
-                environment_name = self.config_ob[profile]["environment"]
-                env_set.add(self.config_ob[profile]["environment"])
+            for profile in self.config_obj.keys():
+                environment_name = self.config_obj[profile]["environment"]
+                env_set.add(self.config_obj[profile]["environment"])
         except Exception as e:
             self.log.logger.critical(f"unable to determine environment type [{environment_name}]")
             self.error_messages.error_code({

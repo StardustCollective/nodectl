@@ -126,7 +126,7 @@ class Installer():
             "alias": self.p12_session.wallet_alias,
             "environment": self.network_name,
             "nodeadmin": self.user.username,
-            "p12_name": self.p12_session.p12_filename
+            "key_name": self.p12_session.p12_filename
         }
 
         migrate.create_n_write_yaml()
@@ -390,7 +390,7 @@ class Installer():
         if len(possible_found.keys()) < 1:
             verb = "Example"
             user_action = "Please select it below"
-            possible_found = [f"/home/{current_user}/my_p12_name.p12"]
+            possible_found = [f"/home/{current_user}/my_p12_key_name.p12"]
         
         self.functions.print_paragraphs([
             ["",2], ["nodectl has detected an existing p12 migration to this new Node has been requested;",0,"yellow"],
@@ -474,7 +474,7 @@ class Installer():
         self.cli.node_service.functions.config_obj = self.config.config_obj
         self.cli.functions.config_obj = self.config.config_obj
         
-        for profile in self.config.config_obj["profiles"].keys():
+        for profile in self.config.config_obj.keys():
             self.cli.node_service.download_update_seedlist({
                 "profile": profile,
             })
@@ -527,8 +527,8 @@ class Installer():
                 ["sudo nodectl configure",2,"cyan"]
             ])
         else:
-            for profile in self.config.config_obj["profiles"].keys():
-                if self.config.config_obj["profiles"][profile]["pro"]["seed_location"] != "disable":
+            for profile in self.config.config_obj.keys():
+                if self.config.config_obj[profile]["seed_location"] != "disable":
                     self.cli.check_seed_list(["-p",profile])
 
         self.functions.print_paragraphs([

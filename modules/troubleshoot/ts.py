@@ -9,7 +9,7 @@ class Troubleshooter():
         self.log = Logging()
         
     def setup_logs(self,command_obj):
-        profile_names = list(self.config_ob.keys())
+        profile_names = list(self.config_obj.keys())
         self.log_dict = {}
         single_profile = command_obj.get("profile",False)
         if single_profile:

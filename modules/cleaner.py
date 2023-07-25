@@ -200,7 +200,7 @@ class Cleaner():
                 for c_dir in subdirs:
                     if path.isdir(dirs[profile][c_dir]):  # make sure all paths exist
                         log_dict = {
-                            "layer": self.functions.config_obj["profiles"][profile]["layer"],
+                            "layer": self.functions.config_obj[profile]["layer"],
                             "log_path": dirs[profile][c_dir]
                         
                         }

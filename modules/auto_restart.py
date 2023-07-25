@@ -88,7 +88,7 @@ class AutoRestart():
         profile_pairings = self.functions.pull_profile({
             "req": "pairings",
         })
-        if self.functions.config_obj["profiles"][self.thread_profile]["layer"] < 1:
+        if self.functions.config_obj[self.thread_profile]["layer"] < 1:
             self.profile_names = [self.thread_profile]
         else:
             complete = False
@@ -103,11 +103,11 @@ class AutoRestart():
                     break
 
         remove_profile_list = []
-        self.link_profile = self.functions.config_obj["profiles"][self.thread_profile]["layer0_link"]["link_profile"]
+        self.link_profile = self.functions.config_obj[self.thread_profile]["layer0_link_profile"]
         
         for profile in self.profile_names:
             if profile != self.thread_profile and profile != self.link_profile:
-                if int(self.functions.config_obj["profiles"][profile]["layer"]) == 0:
+                if int(self.functions.config_obj[profile]["layer"]) == 0:
                     remove_profile_list.append(profile)
                 else:
                     remove_profile_list.append(profile)
@@ -127,7 +127,8 @@ class AutoRestart():
             self.passphrase_warning = True
             
         for profile in self.profile_names:
-            if self.functions.config_obj["profiles"][profile]["p12"]["cli_pass"]:
+            #if self.functions.config_obj[profile]["global_p12"]["cli_pass"]:
+            if self.functions.config_obj[profile]["global_cli_pass"]:
                 self.passphrase_warning = True
             self.profile_states[profile] = {}
             self.profile_states[profile]["remote_session"] = None
@@ -137,13 +138,13 @@ class AutoRestart():
             self.profile_states[profile]["ep_ready"] = None
             self.profile_states[profile]["action"] = None
             self.profile_states[profile]["link_profile"] = False
-            self.profile_states[profile]["layer"] = int(self.functions.config_obj["profiles"][profile]["layer"])
+            self.profile_states[profile]["layer"] = int(self.functions.config_obj[profile]["layer"])
             
-            if self.functions.config_obj["profiles"][profile]["layer"] == 0:  
+            if self.functions.config_obj[profile]["layer"] == 0:  
                 self.profile_states[profile]["observing_timer"] = 0
             else:
                 # handle layer1 link dependencies
-                if self.functions.config_obj["profiles"][self.thread_profile]["layer0_link"]["enable"] == True:
+                if self.functions.config_obj[self.thread_profile]["layer0_link_enable"] == True:
                     if self.link_profile != "None":
                         self.profile_states[profile]["link_profile"] = self.link_profile
        

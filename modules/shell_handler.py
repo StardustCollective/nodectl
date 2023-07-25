@@ -374,7 +374,7 @@ class ShellHandler:
         ]
             
         if self.called_command != "install":    
-            if self.functions.config_obj["auto_restart"]["enable"]:
+            if self.functions.config_obj["global_auto_restart"]["enable"]:
                 self.auto_restart_enabled = True
             
         if self.called_command in kill_auto_restart_commands:
@@ -799,14 +799,14 @@ class ShellHandler:
             cprint("  unknown auto_restart parameter detected, exiting","red")
             return
 
-        keys = list(self.functions.config_obj["profiles"].keys())
+        keys = list(self.functions.config_obj.keys())
         keys.append("global_p12")
         for profile in keys:
             if profile == "global_p12":
                 if self.functions.config_obj[profile]["passphrase"] == "None":
                     warning = True
                     break
-            elif self.functions.config_obj["profiles"][profile]["p12"]["passphrase"] == "None":
+            elif self.functions.config_obj[profile]["p12_passphrase"] == "None":
                 warning = True
                 break
             

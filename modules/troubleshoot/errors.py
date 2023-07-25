@@ -12,7 +12,7 @@ class Error_codes():
         self.log = Logging()
         from ..functions import Functions
         self.functions = Functions({
-            "caller": "config",
+            "global_elements": {"caller": "config"},
             "sudo_rights": False
         })
         self.debug = debug

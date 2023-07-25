@@ -44,7 +44,7 @@ class Configurator():
         self.error_msg = ""
         
         self.p12_items = [
-            "nodeadmin", "key_location", "p12_name", "wallet_alias", "passphrase"
+            "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
         ]
         self.profile_name_list = [] 
         self.predefined_configuration = {}
@@ -427,8 +427,8 @@ class Configurator():
         if set_default:
             nodeadmin_default = self.config_obj["global_p12"]["nodeadmin"]
             location_default = self.config_obj["global_p12"]["key_location"]
-            p12_default = self.config_obj["global_p12"]["p12_name"]
-            alias_default = self.config_obj["global_p12"]["wallet_alias"]   
+            p12_default = self.config_obj["global_p12"]["key_name"]
+            alias_default = self.config_obj["global_p12"]["key_alias"]   
         
         questions = {
             "nodeadmin": {
@@ -443,13 +443,13 @@ class Configurator():
                 "default": location_default,
                 "required": False,
             },
-            "p12_name": {
+            "key_name": {
                 "question": f"  {colored('Enter in your p12 file name: ','cyan')}",
                 "description": "This is the name of your p12 private key file.  It should have a '.p12' extension.",
                 "default": p12_default,
                 "required": p12_required,
             },
-            "wallet_alias": {
+            "key_alias": {
                 "question": f"  {colored('Enter in p12 wallet alias name: ','cyan')}",
                 "description": "This should be a single string (word) [connect multiple words with snake_case or dashes eg) 'my alias' becomes 'my_alias' or 'my-alias']. This is the alias (simple name) given to your p12 private key file; also known as, your wallet.",
                 "default": alias_default,
@@ -612,7 +612,7 @@ class Configurator():
                     self.config_obj["global_p12"][k] = v
             else:
                 for k, v in answers.items():
-                    self.config_ob[ptype][k] = v
+                    self.config_obj[ptype][k] = v
     
         self.c.functions.print_cmd_status({
             **progress,
@@ -624,7 +624,7 @@ class Configurator():
         if not self.migrate.keep_pass_visible:
             self.config_obj["global_p12"]["passphrase"] = "None"
             if ptype != "global":
-                self.config_ob[ptype]["passphrase"] = "None"
+                self.config_obj[ptype]["passphrase"] = "None"
             
         # only ask to preserve passphrase on global
         self.preserve_pass = True  
@@ -829,7 +829,7 @@ class Configurator():
         
         
     def manual_build_layer(self,profile=False):
-        default = "1" if not profile else self.c.config_obj["profiles"][profile]["layer"]
+        default = "1" if not profile else self.c.config_obj[profile]["layer"]
         profile = self.profile if not profile else profile
         
         self.manual_section_header(profile,"DLT LAYER")
@@ -1473,8 +1473,8 @@ class Configurator():
             "global_p12": {
                 "nodeadmin": "",
                 "key_location": "",
-                "p12_name": "",
-                "wallet_alias": "",
+                "key_name": "",
+                "key_alias": "",
                 "passphrase": "",               
             }
         }
@@ -1626,13 +1626,13 @@ class Configurator():
             # ====================
             # PREPARE P12 DETAILS
             # ====================
-            p12_name = profile_obj.get("p12_name", "global")
-            alias = profile_obj.get("wallet_alias", "global")
+            key_name = profile_obj.get("p12_key_name", "global")
+            alias = profile_obj.get("key_alias", "global")
             passphrase = profile_obj.get("passphrase", "global")
             nodeadmin = profile_obj.get("nodeadmin", "global")
             location = profile_obj.get("key_location", "global")
             p12 = [
-                [nodeadmin, location, p12_name, alias, passphrase]
+                [nodeadmin, location, key_name, alias, passphrase]
             ]
             
             # ====================
@@ -1676,11 +1676,11 @@ class Configurator():
                         "java_jvm_xms": java[n][0],
                         "java_jvm_xmx": java[n][1],
                         "java_jvm_xss": java[n][2],
-                        "nodeadmin": p12[n][0],
-                        "key_location": p12[n][1],
-                        "p12_name": p12[n][2],
-                        "wallet_alias": p12[n][3],
-                        "passphrase": p12[n][4],
+                        "p12_nodeadmin": p12[n][0],
+                        "p12_key_location": p12[n][1],
+                        "p12_key_name": p12[n][2],
+                        "p12_key_alias": p12[n][3],
+                        "p12_passphrase": p12[n][4],
                         "node_type": node_type[n],
                         "description": description[n],
                         "seed_location": seed_location[n],
@@ -1747,12 +1747,12 @@ class Configurator():
         # correlates to migration class - build_yaml
         
         # self.build_known_skelton(1)
-        # sorted_profile_obj =  sorted(self.config_ob.items(), key = lambda x: x[1]["layer"])
-        sorted_profile_obj =  sorted(self.config_ob.items(), key = lambda x: (x[1]["layer"], x[0]))
+        # sorted_profile_obj =  sorted(self.config_obj.items(), key = lambda x: x[1]["layer"])
+        sorted_profile_obj =  sorted(self.config_obj.items(), key = lambda x: (x[1]["layer"], x[0]))
         sorted_config_obj = {"profiles": {}}
         for profile in sorted_profile_obj:
-            sorted_config_obj["profiles"][profile[0]] = profile[1]
-        self.config_ob = sorted_config_obj["profiles"]
+            sorted_config_obj[profile[0]] = profile[1]
+        self.config_ob = sorted_config_obj
         # self.build_yaml(True)
         
         progress = {
@@ -1768,12 +1768,12 @@ class Configurator():
         self.migrate.create_n_write_yaml()
         
         # profile sections
-        for profile in self.config_ob.keys():
-            details = self.config_ob[profile]
+        for profile in self.config_obj.keys():
+            details = self.config_obj[profile]
             link_port = "None"
             if details["layer0_enable"] == "True":
                 try:
-                    link_port = self.config_ob[details["link_profile"]]["public"]
+                    link_port = self.config_obj[details["link_profile"]]["public"]
                 except:
                     link_port = details["layer0_port"]
                     try:
@@ -1826,11 +1826,11 @@ class Configurator():
                 "nodegaragesnaphostsdir": details["snapshots"],
                 "nodegaragebackupsdir": details["backups"],
                 "nodegarageuploadsdir": details["uploads"],
-                "nodegaragenodeadmin": details["nodeadmin"],
-                "nodegaragekeylocation": details["key_location"],
-                "nodegaragep12name": details["p12_name"],
-                "nodegaragewalletalias": details["wallet_alias"],
-                "nodegaragepassphrase": details["passphrase"],
+                "nodegaragenodeadmin": details["p12_nodeadmin"],
+                "nodegaragekeylocation": details["p12_key_location"],
+                "nodegaragep12name": details["p12_key_name"],
+                "nodegaragewalletalias": details["p12_key_alias"],
+                "nodegaragepassphrase": details["p12_passphrase"],
                 "nodegarageseedlistloc": details["seed_location"],
                 "nodegarageseedlistfile": details["seed_file"],
                 "create_file": "config_yaml_profile",
@@ -1853,7 +1853,7 @@ class Configurator():
         rebuild_obj = {
             "nodegaragenodeadmin": self.config_obj["global_p12"]["nodeadmin"],
             "nodegaragekeylocation": self.config_obj["global_p12"]["key_location"],
-            "nodegaragep12name": self.config_obj["global_p12"]["p12_name"],
+            "nodegaragep12name": self.config_obj["global_p12"]["key_name"],
             "nodegaragewalletalias": self.config_obj["global_p12"]["wallet_alias"],
             "nodegaragepassphrase": self.config_obj["global_p12"]["passphrase"],
             "create_file": "config_yaml_p12",
@@ -1922,7 +1922,7 @@ class Configurator():
         try:
             int(option)
         except:
-            for key, value in self.c.config_obj["profiles"][option].items():
+            for key, value in self.c.config_obj[option].items():
                 self.profile_details[key] = str(value)
         else:
             singles = ["enable","layer","environment","service","node_type","description"]
@@ -1931,10 +1931,10 @@ class Configurator():
                 "xmx": "java_jvm_xmx",
                 "xss": "java_jvm_xss",
             }
-            for profile in self.c.config_obj["profiles"].keys():
+            for profile in self.c.config_obj.keys():
                 profile_details = {}
                 
-                obj = self.config_ob[profile]
+                obj = self.config_obj[profile]
                 for key, value in obj.items():
                     if key in singles:
                         profile_details[key] = str(value)
@@ -1948,7 +1948,7 @@ class Configurator():
                 
                 profile_details["layer0_link"] = "y" if profile_details["layer0_enable"] == "True" else "n"
                 profile_details["profile_name"] = profile
-                self.config_ob[profile] = profile_details
+                self.config_obj[profile] = profile_details
         
         self.prepare_configuration("migrator")
             
@@ -2188,7 +2188,7 @@ class Configurator():
                 self.build_known_skelton(option)
 
                 self.profile_details = {
-                    **self.config_ob[profile],
+                    **self.config_obj[profile],
                     **self.profile_details,
                 }
 
@@ -2278,9 +2278,9 @@ class Configurator():
                     if self.profile_details["key_location"] != "global":
                         keys.append("key_location")
                         types.append("path")
-                    if self.profile_details["p12_name"] != "global":
-                        keys.append("p12_name")
-                        types.append("p12_name")
+                    if self.profile_details["p12_key_name"] != "global":
+                        keys.append("p12_key_name")
+                        types.append("p12_key_name")
                     
                     if len(keys) > 0:
                         self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [p12 build] [{self.action}]"
@@ -2336,14 +2336,14 @@ class Configurator():
         warning = False
         self.restart_needed = self.upgrade_needed = False
         
-        keys = list(self.c.config_obj["profiles"].keys())
+        keys = list(self.c.config_obj.keys())
         keys.append("global_p12")
         for profile in keys:
             if profile == "global_p12":
                 if self.c.config_obj[profile]["passphrase"] == "None":
                     warning = True
                     break
-            elif self.c.config_obj["profiles"][profile]["p12"]["passphrase"] == "None":
+            elif self.c.config_obj[profile]["p12_passphrase"] == "None":
                 warning = True
                 break
                 
@@ -2514,7 +2514,7 @@ class Configurator():
         })
         self.handle_service(profile,"service")  # leave and stop first
         self.cleanup_service_file(self.profile_details["service"])
-        self.config_ob.pop(profile)
+        self.config_obj.pop(profile)
 
         self.c.functions.print_cmd_status({
             "text_start": f"Profile",
@@ -2589,8 +2589,8 @@ class Configurator():
 
         self.profile_details["profile_name"] = new_profile
         # change the key for the profiles
-        self.c.config_obj["profiles"][new_profile] = self.c.config_obj["profiles"].pop(old_profile)
-        self.config_ob[new_profile] = self.config_ob.pop(old_profile)
+        self.c.config_obj[new_profile] = self.c.config_obj.pop(old_profile)
+        self.config_obj[new_profile] = self.config_obj.pop(old_profile)
         
         dir_progress = {
             "text_start": "updating directory structure",
@@ -2604,17 +2604,17 @@ class Configurator():
             "status": "complete",
             "newline": True,
         })
-        for replace_link_p in self.c.config_obj["profiles"].keys():
-            if self.c.config_obj["profiles"][replace_link_p]["layer0_link"]["link_profile"] == old_profile:
-                self.config_ob[replace_link_p]["link_profile"] = new_profile
+        for replace_link_p in self.c.config_obj.keys():
+            if self.c.config_obj[replace_link_p]["layer0_link_profile"] == old_profile:
+                self.config_obj[replace_link_p]["link_profile"] = new_profile
             for dir_p in dirs:
-                if old_profile in self.config_ob[replace_link_p][dir_p]: 
+                if old_profile in self.config_obj[replace_link_p][dir_p]: 
                     self.c.functions.print_cmd_status({
                         **dir_progress,
                         "status": dir_p,
                     })
-                    dir_value = self.config_ob[replace_link_p][dir_p]
-                    self.config_ob[replace_link_p][dir_p] = dir_value.replace(old_profile,new_profile)
+                    dir_value = self.config_obj[replace_link_p][dir_p]
+                    self.config_obj[replace_link_p][dir_p] = dir_value.replace(old_profile,new_profile)
                 
         self.build_service_file({
             "profiles": [new_profile],
@@ -2650,8 +2650,8 @@ class Configurator():
     
     def edit_service_name(self, profile):
         self.manual_build_service(profile)
-        self.cleanup_service_file(self.config_ob[profile]["service"])
-        self.c.config_obj["profiles"][profile]["service"] = self.profile_details["service"]
+        self.cleanup_service_file(self.config_obj[profile]["service"])
+        self.c.config_obj[profile]["service"] = self.profile_details["service"]
         self.build_service_file({
             "profiles": [profile], 
             "action": "Create",
@@ -2703,8 +2703,8 @@ class Configurator():
         }):
             warning_confirm = True
             if section == "enable" and new == "disable":
-                for replace_link_p in self.c.config_obj["profiles"].keys():
-                    if self.c.config_obj["profiles"][replace_link_p]["layer0_link"]["link_profile"] == profile:
+                for replace_link_p in self.c.config_obj.keys():
+                    if self.c.config_obj[replace_link_p]["layer0_link_profile"] == profile:
                         self.c.functions.print_paragraphs([
                             [" WARNING ",0,"red,on_yellow"], ["Selected Profile [",0], [replace_link_p,-1,"yellow"], 
                             ["] seems to be reliant on [",-1], [profile,-1,"yellow","bold"], ["]. Continuing will",-1],
@@ -2998,8 +2998,8 @@ class Configurator():
         clean_up_old_list = []
         self.log.logger.info("configuator is verifying old profile cleanup.")
         
-        for old_profile in self.old_last_cnconfig["profiles"].keys():
-            if old_profile not in self.config_ob.keys():
+        for old_profile in self.old_last_cnconfig.keys():
+            if old_profile not in self.config_obj.keys():
                 cleanup = True
                 clean_up_old_list.append(old_profile)
                 self.log.logger.warn(f"configuration found abandend profile [{old_profile}]")
@@ -3044,11 +3044,11 @@ class Configurator():
         found_snap = False
         self.log.logger.info("configuator is verifying snapshot data directory existance and contents.")
                     
-        for profile in self.config_ob.keys():
-            if self.config_ob[profile]["layer"] == "1":
+        for profile in self.config_obj.keys():
+            if self.config_obj[profile]["layer"] == "1":
                 if not path.isdir(f"/var/tessellation/{profile}/"):
                     makedirs(f"/var/tessellation/{profile}/")
-            elif self.config_ob[profile]["layer"] == "0":
+            elif self.config_obj[profile]["layer"] == "0":
                 found_snap_list = [
                     f"/var/tessellation/{profile}/data/snapshot",
                     f"/var/tessellation/{profile}/data/incremental_snapshot",
@@ -3220,14 +3220,14 @@ class Configurator():
         sections["layer0_link"][0] = "layer0_enable"
         singles = ["enable","layer","environment","service","node_type","description"]
         
-        for profile in self.c.config_obj["profiles"].keys():
-            for section in self.c.config_obj["profiles"][profile].keys():
+        for profile in self.c.config_obj.keys():
+            for section in self.c.config_obj[profile].keys():
                 if section in singles:
-                  self.c.config_obj["profiles"][profile][section] = self.profile_details[section]
+                  self.c.config_obj[profile][section] = self.profile_details[section]
 
             for subsection in sections:
                 for item in sections[subsection]:
-                    self.c.config_obj["profiles"][profile][subsection][item] = self.profile_details[item]
+                    self.c.config_obj[profile][subsection][item] = self.profile_details[item]
         
 
     def handle_service(self,profile,s_type):
@@ -3242,7 +3242,7 @@ class Configurator():
         
         actions = ["leave","stop"]
         for s_action in actions:
-            if self.node_service.config_obj["node_service_status"][profile] == "inactive (dead)":
+            if self.node_service.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
                 break
             self.c.functions.print_cmd_status({            
                 "text_start": "Updating Service",
@@ -3273,7 +3273,7 @@ class Configurator():
         
     
     def is_duplicate_profile(self,profile_name):
-        for profile in self.config_ob.keys():
+        for profile in self.config_obj.keys():
             if profile_name == profile:
                 return True   
         return False
@@ -3284,12 +3284,12 @@ class Configurator():
         backup_dir = "empty"
         
         try:
-            for key in self.c.config_obj["profiles"].keys():
-                backup_dir = self.c.config_obj["profiles"][key]["directory_backups"]
+            for key in self.c.config_obj.keys():
+                backup_dir = self.c.config_obj[key]["directory_backups"]
                 break
         except: # global
-            for key in self.config_ob.keys():
-                backup_dir = self.config_ob[key]["backups"]
+            for key in self.config_obj.keys():
+                backup_dir = self.config_obj[key]["backups"]
                 break 
                        
         if backup_dir == "default":

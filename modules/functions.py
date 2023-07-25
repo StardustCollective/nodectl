@@ -43,7 +43,8 @@ class Functions():
         
         self.node_nodectl_version = "v2.8.1"
         exclude_config = ["-v","_v","version"]
-        if config_obj["caller"] in exclude_config:
+        
+        if config_obj["global_elements"]["caller"] in exclude_config:
             return
         
         urllib3.disable_warnings()
@@ -85,7 +86,7 @@ class Functions():
         self.status_dots = False # used for different threading events
         
         ignore_defaults = ["config","install","auto_restart","ts"]
-        if config_obj["caller"] not in ignore_defaults:
+        if config_obj["global_elements"]["caller"] not in ignore_defaults:
             self.set_default_variables()
             
         pass
@@ -131,8 +132,8 @@ class Functions():
                     
             def get_cluster_tess(action,network):
                 if action == "normal":
-                    api_host = self.config_ob[self.default_profile]["edge_point"]["host"]
-                    api_port = self.config_ob[self.default_profile]["edge_point"]["host_port"]
+                    api_host = self.config_obj[self.default_profile]["edge_point"]
+                    api_port = self.config_obj[self.default_profile]["edge_point_tcp_port"]
                 elif action == "install":
                     if network == "mainnet":
                         # use the hardcoded version because no configuration to start installation
@@ -572,7 +573,7 @@ class Functions():
 
     def get_service_name(self,profile):
         try:
-            return f"cnng-{self.config_obj['profiles'][profile]['service']}"
+            return f"cnng-{self.config_obj[profile]['service']}"
         except:
             self.error_messages.error_code_messages({
                 "error_code": "fnt-645",
@@ -650,23 +651,23 @@ class Functions():
             
         api_str = "/cluster/info"
         if api_endpoint_type == "consensus":
-            if self.config_ob[profile]["layer"] == 0:
+            if self.config_obj[profile]["layer"] == 0:
                 api_str = "/consensus/latest/peers"
 
         local_only = ["self","localhost","127.0.0.1"]
         if specific_ip in local_only:
             return {
                 "ip": self.get_ext_ip(),
-                "publicPort": self.config_ob[profile]["ports"]["public"],
-                "p2pPort": self.config_ob[profile]["ports"]["p2p"],
-                "cli": self.config_ob[profile]["ports"]["cli"],
+                "publicPort": self.config_obj[profile]["public_port"],
+                "p2pPort": self.config_obj[profile]["p2p_port"],
+                "cli": self.config_obj[profile]["cli_port"],
             }
             
         while True:
             try:
                 cluster_info = self.get_cluster_info_list({
-                    "ip_address": self.config_ob[profile]["edge_point"]["host"],
-                    "port": self.config_ob[profile]["edge_point"]["host_port"],
+                    "ip_address": self.config_obj[profile]["edge_point"],
+                    "port": self.config_obj[profile]["edge_point_tcp_port"],
                     "api_endpoint": api_str,
                     "spinner": spinner,
                     "error_secs": 3,
@@ -789,18 +790,19 @@ class Functions():
         # this needs to be migrated to node_services
         # move this to node.service
         # =========================
-        self.config_obj["node_service_status"] = {}
+        self.config_obj["global_elements"]["node_service_status"] = {}
         
-        for profile in self.config_ob.keys():
-            service_name = f"cnng-{self.config_obj['profiles'][profile]['service']}"
-            service_status = system(f'systemctl is-active --quiet {service_name}')
-            if service_status == 0:
-                self.config_obj["node_service_status"][profile] = "active (running)"
-            elif service_status == 768:
-                self.config_obj["node_service_status"][profile] = "inactive (dead)"
-            else:
-                self.config_obj["node_service_status"][profile] = "error (exit code)"
-            self.config_obj["node_service_status"]["service_return_code"] = service_status   
+        for profile in self.config_obj.keys():
+            if "global" not in profile:
+                service_name = f"cnng-{self.config_obj[profile]['service']}"
+                service_status = system(f'systemctl is-active --quiet {service_name}')
+                if service_status == 0:
+                    self.config_obj["global_elements"]["node_service_status"][profile] = "active (running)"
+                elif service_status == 768:
+                    self.config_obj["global_elements"]["node_service_status"][profile] = "inactive (dead)"
+                else:
+                    self.config_obj["global_elements"]["node_service_status"][profile] = "error (exit code)"
+                self.config_obj["global_elements"]["node_service_status"]["service_return_code"] = service_status   
 
 
     def get_cluster_info_list(self,command_obj):
@@ -857,13 +859,17 @@ class Functions():
         self.set_default_directories()
         
         return_obj = {}
-        for i_profile in self.config_ob.keys(): 
-            if profile == profile and profile != "all":
+        for i_profile in self.config_obj.keys(): 
+            if i_profile == profile and profile != "all":
                 if specific:
-                    return self.config_ob[i_profile]["dirs"][specific]
-                return self.config_ob[i_profile]["dirs"]
+                    return self.config_obj[i_profile][specific]
+                for directory in self.config_obj[i_profile].keys():
+                    if "directory" in directory:
+                        return_obj[directory] =  self.config_obj[i_profile][directory]
             elif profile == "all":
-                return_obj[i_profile] = self.config_ob[i_profile]["dirs"]  
+                for directory in self.config_obj.keys():
+                    if "directory" in directory:
+                        return_obj[directory] =  self.config_obj[i_profile][directory]
         return return_obj
     
         
@@ -1025,61 +1031,86 @@ class Functions():
                 for layer in range(0,3):
                     if self.default_profile:
                         break
-                    for i_profile in self.config_ob:
+                    for i_profile in self.config_obj.keys():
                         if profile != None and profile != "all":
                             i_profile = profile
-                        profile_layer = self.config_ob[i_profile]["layer"]
-                        profile_enable = self.config_ob[i_profile]["enable"]
+                        profile_layer = self.config_obj[i_profile]["layer"]
+                        profile_enable = self.config_obj[i_profile]["enable"]
                         if profile_layer == layer and profile_enable:
                             self.default_profile = i_profile
-                            host_port = self.config_ob[self.default_profile]["edge_point"]["host_port"]
                             
                             uri = self.set_api_url(
-                                self.config_ob[self.default_profile]["edge_point"]["host"],
-                                host_port,
+                                self.config_obj[self.default_profile]["edge_point"],
+                                self.config_obj[self.default_profile]["edge_point_tcp_port"],
                                 "" # no post_fix
                             )
-
                             self.default_edge_point = {
-                                "host": self.config_ob[self.default_profile]["edge_point"]["host"],
-                                "host_port": host_port,
+                                "host": self.config_obj[self.default_profile]["edge_point"],
+                                "host_port":self.config_obj[self.default_profile]["edge_point_tcp_port"],
                                 "uri": uri
                             } 
                             break # on 1st and lowest layer   
             except:
+                self.log.logger.error("functions unable to process profile while setting up default values")
                 self.error_messages.error_code_messages({
                     "error_code": "fnt-924",
                     "line_code": "profile_error",
                     "extra": profile,
                 })
             
-        self.config_obj["node_profile_states"] = {}  # initialize 
+        self.config_obj["global_elements"]["node_profile_states"] = {}  # initialize 
         self.ip_address = self.get_ext_ip()
         self.check_config_environment()
                 
 
     def set_default_directories(self):
         # only to be set if "default" value is found
-        for profile in self.config_ob.keys():
-            try:
-                if self.config_ob[profile]["dirs"]["snapshots"] == "default": # otherwise already set
-                    self.config_ob[profile]["dirs"]["snapshots"] = f"/var/tessellation/{profile}/data/snapshot"
-            except: # disabled exception
-                pass    
-            if self.config_ob[profile]["directory_backups"] == "default": # otherwise already set
-                self.config_ob[profile]["directory_backups"] = "/var/tessellation/backups/"
-            if self.config_ob[profile]["dirs"]["uploads"] == "default": # otherwise already set
-                self.config_ob[profile]["dirs"]["uploads"] = "/var/tessellation/uploads/"
+        self.config_obj[profile]["snapshots_directory_userset"] = False
+        self.config_obj[profile]["inc_snap_directory_userset"] = False
+        self.config_obj[profile]["inc_snap_tmp_directory_userset"] = False
+
+        for profile in self.config_obj.keys():
+            if "global" not in profile:
+                snap_dict = {
+                    "custom_env_vars_CL_SNAPSHOT_STORED_PATH": {
+                        "config_key": "snapshots_directory", 
+                        "path": f"/var/tessellation/{profile}/data/snapshot"
+                    },
+                    "custom_env_vars_CL_INCREMENTAL_SNAPSHOT_STORED_PATH": {
+                        "config_key": "inc_snap_directory", 
+                        "path": f"/var/tessellation/{profile}/data/incremental_snapshot"
+                    },
+                    "custom_env_vars_CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH": {
+                        "config_key": "inc_snap_tmp_directory", 
+                        "path": f"/var/tessellation/{profile}/data/incremental_snapshot_tmp",
+                    },
+                }   
+        
+                for env_arg, values in snap_dict.items():
+                    if not self.config_obj["custom_env_vars_enable"]:
+                        self.config_obj[profile][values["config_key"]] = values[path]
+                    else:
+                        for config_key, path in values.items():
+                            try:
+                                value = self.config_obj[profile][env_arg]
+                            except: # disabled exception
+                                self.config_obj[profile][config_key] = path
+                            else:
+                                self.config_obj[profile][config_key] = value
+                                self.config_obj[profile][f"{config_key}_userset"] = True
+                         
+                if self.config_obj[profile]["directory_backups"] == "default": # otherwise already set
+                    self.config_obj[profile]["directory_backups"] = "/var/tessellation/backups/"
+                if self.config_obj[profile]["directory_uploads"] == "default": # otherwise already set
+                    self.config_obj[profile]["directory_uploads"] = "/var/tessellation/uploads/"
+                if self.config_obj[profile]["seed_location"] == "default": # otherwise already set
+                    self.config_obj[profile]["seed_location"] = "/var/tessellation/"
+                if self.config_obj[profile]["seed_file"] == "default": # otherwise already set
+                    self.config_obj[profile]["seed_file"] = "seed-list"
                  
-            self.config_ob[profile]["dirs"]["logs"] = f"/var/tessellation/{profile}/logs/"   
-            self.config_ob[profile]["dirs"]["archived"] = f"/var/tessellation/{profile}/logs/archived"  
-            self.config_ob[profile]["dirs"]["json_logs"] = f"/var/tessellation/{profile}/logs/json_logs"  
-            
-            try:
-                if self.config_ob[profile]["dirs"]["snapshots"] == "disable":
-                    del self.config_ob[profile]["dirs"]["snapshots"]
-            except: # disabled exception
-                pass
+            self.config_obj[profile]["logs_directory"] = f"/var/tessellation/{profile}/logs/"   
+            self.config_obj[profile]["archived_directory"] = f"/var/tessellation/{profile}/logs/archived"  
+            self.config_obj[profile]["json_logs_directory"] = f"/var/tessellation/{profile}/logs/json_logs"  
             
             
     def set_system_prompt(self,username):
@@ -1114,7 +1145,7 @@ class Functions():
         profile = command_obj['profile']
         spinner = command_obj.get("spinner",True)
         
-        local_port = self.config_ob[profile]["ports"]["public"]
+        local_port = self.config_obj[profile]["public_port"]
         nodes = command_obj['edge_device']['remote'], self.ip_address
         session = {}
 
@@ -1134,7 +1165,7 @@ class Functions():
             state = None
                 
             if i > 0: # remote session first
-                if self.config_obj["node_service_status"][profile] == "inactive (dead)":
+                if self.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
                     break # state defaulted to ApiNotReady
                 port = local_port    
 
@@ -1188,13 +1219,12 @@ class Functions():
     
     def pull_edge_point(self,i_profile):
         self.log.logger.debug(f"function - pull edge point device [{i_profile}]")
-        self.log.logger.debug(f"function - pull edge point device i_profile [{i_profile}]")
         while True:
             try:
                 self.log.logger.debug(f"function - pull edge point device i_profile [{i_profile}]")
                 return {
-                    "remote": self.config_ob[i_profile]["edge_point"]["host"],
-                    "remote_port": self.config_ob[i_profile]["edge_point"]["host_port"],
+                    "remote": self.config_obj[i_profile]["edge_point"],
+                    "remote_port": self.config_obj[i_profile]["edge_point_tcp_port"],
                     "port_list": self.pull_profile({
                         "req": "localhost",
                         "profile": i_profile,
@@ -1282,8 +1312,8 @@ class Functions():
 
         def pull_all():
             for i_profile in self.config_ob:
-                service_list.append(self.config_ob[i_profile]["service"]) 
-                description_list.append(self.config_ob[i_profile]["description"]) 
+                service_list.append(self.config_obj[i_profile]["service"]) 
+                description_list.append(self.config_obj[i_profile]["description"]) 
             
         def test_replace_last_elements(list1,list2):
             if list1[-1] == list2[-1]:
@@ -1294,23 +1324,23 @@ class Functions():
 
         if var.req == "service":
             if profile != "empty":
-                return self.config_ob[profile]["service"]
+                return self.config_obj[profile]["service"]
             else:
                 pull_all()
                 return service_list
             
         elif var.req == "pairings":
             # return list of profile objects that are paired via layer0_link
-            profile_list = list(self.config_ob.keys())
+            profile_list = list(self.config_obj.keys())
             pairing_list = []
                        
             for profile in profile_list:
-                if self.config_ob[profile]["layer0_link"]["enable"]:
+                if self.config_obj[profile]["layer0_link_enable"]:
                     # list of lists of matching profile to linked profile
-                    link_profile = self.config_ob[profile]["layer0_link"]["link_profile"]
-                    layer = self.config_ob[profile]["layer"]
+                    link_profile = self.config_obj[profile]["layer0_link_profile"]
+                    layer = self.config_obj[profile]["layer"]
                     if layer > 0 and link_profile != "None":
-                        pairing_list.append([profile, self.config_ob[profile]["layer0_link"]["link_profile"]])
+                        pairing_list.append([profile, self.config_obj[profile]["layer0_link_profile"]])
                     else:
                         pairing_list.append([profile])
             
@@ -1329,7 +1359,7 @@ class Functions():
                     else:
                         n += 1
                         
-            profile_keys = list(self.config_ob.keys())
+            profile_keys = list(self.config_obj.keys())
             dup_keys = []
 
             for key in profile_keys:
@@ -1348,8 +1378,8 @@ class Functions():
                 for i, profile in enumerate(s_list):
                     pair_dict = {
                         "profile": profile,
-                        "service": self.config_ob[profile]["service"],
-                        "layer": self.config_ob[profile]["layer"]
+                        "service": self.config_obj[profile]["service"],
+                        "layer": self.config_obj[profile]["layer"]
                     }
                     s_list[i] = pair_dict
                 pairing_list[n] = s_list
@@ -1358,33 +1388,37 @@ class Functions():
             
         elif "list" in var.req:
             if var.req == "list":
-                return list(self.config_ob.keys())
+                return list(self.config_obj.keys())
             elif var.req == "list_details":
                 pull_all()
                 return {
-                    "profile_names": list(self.config_ob.keys()),
+                    "profile_names": list(self.config_obj.keys()),
                     "profile_services": service_list,
                     "profile_descr": description_list
                 }
         if var.req == "default_profile":
-            return list(self.config_ob.keys())[0]
+            return list(self.config_obj.keys())[0]
             
         elif var.req == "link_profile":
-            if self.config_ob[profile]["layer0_link"]["enable"]:
+            if self.config_obj[profile]["layer0_link_enable"]:
                 return {
-                    "profile": self.config_ob[profile]["layer0_link"]["link_profile"],
-                    "port": self.config_ob[profile]["layer0_link"]["layer0_port"],
-                    "host": self.config_ob[profile]["layer0_link"]["layer0_host"],
-                    "key": self.config_ob[profile]["layer0_link"]["layer0_key"],
+                    "profile": self.config_obj[profile]["layer0_link_profile"],
+                    "port": self.config_obj[profile]["layer0_link_port"],
+                    "host": self.config_obj[profile]["layer0_link_host"],
+                    "key": self.config_obj[profile]["layer0_link_key"],
                 }   
             return False 
                         
         elif var.req == "ports":
-            return self.config_ob[profile]["ports"]
+            return {
+                "public": self.config_obj[profile]["public_port"],
+                "p2p": self.config_obj[profile]["p2p_port"],
+                "cli": self.config_obj[profile]["cli_port"],
+            }
         
         elif var.req == "exists" or var.req == "enabled":
             try:
-                test = self.config_ob[profile]["enable"]
+                test = self.config_obj[profile]["enable"]
             except:
                 test = False
                 
@@ -1435,8 +1469,8 @@ class Functions():
             
             if profile:
                 uri = self.set_api_url(
-                    self.config_ob[profile]["edge_point"]["host"],
-                    self.config_ob[profile]["edge_point"]["host_port"],
+                    self.config_obj[profile]["edge_point"],
+                    self.config_obj[profile]["edge_point_tcp_port"],
                     "/node/health",               
                     )
 
@@ -1512,7 +1546,7 @@ class Functions():
         # this method will need to be refactored as new Metagraphs
         # register with Node Garage or Constellation (depending)
         try:
-            self.network_name = self.config_ob[self.default_profile]["environment"]             
+            self.network_name = self.config_obj[self.default_profile]["environment"]             
         except:
             if not self.network_name:
                 while True:
@@ -1564,7 +1598,7 @@ class Functions():
         if profile == "all":
             return
         
-        if profile not in self.config_ob.keys():
+        if profile not in self.config_obj.keys():
             self.error_messages.error_code_messages({
                 "error_code": "fnt-603",
                 "line_code": "profile_error",
@@ -1629,7 +1663,7 @@ class Functions():
             "simple": True,
         })
         continue_states = ["Observing","Ready","WaitingForReady","WaitingForObserving"] 
-        if state not in continue_states or "active" not in self.config_obj["node_service_status"][profile]:
+        if state not in continue_states or "active" not in self.config_obj["global_elements"]["node_service_status"][profile]:
             self.print_paragraphs([
                 [" PROBLEM FOUND ",0,"grey,on_red","bold"], ["",1],
             ])

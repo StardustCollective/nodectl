@@ -20,7 +20,7 @@ class Configuration():
     def __init__(self,command_obj):
         
         self.functions = Functions({
-            "caller": "config",
+            "global_elements": {"caller":"config"},
             "sudo_rights": False
         })
         self.functions.check_sudo()
@@ -45,7 +45,7 @@ class Configuration():
             
         # rebuild functions with errors and logging
         self.functions = Functions({
-            "caller": "config",
+            "global_elements": {"caller": "config"},
         })
 
         self.error_messages = Error_codes() 
@@ -177,7 +177,7 @@ class Configuration():
         self.config_obj = {
             **self.config_obj,
             **yaml_dict["nodectl"],
-            "global_flags": {},
+            "global_elements": {},
         }
         
         if return_dict:
@@ -194,9 +194,9 @@ class Configuration():
                 "extra2": None
             }) 
         
-        self.config_obj["global_flags"]["global_cli_pass"] = False # initialize 
-        self.config_obj["global_flags"]["global_upgrader"] = False # initialize 
-        self.config_obj["global_flags"]["all_global"] = False # initialize 
+        self.config_obj["global_elements"]["global_cli_pass"] = False # initialize 
+        self.config_obj["global_elements"]["global_upgrader"] = False # initialize 
+        self.config_obj["global_elements"]["all_global"] = False # initialize 
         
         self.validate_global_setting()
         try:
@@ -316,7 +316,7 @@ class Configuration():
     def handle_cli_passphrase(self):
         # grab cli passphrase if present
         if "--pass" in self.argv_list:
-            self.config_obj["global_flags"]["global_cli_pass"] = True
+            self.config_obj["global_elements"]["global_cli_pass"] = True
             self.config_obj["global_p12"]["passphrase"] = self.argv_list[self.argv_list.index("--pass")+1]
             
         # init = {}
@@ -461,7 +461,7 @@ class Configuration():
                 #     **snap_obj,
                 # }
                     
-        self.config_obj["global_flags"]["caller"] = None  # init key (used outside of this class)
+        self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
             
             
     def prepare_p12(self):
@@ -490,9 +490,9 @@ class Configuration():
     def setup_passwd(self,force=False):
         def verify_passwd(passwd, profile):
             clear, top_new_line, show_titles = False, False, True 
-            if profile == "global" and ( not self.config_obj["global_upgrader"] or self.argv_list[1] != "upgrade" ):
+            if profile == "global" and ( not self.config_obj["global_elements"]["global_upgrader"] or self.argv_list[1] != "upgrade" ):
                 clear = True
-            if self.config_obj["global_upgrader"] or self.argv_list[1] == "upgrade":
+            if self.config_obj["global_elements"]["global_upgrader"] or self.argv_list[1] == "upgrade":
                 if profile != "global":
                     print("") # newline
                 show_titles = False
@@ -516,24 +516,24 @@ class Configuration():
             
         passwd = self.config_obj["global_p12"]["passphrase"]
         if passwd == None or passwd == "None":
-            self.config_obj["global_flags"]["global_cli_pass"] = True
+            self.config_obj["global_elements"]["global_cli_pass"] = True
             passwd = False
 
         if self.is_passphrase_required() or force:
             verify_passwd(passwd,"global")  
         
-        if not self.config_obj["global_flags"]["all_global"]:
+        if not self.config_obj["global_elements"]["all_global"]:
             for profile in self.config_obj.keys():
                 # print(json.dumps(self.config_obj,indent=3))
                 if not self.config_obj[profile]["global_p12_passphrase"]:
-                    passwd = self.config_obj[profile]["p12"]["passphrase"]
+                    passwd = self.config_obj[profile]["p12_passphrase"]
                     if passwd == "None" or passwd == None:
-                        self.config_obj[profile]["p12"]["cli_pass"] = True
+                        self.config_obj[profile]["global_p12_cli_pass"] = True
                         passwd = False
                     if self.is_passphrase_required():
                         verify_passwd(passwd,profile)
                 else:
-                    self.config_obj[profile]["p12"]["passphrase"] = self.config_obj["global_p12"]["passphrase"]
+                    self.config_obj[profile]["p12_passphrase"] = self.config_obj["global_p12"]["passphrase"]
 
         
     def setup_self_settings(self):
@@ -564,11 +564,17 @@ class Configuration():
             self.functions.print_clear_line()
         
         for profile in profile_obj.keys():
-            if profile_obj[profile]["enable"] and self.action != "edit_config":
-                if profile_obj[profile]["layer0_link"]["layer0_host"] == "self":
+            if "global" not in profile and profile_obj[profile]["enable"] and self.action != "edit_config":
+                if profile_obj[profile]["layer0_link_host"] == "self":
                     print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
-                    profile_obj[profile]["layer0_link"]["layer0_host"] = self.functions.get_ext_ip() 
-                if profile_obj[profile]["layer0_link"]["layer0_key"] == "self":
+                    sleep(.8) # allow user to see
+                    profile_obj[profile]["layer0_link_host"] = self.functions.get_ext_ip() 
+                if profile_obj[profile]["layer0_link_port"] == "self":
+                    print(f"{print_str}{colored('link public port','yellow')}",end="\r")
+                    sleep(.8) # allow user to see
+                    link_profile_port = self.config_obj[self.config_obj[profile]["layer0_link_profile"]]["public_port"]
+                    profile_obj[profile]["layer0_link_port"] = link_profile_port 
+                if profile_obj[profile]["layer0_link_key"] == "self":
                     self.setup_passwd(True)
                     while True:
                         print(f"{print_str}{colored('link host public key','yellow')}",end="\r")
@@ -577,7 +583,7 @@ class Configuration():
                             success = grab_nodeid(profile)
                         if success:
                             self.nodeid = self.nodeid.strip("\n")
-                            profile_obj[profile]["layer0_link"]["layer0_key"] = self.nodeid
+                            profile_obj[profile]["layer0_link_key"] = self.nodeid
                             break
                         sleep(2)
                         attempts += 1
@@ -589,7 +595,7 @@ class Configuration():
                             })
 
             if write_out:  
-                done_ip, done_key, current_profile, skip_write = False, False, False, False
+                done_ip, done_key, done_port, current_profile, skip_write = False, False, False, False, False
                 self.log.logger.warn("found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
                 f = open("/var/tessellation/nodectl/cn-config.yaml")
                 with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
@@ -598,12 +604,15 @@ class Configuration():
                         if f"{profile}:" in line:
                             current_profile = True
                         if current_profile:
-                            if "layer0_key: self" in line and not done_key:
-                                newfile.write(f"        layer0_key: {self.nodeid}\n")
+                            if "layer0_link_key: self" in line and not done_key:
+                                newfile.write(f"    layer0_link_key: {self.nodeid}\n")
                                 done_key,skip_write = True, True
-                            elif "layer0_host: self" in line and not done_ip:
-                                newfile.write(f"        layer0_host: {self.functions.get_ext_ip()}\n")
+                            elif "layer0_link_host: self" in line and not done_ip:
+                                newfile.write(f"    layer0_link_host: {self.functions.get_ext_ip()}\n")
                                 done_ip, skip_write = True, True
+                            elif "layer0_link_port: self" in line and not done_port:
+                                newfile.write(f"    layer0_link_port: {link_profile_port}\n")
+                                done_port, skip_write = True, True
                         if not skip_write:
                             newfile.write(line)
                 newfile.close()
@@ -748,7 +757,7 @@ class Configuration():
                             
     def validate_profiles(self):
         self.log.logger.debug("[validate_config] method called.")
-        self.num_of_global_sections = 3  # auto_restart, global_p12, global_flags
+        self.num_of_global_sections = 3  # auto_restart, global_p12, global_elements
         profile_minimum_requirement = 1
         self.profiles = []
         
@@ -797,7 +806,7 @@ class Configuration():
 
     def validate_global_setting(self):
         # key_name, passphrase, and alias all have to match if set to global
-        self.config_obj["global_flags"]["all_global"] = True
+        self.config_obj["global_elements"]["all_global"] = True
         try:
             for profile in self.config_obj.keys():
                 if "global" in profile:
@@ -818,7 +827,7 @@ class Configuration():
                         "profile": profile,
                         "missing_keys": None, 
                         "type": "global",
-                        "key": "p12_name, p12_passphrase, p12_alias",
+                        "key": "p12_key_name, p12_passphrase, p12_alias",
                         "special_case": None,
                         "value": "skip"
                     })
@@ -835,7 +844,7 @@ class Configuration():
         for profile in self.config_obj.keys():
             if "global" not in profile:
                 if not self.config_obj[profile]["global_p12_all_global"]:
-                    self.config_obj["global_flags"]["all_global"] = False
+                    self.config_obj["global_elements"]["all_global"] = False
                 for p12_key, p12_value in self.config_obj[profile].items():
                     if self.action == "edit_config":
                         if "p12_" in p12_key and "global" in p12_key:
@@ -906,7 +915,7 @@ class Configuration():
     def validate_profile_keys(self,profile):
         custom_requirements = ["custom_env_vars_enable","custom_args_enable"]
         found_list = list(self.config_obj[profile])        
-        skip = True if "flags" in profile else False
+        skip = True if "elements" in profile else False
 
         if "global" not in profile:
             found_list = [x for x in found_list if x in custom_requirements or "custom" not in x]
@@ -1138,7 +1147,7 @@ class Configuration():
             "api_port_dups": "Tessellation API ports cannot conflict.",
             "high_port": "port must be a integer between 1024 and 65535",
             "wallet_alias": f"{wallet_error1} {wallet_error2} {wallet_error3}",
-            "p12_name": f"{p12_name_error1} {string2}",
+            "p12_key_name": f"{p12_name_error1} {string2}",
             "key_location": f"{key_location1} {string2}",
             "p12_nf": "unable to location the p12 file, file not found.",
             "passphrase": "must be a string or empty value.",

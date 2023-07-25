@@ -134,9 +134,9 @@ class Upgrader():
         for profile_list in self.profile_items:
             for profile in profile_list:
                 p = profile["profile"]
-                if not self.functions.config_obj["profiles"][p]["p12"]["p12_passphrase_global"]:
-                    pass_vault[p] = verify.config_obj["profiles"][p]["p12"]["passphrase"]
-                    verify.config_obj["profiles"][p]["p12"]["passphrase"] = "None"
+                if not self.functions.config_obj[p]["global_p12_passphrase"]:
+                    pass_vault[p] = verify.config_obj[p]["p12_passphrase"]
+                    verify.config_obj[p]["p12_passphrase"] = "None"
         pass_vault["global"] = verify.config_obj["global_p12"]["passphrase"]
         verify.config_obj["global_p12"]["passphrase"] = "None"
         if self.functions.config_obj["global_cli_pass"]:
@@ -148,11 +148,11 @@ class Upgrader():
         # reset the passphrases
         for profile_list in self.profile_items:
             for profile in profile_list:
-                if self.functions.config_obj["profiles"][profile['profile']]["p12"]["passphrase"] == "None":
+                if self.functions.config_obj[profile['profile']]["p12_passphrase"] == "None":
                     reset_pass = pass_vault["global"]
-                    if not self.functions.config_obj["profiles"][p]["p12"]["p12_passphrase_global"]:
+                    if not self.functions.config_obj[p]["global_p12_passphrase"]:
                         reset_pass = pass_vault[profile['profile']]
-                    self.functions.config_obj["profiles"][profile['profile']]["p12"]["passphrase"] = reset_pass
+                    self.functions.config_obj[profile['profile']]["p12_passphrase"] = reset_pass
         if not self.functions.config_obj["global_p12"]["passphrase"] or self.functions.config_obj["global_p12"]["passphrase"] == "None":
             self.functions.config_obj["global_p12"]["passphrase"] = pass_vault['global']
 
@@ -216,7 +216,7 @@ class Upgrader():
             for profile in profile_list:
                 c_profile = profile["profile"]
 
-                if self.functions.config_obj["profiles"][c_profile]["p12"]["p12_passphrase_global"] and not global_complete:
+                if self.functions.config_obj[c_profile]["global_p12_passphrase"] and not global_complete:
                     global_complete, c_profile = True, "global"
                 pull_node_id(c_profile)
                 
@@ -429,7 +429,7 @@ class Upgrader():
                     overall_status = "incomplete"
                     overall_status_color = "magenta"
                     
-            for profile in self.functions.config_obj['profiles'].keys():
+            for profile in self.functions.config_obj.keys():
                 if not path.exists(f"/var/tessellation/{profile}/"):  
                     makedirs(f"/var/tessellation/{profile}/{leg_path}/")
  
@@ -439,7 +439,7 @@ class Upgrader():
             for profile_list in self.profile_items:
                 for item in profile_list:
                     if not path.exists(f"/var/tessellation/{file_path}/"):
-                        if self.functions.config_obj["profiles"][item['profile']]["dirs"][file_path] != f"/var/tessellation/{file_path}/":
+                        if self.functions.config_obj[item['profile']]["dirs"][file_path] != f"/var/tessellation/{file_path}/":
                             progress = {
                                 "text_start": "Directory not found",
                                 "brackets": f"{file_path}/",
@@ -452,7 +452,7 @@ class Upgrader():
                             bu_status = "complete"
                             bu_color = "green"
                             try:
-                                makedirs(self.functions.config_obj['profiles'][item['profile']]['dirs'][file_path])
+                                makedirs(self.functions.config_obj[item['profile']][file_path])
                             except Exception as e:
                                 self.log.logger.error(f"during the upgrade process nodectl could not find or create [{file_path}] due to [{e}]")
                                 bu_status = "failed"
@@ -490,10 +490,10 @@ class Upgrader():
         confirm = True if self.non_interactive else False
 
         # version 2.8.0 to 2.8.1 integrationNet only
-        for profile in self.config_copy["profiles"].keys():
-            if self.config_copy["profiles"][profile]["environment"] == "integrationnet":
-                host = f"l{self.config_copy['profiles'][profile]['layer']}-lb-integrationnet.constellationnetwork.io"
-                if self.config_copy["profiles"][profile]["layer"] < 1:
+        for profile in self.config_copy.keys():
+            if self.config_copy[profile]["environment"] == "integrationnet":
+                host = f"l{self.config_copy[profile]['layer']}-lb-integrationnet.constellationnetwork.io"
+                if self.config_copy[profile]["layer"] < 1:
                     self.functions.print_cmd_status({
                         "text_start": "Found environment",
                         "brackets": "integrationnet",
@@ -507,7 +507,7 @@ class Upgrader():
                     }):
                         self.functions.print_paragraphs([
                             ["",1], ["A legacy integrationnet configuration variable",0],
-                            [self.config_copy["profiles"][profile]["edge_point"]["host"],0,"yellow","bold"],
+                            [self.config_copy[profile]["edge_point"],0,"yellow","bold"],
                             ["was found, this should be corrected.",2],
                         ])
                         if not confirm:
@@ -532,7 +532,7 @@ class Upgrader():
                     backup_file = self.functions.get_date_time({"action": "datetime"})
                     backup_file = f"cn-config_{backup_file}"
                     try:
-                        system(f"cp /var/tessellation/nodectl/cn-config.yaml {self.config_copy['profiles'][profile]['dirs']['backups']}/{backup_file} > /dev/null 2>&1")
+                        system(f"cp /var/tessellation/nodectl/cn-config.yaml {self.config_copy[profile]['backups']}/{backup_file} > /dev/null 2>&1")
                     except Exception as e:
                         self.log.logger.error(f"unable to find directory location. error [{e}]")
                         self.error_messages.error_code_messages({
@@ -548,10 +548,10 @@ class Upgrader():
                     })
 
                 search = ""
-                search = f'        host: {self.config_copy["profiles"][profile]["edge_point"]["host"]}'
-                search2 = f"        host_port: 90{self.config_copy['profiles'][profile]['layer']}0"
+                search = f'        host: {self.config_copy[profile]["edge_point"]}'
+                search2 = f"        host_port: 90{self.config_copy[profile]['layer']}0"
                 all_first_last = "first"
-                if self.config_copy['profiles'][profile]['layer'] > 0:
+                if self.config_copy[profile]['layer'] > 0:
                     all_first_last = "last"
                     
                 self.functions.test_or_replace_line_in_file({
@@ -748,7 +748,7 @@ class Upgrader():
             "argv_list": [],
             "wait": False
         })
-        if self.functions.config_obj["profiles"][profile]["layer"] > 0:
+        if self.functions.config_obj[profile]["layer"] > 0:
             self.functions.print_timer(10,"wait for restart",1)
     
         
@@ -798,7 +798,7 @@ class Upgrader():
             self.functions.print_paragraphs([
                 ["Please wait while [",0], [profile,-1,"yellow","bold"], ["] attempts to join the network.",-1],["",1],
             ])
-            if self.config_copy["profiles"][profile]["layer"] != "0":
+            if self.config_copy[profile]["layer"] != "0":
                 self.functions.print_paragraphs([
                     ["NOTE:",0,"yellow,on_magenta","bold"], ["Layer1",0,"cyan","underline"], ["networks will not join the Hypergraph until its",0],
                     ["Layer0",0,"cyan","underline"], ["linked profile changes to",0], ["Ready",0,"green","bold"], ["state, this could take up to a",0],
@@ -855,8 +855,8 @@ class Upgrader():
     def config_change_cleanup(self):
         ignore_sub_list = []
         ignore_sub_list2 = []
-        for profile in self.functions.config_obj["profiles"].keys():
-            for key, value in self.functions.config_obj["profiles"][profile].items():
+        for profile in self.functions.config_obj.keys():
+            for key, value in self.functions.config_obj[profile].items():
                 if key == "service":
                     ignore_sub_list.append(f"cnng-{value}.service")
                     ignore_sub_list2.append(f"cnng-{value}")

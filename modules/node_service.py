@@ -221,11 +221,11 @@ class Node():
                 break
             
         if action != "install":
-            for profile in self.config_ob.keys():
+            for profile in self.config_obj.keys():
                 command_obj = {
                     **command_obj,
                     "profile": profile,
-                    "network_name": self.functions.config_obj["profiles"][profile]["environment"]
+                    "network_name": self.functions.config_obj[profile]["environment"]
                 }
                 self.download_update_seedlist(command_obj)
            
@@ -245,8 +245,8 @@ class Node():
         profile = command_obj.get("profile",self.profile)
         install_upgrade = command_obj.get("install_upgrade",True)
         download_version = command_obj.get("download_version","default")
-        environment_name = self.functions.config_obj["profiles"][profile]["environment"]
-        seed_path = self.functions.config_obj["profiles"][profile]["pro"]["seed_path"]    
+        environment_name = self.functions.config_obj[profile]["environment"]
+        seed_path = self.functions.config_obj[profile]["seed_path"]    
         
         print_message = True
         if self.auto_restart or install_upgrade:
@@ -342,7 +342,7 @@ class Node():
                 chmod = "644"
                 template = template.replace(
                     "nodegarageservicedescription",
-                    self.config_ob[profile]["description"]
+                    self.config_obj[profile]["description"]
                 )
                 template = template.replace(
                     "nodegarageworkingdir",
@@ -350,7 +350,7 @@ class Node():
                 )
                 template = template.replace(
                     "nodegarageexecstartbash",
-                    f"cnng-{self.config_obj['profiles'][profile]['service']}"
+                    f"cnng-{self.config_obj[profile]['service']}"
                 ) 
 
             elif create_file_type == "service_bash":
@@ -361,10 +361,10 @@ class Node():
                     profile
                 ) 
                 
-                if self.config_ob[profile]["layer"] == 0:
+                if self.config_obj[profile]["layer"] == 0:
                     template = template.replace(
                         "nodegarageseedlistv",
-                        self.config_ob[profile]["pro"]["seed_location"]+"/"+self.config_ob[profile]["pro"]["seed_file"]
+                        self.config_obj[profile]["seed_location"]+"/"+self.config_obj[profile]["seed_file"]
                     )
                     template = template.replace("//","/") # avoid double //
                     
@@ -381,18 +381,23 @@ class Node():
                         layer1_service
                     )                      
                     
-                if self.config_ob[profile]["environment"] == "mainnet":
+                if self.config_obj[profile]["environment"] == "mainnet":
                     template = template.replace("--collateral 0","")
                     
-                for key in self.config_ob[profile]["java"].keys():
-                    template = template.replace(
-                        f"nodegarage{key}v",
-                        str(self.config_ob[profile]["java"][key])
+                for key in self.config_obj[profile].keys():
+                    if "java_" in key:
+                        java_mem_type = key[::-3]
+                        template = template.replace(
+                            f"nodegarage{java_mem_type}v",
+                            str(self.config_obj[profile][key])
                     )
-                for key in self.config_ob[profile]["ports"].keys():
-                    template = template.replace(
-                        f"nodegarage{key}port",
-                        str(self.config_ob[profile]["ports"][key])
+                for key in self.config_obj[profile].keys():
+                    possibilities = ["public","p2p","cli"]
+                    for key_type in possibilities:
+                        if key in key_type:
+                            template = template.replace(
+                                f"nodegarage{key_type}port",
+                                str(self.config_obj[profile][key])
                     )
  
             return(template,chmod)               
@@ -463,21 +468,21 @@ class Node():
             
         with open(self.env_conf_file,"w") as f:
             f.write(f"CL_EXTERNAL_IP={self.functions.get_ext_ip()}\n")
-            f.write(f"CL_APP_ENV={self.functions.config_obj['profiles'][profile]['environment']}\n")
+            f.write(f"CL_APP_ENV={self.functions.config_obj[profile]['environment']}\n")
             
-            if self.functions.config_obj['profiles'][profile]['layer0_link']["enable"]:
-                f.write(f"CL_L0_PEER_ID={self.functions.config_obj['profiles'][profile]['layer0_link']['layer0_key']}\n")
-                f.write(f"CL_L0_PEER_HTTP_HOST={self.functions.config_obj['profiles'][profile]['layer0_link']['layer0_host']}\n")
-                link_profile = self.functions.config_obj['profiles'][profile]['layer0_link']['link_profile']
-                link_port = self.functions.config_obj['profiles'][profile]['layer0_link']['layer0_port']
-                if link_profile in self.functions.config_obj['profiles'].keys():
+            if self.functions.config_obj[profile]["layer0_link_enable"]:
+                f.write(f"CL_L0_PEER_ID={self.functions.config_obj[profile]['layer0_link_key']}\n")
+                f.write(f"CL_L0_PEER_HTTP_HOST={self.functions.config_obj[profile]['layer0_link_host']}\n")
+                link_profile = self.functions.config_obj[profile]['layer0_link_profile']
+                link_port = self.functions.config_obj[profile]['layer0_link_port']
+                if link_profile in self.functions.config_obj.keys():
                     # forces auto_correct of port if inconsistent with link_profile public
-                    link_port = self.functions.config_obj['profiles'][link_profile]['ports']['public']
+                    link_port = self.functions.config_obj[link_profile]['public_port']
                     
                 f.write(f"CL_L0_PEER_HTTP_PORT={link_port}\n")
         
             try: # profiles with dir snapshot "disable" will not have an entry
-                snapshots = self.functions.config_obj['profiles'][profile]['dirs']["snapshots"]
+                snapshots = self.functions.config_obj[profile]["snapshots"]
             except:
                 pass
             else:
@@ -485,16 +490,16 @@ class Node():
                     f.write(f"CL_SNAPSHOT_STORED_PATH={snapshots}\n")
                 
             p12_keys = [
-                ['CL_PASSWORD','passphrase'],
-                ['CL_KEYPASS','passphrase'],
-                ['CL_STOREPASS','passphrase'],
-                ['CL_KEYALIAS','wallet_alias'],
-                ['CL_KEYSTORE','key_store'],
+                ['CL_PASSWORD','p12_passphrase'],
+                ['CL_KEYPASS','p12_passphrase'],
+                ['CL_STOREPASS','p12_passphrase'],
+                ['CL_KEYALIAS','p12_key_alias'],
+                ['CL_KEYSTORE','p12_key_store'],
             ]
-            for key in self.functions.config_obj['profiles'][profile]['p12'].keys():
+            for key in self.functions.config_obj[profile].keys():
                 for key2 in p12_keys:
                     if key == key2[1]:
-                        f.write(f"{key2[0]}={self.functions.config_obj['profiles'][profile]['p12'][key]}\n")
+                        f.write(f"{key2[0]}={self.functions.config_obj[profile]['p12'][key]}\n")
         f.close()
 
         if not self.auto_restart:        
@@ -528,8 +533,8 @@ class Node():
     def build_remote_link(self):
         for n in range(0,4):
             source_node_list = self.functions.get_api_node_info({
-                "api_host": self.config_ob[self.profile]["layer0_link"]["layer0_host"],
-                "api_port": self.config_ob[self.profile]["layer0_link"]["layer0_port"],
+                "api_host": self.config_obj[self.profile]["layer0_link_host"],
+                "api_port": self.config_obj[self.profile]["layer0_link_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
             if source_node_list[3] == "Ready":
@@ -587,12 +592,12 @@ class Node():
         self.log.logger.debug(f"changing service state method - action [{action}] service_name [{service_display}] caller = [{caller}] debug [{self.debug}]")
         self.functions.get_service_status()
         if action == "start":
-            if "inactive" not in self.functions.config_obj["node_service_status"][profile]:
+            if "inactive" not in self.functions.config_obj["global_elements"]["node_service_status"][profile]:
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
                         ["Skipping service change request [",0,"yellow"], [service_display,-1,], ["] because the service is already set to",-1,"yellow"],
-                        [self.functions.config_obj['node_service_status'][profile],1,"yellow"]
+                        [self.functions.config_obj["global_elements"]['node_service_status'][profile],1,"yellow"]
                     ])
                 self.log.logger.warn(f"change service state [{service_display}] request aborted because service [inactive (dead)]")
                 return
@@ -604,7 +609,7 @@ class Node():
             })
 
         if action == "stop":
-            if self.functions.config_obj["node_service_status"][profile] == "inactive (dead)":
+            if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
                 self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
@@ -677,12 +682,12 @@ class Node():
         state = None
         
         # profile is set by cli.set_profile method
-        link_profile = self.functions.config_obj["profiles"][self.profile]["layer0_link"]["link_profile"]
-        linking_enabled = self.functions.config_obj["profiles"][self.profile]["layer0_link"]["enable"]
-        profile_layer = self.functions.config_obj["profiles"][self.profile]["layer"]
+        link_profile = self.functions.config_obj[self.profile]["layer0_link_profile"]
+        linking_enabled = self.functions.config_obj[self.profile]["layer0_link_enable"]
+        profile_layer = self.functions.config_obj[self.profile]["layer"]
         
         if linking_enabled:
-            self.log.logger.info(f"join environment [{self.functions.config_obj['profiles'][self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
+            self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
             if not self.auto_restart:
                 verb = "profile" if link_profile != "None" else ""
                 link_word = link_profile if verb == "profile" else "Remote Link"
@@ -695,7 +700,7 @@ class Node():
             'Content-type': 'application/json',
         }
        
-        if linking_enabled and self.functions.config_obj["profiles"][self.profile]["layer0_link"]["link_profile"] == "None":
+        if linking_enabled and self.functions.config_obj[self.profile]["layer0_link_profile"] == "None":
             self.build_remote_link()
             linking_enabled = False
             layer_zero_ready = True
@@ -718,7 +723,7 @@ class Node():
         join_session = Session()  # this is a requests Session external library
                 
         if linking_enabled:
-            if self.functions.config_obj["profiles"][self.profile]["layer0_link"]["link_profile"] != "None":
+            if self.functions.config_obj[self.profile]["layer0_link_profile"] != "None":
                 try:
                     _ = self.functions.pull_profile({
                         "req": "ports",
@@ -953,56 +958,54 @@ nodectl:
         if var.file == "config_yaml_profile":
             cur_file = '''    nodegarageprofile:
       enable: nodegarageenable
-      layer: nodegaragelayer
-      edge_point: 
-        https: nodegarageedgehttps
-        host: nodegarageedgehost
-        host_port: nodegarageedgeporthost
-      environment: nodegarageenvironment
-      ports:
-        public: nodegaragepublic
-        p2p: nodegaragep2p
-        cli: nodegaragecli
-      service: nodegarageservice
-      layer0_link: 
-        enable: nodegaragelinkenable
-        layer0_key: nodegarage0layerkey
-        layer0_host: nodegarage0layerhost
-        layer0_port: nodegarage0layerport
-        link_profile: ndoegarage0layerlink
-      dirs:
-        snapshots: nodegaragesnaphostsdir
-        backups: nodegaragebackupsdir
-        uploads: nodegarageuploadsdir
-      java:
-        xms: nodegaragexms
-        xmx: nodegaragexmx
-        xss: nodegaragexss
-      p12:
-        nodeadmin: nodegaragenodeadmin
-        key_location: nodegaragekeylocation
-        p12_name: nodegaragep12name
-        wallet_alias: nodegaragewalletalias
-        passphrase: nodegaragepassphrase
-      pro:
-        seed_location: nodegarageseedlistloc
-        seed_file: nodegarageseedlistfile
-      node_type: nodegaragenodetype
+      metagraph_name: nodegaragemetagraphname
       description: nodegaragedescription
+      node_type: nodegaragenodetype
+      layer: nodegaragelayer
+      service: nodegarageservice
+      environment: nodegarageenvironment
+      edge_point: nodegarageedgehost
+      edge_point_tcp_port: nodegarageedgeporthost
+      public_port: nodegaragepublic
+      p2p_port: nodegaragep2p
+      cli_port: nodegaragecli
+      layer0_link_enable: nodegaragelinkenable
+      layer0_link_key: nodegarage0layerkey
+      layer0_link_host: nodegarage0layerhost
+      layer0_link_port: nodegarage0layerport
+      layer0_link_profile: ndoegarage0layerlink
+      backups_directory: nodegaragebackupsdir
+      uploads_directory: nodegarageuploadsdir
+      java_xms: nodegaragexms
+      java_xmx: nodegaragexmx
+      java_xss: nodegaragexss
+      repository: nodegaragerepo
+      jar_file: nodegaragejarfile
+      p12_nodeadmin: nodegaragenodeadmin
+      p12_key_location: nodegaragekeylocation
+      p12_key_name: nodegaragep12name
+      p12_key_alias: nodegaragewalletalias
+      p12_passphrase: nodegaragepassphrase
+      seed_location: nodegarageseedlistloc
+      seed_file: nodegarageseedlistfile
+      custom_args_enable: nodegaragecustomargv
+      custom_env_vars_enable: nodegaragecustomenvvars
+      
 '''
         
         if var.file == "config_yaml_autorestart":
-            cur_file = '''  auto_restart:
+            cur_file = '''  global_auto_restart:
     enable: nodegarageeautoenable
     auto_upgrade: nodegarageautoupgrade
+    rapid_restart: nodegaragerapidrestart
 '''
         
         if var.file == "config_yaml_p12":
             cur_file = '''  global_p12:
     nodeadmin: nodegaragenodeadmin
     key_location: nodegaragekeylocation
-    p12_name: nodegaragep12name
-    wallet_alias: nodegaragewalletalias
+    key_name: nodegaragep12name
+    key_alias: nodegaragewalletalias
     passphrase: nodegaragepassphrase
 '''
 
