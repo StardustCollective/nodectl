@@ -66,6 +66,18 @@ class Error_codes():
             ])            
 
             
+        elif "upgrade_path_needed" in str(var.line_code):
+            self.log.logger.error(f"missing components to the VPS running nodectl. The necessary upgrade path may not have been followed? This may not be a valid configuration? | error code: [{var.line_code}]")
+            self.functions.print_paragraphs([
+                ["Possible Upgrade Required!",0,"red"], ["This must be done by following the necessary upgrade path",1,"red","bold"],
+                ["Necessary configuration components may be missing.",2,"red"],
+                ["Please issue the following command to attempt to rectify the issue:",1,"magenta"],
+                ["sudo nodectl upgrade_path",2,"cyan","bold"],
+                ["Once the necessary path is found, please use the",0,"yellow"], ["wget",0,"cyan","bold"], ["followed by an",0,"yellow"],
+                ["sudo nodectl upgrade",0,"cyan","bold"], ["to follow the necessary version path upgrades.",2],
+            ])            
+
+            
         elif "lb_not_up" in str(var.line_code):
             self.log.logger.critical(f"Edge Device [load balancer] does not seem to be up: {var.extra}")
             self.functions.print_paragraphs([

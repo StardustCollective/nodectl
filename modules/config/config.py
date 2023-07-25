@@ -138,7 +138,11 @@ class Configuration():
                             "line_code": "upgrade_needed"
                         })
                     
-                    self.migration()
+                    # self.migration() # deprecated v2.9.0
+                    self.error_messages.error_code_messages({
+                        "error_code": "cfg-143",
+                        "line_code": ""
+                    })
                     self.do_validation = False
                 else:
                     self.send_error("cfg-99") 
