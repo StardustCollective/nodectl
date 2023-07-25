@@ -600,8 +600,8 @@ class CLI():
                 id = argv_list[argv_list.index("-id")+1]
                 try:
                     list = self.functions.get_cluster_info_list({
-                        "ip_address": self.config_obj["profiles"][profile]["edge_point"]["host"],
-                        "port": self.config_obj["profiles"][profile]["edge_point"]["host_port"],
+                        "ip_address": self.config_ob[profile]["edge_point"]["host"],
+                        "port": self.config_ob[profile]["edge_point"]["host_port"],
                         "api_endpoint": "/cluster/info",
                         "error_secs": 3,
                         "attempt_range": 3,
@@ -875,18 +875,18 @@ class CLI():
         })
 
         for profile in profile_names:
-            if path.exists(self.config_obj["profiles"][profile]["pro"]["seed_path"]):
+            if path.exists(self.config_ob[profile]["pro"]["seed_path"]):
                 found_list = list(); not_found_list = list()
                 cluster_ips = self.functions.get_cluster_info_list({
-                    "ip_address": self.config_obj["profiles"][profile]["edge_point"]["host"],
-                    "port": self.config_obj["profiles"][profile]["edge_point"]["host_port"],
+                    "ip_address": self.config_ob[profile]["edge_point"]["host"],
+                    "port": self.config_ob[profile]["edge_point"]["host_port"],
                     "api_endpoint": "/cluster/info",
                     "error_secs": 3,
                     "attempt_range": 3,
                 })   
                 count = cluster_ips.pop()   
                 count["seedlist_count"] = 0
-                with open(self.config_obj["profiles"][profile]["pro"]["seed_path"],"r") as seed_file:
+                with open(self.config_ob[profile]["pro"]["seed_path"],"r") as seed_file:
                     for line in seed_file:
                         found = False
                         line = line.strip("\n")
@@ -1162,10 +1162,10 @@ class CLI():
         self.skip_services = True
         self.version_check_needed = True
                 
-        self.functions.network_name = self.config_obj["profiles"][self.profile_names[0]]["environment"]
+        self.functions.network_name = self.config_ob[self.profile_names[0]]["environment"]
         if "-p" in command_list:
             try:
-                self.functions.network_name = self.config_obj["profiles"][command_list[command_list.index("-p")+1]]["environment"]
+                self.functions.network_name = self.config_ob[command_list[command_list.index("-p")+1]]["environment"]
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-848",
@@ -2343,7 +2343,7 @@ class CLI():
             "interactive": watch_peer_counts,
         })
       
-        if self.config_obj["profiles"][called_profile]["layer"] > 0:
+        if self.config_ob[called_profile]["layer"] > 0:
             if "L0 not Ready" in str(join_result):
                 color = "red"
                 attempt = " attempt"
@@ -2369,7 +2369,7 @@ class CLI():
                 end='\r')
 
             
-        if self.config_obj["profiles"][called_profile]["layer"] == 0 or (self.config_obj["profiles"][called_profile]["layer"] > 0 and color == "green"):
+        if self.config_ob[called_profile]["layer"] == 0 or (self.config_ob[called_profile]["layer"] > 0 and color == "green"):
             for allocated_time in range(0,max_timer):
                 sleep(1)
                 
@@ -3470,9 +3470,9 @@ class CLI():
          
         env_set = set()
         try:
-            for profile in self.config_obj["profiles"].keys():
-                environment_name = self.config_obj["profiles"][profile]["environment"]
-                env_set.add(self.config_obj["profiles"][profile]["environment"])
+            for profile in self.config_ob.keys():
+                environment_name = self.config_ob[profile]["environment"]
+                env_set.add(self.config_ob[profile]["environment"])
         except Exception as e:
             self.log.logger.critical(f"unable to determine environment type [{environment_name}]")
             self.error_messages.error_code({

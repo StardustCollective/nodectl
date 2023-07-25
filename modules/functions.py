@@ -131,8 +131,8 @@ class Functions():
                     
             def get_cluster_tess(action,network):
                 if action == "normal":
-                    api_host = self.config_obj["profiles"][self.default_profile]["edge_point"]["host"]
-                    api_port = self.config_obj["profiles"][self.default_profile]["edge_point"]["host_port"]
+                    api_host = self.config_ob[self.default_profile]["edge_point"]["host"]
+                    api_port = self.config_ob[self.default_profile]["edge_point"]["host_port"]
                 elif action == "install":
                     if network == "mainnet":
                         # use the hardcoded version because no configuration to start installation
@@ -650,23 +650,23 @@ class Functions():
             
         api_str = "/cluster/info"
         if api_endpoint_type == "consensus":
-            if self.config_obj["profiles"][profile]["layer"] == 0:
+            if self.config_ob[profile]["layer"] == 0:
                 api_str = "/consensus/latest/peers"
 
         local_only = ["self","localhost","127.0.0.1"]
         if specific_ip in local_only:
             return {
                 "ip": self.get_ext_ip(),
-                "publicPort": self.config_obj["profiles"][profile]["ports"]["public"],
-                "p2pPort": self.config_obj["profiles"][profile]["ports"]["p2p"],
-                "cli": self.config_obj["profiles"][profile]["ports"]["cli"],
+                "publicPort": self.config_ob[profile]["ports"]["public"],
+                "p2pPort": self.config_ob[profile]["ports"]["p2p"],
+                "cli": self.config_ob[profile]["ports"]["cli"],
             }
             
         while True:
             try:
                 cluster_info = self.get_cluster_info_list({
-                    "ip_address": self.config_obj["profiles"][profile]["edge_point"]["host"],
-                    "port": self.config_obj["profiles"][profile]["edge_point"]["host_port"],
+                    "ip_address": self.config_ob[profile]["edge_point"]["host"],
+                    "port": self.config_ob[profile]["edge_point"]["host_port"],
                     "api_endpoint": api_str,
                     "spinner": spinner,
                     "error_secs": 3,
@@ -791,7 +791,7 @@ class Functions():
         # =========================
         self.config_obj["node_service_status"] = {}
         
-        for profile in self.config_obj["profiles"].keys():
+        for profile in self.config_ob.keys():
             service_name = f"cnng-{self.config_obj['profiles'][profile]['service']}"
             service_status = system(f'systemctl is-active --quiet {service_name}')
             if service_status == 0:
@@ -857,13 +857,13 @@ class Functions():
         self.set_default_directories()
         
         return_obj = {}
-        for i_profile in self.config_obj["profiles"].keys(): 
+        for i_profile in self.config_ob.keys(): 
             if profile == profile and profile != "all":
                 if specific:
-                    return self.config_obj["profiles"][i_profile]["dirs"][specific]
-                return self.config_obj["profiles"][i_profile]["dirs"]
+                    return self.config_ob[i_profile]["dirs"][specific]
+                return self.config_ob[i_profile]["dirs"]
             elif profile == "all":
-                return_obj[i_profile] = self.config_obj["profiles"][i_profile]["dirs"]  
+                return_obj[i_profile] = self.config_ob[i_profile]["dirs"]  
         return return_obj
     
         
@@ -1025,23 +1025,23 @@ class Functions():
                 for layer in range(0,3):
                     if self.default_profile:
                         break
-                    for i_profile in self.config_obj["profiles"]:
+                    for i_profile in self.config_ob:
                         if profile != None and profile != "all":
                             i_profile = profile
-                        profile_layer = self.config_obj["profiles"][i_profile]["layer"]
-                        profile_enable = self.config_obj["profiles"][i_profile]["enable"]
+                        profile_layer = self.config_ob[i_profile]["layer"]
+                        profile_enable = self.config_ob[i_profile]["enable"]
                         if profile_layer == layer and profile_enable:
                             self.default_profile = i_profile
-                            host_port = self.config_obj["profiles"][self.default_profile]["edge_point"]["host_port"]
+                            host_port = self.config_ob[self.default_profile]["edge_point"]["host_port"]
                             
                             uri = self.set_api_url(
-                                self.config_obj["profiles"][self.default_profile]["edge_point"]["host"],
+                                self.config_ob[self.default_profile]["edge_point"]["host"],
                                 host_port,
                                 "" # no post_fix
                             )
 
                             self.default_edge_point = {
-                                "host": self.config_obj["profiles"][self.default_profile]["edge_point"]["host"],
+                                "host": self.config_ob[self.default_profile]["edge_point"]["host"],
                                 "host_port": host_port,
                                 "uri": uri
                             } 
@@ -1060,24 +1060,24 @@ class Functions():
 
     def set_default_directories(self):
         # only to be set if "default" value is found
-        for profile in self.config_obj["profiles"].keys():
+        for profile in self.config_ob.keys():
             try:
-                if self.config_obj["profiles"][profile]["dirs"]["snapshots"] == "default": # otherwise already set
-                    self.config_obj["profiles"][profile]["dirs"]["snapshots"] = f"/var/tessellation/{profile}/data/snapshot"
+                if self.config_ob[profile]["dirs"]["snapshots"] == "default": # otherwise already set
+                    self.config_ob[profile]["dirs"]["snapshots"] = f"/var/tessellation/{profile}/data/snapshot"
             except: # disabled exception
                 pass    
-            if self.config_obj["profiles"][profile]["dirs"]["backups"] == "default": # otherwise already set
-                self.config_obj["profiles"][profile]["dirs"]["backups"] = "/var/tessellation/backups/"
-            if self.config_obj["profiles"][profile]["dirs"]["uploads"] == "default": # otherwise already set
-                self.config_obj["profiles"][profile]["dirs"]["uploads"] = "/var/tessellation/uploads/"
+            if self.config_ob[profile]["dirs"]["backups"] == "default": # otherwise already set
+                self.config_ob[profile]["dirs"]["backups"] = "/var/tessellation/backups/"
+            if self.config_ob[profile]["dirs"]["uploads"] == "default": # otherwise already set
+                self.config_ob[profile]["dirs"]["uploads"] = "/var/tessellation/uploads/"
                  
-            self.config_obj["profiles"][profile]["dirs"]["logs"] = f"/var/tessellation/{profile}/logs/"   
-            self.config_obj["profiles"][profile]["dirs"]["archived"] = f"/var/tessellation/{profile}/logs/archived"  
-            self.config_obj["profiles"][profile]["dirs"]["json_logs"] = f"/var/tessellation/{profile}/logs/json_logs"  
+            self.config_ob[profile]["dirs"]["logs"] = f"/var/tessellation/{profile}/logs/"   
+            self.config_ob[profile]["dirs"]["archived"] = f"/var/tessellation/{profile}/logs/archived"  
+            self.config_ob[profile]["dirs"]["json_logs"] = f"/var/tessellation/{profile}/logs/json_logs"  
             
             try:
-                if self.config_obj["profiles"][profile]["dirs"]["snapshots"] == "disable":
-                    del self.config_obj["profiles"][profile]["dirs"]["snapshots"]
+                if self.config_ob[profile]["dirs"]["snapshots"] == "disable":
+                    del self.config_ob[profile]["dirs"]["snapshots"]
             except: # disabled exception
                 pass
             
@@ -1114,7 +1114,7 @@ class Functions():
         profile = command_obj['profile']
         spinner = command_obj.get("spinner",True)
         
-        local_port = self.config_obj["profiles"][profile]["ports"]["public"]
+        local_port = self.config_ob[profile]["ports"]["public"]
         nodes = command_obj['edge_device']['remote'], self.ip_address
         session = {}
 
@@ -1193,8 +1193,8 @@ class Functions():
             try:
                 self.log.logger.debug(f"function - pull edge point device i_profile [{i_profile}]")
                 return {
-                    "remote": self.config_obj["profiles"][i_profile]["edge_point"]["host"],
-                    "remote_port": self.config_obj["profiles"][i_profile]["edge_point"]["host_port"],
+                    "remote": self.config_ob[i_profile]["edge_point"]["host"],
+                    "remote_port": self.config_ob[i_profile]["edge_point"]["host_port"],
                     "port_list": self.pull_profile({
                         "req": "localhost",
                         "profile": i_profile,
@@ -1281,9 +1281,9 @@ class Functions():
         description_list = []
 
         def pull_all():
-            for i_profile in self.config_obj["profiles"]:
-                service_list.append(self.config_obj["profiles"][i_profile]["service"]) 
-                description_list.append(self.config_obj["profiles"][i_profile]["description"]) 
+            for i_profile in self.config_ob:
+                service_list.append(self.config_ob[i_profile]["service"]) 
+                description_list.append(self.config_ob[i_profile]["description"]) 
             
         def test_replace_last_elements(list1,list2):
             if list1[-1] == list2[-1]:
@@ -1294,23 +1294,23 @@ class Functions():
 
         if var.req == "service":
             if profile != "empty":
-                return self.config_obj["profiles"][profile]["service"]
+                return self.config_ob[profile]["service"]
             else:
                 pull_all()
                 return service_list
             
         elif var.req == "pairings":
             # return list of profile objects that are paired via layer0_link
-            profile_list = list(self.config_obj["profiles"].keys())
+            profile_list = list(self.config_ob.keys())
             pairing_list = []
                        
             for profile in profile_list:
-                if self.config_obj["profiles"][profile]["layer0_link"]["enable"]:
+                if self.config_ob[profile]["layer0_link"]["enable"]:
                     # list of lists of matching profile to linked profile
-                    link_profile = self.config_obj["profiles"][profile]["layer0_link"]["link_profile"]
-                    layer = self.config_obj["profiles"][profile]["layer"]
+                    link_profile = self.config_ob[profile]["layer0_link"]["link_profile"]
+                    layer = self.config_ob[profile]["layer"]
                     if layer > 0 and link_profile != "None":
-                        pairing_list.append([profile, self.config_obj["profiles"][profile]["layer0_link"]["link_profile"]])
+                        pairing_list.append([profile, self.config_ob[profile]["layer0_link"]["link_profile"]])
                     else:
                         pairing_list.append([profile])
             
@@ -1329,7 +1329,7 @@ class Functions():
                     else:
                         n += 1
                         
-            profile_keys = list(self.config_obj["profiles"].keys())
+            profile_keys = list(self.config_ob.keys())
             dup_keys = []
 
             for key in profile_keys:
@@ -1348,8 +1348,8 @@ class Functions():
                 for i, profile in enumerate(s_list):
                     pair_dict = {
                         "profile": profile,
-                        "service": self.config_obj["profiles"][profile]["service"],
-                        "layer": self.config_obj["profiles"][profile]["layer"]
+                        "service": self.config_ob[profile]["service"],
+                        "layer": self.config_ob[profile]["layer"]
                     }
                     s_list[i] = pair_dict
                 pairing_list[n] = s_list
@@ -1358,33 +1358,33 @@ class Functions():
             
         elif "list" in var.req:
             if var.req == "list":
-                return list(self.config_obj["profiles"].keys())
+                return list(self.config_ob.keys())
             elif var.req == "list_details":
                 pull_all()
                 return {
-                    "profile_names": list(self.config_obj["profiles"].keys()),
+                    "profile_names": list(self.config_ob.keys()),
                     "profile_services": service_list,
                     "profile_descr": description_list
                 }
         if var.req == "default_profile":
-            return list(self.config_obj["profiles"].keys())[0]
+            return list(self.config_ob.keys())[0]
             
         elif var.req == "link_profile":
-            if self.config_obj["profiles"][profile]["layer0_link"]["enable"]:
+            if self.config_ob[profile]["layer0_link"]["enable"]:
                 return {
-                    "profile": self.config_obj["profiles"][profile]["layer0_link"]["link_profile"],
-                    "port": self.config_obj["profiles"][profile]["layer0_link"]["layer0_port"],
-                    "host": self.config_obj["profiles"][profile]["layer0_link"]["layer0_host"],
-                    "key": self.config_obj["profiles"][profile]["layer0_link"]["layer0_key"],
+                    "profile": self.config_ob[profile]["layer0_link"]["link_profile"],
+                    "port": self.config_ob[profile]["layer0_link"]["layer0_port"],
+                    "host": self.config_ob[profile]["layer0_link"]["layer0_host"],
+                    "key": self.config_ob[profile]["layer0_link"]["layer0_key"],
                 }   
             return False 
                         
         elif var.req == "ports":
-            return self.config_obj["profiles"][profile]["ports"]
+            return self.config_ob[profile]["ports"]
         
         elif var.req == "exists" or var.req == "enabled":
             try:
-                test = self.config_obj["profiles"][profile]["enable"]
+                test = self.config_ob[profile]["enable"]
             except:
                 test = False
                 
@@ -1435,8 +1435,8 @@ class Functions():
             
             if profile:
                 uri = self.set_api_url(
-                    self.config_obj["profiles"][profile]["edge_point"]["host"],
-                    self.config_obj["profiles"][profile]["edge_point"]["host_port"],
+                    self.config_ob[profile]["edge_point"]["host"],
+                    self.config_ob[profile]["edge_point"]["host_port"],
                     "/node/health",               
                     )
 
@@ -1512,7 +1512,7 @@ class Functions():
         # this method will need to be refactored as new Metagraphs
         # register with Node Garage or Constellation (depending)
         try:
-            self.network_name = self.config_obj["profiles"][self.default_profile]["environment"]             
+            self.network_name = self.config_ob[self.default_profile]["environment"]             
         except:
             if not self.network_name:
                 while True:
@@ -1564,7 +1564,7 @@ class Functions():
         if profile == "all":
             return
         
-        if profile not in self.config_obj["profiles"].keys():
+        if profile not in self.config_ob.keys():
             self.error_messages.error_code_messages({
                 "error_code": "fnt-603",
                 "line_code": "profile_error",

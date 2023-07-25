@@ -612,7 +612,7 @@ class Configurator():
                     self.config_obj["global_p12"][k] = v
             else:
                 for k, v in answers.items():
-                    self.config_obj["profiles"][ptype][k] = v
+                    self.config_ob[ptype][k] = v
     
         self.c.functions.print_cmd_status({
             **progress,
@@ -624,7 +624,7 @@ class Configurator():
         if not self.migrate.keep_pass_visible:
             self.config_obj["global_p12"]["passphrase"] = "None"
             if ptype != "global":
-                self.config_obj["profiles"][ptype]["passphrase"] = "None"
+                self.config_ob[ptype]["passphrase"] = "None"
             
         # only ask to preserve passphrase on global
         self.preserve_pass = True  
@@ -1688,8 +1688,8 @@ class Configurator():
                     }
                 } 
                 
-                self.config_obj["profiles"] = {
-                    **self.config_obj["profiles"],
+                self.config_ob = {
+                    **self.config_ob,
                     **profile_obj,
                 }
                 
@@ -1747,12 +1747,12 @@ class Configurator():
         # correlates to migration class - build_yaml
         
         # self.build_known_skelton(1)
-        # sorted_profile_obj =  sorted(self.config_obj["profiles"].items(), key = lambda x: x[1]["layer"])
-        sorted_profile_obj =  sorted(self.config_obj["profiles"].items(), key = lambda x: (x[1]["layer"], x[0]))
+        # sorted_profile_obj =  sorted(self.config_ob.items(), key = lambda x: x[1]["layer"])
+        sorted_profile_obj =  sorted(self.config_ob.items(), key = lambda x: (x[1]["layer"], x[0]))
         sorted_config_obj = {"profiles": {}}
         for profile in sorted_profile_obj:
             sorted_config_obj["profiles"][profile[0]] = profile[1]
-        self.config_obj["profiles"] = sorted_config_obj["profiles"]
+        self.config_ob = sorted_config_obj["profiles"]
         # self.build_yaml(True)
         
         progress = {
@@ -1768,12 +1768,12 @@ class Configurator():
         self.migrate.create_n_write_yaml()
         
         # profile sections
-        for profile in self.config_obj["profiles"].keys():
-            details = self.config_obj["profiles"][profile]
+        for profile in self.config_ob.keys():
+            details = self.config_ob[profile]
             link_port = "None"
             if details["layer0_enable"] == "True":
                 try:
-                    link_port = self.config_obj["profiles"][details["link_profile"]]["public"]
+                    link_port = self.config_ob[details["link_profile"]]["public"]
                 except:
                     link_port = details["layer0_port"]
                     try:
@@ -1934,7 +1934,7 @@ class Configurator():
             for profile in self.c.config_obj["profiles"].keys():
                 profile_details = {}
                 
-                obj = self.config_obj["profiles"][profile]
+                obj = self.config_ob[profile]
                 for key, value in obj.items():
                     if key in singles:
                         profile_details[key] = str(value)
@@ -1948,7 +1948,7 @@ class Configurator():
                 
                 profile_details["layer0_link"] = "y" if profile_details["layer0_enable"] == "True" else "n"
                 profile_details["profile_name"] = profile
-                self.config_obj["profiles"][profile] = profile_details
+                self.config_ob[profile] = profile_details
         
         self.prepare_configuration("migrator")
             
@@ -2188,7 +2188,7 @@ class Configurator():
                 self.build_known_skelton(option)
 
                 self.profile_details = {
-                    **self.config_obj["profiles"][profile],
+                    **self.config_ob[profile],
                     **self.profile_details,
                 }
 
@@ -2514,7 +2514,7 @@ class Configurator():
         })
         self.handle_service(profile,"service")  # leave and stop first
         self.cleanup_service_file(self.profile_details["service"])
-        self.config_obj["profiles"].pop(profile)
+        self.config_ob.pop(profile)
 
         self.c.functions.print_cmd_status({
             "text_start": f"Profile",
@@ -2590,7 +2590,7 @@ class Configurator():
         self.profile_details["profile_name"] = new_profile
         # change the key for the profiles
         self.c.config_obj["profiles"][new_profile] = self.c.config_obj["profiles"].pop(old_profile)
-        self.config_obj["profiles"][new_profile] = self.config_obj["profiles"].pop(old_profile)
+        self.config_ob[new_profile] = self.config_ob.pop(old_profile)
         
         dir_progress = {
             "text_start": "updating directory structure",
@@ -2606,15 +2606,15 @@ class Configurator():
         })
         for replace_link_p in self.c.config_obj["profiles"].keys():
             if self.c.config_obj["profiles"][replace_link_p]["layer0_link"]["link_profile"] == old_profile:
-                self.config_obj["profiles"][replace_link_p]["link_profile"] = new_profile
+                self.config_ob[replace_link_p]["link_profile"] = new_profile
             for dir_p in dirs:
-                if old_profile in self.config_obj["profiles"][replace_link_p][dir_p]: 
+                if old_profile in self.config_ob[replace_link_p][dir_p]: 
                     self.c.functions.print_cmd_status({
                         **dir_progress,
                         "status": dir_p,
                     })
-                    dir_value = self.config_obj["profiles"][replace_link_p][dir_p]
-                    self.config_obj["profiles"][replace_link_p][dir_p] = dir_value.replace(old_profile,new_profile)
+                    dir_value = self.config_ob[replace_link_p][dir_p]
+                    self.config_ob[replace_link_p][dir_p] = dir_value.replace(old_profile,new_profile)
                 
         self.build_service_file({
             "profiles": [new_profile],
@@ -2650,7 +2650,7 @@ class Configurator():
     
     def edit_service_name(self, profile):
         self.manual_build_service(profile)
-        self.cleanup_service_file(self.config_obj["profiles"][profile]["service"])
+        self.cleanup_service_file(self.config_ob[profile]["service"])
         self.c.config_obj["profiles"][profile]["service"] = self.profile_details["service"]
         self.build_service_file({
             "profiles": [profile], 
@@ -2999,7 +2999,7 @@ class Configurator():
         self.log.logger.info("configuator is verifying old profile cleanup.")
         
         for old_profile in self.old_last_cnconfig["profiles"].keys():
-            if old_profile not in self.config_obj["profiles"].keys():
+            if old_profile not in self.config_ob.keys():
                 cleanup = True
                 clean_up_old_list.append(old_profile)
                 self.log.logger.warn(f"configuration found abandend profile [{old_profile}]")
@@ -3044,11 +3044,11 @@ class Configurator():
         found_snap = False
         self.log.logger.info("configuator is verifying snapshot data directory existance and contents.")
                     
-        for profile in self.config_obj["profiles"].keys():
-            if self.config_obj["profiles"][profile]["layer"] == "1":
+        for profile in self.config_ob.keys():
+            if self.config_ob[profile]["layer"] == "1":
                 if not path.isdir(f"/var/tessellation/{profile}/"):
                     makedirs(f"/var/tessellation/{profile}/")
-            elif self.config_obj["profiles"][profile]["layer"] == "0":
+            elif self.config_ob[profile]["layer"] == "0":
                 found_snap_list = [
                     f"/var/tessellation/{profile}/data/snapshot",
                     f"/var/tessellation/{profile}/data/incremental_snapshot",
@@ -3273,7 +3273,7 @@ class Configurator():
         
     
     def is_duplicate_profile(self,profile_name):
-        for profile in self.config_obj["profiles"].keys():
+        for profile in self.config_ob.keys():
             if profile_name == profile:
                 return True   
         return False
@@ -3288,8 +3288,8 @@ class Configurator():
                 backup_dir = self.c.config_obj["profiles"][key]["dirs"]["backups"]
                 break
         except: # global
-            for key in self.config_obj["profiles"].keys():
-                backup_dir = self.config_obj["profiles"][key]["backups"]
+            for key in self.config_ob.keys():
+                backup_dir = self.config_ob[key]["backups"]
                 break 
                        
         if backup_dir == "default":

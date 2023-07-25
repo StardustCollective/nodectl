@@ -221,7 +221,7 @@ class Node():
                 break
             
         if action != "install":
-            for profile in self.config_obj["profiles"].keys():
+            for profile in self.config_ob.keys():
                 command_obj = {
                     **command_obj,
                     "profile": profile,
@@ -342,7 +342,7 @@ class Node():
                 chmod = "644"
                 template = template.replace(
                     "nodegarageservicedescription",
-                    self.config_obj["profiles"][profile]["description"]
+                    self.config_ob[profile]["description"]
                 )
                 template = template.replace(
                     "nodegarageworkingdir",
@@ -361,10 +361,10 @@ class Node():
                     profile
                 ) 
                 
-                if self.config_obj["profiles"][profile]["layer"] == 0:
+                if self.config_ob[profile]["layer"] == 0:
                     template = template.replace(
                         "nodegarageseedlistv",
-                        self.config_obj["profiles"][profile]["pro"]["seed_location"]+"/"+self.config_obj["profiles"][profile]["pro"]["seed_file"]
+                        self.config_ob[profile]["pro"]["seed_location"]+"/"+self.config_ob[profile]["pro"]["seed_file"]
                     )
                     template = template.replace("//","/") # avoid double //
                     
@@ -381,18 +381,18 @@ class Node():
                         layer1_service
                     )                      
                     
-                if self.config_obj["profiles"][profile]["environment"] == "mainnet":
+                if self.config_ob[profile]["environment"] == "mainnet":
                     template = template.replace("--collateral 0","")
                     
-                for key in self.config_obj["profiles"][profile]["java"].keys():
+                for key in self.config_ob[profile]["java"].keys():
                     template = template.replace(
                         f"nodegarage{key}v",
-                        str(self.config_obj["profiles"][profile]["java"][key])
+                        str(self.config_ob[profile]["java"][key])
                     )
-                for key in self.config_obj["profiles"][profile]["ports"].keys():
+                for key in self.config_ob[profile]["ports"].keys():
                     template = template.replace(
                         f"nodegarage{key}port",
-                        str(self.config_obj["profiles"][profile]["ports"][key])
+                        str(self.config_ob[profile]["ports"][key])
                     )
  
             return(template,chmod)               
@@ -402,7 +402,7 @@ class Node():
         single_profile = command_obj.get("single_profile",False)
         rebuild_restart = command_obj.get("rebuild_restart",False)
         create_file_type = command_obj["create_file_type"]
-        profiles = self.config_obj["profiles"]  # pull profiles out of configuration
+        profiles = self.config_ob  # pull profiles out of configuration
         
         for profile in profiles:
             profile = single_profile if single_profile else profile
@@ -528,8 +528,8 @@ class Node():
     def build_remote_link(self):
         for n in range(0,4):
             source_node_list = self.functions.get_api_node_info({
-                "api_host": self.config_obj["profiles"][self.profile]["layer0_link"]["layer0_host"],
-                "api_port": self.config_obj["profiles"][self.profile]["layer0_link"]["layer0_port"],
+                "api_host": self.config_ob[self.profile]["layer0_link"]["layer0_host"],
+                "api_port": self.config_ob[self.profile]["layer0_link"]["layer0_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
             if source_node_list[3] == "Ready":
