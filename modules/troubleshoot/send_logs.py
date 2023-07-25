@@ -25,14 +25,14 @@ class Send():
         date = self.functions.get_date_time({"action":"datetime"})
         
         archive_location = f"/var/tessellation/{self.profile}/logs/archived"
-        tar_dest= self.functions.config_obj["profiles"][self.profile]["dirs"]["uploads"]
-        backup_dest = self.functions.config_obj["profiles"][self.profile]["dirs"]["backups"]
+        tar_dest= self.functions.config_obj[self.profile]["directory_uploads"]
+        backup_dest = self.functions.config_obj[self.profile]["directory_backups"]
         
         # to avoid issues
-        if not path.isdir(self.functions.config_obj["profiles"][self.profile]["dirs"]["backups"]):
-            mkdir(self.functions.config_obj["profiles"][self.profile]["dirs"]["backups"])
-        if not path.isdir(self.functions.config_obj["profiles"][self.profile]["dirs"]["uploads"]):
-            mkdir(self.functions.config_obj["profiles"][self.profile]["dirs"]["uploads"])
+        if not path.isdir(self.functions.config_obj[self.profile]["directory_backups"]):
+            mkdir(self.functions.config_obj[self.profile]["directory_backups"])
+        if not path.isdir(self.functions.config_obj[self.profile]["directory_uploads"]):
+            mkdir(self.functions.config_obj[self.profile]["directory_uploads"])
                 
         tar_file_name = f"{changed_ip}_{date}_logs.tar.gz"
         
