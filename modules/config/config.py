@@ -927,9 +927,8 @@ class Configuration():
                 "special_case": None
             })
         
-        if self.validated:
-            if "global" not in profile:
-                self.validate_profile_types(profile)
+        if "global" not in profile:
+            self.validate_profile_types(profile)
 
                 
     def validate_profile_types(self,profile,return_on=False):
@@ -1044,6 +1043,7 @@ class Configuration():
                                 validated = True
                         
                         if not validated:
+                            self.validated = False
                             self.error_list.append({
                                 "title": title,
                                 "section": section,
@@ -1061,11 +1061,35 @@ class Configuration():
         
     def validate_port_duplicates(self):
         found_ports = []
+        found_keys = []
+        error_keys = []
+        ignore = ["layer0_link_port","edge_point_tcp_port"]
+        
         for section in self.config_obj.keys():
             if "global" not in section:
-                for key in self.config_obj[section].keys():
-                    if "port" in key:
-                        found_ports.append(self.config_obj[section][key]) 
+                for key, value in self.config_obj[section].items():
+                    if "port" in key and key not in ignore and value != 'None' and value != 'self':
+                        found_keys.append(key)
+                        found_ports.append(value) 
+                        
+        if len(found_ports) != len(set(found_ports)):
+            duplicates = [x for x in found_ports if found_ports.count(x) > 1]
+            duplicates = set(duplicates)
+            for dup in duplicates:
+                index = found_ports.index(dup)
+                error_keys.append(found_keys[index])
+                                
+            self.validated = False
+            self.error_list.append({
+                "title": "duplicate api port values found",
+                "section": "metagraphs",
+                "profile": "metagraphs",
+                "type": "api_port_dups",
+                "missing_keys": error_keys,
+                "key": None,
+                "value": duplicates,
+                "special_case": None,
+            })    
                         
                                        
     def print_report(self):
@@ -1107,6 +1131,7 @@ class Configuration():
                 
         hints = {
             "ports": "port must be a integer between 1 and 65535",
+            "api_port_dups": "Tessellation API ports cannot conflict.",
             "high_port": "port must be a integer between 1024 and 65535",
             "wallet_alias": f"{wallet_error1} {wallet_error2} {wallet_error3}",
             "p12_name": f"{p12_name_error1} {string2}",
@@ -1161,9 +1186,12 @@ class Configuration():
                 
                     config_key = ""
                     if error["key"] == None and error["missing_keys"] != None:
-                        for key_str in error["missing_keys"]:
-                            config_key += key_str+", "
-                        config_key = config_key[:-2]
+                        if isinstance(error["missing_keys"],list):
+                            for key_str in error["missing_keys"]:
+                                config_key += key_str+", "
+                            config_key = config_key[:-2]
+                        else:
+                            config_key = error["missing_keys"]
                     else:
                         config_key = error["key"]
 
