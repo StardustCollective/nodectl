@@ -1066,8 +1066,8 @@ class Functions():
                     self.config_ob[profile]["dirs"]["snapshots"] = f"/var/tessellation/{profile}/data/snapshot"
             except: # disabled exception
                 pass    
-            if self.config_ob[profile]["dirs"]["backups"] == "default": # otherwise already set
-                self.config_ob[profile]["dirs"]["backups"] = "/var/tessellation/backups/"
+            if self.config_ob[profile]["directory_backups"] == "default": # otherwise already set
+                self.config_ob[profile]["directory_backups"] = "/var/tessellation/backups/"
             if self.config_ob[profile]["dirs"]["uploads"] == "default": # otherwise already set
                 self.config_ob[profile]["dirs"]["uploads"] = "/var/tessellation/uploads/"
                  

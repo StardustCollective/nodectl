@@ -493,7 +493,7 @@ class P12Class():
         profile = self.functions.pull_profile({
             "req": "default_profile"
         })
-        backup_dir = self.functions.config_obj["profiles"][profile]["dirs"]["backups"]
+        backup_dir = self.functions.config_obj["profiles"][profile]["directory_backups"]
         p12_name_bk = p12_name.replace(".p12","_")
         if path.exists(p12_location):
             system(f"cp {p12_location} {backup_dir}{p12_name_bk}{datetime}.p12.bak > /dev/null 2>&1")

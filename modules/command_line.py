@@ -3136,7 +3136,7 @@ class CLI():
             ["This is a",0,"white","bold"], ["dangerous",0,"red","bold,underline"], ["command.",2,"white","bold"],
             ["A",0], ["backup",0,"cyan","underline"], ["of your old",0], ["p12",0, "yellow"], 
             ["file will be placed in the following Node VPS location.",1],
-            ["directory:",0], [self.functions.config_obj["profiles"][profile]["dirs"]["backups"],2,"yellow","bold"]
+            ["directory:",0], [self.functions.config_obj["profiles"][profile]["directory_backups"],2,"yellow","bold"]
         ])
 
         if self.functions.confirm_action({
@@ -3364,7 +3364,7 @@ class CLI():
             backup_dir = "/var/tmp"
             if not install:
                 profile = self.functions.pull_profile({"req":"default_profile"})
-                backup_dir = self.functions.config_obj["profiles"][profile]["dirs"]["backups"]
+                backup_dir = self.functions.config_obj["profiles"][profile]["directory_backups"]
             
             if not path.exists(backup_dir):
                 self.log.logger.warn(f"backup dir did not exist, attempting to create [{backup_dir}]")

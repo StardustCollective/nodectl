@@ -3285,7 +3285,7 @@ class Configurator():
         
         try:
             for key in self.c.config_obj["profiles"].keys():
-                backup_dir = self.c.config_obj["profiles"][key]["dirs"]["backups"]
+                backup_dir = self.c.config_obj["profiles"][key]["directory_backups"]
                 break
         except: # global
             for key in self.config_ob.keys():
