@@ -129,12 +129,13 @@ class CLI():
         spinner = command_obj.get("spinner",True)
         all_profile_request = False
         called_profile = self.profile
+        called_command = command_obj["called"]
         
         profile_list = self.functions.pull_profile({
             "req": "list",
             "profile": None,
         })
-        profile_list = [x for x in profile_list if "global" not in x]
+        profile_list = self.functions.clear_global_profiles(profile_list)
         
         for key,value in command_obj.items():
             if key == "-p" and (value == "all" or value == "empty"):
@@ -148,7 +149,22 @@ class CLI():
             self.log.logger.info(f"show system status requested | {profile}")      
             self.set_profile(profile)
             called_profile = profile
-                        
+            
+            if called_command == "quick_status" or called_command == "_qs":
+                if n == 0:
+                    self.functions.print_paragraphs([
+                        ["Node Status Quick Results",1,"green","bold"],
+                    ])                    
+                quick_results = self.functions.get_api_node_info({
+                    "api_host": self.functions.get_ext_ip(),
+                    "api_port": self.functions.config_obj[called_profile]["public_port"],
+                    "info_list": ["state"]
+                })
+                self.functions.print_paragraphs([
+                    [f"{called_profile}:",0,"yellow","bold"],[quick_results[0],1],
+                ])
+                continue
+                
             if n > 0: 
                 print_title = False 
                 if all_profile_request:
@@ -207,7 +223,6 @@ class CLI():
                     "node_session": node_session,
                     "join_state": join_state
                 }
-                
             output = setup_output()
             self.config_obj["global_elements"]["node_profile_states"][called_profile] = output["join_state"].strip()  # to speed up restarts and upgrades
             

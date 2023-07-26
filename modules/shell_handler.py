@@ -114,7 +114,7 @@ class ShellHandler:
         deprecated_clear_file_cmds = [
             "clear_uploads","_cul","_cls","clear_logs",
             "clear_snapshots","clear_backups",
-            "reset_cache","_rc"
+            "reset_cache","_rc",
         ]
         ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
         config_list = ["view_config","validate_config","_vc", "_val"]
@@ -251,7 +251,7 @@ class ShellHandler:
             new_cmd = "clean_snapshots" if self.called_command == "reset_cache" or self.called_command == "_rc" else "clean_files"
             return_value = cli.print_deprecated({
                 "command": self.called_command,
-                "version": self.functions.node_nodectl_version,
+                "version": "v2.0.0",
                 "new_command": new_cmd
             })
             

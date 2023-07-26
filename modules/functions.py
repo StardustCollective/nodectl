@@ -791,18 +791,18 @@ class Functions():
         # move this to node.service
         # =========================
         self.config_obj["global_elements"]["node_service_status"] = {}
+        metagraph_list = self.clear_global_profiles(self.config_obj)
         
-        for profile in self.config_obj.keys():
-            if "global" not in profile:
-                service_name = f"cnng-{self.config_obj[profile]['service']}"
-                service_status = system(f'systemctl is-active --quiet {service_name}')
-                if service_status == 0:
-                    self.config_obj["global_elements"]["node_service_status"][profile] = "active (running)"
-                elif service_status == 768:
-                    self.config_obj["global_elements"]["node_service_status"][profile] = "inactive (dead)"
-                else:
-                    self.config_obj["global_elements"]["node_service_status"][profile] = "error (exit code)"
-                self.config_obj["global_elements"]["node_service_status"]["service_return_code"] = service_status   
+        for profile in metagraph_list:
+            service_name = f"cnng-{self.config_obj[profile]['service']}"
+            service_status = system(f'systemctl is-active --quiet {service_name}')
+            if service_status == 0:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "active (running)"
+            elif service_status == 768:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "inactive (dead)"
+            else:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "error (exit code)"
+            self.config_obj["global_elements"]["node_service_status"]["service_return_code"] = service_status   
 
 
     def get_cluster_info_list(self,command_obj):
@@ -857,9 +857,10 @@ class Functions():
         specific = command_obj.get("specific",False)
 
         self.set_default_directories()
+        metagraph_list = self.clear_global_profiles(self.config_obj)
         
         return_obj = {}
-        for i_profile in self.config_obj.keys(): 
+        for i_profile in metagraph_list: 
             if i_profile == profile and profile != "all":
                 if specific:
                     return self.config_obj[i_profile][specific]
@@ -867,9 +868,10 @@ class Functions():
                     if "directory" in directory:
                         return_obj[directory] =  self.config_obj[i_profile][directory]
             elif profile == "all":
-                for directory in self.config_obj.keys():
-                    if "directory" in directory:
-                        return_obj[directory] =  self.config_obj[i_profile][directory]
+                return_obj[i_profile] = {}
+                for directory in self.config_obj[i_profile].keys():
+                    if "directory" in directory and "userset" not in directory:
+                        return_obj[i_profile][directory] =  self.config_obj[i_profile][directory]
         return return_obj
     
         
@@ -1065,39 +1067,40 @@ class Functions():
 
     def set_default_directories(self):
         # only to be set if "default" value is found
-        self.config_obj[profile]["snapshots_directory_userset"] = False
-        self.config_obj[profile]["inc_snap_directory_userset"] = False
-        self.config_obj[profile]["inc_snap_tmp_directory_userset"] = False
 
         for profile in self.config_obj.keys():
             if "global" not in profile:
+                self.config_obj[profile]["directory_snapshots_userset"] = False
+                self.config_obj[profile]["directory_inc_snapshot_userset"] = False
+                self.config_obj[profile]["directory_inc_snapshot_tmp_userset"] = False
+                
                 snap_dict = {
                     "custom_env_vars_CL_SNAPSHOT_STORED_PATH": {
-                        "config_key": "snapshots_directory", 
+                        "config_key": "directory_snapshots", 
                         "path": f"/var/tessellation/{profile}/data/snapshot"
                     },
                     "custom_env_vars_CL_INCREMENTAL_SNAPSHOT_STORED_PATH": {
-                        "config_key": "inc_snap_directory", 
+                        "config_key": "directory_inc_snapshot", 
                         "path": f"/var/tessellation/{profile}/data/incremental_snapshot"
                     },
                     "custom_env_vars_CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH": {
-                        "config_key": "inc_snap_tmp_directory", 
+                        "config_key": "directory_inc_snapshot_tmp", 
                         "path": f"/var/tessellation/{profile}/data/incremental_snapshot_tmp",
                     },
                 }   
         
                 for env_arg, values in snap_dict.items():
-                    if not self.config_obj["custom_env_vars_enable"]:
-                        self.config_obj[profile][values["config_key"]] = values[path]
+                    default_setting = values["path"] if self.config_obj[profile]["layer"] < 1 else "disabled"
+                    if not self.config_obj[profile]["custom_env_vars_enable"]:
+                        self.config_obj[profile][values["config_key"]] = default_setting
                     else:
-                        for config_key, path in values.items():
-                            try:
-                                value = self.config_obj[profile][env_arg]
-                            except: # disabled exception
-                                self.config_obj[profile][config_key] = path
-                            else:
-                                self.config_obj[profile][config_key] = value
-                                self.config_obj[profile][f"{config_key}_userset"] = True
+                        try:
+                            value = self.config_obj[profile][env_arg]
+                        except: # disabled exception
+                            self.config_obj[profile][values["config_key"]] = default_setting
+                        else:
+                            self.config_obj[profile][values["config_key"]] = value
+                            self.config_obj[profile][f"{values['config_key']}_userset"] = True
                          
                 if self.config_obj[profile]["directory_backups"] == "default": # otherwise already set
                     self.config_obj[profile]["directory_backups"] = "/var/tessellation/backups/"
@@ -1108,9 +1111,10 @@ class Functions():
                 if self.config_obj[profile]["seed_file"] == "default": # otherwise already set
                     self.config_obj[profile]["seed_file"] = "seed-list"
                  
-            self.config_obj[profile]["logs_directory"] = f"/var/tessellation/{profile}/logs/"   
-            self.config_obj[profile]["archived_directory"] = f"/var/tessellation/{profile}/logs/archived"  
-            self.config_obj[profile]["json_logs_directory"] = f"/var/tessellation/{profile}/logs/json_logs"  
+            # currently not configurable
+            self.config_obj[profile]["directory_logs"] = f"/var/tessellation/{profile}/logs/"   
+            self.config_obj[profile]["directory_archived"] = f"/var/tessellation/{profile}/logs/archived"  
+            self.config_obj[profile]["directory_json_logs"] = f"/var/tessellation/{profile}/logs/json_logs"  
             
             
     def set_system_prompt(self,username):
@@ -2479,6 +2483,12 @@ class Functions():
             return "yellow"
 
 
+    def clear_global_profiles(self,profile_list_or_obj):
+        if isinstance(profile_list_or_obj,list):
+            return [x for x in profile_list_or_obj if "global" not in x]
+        return [ x for x in profile_list_or_obj.keys() if "global" not in x]
+
+    
     def cleaner(self, line, action, char=None):
         if action == "dag_count":
             cleaned_line = sub('\D', '', line)

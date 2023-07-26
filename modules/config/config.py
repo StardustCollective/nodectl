@@ -180,6 +180,8 @@ class Configuration():
             "global_elements": {},
         }
         
+        self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
+        
         if return_dict:
             return self.config_obj
         
@@ -387,79 +389,77 @@ class Configuration():
         except:
             error_found()
         
-        for profile in self.config_obj.keys():
-            if "global" not in profile:
-                # global values were replaced in validate_global_setting
-                try:
-                    self.config_obj[profile]["p12_key_store"] = self.create_path_variable(
-                        self.config_obj[profile]["p12_key_location"],
-                        self.config_obj[profile]["p12_key_name"]
-                    )
-                except KeyError:
-                        self.error_list.append({
-                            "title": "section_missing",
-                            "section": "global",
-                            "profile": profile,
-                            "type": "section",
-                            "key": "multiple",
-                            "value": "p12",
-                            "special_case": None
-                        })
-                    
-                # does the profile link through itself?
-                try:
-                    self.config_obj[profile]["layer0_link_is_self"] = True
-                    if self.config_obj[profile]["layer0_link_profile"] == "None":
-                        self.config_obj[profile]["layer0_link_is_self"] = False
-                except KeyError:
-                        self.error_list.append({
-                            "title": "section_missing",
-                            "section": "global",
-                            "profile": profile,
-                            "type": "section",
-                            "key": "link_profile",
-                            "value": "link_profile",
-                            "special_case": None
-                        })
-                        
-                for dir, location in dirs.items():
-                    try:
-                        if self.config_obj[profile][dir] == "default":
-                            self.config_obj[profile][dir] = location    
-                    except:
-                        error_found()
-
-                try:
-                    self.config_obj[profile]["seed_path"] = self.create_path_variable(
-                        self.config_obj[profile]["seed_location"],
-                        self.config_obj[profile]["seed_file"]
-                    )
-                except KeyError:
+        for profile in self.metagraph_list:
+            try:
+                self.config_obj[profile]["p12_key_store"] = self.create_path_variable(
+                    self.config_obj[profile]["p12_key_location"],
+                    self.config_obj[profile]["p12_key_name"]
+                )
+            except KeyError:
                     self.error_list.append({
                         "title": "section_missing",
-                        "section": "pro",
+                        "section": "global",
                         "profile": profile,
                         "type": "section",
                         "key": "multiple",
                         "value": "p12",
                         "special_case": None
                     })
-                                        
-                # snap_obj = {}
-                # for default_snap_dir, location in snaps.items():
-                #     for config_snap_dir in self.config_obj[profile].keys():
-                #         if "custom_env" in config_snap_dir and self.config_obj[profile]["custom_env_vars_enable"]:
-                #             if default_snap_dir in config_snap_dir:
-                #                 break 
-                #         elif self.config_obj[profile]["layer"] > 0:
-                #             snap_obj[f"customer_env_{default_snap_dir}"] = "default"
-                #         else:
-                #             snap_obj[f"customer_env_{default_snap_dir}"] = location
+                
+            # does the profile link through itself?
+            try:
+                self.config_obj[profile]["layer0_link_is_self"] = True
+                if self.config_obj[profile]["layer0_link_profile"] == "None":
+                    self.config_obj[profile]["layer0_link_is_self"] = False
+            except KeyError:
+                    self.error_list.append({
+                        "title": "section_missing",
+                        "section": "global",
+                        "profile": profile,
+                        "type": "section",
+                        "key": "link_profile",
+                        "value": "link_profile",
+                        "special_case": None
+                    })
                     
-                # self.config_obj[profile] = {
-                #     **self.config_obj[profile],
-                #     **snap_obj,
-                # }
+            for dir, location in dirs.items():
+                try:
+                    if self.config_obj[profile][dir] == "default":
+                        self.config_obj[profile][dir] = location    
+                except:
+                    error_found()
+
+            try:
+                self.config_obj[profile]["seed_path"] = self.create_path_variable(
+                    self.config_obj[profile]["seed_location"],
+                    self.config_obj[profile]["seed_file"]
+                )
+            except KeyError:
+                self.error_list.append({
+                    "title": "section_missing",
+                    "section": "pro",
+                    "profile": profile,
+                    "type": "section",
+                    "key": "multiple",
+                    "value": "p12",
+                    "special_case": None
+                })
+                                    
+            # snap_obj = {}
+            # for default_snap_dir, location in snaps.items():
+            #     for config_snap_dir in self.config_obj[profile].keys():
+            #         if "custom_env_vars" in config_snap_dir and self.config_obj[profile]["custom_env_vars_enable"]:
+            #             if default_snap_dir in config_snap_dir:
+            #                 break 
+            #         elif self.config_obj[profile]["layer"] > 0:
+            #             snap_obj[f"customer_env_{default_snap_dir}"] = "default"
+            #         else:
+            #             snap_obj[f"customer_env_{default_snap_dir}"] = location
+                
+            # self.config_obj[profile] = {
+            #     **self.config_obj[profile],
+            #     **snap_obj,
+            # }
                     
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
             
@@ -478,13 +478,15 @@ class Configuration():
     
     def remove_disabled_profiles(self):
         remove_list = []
-        for profile in self.config_obj.keys():
-            if "global" not in profile and not self.config_obj[profile]["enable"]:
+        
+        for profile in self.metagraph_list:
+            if not self.config_obj[profile]["enable"]:
                 if "edit_config" not in self.argv_list:
                     remove_list.append(profile)
 
         for profile in remove_list:
             self.config_obj.pop(profile)
+            self.metagraph_list.pop(profile)
 
             
     def setup_passwd(self,force=False):
@@ -563,8 +565,8 @@ class Configuration():
         if not self.auto_restart:
             self.functions.print_clear_line()
         
-        for profile in profile_obj.keys():
-            if "global" not in profile and profile_obj[profile]["enable"] and self.action != "edit_config":
+        for profile in self.metagraph_list:
+            if profile_obj[profile]["enable"] and self.action != "edit_config":
                 if profile_obj[profile]["layer0_link_host"] == "self":
                     print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
                     sleep(.8) # allow user to see
@@ -786,9 +788,8 @@ class Configuration():
     
     def validate_services(self):
         service_names = []
-        for i_profile in self.profiles:
-            if "global" not in i_profile:
-                service_names.append(self.config_obj[i_profile]["service"]) 
+        for i_profile in self.metagraph_list:
+            service_names.append(self.config_obj[i_profile]["service"]) 
             
         if len(service_names) != len(set(service_names)):
             self.error_list.append({
@@ -808,10 +809,7 @@ class Configuration():
         # key_name, passphrase, and alias all have to match if set to global
         self.config_obj["global_elements"]["all_global"] = True
         try:
-            for profile in self.config_obj.keys():
-                if "global" in profile:
-                    break
-                
+            for profile in self.metagraph_list:
                 self.config_obj[profile]["global_p12_all_global"] = False
                 g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x in ["key_name","passphrase","key_alias"]]
                 self.config_obj[profile] = {
@@ -841,48 +839,45 @@ class Configuration():
             self.log.logger.critical(f"configuration format failure detected | exception [{e}]")
             self.send_error("cfg-705","format","existence")
             
-        for profile in self.config_obj.keys():
-            if "global" not in profile:
-                if not self.config_obj[profile]["global_p12_all_global"]:
-                    self.config_obj["global_elements"]["all_global"] = False
-                for p12_key, p12_value in self.config_obj[profile].items():
-                    if self.action == "edit_config":
-                        if "p12_" in p12_key and "global" in p12_key:
-                            self.config_obj[profile][p12_key] = False
-                    else:
-                        if "p12_" in p12_key and "global" not in p12_key and "global" in p12_value:
-                            self.config_obj[profile][f"global_{p12_key}"] = True
-                            self.config_obj[profile][p12_key] = self.config_obj["global_p12"][p12_key[4:]]
-                self.config_obj[profile]["global_p12_cli_pass"] = False # initialize
+        for profile in self.metagraph_list:
+            if not self.config_obj[profile]["global_p12_all_global"]:
+                self.config_obj["global_elements"]["all_global"] = False
+            for p12_key, p12_value in self.config_obj[profile].items():
+                if self.action == "edit_config":
+                    if "p12_" in p12_key and "global" in p12_key:
+                        self.config_obj[profile][p12_key] = False
+                else:
+                    if "p12_" in p12_key and "global" not in p12_key and "global" in p12_value:
+                        self.config_obj[profile][f"global_{p12_key}"] = True
+                        self.config_obj[profile][p12_key] = self.config_obj["global_p12"][p12_key[4:]]
+            self.config_obj[profile]["global_p12_cli_pass"] = False # initialize
 
         return self.validated
                   
 
     def validate_p12_exists(self):
-        for profile in self.config_obj.keys():
-            if "global" not in profile:
-                if not path.isfile(self.config_obj[profile]["p12_key_store"]):
-                    self.validated = False
-                    self.error_list.append({
-                        "title":"p12 not found",
-                        "section": "p12",
-                        "profile": profile,
-                        "missing_keys": None, 
-                        "type": "p12_nf",
-                        "key": "p12",
-                        "special_case": None,
-                        "value": self.config_obj[profile]["p12_key_store"],
-                    })
+        for profile in self.metagraph_list:
+            if not path.isfile(self.config_obj[profile]["p12_key_store"]):
+                self.validated = False
+                self.error_list.append({
+                    "title":"p12 not found",
+                    "section": "p12",
+                    "profile": profile,
+                    "missing_keys": None, 
+                    "type": "p12_nf",
+                    "key": "p12",
+                    "special_case": None,
+                    "value": self.config_obj[profile]["p12_key_store"],
+                })
                     
 
     def validate_link_dependencies(self):
         # this is done after the disabled profiles are removed.
         link_profiles = []
-        for profile in self.profiles:
-            if "global" not in profile:
-                link_profile = self.config_obj[profile]["layer0_link_profile"]
-                if link_profile != "None":
-                    link_profiles.append((profile,link_profile)) 
+        for profile in self.metagraph_list:
+            link_profile = self.config_obj[profile]["layer0_link_profile"]
+            if link_profile != "None":
+                link_profiles.append((profile,link_profile)) 
                 
         for profile in link_profiles:
             if self.config_obj[profile[0]]["layer0_link_enable"]:
@@ -1078,12 +1073,11 @@ class Configuration():
         error_keys = []
         ignore = ["layer0_link_port","edge_point_tcp_port"]
         
-        for section in self.config_obj.keys():
-            if "global" not in section:
-                for key, value in self.config_obj[section].items():
-                    if "port" in key and key not in ignore and value != 'None' and value != 'self':
-                        found_keys.append(key)
-                        found_ports.append(value) 
+        for section in self.metagraph_list:
+            for key, value in self.config_obj[section].items():
+                if "port" in key and key not in ignore and value != 'None' and value != 'self':
+                    found_keys.append(key)
+                    found_ports.append(value) 
                         
         if len(found_ports) != len(set(found_ports)):
             duplicates = [x for x in found_ports if found_ports.count(x) > 1]
