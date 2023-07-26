@@ -804,7 +804,8 @@ class CLI():
         
         self.functions.print_clear_line()
         self.functions.print_header_title({
-            "line1": "CURRENT AVAILABLE PROFILES",
+            "line1": "CURRENT LOADED METAGRAPHS",
+            "line2": "Based on local Node's config",
             "newline": "top",
         })
         
@@ -816,15 +817,22 @@ class CLI():
         profile_names = profile_details["profile_names"]
         profile_descr = profile_details["profile_descr"]
         profile_services = profile_details["profile_services"]
-
+        profile_meta_names = profile_details["metagraph_names"]
+        profile_layers = profile_details["layer_list"]
+        
+        
         for n,profile in enumerate(profile_names):
             self.profile = profile
             self.set_profile_api_ports()
 
             print_out_list = [
                 {
+                    "METAGRAPH NAME": profile_meta_names[n],
                     "PROFILE NAME": profile,
-                    "SERVICE NAME": profile_services[n]
+                },
+                {
+                    "SERVICE NAME": profile_services[n],
+                    "BLOCKCHAIN LAYER": profile_layers[n],
                 },
                 {
                     "PROFILE DESCRIPTION": profile_descr[n],
@@ -839,15 +847,31 @@ class CLI():
             for header_elements in print_out_list:
                 self.functions.print_show_output({
                     "header_elements" : header_elements
-                })        
+                })
+                        
+            print("")
+            cprint("  Metagrpah Custom Values","blue",attrs=["bold"])
+            for n, args_envs in enumerate(["custom_args","custom_env_vars"]):
+                    a_type = "arguments" if n < 1 else "environment variables"
+                    self.functions.print_paragraphs([
+                        [f"{a_type}:",0,"cyan","bold"],
+                        ["enabled:",0],
+                        [str(profile_details["custom_values"][args_envs][0][2]).strip("/n"),1,"yellow"]
+                    ])
+                    for custom in profile_details["custom_values"][args_envs]:
+                        if profile == custom[0] and custom[1] != "enable":
+                            self.functions.print_paragraphs([
+                                [str(custom[1]),0,"yellow"],["=",0],
+                                [str(custom[2]).strip("/n"),1],
+                            ])       
             
             print(" ") # spacer
         
-        print(
-            colored("  Note:","yellow"),colored("port configurations are for the local Node only.\n","magenta"),
-            colored("       API ports are per Node customizable.\n","magenta"),
-            colored("       sudo nodectl configure.\n","cyan"),
-        )                 
+        self.functions.print_paragraphs([
+            ["Note:",0,"yellow"], ["port configurations are for the local Node only.",0,"magenta"],
+            ["API ports are per Node customizable.",1,"magenta"],
+            ["sudo nodectl configure",2,"cyan","bold"],
+        ])
 
 
     def show_node_states(self,command_list):

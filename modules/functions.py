@@ -1299,6 +1299,22 @@ class Functions():
         return return_obj
     
    
+    def pull_custom_variables(self):
+        profile_list = self.clear_global_profiles(self.config_obj)
+        return_obj = {
+            "custom_args": [],
+            "custom_env_vars": [],
+        }
+        for profile in profile_list:
+            for item,value in self.config_obj[profile].items():
+                if "custom_args" in item:
+                    return_obj["custom_args"].append((profile,item.replace("custom_args_",""),value))
+                if "custom_env_vars" in item:
+                    return_obj["custom_env_vars"].append((profile, item.replace("custom_env_vars_",""),value))
+                    
+        return return_obj
+            
+        
     def pull_profile(self,command_obj):
         # profile=(str)
         # req=(str) # what do you want to do?
@@ -1313,12 +1329,19 @@ class Functions():
         
         service_list = []
         description_list = []
-
+        metagraph_name_list = []
+        metagraph_layer_list = []
+        custom_values_dict = {}
+        metagraph_profiles = self.clear_global_profiles(self.config_obj)
+        custom_values_dict = self.pull_custom_variables()
+        
         def pull_all():
-            for i_profile in self.config_ob:
+            for i_profile in metagraph_profiles:
+                metagraph_name_list.append(self.config_obj[i_profile]["metagraph_name"])
                 service_list.append(self.config_obj[i_profile]["service"]) 
                 description_list.append(self.config_obj[i_profile]["description"]) 
-            
+                metagraph_layer_list.append(self.config_obj[i_profile]["layer"]) 
+
         def test_replace_last_elements(list1,list2):
             if list1[-1] == list2[-1]:
                 list1.append(list2[0])
@@ -1396,9 +1419,12 @@ class Functions():
             elif var.req == "list_details":
                 pull_all()
                 return {
-                    "profile_names": list(self.config_obj.keys()),
+                    "profile_names": metagraph_profiles,
                     "profile_services": service_list,
-                    "profile_descr": description_list
+                    "profile_descr": description_list,
+                    "metagraph_names": metagraph_name_list,
+                    "layer_list": metagraph_layer_list,
+                    "custom_values": custom_values_dict,
                 }
         if var.req == "default_profile":
             return list(self.config_obj.keys())[0]
