@@ -677,8 +677,9 @@ class Functions():
                 self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                 pass
             
+            cluster_info_tmp = cluster_info
             try:
-                cluster_info.pop()
+                cluster_info_tmp.pop()
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "fun-648",
@@ -689,9 +690,15 @@ class Functions():
                 node = random.choice(cluster_info)
                 if specific_ip:
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
-                    for node in cluster_info:
-                        if specific_ip == node["ip"]:
+                    for i_node in cluster_info:
+                        if specific_ip == i_node["ip"]:
+                            node = i_node
                             break
+                
+                node["specific_ip_found"] = False
+                if specific_ip:
+                    node["specific_ip_found"] = (specific_ip,node["ip"])
+                        
                 try:
                     if desired_value == "cnng_current" or desired_value == node[desired_key]:
                         if desired_key == "all" or return_value == "all":

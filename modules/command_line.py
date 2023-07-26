@@ -465,7 +465,7 @@ class CLI():
             if "--basic" in command_list: 
                 command_list.remove("--basic")
             command_list.extend(["--extended","-np"])
-            csv_path = f"{self.config_obj[profile]['uploads']}{csv_file_name}"
+            csv_path = f"{self.config_obj[profile]['directory_uploads']}{csv_file_name}"
             
         do_more = False if "-np" in command_list else True
         if do_more:
@@ -602,7 +602,7 @@ class CLI():
             self.functions.print_paragraphs([
                 ["CSV created successfully",1,"green","bold"],
                 ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                ["location:",0,], [self.config_obj[profile]['uploads'],1,"yellow","bold"]
+                ["location:",0,], [self.config_obj[profile]['directory_uploads'],1,"yellow","bold"]
             ])  
 
 
@@ -850,20 +850,24 @@ class CLI():
                 })
                         
             print("")
-            cprint("  Metagrpah Custom Values","blue",attrs=["bold"])
+            cprint("  METAGRAPH CUSTOM VALUES","blue",attrs=["bold"])
             for n, args_envs in enumerate(["custom_args","custom_env_vars"]):
+                    print_enabled = True
                     a_type = "arguments" if n < 1 else "environment variables"
-                    self.functions.print_paragraphs([
-                        [f"{a_type}:",0,"cyan","bold"],
-                        ["enabled:",0],
-                        [str(profile_details["custom_values"][args_envs][0][2]).strip("/n"),1,"yellow"]
-                    ])
                     for custom in profile_details["custom_values"][args_envs]:
-                        if profile == custom[0] and custom[1] != "enable":
-                            self.functions.print_paragraphs([
-                                [str(custom[1]),0,"yellow"],["=",0],
-                                [str(custom[2]).strip("/n"),1],
-                            ])       
+                        if profile == custom[0]:
+                            if print_enabled:
+                                print_enabled = False
+                                self.functions.print_paragraphs([
+                                    [f"{a_type}:",0,"cyan","bold"],
+                                    ["enabled:",0],
+                                    [str(custom[2]).strip("/n"),1,"yellow"]
+                                ])
+                            else:
+                                self.functions.print_paragraphs([
+                                    [str(custom[1]),0,"yellow"],["=",0],
+                                    [str(custom[2]).strip("/n"),1],
+                                ])       
             
             print(" ") # spacer
         
@@ -1037,7 +1041,7 @@ class CLI():
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
                 csv_file_name = f"{prefix}-{search_dag_addr[0:8]}-{search_dag_addr[-8:]}-rewards-data.csv"
-            csv_path = f"{self.config_obj[profile]['uploads']}{csv_file_name}"
+            csv_path = f"{self.config_obj[profile]['directory_uploads']}{csv_file_name}"
 
 
         for rewards in data["data"]:
@@ -1160,7 +1164,7 @@ class CLI():
             self.functions.print_paragraphs([
                 ["CSV created successfully",1,"green","bold"],
                 ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                ["location:",0,], [self.config_obj[profile]['uploads'],1,"yellow","bold"]
+                ["location:",0,], [self.config_obj[profile]['directory_uploads'],1,"yellow","bold"]
             ])  
         
     # ==========================================
@@ -1452,7 +1456,8 @@ class CLI():
             edge = command_list[command_list.index("-e")+1]
            
         edge = "127.0.0.1" if not edge else edge
-        node_list = [source,edge]; flip_flop = []
+        node_list = [source,edge]
+        flip_flop = []
 
         self.functions.test_ready_observing(self.profile)
         
@@ -1465,6 +1470,16 @@ class CLI():
             })
             flip_flop.append(node_obj)
         
+        for node_obj in flip_flop:
+            valid = node_obj["specific_ip_found"]
+            if valid:
+                if valid[0] != valid[1]:
+                    self.functions.print_paragraphs([
+                        [" warning ",0,"yellow,on_red"],["requested",0,"red"],[valid[0],0,"yellow"],
+                        ["ip was not found, using",0,"red"],[valid[1],0,"yellow"],
+                        ["instead...",2,"red"],
+                    ])
+                
         for n, node_obj in enumerate(flip_flop):    
             peer_count = self.functions.get_peer_count({
                 "peer_obj": node_obj,
@@ -2802,7 +2817,7 @@ class CLI():
                 else:
                     prefix = self.functions.get_date_time({"action": "datetime"})
                     csv_file_name = f"{prefix}-{nodeid[0:8]}-{nodeid[-8:]}-show-dag-data.csv"
-                csv_path = f"{self.config_obj[profile]['uploads']}{csv_file_name}"
+                csv_path = f"{self.config_obj[profile]['directory_uploads']}{csv_file_name}"
 
             # this creates a print /r status during retrieval so placed here to not affect output
             if wallet_only:
@@ -3011,7 +3026,7 @@ class CLI():
                 self.functions.print_paragraphs([
                     ["CSV created successfully",1,"green","bold"],
                     ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                    ["location:",0,], [self.config_obj[profile]['uploads'],1,"yellow","bold"]
+                    ["location:",0,], [self.config_obj[profile]['directory_uploads'],1,"yellow","bold"]
                 ])  
                                                    
         if return_success:    
