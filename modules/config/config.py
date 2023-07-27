@@ -365,7 +365,7 @@ class Configuration():
         dirs = {
             "directory_backups": "/var/tessellation/backups/",
             "directory_uploads": "/var/tessellation/uploads/",
-            "seed_file": "seed_list",
+            "seed_file": "seed-list",
             "seed_location": "/var/tessellation",
         }
         

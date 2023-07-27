@@ -917,7 +917,8 @@ class CLI():
         profile_names = self.functions.pull_profile({
             "req": "list"
         })
-
+        profile_names = self.functions.clear_global_profiles(profile_names)
+        
         for profile in profile_names:
             if path.exists(self.config_obj[profile]["seed_path"]):
                 found_list = list(); not_found_list = list()
