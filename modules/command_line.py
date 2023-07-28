@@ -3526,17 +3526,23 @@ class CLI():
             })
          
         env_set = set()
+        profile_list = self.functions.clear_global_profiles(self.config_obj)
+        
         try:
-            for profile in self.config_obj.keys():
+            for profile in profile_list:
                 environment_name = self.config_obj[profile]["environment"]
                 env_set.add(self.config_obj[profile]["environment"])
         except Exception as e:
-            self.log.logger.critical(f"unable to determine environment type [{environment_name}]")
-            self.error_messages.error_code({
-                "error_code": "cmd-3435",
-                "line_code": "input_error",
-                "extra": e,
-            })   
+            try:
+                self.log.logger.critical(f"unable to determine environment type [{environment_name}]")
+            except:
+                self.log.logger.critical(f"unable to determine environment type [unknown]")
+            finally:
+                self.error_messages.error_code_messages({
+                    "error_code": "cmd-3435",
+                    "line_code": "input_error",
+                    "extra": e,
+                })   
             
         if len(env_set) > 1:
             environment_name = self.functions.print_option_menu({
