@@ -29,6 +29,7 @@ from datetime import datetime
 from .troubleshoot.help import build_help
 from pycoingecko import CoinGeckoAPI
 import socket
+import validators
 
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
@@ -100,6 +101,7 @@ class Functions():
         var = SimpleNamespace(**command_obj)
         var.print_message = command_obj.get("print_message",True)
         var.action = command_obj.get("action","normal")
+        profile_names = self.clear_global_profiles(self.config_obj)
         
         # handle auto_restart
         var.print_message = False if self.auto_restart else var.print_message
@@ -115,25 +117,57 @@ class Functions():
                         "color": "magenta",
                     })  
             
+            
             def get_running_tess_on_node():
-                bashCommand = "/usr/bin/java -jar /var/tessellation/cl-node.jar --version"
-                self.node_tess_version = self.process_command({
-                    "bashCommand": bashCommand,
-                    "proc_action": "wait"
-                })
-                try:
-                    self.node_tess_version = self.node_tess_version.strip("\n")
-                except:
-                    self.node_tess_version = "X.X.X"
-                if self.node_tess_version == "":
-                    self.node_tess_version = "X.X.X"
-                if not "v" in self.node_tess_version and not "V" in self.node_tess_version:
-                    self.node_tess_version = f"v{self.node_tess_version}"  
+                def thread_or_not():
+                    node_tess_version = self.process_command({
+                        "bashCommand": bashCommand,
+                        "proc_action": "wait"
+                    })
+                    try:
+                        node_tess_version = node_tess_version.strip("\n")
+                    except:
+                        node_tess_version = "X.X.X"
+                    if self.node_tess_version == "":
+                        node_tess_version = "X.X.X"
+                    if not "v" in node_tess_version and not "V" in node_tess_version:
+                        node_tess_version = f"v{node_tess_version}"
+                    node_tess_version_obj[profile] = {
+                        "node_tess_version": node_tess_version,
+                        "node_tess_jar": jar,
+                    } 
+                                        
+                node_tess_version_obj = {}
+                for profile in profile_names:
+                    jar = self.config_obj[profile]["jar_file"]
+                    bashCommand = f"/usr/bin/java -jar /var/tessellation/{jar} --version"
+                    if var.print_message: # not auto_restart
+                        with ThreadPoolExecutor() as executor:
+                            _ = executor.submit(thread_or_not)
+                    else:
+                        thread_or_not()
+
+                self.node_tess_version = node_tess_version_obj
+                    
                     
             def get_cluster_tess(action,network):
+                def thread_or_not():
+                    version = self.get_api_node_info({
+                        "api_host": self.config_obj[profile]["edge_point"],
+                        "api_port": self.config_obj[profile]["edge_point_tcp_port"],
+                        "info_list": ["version"]
+                    },2)  # tolerance of 2
+                    # version = ["1.11.3"]  # debugging
+                    cluster_tess_version_obj[profile] = f"v{version[0]}" 
+                                       
+                cluster_tess_version_obj = {}
                 if action == "normal":
-                    api_host = self.config_obj[self.default_profile]["edge_point"]
-                    api_port = self.config_obj[self.default_profile]["edge_point_tcp_port"]
+                    for profile in profile_names:
+                        if var.print_message: # not auto_restart
+                            with ThreadPoolExecutor() as executor:
+                                _ = executor.submit(thread_or_not)
+                        else:
+                            thread_or_not()
                 elif action == "install":
                     if network == "mainnet":
                         # use the hardcoded version because no configuration to start installation
@@ -147,42 +181,26 @@ class Functions():
                         # use the hardcoded version
                         api_host = self.i_hardcode_api_host
                         api_port = self.hardcode_api_port
-                       
-                version = self.get_api_node_info({
-                    "api_host": api_host,
-                    "api_port": api_port,
-                    "info_list": ["version"]
-                },2)  # tolerance of 2
-                # version = ["1.11.3"]  # debugging
-                self.cluster_tess_version = f"v{version[0]}"
+                    version = self.get_api_node_info({
+                        "api_host": api_host,
+                        "api_port": api_port,
+                        "info_list": ["version"]
+                    },2)  # tolerance of 2
+                    # version = ["1.11.3"]  # debugging
+                    cluster_tess_version_obj["install"] = f"v{version[0]}"
+                self.cluster_tess_version = cluster_tess_version_obj
+                    
                     
             def get_latest_nodectl(network):
                 self.pull_upgrade_path()
-                self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
-                if network == "testnet": 
-                    self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
-                elif network == "integrationnet":
-                    self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
-                pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{self.latest_nodectl_version}"
-                pre_success = True
-                for n in range(0,3):
-                    try:
-                        pre_release = get(pre_release_uri).json()
-                    except:
-                        sleep(1)
-                        self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
-                        pre_success = False
-                    else:
-                        break
-                    
-                if not pre_success:
-                    self.print_paragraphs([
-                        ["Unables to determine if this release is a pre-release, continuing anyway...",1,"red"]
-                    ])
-                else:
-                    # self.release_details = pre_release # save for future use
-                    self.pre_release = pre_release["prerelease"]  
-        
+                # integrationnet will be default to adhere to any metagraph
+                # self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
+                # if network == "testnet": 
+                #     self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
+                # elif network == "mainnet":
+                #     self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
+
+
             profile = None if var.action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
                 self.set_default_variables(profile)
@@ -224,11 +242,8 @@ class Functions():
             else:
                 print_msg()
                 get_running_tess_on_node() 
+                # get_cluster_tess too slow
                 get_latest_nodectl(self.network_name) 
-                            
-                self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}]")
-                self.log.logger.info(f"latest nodectl version: [{self.latest_nodectl_version}]")
-                self.log.logger.info(f"tessellation version on node: [{self.node_tess_version}]")
                 
                 self.event = False
                 if var.which == "all":
@@ -236,7 +251,6 @@ class Functions():
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
                         "cluster_tess_version": self.cluster_tess_version,
-                        "latest_nodectl_version": self.latest_nodectl_version,
                         "upgrade_path": self.upgrade_path,
                         "pre_release": self.pre_release
                     }
@@ -244,7 +258,6 @@ class Functions():
                     return {
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
-                        "latest_nodectl_version": self.latest_nodectl_version,
                         "upgrade_path": self.upgrade_path,
                         "pre_release": self.pre_release
                     }
@@ -582,6 +595,26 @@ class Functions():
                 "extra2": None
             })            
     
+
+    def get_service_status(self):
+        # =========================
+        # this needs to be migrated to node_services
+        # move this to node.service
+        # =========================
+        self.config_obj["global_elements"]["node_service_status"] = {}
+        metagraph_list = self.clear_global_profiles(self.config_obj)
+        
+        for profile in metagraph_list:
+            service_name = f"cnng-{self.config_obj[profile]['service']}"
+            service_status = system(f'systemctl is-active --quiet {service_name}')
+            if service_status == 0:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "active (running)"
+            elif service_status == 768:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "inactive (dead)"
+            else:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "error (exit code)"
+            self.config_obj["global_elements"]["node_service_status"]["service_return_code"] = service_status   
+
     
     def get_date_time(self,command_obj):
         action = command_obj.get("action",False)
@@ -792,26 +825,6 @@ class Functions():
                 return response
                         
                     
-    def get_service_status(self):
-        # =========================
-        # this needs to be migrated to node_services
-        # move this to node.service
-        # =========================
-        self.config_obj["global_elements"]["node_service_status"] = {}
-        metagraph_list = self.clear_global_profiles(self.config_obj)
-        
-        for profile in metagraph_list:
-            service_name = f"cnng-{self.config_obj[profile]['service']}"
-            service_status = system(f'systemctl is-active --quiet {service_name}')
-            if service_status == 0:
-                self.config_obj["global_elements"]["node_service_status"][profile] = "active (running)"
-            elif service_status == 768:
-                self.config_obj["global_elements"]["node_service_status"][profile] = "inactive (dead)"
-            else:
-                self.config_obj["global_elements"]["node_service_status"][profile] = "error (exit code)"
-            self.config_obj["global_elements"]["node_service_status"]["service_return_code"] = service_status   
-
-
     def get_cluster_info_list(self,command_obj):
         # ip_address, port, api_endpoint, error_secs, attempt_range
         var = SimpleNamespace(**command_obj)
@@ -1475,6 +1488,29 @@ class Functions():
     
     
     def pull_upgrade_path(self):
+        profile_names = self.clear_global_profiles(self.config_obj)
+        
+        def check_for_release(p_version):
+            pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
+            pre_success = True
+            for n in range(0,3):
+                try:
+                    pre_release = get(pre_release_uri).json()
+                except:
+                    sleep(1)
+                    self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
+                    pre_success = False
+                else:
+                    break
+                
+            if not pre_success:
+                self.print_paragraphs([
+                    ["Unables to determine if this release is a pre-release, continuing anyway...",1,"red"]
+                ])
+            else:
+                # self.release_details = pre_release # save for future use
+                return pre_release["prerelease"]  # this will be true or false
+            
         for n in range(0,4):
             try:
                 upgrade_path = get(self.upgrade_path_path)
@@ -1490,6 +1526,16 @@ class Functions():
     
         upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
         self.upgrade_path = eval(upgrade_path)
+        for profile in profile_names:
+            # non-constellation-profiles will eval to False
+            environment = self.config_obj[profile]["environment"]
+            try:
+                is_prerelease = check_for_release(self.upgrade_path[environment]["version"])
+            except:
+                is_prerelease = False
+            finally:
+                self.upgrade_path[environment]["pre_release"] = is_prerelease
+            
 
     
     # =============================
@@ -1855,7 +1901,10 @@ class Functions():
             try:
                 socket.gethostbyname(hostname)
             except:
-                return False
+                try:
+                    validators.url(hostname)
+                except:
+                    return False
         return True    
     
     

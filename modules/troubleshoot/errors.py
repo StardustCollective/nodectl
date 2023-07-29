@@ -367,6 +367,15 @@ class Error_codes():
                 ["Are you should you have a",0,"magenta"],["valid",0,"magenta","underline"], ["profile loaded or configured?",2,"magenta"]
             ])
             
+
+        elif var.line_code == "environment_error":
+            self.log.logger.critical(f"missing metagraph environment variable, unable to continue")
+            self.functions.print_paragraphs([
+                ["nodectl attempted to start a command:",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
+                ["Please verify the Metagraph environment variable is correct or present",2,"red","bold"],
+                ["Are you should you have a",0,"magenta"],["valid",0,"magenta","underline"], ["environment loaded or configured?",2,"magenta"]
+            ])
+            
             
         elif var.line_code == "open_file":
             self.log.logger.critical(f"unable to read [{var.extra}]")

@@ -66,7 +66,7 @@ class ShellHandler:
                 "config_obj": self.functions.config_obj
             }   
             cli = CLI(command_obj)
-            cli.check_for_new_versions()
+            cli.check_for_new_versions({})
             self.invalid_version = cli.invalid_version
             return cli 
         return None

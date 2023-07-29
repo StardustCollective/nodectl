@@ -89,7 +89,15 @@ class Node():
         download_version = command_obj.get("download_version","default")
         print_version = command_obj.get("print_version",True)
         action = command_obj.get("action","normal")
-
+        environment = command_obj.get("environment",False)
+        
+        if not environment:
+            self.error_messages.error_code_messages({
+                "error_code": "ns-95",
+                "line_code": "environment_error",
+                "extra": "binary downloads"
+            })
+        
         if download_version == "default":
             self.version_obj["cluster_tess_version"] = self.functions.get_version({
                 "which": "cluster_tess",

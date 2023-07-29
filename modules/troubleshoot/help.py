@@ -195,8 +195,8 @@ def build_help(command_obj):
                                                             
     show_node_states  | - show a list of known Node states                    
     
-    refresh_binaries | - download latest binaries
-                              for latest release of Tessellation
+    refresh_binaries -e <env> | - download latest binaries
+                                  for latest release of Tessellation
                               
     upgrade_nodectl | - upgrade nodectl to latest version
     upgrade_path    | - check nodectl upgrade path and verify where
@@ -784,9 +784,12 @@ def build_help(command_obj):
   to allow your Node to utilize the new binary files.
   
   This includes the latest seed-list access list file.
+  
+  required:
+  {colored('-e <environment_name>','green')}
        
-  optional switch:
-  {colored('-dtb','green')} 
+  optional switch alias:
+  {colored('-rtb','green')} 
   '''      
         
         

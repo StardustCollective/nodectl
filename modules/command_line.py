@@ -55,6 +55,9 @@ class CLI():
             "config_obj": self.config_obj,
         })
 
+        if self.profile_names != None:
+            self.profile_names = self.functions.clear_global_profiles(self.profile_names)
+            
         if not self.skip_services:
             # try:
             # review and change to spread operator if able
@@ -130,12 +133,7 @@ class CLI():
         all_profile_request = False
         called_profile = self.profile
         called_command = command_obj["called"]
-        
-        profile_list = self.functions.pull_profile({
-            "req": "list",
-            "profile": None,
-        })
-        profile_list = self.functions.clear_global_profiles(profile_list)
+        profile_list = self.profile_names
         
         for key,value in command_obj.items():
             if key == "-p" and (value == "all" or value == "empty"):
@@ -914,12 +912,7 @@ class CLI():
     def show_seedlist_participation(self,command_list):
         self.functions.check_for_help(command_list,"check_seedlist_participation")
         
-        profile_names = self.functions.pull_profile({
-            "req": "list"
-        })
-        profile_names = self.functions.clear_global_profiles(profile_names)
-        
-        for profile in profile_names:
+        for profile in self.profile_names:
             if path.exists(self.config_obj[profile]["seed_path"]):
                 found_list = list(); not_found_list = list()
                 cluster_ips = self.functions.get_cluster_info_list({
@@ -1207,58 +1200,112 @@ class CLI():
         self.skip_services = True
         self.version_check_needed = True
                 
-        self.functions.network_name = self.config_obj[self.profile_names[0]]["environment"]
+        profile = None
         if "-p" in command_list:
+            profile = command_list[command_list.index("-p")+1]
             try:
-                self.functions.network_name = self.config_obj[command_list[command_list.index("-p")+1]]["environment"]
+                self.functions.network_name = self.config_obj[profile]["environment"]
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-848",
                     "line_code": "profile_error",
-                    "extra": command_list[command_list.index("-p")+1]
+                    "extra": profile
                 })
             
-        results = self.check_for_new_versions(True)
-        spacing = 25
-        
-        if results[0]:
-            match_nodectl = colored("True","green",attrs=["bold"])
-        else:
-            match_nodectl = colored("False","red",attrs=["bold"])
+        self.check_for_new_versions({
+            "profile": profile if profile != None else "default",
+            "current_tess_check": True,
+        })
 
-        if results[1]:
-            match_tess = colored("True".ljust(spacing," "),"green",attrs=["bold"])
-        else:
-            match_tess = colored("False".ljust(spacing," "),"red",attrs=["bold"])
+        spacing = 25
+        match_true= colored("True","green",attrs=["bold"])
+        match_false = colored("False","red",attrs=["bold"])
+                
+        for profile in self.profile_names:
+    
+            print_out_list = [
+                {
+                    "header_elements" : {
+                    "PROFILE": profile,
+                    "METAGRAPH": self.config_obj[profile]["metagraph_name"],
+                    "JAR FILE": self.version_obj["node_tess_version"][profile]["node_tess_jar"],
+                    },
+                    "spacing": spacing
+                },
+                {
+                    "header_elements" : {
+                    "TESS INSTALLED": self.version_obj["node_tess_version"][profile]["node_tess_version"],
+                    "NODECTL INSTALLED": self.version_obj["node_nodectl_version"],
+                    },
+                    "spacing": spacing
+                },
+                {
+                    "header_elements" : {
+                    "TESS LATEST": self.version_obj["cluster_tess_version"][profile],
+                    "NODECTL LATEST": self.functions.upgrade_path[self.config_obj[profile]["environment"]]["version"],
+                    "NODECTL PRE_RELEASE": "True" if self.functions.upgrade_path[self.config_obj[profile]["environment"]]["pre_release"] else "False",
+                    },
+                    "spacing": spacing
+                },
+                {
+                    "header_elements" : {
+                        "TESS VERSION MATCH": f"{match_true: <38}" if self.version_obj["node_tess_version"][profile]["tess_uptodate"] else match_false,
+                        "NODECTL VERSION MATCH": f"{match_true}" if self.version_obj["node_tess_version"][profile]["tess_uptodate"] else match_false
+                    },
+                    "spacing": 25
+                },
+            ]
+            
+            for header_elements in print_out_list:
+                self.functions.print_show_output({
+                    "header_elements" : header_elements
+                })  
+            print("")
+                  
+        #     match_nodectl= colored("True","green",attrs=["bold"])
+        # else:
+        #     match_nodectl = colored("False","red",attrs=["bold"])
+
+        # if results[1]:
+        #     match_tess = colored("True".ljust(spacing," "),"green",attrs=["bold"])
+        # else:
+        #     match_tess = colored("False".ljust(spacing," "),"red",attrs=["bold"])
         
-        print_out_list = [
-            {
-                "header_elements" : {
-                "TESS INSTALLED": self.version_obj["node_tess_version"],
-                "NODECTL INSTALLED": self.version_obj["node_nodectl_version"],
-                },
-                "spacing": spacing
-            },
-            {
-                "header_elements" : {
-                "TESS LATEST": self.version_obj["cluster_tess_version"],
-                "NODECTL LATEST": self.version_obj['latest_nodectl_version'],
-                },
-                "spacing": spacing
-            },
-            {
-                "header_elements" : {
-                    "TESS VERSION MATCH": match_tess,
-                    "NODECTL VERSION MATCH": match_nodectl,
-                },
-                "spacing": spacing
-            },
-        ]
+        # print_out_list = [
+        #     {
+        #         "header_elements" : {
+        #         "PROFILE": profile,
+        #         "METAGRAPH": self.functions.network_name,
+        #         },
+        #         "spacing": spacing
+        #     },
+        #     {
+        #         "header_elements" : {
+        #         "TESS INSTALLED": self.version_obj["node_tess_version"],
+        #         "NODECTL INSTALLED": self.version_obj["node_nodectl_version"],
+        #         },
+        #         "spacing": spacing
+        #     },
+        #     {
+        #         "header_elements" : {
+        #         "TESS LATEST": self.version_obj["cluster_tess_version"],
+        #         "NODECTL LATEST": self.version_obj['latest_nodectl_version'],
+        #         },
+        #         "spacing": spacing
+        #     },
+        #     {
+        #         "header_elements" : {
+        #             "TESS VERSION MATCH": match_tess,
+        #             "NODECTL VERSION MATCH": match_nodectl,
+        #         },
+        #         "spacing": spacing
+        #     },
+        # ]
         
-        for header_elements in print_out_list:
-            self.functions.print_show_output({
-                "header_elements" : header_elements
-            })        
+        # for header_elements in print_out_list:
+        #     self.functions.print_show_output({
+        #         "header_elements" : header_elements
+        #     })        
        
  
     def check_source_connection(self,command_list):
@@ -1770,65 +1817,78 @@ class CLI():
             return self.version_obj  # avoid having to grab the version twice on upgrade
         
 
-    def check_for_new_versions(self,current_tess_check=False):
+    def check_for_new_versions(self,command_obj):
+        tess_version_check = command_obj.get("current_tess_check",False)
+        profile = command_obj.get("profile","default")
+        nodectl_version_check = False
+        
         self.functions.get_service_status()
-        if current_tess_check:
-            self.version_obj = self.functions.get_version({"which":"all"})
+        if tess_version_check:
+            if not "node_tess_version" in self.version_obj:
+                self.version_obj = self.functions.get_version({"which":"all"})
         else:
-            self.version_obj = self.functions.get_version({"which":"nodectl_all"})
+            if not "node_nodectl_version" in self.version_obj:
+                self.version_obj = self.functions.get_version({"which":"nodectl_all"})
             
         nodectl_good = False
         tess_good = False
         
-        version_type = self.functions.is_new_version(self.version_obj["node_nodectl_version"],self.version_obj["latest_nodectl_version"])
-        if version_type:
-            if not self.check_versions_called:
-                self.version_obj["latest_nodectl_version"] = self.functions.cleaner(self.version_obj["latest_nodectl_version"],"new_line")
-                
-                if version_type == "current_greater":
-                    self.functions.print_paragraphs([
-                        [" WARNING ",0,"red,on_yellow"],
-                        ["You are running a version of nodectl that is claiming to be newer than what was found on the",0],
-                        ["official Constellation Network StardustCollective repository, please proceed",0],
-                        ["carefully, as this version may either be:",2],
-                        ["- experimental",1,"magenta"],
-                        ["- malware",1,"magenta"],
-                        ["- not an offical supported version",2,"magenta"],
-                        ["current known version:",0],[self.version_obj['latest_nodectl_version'],1,"yellow","bold"],
-                        ["version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
-                        ["Type \"YES\" exactly to continue",1,"magenta"],
-                    ])
-                    self.invalid_version = True
-                    return
-
-                upgrade_command = "upgrade_nodectl"
-                self.functions.print_paragraphs([
-                    ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["nodectl",0,"cyan","bold"], ["was detected:",0],
-                    [self.version_obj['latest_nodectl_version'],1,"yellow","bold"],
+        profile_names = self.profile_names
+        if profile != "default":
+            profile_names = [profile]
+            
+        for i_profile in profile_names:
+            environment = self.config_obj[i_profile]["environment"]
+            nodectl_version_check = self.functions.is_new_version(
+                self.version_obj["node_nodectl_version"],
+                self.functions.upgrade_path[environment]["version"]
+            )
+            self.functions.upgrade_path[environment]["nodectl_uptodate"] = True if not nodectl_version_check else False
+            if nodectl_version_check:
+                if not self.check_versions_called:
+                    self.version_obj["latest_nodectl_version"] = self.functions.cleaner(self.version_obj["latest_nodectl_version"],"new_line")
                     
-                    ["To upgrade issue:",0], [f"sudo nodectl {upgrade_command}",1,"green"]
-                ])
+                    if nodectl_version_check == "current_greater":
+                        self.functions.print_paragraphs([
+                            [" WARNING ",0,"red,on_yellow"],
+                            ["You are running a version of nodectl that is claiming to be newer than what was found on the",0],
+                            ["official Constellation Network StardustCollective repository, please proceed",0],
+                            ["carefully, as this version may either be:",2],
+                            ["- experimental",1,"magenta"],
+                            ["- malware",1,"magenta"],
+                            ["- not an offical supported version",2,"magenta"],
+                            ["current known version:",0],[self.version_obj['latest_nodectl_version'],1,"yellow","bold"],
+                            ["version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
+                            ["Type \"YES\" exactly to continue",1,"magenta"],
+                        ])
+                        self.invalid_version = True
+                        return
 
-        elif self.check_versions_called:
-            nodectl_good = True
+                    upgrade_command = "upgrade_nodectl"
+                    self.functions.print_paragraphs([
+                        ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["nodectl",0,"cyan","bold"], ["was detected:",0],
+                        [self.version_obj['latest_nodectl_version'],1,"yellow","bold"],
+                        
+                        ["To upgrade issue:",0], [f"sudo nodectl {upgrade_command}",1,"green"]
+                    ])
 
         # too slow so avoiding unless needed
-        if current_tess_check:
-            self.version_obj["cluster_tess_version"] = self.functions.get_version({"which":"cluster_tess"})
-            if self.functions.is_new_version(self.version_obj['node_tess_version'],self.version_obj["cluster_tess_version"]):
-                if not self.check_versions_called:
-                    self.functions.print_paragraphs([
-                        ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["Tessellation",0,"cyan","bold"], ["was detected:",0],
-                        [self.version_obj['cluster_tess_version'],1,"yellow","bold"],
-                        
-                        ["To upgrade issue:",0], [f"sudo nodectl upgrade",1,"green"]
-                    ])
-
-            elif self.check_versions_called:
-                tess_good = True
-                        
-            if self.check_versions_called:
-                return (nodectl_good,tess_good)
+        if tess_version_check:
+            if "cluster_tess_version" not in self.version_obj or self.version_obj["cluster_tess_version"] == 'v0.0.0':
+                self.version_obj["cluster_tess_version"] = self.functions.get_version({"which":"cluster_tess"})
+            for i_profile in profile_names:
+                tess_version_check = self.functions.is_new_version(
+                    self.version_obj['node_tess_version'][i_profile]["node_tess_version"],
+                    self.version_obj["cluster_tess_version"][i_profile]
+                )
+                self.version_obj['node_tess_version'][i_profile]["tess_uptodate"] = True if not tess_version_check else False
+                if tess_version_check and not self.check_versions_called:
+                        self.functions.print_paragraphs([
+                            ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["Tessellation",0,"cyan","bold"], ["was detected:",0],
+                            [self.version_obj['cluster_tess_version'],1,"yellow","bold"],
+                            
+                            ["To upgrade issue:",0], [f"sudo nodectl upgrade",1,"green"]
+                        ])
     
             
     # ==========================================
@@ -3495,6 +3555,8 @@ class CLI():
         
         
     def download_tess_binaries(self,command_list):
+        if "-e" not in command_list:
+            command_list.append("help")
         self.functions.check_for_help(command_list,"refresh_binaries")
 
         self.functions.print_header_title({
@@ -3513,7 +3575,9 @@ class CLI():
             "prompt": "Are you sure you want to overwrite Tessellation binaries?",
             "exit_if": True,
         })
-        self.node_service.download_constellation_binaries({})
+        self.node_service.download_constellation_binaries({
+            "environment": command_list[command_list.index("-e")+1],
+        })
 
     # ==========================================
     # upgrade command
@@ -3526,10 +3590,9 @@ class CLI():
             })
          
         env_set = set()
-        profile_list = self.functions.clear_global_profiles(self.config_obj)
         
         try:
-            for profile in profile_list:
+            for profile in self.profile_names:
                 environment_name = self.config_obj[profile]["environment"]
                 env_set.add(self.config_obj[profile]["environment"])
         except Exception as e:

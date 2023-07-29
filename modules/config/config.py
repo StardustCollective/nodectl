@@ -367,6 +367,8 @@ class Configuration():
             "directory_uploads": "/var/tessellation/uploads/",
             "seed_file": "seed-list",
             "seed_location": "/var/tessellation",
+            "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
+            "repository": "github.com/Constellation-Labs/tessellation/"
         }
         
         # snaps = {
@@ -422,11 +424,15 @@ class Configuration():
                         "special_case": None
                     })
                     
-            for dir, location in dirs.items():
+            for tdir, location in dirs.items():
                 try:
-                    if self.config_obj[profile][dir] == "default":
-                        self.config_obj[profile][dir] = location    
-                except:
+                    if self.config_obj[profile][tdir] == "default":
+                        self.config_obj[profile][tdir] = location   
+                        if tdir == "jar_file":
+                            self.config_obj[profile]["jar_file"] = location[0]
+                            if int(self.config_obj[profile]["layer"]) > 0:
+                                self.config_obj[profile]["jar_file"] = location[1]
+                except Exception as e:
                     error_found()
 
             try:
@@ -1161,6 +1167,7 @@ class Configuration():
             "yaml": f"{yaml1} {yaml2} {yaml3}",
             "edge_point": "must be a valid host or ip address",
             "host": "must be a valid host or ip address",
+            "host_def": "must be a valid host or ip address",
             "pro": "must be a valid existing path or file",
         }
         
