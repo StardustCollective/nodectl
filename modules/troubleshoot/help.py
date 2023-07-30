@@ -21,7 +21,7 @@ def build_help(command_obj):
       "reboot","disable_root_ssh","enable_root_ssh",
       "clean_snapshots","check_seedlist", "export_private_key",
       "update_seedlist", "check_source_connection","health","sec",
-      "price","markets", "upgrade_path", "refresh_binaries", 
+      "price","markets", "upgrade_path", 
       "check_seedlist_participation", "check_version",
     ]
     
@@ -790,6 +790,14 @@ def build_help(command_obj):
        
   optional switch alias:
   {colored('-rtb','green')} 
+  
+    Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}
+  
+  execute the {extended} command
+  # {colored(f'sudo nodectl {extended} -e <environment_name>','cyan')}
   '''      
         
         

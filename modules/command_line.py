@@ -2367,7 +2367,7 @@ class CLI():
         
         defined_connection_threshold = .8
         max_timer = 300
-        peer_count = old_peer_count = src_peer_count = increase_check = 0
+        peer_count, old_peer_count, src_peer_count, increase_check = 0, 0, 0, 0
 
         states = list(zip(*self.functions.get_node_states("on_network")))[0]
         break_states = list(zip(*self.functions.get_node_states("past_observing")))[0]

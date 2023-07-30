@@ -42,7 +42,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.9.0"
+        self.node_nodectl_version = "v2.8.1"
         exclude_config = ["-v","_v","version"]
         
         if config_obj["global_elements"]["caller"] in exclude_config:
@@ -101,7 +101,6 @@ class Functions():
         var = SimpleNamespace(**command_obj)
         var.print_message = command_obj.get("print_message",True)
         var.action = command_obj.get("action","normal")
-        profile_names = self.clear_global_profiles(self.config_obj)
         
         # handle auto_restart
         var.print_message = False if self.auto_restart else var.print_message
@@ -138,7 +137,7 @@ class Functions():
                     } 
                                         
                 node_tess_version_obj = {}
-                for profile in profile_names:
+                for profile in self.profile_names:
                     jar = self.config_obj[profile]["jar_file"]
                     bashCommand = f"/usr/bin/java -jar /var/tessellation/{jar} --version"
                     if var.print_message: # not auto_restart
@@ -162,7 +161,7 @@ class Functions():
                                        
                 cluster_tess_version_obj = {}
                 if action == "normal":
-                    for profile in profile_names:
+                    for profile in self.profile_names:
                         if var.print_message: # not auto_restart
                             with ThreadPoolExecutor() as executor:
                                 _ = executor.submit(thread_or_not)
@@ -604,9 +603,8 @@ class Functions():
         # move this to node.service
         # =========================
         self.config_obj["global_elements"]["node_service_status"] = {}
-        metagraph_list = self.clear_global_profiles(self.config_obj)
         
-        for profile in metagraph_list:
+        for profile in self.profile_names:
             service_name = f"cnng-{self.config_obj[profile]['service']}"
             service_status = system(f'systemctl is-active --quiet {service_name}')
             if service_status == 0:
@@ -879,10 +877,9 @@ class Functions():
         specific = command_obj.get("specific",False)
 
         self.set_default_directories()
-        metagraph_list = self.clear_global_profiles(self.config_obj)
         
         return_obj = {}
-        for i_profile in metagraph_list: 
+        for i_profile in self.profile_names: 
             if i_profile == profile and profile != "all":
                 if specific:
                     return self.config_obj[i_profile][specific]
@@ -1083,6 +1080,7 @@ class Functions():
                 })
             
         self.config_obj["global_elements"]["node_profile_states"] = {}  # initialize 
+        self.profile_names = self.clear_global_profiles(self.config_obj)
         self.ip_address = self.get_ext_ip()
         self.check_config_environment()
                 
@@ -1322,12 +1320,11 @@ class Functions():
     
    
     def pull_custom_variables(self):
-        profile_list = self.clear_global_profiles(self.config_obj)
         return_obj = {
             "custom_args": [],
             "custom_env_vars": [],
         }
-        for profile in profile_list:
+        for profile in self.profile_names:
             for item,value in self.config_obj[profile].items():
                 if "custom_args" in item:
                     return_obj["custom_args"].append((profile,item.replace("custom_args_",""),value))
@@ -1353,18 +1350,17 @@ class Functions():
         description_list = []
         metagraph_name_list = []
         metagraph_layer_list = []
-        metagraph_env_list = set()
+        metagraph_env_set = set()
         custom_values_dict = {}
-        metagraph_profiles = self.clear_global_profiles(self.config_obj)
         custom_values_dict = self.pull_custom_variables()
         
         def pull_all():
-            for i_profile in metagraph_profiles:
+            for i_profile in self.profile_names:
                 metagraph_name_list.append(self.config_obj[i_profile]["metagraph_name"])
                 service_list.append(self.config_obj[i_profile]["service"]) 
                 description_list.append(self.config_obj[i_profile]["description"]) 
                 metagraph_layer_list.append(self.config_obj[i_profile]["layer"]) 
-                metagraph_env_list.add(self.config_obj[i_profile]["environment"]) 
+                metagraph_env_set.add(self.config_obj[i_profile]["environment"]) 
 
         def test_replace_last_elements(list1,list2):
             if list1[-1] == list2[-1]:
@@ -1440,20 +1436,30 @@ class Functions():
         elif "environments" in var.req:
             pull_all()
             return {
-                "environment_names": metagraph_env_list
+                "environment_names": metagraph_env_set
             }
             
+        elif "one_profile_per_env":
+            pull_all()
+            last_env = set(); profiles = []
+            for env in metagraph_env_set:
+                for profile in self.profile_names:
+                    if not self.config_obj[profile]["environment"] in last_env:
+                        profiles.append(profile)
+                    last_env.add(env)
+            return profiles
+                
         elif "list" in var.req:
             if var.req == "list":
                 return list(self.config_obj.keys())
             elif var.req == "list_details":
                 pull_all()
                 return {
-                    "profile_names": metagraph_profiles,
+                    "profile_names": self.profile_names,
                     "profile_services": service_list,
                     "profile_descr": description_list,
                     "metagraph_names": metagraph_name_list,
-                    "environment_names": metagraph_env_list,
+                    "environment_names": metagraph_env_set,
                     "layer_list": metagraph_layer_list,
                     "custom_values": custom_values_dict,
                 }
@@ -1499,8 +1505,6 @@ class Functions():
     
     
     def pull_upgrade_path(self):
-        profile_names = self.clear_global_profiles(self.config_obj)
-        
         def check_for_release(p_version):
             pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
             pre_success = True
@@ -1537,7 +1541,7 @@ class Functions():
     
         upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
         self.upgrade_path = eval(upgrade_path)
-        for profile in profile_names:
+        for profile in self.profile_names:
             # non-constellation-profiles will eval to False
             environment = self.config_obj[profile]["environment"]
             try:
@@ -2504,6 +2508,7 @@ class Functions():
         nodectl_version_only = command_obj.get("nodectl_version_only",False)
         hint = command_obj.get("hint",False)
         title = command_obj.get("title",False)
+        environments = self.pull_profile({"req":"environments"})
         
         if not nodectl_version_only:
             keys = ["node_nodectl_version","node_tess_version"]
@@ -2525,9 +2530,23 @@ class Functions():
             })
             
         self.help_text = f"  NODECTL INSTALLED: [{colored(self.version_obj['node_nodectl_version'],'yellow')}]"
-        
+
         if not nodectl_version_only:
-            self.help_text += f"\n  TESSELLATION INSTALLED: [{colored(self.version_obj['node_tess_version'],'yellow')}]"
+            install_profiles = self.pull_profile({"req":"one_profile_per_env"})
+            for profile in install_profiles:
+                env = self.config_obj[profile]["environment"].upper()
+                node_tess_version = self.version_obj['node_tess_version'][profile]['node_tess_version']
+                self.help_text += f"\n  {env} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
+            
+            
+            
+            # for env in environments["environment_names"]:
+            #     for profile in self.profile_names:
+            #         if self.config_obj[profile]["environment"] in last_env:
+            #             pass
+            #         else:
+            #             self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(self.version_obj['node_tess_version'][profile]['node_tess_version'],'yellow')}]"
+            #         last_env.add(env)
 
         self.help_text += build_help(command_obj)
         

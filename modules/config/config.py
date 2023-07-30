@@ -368,7 +368,7 @@ class Configuration():
             "seed_file": "seed-list",
             "seed_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
-            "repository": "github.com/Constellation-Labs/tessellation/"
+            "jar_repository": "github.com/Constellation-Labs/tessellation/"
         }
         
         # snaps = {
@@ -659,8 +659,9 @@ class Configuration():
                 ["java_xms","mem_size"],
                 ["java_xmx","mem_size"],
                 ["java_xss","mem_size"],
-                ["repository","host_def"], 
+                ["jar_repository","host_def"], 
                 ["jar_file","str"],
+                ["jar_version","str"],
                 ["p12_nodeadmin","str"],
                 ["p12_key_location","path"],
                 ["p12_key_name","str"],
@@ -716,8 +717,8 @@ class Configuration():
         #         "layer0_link_enable","layer0_link_key","layer0_link_host","layer0_link_port","layer0_link_profile",
         #         "directory_backups","directory_uploads",
         #         "java_xms","java_xmx",
-        #         "java_xss","repository",
-        #         "jar_file",
+        #         "java_xss","jar_repository",
+        #         "jar_file","jar_version",
         #         "p12_nodeadmin","p12_key_location","p12_key_name","p12_key_alias","p12_passphrase",
         #         "seed_location","seed_file",
         #         "custom_args_enable","custom_env_vars_enable",

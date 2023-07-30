@@ -91,30 +91,6 @@ class Node():
         action = command_obj.get("action","normal")
         environment = command_obj.get("environment",False)
         
-        if not environment:
-            self.error_messages.error_code_messages({
-                "error_code": "ns-95",
-                "line_code": "environment_error",
-                "extra": "binary downloads"
-            })
-        
-        if download_version == "default":
-            self.version_obj["cluster_tess_version"] = self.functions.get_version({
-                "which": "cluster_tess",
-                "print_version": print_version,
-                "action": action
-            })
-            download_version = self.version_obj["cluster_tess_version"]
-        
-        file_obj = {
-            "cl-keytool.jar": { "state": "fetching", "pos": 4 },
-            "cl-node.jar":    { "state": "fetching", "pos": 3 },
-            "cl-dag-l1.jar":  { "state": "fetching", "pos": 2 },
-            "cl-wallet.jar":  { "state": "fetching", "pos": 1 },
-            "cur_pos": 1
-        }
-        files = list(file_obj.keys())
-        
         def screen_print_download_results(file,first=False):
             #line_len = 70
             backup = ""
@@ -149,6 +125,14 @@ class Node():
             auto_restart = download_list[2]
             copy_state = "complete"
             tess_dir = "/var/tessellation/"
+            
+            download_version = file_obj_copy[file]["version"]
+            if download_version == "default":
+                download_version = self.version_obj["cluster_tess_version"][first_profile]
+                
+            uri = file_obj_copy[file]["location"]
+            if uri == "default":
+                uri = "https://github.com/Constellation-Labs/tessellation"
             attempts = 0
             
             if not path.exists(tess_dir):
@@ -159,7 +143,7 @@ class Node():
             while True:
                 if file != "cur_pos":
                     if file_obj_copy[file]["state"] != "complete":
-                        bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/{file} -O /var/tessellation/{file} -o /dev/null"
+                        bashCommand = f"sudo wget {uri}/releases/download/{download_version}/{file} -O /var/tessellation/{file} -o /dev/null"
                         self.functions.process_command({
                             "bashCommand": bashCommand,
                             "proc_action": "timeout"
@@ -185,7 +169,43 @@ class Node():
                     cur_pos = screen_print_download_results(file)
                     file_obj_copy["cur_pos"] = cur_pos
                     return file_obj_copy
-            
+
+
+        if not environment:
+            self.error_messages.error_code_messages({
+                "error_code": "ns-95",
+                "line_code": "environment_error",
+                "extra": "binary downloads"
+            })
+        
+        if download_version == "default":
+            self.version_obj["cluster_tess_version"] = self.functions.get_version({
+                "which": "cluster_tess",
+                "print_version": print_version,
+                "action": action
+            })
+        
+        file_obj = {
+            "cl-keytool.jar": { "state": "fetching", "pos": 1, "location": "default", "version": "default"},
+            "cl-wallet.jar":  { "state": "fetching", "pos": 2, "location": "default", "version": "default"},
+        }
+
+        for n, profile in enumerate(self.functions.profile_names):
+            if self.config_obj[profile]["environment"] == environment:
+                first_profile = profile
+                file_obj[self.config_obj[profile]["jar_file"]] = {
+                    "state": "fetching",
+                    "pos": n+3,
+                    "location": self.config_obj[profile]["jar_repository"],
+                    "version": self.config_obj[profile]["jar_version"]
+                }
+                
+        # reorder cursor positions
+        for n, file in enumerate(file_obj):
+            file_obj[file]["pos"] = len(file_obj)-n
+        file_obj["cur_pos"] = 1
+        files = list(file_obj.keys())
+        
         if action == "auto_restart":
             result = True
             for file in files:
@@ -229,7 +249,7 @@ class Node():
                 break
             
         if action != "install":
-            for profile in self.config_obj.keys():
+            for profile in self.functions.profile_names:
                 command_obj = {
                     **command_obj,
                     "profile": profile,
@@ -987,8 +1007,9 @@ nodectl:
       java_xms: nodegaragexms
       java_xmx: nodegaragexmx
       java_xss: nodegaragexss
-      repository: nodegaragerepo
+      jar_repository: nodegaragerepo
       jar_file: nodegaragejarfile
+      jar_version: nodegaragejarversion
       p12_nodeadmin: nodegaragenodeadmin
       p12_key_location: nodegaragekeylocation
       p12_key_name: nodegaragep12name
