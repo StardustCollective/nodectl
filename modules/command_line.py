@@ -1261,51 +1261,6 @@ class CLI():
                     "header_elements" : header_elements
                 })  
             print("")
-                  
-        #     match_nodectl= colored("True","green",attrs=["bold"])
-        # else:
-        #     match_nodectl = colored("False","red",attrs=["bold"])
-
-        # if results[1]:
-        #     match_tess = colored("True".ljust(spacing," "),"green",attrs=["bold"])
-        # else:
-        #     match_tess = colored("False".ljust(spacing," "),"red",attrs=["bold"])
-        
-        # print_out_list = [
-        #     {
-        #         "header_elements" : {
-        #         "PROFILE": profile,
-        #         "METAGRAPH": self.functions.network_name,
-        #         },
-        #         "spacing": spacing
-        #     },
-        #     {
-        #         "header_elements" : {
-        #         "TESS INSTALLED": self.version_obj["node_tess_version"],
-        #         "NODECTL INSTALLED": self.version_obj["node_nodectl_version"],
-        #         },
-        #         "spacing": spacing
-        #     },
-        #     {
-        #         "header_elements" : {
-        #         "TESS LATEST": self.version_obj["cluster_tess_version"],
-        #         "NODECTL LATEST": self.version_obj['latest_nodectl_version'],
-        #         },
-        #         "spacing": spacing
-        #     },
-        #     {
-        #         "header_elements" : {
-        #             "TESS VERSION MATCH": match_tess,
-        #             "NODECTL VERSION MATCH": match_nodectl,
-        #         },
-        #         "spacing": spacing
-        #     },
-        # ]
-        
-        # for header_elements in print_out_list:
-        #     self.functions.print_show_output({
-        #         "header_elements" : header_elements
-        #     })        
        
  
     def check_source_connection(self,command_list):
@@ -1732,13 +1687,38 @@ class CLI():
         upgrade_path = self.functions.upgrade_path["path"]
         next_upgrade_path = upgrade_path[0]    
         
+        def print_version_path():
+            self.functions.print_header_title({
+                "line1": "UPGRADE PATH",
+                "single_line": True,
+                "show_titles": False,
+                "newline": "both"
+            })
+            self.functions.print_paragraphs([
+                ["=","full",2,"green","bold"],
+            ])
+            for n, version in enumerate(reversed(upgrade_path)):
+                if n < 1:
+                    print(" ",end=" ")
+                print(f"{colored(version,'yellow')}",end=" ")
+                if version != upgrade_path[0]:
+                    print(colored("-->","cyan"),end=" ")
+            self.functions.print_paragraphs([
+                ["",1],["=","full",1,"green","bold"],
+            ])                                
+                                
         if versions.node_nodectl_version != upgrade_path[0]:
             for version in upgrade_path:
+                if next_upgrade_path != version:
+                    next_upgrade_path = upgrade_path[upgrade_path.index(version)-1]
                 test = self.functions.is_new_version(versions.node_nodectl_version,version)
-                if test == "current_less_than":
+                if test == "current_greater" or not test:
+                    break
+                elif version == upgrade_path[-1]:
                     next_upgrade_path = version
 
             if next_upgrade_path != upgrade_path[0]:
+                test = "current_needs_multiple_upgrades"
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
@@ -1763,27 +1743,6 @@ class CLI():
         if next_upgrade_path != upgrade_path[0]:
             if var.called_command == "upgrade_path":
                 self.functions.print_clear_line()
-                
-            self.functions.print_header_title({
-                "line1": "UPGRADE PATH",
-                "single_line": True,
-                "show_titles": False,
-                "newline": "both"
-            })
-            
-            self.functions.print_paragraphs([
-                ["=","full",2,"green","bold"],
-            ])
-            
-            print("",end="  ")
-            for version in reversed(upgrade_path):
-                print(f"{colored(version,'yellow')}",end=" ")
-                if version != upgrade_path[0]:
-                    print(colored("-->","cyan"),end=" ")
-                    
-            self.functions.print_paragraphs([
-                ["",1],["=","full",1,"green","bold"],
-            ])
             
             if var.called_command == "upgrade":
                 self.functions.print_paragraphs([
@@ -1802,8 +1761,14 @@ class CLI():
             if next_upgrade_path == versions.node_nodectl_version:
                 self.functions.print_paragraphs([
                     ["You are",0,"green"], ["up-to-date",0,"green","bold"], ["or can upgrade",0,"green"], 
-                    ["directly",0,"green","bold"], ["to the newest version.",2,"green"]
+                    ["directly",0,"green","bold"], ["to the newest version.",1,"green"]
                 ])
+            elif test == "current_greater":  
+                self.functions.print_paragraphs([
+                    ["",1],["Use this version of nodectl with caution because it may produce undesired affects.",0,"yellow"],
+                    ["If the",0,"yellow"], ["sudo nodectl upgrade",0], ["command was used against this version, you may run",0,"yellow"],
+                    ["into undesired results if you attempt to downgrade to a previous version.",2,"yellow"]
+                ])   
             else:
                 self.functions.print_cmd_status({
                     "text_start": "nodectl can be",
@@ -1813,6 +1778,9 @@ class CLI():
                     "status_color": "yellow",
                     "newline": True,
                 })
+                    
+            print_version_path()
+            print("")
         else:
             return self.version_obj  # avoid having to grab the version twice on upgrade
         
@@ -1821,6 +1789,7 @@ class CLI():
         tess_version_check = command_obj.get("current_tess_check",False)
         profile = command_obj.get("profile","default")
         nodectl_version_check = False
+        caller = command_obj.get("caller",None)
         
         self.functions.get_service_status()
         if tess_version_check:
@@ -1829,21 +1798,23 @@ class CLI():
         else:
             if not "node_nodectl_version" in self.version_obj:
                 self.version_obj = self.functions.get_version({"which":"nodectl_all"})
-            
-        nodectl_good = False
-        tess_good = False
+
+        if caller == "upgrade_nodectl":
+            return
         
         profile_names = self.profile_names
         if profile != "default":
             profile_names = [profile]
             
-        for i_profile in profile_names:
-            environment = self.config_obj[i_profile]["environment"]
+        environments = self.functions.pull_profile({"req": "environments"})
+        # pull_profiles now has environments added as option
+        # switch this check to by environment not profile!
+        for env in environments["environment_names"]:
             nodectl_version_check = self.functions.is_new_version(
                 self.version_obj["node_nodectl_version"],
-                self.functions.upgrade_path[environment]["version"]
+                self.version_obj["latest_nodectl_version"]
             )
-            self.functions.upgrade_path[environment]["nodectl_uptodate"] = True if not nodectl_version_check else False
+            self.functions.upgrade_path[env]["nodectl_uptodate"] = True if not nodectl_version_check else False
             if nodectl_version_check:
                 if not self.check_versions_called:
                     self.version_obj["latest_nodectl_version"] = self.functions.cleaner(self.version_obj["latest_nodectl_version"],"new_line")
@@ -1857,19 +1828,23 @@ class CLI():
                             ["- experimental",1,"magenta"],
                             ["- malware",1,"magenta"],
                             ["- not an offical supported version",2,"magenta"],
-                            ["current known version:",0],[self.version_obj['latest_nodectl_version'],1,"yellow","bold"],
+                            ["current known version:",0],[self.functions.upgrade_path['path'][0],1,"yellow","bold"],
                             ["version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
                             ["Type \"YES\" exactly to continue",1,"magenta"],
                         ])
                         self.invalid_version = True
                         return
 
-                    upgrade_command = "upgrade_nodectl"
+                    self.functions.print_cmd_status({
+                        "text_start": "A new version of",
+                        "brackets": "nodectl",
+                        "text_end": "was detected",
+                        "status": self.version_obj['latest_nodectl_version'],
+                        "status_color": "yellow",
+                        "newline": True,
+                    })
                     self.functions.print_paragraphs([
-                        ["A",0], ["new",0,"cyan","underline"], ["version of",0], ["nodectl",0,"cyan","bold"], ["was detected:",0],
-                        [self.version_obj['latest_nodectl_version'],1,"yellow","bold"],
-                        
-                        ["To upgrade issue:",0], [f"sudo nodectl {upgrade_command}",1,"green"]
+                        ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",1,"green"]
                     ])
 
         # too slow so avoiding unless needed
@@ -3621,7 +3596,7 @@ class CLI():
             version_obj = self.functions.get_version({"which":"all"})
         self.functions.print_clear_line()
 
-        if not self.functions.is_new_version(version_obj["node_nodectl_version"],version_obj["latest_nodectl_version"]):
+        if not self.functions.is_new_version(version_obj["node_nodectl_version"],self.version_obj["latest_nodectl_version"]):
             self.log.logger.error(f"Upgrade nodectl to new version request not needed {version_obj['node_nodectl_version']}.")
             self.functions.print_paragraphs([
                 ["Current version of nodectl:",0], [version_obj['node_nodectl_version'],0,"yellow"],
@@ -3632,7 +3607,7 @@ class CLI():
                 [" WARNING ",0,"yellow,on_red"], ["You are about to upgrade nodectl.",1,"green","bold"],
                 ["You are currently on:",0], [environment_name.upper(),1,"yellow"],
                 ["  current version:",0], [version_obj['node_nodectl_version'],1,"yellow"],
-                ["available version:",0], [f'{version_obj["latest_nodectl_version"]}',1,"yellow"],
+                ["available version:",0], [f'{self.version_obj["latest_nodectl_version"]}',1,"yellow"],
             ])
             if self.version_obj["pre_release"]:
                 self.functions.print_paragraphs([

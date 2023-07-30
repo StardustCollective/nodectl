@@ -42,7 +42,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.8.1"
+        self.node_nodectl_version = "v2.9.0"
         exclude_config = ["-v","_v","version"]
         
         if config_obj["global_elements"]["caller"] in exclude_config:
@@ -193,6 +193,8 @@ class Functions():
                     
             def get_latest_nodectl(network):
                 self.pull_upgrade_path()
+                self.latest_nodectl_version = self.upgrade_path[network]["version"]
+                
                 # integrationnet will be default to adhere to any metagraph
                 # self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
                 # if network == "testnet": 
@@ -1351,6 +1353,7 @@ class Functions():
         description_list = []
         metagraph_name_list = []
         metagraph_layer_list = []
+        metagraph_env_list = set()
         custom_values_dict = {}
         metagraph_profiles = self.clear_global_profiles(self.config_obj)
         custom_values_dict = self.pull_custom_variables()
@@ -1361,6 +1364,7 @@ class Functions():
                 service_list.append(self.config_obj[i_profile]["service"]) 
                 description_list.append(self.config_obj[i_profile]["description"]) 
                 metagraph_layer_list.append(self.config_obj[i_profile]["layer"]) 
+                metagraph_env_list.add(self.config_obj[i_profile]["environment"]) 
 
         def test_replace_last_elements(list1,list2):
             if list1[-1] == list2[-1]:
@@ -1433,6 +1437,12 @@ class Functions():
 
             return pairing_list
             
+        elif "environments" in var.req:
+            pull_all()
+            return {
+                "environment_names": metagraph_env_list
+            }
+            
         elif "list" in var.req:
             if var.req == "list":
                 return list(self.config_obj.keys())
@@ -1443,6 +1453,7 @@ class Functions():
                     "profile_services": service_list,
                     "profile_descr": description_list,
                     "metagraph_names": metagraph_name_list,
+                    "environment_names": metagraph_env_list,
                     "layer_list": metagraph_layer_list,
                     "custom_values": custom_values_dict,
                 }
