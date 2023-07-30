@@ -297,6 +297,17 @@ class P12Class():
             self.log.logger.info("p12 file unlocked successfully - keytool")
             return True
         
+        # check p12 agasint method 3
+        bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -legacy")
+        results = self.functions.process_command({
+            "bashCommand": bashCommand3,
+            "proc_action": "wait", 
+            "return_error": True
+        })
+        if not "Invalid password" in str(results):
+            self.log.logger.info("p12 file unlocked successfully - openssl")
+            return True
+        
         self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
         return False
 
