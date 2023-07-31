@@ -491,7 +491,7 @@ class ShellHandler:
         self.log.logger.debug(f"checking profile requirements | command [{self.called_command}]") 
         need_profile, need_environment = False, False
         called_profile, called_environment = False, False
-        profile_hint, env_hint = False, False
+        profile_hint, env_hint, both_hint = False, False, False
         
         def send_to_help_method(hint):
             self.functions.print_help({
@@ -524,6 +524,9 @@ class ShellHandler:
             "check_seedlist","_csl","update_seedlist","_usl",
         ]                
         
+        if self.called_command in need_profile_list and self.called_command in need_environemnt_list:
+            either_or_hint = True
+            
         if self.called_command in need_profile_list:
             need_profile = True
             if "help" in self.argv:
@@ -544,11 +547,11 @@ class ShellHandler:
             elif len(self.argv) == 0 or ("-e" not in self.argv or called_profile == "empty"):
                 env_hint = True
         
-        if env_hint and profile_hint:
+        if env_hint and profile_hint and either_or_hint:
             send_to_help_method("profile_env")
-        elif profile_hint:
+        elif profile_hint and not either_or_hint:
             send_to_help_method("profile")
-        elif env_hint:
+        elif env_hint and not either_or_hint:
             send_to_help_method("env")
             
         if need_profile and self.called_command != "empty":

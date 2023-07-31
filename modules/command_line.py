@@ -1168,27 +1168,37 @@ class CLI():
     def update_seedlist(self,command_list):
         self.functions.check_for_help(command_list,"update_seedlist")
         self.log.logger.info("updating seed list...")
-        environment = command_list[command_list.index("-e")+1]
-        profile = command_list[command_list.index("-p")+1]
+        profiles = []
         
+        try: # can be either env or profile (prefer -p over -e)
+            profile = command_list[command_list.index("-p")+1]
+        except:
+            environment = command_list[command_list.index("-e")+1]
+            profiles = self.functions.pull_profile({
+                "req":"profiles_by_environment",
+                "environment": environment
+            })      
+        else:
+            profiles.append(profile)
+              
         self.functions.print_clear_line()
         self.print_title("Update Seed list")
         
-        profiles = self.functions.pull_profile({"req":"profiles_by_environment"})
-        
-        if "disable" in self.functions.config_obj[profile]["seed_path"]:
-            self.functions.print_paragraphs([
-                ["Seed list is disabled for profile [",0,"red"],
-                [profile,-1,"yellow","bold"],
-                ["]",-1,"red"], ["nothing to do",1,"red"], 
-            ])
-            return 1
-            
-        self.node_service.download_update_seedlist({
-            "profile": profile,
-            "action": "normal",
-            "install_upgrade": False,
-        })
+        for i_profile in profiles:
+            if "disable" in self.functions.config_obj[i_profile]["seed_path"]:
+                self.functions.print_paragraphs([
+                    ["Seed list is disabled for profile [",0,"red"],
+                    [i_profile,-1,"yellow","bold"],
+                    ["]",-1,"red"], ["nothing to do",1,"red"], 
+                ])
+            else:
+                download_version = "default" if self.functions.config_obj[i_profile]["seed_repository"] == "default" else None
+                self.node_service.download_update_seedlist({
+                    "profile": i_profile,
+                    "action": "normal",
+                    "install_upgrade": False,
+                    "download_version": download_version
+                })
 
 
     # ==========================================

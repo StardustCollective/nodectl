@@ -92,7 +92,6 @@ class Node():
         environment = command_obj.get("environment",False)
         
         def screen_print_download_results(file,first=False):
-            #line_len = 70
             backup = ""
             
             if file != "cur_pos":
@@ -100,7 +99,6 @@ class Node():
                 colors = {"fetching": "magenta", "complete": "green", "failed": "red"}
                 color = colors.get(i_file['state'])
                 state_str = colored(i_file['state'],color,attrs=['bold'])
-                # dotted_line = colored(''.rjust(line_len-len(state_str),'.'),'cyan')
                 
                 new_pos = i_file['pos']+2
                 old_pos = file_obj["cur_pos"]
@@ -119,6 +117,7 @@ class Node():
                 })
                 return i_file['pos']
             
+            
         def threaded_download(download_list):
             file_obj_copy = download_list[0]
             file = download_list[1]
@@ -126,24 +125,31 @@ class Node():
             copy_state = "complete"
             tess_dir = "/var/tessellation/"
             
+            try:
+                profile = file_obj_copy[file]["profile"]
+            except:
+                profile = first_profile
+            
             download_version = file_obj_copy[file]["version"]
-            if download_version == "default":
-                download_version = self.version_obj["cluster_tess_version"][first_profile]
-                
             uri = file_obj_copy[file]["location"]
+            if download_version == "default":
+                # retreived from the edge point
+                download_version = self.version_obj["cluster_tess_version"][profile]
             if uri == "default":
                 uri = "https://github.com/Constellation-Labs/tessellation"
+                
+            if self.config_obj[profile]["jar_github"]:
+                uri = f"{uri}/releases/download/{download_version}"
+                
             attempts = 0
-            
             if not path.exists(tess_dir):
                 makedirs(tess_dir)
                 
             self.log.logger.info(f"downloading binary jar files: {file}")
-            
             while True:
                 if file != "cur_pos":
                     if file_obj_copy[file]["state"] != "complete":
-                        bashCommand = f"sudo wget {uri}/releases/download/{download_version}/{file} -O /var/tessellation/{file} -o /dev/null"
+                        bashCommand = f"sudo wget {uri}/{file} -O /var/tessellation/{file} -o /dev/null"
                         self.functions.process_command({
                             "bashCommand": bashCommand,
                             "proc_action": "timeout"
@@ -192,12 +198,13 @@ class Node():
 
         for n, profile in enumerate(self.functions.profile_names):
             if self.config_obj[profile]["environment"] == environment:
-                first_profile = profile
+                first_profile = profile if n < 1 else first_profile
                 file_obj[self.config_obj[profile]["jar_file"]] = {
                     "state": "fetching",
                     "pos": n+3,
                     "location": self.config_obj[profile]["jar_repository"],
-                    "version": self.config_obj[profile]["jar_version"]
+                    "version": self.config_obj[profile]["jar_version"],
+                    "profile": profile
                 }
                 
         # reorder cursor positions
@@ -270,9 +277,9 @@ class Node():
         # ===============================
         
         self.log.logger.debug("node service - download seed list initiated...")
-        environment = command_obj.get("profile",self.profile)
+        profile = command_obj.get("profile",self.profile)
         install_upgrade = command_obj.get("install_upgrade",True)
-        download_version = command_obj.get("download_version","default")
+        download_version = command_obj.get("download_version",None)
         environment_name = self.functions.config_obj[profile]["environment"]
         seed_path = self.functions.config_obj[profile]["seed_path"]    
         
@@ -297,14 +304,13 @@ class Node():
                 })
             return
         
-        if not self.version_obj:
-            self.version_obj = self.functions.get_version({
-                "which": "all",
-                "print_message": print_message
-            })
-        
         # includes seed-list access-list  
         if download_version == "default":
+            if not self.version_obj:
+                self.version_obj = self.functions.get_version({
+                    "which": "all",
+                    "print_message": print_message
+                })
             download_version = self.version_obj['cluster_tess_version']
             if self.version_obj == None or self.version_obj['cluster_tess_version'] == "v0.0.0":
                 try:
@@ -316,13 +322,18 @@ class Node():
                 except Exception as e:
                     self.log.logger.error(f"could not properly retrieve cluster version [{e}]")
         
-        self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
-        if environment_name == "testnet":
-            bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
-        elif environment_name == "integrationnet" or environment_name == "dev":
-            bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
+            self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
+            if environment_name == "testnet" and self.config_obj[profile]["seed_repository"] == "default":
+                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
+            elif environment_name == "integrationnet" and self.config_obj[profile]["seed_repository"] == "default":
+                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
+            elif environment_name == "mainnet" and self.config_obj[profile]["seed_repository"] == "default":
+                bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
         else:
-            bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
+            # makes ability to not include https or http
+            if "http://" not in self.config_obj[profile]['seed_repository'] and "https://" not in self.config_obj[profile]['seed_repository']:
+                self.config_obj[profile]['seed_repository'] = f"https://{self.config_obj[profile]['seed_repository']}"
+            bashCommand = f"sudo wget {self.config_obj[profile]['seed_repository']}/{self.config_obj[profile]['seed_file']} -O {seed_path} -o /dev/null"
             
         if not self.auto_restart:
             self.functions.print_cmd_status(progress)

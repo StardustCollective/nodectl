@@ -1439,7 +1439,7 @@ class Functions():
                 "environment_names": metagraph_env_set
             }
             
-        elif "one_profile_per_env":
+        elif "one_profile_per_env" in var.req:
             pull_all()
             last_env = set(); profiles = []
             for env in metagraph_env_set:
@@ -1451,10 +1451,11 @@ class Functions():
 
         elif var.req == "profiles_by_environment":
             pull_all()
-            for profile in self.profile_names:
-                if self.config_obj[profile]["environment"] == var.environment:
-                    profiles.append(profile)
-            return profile   
+            profiles = set()
+            for i_profile in self.profile_names:
+                if self.config_obj[i_profile]["environment"] == var.environment:
+                    profiles.add(i_profile)
+            return profiles   
                 
         elif "list" in var.req:
             if var.req == "list":

@@ -361,7 +361,8 @@ class Configuration():
                 "value": "global_p12",
                 "special_case": None
             }) 
-                    
+            
+        # default seed_repository setup in node_services -> download_update_seedlist        
         dirs = {
             "directory_backups": "/var/tessellation/backups/",
             "directory_uploads": "/var/tessellation/uploads/",
@@ -433,8 +434,13 @@ class Configuration():
                             if int(self.config_obj[profile]["layer"]) > 0:
                                 self.config_obj[profile]["jar_file"] = location[1]
                 except Exception as e:
+                    self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found()
 
+            self.config_obj[profile]["jar_github"] = False         
+            if "github.com" in self.config_obj[profile]["jar_repository"]:
+                self.config_obj[profile]["jar_github"] = True 
+                
             try:
                 self.config_obj[profile]["seed_path"] = self.create_path_variable(
                     self.config_obj[profile]["seed_location"],
@@ -662,6 +668,7 @@ class Configuration():
                 ["jar_repository","host_def"], 
                 ["jar_file","str"],
                 ["jar_version","str"],
+                ["jar_github","bool"], # automated value [not part of yaml]
                 ["p12_nodeadmin","str"],
                 ["p12_key_location","path"],
                 ["p12_key_name","str"],
@@ -669,6 +676,7 @@ class Configuration():
                 ["p12_passphrase","str"], 
                 ["p12_key_store","str"], # automated value [not part of yaml]              
                 ["seed_location","path_def_dis"],
+                ["seed_repository","host_def_dis"],
                 ["seed_file","str"],             
                 ["seed_path","path_def_dis"], # automated value [not part of yaml]
                 ["custom_args_enable","bool"],
@@ -733,7 +741,7 @@ class Configuration():
                 # key_test_list = list(config_value.keys())
                 # schema_test_list = [item[0] for item in self.schema["metagraphs"]]
                 missing =  [item[0] for item in self.schema["metagraphs"]] - config_value.keys()
-                missing = [x for x in missing if x not in ["seed_path","layer0_link_is_self","p12_key_store"]]
+                missing = [x for x in missing if x not in ["seed_path","layer0_link_is_self","p12_key_store","jar_github"]]
                 for item in missing:
                     missing_list.append([config_key, item])
         
@@ -1006,6 +1014,8 @@ class Configuration():
                             
                         elif "host" in req_type:
                             if req_type == "host_def" and test_value == "default":
+                                validated = True
+                            elif req_type == "host_def_disable" and test_value == "disable":
                                 validated = True
                             elif self.functions.test_hostname_or_ip(test_value) or test_value == "self":
                                 validated = True
