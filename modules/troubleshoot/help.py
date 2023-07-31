@@ -19,8 +19,7 @@ def build_help(command_obj):
     simple_command_list = [
       "list","whoami","show_node_states","passwd12",
       "reboot","disable_root_ssh","enable_root_ssh",
-      "clean_snapshots","check_seedlist", "export_private_key",
-      "update_seedlist", "check_source_connection","health","sec",
+      "clean_snapshots",      "update_seedlist", "check_source_connection","health","sec",
       "price","markets", "upgrade_path", 
       "check_seedlist_participation", "check_version",
     ]
@@ -151,9 +150,10 @@ def build_help(command_obj):
     whoami  | - show your system's external ip
     nodeid2dag | - convert nodeid to dag wallet address
     
-    id                  | - show your system's node id address
-    nodeid              | - show your system's node id address
-    export_private_key  | - show your p12's private key
+    id -p <profile>                 | - show your system's node id address
+    nodeid -p <profile>             | - show your system's node id address
+    export_private_key -p <profile> | - show your p12's private key
+    
     passwd12            | - change your p12's passphrase
                             
     restart  | - restart node services on Node and join
@@ -163,7 +163,7 @@ def build_help(command_obj):
     check_seedlist | - check the seed list access to see if 
                              your nodeid is present on the seed list
     
-    update_seedlist | - update the local copy of the seed list 
+    update_seedlist -e <environment_name> | - update the local copy of the seed list 
                              
     slow_restart | - restart the node with a 600 second delay to
                          make sure it is fully off the network in the
@@ -1633,6 +1633,14 @@ def build_help(command_obj):
   This command is specific to current restrictions placed
   on the Hypergraph for controlled access prior to the
   PRO Score [{colored("proof of reputable observation","yellow")}] release.
+  
+    Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}  
+  
+  {extended} for the configured profile_name
+  # {colored(f'sudo nodectl {extended} -p <profile_name>','cyan')}  
         ''' 
         
         
@@ -1747,7 +1755,8 @@ def build_help(command_obj):
     if extended == "export_private_key":
         help_text += title("export private key")
         help_text += f'''
-  The command does not take any arguments.
+  required:
+  {colored('-p <profile_name>','green')}  
   
   {colored("export_private_key","cyan")} will pull your private out of 
   your p12 file and print it to the screen.
@@ -1759,13 +1768,22 @@ def build_help(command_obj):
   Import the {colored("private key","cyan")} produced by this command
   into your StarGazer wallet in order to control your Node's 
   wallet.
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl export-private-key help','cyan')}  
+  
+  Export private key for p12 file used by profile <profile_name>
+  # {colored(f'sudo nodectl export-private-key -p <profile_name>','cyan')}  
         ''' 
         
         
     if extended == "update_seedlist":
         help_text += title("update seedlist")
         help_text += f'''
-  The command does not take any arguments.
+  required:
+  {colored('-e <environment_name>','green')}  
   
   {colored("update_seedlist","cyan")} will pull down the latest 
   seedlist from the Constellation Network repositories. This
@@ -1783,6 +1801,14 @@ def build_help(command_obj):
   This command is specific to current restrictions placed
   on the Hypergraph for controlled access prior to the
   PRO Score [{colored("proof of reputable observation","yellow")}] release.
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}  
+  
+  {extended} for configured environment
+  # {colored(f'sudo nodectl {extended} -e <profile_name>','cyan')}  
         ''' 
         
         

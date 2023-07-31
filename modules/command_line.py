@@ -1168,10 +1168,13 @@ class CLI():
     def update_seedlist(self,command_list):
         self.functions.check_for_help(command_list,"update_seedlist")
         self.log.logger.info("updating seed list...")
+        environment = command_list[command_list.index("-e")+1]
         profile = command_list[command_list.index("-p")+1]
         
         self.functions.print_clear_line()
         self.print_title("Update Seed list")
+        
+        profiles = self.functions.pull_profile({"req":"profiles_by_environment"})
         
         if "disable" in self.functions.config_obj[profile]["seed_path"]:
             self.functions.print_paragraphs([

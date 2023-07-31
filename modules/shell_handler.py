@@ -489,16 +489,30 @@ class ShellHandler:
     def check_for_profile_requirements(self):
         # check if default profile needs to be set
         self.log.logger.debug(f"checking profile requirements | command [{self.called_command}]") 
-        need_profile = False
-        called_profile = False
+        need_profile, need_environment = False, False
+        called_profile, called_environment = False, False
+        profile_hint, env_hint = False, False
         
+        def send_to_help_method(hint):
+            self.functions.print_help({
+                "usage_only": True,
+                "hint": hint
+            }) 
+                               
         if self.help_requested:
             return
 
         if "-p" in self.argv:
             called_profile = self.argv[self.argv.index("-p")+1]
             self.functions.check_valid_profile(called_profile)
+        if "-e" in self.argv:
+            called_environment = self.argv[self.argv.index("-e")+1]
                     
+        need_environemnt_list = [
+            "refresh_binaries","_rtb",
+            "update_seedlist", "_usl",
+        ]
+        
         need_profile_list = [
             "find","quick_check","logs",
             "start","stop","restart",
@@ -518,11 +532,25 @@ class ShellHandler:
                 # logs command exception
                 pass
             elif len(self.argv) == 0 or ("-p" not in self.argv or called_profile == "empty"):
-                self.functions.print_help({
-                    "usage_only": True,
-                    "hint": "profile"
-                })
+                profile_hint = True
                 
+        if self.called_command in need_environemnt_list:
+            need_environment = True
+            if "help" in self.argv:
+                pass
+            elif self.called_command == "logs" and "nodectl" in self.argv:
+                # logs command exception
+                pass
+            elif len(self.argv) == 0 or ("-e" not in self.argv or called_profile == "empty"):
+                env_hint = True
+        
+        if env_hint and profile_hint:
+            send_to_help_method("profile_env")
+        elif profile_hint:
+            send_to_help_method("profile")
+        elif env_hint:
+            send_to_help_method("env")
+            
         if need_profile and self.called_command != "empty":
             if "-p" in self.argv:
                 self.profile = called_profile

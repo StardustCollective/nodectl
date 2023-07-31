@@ -1448,6 +1448,13 @@ class Functions():
                         profiles.append(profile)
                     last_env.add(env)
             return profiles
+
+        elif var.req == "profiles_by_environment":
+            pull_all()
+            for profile in self.profile_names:
+                if self.config_obj[profile]["environment"] == var.environment:
+                    profiles.append(profile)
+            return profile   
                 
         elif "list" in var.req:
             if var.req == "list":
@@ -2508,7 +2515,6 @@ class Functions():
         nodectl_version_only = command_obj.get("nodectl_version_only",False)
         hint = command_obj.get("hint",False)
         title = command_obj.get("title",False)
-        environments = self.pull_profile({"req":"environments"})
         
         if not nodectl_version_only:
             keys = ["node_nodectl_version","node_tess_version"]
@@ -2551,13 +2557,21 @@ class Functions():
         self.help_text += build_help(command_obj)
         
         print(self.help_text)
-        if hint:
-             print(colored('  HINT:','yellow',attrs=['bold']),end=" ")           
-        if hint == "profile":
-            print(
-                'Did you include the',
-                colored('-p <profile_name>','yellow'),'in your command request?\n'
-            )
+        
+        
+        if "profile" in hint:
+            self.print_paragraphs([
+                ["HINT:",0,"yellow","bold"],
+                ["Did you include the",0,"white"],["-p <profile>",0,"yellow"],
+                ["in your command request?",1,"white"],
+            ])
+        if "env" in hint:
+            self.print_paragraphs([
+                ["HINT:",0,"yellow","bold"],
+                ["Did you include the",0,"white"],["-e <environment_name>",0,"yellow"],
+                ["in your command request?",1,"white"],
+            ])
+            
         elif hint == "unknown":
             print(colored('Unknown command entered','red'),"\n")
         elif isinstance(hint,str):

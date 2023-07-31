@@ -270,7 +270,7 @@ class Node():
         # ===============================
         
         self.log.logger.debug("node service - download seed list initiated...")
-        profile = command_obj.get("profile",self.profile)
+        environment = command_obj.get("profile",self.profile)
         install_upgrade = command_obj.get("install_upgrade",True)
         download_version = command_obj.get("download_version","default")
         environment_name = self.functions.config_obj[profile]["environment"]

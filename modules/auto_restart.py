@@ -339,7 +339,6 @@ class AutoRestart():
             self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  silent restart [stop] initiating | profile [{self.node_service.profile}]")
             self.stop_start_handler("stop")
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - updating [seed_list]")
-            # self.node_service.download_update_seedlist(False)
             self.node_service.download_update_seedlist({
                 "profile": self.thread_profile,
                 "install_upgrade": False,
