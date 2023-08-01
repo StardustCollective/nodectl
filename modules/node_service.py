@@ -83,6 +83,16 @@ class Node():
         })
 
 
+    def set_github_repository(self,repo,profile,download_version):
+        if repo == "default":
+            repo = "https://github.com/Constellation-Labs/tessellation"
+            
+        if self.config_obj[profile]["jar_github"]:
+            repo = f"{repo}/releases/download/{download_version}"
+        
+        return repo
+    
+    
     def download_constellation_binaries(self,command_obj):
         # download_version=(bool) "default"
         # print_version=(bool) True
@@ -133,8 +143,7 @@ class Node():
             download_version = file_obj_copy[file]["version"]
             
             uri = file_obj_copy[file]["location"]
-            if uri[-1] == "/":
-                uri = uri[0:-1]
+            uri = self.functions.cleaner(uri,"trailing_backslash")
             if uri[0:3] != "http" and uri != "default":
                 # default to https://
                 uri = f"https://{uri}"
@@ -142,11 +151,8 @@ class Node():
             if download_version == "default":
                 # retreived from the edge point
                 download_version = self.version_obj["cluster_tess_version"][profile]
-            if uri == "default":
-                uri = "https://github.com/Constellation-Labs/tessellation"
-                
-            if self.config_obj[profile]["jar_github"]:
-                uri = f"{uri}/releases/download/{download_version}"
+            uri = self.set_github_repository(uri,profile,download_version)
+
                 
             attempts = 0
             if not path.exists(tess_dir):
@@ -279,7 +285,8 @@ class Node():
                 command_obj = {
                     **command_obj,
                     "profile": profile,
-                    "network_name": self.functions.config_obj[profile]["environment"]
+                    "network_name": self.functions.config_obj[profile]["environment"],
+                    "download_version": download_version,
                 }
                 self.download_update_seedlist(command_obj)
            
@@ -301,8 +308,11 @@ class Node():
         download_version = command_obj.get("download_version",None)
         environment_name = self.functions.config_obj[profile]["environment"]
         seed_path = self.functions.config_obj[profile]["seed_path"]    
+        seed_file = self.config_obj[profile]['seed_file']
+        seed_repo = self.config_obj[profile]['seed_repository']
         
-        print_message = True
+        test_repo_uri, print_message = True, True
+        
         if self.auto_restart or install_upgrade:
             print_message = False    
         
@@ -342,17 +352,21 @@ class Node():
                     self.log.logger.error(f"could not properly retrieve cluster version [{e}]")
         
             self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
+            test_repo_uri = False
             if environment_name == "testnet" and self.config_obj[profile]["seed_repository"] == "default":
                 bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
             elif environment_name == "integrationnet" and self.config_obj[profile]["seed_repository"] == "default":
                 bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
             elif environment_name == "mainnet" and self.config_obj[profile]["seed_repository"] == "default":
                 bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
-        else:
+            else:
+                test_repo_uri = True
+                
+        if test_repo_uri:
             # makes ability to not include https or http
-            if "http://" not in self.config_obj[profile]['seed_repository'] and "https://" not in self.config_obj[profile]['seed_repository']:
-                self.config_obj[profile]['seed_repository'] = f"https://{self.config_obj[profile]['seed_repository']}"
-            bashCommand = f"sudo wget {self.config_obj[profile]['seed_repository']}/{self.config_obj[profile]['seed_file']} -O {seed_path} -o /dev/null"
+            if "http://" not in seed_repo and "https://" not in seed_repo:
+                seed_repo = f"https://{seed_repo}"
+            bashCommand = f"sudo wget {seed_repo}/{seed_file} -O {seed_path} -o /dev/null"
             
         if not self.auto_restart:
             self.functions.print_cmd_status(progress)
@@ -367,7 +381,7 @@ class Node():
             system(bashCommand)
             if path.exists(seed_path):
                 if self.functions.get_size(seed_path,True) > 0:
-                    system(f"chmod 644 /var/tessellation/seed-list > /dev/null 2>&1")
+                    system(f"chmod 644 {seed_path} > /dev/null 2>&1")
                     break
             if n == 3:
                 if self.auto_restart:
@@ -465,20 +479,19 @@ class Node():
         single_profile = command_obj.get("single_profile",False)
         rebuild_restart = command_obj.get("rebuild_restart",False)
         create_file_type = command_obj["create_file_type"]
-        profiles = self.config_ob  # pull profiles out of configuration
         
-        for profile in profiles:
+        for profile in self.profile_names:
             profile = single_profile if single_profile else profile
             template = self.create_files({"file": create_file_type})
             template, chmod = replace_service_file_items(profile,template,create_file_type)
 
             if create_file_type == "service_file":
-                service_dir_file = f"/etc/systemd/system/cnng-{profiles[profile]['service']}.service"
+                service_dir_file = f"/etc/systemd/system/cnng-{self.config_obj[profile]['service']}.service"
             if create_file_type == "service_bash":
-                profile_service = profiles[profile]['service']
+                profile_service = self.config_obj[profile]['service']
                 # service_dir_file = f"/usr/local/bin/cnng-{profiles[profile]['service']}"
                 if single_profile:
-                    profile_service = profiles[single_profile]['service']
+                    profile_service = self.config_obj[single_profile]['service']
                 self.temp_bash_file = service_dir_file = f"/var/tessellation/nodectl/cnng-{profile_service}"
                 
             with open(service_dir_file,'w') as file:
@@ -525,6 +538,11 @@ class Node():
             system(f"rm {self.env_conf_file} > /dev/null 2>&1")
             
         with open(self.env_conf_file,"w") as f:
+            if self.config_obj[profile]["custom_env_vars_enable"]:
+                for env, value in self.config_obj[profile].items():
+                    if "custom_env_vars" in env and env != "custom_env_vars_enable":
+                        f.write(f'{env.replace("custom_env_vars_","")}={value}\n')
+                        
             f.write(f"CL_EXTERNAL_IP={self.functions.get_ext_ip()}\n")
             f.write(f"CL_APP_ENV={self.functions.config_obj[profile]['environment']}\n")
             
@@ -538,14 +556,6 @@ class Node():
                     link_port = self.functions.config_obj[link_profile]['public_port']
                     
                 f.write(f"CL_L0_PEER_HTTP_PORT={link_port}\n")
-        
-            try: # profiles with dir snapshot "disable" will not have an entry
-                snapshots = self.functions.config_obj[profile]["snapshots"]
-            except:
-                pass
-            else:
-                if snapshots != "disable" and snapshots != "default":
-                    f.write(f"CL_SNAPSHOT_STORED_PATH={snapshots}\n")
                 
             p12_keys = [
                 ['CL_PASSWORD','p12_passphrase'],
@@ -554,10 +564,10 @@ class Node():
                 ['CL_KEYALIAS','p12_key_alias'],
                 ['CL_KEYSTORE','p12_key_store'],
             ]
-            for key in self.functions.config_obj[profile].keys():
-                for key2 in p12_keys:
-                    if key == key2[1]:
-                        f.write(f"{key2[0]}={self.functions.config_obj[profile]['p12'][key]}\n")
+            for key, value in self.functions.config_obj[profile].items():
+                for env_key_value in p12_keys:
+                    if key == env_key_value[1]:
+                        f.write(f"{env_key_value[0]}={self.functions.config_obj[profile][key]}\n")
         f.close()
 
         if not self.auto_restart:        

@@ -2670,8 +2670,12 @@ class Functions():
             return sub('\n', '', line) 
         elif action == "remove_char":
             return sub(char, '', line)  
-        elif action =="service_prefix":
-            return sub("cnng-","", line)     
+        elif action == "service_prefix":
+            return sub("cnng-","", line)   
+        elif action == "trailing_backslash":
+            if line[-1] == "/":
+                return line[0:-1]
+            return line
 
 
     def confirm_action(self,command_obj):

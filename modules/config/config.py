@@ -369,7 +369,7 @@ class Configuration():
             "seed_file": "seed-list",
             "seed_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
-            "jar_repository": "github.com/Constellation-Labs/tessellation/"
+            "jar_repository": "github.com/Constellation-Labs/tessellation/",
         }
         
         # snaps = {
