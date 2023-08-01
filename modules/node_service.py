@@ -407,9 +407,6 @@ class Node():
         # restart_build=(bool) # default True;  build the auto_restart service?
         
         def replace_service_file_items(profile,template,create_file_type):
-            layer0_service = "cl-node.jar"
-            layer1_service = "cl-dag-l1.jar"
-        
             if create_file_type == "service_file":
                 chmod = "644"
                 template = template.replace(
@@ -433,45 +430,57 @@ class Node():
                     profile
                 ) 
                 
-                if self.config_obj[profile]["layer"] == 0:
+                if self.config_obj[profile]["layer"] < 1:
                     template = template.replace(
                         "nodegarageseedlistv",
                         self.config_obj[profile]["seed_location"]+"/"+self.config_obj[profile]["seed_file"]
                     )
                     template = template.replace("//","/") # avoid double //
-                    
-                    template = template.replace(
-                        "nodegaragetessbinaryfile",
-                        layer0_service
-                    )                     
+                    template = template.rstrip()
                     
                 else: # layer1
                     template = template.replace("--seedlist nodegarageseedlistv","")
+                    template = template.rstrip()
                     
-                    template = template.replace(
-                        "nodegaragetessbinaryfile",
-                        layer1_service
-                    )                      
+                template = template.replace(
+                    "nodegaragetessbinaryfile",
+                    self.config_obj[profile]["jar_file"]
+                )   
+                template = template.rstrip()                   
                     
-                if self.config_obj[profile]["environment"] == "mainnet":
-                    template = template.replace("--collateral 0","")
-                    
-                for key in self.config_obj[profile].keys():
+                port_types = ["public_port","p2p_port","cli_port"]
+                for key, value in self.config_obj[profile].items():
+                    # java heap updates
                     if "java_" in key:
-                        java_mem_type = key[::-3]
+                        java_mem_type = key[-3::]
                         template = template.replace(
                             f"nodegarage{java_mem_type}v",
-                            str(self.config_obj[profile][key])
-                    )
-                for key in self.config_obj[profile].keys():
-                    possibilities = ["public","p2p","cli"]
-                    for key_type in possibilities:
-                        if key in key_type:
-                            template = template.replace(
-                                f"nodegarage{key_type}port",
-                                str(self.config_obj[profile][key])
-                    )
- 
+                            str(value)
+                        )
+                        template = template.rstrip()
+                        
+                    # tcp port updates
+                    if key in port_types:
+                        template = template.replace(
+                            f"nodegarage{key}",
+                            str(value)
+                        )
+                        template = template.rstrip()
+                            
+                    # custom arguments
+                    if self.config_obj[profile]["custom_args_enable"]:
+                        if "custom_args_enable" not in key and "custom_args_" in key:
+                            template = f'{template} --{key.replace("custom_args_","")} {value}'
+                            template = template.rstrip()
+                            
+            # clean up the template
+            substring = "/usr/bin/java"
+            index = template.find(substring)
+            pre_template = template[:index]; post_template = self.functions.cleaner(template[index:],"new_line")
+            template = f"{pre_template}{post_template}"
+            
+            # append background switch to command
+            template = f"{template} & \n"
             return(template,chmod)               
                
         # ===========================================
@@ -972,7 +981,7 @@ WantedBy=multi-user.target
         if var.file == "service_bash":
             cur_file = '''#!/bin/bash
             
-# This file is used by the [nodegarageservicename] service
+# This file is used by the [nodegarageservicename] profile
 # to run your Node's debian service.
 #
 # Node Operators should not alter this file;
@@ -980,7 +989,7 @@ WantedBy=multi-user.target
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublicport --p2p-port nodegaragep2pport --cli-port nodegaragecliport --collateral 0 --seedlist nodegarageseedlistv &
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv
 '''
         
         if var.file == "service_restart":
