@@ -156,8 +156,11 @@ class CLI():
                 quick_results = self.functions.get_api_node_info({
                     "api_host": self.functions.get_ext_ip(),
                     "api_port": self.functions.config_obj[called_profile]["public_port"],
+                    "tolerance": 1,
                     "info_list": ["state"]
                 })
+                if quick_results == None:
+                    quick_results = ["ApiNotReady"]
                 self.functions.print_paragraphs([
                     [f"{called_profile}:",0,"yellow","bold"],[quick_results[0],1],
                 ])
@@ -1262,7 +1265,8 @@ class CLI():
                 },
                 {
                     "header_elements" : {
-                        "TESS VERSION MATCH": f"{match_true: <38}" if self.version_obj["node_tess_version"][profile]["tess_uptodate"] else match_false,
+                        # 38
+                        "TESS VERSION MATCH": f"{match_true: <38}" if self.version_obj["node_tess_version"][profile]["tess_uptodate"] else f"{match_false: <38}",
                         "NODECTL VERSION MATCH": f"{match_true}" if self.version_obj["node_tess_version"][profile]["tess_uptodate"] else match_false
                     },
                     "spacing": 25
@@ -1825,7 +1829,7 @@ class CLI():
         for env in environments["environment_names"]:
             nodectl_version_check = self.functions.is_new_version(
                 self.version_obj["node_nodectl_version"],
-                self.version_obj["latest_nodectl_version"]
+                self.functions.upgrade_path[env]["version"]
             )
             self.functions.upgrade_path[env]["nodectl_uptodate"] = True if not nodectl_version_check else False
             if nodectl_version_check:

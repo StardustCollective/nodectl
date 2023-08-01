@@ -492,7 +492,7 @@ class ShellHandler:
         self.log.logger.debug(f"checking profile requirements | command [{self.called_command}]") 
         need_profile, need_environment = False, False
         called_profile, called_environment = False, False
-        profile_hint, env_hint, both_hint = False, False, False
+        profile_hint, env_hint, either_or_hint = False, False, False
         
         def send_to_help_method(hint):
             self.functions.print_help({
@@ -506,8 +506,8 @@ class ShellHandler:
         if "-p" in self.argv:
             called_profile = self.argv[self.argv.index("-p")+1]
             self.functions.check_valid_profile(called_profile)
-        if "-e" in self.argv:
-            called_environment = self.argv[self.argv.index("-e")+1]
+        # if "-e" in self.argv:
+        #     called_environment = self.argv[self.argv.index("-e")+1]
                     
         need_environemnt_list = [
             "refresh_binaries","_rtb",
@@ -539,7 +539,7 @@ class ShellHandler:
                 profile_hint = True
                 
         if self.called_command in need_environemnt_list:
-            need_environment = True
+            # need_environment = True
             if "help" in self.argv:
                 pass
             elif self.called_command == "logs" and "nodectl" in self.argv:

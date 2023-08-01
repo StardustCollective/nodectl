@@ -154,8 +154,9 @@ class Functions():
                     version = self.get_api_node_info({
                         "api_host": self.config_obj[profile]["edge_point"],
                         "api_port": self.config_obj[profile]["edge_point_tcp_port"],
-                        "info_list": ["version"]
-                    },2)  # tolerance of 2
+                        "info_list": ["version"],
+                        "tolerance": 2,
+                    })
                     # version = ["1.11.3"]  # debugging
                     cluster_tess_version_obj[profile] = f"v{version[0]}" 
                                        
@@ -183,7 +184,8 @@ class Functions():
                     version = self.get_api_node_info({
                         "api_host": api_host,
                         "api_port": api_port,
-                        "info_list": ["version"]
+                        "info_list": ["version"],
+                        "tolerance": 2,
                     },2)  # tolerance of 2
                     # version = ["1.11.3"]  # debugging
                     cluster_tess_version_obj["install"] = f"v{version[0]}"
@@ -748,11 +750,12 @@ class Functions():
                         self.print_timer(10,"Pausing 10 seconds",1)
 
         
-    def get_api_node_info(self,command_obj,tolerance=5):
+    def get_api_node_info(self,command_obj):
         # api_host=(str), api_port=(int), info_list=(list)
         api_host = command_obj.get("api_host")
         api_port = command_obj.get("api_port")
         info_list = command_obj.get("info_list","all")
+        tolerance = command_obj.get("tolerance",2)
         
         # dictionary
         #  api_host: to do api call against
@@ -783,7 +786,7 @@ class Functions():
                 session = get(api_url,verify=False,timeout=(2,2)).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
-                if n > tolerance-1:
+                if n == tolerance-1:
                     self.log.logger.warn(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
                     return None
                 sleep(1.5)
@@ -1378,10 +1381,9 @@ class Functions():
             
         elif var.req == "pairings":
             # return list of profile objects that are paired via layer0_link
-            profile_list = list(self.config_obj.keys())
             pairing_list = []
                        
-            for profile in profile_list:
+            for profile in self.profile_names:
                 if self.config_obj[profile]["layer0_link_enable"]:
                     # list of lists of matching profile to linked profile
                     link_profile = self.config_obj[profile]["layer0_link_profile"]
@@ -1406,15 +1408,14 @@ class Functions():
                     else:
                         n += 1
                         
-            profile_keys = list(self.config_obj.keys())
             dup_keys = []
 
-            for key in profile_keys:
+            for key in self.profile_names:
                 for x in pairing_list:
                     if key in x:
                         dup_keys.append(key)
                         break
-            for key in profile_keys:
+            for key in self.profile_names:
                 if key not in dup_keys:
                     key_list = []
                     key_list.append(key)

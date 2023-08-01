@@ -448,6 +448,12 @@ class Node():
                 )   
                 template = template.rstrip()                   
                     
+                template = template.replace(
+                    "nodegaragecollateral",
+                    str(self.config_obj[profile]["collateral"])
+                )   
+                template = template.rstrip()                   
+                    
                 port_types = ["public_port","p2p_port","cli_port"]
                 for key, value in self.config_obj[profile].items():
                     # java heap updates
@@ -576,7 +582,7 @@ class Node():
             for key, value in self.functions.config_obj[profile].items():
                 for env_key_value in p12_keys:
                     if key == env_key_value[1]:
-                        f.write(f"{env_key_value[0]}={self.functions.config_obj[profile][key]}\n")
+                        f.write(f'{env_key_value[0]}="{self.functions.config_obj[profile][key]}"\n')
         f.close()
 
         if not self.auto_restart:        
@@ -989,7 +995,7 @@ WantedBy=multi-user.target
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --collateral nodegaragecollateral
 '''
         
         if var.file == "service_restart":

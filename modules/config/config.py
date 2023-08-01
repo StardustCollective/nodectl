@@ -370,6 +370,11 @@ class Configuration():
             "seed_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": "github.com/Constellation-Labs/tessellation/",
+            "edge_point": [
+                "l0-lb-integrationnet.constellationnetwork.io",
+                "l1-lb-integrationnet.constellationnetwork.io",
+            ],
+            "edge_point_tcp_port": 80,
         }
         
         # snaps = {
@@ -433,6 +438,10 @@ class Configuration():
                             self.config_obj[profile]["jar_file"] = location[0]
                             if int(self.config_obj[profile]["layer"]) > 0:
                                 self.config_obj[profile]["jar_file"] = location[1]
+                        if tdir == "edge_point":
+                            self.config_obj[profile]["edge_point"] = location[0]
+                            if int(self.config_obj[profile]["layer"]) > 0:
+                                self.config_obj[profile]["edge_point"] = location[1]
                 except Exception as e:
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found()
@@ -646,7 +655,8 @@ class Configuration():
                 ["metagraph_name","str"],
                 ["description","str"],
                 ["node_type","node_type"],                
-                ["layer","layer"],
+                ["layer","layer"],   
+                ["collateral","int"],
                 ["service","str"],
                 ["environment","str"],
                 ["edge_point","host"],
@@ -985,10 +995,6 @@ class Configuration():
                                 validated = True
                             else:
                                 skip_validation = False
-                            
-                        # debugging
-                        # if key == "layer0_link_host" and profile == "intnet-l1":
-                        #     1 == 1
                         
                         if req_type in valuation_dict.keys():
                             try:
@@ -1157,6 +1163,7 @@ class Configuration():
             "ports": "port must be a integer between 1 and 65535",
             "api_port_dups": "Tessellation API ports cannot conflict.",
             "high_port": "port must be a integer between 1024 and 65535",
+            "int": "collateral must be an integer value",
             "wallet_alias": f"{wallet_error1} {wallet_error2} {wallet_error3}",
             "p12_key_name": f"{p12_name_error1} {string2}",
             "key_location": f"{key_location1} {string2}",
