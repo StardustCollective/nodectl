@@ -131,7 +131,14 @@ class Node():
                 profile = first_profile
             
             download_version = file_obj_copy[file]["version"]
+            
             uri = file_obj_copy[file]["location"]
+            if uri[-1] == "/":
+                uri = uri[0:-1]
+            if uri[0:3] != "http" and uri != "default":
+                # default to https://
+                uri = f"https://{uri}"
+                
             if download_version == "default":
                 # retreived from the edge point
                 download_version = self.version_obj["cluster_tess_version"][profile]
@@ -213,6 +220,12 @@ class Node():
         file_obj["cur_pos"] = 1
         files = list(file_obj.keys())
         
+        self.functions.backup_restore_files({
+            "file_list": files,
+            "location": "/var/tessellation",
+            "action": "backup"
+        })
+        
         if action == "auto_restart":
             result = True
             for file in files:
@@ -250,8 +263,14 @@ class Node():
                         file_obj = return_obj.result()
             elif fail_count > 0 and n > 3:
                 self.functions.print_paragraphs([
-                    ["Possible network issues downloading files, please try again later",1,"red"]
+                    ["Possible network issues downloading files, please try again later.",1,"red"],
+                    ["Original binaries will be automatically restored if they were present before the download process initiated.",1,"yellow"]
                 ])
+                self.functions.backup_restore_files({
+                    "file_list": files,
+                    "location": "/var/tessellation",
+                    "action": "restore"
+                })
             elif fail_count == 0:
                 break
             

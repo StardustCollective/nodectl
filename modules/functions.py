@@ -2610,6 +2610,43 @@ class Functions():
             return "yellow"
 
 
+    def backup_restore_files(self, file_obj):
+        files = file_obj["file_list"]
+        location = file_obj["location"]
+        action = file_obj["action"]
+        
+        self.print_cmd_status({
+            "text_start": f"{action} files",
+            "status": "running",
+            "newline": False,
+            "status_color": "yellow"
+        })
+        
+        for file in files:
+            org_path =  f"{location}/{file}"
+            backup_path = f"/var/tmp/cnng-{file}"
+            bashCommand = False
+            if action == "backup":
+                if path.exists(org_path):
+                    bashCommand = f"sudo cp {org_path} {backup_path}"
+            elif action == "restore":
+                if path.exists(backup_path):
+                    bashCommand = f"sudo mv {backup_path} {org_path}"
+            
+            if bashCommand:
+                self.process_command({
+                    "bashCommand": bashCommand,
+                    "proc_action": "run"
+                }) 
+                           
+        self.print_cmd_status({
+            "text_start": f"{action} files",
+            "status": "complete",
+            "newline": True,
+            "status_color": "green"
+        })        
+        
+        
     def clear_global_profiles(self,profile_list_or_obj):
         if isinstance(profile_list_or_obj,list):
             return [x for x in profile_list_or_obj if "global" not in x]
