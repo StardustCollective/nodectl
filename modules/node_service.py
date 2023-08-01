@@ -668,7 +668,7 @@ class Node():
 
         if action == "stop":
             if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
-                self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['node_service_status'][profile]}]")
+                self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_cmd_status({

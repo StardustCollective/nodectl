@@ -132,7 +132,7 @@ class CLI():
         spinner = command_obj.get("spinner",True)
         all_profile_request = False
         called_profile = self.profile
-        called_command = command_obj["called"]
+        called_command = command_obj.get("called","default")
         profile_list = self.profile_names
         
         for key,value in command_obj.items():
@@ -1184,7 +1184,7 @@ class CLI():
         self.functions.print_clear_line()
         self.print_title("Update Seed list")
         
-        for i_profile in profiles:
+        for i_profile in reversed(list(profiles)):
             if "disable" in self.functions.config_obj[i_profile]["seed_path"]:
                 self.functions.print_paragraphs([
                     ["Seed list is disabled for profile [",0,"red"],
@@ -2042,7 +2042,7 @@ class CLI():
             show_timer = False
         if spinner:
             show_timer = False
-        if self.functions.config_obj["node_service_status"][profile] == "inactive (dead)":
+        if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
             rebuild = False
         
         self.functions.print_cmd_status({

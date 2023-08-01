@@ -144,6 +144,7 @@ class ShellHandler:
                 elif self.called_command == "stop":
                     cli.cli_stop({
                         "show_timer": False,
+                        "spinner": True,
                         "upgrade_install": False,
                         "argv_list": self.argv,
                         "check_for_leave": True,
