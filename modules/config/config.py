@@ -179,6 +179,8 @@ class Configuration():
             **yaml_dict[nodectl_config_version[0]],
             "global_elements": {},
         }
+        
+        self.functions.pull_upgrade_path(True)
 
         if len(nodectl_config_version) > 1 or "nodectl" not in nodectl_config_version[0]:
             self.error_messages.error_code_messages({

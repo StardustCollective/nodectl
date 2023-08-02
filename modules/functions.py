@@ -62,6 +62,8 @@ class Functions():
         
         # constellation nodectl statics
         self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        # dev
+        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_v290/admin/upgrade_path.json"
         
         # versioning
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
@@ -1513,7 +1515,7 @@ class Functions():
             })
     
     
-    def pull_upgrade_path(self):
+    def pull_upgrade_path(self,config=False):
         def check_for_release(p_version):
             pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
             pre_success = True
@@ -1550,6 +1552,9 @@ class Functions():
     
         upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
         self.upgrade_path = eval(upgrade_path)
+        if config:
+            return
+        
         for profile in self.profile_names:
             # non-constellation-profiles will eval to False
             environment = self.config_obj[profile]["environment"]
