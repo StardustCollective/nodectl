@@ -1,0 +1,119 @@
+---
+# NODECTL CONFIGURATION FILE
+# @netmet72
+# =========================================================
+# IMPORTANT IMPORTANT IMPORTANT IMPORTANT
+#
+# It is discouraged to update this file manually.  nodectl may
+# update this file through automation at any time, causing any
+# changes you make to be lost.
+#
+# Do NOT update this file unless you know what you are
+# doing !!  Please see the Constellation Network
+# documentation hub for details on how to configure
+# this file.
+# =========================================================
+# Metagraph sections isolated by profile key name
+# =========================================================
+# YOU MUST PREFIX "custom_args_" to your arg
+# customer_args_collateral: 0
+# custom_args_var1: value1
+# custom_args_var2: value2
+# YOU MUST PREFIX "custom_env_var_" to your env_var
+# custom_env_vars_CL_SNAPSHOT_STORED_PATH: /location1/here/
+# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_STORED_PATH: /location2/here/
+# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH: /location3/here/
+#
+# =========================================================
+
+nodectl:
+  intnet-l0:
+    enable: True
+    metagraph_name: integrationnet
+    description: Constellation Network IntgrationNet Hyergraph Global Layer0
+    node_type: validator
+    collateral: 0
+    layer: 0
+    service: intnetserv_l0
+    environment: integrationnet
+    edge_point: default
+    edge_point_tcp_port: default
+    public_port: default
+    p2p_port: default
+    cli_port: default
+    layer0_link_enable: False
+    layer0_link_key: None
+    layer0_link_host: None
+    layer0_link_port: None
+    layer0_link_profile: None
+    directory_backups: default
+    directory_uploads: default
+    java_xms: default
+    java_xmx: default
+    java_xss: default
+    jar_repository: default
+    jar_file: default
+    jar_version: default
+    p12_nodeadmin: global
+    p12_key_location: global
+    p12_key_name: global
+    p12_key_alias: global
+    p12_passphrase: global
+    seed_location: default
+    seed_repository: default
+    seed_file: default
+    priority_source_location: default
+    priority_source_repository: default
+    priority_source_file: default
+    custom_args_enable: False
+    custom_env_vars_enable: False
+  intnet-l1:
+    enable: True
+    metagraph_name: integrationnet
+    description: Constellation Network IntgrationNet Metagraph Layer1
+    node_type: validator
+    collateral: 0
+    layer: 1
+    service: intnetserv_l1
+    environment: integrationnet
+    edge_point: l1-lb-integrationnet.constellationnetwork.io
+    edge_point_tcp_port: 80
+    public_port: default
+    p2p_port: default
+    cli_port: default
+    layer0_link_enable: True
+    layer0_link_key: self
+    layer0_link_host: self
+    layer0_link_port: self
+    layer0_link_profile: intnet-l0
+    directory_backups: default
+    directory_uploads: default
+    java_xms: default
+    java_xmx: default
+    java_xss: default
+    jar_repository: default
+    jar_file: default
+    jar_version: default
+    p12_nodeadmin: global
+    p12_key_location: global
+    p12_key_name: global
+    p12_key_alias: global
+    p12_passphrase: global
+    seed_location: disable
+    seed_repository: disable
+    seed_file: disable
+    priority_source_location: default
+    priority_source_repository: default
+    priority_source_file: default
+    custom_args_enable: False
+    custom_env_vars_enable: False
+  global_auto_restart:
+    enable: False
+    auto_upgrade: False
+    rapid_restart: False
+  global_p12:
+    nodeadmin: blank
+    key_location: blank
+    key_name: blank
+    key_alias: blank
+    passphrase: blank
