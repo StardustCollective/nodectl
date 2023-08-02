@@ -174,9 +174,19 @@ class Configuration():
                     "extra2": None
                 })      
 
+        nodectl_config_version = list(yaml_dict.keys())
+        
+        if len(nodectl_config_version) > 1 or "nodectl" not in nodectl_config_version[0]:
+            self.error_messages.error_code_messages({
+                "error_code": "cfg-180",
+                "line_code": "config_error",
+                "extra": "format",
+                "extra2": None,
+            })
+            
         self.config_obj = {
             **self.config_obj,
-            **yaml_dict["nodectl"],
+            **yaml_dict[nodectl_config_version[0]],
             "global_elements": {},
         }
         
@@ -363,7 +373,7 @@ class Configuration():
             }) 
             
         # default seed_repository setup in node_services -> download_update_seedlist        
-        dirs = {
+        defaults = {
             "directory_backups": "/var/tessellation/backups/",
             "directory_uploads": "/var/tessellation/uploads/",
             "seed_file": "seed-list",
@@ -375,9 +385,15 @@ class Configuration():
                 "l1-lb-integrationnet.constellationnetwork.io",
             ],
             "edge_point_tcp_port": 80,
+            "public_port": [9000,9010],
+            "p2p_port": [9001,9011],
+            "cli_port": [9020,9012],
+            "java_xms": "1024M",
+            "java_xss": "256K",
+            "java_xmx": ["7G","3G"],
         }
         
-        # snaps = {
+        # snapshots = {
         #     "CL_SNAPSHOT_STORED_PATH":
         #         "/var/tessellation/cnng-profile_name/data/snapshot/"
         #     ,
@@ -430,18 +446,17 @@ class Configuration():
                         "special_case": None
                     })
                     
-            for tdir, location in dirs.items():
+            for tdir, def_value in defaults.items():
                 try:
-                    if self.config_obj[profile][tdir] == "default":
-                        self.config_obj[profile][tdir] = location   
-                        if tdir == "jar_file":
-                            self.config_obj[profile]["jar_file"] = location[0]
-                            if int(self.config_obj[profile]["layer"]) > 0:
-                                self.config_obj[profile]["jar_file"] = location[1]
-                        if tdir == "edge_point":
-                            self.config_obj[profile]["edge_point"] = location[0]
-                            if int(self.config_obj[profile]["layer"]) > 0:
-                                self.config_obj[profile]["edge_point"] = location[1]
+                    if tdir == "seed_file" and self.config_obj[profile][tdir] == "default":
+                        # exception
+                        self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist'
+                    elif isinstance(def_value,list):
+                        self.config_obj[profile][tdir] = def_value[0]
+                        if int(self.config_obj[profile]["layer"]) > 0:
+                            self.config_obj[profile][tdir] = def_value[1]
+                    elif self.config_obj[profile][tdir] == "default":
+                        self.config_obj[profile][tdir] = def_value  
                 except Exception as e:
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found()
@@ -465,22 +480,6 @@ class Configuration():
                     "value": "p12",
                     "special_case": None
                 })
-                                    
-            # snap_obj = {}
-            # for default_snap_dir, location in snaps.items():
-            #     for config_snap_dir in self.config_obj[profile].keys():
-            #         if "custom_env_vars" in config_snap_dir and self.config_obj[profile]["custom_env_vars_enable"]:
-            #             if default_snap_dir in config_snap_dir:
-            #                 break 
-            #         elif self.config_obj[profile]["layer"] > 0:
-            #             snap_obj[f"customer_env_{default_snap_dir}"] = "default"
-            #         else:
-            #             snap_obj[f"customer_env_{default_snap_dir}"] = location
-                
-            # self.config_obj[profile] = {
-            #     **self.config_obj[profile],
-            #     **snap_obj,
-            # }
                     
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
             
