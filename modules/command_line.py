@@ -2184,6 +2184,7 @@ class CLI():
                 self.node_service.download_update_seedlist({
                     "action": "normal",
                     "install_upgrade": False,
+                    "download_version": self.config_obj[profile_obj["profile"]]["jar_version"]
                 })
                 sleep(1)    
             
