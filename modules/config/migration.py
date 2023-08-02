@@ -22,14 +22,8 @@ class Migration():
         self.yaml = "" # initialize 
     
     def migrate(self):
-        confirm = self.start_migration()
-        if not confirm:
-            return
-        
-        self.keep_pass_visible = self.handle_passphrase()
-        
-        self.ingest_cn_node()
-        self.backup_cn_node()
+        self.start_migration()
+        self.backup_config()
         self.create_n_write_yaml()
         
         return self.confirm_config()
@@ -51,195 +45,22 @@ class Migration():
         self.printer_config_header()
 
         self.functions.print_paragraphs([
-            ["During program initialization, a",0,"blue","bold"], ["configuration",0,"yellow","bold,underline"],["file was found",0,"blue","bold"], 
-            ["missing",0,"yellow,on_red","bold"], ["on this server/Node.",2,"blue","bold"],
+            ["During program initialization, an outdated improperly formatted",0,"blue","bold"], ["configuration",0,"yellow","bold,underline"],["file was found",0,"blue","bold"], 
+            ["on this server/Node.",2,"blue","bold"],
             
-            ["nodectl found an existing file",0,"blue","bold"], ["cn-node",0, "yellow","bold,underline"],
-            ["file on your existing server/Node. nodectl can backup this file and attempt to migrate to the new",0,"blue","bold"],
-            ["required",0,"yellow,on_red","bold"], ["format.",2,"blue","bold"],
+            ["nodectl will backup your original configruation file and attempt to migrate to the new",0,"blue","bold"],
+            [" required ",0,"yellow,on_red","bold"], ["format.",2,"blue","bold"],
         ])
 
         confirm = self.functions.confirm_action({
             "yes_no_default": "y",
             "return_on": "y",
-            "prompt": f"Attempt cn-node file migration?",
-            "exit_if": False
+            "prompt": f"Attempt update and migrate configuration file?",
+            "exit_if": True
         })
-        
-        return confirm   
-        
-        
-    def handle_passphrase(self,disclaimer=True):
-        paragraphs = [
-            ["",2],["nodectl v2",0,"cyan","bold"], ["allows removal of the passphrase from your configuration. It is up to the",0,"blue","bold"],
-            ["Node Operator administering this Node to decide on the best course of action.",2,"blue","bold"],
-        ]
-        self.functions.print_paragraphs(paragraphs)
-        paragraphs = [
-            ["PROS:",0,"green","bold"], ["- One less location with an exposed clear-text passphrase.",1,"green"],
-        ]
-        self.functions.print_paragraphs(paragraphs,{"sub_indent": "          " })
-        wrapper = self.functions.print_paragraphs("wrapper_only")
-        wrapper.initial_indent = "        "
-        wrapper.subsequent_indent = "          "
 
-        cprint(wrapper.fill("- Adds small layer of security to force a possible attacker to work harder to gain access to the Node's wallet."),"green")
-        print("")
         
-        paragraphs = [
-            ["CONS:",0,"yellow","bold"], ["- Your passphrase will be requested whenever required by nodectl.",1,"red"],
-        ]
-        self.functions.print_paragraphs(paragraphs,{"sub_indent": "          " })
-        
-        exposed = colored("exposed","red",attrs=["bold"])
-        exposed1 = '- In the event your Node is compromised, your passphrase will still be'
-        exposed2 = 'because any nefarious actor able to penetrate your system authentication practices will '
-        exposed2 += 'know how to expose any passphrases in use by the processes running on the VPS/Node.'
-        exposed2 = colored(exposed2,"red")
-        cprint(wrapper.fill(f"{exposed1} {exposed} {exposed2}"),"red")
-        
-        print("")
-        recommend = colored("Recommended:","blue",attrs=["bold"])
-        recommend2 = colored("Keep passphrases","cyan")
-        wrapper.initial_indent = "  "
-        cprint(wrapper.fill(f"{recommend} {recommend2}"),"cyan")
-        print("")
-        
-        keep_pass_visible = self.functions.confirm_action({
-            "yes_no_default": "y",
-            "return_on": "y",
-            "prompt": "Keep passphrase visible in configuration?",
-            "exit_if": False
-        })
-        
-        if not keep_pass_visible:
-            print("")
-            paragraphs = [
-                ["WARNING!",0,"red","bold"],["The passphrases will not be in the configuration.  Make sure you have them written down in a safe place",0],
-                ["losing your passphrase is equivalent to losing the access to your bank accounts with no way of recovering.",2],
-                
-                ["Remember this is one of the most important self governing elements of decentralized finance!",2,"red","bold"]
-            ]
-            self.functions.print_paragraphs(paragraphs)
-            
-        if disclaimer:
-            self.printer_config_header()
-            paragraphs = [
-                ["",1],["nodectl v2",0,"cyan","bold"], ["introduces the ability to use different Node wallets",0,"blue","bold"],
-                ["(p12 private keys)",0,"yellow"], ["per profile",0,"blue","bold"], ["(layer0 and/or layer1 Metagraphs)",0,"yellow"],[".",-1,"blue","bold"],
-                ["",2],
-                
-                ["A new concept for",0,"blue","bold"], ["nodectl v2",0,"cyan","bold"], ["includes a",0,"blue","bold"],
-                ["GLOBAL",0,"yellow,on_magenta","bold"], ["section within the configuration that can be used to assign a single p12 to all or some",0,"blue","bold"],
-                ["of the profiles, on your Node.",2,"blue","bold"],
-                
-                ["The p12 content details from the Node's",0,"blue","bold"], ["global p12",0,"yellow"], ["cn-node",0,"cyan","underline"],["",0],
-                ["file including credentials will be added to the",0,"blue","bold"], ["global p12",0,"yellow"],
-                ["section of the new configuration file.",2,"blue","bold"],
-                
-                ["You can setup the global p12 wallet configuration to handle all or only selected profiles of your choosing.",2,"green","bold"]
-            ]
-            self.functions.print_paragraphs(paragraphs)
-            
-            while True:
-                confirm = self.functions.confirm_action({
-                    "yes_no_default": "y",
-                    "return_on": "y",
-                    "prompt": "I have read the information above:",
-                    "exit_if": True
-                })
-                if confirm:
-                    break
-            
-            self.printer_config_header()
-        return keep_pass_visible   
-        
-        
-    def ingest_cn_node(self):
-        print("")
-        self.ingest = True
-        progress = {
-            "text_start": "Ingesting",
-            "text_end": "file",
-            "brackets": "cn-node",
-            "status": "running",
-            "status_color": "yellow",
-            "newline": True,
-        }
-        self.functions.print_cmd_status(progress)
-        
-        self.config_details = {}
-        with open("/usr/local/bin/cn-node","r") as f:
-            for line in f:
-                if "CL_PASSWORD" in line and self.keep_pass_visible:
-                    var = "passphrase"
-                elif "CL_KEYSTORE" in line:
-                    var = "keystore"
-                elif " CL_KEYALIAS" in line:
-                    var = "alias"
-                elif "CL_APP_ENV" in line:
-                    var = "environment"
-                elif "CL_PUBLIC_HTTP_PORT" in line:
-                    var = "public"
-                elif "CL_P2P_HTTP_PORT" in line:
-                    var = "p2p"
-                elif "CL_CLI_HTTP_PORT" in line:
-                    var = "cli"
-                else:
-                    continue
-                cn_var = line.split("=")
-                cn_var = cn_var[1].replace("'","").strip()
-                self.config_details[var] = cn_var
-        f.close()
-        
-        if not self.keep_pass_visible:
-            self.config_details["passphrase"] = "None"
-        
-        # grab username
-        parts = self.config_details["keystore"].split("/")
-        username = parts[2]
-        p12_file = parts[-1]
-        
-        confirm_list = {
-            "admin user": username,
-            "p12 filename": p12_file
-        }
-        
-        for key,value  in confirm_list.items():
-            print(colored("\n  nodectl found [","cyan"),colored(value,"yellow",attrs=['bold']),colored(f"] as your Node's {key}.","cyan"))
-            user_confirm = self.functions.confirm_action({
-                "yes_no_default": "y",
-                "return_on": "y",
-                "prompt": "Is this correct?",
-                "exit_if": False
-            })
-            if not user_confirm:
-                while True:
-                    print(colored(f"  Please enter your Node's {key}:","cyan"),end=" ")
-                    value = input("")
-                    print(colored("  confirm [","cyan"),colored(value,"yellow",attrs=['bold']),colored("]","cyan"),end=" ")
-                    user_confirm = self.functions.confirm_action({
-                        "yes_no_default": "n",
-                        "return_on": "y",
-                        "prompt": "is correct?",
-                        "exit_if": False
-                    })            
-                    if user_confirm:
-                        break
-            if key == "admin user":
-                self.config_details["nodeadmin"] = value
-            else:
-                self.config_details["p12_name"] = value
-        
-        self.config_details["keystore"] = self.config_details["keystore"].replace(p12_file,"")
-        self.functions.print_cmd_status({
-            **progress,
-            "status": "complete",
-            "status_color": "green",
-        })
-        
-        
-    def backup_cn_node(self):
+    def backup_config(self):
         self.functions.print_clear_line()
         if not self.ingest:
             print("") # UX clean up
@@ -250,18 +71,19 @@ class Migration():
         }
         self.functions.print_cmd_status(progress)
                         
+        backup_dir = "/var/tessellation/backups"
         datetime = self.functions.get_date_time({"action":"datetime"})
-        
-        default_dirs = [
-            "/var/tessellation/uploads/",
-            "/var/tessellation/backups/",
-            "/var/tessellation/dag-l0/data/snapshot/"
-        ]
-        for dir in default_dirs:
-            if not path.isdir(dir):
-                makedirs(dir)
-                
-        system(f"mv /usr/local/bin/cn-node /var/tessellation/backups/cn-node.{datetime}backup > /dev/null 2>&1")        
+        for key in self.functions.config_obj["profiles"].keys():
+            for section in key.items():
+                if section == "dirs":
+                    backup_dir = self.functions.config_obj["profiles"][key]["dirs"]["backups"]
+                    if backup_dir == "default":
+                        backup_dir = "/var/tessellation/backups"
+                break
+            break
+            
+        system(f"mv /var/tessellation/nodectl/cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
+
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -270,7 +92,7 @@ class Migration():
             "delay": .8
         })
         
-        self.log.logger.warn("backing up legacy cn-node file to [/var/tessellation/backups] this file should be removed at a later date.")
+        self.log.logger.warn("backing up cn-config.yaml file to default backup directory from original configuration, this file should be removed at a later date.")
         
         self.functions.print_paragraphs([
             ["",1], [" DANGER ",0,"yellow,on_red"], ["THE",0,"red","bold"], ["cn-node",0, "yellow","underline"], 

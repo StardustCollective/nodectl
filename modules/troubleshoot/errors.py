@@ -52,7 +52,7 @@ class Error_codes():
                 ["Possible Upgrade Required!",1,"red","bold"],
                 ["Necessary configuration files or directories are missing.",2,"red","bold"],
             ])
-            if not var.extra:
+            if var.extra:
                 self.functions.print_paragraphs([
                     [f"{var.extra}",2,"yellow","bold"],
                 ])            

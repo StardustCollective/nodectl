@@ -135,10 +135,8 @@ class Configuration():
                     if self.called_command != "upgrade":
                         self.error_messages.error_code_messages({
                             "error_code": "cfg-99",
-                            "line_code": "upgrade_needed"
+                            "line_code": "upgrade_path_needed"
                         })
-                    
-                    # self.migration() # deprecated v2.9.0
                     self.error_messages.error_code_messages({
                         "error_code": "cfg-143",
                         "line_code": ""
@@ -176,6 +174,12 @@ class Configuration():
 
         nodectl_config_version = list(yaml_dict.keys())
         
+        self.config_obj = {
+            **self.config_obj,
+            **yaml_dict[nodectl_config_version[0]],
+            "global_elements": {},
+        }
+
         if len(nodectl_config_version) > 1 or "nodectl" not in nodectl_config_version[0]:
             self.error_messages.error_code_messages({
                 "error_code": "cfg-180",
@@ -183,13 +187,15 @@ class Configuration():
                 "extra": "format",
                 "extra2": None,
             })
-            
-        self.config_obj = {
-            **self.config_obj,
-            **yaml_dict[nodectl_config_version[0]],
-            "global_elements": {},
-        }
-        
+        elif nodectl_config_version[0] == "nodectl":
+            if self.called_command != "upgrade":
+                self.error_messages.error_code_messages({
+                    "error_code": "cfg-99",
+                    "line_code": "upgrade_needed",
+                    "extra": "Configuration file migration necessary."
+                })
+            self.migration()
+
         self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
         
         if return_dict:
@@ -264,7 +270,10 @@ class Configuration():
         
     def migration(self):
         self.migrate = Migration({
-            "config_obj": self.functions.config_obj
+            "config_obj": {
+                **self.config_obj,
+                **self.functions.config_obj,
+            }
         })
         if self.migrate.migrate():
             self.view_yaml_config("migrate")
@@ -688,6 +697,10 @@ class Configuration():
                 ["seed_repository","host_def_dis"],
                 ["seed_file","str"],             
                 ["seed_path","path_def_dis"], # automated value [not part of yaml]
+                ["priority_source_location","path_def_dis"],
+                ["priority_source_repository","host_def_dis"],
+                ["priority_source_file","str"],             
+                ["priority_source_path","path_def_dis"], # automated value [not part of yaml]
                 ["custom_args_enable","bool"],
                 ["custom_env_vars_enable","bool"],
                 ["global_p12_all_global","bool"], # automated value [not part of yaml]
