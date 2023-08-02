@@ -181,7 +181,9 @@ class Configuration():
         }
         
         self.functions.pull_upgrade_path(True)
-
+        self.version_obj = self.functions.get_version({"which":"nodectl"})
+        nodectl_version = self.version_obj["node_nodectl_version"]
+        
         if len(nodectl_config_version) > 1 or "nodectl" not in nodectl_config_version[0]:
             self.error_messages.error_code_messages({
                 "error_code": "cfg-180",
@@ -189,15 +191,14 @@ class Configuration():
                 "extra": "format",
                 "extra2": None,
             })
-        elif nodectl_config_version[0] == "nodectl":
-            if self.called_command != "upgrade":
-                self.error_messages.error_code_messages({
-                    "error_code": "cfg-99",
-                    "line_code": "upgrade_needed",
-                    "extra": "Configuration file migration necessary."
-                })
-            self.migration()
-
+        
+        if self.functions.upgrade_path["nodectl"]["version"] == nodectl_version:
+            if self.functions.upgrade_path["nodectl"]["migrate"]:
+                self.log.logger.info(f"configuaration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
+                self.config_obj = self.migration()
+        else:
+            self.log.logger.debug(f"configuaration validator did not find a migration path for nodectl version [{nodectl_version}]")
+            
         self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
         
         if return_dict:

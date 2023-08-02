@@ -42,7 +42,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.8.1"
+        self.node_nodectl_version = "v2.9.0"
         exclude_config = ["-v","_v","version"]
         
         if config_obj["global_elements"]["caller"] in exclude_config:
@@ -1549,6 +1549,8 @@ class Functions():
                     ])
                 self.upgrade_path = False
                 return
+            else:
+                break
     
         upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
         self.upgrade_path = eval(upgrade_path)

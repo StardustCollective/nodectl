@@ -11,21 +11,22 @@ from ..functions import Functions
 class Migration():
     
     def __init__(self,command_obj):
-        var = SimpleNamespace(**command_obj)
+        self.config_obj = command_obj["config_obj"]
         self.log = Logging()
         self.log.logger.debug("migration process started...")
         self.errors = Error_codes()
         self.caller = command_obj.get("caller","default")
         self.ingest = False 
         
-        self.functions = Functions(var.config_obj)
+        self.functions = Functions(self.config_obj)
+        self.verify_config_type()
         self.yaml = "" # initialize 
+    
     
     def migrate(self):
         self.start_migration()
         self.backup_config()
         self.create_n_write_yaml()
-        
         return self.confirm_config()
         
 
@@ -36,7 +37,35 @@ class Migration():
             "clear": True,
         })
                 
+    
+    def verify_config_type(self):
+        keys = self.config_obj.keys()
+        p_keys = self.config_obj["profiles"].keys()
+        old_config_keys = ["profiles","auto_restart","global_p12","global_elements"]
+        old_profile_keys = [
+            "enable","layer","edge_point","environment","ports","service","layer0_link",
+            "dirs","java","p12","pro","node_type","description"]
+        valid = True
+        
+        for key in keys:
+            if key not in old_config_keys:
+                valid = False
                 
+        if valid:
+            for profile in p_keys:
+                for i_key in self.config_obj["profiles"][profile].keys():
+                    if i_key not in old_profile_keys:
+                        valid = False
+                
+        if not valid:
+            self.errors.error_code_messages({
+                "error_code": "mig-59",
+                "line_code": "config_error",
+                "extra": "format",
+                "extra2": None
+            })
+        
+
     def start_migration(self):
         # version 2.0.0 only!
         # used to upgrade from v1.12.0 (upgrade path)
@@ -52,7 +81,7 @@ class Migration():
             [" required ",0,"yellow,on_red","bold"], ["format.",2,"blue","bold"],
         ])
 
-        confirm = self.functions.confirm_action({
+        self.functions.confirm_action({
             "yes_no_default": "y",
             "return_on": "y",
             "prompt": f"Attempt update and migrate configuration file?",
