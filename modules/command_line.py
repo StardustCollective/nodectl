@@ -1490,15 +1490,18 @@ class CLI():
             })
             flip_flop.append(node_obj)
         
-        for node_obj in flip_flop:
-            valid = node_obj["specific_ip_found"]
-            if valid:
-                if valid[0] != valid[1]:
-                    self.functions.print_paragraphs([
-                        [" warning ",0,"yellow,on_red"],["requested",0,"red"],[valid[0],0,"yellow"],
-                        ["ip was not found, using",0,"red"],[valid[1],0,"yellow"],
-                        ["instead...",2,"red"],
-                    ])
+        try:
+            for node_obj in flip_flop:
+                valid = node_obj["specific_ip_found"]
+                if valid:
+                    if valid[0] != valid[1]:
+                        self.functions.print_paragraphs([
+                            [" warning ",0,"yellow,on_red"],["requested",0,"red"],[valid[0],0,"yellow"],
+                            ["ip was not found, using",0,"red"],[valid[1],0,"yellow"],
+                            ["instead...",2,"red"],
+                        ])
+        except:
+            pass
                 
         for n, node_obj in enumerate(flip_flop):    
             peer_count = self.functions.get_peer_count({
