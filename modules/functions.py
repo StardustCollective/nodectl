@@ -43,6 +43,7 @@ class Functions():
             self.error_messages = Error_codes() 
         
         self.node_nodectl_version = "v2.9.0"
+        self.node_nodectl_yaml_version = "v1.0.0"
         exclude_config = ["-v","_v","version"]
         
         if config_obj["global_elements"]["caller"] in exclude_config:
@@ -211,8 +212,11 @@ class Functions():
                 self.set_default_variables(profile)
                 
             if var.which == "nodectl":
-                self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}]")
-                return {"node_nodectl_version":self.node_nodectl_version}
+                self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}] nodectl_yaml_version [{self.node_nodectl_yaml_version}]")
+                return {
+                    "node_nodectl_version":self.node_nodectl_version,
+                    "node_nodectl_yaml_version":self.node_nodectl_yaml_version
+                }
             elif var.which == "current_tess":
                 print_msg()
                 get_running_tess_on_node() 

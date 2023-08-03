@@ -172,19 +172,23 @@ class Configuration():
                     "extra2": None
                 })      
 
-        nodectl_config_version = list(yaml_dict.keys())
+        nodectl_config_simple_format_check = list(yaml_dict.keys())
         
         self.config_obj = {
             **self.config_obj,
-            **yaml_dict[nodectl_config_version[0]],
-            "global_elements": {},
+            **yaml_dict[nodectl_config_simple_format_check[0]],
         }
         
         self.functions.pull_upgrade_path(True)
         self.version_obj = self.functions.get_version({"which":"nodectl"})
         nodectl_version = self.version_obj["node_nodectl_version"]
+        nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
         
-        if len(nodectl_config_version) > 1 or "nodectl" not in nodectl_config_version[0]:
+        validate = True
+        if len(nodectl_config_simple_format_check) > 1 or "nodectl" not in nodectl_config_simple_format_check[0]:
+            validate = False
+            
+        if not validate:
             self.error_messages.error_code_messages({
                 "error_code": "cfg-180",
                 "line_code": "config_error",
@@ -192,10 +196,14 @@ class Configuration():
                 "extra2": None,
             })
         
-        if self.functions.upgrade_path["nodectl"]["version"] == nodectl_version:
-            if self.functions.upgrade_path["nodectl"]["migrate"]:
-                self.log.logger.info(f"configuaration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
-                self.config_obj = self.migration()
+        try:
+            found_yaml_version = self.config_obj["global_elements"]["nodectl_yaml"]
+        except:
+            found_yaml_version = False
+            
+        if not found_yaml_version or found_yaml_version != nodectl_yaml_version:
+            self.log.logger.info(f"configuaration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
+            self.config_obj = self.migration()
         else:
             self.log.logger.debug(f"configuaration validator did not find a migration path for nodectl version [{nodectl_version}]")
             
@@ -726,6 +734,9 @@ class Configuration():
                 ["key_alias","str"],
                 ["passphrase","str"],
                 ["key_store","str"], # automated value [not part of yaml]
+            ],
+            "global_elements": [
+                ["nodectl_config","str"],
             ]
         }
         
