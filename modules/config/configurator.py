@@ -1804,7 +1804,7 @@ class Configurator():
             rebuild_obj = {
                 "nodegarageprofile": profile,
                 "nodegarageenable": details["enable"],
-                "nodegaragelayer": details["layer"],
+                "nodegarageblocklayer": details["layer"],
                 "nodegarageedgehttps": details["https"],
                 "nodegarageedgehost": details['host'],
                 "nodegarageedgeporthost": details["host_port"],

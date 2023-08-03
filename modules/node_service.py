@@ -1035,46 +1035,49 @@ WantedBy=multi-user.target
 # =========================================================
 
 nodectl:
-  profiles:
 '''
         
         if var.file == "config_yaml_profile":
-            cur_file = '''    nodegarageprofile:
-      enable: nodegarageenable
-      metagraph_name: nodegaragemetagraphname
-      description: nodegaragedescription
-      node_type: nodegaragenodetype
-      layer: nodegaragelayer
-      service: nodegarageservice
-      environment: nodegarageenvironment
-      edge_point: nodegarageedgehost
-      edge_point_tcp_port: nodegarageedgeporthost
-      public_port: nodegaragepublic
-      p2p_port: nodegaragep2p
-      cli_port: nodegaragecli
-      layer0_link_enable: nodegaragelinkenable
-      layer0_link_key: nodegarage0layerkey
-      layer0_link_host: nodegarage0layerhost
-      layer0_link_port: nodegarage0layerport
-      layer0_link_profile: ndoegarage0layerlink
-      backups_directory: nodegaragebackupsdir
-      uploads_directory: nodegarageuploadsdir
-      java_xms: nodegaragexms
-      java_xmx: nodegaragexmx
-      java_xss: nodegaragexss
-      jar_repository: nodegaragerepo
-      jar_file: nodegaragejarfile
-      jar_version: nodegaragejarversion
-      p12_nodeadmin: nodegaragenodeadmin
-      p12_key_location: nodegaragekeylocation
-      p12_key_name: nodegaragep12name
-      p12_key_alias: nodegaragewalletalias
-      p12_passphrase: nodegaragepassphrase
-      seed_location: nodegarageseedlistloc
-      seed_file: nodegarageseedlistfile
-      custom_args_enable: nodegaragecustomargv
-      custom_env_vars_enable: nodegaragecustomenvvars
-      
+            cur_file = '''  nodegarageprofile:
+    enable: nodegarageenable
+    metagraph_name: nodegaragemetagraphname
+    description: nodegaragedescription
+    node_type: nodegaragenodetype
+    collateral: nodegaragecollateral
+    layer: nodegarageblocklayer
+    service: nodegarageservice
+    environment: nodegarageenvironment
+    edge_point: nodegarageedgepointhost
+    edge_point_tcp_port: nodegarageedgepointtcpport
+    public_port: nodegaragepublic
+    p2p_port: nodegaragep2p
+    cli_port: nodegaragecli
+    layer0_link_enable: nodegaragelayer0linkenable
+    layer0_link_key: nodegaragelayer0linkkey
+    layer0_link_host: nodegaragelayer0linkhost
+    layer0_link_port: nodegaragelayer0linkport
+    layer0_link_profile: nodegaragelayer0linkprofile
+    directory_backups: nodegaragedirectorybackups
+    directory_uploads: nodegaragedirectoryuploads
+    java_xms: nodegaragexms
+    java_xmx: nodegaragexmx
+    java_xss: nodegaragexss
+    jar_repository: nodegaragejarrepository
+    jar_file: nodegaragejarfile
+    jar_version: nodegaragejarversion
+    p12_nodeadmin: nodegaragep12nodeadmin
+    p12_key_location: nodegaragep12keylocation
+    p12_key_name: nodegaragep12keyname
+    p12_key_alias: nodegaragep12keyalias
+    p12_passphrase: nodegaragep12passphrase
+    seed_location: nodegarageseedlocation
+    seed_repository: nodegarageseedrepository
+    seed_file: nodegarageseedfile
+    priority_source_location: nodegarageprioritysourcelocation
+    priority_source_repository: nodegarageprioritysourcerepository
+    priority_source_file: nodegarageprioritysourcefile
+    custom_args_enable: nodegaragecustomargsenable
+    custom_env_vars_enable: nodegaragecustomenvvarsenable      
 '''
         
         if var.file == "config_yaml_autorestart":
@@ -1092,7 +1095,11 @@ nodectl:
     key_alias: nodegaragewalletalias
     passphrase: nodegaragepassphrase
 '''
-
+        
+        if var.file == "config_yaml_global_elements":
+            cur_file = '''  global_p12:
+    nodectl_yaml: nodegaragenodectlyaml
+'''
 
         elif var.file == "upgrade":
             url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"

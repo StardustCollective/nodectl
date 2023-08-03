@@ -1,6 +1,7 @@
 from termcolor import colored, cprint
 from types import SimpleNamespace
 from os import system, path, makedirs
+from copy import deepcopy
 
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
@@ -18,13 +19,25 @@ class Migration():
         self.caller = command_obj.get("caller","default")
         self.ingest = False 
         
+        self.config_keys = self.config_obj.keys()
+        self.profile_keys = self.config_obj["profiles"].keys()
+        self.old_config_keys = ["profiles","auto_restart","global_p12","global_elements"]
+        self.old_profile_subsections = [
+            "edge_point","ports","layer0_link",
+            "dirs","java","p12","pro"]
+        self.old_profile_keys = self.old_profile_subsections + [
+            "enable","layer","environment","service",
+            "node_type","description"]
+        self.old_dir_keys = ["uploads","backups"]
+        self.old_p12_keys = ["nodeadmin","key_location","p12_name","wallet_alias","passphrase"]
         self.functions = Functions(self.config_obj)
-        self.verify_config_type()
         self.yaml = "" # initialize 
     
     
     def migrate(self):
-        self.start_migration()
+        # self.start_migration()
+        if not self.verify_config_type():
+            return
         self.backup_config()
         self.create_n_write_yaml()
         return self.confirm_config()
@@ -39,22 +52,24 @@ class Migration():
                 
     
     def verify_config_type(self):
-        keys = self.config_obj.keys()
-        p_keys = self.config_obj["profiles"].keys()
-        old_config_keys = ["profiles","auto_restart","global_p12","global_elements"]
-        old_profile_keys = [
-            "enable","layer","edge_point","environment","ports","service","layer0_link",
-            "dirs","java","p12","pro","node_type","description"]
+        try:
+            config_yaml_version = self.config_obj["global_elements"]["nodectl_yaml"]
+        except:
+            pass
+        else:
+            if config_yaml_version == self.functions.node_nodectl_yaml_version:
+                return False
+
         valid = True
         
-        for key in keys:
-            if key not in old_config_keys:
+        for key in self.config_keys:
+            if key not in self.old_config_keys:
                 valid = False
                 
         if valid:
-            for profile in p_keys:
+            for profile in self.profile_keys:
                 for i_key in self.config_obj["profiles"][profile].keys():
-                    if i_key not in old_profile_keys:
+                    if i_key not in self.old_profile_keys:
                         valid = False
                 
         if not valid:
@@ -64,6 +79,8 @@ class Migration():
                 "extra": "format",
                 "extra2": None
             })
+        
+        return True
         
 
     def start_migration(self):
@@ -78,7 +95,7 @@ class Migration():
             ["on this server/Node.",2,"blue","bold"],
             
             ["nodectl will backup your original configruation file and attempt to migrate to the new",0,"blue","bold"],
-            [" required ",0,"yellow,on_red","bold"], ["format.",2,"blue","bold"],
+            ["required",0,"yellow,on_red","bold"], ["format.",2,"blue","bold"],
         ])
 
         self.functions.confirm_action({
@@ -102,16 +119,16 @@ class Migration():
                         
         backup_dir = "/var/tessellation/backups"
         datetime = self.functions.get_date_time({"action":"datetime"})
-        for key in self.functions.config_obj["profiles"].keys():
-            for section in key.items():
+        for profile in self.config_obj["profiles"].keys():
+            for section, value in self.config_obj["profiles"][profile].items():
                 if section == "dirs":
-                    backup_dir = self.functions.config_obj["profiles"][key]["dirs"]["backups"]
+                    backup_dir = value
                     if backup_dir == "default":
                         backup_dir = "/var/tessellation/backups"
-                break
+                    break
             break
             
-        system(f"mv /var/tessellation/nodectl/cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
+        # system(f"mv /var/tessellation/nodectl/cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
 
         self.functions.print_cmd_status({
             **progress,
@@ -129,10 +146,10 @@ class Migration():
             
             [" CAUTION ",0,"red,on_yellow"],["After the",0,"yellow"], ["migration",0,"cyan","underline"], ["is complete, the",0,"yellow"], 
             ["upgrader",0,"magenta","bold"], ["will continue and will prompt you to remove the contents of the backup directory",0,"yellow"],
-            ["where the",0,"yellow"], [" cn-node ",0,"white,on_blue"], ["has been backed up within. If you choose to empty the contents",0,"yellow"],
-            ["of this directory, you will remove the backup",0,"yellow"], ["cn-node",0,"cyan","underline"], ["file.",2,"yellow"],
+            ["where the original",0,"yellow"], ["cn-config.yaml",0,"white,on_blue"], ["has been backed up within. If you choose to empty the contents",0,"yellow"],
+            ["of this directory, you will remove the backup",0,"yellow"], ["cn-config.yaml",0,"cyan"], ["file.",2,"yellow"],
             
-            ["backup filename:",0], [f"cn-node.{datetime}backup",1,"magenta"],
+            ["backup filename:",0], [f"cn-config.{datetime}backup.yaml",1,"magenta"],
             ["backup location:",0], ["/var/tessellation/backups/",1,"magenta"],
         ])
 
@@ -143,68 +160,98 @@ class Migration():
 
     def migrate_profiles(self):
         # =======================================================
-        # create profile sections using Constellation Network defaults
-        # and inputs from the legacy cn-node file that was identified
+        # create profile sections
         # =======================================================
-        ports = [[9000,9001,9002],[9010,9011,9012]]
-        for n in range(0,2):
-            link_bool = "False" if n == 0 else "True"
+        rebuild_obj = {}
+
+        port_keys = ["nodegaragepublic","nodegaragep2p","nodegaragecli"]
+        layer0_ports = [9000,9001,9002]; layer1_ports = [9010,9011,9012]
+        rebuild_defaults = {
+            "nodegaragehost": [
+                "l0-lb-mainnet.constellationnetwork.io",
+                "l1-lb-mainnet.constellationnetwork.io",
+                "l0-lb-testnet.constellationnetwork.io",
+                "l1-lb-testnet.constellationnetwork.io",
+                "l0-lb-integrationnet.constellationnetwork.io",
+                "l1-lb-integrationnet.constellationnetwork.io",
+            ],
+            "nodegaragehostport": "80",
+            "nodegaragedirectorybackups": "/var/tessellation/backups",
+            "nodegaragedirectoryuploads": "/var/tessellation/uploads",
+            "nodegaragexms": "1024M",
+            "nodegaragexmx": ["7G","3G"],
+            "nodegaragexss": "256K",
+            "nodegarageseedlocation": "/var/tessellation",
+            "nodegarageseedfile": "seed-list",
+        }
+        
+        for profile in self.config_obj["profiles"].keys():
+            rebuild_obj["nodegarageprofile"] = profile
+            rebuild_obj["nodegaragemetagraphname"] = self.config_obj["profiles"][profile]["environment"]
+            for section, value in self.config_obj["profiles"][profile].items():
+                link_section = "layer0link" if section == "layer0_link" else "" # enable dup key value
+                if section in self.old_profile_subsections:
+                    for section, value in self.config_obj["profiles"][profile][section].items():
+                        if link_section == "layer0link": # exception
+                            section = section.replace("layer0","")
+                            section = section.replace("link","")
+                        elif section in self.old_dir_keys:
+                            section = f"directory{section}"
+                        elif section in self.old_p12_keys:
+                            section = f"p12{section}"
+                            section = "p12keyalias" if section == "p12wallet_alias" else section
+                            section = "p12keyname" if section == "p12p12_name" else section
+                        rebuild_obj[f"nodegarage{link_section}{section.replace('_','')}"] = value
+                else:
+                    section = "blocklayer" if section == "layer" else section # exception
+                    rebuild_obj[f"nodegarage{section.replace('_','')}"] = value
+                        
+            # replace default values
+            rebuild_obj_copy = deepcopy(rebuild_obj)
+            for key, value in rebuild_obj_copy.items():
+                layer = self.config_obj["profiles"][profile]["layer"]
+                if key in port_keys:
+                    index = port_keys.index(key)
+                    if layer < 1:
+                        value = "default" if value == layer0_ports[index] and key == port_keys[index] else value
+                        rebuild_obj[key] = value
+                    elif layer > 0:
+                        value = "default" if value == layer1_ports[index] and key == port_keys[index] else value
+                        rebuild_obj[key] = value
+                if key in rebuild_defaults.keys():
+                    if "port" in key and rebuild_obj[key] == value:
+                        rebuild_obj["nodegarageedgepointtcpport"] = "default"
+                    elif "host" in key and value in rebuild_obj[key]:
+                        if str(layer) in value[0:2]:
+                            rebuild_obj["nodegarageedgepointhost"] = "default"
+                    elif ("backups" in key or "uploads" in key) and value[:-1] in rebuild_defaults[key]:
+                        rebuild_obj[key] = "default"
+                    elif ("xms" in key or "xss" in key) and value == rebuild_defaults[key]:
+                        rebuild_obj[key] = "default"
+                    elif "xmx" in key and value == rebuild_defaults[key][layer]:
+                        rebuild_obj[key] = "default"    
+                    elif "seedlocation" in key and value[:-1] in rebuild_defaults[key]:                        
+                        rebuild_obj[key] = "default"    
+                    elif "seedfile" in key and value == rebuild_defaults[key]:                        
+                        rebuild_obj[key] = "default"    
+
+            # new key pair >= v2.9.0
             rebuild_obj = {
-                "nodegarageprofile": f"dag-l{n}",
-                "nodegarageenable": "True",   
-                "nodegaragelayer": f"{n}",
-                "nodegarageedgehttps": "False",
-                "nodegarageedgehost": f"l{n}-lb-{self.config_details['environment']}.constellationnetwork.io",
-                "nodegarageedgeporthost": "80",
-                "nodegarageenvironment": self.config_details["environment"],
-                "nodegaragepublic": str(ports[n][0]),
-                "nodegaragep2p": str(ports[n][1]),
-                "nodegaragecli": str(ports[n][2]),
-                "nodegarageservice": f"node_l{n}",
-                "nodegaragelinkenable": link_bool,
-                "nodegarage0layerkey": "None",
-                "nodegarage0layerhost": "None",
-                "nodegarage0layerport": "None",
-                "ndoegarage0layerlink": "None",
-                "nodegaragexms": "1024M",
-                "nodegaragexmx": "7G",
-                "nodegaragexss": "256K",
-                "nodegaragenodetype": "validator",
-                "nodegaragedescription": "Constellation Network Global Hypergraph",
-                "nodegaragesnaphostsdir": "default",
-                "nodegaragebackupsdir": "default",
-                "nodegarageuploadsdir": "default",
-                "nodegaragenodeadmin": "global",
-                "nodegaragekeylocation": "global",
-                "nodegaragep12name": "global",
-                "nodegaragewalletalias": "global",
-                "nodegaragepassphrase": "global",
-                "nodegarageseedlistloc": "/var/tessellation/",
-                "nodegarageseedlistfile": "seed-list",
+                **rebuild_obj,
+                "nodegaragecollateral": 0,
+                "nodegaragejarrepository": "default",
+                "nodegaragejarfile": "default",
+                "nodegaragejarversion": "default",
+                "nodegarageprioritysourcelocation": "default",
+                "nodegarageprioritysourcerepository": "default",
+                "nodegarageprioritysourcefile": "default",
+                "nodegaragecustomargsenable": False,
+                "nodegaragecustomenvvarsenable": False,
+                "nodegarageseedrepository": "default",
             }
 
-            link_profile = "dag-l0"
-            if self.config_details['environment'] == "integrationnet":
-                rebuild_obj["nodegarageenvironment"] = "integrationnet"
-                rebuild_obj["nodegarageedgehost"] = f"l{n}-lb-integrationnet.constellationnetwork.io"
-                rebuild_obj["nodegarageprofile"] = f"intnet-l{n}" 
-                rebuild_obj["nodegarageservice"] = f"intnetserv_l{n}"
-                # rebuild_obj["nodegarageedgeporthost"] = f"90{n}0"
-                link_profile = "intnet-l0"        
-                                        
-            if n == 1:
-                # rewrite for layer1
-                rebuild_obj["nodegarage0layerkey"] = "self"
-                rebuild_obj["nodegarage0layerhost"] = "self"
-                rebuild_obj["nodegarage0layerport"] = str(ports[0][0])
-                rebuild_obj["ndoegarage0layerlink"] = link_profile
-                rebuild_obj["nodegaragesnaphostsdir"] = "disable"
-                rebuild_obj["nodegaragexmx"] = "3G"
-                rebuild_obj["nodegaragedescription"] = "Constellation Network Layer1 Metagraph" 
-                rebuild_obj["nodegarageseedlistloc"] = "disable"
-                rebuild_obj["nodegarageseedlistfile"] = "disable"
-
             rebuild_obj["create_file"] = "config_yaml_profile"
+            rebuild_obj["show_status"] = False
             self.yaml += self.build_yaml(rebuild_obj) 
     
 
@@ -227,7 +274,9 @@ class Migration():
         if action != "skip":
             try:
                 for yaml_item in rebuild_obj.keys():
-                    profile = profile.replace(yaml_item,rebuild_obj[yaml_item])
+                    if "layer" in yaml_item:
+                        pass
+                    profile = profile.replace(yaml_item,str(rebuild_obj[yaml_item]))
             except Exception as e:
                 self.errors.error_code_messages({
                     "error_code": "mig-348",
@@ -235,21 +284,28 @@ class Migration():
                     "extra": e
                 })
         
+        print(profile)
         return profile
                 
     
     def create_n_write_yaml(self): 
         self.node_service = Node({
-            "config_obj": {"caller":"config"}
+            "config_obj": {
+                "global_elements": {
+                    "caller":"config"
+                },
+            },
         },False)  
 
         rebuild_obj = {
             "action": "skip",
             "create_file": "config_yaml_init"
         }        
+        
         # =======================================================
         # start building the yaml file initial comments and setup
         # =======================================================
+        
         # status progress in build_yaml method
         if self.caller == "configurator":
             rebuild_obj["show_status"] = False
