@@ -14,8 +14,7 @@
     "version": "v2.8.1",
     "upgrade": "False"
   },
-  "nodectl": {
-    "version": "v2.9.0",
-    "migrate": "True"
-  }
+  "nodectl": [
+    "v2.9.0"
+  ]
 }
