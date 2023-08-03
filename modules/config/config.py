@@ -92,6 +92,8 @@ class Configuration():
                 
         self.setup_schemas()
         self.build_yaml_dict()
+        self.check_for_migration()
+        self.finalize_config_tests()
         self.validate_yaml_keys()
         self.remove_disabled_profiles()
         self.setup_config_vars()
@@ -126,29 +128,26 @@ class Configuration():
         
         
     def build_yaml_dict(self,return_dict=False):
-        while True:
-            try:
-                with open(self.yaml_file, 'r', encoding='utf-8') as f:
-                    yaml_data = f.read()
-            except:
-                if path.isfile("/usr/local/bin/cn-node") and not path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
-                    if self.called_command != "upgrade":
-                        self.error_messages.error_code_messages({
-                            "error_code": "cfg-99",
-                            "line_code": "upgrade_path_needed"
-                        })
+        try:
+            with open(self.yaml_file, 'r', encoding='utf-8') as f:
+                yaml_data = f.read()
+        except:
+            if path.isfile("/usr/local/bin/cn-node") and not path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
+                if self.called_command != "upgrade":
                     self.error_messages.error_code_messages({
-                        "error_code": "cfg-143",
-                        "line_code": ""
+                        "error_code": "cfg-99",
+                        "line_code": "upgrade_path_needed"
                     })
-                    self.do_validation = False
-                else:
-                    self.send_error("cfg-99") 
+                self.error_messages.error_code_messages({
+                    "error_code": "cfg-143",
+                    "line_code": ""
+                })
+                self.do_validation = False
             else:
-                break
+                self.send_error("cfg-99") 
 
         try:
-            yaml_dict = yaml.safe_load(yaml_data)
+            self.yaml_dict = yaml.safe_load(yaml_data)
         except Exception as e:
             continue_to_error = True
             self.log.logger.error(f"configuration file [cn-config.yaml] error code [cfg-32] not able to be loaded into memory, nodectl will attempt to issue a fix... | error: [{e}]")
@@ -158,7 +157,7 @@ class Configuration():
                     with open(self.yaml_file, 'r', encoding='utf-8') as f:
                         yaml_data = f.read()
                     try:
-                        yaml_dict = yaml.safe_load(yaml_data)
+                        self.yaml_dict = yaml.safe_load(yaml_data)
                     except Exception as ee:
                         self.log.logger.critical(f"configuration file [cn-config.yaml] error code [cfg-32] not able to be loaded into memory, issue with formatting. | error: [{ee}]")
                     else:
@@ -172,20 +171,25 @@ class Configuration():
                     "extra2": None
                 })      
 
-        nodectl_config_simple_format_check = list(yaml_dict.keys())
+        self.nodectl_config_simple_format_check = list(self.yaml_dict.keys())
         
         self.config_obj = {
             **self.config_obj,
-            **yaml_dict[nodectl_config_simple_format_check[0]],
+            **self.yaml_dict[self.nodectl_config_simple_format_check[0]],
         }
         
+        if return_dict:
+            return self.config_obj
+        
+        
+    def check_for_migration(self):
         self.functions.pull_upgrade_path(True)
         self.version_obj = self.functions.get_version({"which":"nodectl"})
         nodectl_version = self.version_obj["node_nodectl_version"]
         nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
         
         validate = True
-        if len(nodectl_config_simple_format_check) > 1 or "nodectl" not in nodectl_config_simple_format_check[0]:
+        if len(self.nodectl_config_simple_format_check) > 1 or "nodectl" not in self.nodectl_config_simple_format_check[0]:
             validate = False
             
         if not validate:
@@ -203,17 +207,18 @@ class Configuration():
             
         if not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             self.log.logger.info(f"configuaration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
-            self.config_obj = self.migration()
+            self.migration()
+            self.config_obj = {}  # reset
+            self.build_yaml_dict() # rebuild new configuration format
         else:
-            self.log.logger.debug(f"configuaration validator did not find a migration path for nodectl version [{nodectl_version}]")
+            self.log.logger.debug(f"configuaration validator did not find a migration need for current configuration format - nodectl version [{nodectl_version}]")    
             
+            
+    def finalize_config_tests(self):
         self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
         
-        if return_dict:
-            return self.config_obj
-        
         try:
-            _ = json.dumps(yaml_dict, sort_keys=True, indent=4)
+            _ = json.dumps(self.yaml_dict, sort_keys=True, indent=4)
         except:
             self.log.logger.critical("configuration file [cn-config.yaml] error code [cfg-37] able to be formatted for reading, issue with formatting.")
             self.error_messages.error_code_messages({
@@ -771,6 +776,12 @@ class Configuration():
         # profile_value_list = self.common_test_dict["cnng_dynamic_profiles"]
         missing_list = []
         
+        # ====================================
+        # placeholder for source priority path
+        # ====================================
+        for profile in self.metagraph_list:
+            self.config_obj[profile]["priority_source_path"] = "/var/tessellation/"
+            
         for config_key, config_value in self.config_obj.items():
             if "global" not in config_key:
                 # testing profiles

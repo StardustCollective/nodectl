@@ -35,7 +35,7 @@ class Migration():
     
     
     def migrate(self):
-        # self.start_migration()
+        self.start_migration()
         if not self.verify_config_type():
             return
         self.backup_config()
@@ -128,7 +128,7 @@ class Migration():
                     break
             break
             
-        # system(f"mv /var/tessellation/nodectl/cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
+        system(f"mv /var/tessellation/nodectl/cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
 
         self.functions.print_cmd_status({
             **progress,
@@ -152,6 +152,7 @@ class Migration():
             ["backup filename:",0], [f"cn-config.{datetime}backup.yaml",1,"magenta"],
             ["backup location:",0], ["/var/tessellation/backups/",1,"magenta"],
         ])
+
 
     # =======================================================
     # build methods
@@ -254,7 +255,6 @@ class Migration():
             rebuild_obj["show_status"] = False
             self.yaml += self.build_yaml(rebuild_obj) 
     
-
            
     def build_yaml(self,rebuild_obj): 
 
@@ -283,8 +283,7 @@ class Migration():
                     "line_code": "profile_build_error",
                     "extra": e
                 })
-        
-        print(profile)
+
         return profile
                 
     
@@ -330,6 +329,7 @@ class Migration():
         rebuild_obj = {
             "nodegarageeautoenable": "False",
             "nodegarageautoupgrade": "False",
+            "nodegaragerapidrestart": "False",
             "create_file": "config_yaml_autorestart",
         }
         self.yaml += self.build_yaml(rebuild_obj)
@@ -339,41 +339,44 @@ class Migration():
         # =======================================================
         
         rebuild_obj = {
-            "nodegaragenodeadmin": self.config_details["nodeadmin"],
-            "nodegaragekeylocation": self.config_details["keystore"],
-            "nodegaragep12name": self.config_details["p12_name"],
-            "nodegaragewalletalias": self.config_details["alias"],
-            "nodegaragepassphrase": f'"{self.config_details["passphrase"]}"',
+            "nodegaragep12nodeadmin": self.config_obj["global_p12"]["nodeadmin"],
+            "nodegaragep12keylocation": self.config_obj["global_p12"]["key_location"],
+            "nodegaragep12keyname": self.config_obj["global_p12"]["p12_name"],
+            "nodegaragep12keyalias": self.config_obj["global_p12"]["wallet_alias"],
+            "nodegaragep12passphrase": f'"{self.config_obj["global_p12"]["passphrase"]}"',
             "create_file": "config_yaml_p12",
+        }
+        self.yaml += self.build_yaml(rebuild_obj)
+        
+        # =======================================================
+        # build yaml global elements section
+        # =======================================================        
+        rebuild_obj = {
+            "nodegaragenodectlyaml": self.functions.node_nodectl_yaml_version,
+            "create_file": "config_yaml_global_elements",
         }
         self.yaml += self.build_yaml(rebuild_obj)
 
         # =======================================================
         # write final yaml out to file and offer review
         # =======================================================
-        
-        if not path.isdir("/var/tessellation/nodectl/"):
-            makedirs("/var/tessellation/nodectl/")
-            
         self.final_yaml_write_out()
         
         
     def final_yaml_write_out(self):
-        if path.isdir("/var/tessellation/nodectl/"):
-            with open("/var/tessellation/nodectl/cn-config.yaml","w") as newfile:
-                newfile.write(self.yaml)
-            newfile.close()
+        if not path.isdir("/var/tessellation/nodectl/"):
+            makedirs("/var/tessellation/nodectl/")
+        with open("/var/tessellation/nodectl/cn-config.yaml","w") as newfile:
+            newfile.write(self.yaml)
+        newfile.close()
             
-            self.functions.print_cmd_status({
-                "text_start": "Creating configuration file",
-                "status": "complete",
-                "status_color": "green",
-                "newline": True,
-            })
-        else:
-            return False
-        return True
-         
+        self.functions.print_cmd_status({
+            "text_start": "Creating configuration file",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
 
     def configurator_builder(self,rebuild_obj):
         self.yaml += self.build_yaml(rebuild_obj)

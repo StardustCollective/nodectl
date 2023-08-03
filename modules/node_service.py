@@ -1089,15 +1089,15 @@ nodectl:
         
         if var.file == "config_yaml_p12":
             cur_file = '''  global_p12:
-    nodeadmin: nodegaragenodeadmin
-    key_location: nodegaragekeylocation
-    key_name: nodegaragep12name
-    key_alias: nodegaragewalletalias
-    passphrase: nodegaragepassphrase
+    nodeadmin: nodegaragep12nodeadmin
+    key_location: nodegaragep12keylocation
+    key_name: nodegaragep12keyname
+    key_alias: nodegaragep12keyalias
+    passphrase: nodegaragep12passphrase
 '''
         
         if var.file == "config_yaml_global_elements":
-            cur_file = '''  global_p12:
+            cur_file = '''  global_elements:
     nodectl_yaml: nodegaragenodectlyaml
 '''
 
