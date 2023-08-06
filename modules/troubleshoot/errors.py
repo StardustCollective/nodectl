@@ -77,6 +77,33 @@ class Error_codes():
                 ["sudo nodectl upgrade",0,"cyan","bold"], ["to follow the necessary version path upgrades.",2],
             ])            
 
+
+        elif var.line_code == "environment_error":
+            self.log.logger.critical(f"missing metagraph environment variable, unable to continue")
+            self.functions.print_paragraphs([
+                ["nodectl attempted to start a command:",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
+                ["Please verify the Metagraph environment variable is correct or present.",2,"red","bold"],
+                ["Are you sure you have a",0,"magenta"],["valid",0,"magenta"], ["environment requested in your command, loaded or configured?",2,"magenta"]
+            ])
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    ["Environment Requested:",0], [var.extra2,2,"yellow","bold"]
+                ])
+                        
+                        
+        elif "upgrade_incompatibility" in str(var.line_code):
+            self.log.logger.critical(f"Upgrade cannot continue because nodectl found multiple metagraph environment that is not supported by this version of nodectl: environment [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
+
+                ["nodectl found metagraph environments installed on this Node that may not be supported by this version of nodectl.",0,"yellow"],
+                ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
+                
+                ["In order to continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
+                ["Please see the Constellation documentation portal for more details.",2],
+                ["https://docs.constellationnetwork.io/validate/",2],
+            ])
+
             
         elif "lb_not_up" in str(var.line_code):
             self.log.logger.critical(f"Edge Device [load balancer] does not seem to be up: {var.extra}")
@@ -367,15 +394,6 @@ class Error_codes():
                 ["Are you should you have a",0,"magenta"],["valid",0,"magenta","underline"], ["profile loaded or configured?",2,"magenta"]
             ])
             
-
-        elif var.line_code == "environment_error":
-            self.log.logger.critical(f"missing metagraph environment variable, unable to continue")
-            self.functions.print_paragraphs([
-                ["nodectl attempted to start a command:",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
-                ["Please verify the Metagraph environment variable is correct or present",2,"red","bold"],
-                ["Are you should you have a",0,"magenta"],["valid",0,"magenta","underline"], ["environment loaded or configured?",2,"magenta"]
-            ])
-            
             
         elif var.line_code == "open_file":
             self.log.logger.critical(f"unable to read [{var.extra}]")
@@ -430,7 +448,7 @@ class Error_codes():
         #system("clear")
         if when == "start":
             self.functions.print_paragraphs([
-                ["",1], [" CRITICAL ERROR ",1,"red,on_yellow"], 
+                ["",1], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
                 ["Terminating",0], ["nodectl",0,"cyan","underline"], ["utility.",2],
                 ["Error Code:",0,"white","bold"], [self.error_code,2,"yellow","bold"],
             ])

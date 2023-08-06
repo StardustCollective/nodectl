@@ -36,6 +36,7 @@ class ShellHandler:
         self.debug = debug
         self.correct_permissions = True
         self.auto_restart_enabled = False
+        self.environment_requested = None
         
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.node_service = "" #empty
@@ -300,7 +301,7 @@ class ShellHandler:
         elif self.called_command == "upgrade_path" or self.called_command == "_up":
             cli.check_nodectl_upgrade_path({
                 "called_command": self.called_command,
-                "argv_list": self.argv
+                "argv_list": self.argv,
             })
         elif self.called_command == "refresh_binaries" or self.called_command == "_rtb":
             cli.download_tess_binaries(self.argv)
@@ -335,7 +336,8 @@ class ShellHandler:
         
         
     # CHECK METHODS
-    # =============        
+    # =============  
+          
     def check_error_argv(self):
         # error check first
         self.called_cmds = []
@@ -420,8 +422,11 @@ class ShellHandler:
         return True
     
 
-    def check_system_permissions(self,force=False):
-        # grab execution user
+    def check_system_permissions(self,command_obj):
+        force = command_obj.get("force",False)
+        show_list = command_obj.get("show_list",False)
+        env_provided = command_obj.get("env_provided",False)
+        
         self.log.logger.info("testing permissions")
         progress = {
             "status": "running",
@@ -430,8 +435,66 @@ class ShellHandler:
         self.functions.print_cmd_status(progress) 
         time.sleep(.8)
         
+        environments = self.functions.pull_profile({"req": "environments"})
+        
+        if env_provided:
+            print("")
+            if env_provided not in list(environments["environment_names"]):
+                self.error_messages.error_code_messages({
+                    "error_code": "sh-441",
+                    "line_code": "environment_error",
+                    "extra": "upgrade",
+                    "extra2": env_provided
+                })
+        
+        if environments["multiple_environments"] or show_list:
+            print("")
+            self.functions.print_header_title({
+                "line1": "Upgrade Environment Menu",
+                "newline": "both",
+                "single_line": True,
+            })
+
+            msg_start = "Multiple Metagraph environments were found on this system."
+            if show_list:
+                msg_start = "Show list of Metagraphs was requested."
+            if env_provided:
+                msg_start = "Choose environment from list requested but environment request was entered at the command line."
+                self.functions.print_cmd_status({
+                    "text_start": "Environment requested by argument",
+                    "brackets": "-e",
+                    "status": env_provided,
+                    "status_color": "blue",
+                    "newline": True,
+                })
+                print("")
+
+            self.log.logger.debug(f"Upgrade found multiple metagraph environments on the same Node that may are supported by different versions of nodectl")
+            self.functions.print_paragraphs([
+                [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
+                ["Please select an environment by",0], ["key pressing",0,"yellow"], 
+                ["the number correlating to the environment you wish to upgrade.",2],  
+                ["PLEASE CHOOSE AN ENVIRONMENT TO UPGRADE",2,"magenta","bold"]                      
+            ])
+            environment = self.functions.print_option_menu({
+                "options": list(environments["environment_names"]),
+                "return_value": True,
+                "color": "magenta"
+            })
+            
+            verb = "Using" if env_provided == environment else "Selected"
+            print("")
+            self.functions.print_cmd_status({
+                "text_start": f"{verb} environment",
+                "status": environment,
+                "status_color": "blue",
+                "newline": True,
+            })
+        else:
+            environment = list(environments["environment_names"])[0]
+                            
         current = self.version_obj["node_nodectl_version"]
-        remote = self.version_obj["latest_nodectl_version"]
+        remote = self.version_obj["upgrade_path"][environment]["version"]
         
         if self.functions.is_new_version(current,remote):
             err_warn = "warning"
@@ -448,8 +511,11 @@ class ShellHandler:
             })
             
             self.functions.print_paragraphs([
-                ["This is not a current version of",0,"red","bold"], ["nodectl",0,"blue","bold"], [".",-1,"red","bold"],["",1],
-                ["Issue:",0,"magenta"], ["sudo nodectl upgrade_nodectl",1,"green"],
+                ["This is not a current version of nodectl.",1,"red","bold"],
+                ["Recommended to:",1],
+                ["  - Cancel this upgrade of Tessellation.",1,"magenta"],
+                ["  - Issue:",0,"magenta"], ["sudo nodectl upgrade_nodectl",1,"green"],
+                ["  - Restart this upgrade of Tessellation.",1,"magenta"],
             ])
                 
             if force:
@@ -475,6 +541,8 @@ class ShellHandler:
             "status": "complete",
             "newline": True
         })
+        
+        self.environment_requested = environment
         
         
     def check_deps(self,package):
@@ -649,13 +717,13 @@ class ShellHandler:
             })  
             
                     
-    def install_upgrade_common(self,action,force=False):
+    def install_upgrade_common(self,action,command_obj):
         self.version_obj = self.functions.get_version({
             "which": "all",
             "action": action,
         })
         self.functions.print_clear_line()
-        self.check_system_permissions(force)
+        self.check_system_permissions(command_obj)
         self.print_ext_ip()        
             
             
@@ -901,14 +969,21 @@ class ShellHandler:
             "newline": "both",
         })
         
-        force = True if "-f" in argv_list else False
-        self.install_upgrade_common("normal",force)
+        command_obj = {
+            "force": True if "-f" in argv_list else False,
+            "show_list": True if "-l" in argv_list else False,
+            "env_provided": argv_list[argv_list.index("-e")+1] if "-e" in argv_list else False
+        }
+        
+        # -e gets converted into self.environment_requested
+        self.install_upgrade_common("normal",command_obj)
         self.upgrader = Upgrader({
             "ip_address": self.ip_address,
             "config_obj": self.functions.config_obj,
             "version_obj": self.version_obj,
             "called_command": self.called_command,
-            "argv_list": argv_list
+            "environment": self.environment_requested,
+            "argv_list": argv_list,
         }) 
         self.update_os()
         self.upgrader.upgrade_process()

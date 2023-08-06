@@ -74,19 +74,6 @@ class Configuration():
             self.implement_config()
         
 
-    def is_passphrase_required(self):
-        passphrase_required_list = [
-            "start","stop","upgrade","restart","check_seedlist",
-            "nodeid","id","export_private_key",
-            "leave","join", "upgrade",
-            "passwd","clean_snapshots","clean_files",
-            "auto_restart", "refresh_binaries","sec"
-        ]                
-        if self.called_command in passphrase_required_list:
-            return True
-        return False
-    
-    
     def implement_config(self):
         continue_list = ["normal","edit_config","edit_on_error"]
                 
@@ -412,7 +399,7 @@ class Configuration():
             "edge_point_tcp_port": 80,
             "public_port": [9000,9010],
             "p2p_port": [9001,9011],
-            "cli_port": [9020,9012],
+            "cli_port": [9002,9012],
             "java_xms": "1024M",
             "java_xss": "256K",
             "java_xmx": ["7G","3G"],
@@ -473,15 +460,16 @@ class Configuration():
                     
             for tdir, def_value in defaults.items():
                 try:
-                    if tdir == "seed_file" and self.config_obj[profile][tdir] == "default":
-                        # exception
-                        self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist'
-                    elif isinstance(def_value,list):
-                        self.config_obj[profile][tdir] = def_value[0]
-                        if int(self.config_obj[profile]["layer"]) > 0:
-                            self.config_obj[profile][tdir] = def_value[1]
-                    elif self.config_obj[profile][tdir] == "default":
-                        self.config_obj[profile][tdir] = def_value  
+                    if self.config_obj[profile][tdir] == "default":
+                        if tdir == "seed_file":
+                            # exception
+                            self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist'
+                        elif isinstance(def_value,list):
+                            self.config_obj[profile][tdir] = def_value[0]
+                            if int(self.config_obj[profile]["layer"]) > 0:
+                                self.config_obj[profile][tdir] = def_value[1]
+                        else:
+                            self.config_obj[profile][tdir] = def_value  
                 except Exception as e:
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found()
@@ -533,7 +521,20 @@ class Configuration():
             self.config_obj.pop(profile)
             self.metagraph_list.pop(profile)
 
-            
+
+    def is_passphrase_required(self):
+        passphrase_required_list = [
+            "start","stop","upgrade","restart","check_seedlist",
+            "nodeid","id","export_private_key",
+            "leave","join", "upgrade",
+            "passwd","clean_snapshots","clean_files",
+            "auto_restart", "refresh_binaries","sec"
+        ]                
+        if self.called_command in passphrase_required_list:
+            return True
+        return False
+    
+                
     def setup_passwd(self,force=False):
         def verify_passwd(passwd, profile):
             clear, top_new_line, show_titles = False, False, True 
@@ -570,7 +571,7 @@ class Configuration():
             verify_passwd(passwd,"global")  
         
         if not self.config_obj["global_elements"]["all_global"]:
-            for profile in self.config_obj.keys():
+            for profile in self.metagraph_list:
                 # print(json.dumps(self.config_obj,indent=3))
                 if not self.config_obj[profile]["global_p12_passphrase"]:
                     passwd = self.config_obj[profile]["p12_passphrase"]
@@ -909,9 +910,12 @@ class Configuration():
                     if "p12_" in p12_key and "global" in p12_key:
                         self.config_obj[profile][p12_key] = False
                 else:
-                    if "p12_" in p12_key and "global" not in p12_key and "global" in p12_value:
-                        self.config_obj[profile][f"global_{p12_key}"] = True
-                        self.config_obj[profile][p12_key] = self.config_obj["global_p12"][p12_key[4:]]
+                    if "p12_" in p12_key and "global" not in p12_key:
+                        if "global" in p12_value:
+                            self.config_obj[profile][f"global_{p12_key}"] = True
+                            self.config_obj[profile][p12_key] = self.config_obj["global_p12"][p12_key[4:]]
+                        else:
+                            self.config_obj[profile][f"global_{p12_key}"] = False
             self.config_obj[profile]["global_p12_cli_pass"] = False # initialize
 
         return self.validated
@@ -1084,7 +1088,7 @@ class Configuration():
 
                         elif "path" in req_type:
                             # global paths replaced already
-                            if "path" in key:
+                            if "path" in req_type:
                                 # dynamic value skip validation
                                 validated = True
                             if "path_def" in req_type and test_value == "default":
@@ -1224,6 +1228,7 @@ class Configuration():
             "host": "must be a valid host or ip address",
             "host_def": "must be a valid host or ip address",
             "pro": "must be a valid existing path or file",
+            "metagraphs": "There is a misconfigured element in your metagraph profile",
         }
         
         if self.action != "normal" or not self.validated:
@@ -1283,7 +1288,7 @@ class Configuration():
                         ]) 
                     ok_to_ignore = True if "snapshot" in error["key"] else False
                     
-            except:
+            except Exception as e:
                 self.send_error("cfg-1094")
 
             if self.action == "edit_config":

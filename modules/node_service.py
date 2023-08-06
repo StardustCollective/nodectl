@@ -194,7 +194,7 @@ class Node():
             self.error_messages.error_code_messages({
                 "error_code": "ns-95",
                 "line_code": "environment_error",
-                "extra": "binary downloads"
+                "extra": "binary downloads",
             })
         
         if download_version == "default":
@@ -310,8 +310,7 @@ class Node():
         seed_path = self.functions.config_obj[profile]["seed_path"]    
         seed_file = self.config_obj[profile]['seed_file']
         seed_repo = self.config_obj[profile]['seed_repository']
-        
-        test_repo_uri, print_message = True, True
+        print_message = True
         
         if self.auto_restart or install_upgrade:
             print_message = False    
@@ -352,17 +351,15 @@ class Node():
                     self.log.logger.error(f"could not properly retrieve cluster version [{e}]")
         
             self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
-            test_repo_uri = False
-            if environment_name == "testnet" and self.config_obj[profile]["seed_repository"] == "default":
+
+        if self.config_obj[profile]["seed_repository"] == "default":
+            if environment_name == "testnet":
                 bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
-            elif environment_name == "integrationnet" and self.config_obj[profile]["seed_repository"] == "default":
+            elif environment_name == "integrationnet":
                 bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
-            elif environment_name == "mainnet" and self.config_obj[profile]["seed_repository"] == "default":
+            elif environment_name == "mainnet":
                 bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
-            else:
-                test_repo_uri = True
-                
-        if test_repo_uri:
+        else:
             # makes ability to not include https or http
             if "http://" not in seed_repo and "https://" not in seed_repo:
                 seed_repo = f"https://{seed_repo}"
@@ -715,7 +712,7 @@ class Node():
         bashCommand = f"systemctl {action} {service_name}"
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
-            "proc_action": "poll"
+            "proc_action": "wait"
         })
         
         if action == "start":

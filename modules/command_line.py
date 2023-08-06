@@ -135,6 +135,17 @@ class CLI():
         called_command = command_obj.get("called","default")
         profile_list = self.profile_names
         
+        def quick_status_pull(port):
+            quick_results = self.functions.get_api_node_info({
+                "api_host": self.functions.get_ext_ip(),
+                "api_port": port,
+                "tolerance": 1,
+                "info_list": ["state"]
+            })
+            if quick_results == None:
+                quick_results = ["ApiNotReady"]
+            return quick_results
+                
         for key,value in command_obj.items():
             if key == "-p" and (value == "all" or value == "empty"):
                 all_profile_request = True
@@ -153,19 +164,15 @@ class CLI():
                     self.functions.print_paragraphs([
                         ["Node Status Quick Results",1,"green","bold"],
                     ])                    
-                quick_results = self.functions.get_api_node_info({
-                    "api_host": self.functions.get_ext_ip(),
-                    "api_port": self.functions.config_obj[called_profile]["public_port"],
-                    "tolerance": 1,
-                    "info_list": ["state"]
-                })
-                if quick_results == None:
-                    quick_results = ["ApiNotReady"]
+                quick_results = quick_status_pull(self.functions.config_obj[called_profile]["public_port"])
                 self.functions.print_paragraphs([
                     [f"{called_profile}:",0,"yellow","bold"],[quick_results[0],1],
                 ])
                 continue
-                
+            
+            quick_results = {}    
+            quick_results[profile] = quick_status_pull(self.functions.config_obj[profile]["public_port"])
+            
             if n > 0: 
                 print_title = False 
                 if all_profile_request:
@@ -224,6 +231,7 @@ class CLI():
                     "node_session": node_session,
                     "join_state": join_state
                 }
+                
             output = setup_output()
             self.config_obj["global_elements"]["node_profile_states"][called_profile] = output["join_state"].strip()  # to speed up restarts and upgrades
             
@@ -1692,11 +1700,17 @@ class CLI():
 
     def check_nodectl_upgrade_path(self,command_obj):
         var = SimpleNamespace(**command_obj)
+        
         self.functions.check_for_help(var.argv_list,"upgrade_path")
         var.called_command = "upgrade_path" if var.called_command == "_up" else var.called_command
         
         self.log.logger.debug("testing for upgrade path requirements")
-        self.version_obj = self.functions.get_version({"which":"all"}) # rebuild the version object
+        
+        try:
+            self.version_obj = var.version_obj
+        except:
+            self.version_obj = self.functions.get_version({"which":"all"}) # rebuild the version object
+            
         versions = SimpleNamespace(**self.version_obj)
         
         if not self.functions.upgrade_path:
@@ -1801,8 +1815,6 @@ class CLI():
                     
             print_version_path()
             print("")
-        else:
-            return self.version_obj  # avoid having to grab the version twice on upgrade
         
 
     def check_for_new_versions(self,command_obj):
@@ -2381,10 +2393,11 @@ class CLI():
         called_profile = argv_list[argv_list.index("-p")+1]
         self.set_profile(called_profile)
         
-        tolerance_result = False        
+        result, snapshot_issues, tolerance_result = False, False, False
         first_attempt = True
+        wfd_count, wfd_max = 0, 3  # WaitingForDownload
+        dip_count, dip_max = 0, 8 # DownloadInProgress
         attempt = ""
-        result = False
         
         defined_connection_threshold = .8
         max_timer = 300
@@ -2512,6 +2525,20 @@ class CLI():
                             self.functions.print_auto_restart_warning()
                             exit(1)
                         increase_check += 1
+                    if state == "WaitingForDownload":
+                        if wfd_count > wfd_max:
+                            snapshot_issues = "wfd_break"
+                            result = False
+                            tolerance_result = False # force last error to print
+                            break
+                        wfd_count += 1
+                    if state == "DownloadInProgress":
+                        if dip_count > dip_max:
+                            snapshot_issues = "dip_break"
+                            result = False
+                            tolerance_result = False # force last error to print
+                            break
+                        dip_count += 1
                     else:
                         increase_check = 0
                         state = self.functions.test_peer_state({
@@ -2524,7 +2551,7 @@ class CLI():
                                 print_update()
                                 result = True
                                 break
-
+                            
                 try:
                     connect_threshold = peer_count/src_peer_count
                     if peer_count >= src_peer_count: 
@@ -2551,8 +2578,24 @@ class CLI():
                             "newLine": True
                         })
                     break
+            
+            # ========================
                 
-            if not result and tolerance_result:
+            if snapshot_issues:
+                if snapshot_issues == "wfd_break":
+                    self.functions.print_paragraphs([
+                        ["",2],["nodectl has detected",0],["WaitingForDownload",0,"red","bold"],
+                        ["This is an indication that your Node may be stuck in an improper state.",0],
+                        ["Please contact technical support in the Discord Channels for more help.",1],
+                    ])                    
+                if snapshot_issues == "dip_break":
+                    self.functions.print_paragraphs([
+                        ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],
+                        ["This is",0], ["not",0,"green","bold"], ["an issue; however, Nodes may take",0],
+                        ["Longer than expected time to complete this process.  nodectl will terminate the",0],
+                        ["watching for peers to join process in order to avoid undesirable wait times.",1],
+                    ])       
+            elif not result and tolerance_result:
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1],["nodectl tolerance connection status of [",0,],
@@ -3749,7 +3792,4 @@ class CLI():
             return 0
 
                   
-if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")        
-
         

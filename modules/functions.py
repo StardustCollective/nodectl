@@ -42,7 +42,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.9.0"
+        self.node_nodectl_version = "v2.8.1"
         self.node_nodectl_yaml_version = "v2.0.0"
         exclude_config = ["-v","_v","version"]
         
@@ -1443,9 +1443,10 @@ class Functions():
         elif "environments" in var.req:
             pull_all()
             return {
-                "environment_names": metagraph_env_set
+                "environment_names": metagraph_env_set,
+                "multiple_environments": True if len(metagraph_env_set) > 1 else False
             }
-            
+        
         elif "one_profile_per_env" in var.req:
             pull_all()
             last_env = set(); profiles = []
@@ -2520,7 +2521,8 @@ class Functions():
         
         self.print_paragraphs([
             ["Total",0], [action,0,"yellow","underline"], ["time:",0],
-            [f" {round(total_time,3)} {unit} ",0,"grey,on_green","bold"],["",2],
+            [f" {round(total_time,3)} ",0,"grey,on_green","bold"],
+            [f"{unit}",2],
         ])
 
 
