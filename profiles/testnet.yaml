@@ -29,12 +29,12 @@
 nodectl:
   intnet-l0:
     enable: True
-    environment: integrationnet
-    description: Constellation Network IntgrationNet Hyergraph Global Layer0
+    environment: testnet
+    description: Constellation Network TestNet Hyergraph Global Layer0
     node_type: validator
     collateral: 0
     layer: 0
-    service: intnetserv_l0
+    service: node_l0
     edge_point: default
     edge_point_tcp_port: default
     public_port: default
@@ -68,14 +68,14 @@ nodectl:
     custom_env_vars_enable: False
   intnet-l1:
     enable: True
-    environment: integrationnet
-    description: Constellation Network IntgrationNet Metagraph Layer1
+    environment: testnet
+    description: Constellation Network TestNet Metagraph Layer1
     node_type: validator
     collateral: 0
     layer: 1
-    service: intnetserv_l1
-    edge_point: l1-lb-integrationnet.constellationnetwork.io
-    edge_point_tcp_port: 80
+    service: node_l1
+    edge_point: default
+    edge_point_tcp_port: default
     public_port: default
     p2p_port: default
     cli_port: default
@@ -83,7 +83,7 @@ nodectl:
     layer0_link_key: self
     layer0_link_host: self
     layer0_link_port: self
-    layer0_link_profile: intnet-l0
+    layer0_link_profile: dag-l0
     directory_backups: default
     directory_uploads: default
     java_xms: default
@@ -116,5 +116,5 @@ nodectl:
     key_alias: blank
     passphrase: blank
   global_elements:
-    metagraph_name: integrationnet
+    metagraph_name: testnet
     nodectl_yaml: "v2.0.0"
