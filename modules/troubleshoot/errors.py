@@ -418,7 +418,7 @@ class Error_codes():
             ]) 
             
             
-        elif var.line.code == "download_yaml":
+        elif var.line_code == "download_yaml":
             self.log.logger.critical(f"unable to download valid configuration file [cn-config.yaml]")
             self.functions.print_paragraphs([
                 ["nodectl installer attempted to download an invalid or non-existent yaml pre-defined configuration.",0,"red"],

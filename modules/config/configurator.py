@@ -1021,11 +1021,11 @@ class Configurator():
                 }):
                     return False
             
-            enable_disable = "enable" if self.profile_details["layer0_enable"] == "False" else "disable"
+            enable_disable = "enable" if self.profile_details["gl0_enable"] == "False" else "disable"
             enable_disable = colored(enable_disable,"cyan",attrs=["underline","bold"])
             part_two = colored("the link for this profile:","cyan")
             questions = {
-                "layer0_link": {
+                "gl0_link": {
                     "question": f"  {colored(f'Do you want to {enable_disable} {part_two}','cyan')}",
                     "description": link_description,
                     "default": "n",
@@ -1034,39 +1034,39 @@ class Configurator():
             }
             enable_answer = self.ask_confirm_questions(questions,False)
 
-            if enable_answer["layer0_link"].lower() == "y" or enable_answer["layer0_link"].lower() == "yes":
+            if enable_answer["gl0_link"].lower() == "y" or enable_answer["gl0_link"].lower() == "yes":
                 if "disable" in enable_disable:  # color formatted value  
-                    self.profile_details["layer0_link"] = "n"
-                    self.profile_details["layer0_enable"] = "False"
+                    self.profile_details["gl0_link"] = "n"
+                    self.profile_details["gl0_enable"] = "False"
                     return True # only change layer0_enable to False 
             else:
                 if "enable" in enable_disable:
                     cprint("  Nothing to do","red")
                     return False
             
-            self.profile_details["layer0_link"] = "y"  # revert because "disable"
-            self.profile_details["layer0_enable"] = "True"
-            key_default = self.profile_details["layer0_key"] if self.profile_details["layer0_key"] != "None" else "self"
-            host_default = self.profile_details["layer0_host"] if self.profile_details["layer0_host"] != "None" else "self"
-            port_default = self.profile_details["layer0_port"] if self.profile_details["layer0_port"] != "None" else "self"
-            profile_default = self.profile_details["link_profile"] if self.profile_details["layer0_port"] != "None" else None
+            self.profile_details["gl0_link"] = "y"  # revert because "disable"
+            self.profile_details["gl0_enable"] = "True"
+            key_default = self.profile_details["gl0_key"] if self.profile_details["gl0_key"] != "None" else "self"
+            host_default = self.profile_details["gl0_host"] if self.profile_details["gl0_host"] != "None" else "self"
+            port_default = self.profile_details["gl0_port"] if self.profile_details["gl0_port"] != "None" else "self"
+            profile_default = self.profile_details["link_profile"] if self.profile_details["gl0_port"] != "None" else None
             
             
         else:
             if self.profile_details["layer"] == "0":
-                self.profile_details["layer0_link"] = "n"
+                self.profile_details["gl0_link"] = "n"
             else:
                 print_header()
                 questions = {
-                    "layer0_link": {
-                        "question": f"  {colored('Does this State Channel require a link to layer0','cyan')}",
+                    "gl0_link": {
+                        "question": f"  {colored('Does this State Channel require a link to gl0','cyan')}",
                         "description": link_description,
                         "default": "y",
                         "required": False,
                     },    
                 }
                 dict_link = self.ask_confirm_questions(questions,False)
-                link = True if dict_link["layer0_link"].lower() == "y" or dict_link["layer0_link"].lower() == "yes" else False
+                link = True if dict_link["gl0_link"].lower() == "y" or dict_link["gl0_link"].lower() == "yes" else False
                 print("")
             
             key_default = "self"
@@ -1075,7 +1075,7 @@ class Configurator():
             
         if link:
             questions = {
-                "layer0_key": {
+                "gl0_key": {
                     "question": f"  {colored('Enter the layer0 link public key','cyan')}",
                     "description": "You need to identify the public key of the Node that you going to attempt to link to. This is required for security purposes to avoid man-in-the-middle cybersecurity attacks.  It is highly recommended to use the public key of your own Node if you are running a layer0 network on the same Node as the Node running this State Channel.  In order to do this you can simply enter in 'self' and nodectl will take care of the rest.  If you are not using your own Node, you will need to obtain the public p12 key from the Node you are attempting to link through.",
                     "default": key_default,
@@ -1083,16 +1083,16 @@ class Configurator():
                 },    
             }
             dict_link2 = self.ask_confirm_questions(questions)  
-            if dict_link2["layer0_key"] != "self":
+            if dict_link2["gl0_key"] != "self":
                 dict_link2["link_profile"] = "None"
                 questions = { 
-                    "layer0_host": {
+                    "gl0_host": {
                         "question": f"  {colored('Enter the layer0 link ip address or hostname','cyan')}",
                         "description": "You need to identify the ip address or hostname the Node that you going to attempt to link to. This value can be a FQDN (full qualified domain name) hostname or IP address.  Do not enter a URL/URI (web address). It is highly recommended to use the ip address of your own Node if you are running a layer0 network on the same Node as the Node running this State Channel.  In order to do this you can simply enter in 'self' and nodectl will take care of the rest.  If you are not using your own Node, you will need to obtain the ip address or hostname of the Node you are attempting to link through.",
                         "default": host_default,
                         "required": False,
                     },   
-                    "layer0_port": {
+                    "gl0_port": {
                         "question": f"  {colored('Enter the public TCP port of the link host: ','cyan')}",
                         "description": "You need to identify the TCP (Transport Control Protocol) port that the Node that you going to attempt to link to uses for public communication. This value must match the exact TCP port of the Node you are linking through. You can find this value by reviewing the '/node/info' link from the IP address of the link host, or by contacting the Node Administrator for the host Node you are attempting to link through.",
                         "default": port_default,
@@ -1100,8 +1100,8 @@ class Configurator():
                     },   
                 }  
             else: 
-                dict_link2["layer0_host"] = "self"
-                dict_link2["layer0_port"] = "self"
+                dict_link2["gl0_host"] = "self"
+                dict_link2["gl0_port"] = "self"
                 questions = {             
                     "link_profile": {
                         "question": f"  {colored('Enter the name of the profile that your Node will link with: ','cyan')}",
@@ -1614,13 +1614,13 @@ class Configurator():
             # ====================
             # PREPARE LINK PROFILE
             # ====================
-            if profile_obj["layer0_link"].lower() == "y" or profile_obj["layer0_link"].lower() == "yes":
+            if profile_obj["gl0_link"].lower() == "y" or profile_obj["gl0_link"].lower() == "yes":
                 link_zero = [
                     [
                         "True",
-                        profile_obj["layer0_key"],
-                        profile_obj["layer0_host"],
-                        profile_obj["layer0_port"],
+                        profile_obj["gl0_key"],
+                        profile_obj["gl0_host"],
+                        profile_obj["gl0_port"],
                         profile_obj["link_profile"]
                     ]
                 ]
@@ -1641,10 +1641,10 @@ class Configurator():
                         "p2p":  tcp_ports[n][1],
                         "cli":  tcp_ports[n][2],
                         "service": services[n],
-                        "layer0_enable": link_zero[n][0],
-                        "layer0_key": link_zero[n][1],
-                        "layer0_host": link_zero[n][2],
-                        "layer0_port": link_zero[n][3],
+                        "gl0_enable": link_zero[n][0],
+                        "gl0_key": link_zero[n][1],
+                        "gl0_host": link_zero[n][2],
+                        "gl0_port": link_zero[n][3],
                         "link_profile": link_zero[n][4],
                         "snapshots": dirs[n][0],
                         "backups": dirs[n][1],
@@ -1747,11 +1747,11 @@ class Configurator():
         for profile in self.config_obj.keys():
             details = self.config_obj[profile]
             link_port = "None"
-            if details["layer0_enable"] == "True":
+            if details["gl0_enable"] == "True":
                 try:
                     link_port = self.config_obj[details["link_profile"]]["public"]
                 except:
-                    link_port = details["layer0_port"]
+                    link_port = details["gl0_port"]
                     try:
                         int(link_port)
                     except Exception as e:
@@ -1789,9 +1789,9 @@ class Configurator():
                 "nodegaragep2p": details["p2p"],
                 "nodegaragecli":details["cli"],
                 "nodegarageservice": details["service"],
-                "nodegaragelinkenable": details["layer0_enable"],
-                "nodegarage0layerkey": details["layer0_key"],
-                "nodegarage0layerhost": details["layer0_host"],
+                "nodegaragelinkenable": details["gl0_enable"],
+                "nodegarage0layerkey": details["gl0_key"],
+                "nodegarage0layerhost": details["gl0_host"],
                 "nodegarage0layerport": str(link_port),
                 "ndoegarage0layerlink": details["link_profile"],
                 "nodegaragexms": details["java_jvm_xms"],
@@ -1919,10 +1919,10 @@ class Configurator():
                             if i_key in key_replacements:
                                 i_key = key_replacements[i_key]
                             if i_key == "enable": # layer0_link
-                                i_key = "layer0_enable"
+                                i_key = "gl0_enable"
                             profile_details[i_key] = str(i_value)
                 
-                profile_details["layer0_link"] = "y" if profile_details["layer0_enable"] == "True" else "n"
+                profile_details["gl0_link"] = "y" if profile_details["gl0_enable"] == "True" else "n"
                 profile_details["profile_name"] = profile
                 self.config_obj[profile] = profile_details
         
@@ -2076,7 +2076,7 @@ class Configurator():
             ("layer", "DLT Blockchain Layer Type"),
             ("ports","API TCP Connection Ports"),
             ("service", "Debian System Service"),
-            ("layer0_link","Consensus Link Connection"),
+            ("gl0_link","Consensus Link Connection"),
             ("dirs","Directory Structure"),
             ("java","Java Memory Heap Manipulation"),
             ("pro", "Access List Setup"),
@@ -2228,7 +2228,7 @@ class Configurator():
                     if do_build_yaml:
                         self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer link] [{self.action}]"
                         self.verify_edit_options({
-                            "keys": ["layer0_key","layer0_host"],
+                            "keys": ["gl0_key","gl0_host"],
                             "error": "Layer Linking",
                             "types": ["128hex","host"],
                         })
@@ -2581,7 +2581,7 @@ class Configurator():
             "newline": True,
         })
         for replace_link_p in self.c.config_obj.keys():
-            if self.c.config_obj[replace_link_p]["layer0_link_profile"] == old_profile:
+            if self.c.config_obj[replace_link_p]["gl0_link_profile"] == old_profile:
                 self.config_obj[replace_link_p]["link_profile"] = new_profile
             for dir_p in dirs:
                 if old_profile in self.config_obj[replace_link_p][dir_p]: 
@@ -2680,7 +2680,7 @@ class Configurator():
             warning_confirm = True
             if section == "enable" and new == "disable":
                 for replace_link_p in self.c.config_obj.keys():
-                    if self.c.config_obj[replace_link_p]["layer0_link_profile"] == profile:
+                    if self.c.config_obj[replace_link_p]["gl0_link_profile"] == profile:
                         self.c.functions.print_paragraphs([
                             [" WARNING ",0,"red,on_yellow"], ["Selected Profile [",0], [replace_link_p,-1,"yellow"], 
                             ["] seems to be reliant on [",-1], [profile,-1,"yellow","bold"], ["]. Continuing will",-1],
@@ -3193,7 +3193,7 @@ class Configurator():
         sections = deepcopy(self.c.test_dict)
         sections.pop("top"); sections.pop("profiles")
         sections["java"] = ["java_jvm_xms","java_jvm_xms","java_jvm_xms"]
-        sections["layer0_link"][0] = "layer0_enable"
+        sections["gl0_link"][0] = "gl0_enable"
         singles = ["enable","layer","environment","service","node_type","description"]
         
         for profile in self.c.config_obj.keys():

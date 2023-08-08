@@ -558,11 +558,11 @@ class Node():
             f.write(f"CL_EXTERNAL_IP={self.functions.get_ext_ip()}\n")
             f.write(f"CL_APP_ENV={self.functions.config_obj[profile]['environment']}\n")
             
-            if self.functions.config_obj[profile]["layer0_link_enable"]:
-                f.write(f"CL_L0_PEER_ID={self.functions.config_obj[profile]['layer0_link_key']}\n")
-                f.write(f"CL_L0_PEER_HTTP_HOST={self.functions.config_obj[profile]['layer0_link_host']}\n")
-                link_profile = self.functions.config_obj[profile]['layer0_link_profile']
-                link_port = self.functions.config_obj[profile]['layer0_link_port']
+            if self.functions.config_obj[profile]["gl0_link_enable"]:
+                f.write(f"CL_L0_PEER_ID={self.functions.config_obj[profile]['gl0_link_key']}\n")
+                f.write(f"CL_L0_PEER_HTTP_HOST={self.functions.config_obj[profile]['gl0_link_host']}\n")
+                link_profile = self.functions.config_obj[profile]['gl0_link_profile']
+                link_port = self.functions.config_obj[profile]['gl0_link_port']
                 if link_profile in self.functions.config_obj.keys():
                     # forces auto_correct of port if inconsistent with link_profile public
                     link_port = self.functions.config_obj[link_profile]['public_port']
@@ -613,8 +613,8 @@ class Node():
     def build_remote_link(self):
         for n in range(0,4):
             source_node_list = self.functions.get_api_node_info({
-                "api_host": self.config_obj[self.profile]["layer0_link_host"],
-                "api_port": self.config_obj[self.profile]["layer0_link_port"],
+                "api_host": self.config_obj[self.profile]["gl0_link_host"],
+                "api_port": self.config_obj[self.profile]["gl0_link_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
             if source_node_list[3] == "Ready":
@@ -762,8 +762,8 @@ class Node():
         state = None
         
         # profile is set by cli.set_profile method
-        link_profile = self.functions.config_obj[self.profile]["layer0_link_profile"]
-        linking_enabled = self.functions.config_obj[self.profile]["layer0_link_enable"]
+        link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"]
+        linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
         profile_layer = self.functions.config_obj[self.profile]["layer"]
         
         if linking_enabled:
@@ -780,7 +780,7 @@ class Node():
             'Content-type': 'application/json',
         }
        
-        if linking_enabled and self.functions.config_obj[self.profile]["layer0_link_profile"] == "None":
+        if linking_enabled and self.functions.config_obj[self.profile]["gl0_link_profile"] == "None":
             self.build_remote_link()
             linking_enabled = False
             layer_zero_ready = True
@@ -803,7 +803,7 @@ class Node():
         join_session = Session()  # this is a requests Session external library
                 
         if linking_enabled:
-            if self.functions.config_obj[self.profile]["layer0_link_profile"] != "None":
+            if self.functions.config_obj[self.profile]["gl0_link_profile"] != "None":
                 try:
                     _ = self.functions.pull_profile({
                         "req": "ports",
@@ -1048,11 +1048,16 @@ nodectl:
     public_port: nodegaragepublic
     p2p_port: nodegaragep2p
     cli_port: nodegaragecli
-    layer0_link_enable: nodegaragelayer0linkenable
-    layer0_link_key: nodegaragelayer0linkkey
-    layer0_link_host: nodegaragelayer0linkhost
-    layer0_link_port: nodegaragelayer0linkport
-    layer0_link_profile: nodegaragelayer0linkprofile
+    gl0_link_enable: nodegaragegl0linkenable
+    gl0_link_key: nodegaragegl0linkkey
+    gl0_link_host: nodegaragegl0linkhost
+    gl0_link_port: nodegaragegl0linkport
+    gl0_link_profile: nodegaragegl0linkprofile
+    ml0_link_enable: nodegarageml0linkenable
+    ml0_link_key: nodegarageml0linkkey
+    ml0_link_host: nodegarageml0linkhost
+    ml0_link_port: nodegarageml0linkport
+    ml0_link_profile: nodegarageml0linkprofile
     directory_backups: nodegaragedirectorybackups
     directory_uploads: nodegaragedirectoryuploads
     java_xms: nodegaragexms

@@ -194,6 +194,11 @@ class Configuration():
             
         if not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             self.log.logger.info(f"configuaration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
+            if self.called_command != "upgrade":
+                self.error_messages.error_code_messages({
+                    "error_code": "cfg-199",
+                    "line_code": "upgrade_needed"
+                })
             self.migration()
             self.config_obj = {}  # reset
             self.build_yaml_dict() # rebuild new configuration format
@@ -443,11 +448,21 @@ class Configuration():
                     })
                 
             # does the profile link through itself?
+            link_key_error = False
             try:
-                self.config_obj[profile]["layer0_link_is_self"] = True
-                if self.config_obj[profile]["layer0_link_profile"] == "None":
-                    self.config_obj[profile]["layer0_link_is_self"] = False
+                self.config_obj[profile]["ml0_link_is_self"] = True
+                if self.config_obj[profile]["ml0_link_profile"] == "None":
+                    self.config_obj[profile]["ml0_link_is_self"] = False
             except KeyError:
+                link_key_error = True
+            try:
+                self.config_obj[profile]["gl0_link_is_self"] = True
+                if self.config_obj[profile]["gl0_link_profile"] == "None":
+                    self.config_obj[profile]["gl0_link_is_self"] = False
+            except KeyError:
+                link_key_error = True
+                
+            if link_key_error:
                     self.error_list.append({
                         "title": "section_missing",
                         "section": "global",
@@ -606,7 +621,7 @@ class Configuration():
                 sleep(2)
             return False
                        
-        write_out = False
+        write_out, success = False, False
         attempts = 0
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
         profile_obj = self.config_obj; self.profile_obj = profile_obj
@@ -616,34 +631,36 @@ class Configuration():
         
         for profile in self.metagraph_list:
             if profile_obj[profile]["enable"] and self.action != "edit_config":
-                if profile_obj[profile]["layer0_link_host"] == "self":
-                    print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
-                    sleep(.8) # allow user to see
-                    profile_obj[profile]["layer0_link_host"] = self.functions.get_ext_ip() 
-                if profile_obj[profile]["layer0_link_port"] == "self":
-                    print(f"{print_str}{colored('link public port','yellow')}",end="\r")
-                    sleep(.8) # allow user to see
-                    link_profile_port = self.config_obj[self.config_obj[profile]["layer0_link_profile"]]["public_port"]
-                    profile_obj[profile]["layer0_link_port"] = link_profile_port 
-                if profile_obj[profile]["layer0_link_key"] == "self":
-                    self.setup_passwd(True)
-                    while True:
-                        print(f"{print_str}{colored('link host public key','yellow')}",end="\r")
-                        if not write_out:
-                            write_out = True
-                            success = grab_nodeid(profile)
-                        if success:
-                            self.nodeid = self.nodeid.strip("\n")
-                            profile_obj[profile]["layer0_link_key"] = self.nodeid
-                            break
-                        sleep(2)
-                        attempts += 1
-                        if attempts > 2:
-                            self.error_messages.error_code_messages({
-                                "error_code": "cfg-337",
-                                "line_code": "node_id_issue",
-                                "extra": "config"
-                            })
+                for m_or_g in ["ml0","gl0"]:
+                    if profile_obj[profile][f"{m_or_g}_link_host"] == "self":
+                        print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
+                        sleep(.8) # allow user to see
+                        profile_obj[profile][f"{m_or_g}_link_host"] = self.functions.get_ext_ip() 
+                    if profile_obj[profile][f"{m_or_g}_link_port"] == "self":
+                        print(f"{print_str}{colored('link public port','yellow')}",end="\r")
+                        sleep(.8) # allow user to see
+                        link_profile_port = self.config_obj[self.config_obj[profile][f"{m_or_g}_link_profile"]]["public_port"]
+                        profile_obj[profile][f"{m_or_g}_link_port"] = link_profile_port 
+                    if profile_obj[profile][f"{m_or_g}_link_key"] == "self":
+                        self.setup_passwd(True)
+                        while True:
+                            print(f"{print_str}{colored('link host public key','yellow')}",end="\r")
+                            if not write_out:
+                                write_out = True
+                                if not success:
+                                    success = grab_nodeid(profile)
+                            if success:
+                                self.nodeid = self.nodeid.strip("\n")
+                                profile_obj[profile][f"{m_or_g}_link_key"] = self.nodeid
+                                break
+                            sleep(2)
+                            attempts += 1
+                            if attempts > 2:
+                                self.error_messages.error_code_messages({
+                                    "error_code": "cfg-337",
+                                    "line_code": "node_id_issue",
+                                    "extra": "config"
+                                })
 
             if write_out:  
                 done_ip, done_key, done_port, current_profile, skip_write = False, False, False, False, False
@@ -655,14 +672,23 @@ class Configuration():
                         if f"{profile}:" in line:
                             current_profile = True
                         if current_profile:
-                            if "layer0_link_key: self" in line and not done_key:
-                                newfile.write(f"    layer0_link_key: {self.nodeid}\n")
+                            if "ml0_link_key: self" in line and not done_key:
+                                newfile.write(f"    ml0_link_key: {self.nodeid}\n")
                                 done_key,skip_write = True, True
-                            elif "layer0_link_host: self" in line and not done_ip:
-                                newfile.write(f"    layer0_link_host: {self.functions.get_ext_ip()}\n")
+                            elif "ml0_link_host: self" in line and not done_ip:
+                                newfile.write(f"    ml0_link_host: {self.functions.get_ext_ip()}\n")
                                 done_ip, skip_write = True, True
-                            elif "layer0_link_port: self" in line and not done_port:
-                                newfile.write(f"    layer0_link_port: {link_profile_port}\n")
+                            elif "ml0_link_port: self" in line and not done_port:
+                                newfile.write(f"    ml0_link_port: {link_profile_port}\n")
+                                done_port, skip_write = True, True
+                            elif "gl0_link_key: self" in line and not done_key:
+                                newfile.write(f"    gl0_link_key: {self.nodeid}\n")
+                                done_key,skip_write = True, True
+                            elif "gl0_link_host: self" in line and not done_ip:
+                                newfile.write(f"    gl0_link_host: {self.functions.get_ext_ip()}\n")
+                                done_ip, skip_write = True, True
+                            elif "gl0_link_port: self" in line and not done_port:
+                                newfile.write(f"    gl0_link_port: {link_profile_port}\n")
                                 done_port, skip_write = True, True
                         if not skip_write:
                             newfile.write(line)
@@ -691,12 +717,18 @@ class Configuration():
                 ["public_port","high_port"], 
                 ["p2p_port","high_port"], 
                 ["cli_port","high_port"], 
-                ["layer0_link_enable","bool"],
-                ["layer0_link_key","128hex"], 
-                ["layer0_link_host","host"], 
-                ["layer0_link_port","self_port"],
-                ["layer0_link_profile","str"],
-                ["layer0_link_is_self","bool"], # automated value [not part of yaml]
+                ["gl0_link_enable","bool"],
+                ["gl0_link_key","128hex"], 
+                ["gl0_link_host","host"], 
+                ["gl0_link_port","self_port"],
+                ["gl0_link_profile","str"],
+                ["gl0_link_is_self","bool"], # automated value [not part of yaml]
+                ["ml0_link_enable","bool"],
+                ["ml0_link_key","128hex"], 
+                ["ml0_link_host","host"], 
+                ["ml0_link_port","self_port"],
+                ["ml0_link_profile","str"],
+                ["ml0_link_is_self","bool"], # automated value [not part of yaml]
                 ["directory_backups","path_def"],
                 ["directory_uploads","path_def"],
                 ["java_xms","mem_size"],
@@ -767,7 +799,8 @@ class Configuration():
         #         "enable","metagraph_name","description","node_type","layer","service",
         #         "environment","edge_point","edge_point_tcp_port",
         #         "public_port","p2p_port","cli_port",
-        #         "layer0_link_enable","layer0_link_key","layer0_link_host","layer0_link_port","layer0_link_profile",
+        #         "gl0_link_enable","gl0_link_key","gl0_link_host","gl0_link_port","gl0_link_profile",
+        #         "ml0_link_enable","ml0_link_key","ml0_link_host","ml0_link_port","ml0_link_profile",
         #         "directory_backups","directory_uploads",
         #         "java_xms","java_xmx",
         #         "java_xss","jar_repository",
@@ -792,7 +825,7 @@ class Configuration():
                 # key_test_list = list(config_value.keys())
                 # schema_test_list = [item[0] for item in self.schema["metagraphs"]]
                 missing =  [item[0] for item in self.schema["metagraphs"]] - config_value.keys()
-                missing = [x for x in missing if x not in ["seed_path","layer0_link_is_self","p12_key_store","jar_github"]]
+                missing = [x for x in missing if x not in ["seed_path","gl0_link_is_self","ml0_link_is_self","p12_key_store","jar_github"]]
                 for item in missing:
                     missing_list.append([config_key, item])
         
@@ -942,38 +975,39 @@ class Configuration():
 
     def validate_link_dependencies(self):
         # this is done after the disabled profiles are removed.
-        link_profiles = []
-        for profile in self.metagraph_list:
-            link_profile = self.config_obj[profile]["layer0_link_profile"]
-            if link_profile != "None":
-                link_profiles.append((profile,link_profile)) 
-                
-        for profile in link_profiles:
-            if self.config_obj[profile[0]]["layer0_link_enable"]:
-                if profile[0] == profile[1]:
-                    self.error_list.append({
-                        "title":"Link Profile Dependency Conflict",
-                        "section": "layer0_link",
-                        "profile": profile[0],
-                        "missing_keys": None, 
-                        "key": "link_profile",
-                        "value": profile[1],
-                        "type": None,
-                        "special_case": "Cannot link profile to itself"
-                    })  
-                    self.validated = False              
-                elif profile[1] not in self.profiles:
-                    self.error_list.append({
-                        "title":"Link Profile Dependency Not Met",
-                        "section": "layer0_link",
-                        "profile": profile[0],
-                        "missing_keys": None, 
-                        "key": "link_profile",
-                        "value": profile[1],
-                        "type": None,
-                        "special_case": None
-                    })
-                    self.validated = False   
+        for m_or_g in ["ml0","gl0"]:
+            link_profiles = []            
+            for profile in self.metagraph_list:
+                link_profile = self.config_obj[profile][f"{m_or_g}_link_profile"]
+                if link_profile != "None":
+                    link_profiles.append((profile,link_profile)) 
+                    
+            for profile in link_profiles:
+                if self.config_obj[profile[0]][f"{m_or_g}_link_enable"]:
+                    if profile[0] == profile[1]:
+                        self.error_list.append({
+                            "title":"Link Profile Dependency Conflict",
+                            "section": f"{m_or_g}_link",
+                            "profile": profile[0],
+                            "missing_keys": None, 
+                            "key": "link_profile",
+                            "value": profile[1],
+                            "type": None,
+                            "special_case": "Cannot link profile to itself"
+                        })  
+                        self.validated = False              
+                    elif profile[1] not in self.profiles:
+                        self.error_list.append({
+                            "title":"Link Profile Dependency Not Met",
+                            "section": f"{m_or_g}_link",
+                            "profile": profile[0],
+                            "missing_keys": None, 
+                            "key": "link_profile",
+                            "value": profile[1],
+                            "type": None,
+                            "special_case": None
+                        })
+                        self.validated = False   
 
         
     def validate_profile_keys(self,profile):
@@ -1035,7 +1069,7 @@ class Configuration():
                         validated = False
                         
                         if skip_validation:
-                            if "layer0_link" in key:
+                            if "gl0_link" in key or "ml0_link" in key:
                                 validated = True
                             else:
                                 skip_validation = False
@@ -1054,12 +1088,12 @@ class Configuration():
                             if "key_name" in key and req_type == "str":
                                 if test_value[-4::] != ".p12":
                                     title = "missing .p12 extension"
-                            if key == "layer0_link_enable" and not test_value:
+                            if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
                                 skip_validation = True
                             if "passphrase" in key and test_value != "none" and req_type != "bool":
                                 if "'" in test_value or '"' in test_value:
                                     title = "invalid single and or double quotes in passphrase"
-                            if key == "layer0_link_port" and test_value == "self":
+                            if (key == "gl0_link_port" or key == "ml0_link_port") and test_value == "self":
                                 validated = True
                             
                         elif "host" in req_type:
@@ -1138,7 +1172,7 @@ class Configuration():
         found_ports = []
         found_keys = []
         error_keys = []
-        ignore = ["layer0_link_port","edge_point_tcp_port"]
+        ignore = ["gl0_link_port","ml0_link_port","edge_point_tcp_port"]
         
         for section in self.metagraph_list:
             for key, value in self.config_obj[section].items():
@@ -1224,7 +1258,8 @@ class Configuration():
             "link_profile": "dependency link profile not found",
             "dirs": f"{dir1} {dir2}",
             "128hex": f"{hex1} {hex2}",
-            "layer0_link": "invalid link type",
+            "gl0_link": "invalid link type",
+            "ml0_link": "invalid link type",
             "global": f"{global1} {global2} {global3}",
             "yaml": f"{yaml1} {yaml2} {yaml3}",
             "edge_point": "must be a valid host or ip address",

@@ -193,19 +193,22 @@ class Migration():
             rebuild_obj["nodegarageprofile"] = profile
             self.found_environment = self.config_obj["profiles"][profile]["environment"] # will set final found env to value
             for section, value in self.config_obj["profiles"][profile].items():
-                link_section = "layer0link" if section == "layer0_link" else "" # enable dup key value
+                link_section = "ml0link" if section == "layer0_link" else "" # enable dup key value
                 if section in self.old_profile_subsections:
-                    for section, value in self.config_obj["profiles"][profile][section].items():
-                        if link_section == "layer0link": # exception
-                            section = section.replace("layer0","")
-                            section = section.replace("link","")
-                        elif section in self.old_dir_keys:
-                            section = f"directory{section}"
-                        elif section in self.old_p12_keys:
-                            section = f"p12{section}"
-                            section = "p12keyalias" if section == "p12wallet_alias" else section
-                            section = "p12keyname" if section == "p12p12_name" else section
-                        rebuild_obj[f"nodegarage{link_section}{section.replace('_','')}"] = value
+                    for i_section, value in self.config_obj["profiles"][profile][section].items():
+                        if link_section == "ml0link": # exception
+                            i_section = i_section.replace("layer0","")
+                            i_section = i_section.replace("link","")
+                        elif i_section in self.old_dir_keys:
+                            i_section = f"directory{i_section}"
+                        elif i_section in self.old_p12_keys:
+                            i_section = f"p12{i_section}"
+                            i_section = "p12keyalias" if i_section == "p12wallet_alias" else i_section
+                            i_section = "p12keyname" if i_section == "p12p12_name" else i_section
+                        rebuild_obj[f"nodegarage{link_section}{i_section.replace('_','')}"] = value
+                        if link_section == "ml0link":
+                            value =  False if "enable" in i_section else "None"
+                            rebuild_obj[f"nodegaragegl0link{i_section.replace('_','')}"] = value
                 else:
                     section = "blocklayer" if section == "layer" else section # exception
                     rebuild_obj[f"nodegarage{section.replace('_','')}"] = value
