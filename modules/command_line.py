@@ -1650,6 +1650,10 @@ class CLI():
         skip = True if "skip_warnings" in command_list else False
         self.print_title("Check Seed List Request")
 
+        is_target = command_list[command_list.index("-p")+1] if "-t" in command_list else False
+        target = ["-t",target] if is_target else []
+        nodeid = command_list[command_list.index("-id")+1] if "-id" in command_list else False
+
         if self.functions.config_obj[profile]["seed_location"] == "disable":
             if skip:
                 return True
@@ -1659,18 +1663,26 @@ class CLI():
             ])
             return 0
 
-        self.cli_grab_id({
-            "command":"nodeid",
-            "is_global": False,
-            "profile": profile,
-            "skip_display": skip
-        })
-           
-        if self.nodeid:
-            self.nodeid = self.functions.cleaner(self.nodeid,"new_line")
+        if nodeid:
+            self.functions.print_paragraphs([
+                ["NODE ID",1,"blue","bold"],
+                [nodeid,1,"white"],
+            ])
+        else:
+            self.cli_grab_id({
+                "command":"nodeid",
+                "is_global": False,
+                "profile": profile,
+                "argv_list": target,
+                "skip_display": skip
+            })
+            nodeid = self.nodeid
+               
+        if nodeid:
+            nodeid = self.functions.cleaner(nodeid,"new_line")
             test = self.functions.test_or_replace_line_in_file({
               "file_path": self.functions.config_obj[profile]["seed_path"],
-              "search_line": self.nodeid
+              "search_line": nodeid
             })
 
             if test == "file_not_found":
@@ -2584,16 +2596,16 @@ class CLI():
             if snapshot_issues:
                 if snapshot_issues == "wfd_break":
                     self.functions.print_paragraphs([
-                        ["",2],["nodectl has detected",0],["WaitingForDownload",0,"red","bold"],
+                        ["",2],["nodectl has detected",0],["WaitingForDownload",0,"red","bold"],["state.",2],
                         ["This is an indication that your Node may be stuck in an improper state.",0],
                         ["Please contact technical support in the Discord Channels for more help.",1],
                     ])                    
                 if snapshot_issues == "dip_break":
                     self.functions.print_paragraphs([
-                        ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],
+                        ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],["state.",2],
                         ["This is",0], ["not",0,"green","bold"], ["an issue; however, Nodes may take",0],
-                        ["Longer than expected time to complete this process.  nodectl will terminate the",0],
-                        ["watching for peers to join process in order to avoid undesirable wait times.",1],
+                        ["longer than expected time to complete this process.  nodectl will terminate the",0],
+                        ["watching for peers process during this join in order to avoid undesirable wait times.",1],
                     ])       
             elif not result and tolerance_result:
                 self.functions.print_clear_line()

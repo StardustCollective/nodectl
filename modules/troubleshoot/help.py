@@ -1626,6 +1626,10 @@ def build_help(command_obj):
   required:
   {colored('-p <profile_name>','green')} 
   
+  optional:
+  {colored('-id <node_id>','yellow')} 
+  {colored('-t <target_ip_address>','yellow')} 
+  
   {colored("check_seedlist","cyan")} will pull your nodeid out of your 
   p12 file and compare it to the seedlist downloaded from
   Constellation Network's authorized list.
@@ -1641,6 +1645,13 @@ def build_help(command_obj):
   
   {extended} for the configured profile_name
   # {colored(f'sudo nodectl {extended} -p <profile_name>','cyan')}  
+  
+  {extended} for the configured profile_name dag-l0 for ip address 10.10.10.10
+  # {colored(f'sudo nodectl {extended} -p dag-l0 -t 10.10.10.10','cyan')}  
+  
+  {extended} for the configured profile_name dag-l0 of a nodeid that 
+  would be replace the <node_id> variable in the example with a 128bit nodeid
+  # {colored(f'sudo nodectl {extended} -p dag-l0 -id <node_id>','cyan')}  
         ''' 
         
         

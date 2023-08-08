@@ -2574,7 +2574,7 @@ class Functions():
 
     def print_help(self,command_obj):
         nodectl_version_only = command_obj.get("nodectl_version_only",False)
-        hint = command_obj.get("hint",False)
+        hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
         
         if not nodectl_version_only:
@@ -2635,7 +2635,7 @@ class Functions():
             
         elif hint == "unknown":
             print(colored('Unknown command entered','red'),"\n")
-        elif isinstance(hint,str):
+        elif isinstance(hint,str) and hint != "None":
             cprint(f"{  hint}","cyan")
             
         exit(1) # auto_restart not affected

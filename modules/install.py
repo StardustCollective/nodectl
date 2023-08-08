@@ -209,8 +209,7 @@ class Installer():
             ["Metagraph:",0], [self.config_obj['global_elements']['network_name'],2,"yellow"],
             
             ["After installation is complete, the Node Operator may alter the",0,"magenta"], ["nodectl",0,"blue","bold"],
-            ["configuration to modify",0,"magenta"], ["nodectl",0,"blue","bold"],
-            ["to connect to the",0,"magenta"], ["Metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
+            ["configuration to allow connection to the",0,"magenta"], ["Metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
             
             ["sudo nodectl configure",2],
         ])
@@ -584,7 +583,7 @@ class Installer():
         else:
             for profile in self.metagraph_list:
                 if self.config_obj[profile]["seed_location"] != "disable":
-                    self.cli.check_seed_list(["-p",profile])
+                    self.cli.check_seed_list(["-p",profile,"-id",self.cli.nodeid])
 
         self.functions.print_paragraphs([
             ["",1], [f"Please review the next Steps in order to gain access to the {self.network_name} environment.",0],
@@ -593,7 +592,7 @@ class Installer():
             ["Please follow the instructions below, as indicated.",2],
             ["1",0,"magenta","bold"], [")",-1,"magenta"], ["Submit your NodeID to Constellation Admins.",1,"cyan"],
             ["2",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node.",1,"cyan"],
-            ["3",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl check_seedlist -p dag-l0",1,"cyan"],
+            ["3",0,"magenta","bold"], [")",-1,"magenta"], [f"sudo nodectl check_seedlist -p {self.metagraph_list[0]}",1,"cyan"],
             ["4",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",2,"cyan"],
             ["enod!",2,"white","bold"],
         ])        

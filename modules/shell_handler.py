@@ -436,9 +436,13 @@ class ShellHandler:
         self.functions.print_cmd_status(progress) 
         time.sleep(.8)
 
+        if action == "normal":
+            environments = self.functions.pull_profile({"req": "environments"})
+            if not show_list:
+                show_list = True if environments["multiple_environments"] else show_list
+            
         if env_provided and action == "normal":
             print("")
-            environments = self.functions.pull_profile({"req": "environments"})
             if env_provided not in list(environments["environment_names"]):
                 self.error_messages.error_code_messages({
                     "error_code": "sh-441",
@@ -447,7 +451,7 @@ class ShellHandler:
                     "extra2": env_provided
                 })
         
-            if environments["multiple_environments"] or show_list:
+            if show_list and not env_provided:
                 print("")
                 self.functions.print_header_title({
                     "line1": "Upgrade Environment Menu",
@@ -537,7 +541,7 @@ class ShellHandler:
                         "prompt": prompt_str,
                     })
                 self.log.logger.warn(f"{self.install_upgrade} was continued with an older version of nodectl [{current}]") 
-        elif action == "install":
+        else:
             environment = self.functions.network_name
             self.functions.print_cmd_status({
                 "text_start": "Using environment",
