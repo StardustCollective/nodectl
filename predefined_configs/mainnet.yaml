@@ -30,7 +30,7 @@ nodectl:
   intnet-l0:
     enable: True
     environment: mainnet
-    description: Constellation Network MainNet Hyergraph Global Layer0
+    description: Constellation Network MainNet Hyergraph Global gl0
     node_type: validator
     collateral: 0
     layer: 0
@@ -40,11 +40,16 @@ nodectl:
     public_port: default
     p2p_port: default
     cli_port: default
-    layer0_link_enable: False
-    layer0_link_key: None
-    layer0_link_host: None
-    layer0_link_port: None
-    layer0_link_profile: None
+    gl0_link_enable: False
+    gl0_link_key: None
+    gl0_link_host: None
+    gl0_link_port: None
+    gl0_link_profile: None
+    ml0_link_enable: False
+    ml0_link_key: None
+    ml0_link_host: None
+    ml0_link_port: None
+    ml0_link_profile: None
     directory_backups: default
     directory_uploads: default
     java_xms: default
@@ -79,11 +84,16 @@ nodectl:
     public_port: default
     p2p_port: default
     cli_port: default
-    layer0_link_enable: True
-    layer0_link_key: self
-    layer0_link_host: self
-    layer0_link_port: self
-    layer0_link_profile: dag-l0
+    gl0_link_enable: False
+    gl0_link_key: None
+    gl0_link_host: None
+    gl0_link_port: None
+    gl0_link_profile: None
+    ml0_link_enable: True
+    ml0_link_key: self
+    ml0_link_host: self
+    ml0_link_port: self
+    ml0_link_profile: dag-l0
     directory_backups: default
     directory_uploads: default
     java_xms: default
