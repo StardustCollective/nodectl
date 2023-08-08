@@ -2434,7 +2434,7 @@ class CLI():
             found_dependency = False
             if not watch_peer_counts: # check to see if we can skip waiting for Ready
                 for link_profile in self.functions.config_obj.keys():
-                    if self.functions.config_obj[link_profile]["gl0_link_profile"] == called_profile:
+                    if self.functions.config_obj[link_profile]["ml0_link_profile"] == called_profile:
                         found_dependency = True
                         break
             if not found_dependency:

@@ -441,17 +441,17 @@ class ShellHandler:
             if not show_list:
                 show_list = True if environments["multiple_environments"] else show_list
             
-        if env_provided and action == "normal":
             print("")
-            if env_provided not in list(environments["environment_names"]):
-                self.error_messages.error_code_messages({
-                    "error_code": "sh-441",
-                    "line_code": "environment_error",
-                    "extra": "upgrade",
-                    "extra2": env_provided
-                })
+            if env_provided:
+                if env_provided not in list(environments["environment_names"]):
+                    self.error_messages.error_code_messages({
+                        "error_code": "sh-441",
+                        "line_code": "environment_error",
+                        "extra": "upgrade",
+                        "extra2": env_provided
+                    })
         
-            if show_list and not env_provided:
+            if show_list:
                 print("")
                 self.functions.print_header_title({
                     "line1": "Upgrade Environment Menu",
@@ -460,8 +460,9 @@ class ShellHandler:
                 })
 
                 msg_start = "Multiple Metagraph environments were found on this system."
-                if show_list:
+                if show_list and not environments["multiple_environments"]:
                     msg_start = "Show list of Metagraphs was requested."
+                    self.log.logger.debug("Upgrade show list of environments requested")
                 if env_provided:
                     msg_start = "Choose environment from list requested but environment request was entered at the command line."
                     self.functions.print_cmd_status({
@@ -473,13 +474,14 @@ class ShellHandler:
                     })
                     print("")
 
-                self.log.logger.debug(f"Upgrade found multiple metagraph environments on the same Node that may are supported by different versions of nodectl")
-                self.functions.print_paragraphs([
-                    [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
-                    ["Please select an environment by",0], ["key pressing",0,"yellow"], 
-                    ["the number correlating to the environment you wish to upgrade.",2],  
-                    ["PLEASE CHOOSE AN ENVIRONMENT TO UPGRADE",2,"magenta","bold"]                      
-                ])
+                if environments["multiple_environments"] and not env_provided:
+                    self.log.logger.debug(f"Upgrade found multiple metagraph environments on the same Node that may are supported by different versions of nodectl")
+                    self.functions.print_paragraphs([
+                        [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
+                        ["Please select an environment by",0], ["key pressing",0,"yellow"], 
+                        ["the number correlating to the environment you wish to upgrade.",2],  
+                        ["PLEASE CHOOSE AN ENVIRONMENT TO UPGRADE",2,"magenta","bold"]                      
+                    ])
                 environment = self.functions.print_option_menu({
                     "options": list(environments["environment_names"]),
                     "return_value": True,

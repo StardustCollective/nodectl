@@ -1396,12 +1396,12 @@ class Functions():
             pairing_list = []
                        
             for profile in self.profile_names:
-                if self.config_obj[profile]["gl0_link_enable"]:
+                if self.config_obj[profile]["ml0_link_enable"]:
                     # list of lists of matching profile to linked profile
-                    link_profile = self.config_obj[profile]["gl0_link_profile"]
+                    link_profile = self.config_obj[profile]["ml0_link_profile"]
                     layer = self.config_obj[profile]["layer"]
                     if layer > 0 and link_profile != "None":
-                        pairing_list.append([profile, self.config_obj[profile]["gl0_link_profile"]])
+                        pairing_list.append([profile, self.config_obj[profile]["ml0_link_profile"]])
                     else:
                         pairing_list.append([profile])
             
@@ -1489,12 +1489,12 @@ class Functions():
             return list(self.config_obj.keys())[0]
             
         elif var.req == "link_profile":
-            if self.config_obj[profile]["gl0_link_enable"]:
+            if self.config_obj[profile]["ml0_link_enable"]:
                 return {
-                    "profile": self.config_obj[profile]["gl0_link_profile"],
-                    "port": self.config_obj[profile]["gl0_link_port"],
-                    "host": self.config_obj[profile]["gl0_link_host"],
-                    "key": self.config_obj[profile]["gl0_link_key"],
+                    "profile": self.config_obj[profile]["ml0_link_profile"],
+                    "port": self.config_obj[profile]["ml0_link_port"],
+                    "host": self.config_obj[profile]["ml0_link_host"],
+                    "key": self.config_obj[profile]["ml0_link_key"],
                 }   
             return False 
                         

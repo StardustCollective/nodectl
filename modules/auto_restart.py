@@ -103,7 +103,7 @@ class AutoRestart():
                     break
 
         remove_profile_list = []
-        self.link_profile = self.functions.config_obj[self.thread_profile]["gl0_link_profile"]
+        self.link_profile = self.functions.config_obj[self.thread_profile]["ml0_link_profile"]
         
         for profile in self.profile_names:
             if profile != self.thread_profile and profile != self.link_profile:
@@ -144,7 +144,7 @@ class AutoRestart():
                 self.profile_states[profile]["observing_timer"] = 0
             else:
                 # handle layer1 link dependencies
-                if self.functions.config_obj[self.thread_profile]["gl0_link_enable"] == True:
+                if self.functions.config_obj[self.thread_profile]["ml0_link_enable"] == True:
                     if self.link_profile != "None":
                         self.profile_states[profile]["link_profile"] = self.link_profile
        
