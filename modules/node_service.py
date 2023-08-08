@@ -280,15 +280,15 @@ class Node():
             elif fail_count == 0:
                 break
             
-        if action != "install":
-            for profile in self.functions.profile_names:
-                command_obj = {
-                    **command_obj,
-                    "profile": profile,
-                    "network_name": self.functions.config_obj[profile]["environment"],
-                    "download_version": download_version,
-                }
-                self.download_update_seedlist(command_obj)
+        # if action != "install":
+        for profile in self.functions.profile_names:
+            command_obj = {
+                **command_obj,
+                "profile": profile,
+                "global_elements": {"network_name": self.functions.config_obj[profile]["environment"]},
+                "download_version": download_version,
+            }
+            self.download_update_seedlist(command_obj)
            
 
     def download_update_seedlist(self,command_obj):
@@ -1037,13 +1037,12 @@ nodectl:
         if var.file == "config_yaml_profile":
             cur_file = '''  nodegarageprofile:
     enable: nodegarageenable
-    metagraph_name: nodegaragemetagraphname
+    environment: nodegarageenvironment
     description: nodegaragedescription
     node_type: nodegaragenodetype
     collateral: nodegaragecollateral
     layer: nodegarageblocklayer
     service: nodegarageservice
-    environment: nodegarageenvironment
     edge_point: nodegarageedgepointhost
     edge_point_tcp_port: nodegarageedgepointtcpport
     public_port: nodegaragepublic
@@ -1095,6 +1094,7 @@ nodectl:
         
         if var.file == "config_yaml_global_elements":
             cur_file = '''  global_elements:
+    metagraph_name: nodegaragemetagraphname            
     nodectl_yaml: nodegaragenodectlyaml
 '''
 

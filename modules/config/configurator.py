@@ -288,31 +288,7 @@ class Configurator():
             "newline": "bottom"
         })
 
-        predefined_envs = []
-        url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/profiles'
-        url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/profiles"
-        repo_profiles = self.c.functions.get_from_api(url,"json")
-        repo_profiles = repo_profiles["payload"]["tree"]["items"]
-        
-        predefined_configs = {}
-        for repo_profile in repo_profiles:
-            if "profiles" in repo_profile["path"] and "yaml" in repo_profile["name"]:
-                f_url = f"{url_raw}/{repo_profile['name']}" 
-                details = self.c.functions.get_from_api(f_url,"yaml")
-                metagraph_name = details["nodectl"]["metagraph_name"] # readability 
-                predefined_envs.append(metagraph_name)
-                predefined_configs = {
-                    **predefined_configs,
-                    f"{metagraph_name}": details,
-                }
-                        
-        option = self.c.functions.print_option_menu({
-            "options": predefined_envs,
-            "r_and_q": "both",
-            "color": "green",
-            "return_value": True,
-        })
-        
+        option = self.c.functions.pull_remote_profiles({})
         if option == "r":
             return False
         elif option == "q":

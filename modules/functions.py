@@ -4,6 +4,7 @@ import json
 import urllib3
 import csv
 import yaml
+import select
 
 from getpass import getuser
 from re import match
@@ -21,7 +22,7 @@ from threading import Timer
 from platform import platform
 from re import sub, compile
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir
-from sys import exit, stdout
+from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
 from packaging import version
@@ -80,7 +81,11 @@ class Functions():
         self.join_timeout = 300 # 5 minutes
         self.auto_restart = False  # auto_restart will set this to True to avoid print statements
         
-        self.network_name = config_obj.get("network_name",False)
+        try:
+            self.network_name = config_obj["global_elements"]["network_name"]
+        except:
+            self.network_name = False
+            
         self.config_obj = config_obj
             
         self.default_profile = None
@@ -189,9 +194,10 @@ class Functions():
                         "api_port": api_port,
                         "info_list": ["version"],
                         "tolerance": 2,
-                    },2)  # tolerance of 2
+                    })
                     # version = ["1.11.3"]  # debugging
-                    cluster_tess_version_obj["install"] = f"v{version[0]}"
+                    for profile in self.profile_names:
+                        cluster_tess_version_obj[profile] = f"v{version[0]}"
                 self.cluster_tess_version = cluster_tess_version_obj
                     
                     
@@ -1355,17 +1361,17 @@ class Functions():
         if var.profile:
             profile = var.profile # profile in question (will default if not specified)
         
+        metagraph_name = None
         service_list = []
         description_list = []
-        metagraph_name_list = []
         metagraph_layer_list = []
         metagraph_env_set = set()
         custom_values_dict = {}
         custom_values_dict = self.pull_custom_variables()
         
         def pull_all():
+            metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
             for i_profile in self.profile_names:
-                metagraph_name_list.append(self.config_obj[i_profile]["metagraph_name"])
                 service_list.append(self.config_obj[i_profile]["service"]) 
                 description_list.append(self.config_obj[i_profile]["description"]) 
                 metagraph_layer_list.append(self.config_obj[i_profile]["layer"]) 
@@ -1474,7 +1480,7 @@ class Functions():
                     "profile_names": self.profile_names,
                     "profile_services": service_list,
                     "profile_descr": description_list,
-                    "metagraph_names": metagraph_name_list,
+                    "metagraph_name": metagraph_name,
                     "environment_names": metagraph_env_set,
                     "layer_list": metagraph_layer_list,
                     "custom_values": custom_values_dict,
@@ -1520,6 +1526,43 @@ class Functions():
             })
     
     
+    def pull_remote_profiles(self,command_obj):
+        r_and_q = command_obj.get("r_and_q","both")
+        retrieve = command_obj.get("retrieve","profile_names")
+        predefined_envs = []
+        url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/profiles'
+        url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/profiles"
+        repo_profiles = self.get_from_api(url,"json")
+        repo_profiles = repo_profiles["payload"]["tree"]["items"]
+        metagraph_name = None
+        
+        predefined_configs = {}
+        for repo_profile in repo_profiles:
+            if "profiles" in repo_profile["path"] and "yaml" in repo_profile["name"]:
+                f_url = f"{url_raw}/{repo_profile['name']}" 
+                details = self.get_from_api(f_url,"yaml")
+                metagraph_name = details["nodectl"]["global_elements"]["metagraph_name"] # readability
+                predefined_envs.append(metagraph_name)
+                predefined_configs = {
+                    **predefined_configs,
+                    f"{metagraph_name}": {
+                        "json": details,
+                        "yaml_url": f_url,
+                    }
+                }
+                    
+        if retrieve == "profile_names":    
+            return self.print_option_menu({
+                "options": predefined_envs,
+                "r_and_q": r_and_q,
+                "color": "green",
+                "return_value": True,
+            })
+
+        elif retrieve == "config_file":
+            return predefined_configs
+
+
     def pull_upgrade_path(self,config=False):
         def check_for_release(p_version):
             pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
@@ -1668,37 +1711,37 @@ class Functions():
             self.network_name = self.config_obj[self.default_profile]["environment"]             
         except:
             if not self.network_name:
-                while True:
-                    self.print_clear_line()
+                self.network_name = self.pull_remote_profiles({"r_and_q": None})
+                # while True:
+                #     self.print_clear_line()
 
-                    self.print_paragraphs([
-                        ["nodectl",0,"blue","bold"], ["needs to know if your Node will be running on",0],
-                        ["mainnet",0,"yellow","bold,underline"], ["or",0], ["testnet",0,"yellow","bold,underline"],
-                        [":",-1],["",2],
+                #     self.print_paragraphs([
+                #         ["nodectl",0,"blue","bold"], ["which environment your Node will be running on.",2],
                         
-                        ["OPTIONS",1,"magenta","bold"], ["-------",1,"magenta"],
-                        ["M",0,"magenta","bold"], [")",-1,"magenta"], ["ainNet",-1,"magenta"],["",1],
-                        ["I",0,"magenta","bold"], [")",-1,"magenta"], ["ntegrationNet",-1,"magenta"],["",1],
-                        ["T",0,"magenta","bold"], [")",-1,"magenta"], ["estNet",-1,"magenta"],["",1],
-                        ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
-                    ])
+                #         ["OPTIONS",1,"magenta","bold"], ["-------",1,"magenta"],
+                #         ["M",0,"magenta","bold"], [")",-1,"magenta"], ["ainNet",-1,"magenta"],["",1],
+                #         ["I",0,"magenta","bold"], [")",-1,"magenta"], ["ntegrationNet",-1,"magenta"],["",1],
+                #         ["T",0,"magenta","bold"], [")",-1,"magenta"], ["estNet",-1,"magenta"],["",1],
+                #         ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
+                #     ])
 
-                    options_dict = {"M": "mainnet", "T": "testnet", "I": "integrationnet", "Q": "Q"}
-                    option = self.get_user_keypress({
-                        "prompt": "KEY PRESS an option",
-                        "prompt_color": "cyan",
-                        "quit_option": "Q",
-                        "options": list(options_dict.keys())
-                    })
+                #     options_dict = {"M": "mainnet", "T": "testnet", "I": "integrationnet", "Q": "Q"}
+                #     option = self.get_user_keypress({
+                #         "prompt": "KEY PRESS an option",
+                #         "prompt_color": "cyan",
+                #         "quit_option": "Q",
+                #         "options": list(options_dict.keys())
+                #     })
                     
-                    self.network_name = options_dict[option.upper()]
-                    self.print_cmd_status({
-                        "text_start": "Node environment set",
-                        "status": self.network_name,
-                        "status_color": "green",
-                        "newline": True,
-                    })
-                    return
+                #     self.network_name = options_dict[option.upper()]
+                #     self.print_cmd_status({
+                #         "text_start": "Node environment set",
+                #         "status": self.network_name,
+                #         "status_color": "green",
+                #         "newline": True,
+                #     })
+                #     return
+                
                 
         # if self.network_name == "dev":
             # integrationnet started from dev environment - renaming here
@@ -2030,6 +2073,9 @@ class Functions():
         return result
 
 
+    def test_for_premature_enter_press(self):
+        return select.select([stdin], [], [], 0) == ([stdin], [], [])
+    
     # =============================
     # create functions
     # =============================  
@@ -2706,6 +2752,11 @@ class Functions():
         prompt = f"  {colored(f'{prompt}',prompt_color)} {colored('[',prompt_color)}{colored(yes_no_default,'yellow')}{colored(']: ',prompt_color)}"
         
         valid_options = ["y","n",return_on,yes_no_default]
+        
+        if self.test_for_premature_enter_press():
+            # there was information waiting in stdin, clearing
+            input()
+        
         if strict:
             valid_options = valid_options[2::]
             

@@ -27,8 +27,9 @@ class P12Class():
         self.user = command_obj.get("user_obj",None)
         self.cli = command_obj.get("cli_obj",None)
         process = command_obj.get("process",None)
+        self.config_obj = command_obj["config_obj"]
         
-        self.functions = Functions(command_obj["config_obj"])
+        self.functions = Functions(self.config_obj)
  
         self.profile = self.functions.default_profile
         if "profile" in command_obj:
@@ -37,7 +38,7 @@ class P12Class():
         try:
             self.app_env = self.functions.config_obj[self.profile]["environment"]
         except:
-            self.app_env = command_obj["config_obj"]["network_name"]
+            self.app_env = command_obj["config_obj"]["global_elements"]["network_name"]
             
         self.solo = False # part of install or solo request to create p12?
         if process == "install":

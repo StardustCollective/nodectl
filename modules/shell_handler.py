@@ -422,23 +422,23 @@ class ShellHandler:
         return True
     
 
-    def check_system_permissions(self,command_obj):
+    def verify_env_and_versioning(self,command_obj):
         force = command_obj.get("force",False)
         show_list = command_obj.get("show_list",False)
         env_provided = command_obj.get("env_provided",False)
-        
+        action = command_obj.get("action","normal")
         self.log.logger.info("testing permissions")
+        
         progress = {
             "status": "running",
             "text_start": "Check permissions & versioning",
         }
         self.functions.print_cmd_status(progress) 
         time.sleep(.8)
-        
-        environments = self.functions.pull_profile({"req": "environments"})
-        
-        if env_provided:
+
+        if env_provided and action == "normal":
             print("")
+            environments = self.functions.pull_profile({"req": "environments"})
             if env_provided not in list(environments["environment_names"]):
                 self.error_messages.error_code_messages({
                     "error_code": "sh-441",
@@ -447,94 +447,104 @@ class ShellHandler:
                     "extra2": env_provided
                 })
         
-        if environments["multiple_environments"] or show_list:
-            print("")
-            self.functions.print_header_title({
-                "line1": "Upgrade Environment Menu",
-                "newline": "both",
-                "single_line": True,
-            })
+            if environments["multiple_environments"] or show_list:
+                print("")
+                self.functions.print_header_title({
+                    "line1": "Upgrade Environment Menu",
+                    "newline": "both",
+                    "single_line": True,
+                })
 
-            msg_start = "Multiple Metagraph environments were found on this system."
-            if show_list:
-                msg_start = "Show list of Metagraphs was requested."
-            if env_provided:
-                msg_start = "Choose environment from list requested but environment request was entered at the command line."
+                msg_start = "Multiple Metagraph environments were found on this system."
+                if show_list:
+                    msg_start = "Show list of Metagraphs was requested."
+                if env_provided:
+                    msg_start = "Choose environment from list requested but environment request was entered at the command line."
+                    self.functions.print_cmd_status({
+                        "text_start": "Environment requested by argument",
+                        "brackets": "-e",
+                        "status": env_provided,
+                        "status_color": "blue",
+                        "newline": True,
+                    })
+                    print("")
+
+                self.log.logger.debug(f"Upgrade found multiple metagraph environments on the same Node that may are supported by different versions of nodectl")
+                self.functions.print_paragraphs([
+                    [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
+                    ["Please select an environment by",0], ["key pressing",0,"yellow"], 
+                    ["the number correlating to the environment you wish to upgrade.",2],  
+                    ["PLEASE CHOOSE AN ENVIRONMENT TO UPGRADE",2,"magenta","bold"]                      
+                ])
+                environment = self.functions.print_option_menu({
+                    "options": list(environments["environment_names"]),
+                    "return_value": True,
+                    "color": "magenta"
+                })
+                
+                verb = "Using" if env_provided == environment else "Selected"
+                print("")
                 self.functions.print_cmd_status({
-                    "text_start": "Environment requested by argument",
-                    "brackets": "-e",
-                    "status": env_provided,
+                    "text_start": f"{verb} environment",
+                    "status": environment,
                     "status_color": "blue",
                     "newline": True,
                 })
-                print("")
-
-            self.log.logger.debug(f"Upgrade found multiple metagraph environments on the same Node that may are supported by different versions of nodectl")
-            self.functions.print_paragraphs([
-                [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
-                ["Please select an environment by",0], ["key pressing",0,"yellow"], 
-                ["the number correlating to the environment you wish to upgrade.",2],  
-                ["PLEASE CHOOSE AN ENVIRONMENT TO UPGRADE",2,"magenta","bold"]                      
-            ])
-            environment = self.functions.print_option_menu({
-                "options": list(environments["environment_names"]),
-                "return_value": True,
-                "color": "magenta"
-            })
-            
-            verb = "Using" if env_provided == environment else "Selected"
-            print("")
-            self.functions.print_cmd_status({
-                "text_start": f"{verb} environment",
-                "status": environment,
-                "status_color": "blue",
-                "newline": True,
-            })
-        else:
-            environment = list(environments["environment_names"])[0]
-                            
-        current = self.version_obj["node_nodectl_version"]
-        remote = self.version_obj["upgrade_path"][environment]["version"]
-        
-        if self.functions.is_new_version(current,remote):
-            err_warn = "warning"
-            err_warn_color = "yellow"
-            if self.install_upgrade == "installation":
-                err_warn = "error"
-                err_warn_color = "red"
-            
-            self.functions.print_cmd_status({
-                "text_start": "Check permissions & versioning",
-                "status": err_warn,
-                "status_color": err_warn_color,
-                "newline": True,
-            })
-            
-            self.functions.print_paragraphs([
-                ["This is not a current version of nodectl.",1,"red","bold"],
-                ["Recommended to:",1],
-                ["  - Cancel this upgrade of Tessellation.",1,"magenta"],
-                ["  - Issue:",0,"magenta"], ["sudo nodectl upgrade_nodectl",1,"green"],
-                ["  - Restart this upgrade of Tessellation.",1,"magenta"],
-            ])
-                
-            if force:
-                self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
-                self.functions.print_paragraphs([
-                    [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
-                    [f"this {self.install_upgrade}. It will continue at the Node Operator's",0,"yellow"],
-                    ["own risk and decision.",1,"yellow","underline"]
-                ])
             else:
-                self.log.logger.warn(f"an attempt to {self.install_upgrade} with an older nodectl detected {current}")  
-                prompt_str = f"Are you sure you want to continue this {self.install_upgrade}?"
-                self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt": prompt_str,
+                if env_provided:
+                    environment = env_provided
+                else:
+                    environment = list(environments["environment_names"])[0]
+                                
+            current = self.version_obj["node_nodectl_version"]
+            remote = self.version_obj["upgrade_path"][environment]["version"]
+            
+            if self.functions.is_new_version(current,remote):
+                err_warn = "warning"
+                err_warn_color = "yellow"
+                if self.install_upgrade == "installation":
+                    err_warn = "error"
+                    err_warn_color = "red"
+                
+                self.functions.print_cmd_status({
+                    "text_start": "Check permissions & versioning",
+                    "status": err_warn,
+                    "status_color": err_warn_color,
+                    "newline": True,
                 })
-            self.log.logger.warn(f"{self.install_upgrade} was continued with an older version of nodectl [{current}]") 
-             
+                
+                self.functions.print_paragraphs([
+                    ["This is not a current version of nodectl.",1,"red","bold"],
+                    ["Recommended to:",1],
+                    ["  - Cancel this upgrade of Tessellation.",1,"magenta"],
+                    ["  - Issue:",0,"magenta"], ["sudo nodectl upgrade_nodectl",1,"green"],
+                    ["  - Restart this upgrade of Tessellation.",1,"magenta"],
+                ])
+                    
+                if force:
+                    self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
+                        [f"this {self.install_upgrade}. It will continue at the Node Operator's",0,"yellow"],
+                        ["own risk and decision.",1,"yellow","underline"]
+                    ])
+                else:
+                    self.log.logger.warn(f"an attempt to {self.install_upgrade} with an older nodectl detected {current}")  
+                    prompt_str = f"Are you sure you want to continue this {self.install_upgrade}?"
+                    self.functions.confirm_action({
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "prompt": prompt_str,
+                    })
+                self.log.logger.warn(f"{self.install_upgrade} was continued with an older version of nodectl [{current}]") 
+        elif action == "install":
+            environment = self.functions.network_name
+            self.functions.print_cmd_status({
+                "text_start": "Using environment",
+                "status": environment,
+                "newline": True,
+            })
+                 
         self.functions.check_sudo()
         self.functions.print_cmd_status({
             **progress,
@@ -717,13 +727,14 @@ class ShellHandler:
             })  
             
                     
-    def install_upgrade_common(self,action,command_obj):
+    def install_upgrade_common(self,command_obj):
+        # on "install" get_version will request request environment if not found.
         self.version_obj = self.functions.get_version({
             "which": "all",
-            "action": action,
+            "action": command_obj["action"],
         })
         self.functions.print_clear_line()
-        self.check_system_permissions(command_obj)
+        self.verify_env_and_versioning(command_obj)
         self.print_ext_ip()        
             
             
@@ -972,11 +983,12 @@ class ShellHandler:
         command_obj = {
             "force": True if "-f" in argv_list else False,
             "show_list": True if "-l" in argv_list else False,
-            "env_provided": argv_list[argv_list.index("-e")+1] if "-e" in argv_list else False
+            "env_provided": argv_list[argv_list.index("-e")+1] if "-e" in argv_list else False,
+            "action": "normal"
         }
         
         # -e gets converted into self.environment_requested
-        self.install_upgrade_common("normal",command_obj)
+        self.install_upgrade_common(command_obj)
         self.upgrader = Upgrader({
             "ip_address": self.ip_address,
             "config_obj": self.functions.config_obj,
@@ -996,10 +1008,12 @@ class ShellHandler:
             self.functions.print_help({
                 "extended": "install"
             })
-            
         self.log.logger.debug("installation request started")
         
         performance_start = time.perf_counter()  # keep track of how long
+
+        environment = argv_list[argv_list.index("-e")+1] if "-e" in argv_list else False
+        
         self.functions.print_header_title({
           "line1":  "INSTALLATION REQUEST",
           "line2": "TESSELLATION VALIDATOR NODE",
@@ -1012,7 +1026,7 @@ class ShellHandler:
             ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
             ["key to accept said value.",2,"magenta"],
             
-            ["n",0,"yellow","bold"], ["stands for",0], [" no ",0,"yellow,on_red"], ["",1],
+            ["n",0,"yellow","bold"], ["stands for",0], [" no  ",0,"yellow,on_red"], ["",1],
             ["y",0,"yellow","bold"], ["stands for",0], [" yes ",0,"blue,on_green"], ["",2],
             
             ["IMPORTANT",0,"red","bold"],
@@ -1032,7 +1046,29 @@ class ShellHandler:
             "newline": "both",
         })
         
-        self.install_upgrade_common("install")
+        self.functions.print_paragraphs([
+            ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
+            ["on various Metagraph configurations.",2,"green"],
+            ["If the Metagraph you are building this Node for is not part of this list, it is advised to",0],
+            ["choose",0], ["mainnet",0,"white,on_yellow"], ["to complete the installation.",2],
+            ["If a pre-defined Metagraph listed above is not the ultimate role of this future Node,",0],
+            ["as next steps following a successful installation, you can refer to the Metagraph Administrators",0],
+            ["of the Metagraph you are expected to finally connect to, in order to download their",0,],
+            ["required configuration file.",2],
+            ["Please key press number of a Metagraph configuration below:",2,"blue","bold"],
+        ])
+        
+        self.install_upgrade_common({
+            "env_provided": environment,
+            "action": "install"
+        })
+        
+        self.functions.print_header_title({
+            "line1": "P12 Migration Check",
+            "single_line": True,
+            "show_titles": False,
+            "newline": "both",
+        })
         
         self.has_existing_p12 = self.functions.confirm_action({
             "yes_no_default": "n",
@@ -1064,20 +1100,28 @@ class ShellHandler:
                 "prompt": prompt_str,
                 "exit_if": True,
             })
-            
+
+        print("")
+        self.functions.print_header_title({
+            "line1": "Update Distribution",
+            "single_line": True,
+            "show_titles": False,
+            "newline": "both",
+        })
         self.update_os()
         
-        self.functions.check_config_environment()
+        # self.functions.pull_remote_profiles()
+        # self.functions.check_config_environment()
+        
         self.installer = Installer({
             "ip_address": self.ip_address,
             "existing_p12": self.has_existing_p12,
-            "network_name": self.functions.network_name,
+            "network_name": self.environment_requested,
             "version_obj": self.version_obj
         },self.debug)
         
         self.installer.install_process()
         self.functions.print_perftime(performance_start,"installation")
-
 
     def handle_exit(self,value):
         self.check_auto_restart("end")

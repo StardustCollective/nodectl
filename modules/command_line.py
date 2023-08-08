@@ -826,7 +826,7 @@ class CLI():
         profile_names = profile_details["profile_names"]
         profile_descr = profile_details["profile_descr"]
         profile_services = profile_details["profile_services"]
-        profile_meta_names = profile_details["metagraph_names"]
+        metagraph_name = profile_details["metagraph_name"]
         profile_layers = profile_details["layer_list"]
         
         
@@ -836,7 +836,7 @@ class CLI():
 
             print_out_list = [
                 {
-                    "METAGRAPH NAME": profile_meta_names[n],
+                    "METAGRAPH NAME": metagraph_name[n],
                     "PROFILE NAME": profile,
                 },
                 {
@@ -1251,7 +1251,7 @@ class CLI():
                 {
                     "header_elements" : {
                     "PROFILE": profile,
-                    "METAGRAPH": self.config_obj[profile]["metagraph_name"],
+                    "METAGRAPH": self.config_obj["global_elements"]["metagraph_name"],
                     "JAR FILE": self.version_obj["node_tess_version"][profile]["node_tess_jar"],
                     },
                     "spacing": spacing
@@ -2782,8 +2782,8 @@ class CLI():
         self.log.logger.info(f"Request to display nodeid | type {command}")
 
         if not outside_node_request and not target:
+            self.functions.config_obj["global_elements"]["caller"] = "command_lne"
             action_obj = {
-                "caller": "command_line",
                 "action": command,
                 "config_obj": self.functions.config_obj,
             }

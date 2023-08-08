@@ -18,7 +18,7 @@ class UserClass:
         self.password = ""
         
         self.error_messages = Error_codes() 
-        self.functions = Functions({"caller":"install"})
+        self.functions = Functions({"global_elements": {"caller":"install"}})
         self.cli_obj = cli_obj
         
         self.aws = False

@@ -493,7 +493,10 @@ class Configuration():
                     "value": "p12",
                     "special_case": None
                 })
-                    
+        
+        if self.action == "install":
+            return self.config_obj
+        
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
             
             
@@ -677,13 +680,12 @@ class Configuration():
         self.schema = {
             "metagraphs": [
                 ["enable","bool"],
-                ["metagraph_name","str"],
+                ["environment","str"],
                 ["description","str"],
                 ["node_type","node_type"],                
                 ["layer","layer"],   
                 ["collateral","int"],
                 ["service","str"],
-                ["environment","str"],
                 ["edge_point","host"],
                 ["edge_point_tcp_port","port"],
                 ["public_port","high_port"], 
@@ -742,6 +744,7 @@ class Configuration():
                 ["key_store","str"], # automated value [not part of yaml]
             ],
             "global_elements": [
+                ["metagraph_name","str"],
                 ["nodectl_config","str"],
             ]
         }

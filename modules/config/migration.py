@@ -166,7 +166,8 @@ class Migration():
         # create profile sections
         # =======================================================
         rebuild_obj = {}
-
+        self.found_environment = "NA"
+        
         port_keys = ["nodegaragepublic","nodegaragep2p","nodegaragecli"]
         layer0_ports = [9000,9001,9002]; layer1_ports = [9010,9011,9012]
         rebuild_defaults = {
@@ -190,7 +191,7 @@ class Migration():
         
         for profile in self.config_obj["profiles"].keys():
             rebuild_obj["nodegarageprofile"] = profile
-            rebuild_obj["nodegaragemetagraphname"] = self.config_obj["profiles"][profile]["environment"]
+            self.found_environment = self.config_obj["profiles"][profile]["environment"] # will set final found env to value
             for section, value in self.config_obj["profiles"][profile].items():
                 link_section = "layer0link" if section == "layer0_link" else "" # enable dup key value
                 if section in self.old_profile_subsections:
@@ -354,6 +355,7 @@ class Migration():
         # build yaml global elements section
         # =======================================================        
         rebuild_obj = {
+            "nodegaragemetagraphname": self.found_environment,
             "nodegaragenodectlyaml": self.functions.node_nodectl_yaml_version,
             "create_file": "config_yaml_global_elements",
         }
