@@ -701,20 +701,22 @@ class Node():
                         "newline": True
                     })
                 return "skip_timer"
+        else: # don't do on stop
+            bashCommand = f"systemctl daemon-reload" # done for extra stability
+            _ = self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "poll"
+            })
+            
         self.log.logger.debug(f"changing service state method - action [{action}] service [{service_display}] caller = [{caller}] - issuing systemctl command")
 
-        bashCommand = f"systemctl daemon-reload" # done for extra stability
-        _ = self.functions.process_command({
-            "bashCommand": bashCommand,
-            "proc_action": "poll"
-        })
-        
         bashCommand = f"systemctl {action} {service_name}"
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
-            "proc_action": "wait"
+            "proc_action": "timeout" if action == "stop" else "wait",
+            "timeout": 15 if action == "stop" else 180
         })
-        
+
         if action == "start":
             # clean up for a little more security of passphrases and cleaner installation
             system(f"rm {self.env_conf_file} {self.temp_bash_file} > /dev/null 2>&1")

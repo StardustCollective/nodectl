@@ -96,7 +96,7 @@ class Functions():
         
         ignore_defaults = ["config","install","auto_restart","ts"]
         if config_obj["global_elements"]["caller"] not in ignore_defaults:
-            self.set_default_variables()
+            self.set_default_variables({})
             
         pass
  
@@ -215,7 +215,9 @@ class Functions():
 
             profile = None if var.action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
-                self.set_default_variables(profile)
+                self.set_default_variables({
+                    "profile": profile,
+                })
                 
             if var.which == "nodectl":
                 self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}] nodectl_yaml_version [{self.node_nodectl_yaml_version}]")
@@ -1057,10 +1059,13 @@ class Functions():
         return api_url
     
     
-    def set_default_variables(self,profile=None):
+    def set_default_variables(self,command_obj):
         # set default profile
         # set default edge point
+        profile = command_obj.get("profile",None)
+        skip_error = command_obj.get("skip_error",False)
         self.default_profile = False
+        
         
         if profile != "skip":
             try:
@@ -1088,11 +1093,12 @@ class Functions():
                             break # on 1st and lowest layer   
             except:
                 self.log.logger.error("functions unable to process profile while setting up default values")
-                self.error_messages.error_code_messages({
-                    "error_code": "fnt-924",
-                    "line_code": "profile_error",
-                    "extra": profile,
-                })
+                if not skip_error:
+                    self.error_messages.error_code_messages({
+                        "error_code": "fnt-924",
+                        "line_code": "profile_error",
+                        "extra": profile,
+                    })
             
         self.config_obj["global_elements"]["node_profile_states"] = {}  # initialize 
         self.profile_names = self.clear_global_profiles(self.config_obj)
@@ -1538,7 +1544,7 @@ class Functions():
         
         predefined_configs = {}
         for repo_profile in repo_profiles:
-            if "profiles" in repo_profile["path"] and "yaml" in repo_profile["name"]:
+            if "predefined_configs" in repo_profile["path"] and "yaml" in repo_profile["name"]:
                 f_url = f"{url_raw}/{repo_profile['name']}" 
                 details = self.get_from_api(f_url,"yaml")
                 metagraph_name = details["nodectl"]["global_elements"]["metagraph_name"] # readability
@@ -1551,16 +1557,20 @@ class Functions():
                     }
                 }
                     
-        if retrieve == "profile_names":    
-            return self.print_option_menu({
+        if retrieve == "profile_names" or retrieve == "chosen_profile":    
+            chosen_profile = self.print_option_menu({
                 "options": predefined_envs,
                 "r_and_q": r_and_q,
                 "color": "green",
                 "return_value": True,
             })
 
+        if retrieve == "profile_names":
+            return chosen_profile
         elif retrieve == "config_file":
             return predefined_configs
+        elif retrieve == "chosen_profile":
+            return [chosen_profile, predefined_configs[chosen_profile]]
 
 
     def pull_upgrade_path(self,config=False):
@@ -2753,9 +2763,11 @@ class Functions():
         
         valid_options = ["y","n",return_on,yes_no_default]
         
-        if self.test_for_premature_enter_press():
-            # there was information waiting in stdin, clearing
-            input()
+        for _ in range(0,2):
+            # double check if there was information waiting in stdin, clearing
+            sleep(.2)
+            if self.test_for_premature_enter_press():
+                input()
         
         if strict:
             valid_options = valid_options[2::]

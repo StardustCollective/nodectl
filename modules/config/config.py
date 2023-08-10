@@ -29,7 +29,7 @@ class Configuration():
         self.log.logger.info("configuration setup initialized")
         
         self.argv_list = command_obj["argv_list"]
-
+        
         if "help" in self.argv_list[0]:
             return
 
@@ -52,6 +52,7 @@ class Configuration():
         
         execute = command_obj["implement"]
         self.action = command_obj["action"]        
+        self.skip_final_report = command_obj.get("skip_report",False)
         self.yaml_file = '/var/tessellation/nodectl/cn-config.yaml'
         
         if "view" in self.action or self.action == "-vc":
@@ -1201,6 +1202,9 @@ class Configuration():
                         
                                        
     def print_report(self):
+        if self.skip_final_report:
+            return
+        
         value_text = "Value Found"
         wallet_error1 = "wallet alias must match what was"
         wallet_error2 = "configured during p12 original"

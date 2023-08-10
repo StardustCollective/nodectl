@@ -402,14 +402,14 @@ class Upgrader():
 
         to_clear = ["backups","uploads","logs"]
         action = "upgrade"
+        days = 30
         for item in to_clear:
             self.functions.print_header_title({
                 "line1": f"Clean up {item}",
                 "single_line": True,
                 "newline": "both",
             })
-                
-            days = 30 if item == "snapshots" else 7
+
             progress = {
                 "status": "running",
                 "text_start": "Cleaning logs from",
@@ -435,7 +435,6 @@ class Upgrader():
 
 
     def verify_directories(self):
-        # attempt to safely migrate data snapshots to new layer0 location
         self.functions.set_default_directories() # put directories into place if default
         overall_status = "complete"
         overall_status_color = "green"

@@ -18,24 +18,13 @@ class Migration():
         self.errors = Error_codes()
         self.caller = command_obj.get("caller","default")
         self.ingest = False 
-        
-        self.config_keys = self.config_obj.keys()
-        self.profile_keys = self.config_obj["profiles"].keys()
-        self.old_config_keys = ["profiles","auto_restart","global_p12","global_elements"]
-        self.old_profile_subsections = [
-            "edge_point","ports","layer0_link",
-            "dirs","java","p12","pro"]
-        self.old_profile_keys = self.old_profile_subsections + [
-            "enable","layer","environment","service",
-            "node_type","description"]
-        self.old_dir_keys = ["uploads","backups"]
-        self.old_p12_keys = ["nodeadmin","key_location","p12_name","wallet_alias","passphrase"]
         self.functions = Functions(self.config_obj)
         self.yaml = "" # initialize 
     
     
     def migrate(self):
         self.start_migration()
+        self.handle_old_profiles()
         if not self.verify_config_type():
             return
         self.backup_config()
@@ -51,6 +40,20 @@ class Migration():
         })
                 
     
+    def handle_old_profiles(self):
+        self.config_keys = self.config_obj.keys()
+        self.profile_keys = self.config_obj["profiles"].keys()
+        self.old_config_keys = ["profiles","auto_restart","global_p12","global_elements"]
+        self.old_profile_subsections = [
+            "edge_point","ports","layer0_link",
+            "dirs","java","p12","pro"]
+        self.old_profile_keys = self.old_profile_subsections + [
+            "enable","layer","environment","service",
+            "node_type","description"]
+        self.old_dir_keys = ["uploads","backups"]
+        self.old_p12_keys = ["nodeadmin","key_location","p12_name","wallet_alias","passphrase"]
+                
+                
     def verify_config_type(self):
         try:
             config_yaml_version = self.config_obj["global_elements"]["nodectl_yaml"]

@@ -23,7 +23,9 @@ class AutoRestart():
         
         self.functions = Functions(config_obj)        
         self.functions.auto_restart = True
-        self.functions.set_default_variables(thread_profile)
+        self.functions.set_default_variables({
+            "profile": thread_profile
+        })
 
         debug_short_timer = False # secondary debug mechanism for faster testing
         self.debug = False # full debug - disable restart and join actions

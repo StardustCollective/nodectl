@@ -2112,7 +2112,9 @@ class CLI():
             "newline": True,
         })
         
-        self.functions.set_default_variables(called_profile)
+        self.functions.set_default_variables({
+            "profile": called_profile,
+        })
         
         if restart_type != "restart_only":
             while True:
