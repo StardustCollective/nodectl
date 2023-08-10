@@ -2004,25 +2004,24 @@ class Functions():
         replace_line = command_obj.get("replace_line",False)
         skip_backup = command_obj.get("skip_backup",False)
         all_first_last = command_obj.get("all_first_last","all")
-        
+        skip_line_list = command_obj.get("skip_line_list",[])
+        allow_dups = command_obj.get("allow_dups",True)
         file = file_path.split("/")
         file = file[-1]
+        i_replace_line = False
         
-        def search_replace(done):
+        def search_replace(done,replace_line,line_replaced):
             if search_line in line and not done:
                 if replace_line:
                     temp_file.write(replace_line)
+                    line_replaced = line_number
                     if all_first_last != "all":
                         done = True
-                else:
-                    system(f"rm {temp}")
-                    return True
-            else:
-                if replace_line:
-                    temp_file.write(line)  
-            return done  
+                    return done, line_replaced
+            temp_file.write(line)  
+            return done, line_replaced
                     
-        if replace_line:
+        if replace_line and not skip_backup:
             date = self.get_date_time({"action":"datetime"})
             try:
                 backup_dir = self.get_dirs_by_profile({
@@ -2030,7 +2029,7 @@ class Functions():
                     "specific": "backups"
                 })
             except:
-                backup_dir = "./"
+                backup_dir = "/var/tessellation/nodectl/"
         
         if not path.exists(file_path):
             return "file_not_found"
@@ -2044,18 +2043,31 @@ class Functions():
         temp = "/var/tmp/cnng_temp_file"
         
         # makes sure no left over file from esc'ed method
-        system(f"rm {temp} > /dev/null 2>&1") 
-        system(f"rm {temp}_reverse > /dev/null 2>&1")
-                       
+        def remove_temps():
+            if path.isfile(temp):
+                system(f"sudo rm {temp} > /dev/null 2>&1") 
+            if path.isfile(f"{temp}_reverse"):
+                system(f"sudo rm {temp}_reverse > /dev/null 2>&1")
+        
+        remove_temps()
+                
+        line_number, line_replaced = 0, 0       
         with open(temp,"w") as temp_file:
             if replace_line and not skip_backup:
                 system(f"cp {file_path} {backup_dir}{file}_{date} > /dev/null 2>&1")
             if all_first_last == "last":
                 for line in reversed(list(f)):
-                    done = search_replace(done)
+                    search_returns = search_replace(done,i_replace_line,line_replaced)
+                    done, line_replaced = search_returns
+
             else:
                 for line in list(f):
-                    done = search_replace(done)
+                    line_number += 1
+                    i_replace_line = replace_line
+                    if line_number in skip_line_list:
+                        i_replace_line = False
+                    search_returns = search_replace(done,i_replace_line,line_replaced)
+                    done, line_replaced = search_returns
 
             f.close()
         
@@ -2070,16 +2082,19 @@ class Functions():
                 all_first_last = "all"
                 done = True            
                 for line in reversed(list(f)):
-                    done = search_replace(done)
+                    search_returns = search_replace(done,i_replace_line,line_replaced)
+                    try: done, line_replaced = search_returns
+                    except: done = search_returns
                     
         f.close() # make sure closed properly                
                 
         if replace_line:
             system(f"cp {temp} {file_path} > /dev/null 2>&1")
         # use statics to avoid accidental file removal
-        system(f"rm /var/tmp/cnng_temp_file > /dev/null 2>&1")
-        system(f"rm /var/tmp/cnng_temp_file_reverse > /dev/null 2>&1")
+        remove_temps()
         
+        if replace_line and not allow_dups:
+            return line_replaced 
         return result
 
 

@@ -30,7 +30,8 @@ class Configurator():
                         
         self.config_path = "/var/tessellation/nodectl/"
         self.config_file = "cn-config.yaml"
-
+        self.yaml_path = "/var/tmp/cnng-new-temp-config.yaml"
+        
         self.detailed = False if "-a" in argv_list else "init"
         self.action = False
         self.is_all_global = False
@@ -74,8 +75,7 @@ class Configurator():
             try:
                 self.old_last_cnconfig = deepcopy(self.c.config_obj)
             except:
-                # init needs to pass through
-                pass
+                self.old_last_cnconfig = False
             
         self.c = Configuration({
             "action": action,
@@ -215,19 +215,150 @@ class Configurator():
             ] )
 
         self.build_config_obj()
-        selected_config = self.get_predefined_configs()
+        self.get_predefined_configs()
         self.handle_global_p12()
         self.request_p12_details({})
+        self.config_obj_apply = {}      
+          
+        # self.c.functions.print_json_debug(self.config_obj,False)
+
+        # self.config_obj = {
+        #     "intnet-l0": {
+        #         "enable": "true",
+        #         "environment": "integrationnet",
+        #         "description": "Constellation Network IntgrationNet Hyergraph Global gl0",
+        #         "node_type": "validator",
+        #         "collateral": 0,
+        #         "layer": 0,
+        #         "service": "intnetserv_l0",
+        #         "edge_point": "default",
+        #         "edge_point_tcp_port": "default",
+        #         "public_port": "default",
+        #         "p2p_port": "default",
+        #         "cli_port": "default",
+        #         "gl0_link_enable": "false",
+        #         "gl0_link_key": "None",
+        #         "gl0_link_host": "None",
+        #         "gl0_link_port": "None",
+        #         "gl0_link_profile": "None",
+        #         "ml0_link_enable": "false",
+        #         "ml0_link_key": "None",
+        #         "ml0_link_host": "None",
+        #         "ml0_link_port": "None",
+        #         "ml0_link_profile": "None",
+        #         "directory_backups": "default",
+        #         "directory_uploads": "default",
+        #         "java_xms": "default",
+        #         "java_xmx": "default",
+        #         "java_xss": "default",
+        #         "jar_repository": "default",
+        #         "jar_file": "default",
+        #         "jar_version": "default",
+        #         "p12_nodeadmin": "nodeadmin",
+        #         "p12_key_location": "/home/nodeadmin/tessellation/",
+        #         "p12_key_name": "aaa.p12",
+        #         "p12_key_alias": "aaa-a",
+        #         "p12_passphrase": "aaa",
+        #         "seed_location": "default",
+        #         "seed_repository": "default",
+        #         "seed_file": "default",
+        #         "priority_source_location": "default",
+        #         "priority_source_repository": "default",
+        #         "priority_source_file": "default",
+        #         "custom_args_enable": "false",
+        #         "custom_env_vars_enable": "false"
+        #     },
+        #     "intnet-l1": {
+        #         "enable": "true",
+        #         "environment": "integrationnet",
+        #         "description": "Constellation Network IntgrationNet Metagraph Layer1",
+        #         "node_type": "validator",
+        #         "collateral": 0,
+        #         "layer": 1,
+        #         "service": "intnetserv_l1",
+        #         "edge_point": "l1-lb-integrationnet.constellationnetwork.io",
+        #         "edge_point_tcp_port": 80,
+        #         "public_port": "default",
+        #         "p2p_port": "default",
+        #         "cli_port": "default",
+        #         "gl0_link_enable": "false",
+        #         "gl0_link_key": "None",
+        #         "gl0_link_host": "None",
+        #         "gl0_link_port": "None",
+        #         "gl0_link_profile": "None",
+        #         "ml0_link_enable": "true",
+        #         "ml0_link_key": "self",
+        #         "ml0_link_host": "self",
+        #         "ml0_link_port": "self",
+        #         "ml0_link_profile": "intnet-l0",
+        #         "directory_backups": "default",
+        #         "directory_uploads": "default",
+        #         "java_xms": "default",
+        #         "java_xmx": "default",
+        #         "java_xss": "default",
+        #         "jar_repository": "default",
+        #         "jar_file": "default",
+        #         "jar_version": "default",
+        #         "p12_nodeadmin": "nodeadmin",
+        #         "p12_key_location": "/home/nodeadmin/tessellation/",
+        #         "p12_key_name": "bbb.p12",
+        #         "p12_key_alias": "bbb-b",
+        #         "p12_passphrase": "bbb",
+        #         "seed_location": "disable",
+        #         "seed_repository": "disable",
+        #         "seed_file": "disable",
+        #         "priority_source_location": "default",
+        #         "priority_source_repository": "default",
+        #         "priority_source_file": "default",
+        #         "custom_args_enable": "false",
+        #         "custom_env_vars_enable": "false"
+        #     },
+        #     "global_auto_restart": {
+        #         "enable": "false",
+        #         "auto_upgrade": "false",
+        #         "rapid_restart": "false"
+        #     },
+        #     "global_p12": {
+        #         "nodeadmin": "nodeadmin",
+        #         "key_location": "/home/nodeadmin/tessellation/",
+        #         "key_name": "integrationnet-dj-2.p12",
+        #         "key_alias": "djwallet2-alias",
+        #         "passphrase": "J13Nn^&a*)0A!a!",
+        #         "key_store": "/home/nodeadmin/tessellation/integrationnet-dj-2.p12"
+        #     },
+        #     "global_elements": {
+        #         "metagraph_name": "integrationnet",
+        #         "nodectl_yaml": "v2.0.0"
+        #     }
+        # }
+        
+        self.metagraph_list = ["intnet-l0","intnet-l1"]
+        # grab only the profile associated p12 items
+        self.config_obj_apply = {f"{profile}": {key: value for key, value in 
+            self.config_obj[profile].items() if "p12" in key} for profile in self.metagraph_list}        
+
+        # grab global_p12 section
+        self.config_obj_apply = {
+            **self.config_obj_apply,
+            **{key: value for key, value in self.config_obj.items() if "p12" in key}
+        }
+
+        self.apply_vars_to_config()
         self.upgrade_needed = False
-            
+
         self.build_service_file({
-            "profiles": self.profile_name_list,
             "action": "Create",
-            "rebuild": True
         }) 
         
         self.cleanup_old_profiles()
-        self.cleanup_create_snapshot_dirs()  
+        self.cleanup_service_files()
+        self.cleanup_create_snapshot_dirs() 
+        
+        self.c.functions.print_paragraphs([
+            ["",1],[" CONGRATULATIONS ",1,"yellow,on_green"],
+            ["A new profile has been created successfully.",2,"green","bold"],
+        ]) 
+        self.ask_review_config()
 
     # =====================================================
     # PRE-DEFINED PROFILE BUILD METHODS
@@ -248,14 +379,14 @@ class Configurator():
             ])
 
         self.c.functions.print_header_title({
-            "line1": "Build New Configuration",
+            "line1": "BUILD NEW CONFIGURATION",
             "single_line": True,
             "newline": "both"
         })
         
-        if path.isfile("/var/tmp/cn-new-config.yaml"):
+        if path.isfile(self.yaml_path):
             # clean up old file
-            system("sudo rm -f /var/tmp/cn-new-config.yaml")
+            system(f"sudo rm -f {self.yaml_path}")
             
         self.c.functions.print_cmd_status({
             "text_start": "building configuration skeleton",
@@ -276,7 +407,7 @@ class Configurator():
             "status": environment,
             "newline": True,
         })
-        system(f'sudo wget {environment_details[0]["yaml_url"]} -O /var/tmp/cn-new-config.yaml -o /dev/null')
+        system(f'sudo wget {environment_details[0]["yaml_url"]} -O {self.yaml_path} -o /dev/null')
         self.metagraph_list = self.c.functions.clear_global_profiles(environment_details[0]["json"]["nodectl"])
         self.config_obj = environment_details[0]["json"]["nodectl"]
 
@@ -679,6 +810,71 @@ class Configurator():
         self.preserve_pass = True  
     
     
+    def apply_vars_to_config(self):
+        ignore_list = []
+        
+        for key,values in self.config_obj_apply.items():
+            for profile in self.metagraph_list:
+                if key == profile:
+                    for p_key, p_value in values.items():
+                        ignore_list.append(self.c.functions.test_or_replace_line_in_file({
+                            "file_path": self.yaml_path,
+                            "search_line": f"    {p_key}:",
+                            "replace_line": f"    {p_key}: {p_value}\n",
+                            "skip_backup": True,
+                            "all_first_last": "first",
+                            "skip_line_list": ignore_list,
+                            "allow_dups": False
+                        }))
+            if "global" in key:
+                for item, value in values.items():
+                    self.c.functions.test_or_replace_line_in_file({
+                        "file_path": self.yaml_path,
+                        "search_line": f"    {item}:",
+                        "replace_line": f"   {item}: {value}\n",
+                        "skip_backup": True,
+                    })
+
+    def build_service_file(self,command_obj):
+        # profiles=(list of str) # profiles that service file is created against
+        # action=(str) # Updating, Creating for user review
+        profile_list = command_obj.get("profiles",self.metagraph_list)
+        action = command_obj.get("action","create")
+        
+        self.c.functions.print_header_title({
+            "line1": "BUILD SERVICES",
+            "single_line": True,
+            "newline": "both"
+        })
+        
+        progress = {
+            "text_start": f"{action} Service file",
+            "status": "running",
+            "newline": True,
+        }
+        for profile in profile_list:
+            self.c.functions.print_cmd_status({
+                **progress,
+                "brackets": profile,
+            })
+        
+        self.node_service.config_obj = deepcopy(self.config_obj)
+        self.node_service.profile_names = profile_list
+        self.node_service.create_service_bash_file({
+            "create_file_type": "service_file",
+        })
+        
+        # build bash file is completed at start,restart,upgrade because there are 
+        # multiple edits that cause the need to recreate the bash file
+        # and the file will be only temporarily created.
+        
+        for profile in profile_list:
+            self.c.functions.print_cmd_status({
+                **progress,
+                "status": "complete",
+                "newline": True,
+            })
+                        
     # # =====================================================
     # # MANUAL BUILD METHODS
     # # =====================================================
@@ -1741,43 +1937,7 @@ class Configurator():
 #         return
 
 
-#     def build_service_file(self,command_obj):
-#         # profiles=(list of str) # profiles that service file is created against
-#         # action=(str) # Updating, Creating for user review
-#         # rebuild=(bool) # do we need to rebuild the configuration before continuing
-#         var = SimpleNamespace(**command_obj)
-        
-#         if var.rebuild:
-#             self.build_known_skelton(1)
-            
-#         progress = {
-#             "text_start": f"{var.action} Service file",
-#             "status": "running",
-#             "newline": True,
-#         }
-#         for profile in var.profiles:
-#             self.c.functions.print_cmd_status({
-#                 **progress,
-#                 "brackets": profile,
-#             })
-        
-#         self.node_service.create_service_bash_file({
-#             "create_file_type": "service_file",
-#         })
-        
-#         # build bash file is completed at start,restart,upgrade because there are 
-#         # multiple edits that cause the need to recreate the bash file
-#         # and the file will be only temporarily created.
-        
-#         for profile in var.profiles:
-#             self.c.functions.print_cmd_status({
-#                 **progress,
-#                 "status": "complete",
-#                 "newline": True,
-#             })
-            
-#         if var.rebuild:
-#             self.ask_review_config()
+
         
 
 #     def build_yaml(self,quiet=False):
@@ -3040,116 +3200,218 @@ class Configurator():
 #         })        
                 
 
-#     def cleanup_old_profiles(self):
-#         cleanup = False
-#         clean_up_old_list = []
-#         self.log.logger.info("configuator is verifying old profile cleanup.")
+    def print_old_file_warning(self,stype):
+        if not self.old_last_cnconfig:
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"],[":",0,"red"],
+                    ["nodectl's configurator could not find an old configuration.",0,"yellow"],
+                    [f"This is not an issue; however, in the event that old configuration {stype} were configured",0,"yellow"],
+                    ["on this Node, the configurator will not be able to clean them up; instead, you should",0,"yellow"],
+                    [f"review your Node's directory structure for abandoned {stype}.",2,"yellow"],
+                    ["Profile Directories Found",2,"blue","bold"]
+                ])
+                if stype == "profiles": system("sudo tree /var/tessellation/ -I 'data|logs|nodectl|backups|uploads|*.jar|*seedlist'")
+            return True
+        return False
+                
+    def cleanup_old_profiles(self):
+        cleanup = False
+        clean_up_old_list = []
+        self.log.logger.info("configuator is verifying old profile cleanup.")
         
-#         for old_profile in self.old_last_cnconfig.keys():
-#             if old_profile not in self.config_obj.keys():
-#                 cleanup = True
-#                 clean_up_old_list.append(old_profile)
-#                 self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
+        self.c.functions.print_header_title({
+            "line1": "CLEAN UP OLD PROFILES",
+            "single_line": True,
+            "newline": "both"
+        })
+
+        if self.print_old_file_warning("profiles"): return
+                
+        for old_profile in self.old_last_cnconfig.keys():
+            if old_profile not in self.config_obj.keys():
+                cleanup = True
+                clean_up_old_list.append(old_profile)
+                self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
         
-#         for old_profile in clean_up_old_list:
-#             self.c.functions.print_cmd_status({
-#                 "text_start": "Abandoned",
-#                 "brackets": old_profile,
-#                 "text_end": "profile",
-#                 "status": "found",
-#                 "color": "red",
-#                 "newline": True,
-#             })
+        for old_profile in clean_up_old_list:
+            self.c.functions.print_cmd_status({
+                "text_start": "Abandoned",
+                "brackets": old_profile,
+                "text_end": "profile",
+                "status": "found",
+                "color": "red",
+                "newline": True,
+            })
             
-#         if cleanup:
-#             self.c.functions.print_paragraphs([
-#                 ["It is recommended to clean up old profiles to:",1,"magenta"],
-#                 ["  - Avoid conflicts",1],
-#                 ["  - Avoid undesired Node behavior",1],
-#                 ["  - Free up disk",2],
-#             ])
-#             user_confirm = self.c.functions.confirm_action({
-#                 "yes_no_default": "y",
-#                 "return_on": "y",
-#                 "prompt": "Remove old profiles?",
-#                 "exit_if": False
-#             })    
-#             if user_confirm:
-#                 for profile in clean_up_old_list:
-#                     system(f"rm -rf /var/tessellation/{profile} > /dev/null 2>&1")
-#                     self.log.logger.info(f"configuration removed abandend profile [{profile}]")      
-#                     self.c.functions.print_cmd_status({
-#                         "text_start": "Removed",
-#                         "brackets": profile,
-#                         "text_end": "profile",
-#                         "status": "complete",
-#                         "color": "green",
-#                         "newline": True,
-#                     })
+        if cleanup:
+            self.c.functions.print_paragraphs([
+                ["It is recommended to clean up old profiles to:",1,"magenta"],
+                ["  - Avoid conflicts",1],
+                ["  - Avoid undesired Node behavior",1],
+                ["  - Free up disk",2],
+            ])
+            user_confirm = self.c.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": "Remove old profiles?",
+                "exit_if": False
+            })    
+            if user_confirm:
+                for profile in clean_up_old_list:
+                    system(f"sudo rm -rf /var/tessellation/{profile} > /dev/null 2>&1")
+                    self.log.logger.info(f"configuration removed abandend profile [{profile}]")      
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Removed",
+                        "brackets": profile,
+                        "text_end": "profile",
+                        "status": "complete",
+                        "color": "green",
+                        "newline": True,
+                    })
+        else:  
+            self.c.functions.print_paragraphs([
+                ["No old profiles were identified.",1,"green","bold"],
+            ])
+                
+
+    def cleanup_service_files(self):
+        cleanup = False
+        clean_up_old_list = []
+        self.log.logger.info("configuator is verifying old service file cleanup.")
+        
+        self.c.functions.print_header_title({
+            "line1": "CLEAN UP OLD SERVICE FILES",
+            "single_line": True,
+            "newline": "both"
+        })
+        
+        if self.print_old_file_warning("profiles"): return
+            
+        for old_profile in self.old_last_cnconfig.keys():
+            if old_profile not in self.config_obj.keys():
+                cleanup = True
+                clean_up_old_list.append(old_profile)
+                self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
+        
+        for old_profile in clean_up_old_list:
+            self.c.functions.print_cmd_status({
+                "text_start": "Abandoned",
+                "brackets": self.old_last_cnconfig[old_profile]["service"],
+                "text_end": "service",
+                "status": "found",
+                "color": "red",
+                "newline": True,
+            })
+            
+        if cleanup:
+            self.c.functions.print_paragraphs([
+                ["It is recommended to clean up old services files. to:",1,"magenta"],
+                ["  - Avoid conflicts",1],
+                ["  - Avoid undesired Node behavior",1],
+                ["  - Free up disk",2],
+            ])
+            user_confirm = self.c.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": "Remove old service files?",
+                "exit_if": False
+            })    
+            if user_confirm:
+                for profile in clean_up_old_list:
+                    service = self.old_last_cnconfig[profile]["service"]
+                    service_name = f"cnng-{service}"
+                    system(f"sudo rm -f /etc/systemd/system/{service_name} > /dev/null 2>&1")
+                    self.log.logger.info(f"configuration removed abandend service file [{service_name}]")      
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Removed",
+                        "brackets": service,
+                        "text_end": "service file",
+                        "status": "complete",
+                        "color": "green",
+                        "newline": True,
+                    })
+        else:  
+            self.c.functions.print_paragraphs([
+                ["No old service files were identified.",1,"green","bold"],
+            ])
                     
                         
-#     def cleanup_create_snapshot_dirs(self):
-#         found_snap = False
-#         self.log.logger.info("configuator is verifying snapshot data directory existance and contents.")
+    def cleanup_create_snapshot_dirs(self):
+        self.log.logger.info("configuator is verifying snapshot data directory existance and contents.")
                     
-#         for profile in self.config_obj.keys():
-#             if self.config_obj[profile]["layer"] == "1":
-#                 if not path.isdir(f"/var/tessellation/{profile}/"):
-#                     makedirs(f"/var/tessellation/{profile}/")
-#             elif self.config_obj[profile]["layer"] == "0":
-#                 found_snap_list = [
-#                     f"/var/tessellation/{profile}/data/snapshot",
-#                     f"/var/tessellation/{profile}/data/incremental_snapshot",
-#                     f"/var/tessellation/{profile}/data/incremental_snapshot_tmp",
-#                 ]
+        # this will look at the new configuration and if it sees that a config
+        # with the same name (or the same config) has data snapshots, it will
+        # offer to remove them.
+        
+        self.c.functions.print_header_title({
+            "line1": "MANAGE OLD SNAPSHOTS",
+            "single_line": True,
+            "newline": "both"
+        })        
+        
+        for profile in self.metagraph_list:
+            found_snap = False
+            if self.config_obj[profile]["layer"] == "1":
+                if not path.isdir(f"/var/tessellation/{profile}/"):
+                    makedirs(f"/var/tessellation/{profile}/")
+            elif self.config_obj[profile]["layer"] < 1:
+                found_snap_list = [
+                    f"/var/tessellation/{profile}/data/snapshot",
+                    f"/var/tessellation/{profile}/data/incremental_snapshot",
+                    f"/var/tessellation/{profile}/data/incremental_snapshot_tmp",
+                ]
                 
-#                 for lookup_path in found_snap_list:
-#                     if path.isdir(lookup_path) and listdir(lookup_path):
-#                         self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
-#                         found_snap = True
-#                         break
-#                     elif not path.isdir(lookup_path):
-#                         makedirs(lookup_path)
-                    
-#                 if found_snap:
-#                     self.log.logger.info("configuartor cleaning up old snapshots")
-#                     self.c.functions.print_paragraphs([
-#                         ["",1], ["An existing",0], ["snapshot",0,"cyan","bold"],
-#                         ["directory structure exists",1], 
-#                         ["profile:",0], [profile,1,"yellow"],
-#                         ["This may cause unexpected errors and conflicts, nodectl will remove snapshot contents from this directory",2,"red","bold"],
-#                     ])
-#                     user_confirm = self.c.functions.confirm_action({
-#                         "yes_no_default": "y",
-#                         "return_on": "y",
-#                         "prompt": "Remove snapshot contents?",
-#                         "exit_if": False
-#                     })   
-#                     if user_confirm:  
-#                         progress = {
-#                             "text_start": "Cleaning",
-#                             "brackets": profile,
-#                             "text_end": "snapshots",
-#                             "status": "running",
-#                             "status_color": "yellow",
-#                         }         
-#                         self.c.functions.print_cmd_status({
-#                             **progress
-#                         })
-#                         system(f"rm -rf /var/tessellation/{profile}/data/ > /dev/null 2>&1")
-#                         sleep(1)
-#                         for new_dir in found_snap_list:
-#                             makedirs(new_dir)
-#                         self.c.functions.print_cmd_status({
-#                             **progress,
-#                             "status": "complete",
-#                             "status_color": "green",
-#                             "newline": True,
-#                         })  
-#                         sleep(1.5) # allow Node Operator to see results
-#                     else:
-#                         self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.")                  
-    
+                for lookup_path in found_snap_list:
+                    test = listdir(lookup_path)
+                    if path.isdir(lookup_path) and listdir(lookup_path):
+                        self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
+                        found_snap = True
+                    elif not path.isdir(lookup_path):
+                        makedirs(lookup_path)
+                
+                    if found_snap:
+                        found_snap = False
+                        lookup_path_abbrv = lookup_path.split("/")[-1]
+                        self.log.logger.info("configuartor cleaning up old snapshots")
+                        self.c.functions.print_paragraphs([
+                            ["",1], ["An existing",0], ["snapshot",0,"cyan","bold"],
+                            ["directory structure exists",1], 
+                            ["profile:",0], [profile,1,"yellow"],
+                            ["snapshot dir:",0], [lookup_path_abbrv,1,"yellow"],
+                            ["Existing old snapshots may cause unexpected errors and conflicts, nodectl will remove snapshot contents from this directory",2,"red","bold"],
+                        ])
+                        user_confirm = self.c.functions.confirm_action({
+                            "yes_no_default": "y",
+                            "return_on": "y",
+                            "prompt": "Remove snapshot contents?",
+                            "exit_if": False
+                        })   
+                        if user_confirm:  
+                            progress = {
+                                "text_start": "Cleaning",
+                                "brackets": profile,
+                                "text_end": lookup_path_abbrv,
+                                "status": "running",
+                                "status_color": "yellow",
+                            }         
+                            self.c.functions.print_cmd_status({
+                                **progress
+                            })
+                            system(f"rm -rf {lookup_path} > /dev/null 2>&1")
+                            sleep(1)
+                            if not path.isdir(lookup_path):
+                                makedirs(lookup_path)
+                            self.c.functions.print_cmd_status({
+                                **progress,
+                                "status": "complete",
+                                "status_color": "green",
+                                "newline": True,
+                            })  
+                            sleep(1.5) # allow Node Operator to see results
+                        else:
+                            self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.")                  
+        
         
 #     def tcp_change_preparation(self,profile):
 #         if self.detailed:
@@ -3357,16 +3619,16 @@ class Configurator():
 #             self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
 
         
-#     def ask_review_config(self):
-#         user_confirm = self.c.functions.confirm_action({
-#             "yes_no_default": "y",
-#             "return_on": "y",
-#             "prompt": "Review the created configuration?",
-#             "exit_if": False
-#         })   
-#         if user_confirm:           
-#             self.c.view_yaml_config("migrate")     
+    def ask_review_config(self):
+        user_confirm = self.c.functions.confirm_action({
+            "yes_no_default": "y",
+            "return_on": "y",
+            "prompt": "Review the created configuration?",
+            "exit_if": False
+        })   
+        if user_confirm:           
+            self.c.view_yaml_config("migrate")     
             
                                
-# if __name__ == "__main__":
-#     print("This class module is not designed to be run independently, please refer to the documentation")
+if __name__ == "__main__":
+    print("This class module is not designed to be run independently, please refer to the documentation")
