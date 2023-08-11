@@ -93,6 +93,15 @@ class Configurator():
         
         self.wrapper = self.c.functions.print_paragraphs("wrapper_only")
         
+        if action == "edit_config":
+            if path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
+                system(f"sudo cp /var/tessellation/nodectl/cn-config.yaml {self.yaml_path} > /dev/null 2>&1")
+            else:
+                self.error_messages.error_code_messages({
+                    "error_code": "cfr-101",
+                    "line_code": "config_error",
+                    "extra": "existence"
+                })
 
     def setup(self):
         option = "start"
@@ -188,7 +197,6 @@ class Configurator():
     def new_config(self):
         self.restart_needed = False
         self.action = "new"
-        do_build = False
         self.c.functions.print_header_title({
             "line1": "NODECTL",
             "line2": "create new configuration",
@@ -221,9 +229,10 @@ class Configurator():
         self.config_obj_apply = {}      
           
         # debug
-        # self.c.functions.print_json_debug(self.config_obj,False)
+        self.c.functions.print_json_debug(self.config_obj,False)
         
-        self.metagraph_list = ["intnet-l0","intnet-l1"]
+        self.metagraph_list = self.c.functions.clear_global_profiles(self.config_obj)
+        
         # grab only the profile associated p12 items
         self.config_obj_apply = {f"{profile}": {key: value for key, value in 
             self.config_obj[profile].items() if "p12" in key} for profile in self.metagraph_list}        
@@ -706,9 +715,12 @@ class Configurator():
                     self.c.functions.test_or_replace_line_in_file({
                         "file_path": self.yaml_path,
                         "search_line": f"    {item}:",
-                        "replace_line": f"   {item}: {value}\n",
+                        "replace_line": f"    {item}: {value}\n",
                         "skip_backup": True,
                     })
+                    
+        system(f"sudo cp {self.yaml_path} /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
+        system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
 
 
     def build_service_file(self,command_obj):
@@ -2093,16 +2105,6 @@ class Configurator():
                 self.edit_append_profile_global(True)
             elif option == "r":
                 self.edit_auto_restart()
-                if self.detailed:
-                    self.c.functions.print_paragraphs([
-                        [" WARNING ",0,"white,on_blue"], ["auto_restart was modified in the configuration.",1,"magenta"],
-                        ["The configurator will not",0,"magenta"], ["disable/enable",0,"red","underline"], 
-                        ["any instances of auto_restart automatically.",1,"magenta"],
-                        ["To enable issue :",0,"yellow"], ["sudo nodectl auto_restart enable",1],
-                        ["To disable issue:",0,"yellow"], ["sudo nodectl auto_restart disable",2],
-                    ])
-                    self.c.functions.print_any_key({})
-                
             else:
                 cprint("  Configuration manipulation quit by Operator","magenta")
                 exit(0)  
@@ -2476,6 +2478,8 @@ class Configurator():
         while True:
             restart_error = False
             enable_answers = self.ask_confirm_questions(questions,True)
+            enable_answers["auto_restart"] = enable_answers["auto_restart"].lower()
+            enable_answers["auto_upgrade"] = enable_answers["auto_upgrade"].lower()
             if restart == "disable" and upgrade == "disable":
                 if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "n":
                     restart_error = True
@@ -3280,7 +3284,7 @@ class Configurator():
                             self.c.functions.print_cmd_status({
                                 **progress
                             })
-                            system(f"rm -rf {lookup_path} > /dev/null 2>&1")
+                            system(f"sudo rm -rf {lookup_path} > /dev/null 2>&1")
                             sleep(1)
                             if not path.isdir(lookup_path):
                                 makedirs(lookup_path)
