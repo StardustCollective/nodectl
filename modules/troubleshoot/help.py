@@ -11,7 +11,7 @@ def title(command):
 def build_help(command_obj):
       
     extended = command_obj.get("extended",False)
-    extended_switch = None
+    extended_option = None
     
     usage_only = command_obj.get("usage_only",False)
     nodectl_version_only = command_obj.get("nodectl_version_only",False)
@@ -61,7 +61,7 @@ def build_help(command_obj):
   Options:
 
 
-    CLI options - please see extended help for short-cut switches and
+    CLI options - please see extended help for short-cut options and
                   various options for each command (sudo nodectl <command> help)
     
     upgrade    | upgrade Tessellation version
@@ -279,7 +279,7 @@ def build_help(command_obj):
   required:
   {colored('-p <profile_name>','green')}
   
-  alternative shorthand switch:
+  alternative shorthand option:
   {colored('-csc','green')}
     
   When executed the {colored('check_source_connection','cyan')} command will attempt
@@ -320,7 +320,7 @@ def build_help(command_obj):
   {colored('-s <ip_address>','green')}  
   {colored('-e <ip_address>','green')}
     
-  alternative shorthand switch:
+  alternative shorthand option:
   {colored('-cc','green')}
 
   This command will execute a search on the currently
@@ -331,7 +331,7 @@ def build_help(command_obj):
   
   It will search again the Node the {colored('check_connection','cyan')} command was
   executed upon unless an edge device to check against the 
-  source is specified by an optional {colored('-e','cyan')} switch.
+  source is specified by an optional {colored('-e','cyan')} option.
   
   The command will compare the Nodes found on the {colored('source','cyan')} against
   the Nodes found on the {colored('edge','cyan')}.  If the Nodes connected
@@ -523,10 +523,10 @@ def build_help(command_obj):
     - nodeid (shortened)
     - DAG wallet shortened
     
-  You can utilize the {colored('--basic','green')} switch to force
+  You can utilize the {colored('--basic','green')} option to force
   nodectl to only show the PEER IP:TCP PORT column
     
-  You can utilize the {colored('--extended','green')} switch to force
+  You can utilize the {colored('--extended','green')} option to force
   nodectl to only show all fields in long format.
   
   Dictionary
@@ -584,7 +584,7 @@ def build_help(command_obj):
         '''
         
     if extended == "show_node_states":
-        extended_switch = "-sns"
+        extended_option = "-sns"
         help_text += title("show node states")
         help_text += f'''
   The {colored('show_node_states','cyan')} command does not take any arguments 
@@ -611,7 +611,7 @@ def build_help(command_obj):
   {colored('  - status','green')}
   {colored('  - check_pid','green')}
   
-  optional switch:
+  optional option:
   {colored('--auto_upgrade','green')} 
   
   {colored('IMPORTANT','red',attrs=['bold'])} 
@@ -691,7 +691,7 @@ def build_help(command_obj):
   {colored('Auto upgrade','cyan')} can only be enabled with auto restart enabled.
   
   Optionally if you are not using the configuration, you can enable auto_upgrade
-  by issuing the optional {colored('--auto_upgrade','cyan')} switch when enabling
+  by issuing the optional {colored('--auto_upgrade','cyan')} option when enabling
   auto_restart from the command line.
   
   During a Tessellation upgrade, the session will change.  This will trigger
@@ -788,7 +788,7 @@ def build_help(command_obj):
   required:
   {colored('-e <environment_name>','green')}
        
-  optional switch alias:
+  optional option alias:
   {colored('-rtb','green')} 
   
     Example Usage
@@ -813,7 +813,7 @@ def build_help(command_obj):
   participation for any/all given profile(s) in the configuration
   that has a seed-list setup.
        
-  optional switch:
+  optional option:
   {colored('-cslp','green')} 
   '''      
         
@@ -831,7 +831,7 @@ def build_help(command_obj):
   options:
   {colored('-np','cyan')} : no pagination
   
-  optional switch:
+  optional option:
   {colored('-vc','green')} 
   
   
@@ -852,7 +852,7 @@ def build_help(command_obj):
   If a profile name is not supplied, nodectl will use the first found
   profile configured on the Node.
      
-  optional switch:
+  optional option:
   {colored('-cv','green')} 
   
   optional parameters:
@@ -880,7 +880,7 @@ def build_help(command_obj):
            a detailed explanation of each element in the 
            {colored('cn-config.yaml','cyan')} file. 
      
-  optional switch:
+  optional option:
   {colored('-val','green')} 
   '''      
         
@@ -896,7 +896,7 @@ def build_help(command_obj):
   command will warn you of this fact, let you know what the next
   necessary upgrade is, and will show you upgrade path requirements.
    
-  optional switch:
+  optional option:
   {colored('-up','green')} 
   '''      
         
@@ -908,16 +908,16 @@ def build_help(command_obj):
   attempts to create a new p12 file, independent of the Node's operations.  This
   new wallet can be used in any way necessary by the creator.
   
-  switch:
+  shortcut option:
   {colored('-cpk','green')}
   
-  optional switch:
+  optional option:
   {colored('--name','green')} 
   {colored('--keystore','green')} 
   {colored('--pass','green')} 
   {colored('--alias','green')} 
   
-  If you do not offer any or all of the optional switches during execution of
+  If you do not offer any or all of the optional options during execution of
   the command, you will be prompted for them individually in an interactive
   manner by {colored('nodectl','cyan')}. 
     
@@ -1183,7 +1183,7 @@ def build_help(command_obj):
   
   optional:
   {colored('-ni','green')} - {colored('non-interactive','cyan')}
-        If the {colored('-ni','cyan')} switch is given at the command entry point, the upgrade 
+        If the {colored('-ni','cyan')} option is given at the command entry point, the upgrade 
         will not ask for interaction and will choose all default values 
         including:
           - picking the latest found {colored('version','yellow')} (unless {colored('-v','cyan')} is specified as well)
@@ -1254,10 +1254,10 @@ def build_help(command_obj):
   State Channel (or both) that your Node will attempt to communications 
   with via p2p connections and APIs.
   
-  optional switch:
+  optional option:
   {colored('-id <full_node_id> -p <profile_name>','green')}
   
-  The -id switch followed by the full nodeid requested, will lookup
+  The -id option followed by the full nodeid requested, will lookup
   the node id and return its IP address.  This command will 
   {colored('require','cyan')} the {colored('-p','cyan')} with the
   profile name of the network you are searching.
@@ -1559,7 +1559,7 @@ def build_help(command_obj):
   Required Parameters:
   {colored("-t","cyan")} (type)
   
-  Possible Values for {colored("-t","yellow")} switch:
+  Possible Values for {colored("-t","yellow")} option:
   ------------------------------
   {colored("logs","yellow")}:      clear logs located in the default 
              or specified log directories
@@ -1948,9 +1948,9 @@ def build_help(command_obj):
   # {colored(f'sudo nodectl {extended}','cyan')}
   
   ''' 
-    if extended_switch != None:
-        help_text += f'''execute using switch command
-  # {colored(f'sudo nodectl {extended_switch}','cyan')}
+    if extended_option != None:
+        help_text += f'''execute using option command
+  # {colored(f'sudo nodectl {extended_option}','cyan')}
   '''
           
     return help_text
