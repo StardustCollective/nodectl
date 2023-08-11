@@ -219,8 +219,14 @@ class P12Class():
             else:
                 self.set_variables(False,profile)   
             
-            if profile == "global" and passwd == False and self.functions.config_obj["upgrader"] == False:
-                cprint("  Global profile passphrase not found.","yellow")
+            try:
+                if profile == "global" and passwd == False and self.functions.config_obj["upgrader"] == False:
+                    cprint("  Global profile passphrase not found.","yellow")
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "p12-227",
+                    "line_code": "invalid_passphrase"
+                })
             
             if not passwd:
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
