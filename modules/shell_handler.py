@@ -794,7 +794,7 @@ class ShellHandler:
     def auto_restart_handler(self,action,cli=False,manual=False):
         restart_request = warning = False  
         if "--auto_grade" in self.argv:
-            self.functions.config_obj["auto_restart"]["auto_upgrade"] = True
+            self.functions.config_obj["global_auto_restart"]["auto_upgrade"] = True
             
         pid_color = "green"
         end_status = "enabled"
@@ -876,10 +876,10 @@ class ShellHandler:
                     return
         
         if action == "check_pid" or action == "current_pid" or action =="status":
-            config_restart = self.functions.config_obj["auto_restart"]["enable"]
+            config_restart = self.functions.config_obj["global_auto_restart"]["enable"]
             config_restart = "True" if config_restart else "False"
             config_restart_color = "green" if config_restart else "red"
-            config_upgrade = self.functions.config_obj["auto_restart"]["auto_upgrade"]
+            config_upgrade = self.functions.config_obj["global_auto_restart"]["auto_upgrade"]
             config_upgrade = "True" if config_upgrade else "False"
             config_upgrade_color = "green" if config_upgrade else "red"
             self.functions.print_clear_line()
@@ -925,9 +925,10 @@ class ShellHandler:
                 if self.functions.config_obj[profile]["passphrase"] == "None":
                     warning = True
                     break
-            elif self.functions.config_obj[profile]["p12_passphrase"] == "None":
-                warning = True
-                break
+            elif profile in self.profile_names:
+                if self.functions.config_obj[profile]["p12_passphrase"] == "None":
+                    warning = True
+                    break
             
         if warning:
             self.functions.print_paragraphs([

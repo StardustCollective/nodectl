@@ -764,7 +764,7 @@ class Configuration():
                 ["global_p12_cli_pass","bool"], # automated value [not part of yaml]
             ],
             "global_auto_restart": [
-                ["enable","bool"],
+                ["auto_restart","bool"],
                 ["auto_upgrade","bool"],
                 ["rapid_restart","bool"],
             ],
@@ -1254,6 +1254,9 @@ class Configuration():
             "str": "must be a string.",
             "bool": "must include a boolean (true/false)",
             "enable": "must include a boolean (true/false) enable key.",
+            "auto_restart": "must include a boolean (true/false) enable key.",
+            "auto_upgrade": "must include a boolean (true/false) enable key.",
+            "rapid_restart": "must include a boolean (true/false) enable key.",
             "multiple": "configuration key(s) are missing",
             "list_of_strs": "must be a list of strings",
             "mem_size": f"{mem1} {mem2} {mem3} {mem4} {mem5} {mem6}",

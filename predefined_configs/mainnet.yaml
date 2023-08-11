@@ -116,7 +116,7 @@ nodectl:
     custom_args_enable: False
     custom_env_vars_enable: False
   global_auto_restart:
-    enable: False
+    auto_restart: False
     auto_upgrade: False
     rapid_restart: False
   global_p12:

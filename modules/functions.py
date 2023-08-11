@@ -2668,12 +2668,12 @@ class Functions():
     
     def print_auto_restart_warning(self):
         try:
-            if self.config_obj["auto_restart"]["enable"]:
+            if self.config_obj["global_auto_restart"]["enable"]:
                 self.print_paragraphs([
-                    ["",1], ["If",0,"red"], ["auto_restart",0,"yellow","bold"], ["is enabled, this is an",0,"red"], ["exception",0,"red","bold"],
+                    ["",1], ["If",0,"red"], ["global_auto_restart",0,"yellow","bold"], ["is enabled, this is an",0,"red"], ["exception",0,"red","bold"],
                     ["and auto_restart will not reengage. You will have to do this manually.",2,"red"],
                 ])      
-                if not self.config_obj["auto_restart"]["auto_upgrade"]:
+                if not self.config_obj["global_auto_restart"]["auto_upgrade"]:
                     self.print_paragraphs([
                         [" NOTE ",0, "grey,on_yellow"], ["auto_restart will continue to fail",0],
                         ["if Tessellation versions do not properly match.",2]

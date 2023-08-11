@@ -15,7 +15,7 @@ from .config import Configuration
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
-from ..command_line import CLI
+from ..shell_handler import ShellHandler
 from ..troubleshoot.errors import Error_codes
 from ..install import Installer
 
@@ -220,117 +220,8 @@ class Configurator():
         self.request_p12_details({})
         self.config_obj_apply = {}      
           
+        # debug
         # self.c.functions.print_json_debug(self.config_obj,False)
-
-        # self.config_obj = {
-        #     "intnet-l0": {
-        #         "enable": "true",
-        #         "environment": "integrationnet",
-        #         "description": "Constellation Network IntgrationNet Hyergraph Global gl0",
-        #         "node_type": "validator",
-        #         "collateral": 0,
-        #         "layer": 0,
-        #         "service": "intnetserv_l0",
-        #         "edge_point": "default",
-        #         "edge_point_tcp_port": "default",
-        #         "public_port": "default",
-        #         "p2p_port": "default",
-        #         "cli_port": "default",
-        #         "gl0_link_enable": "false",
-        #         "gl0_link_key": "None",
-        #         "gl0_link_host": "None",
-        #         "gl0_link_port": "None",
-        #         "gl0_link_profile": "None",
-        #         "ml0_link_enable": "false",
-        #         "ml0_link_key": "None",
-        #         "ml0_link_host": "None",
-        #         "ml0_link_port": "None",
-        #         "ml0_link_profile": "None",
-        #         "directory_backups": "default",
-        #         "directory_uploads": "default",
-        #         "java_xms": "default",
-        #         "java_xmx": "default",
-        #         "java_xss": "default",
-        #         "jar_repository": "default",
-        #         "jar_file": "default",
-        #         "jar_version": "default",
-        #         "p12_nodeadmin": "nodeadmin",
-        #         "p12_key_location": "/home/nodeadmin/tessellation/",
-        #         "p12_key_name": "aaa.p12",
-        #         "p12_key_alias": "aaa-a",
-        #         "p12_passphrase": "aaa",
-        #         "seed_location": "default",
-        #         "seed_repository": "default",
-        #         "seed_file": "default",
-        #         "priority_source_location": "default",
-        #         "priority_source_repository": "default",
-        #         "priority_source_file": "default",
-        #         "custom_args_enable": "false",
-        #         "custom_env_vars_enable": "false"
-        #     },
-        #     "intnet-l1": {
-        #         "enable": "true",
-        #         "environment": "integrationnet",
-        #         "description": "Constellation Network IntgrationNet Metagraph Layer1",
-        #         "node_type": "validator",
-        #         "collateral": 0,
-        #         "layer": 1,
-        #         "service": "intnetserv_l1",
-        #         "edge_point": "l1-lb-integrationnet.constellationnetwork.io",
-        #         "edge_point_tcp_port": 80,
-        #         "public_port": "default",
-        #         "p2p_port": "default",
-        #         "cli_port": "default",
-        #         "gl0_link_enable": "false",
-        #         "gl0_link_key": "None",
-        #         "gl0_link_host": "None",
-        #         "gl0_link_port": "None",
-        #         "gl0_link_profile": "None",
-        #         "ml0_link_enable": "true",
-        #         "ml0_link_key": "self",
-        #         "ml0_link_host": "self",
-        #         "ml0_link_port": "self",
-        #         "ml0_link_profile": "intnet-l0",
-        #         "directory_backups": "default",
-        #         "directory_uploads": "default",
-        #         "java_xms": "default",
-        #         "java_xmx": "default",
-        #         "java_xss": "default",
-        #         "jar_repository": "default",
-        #         "jar_file": "default",
-        #         "jar_version": "default",
-        #         "p12_nodeadmin": "nodeadmin",
-        #         "p12_key_location": "/home/nodeadmin/tessellation/",
-        #         "p12_key_name": "bbb.p12",
-        #         "p12_key_alias": "bbb-b",
-        #         "p12_passphrase": "bbb",
-        #         "seed_location": "disable",
-        #         "seed_repository": "disable",
-        #         "seed_file": "disable",
-        #         "priority_source_location": "default",
-        #         "priority_source_repository": "default",
-        #         "priority_source_file": "default",
-        #         "custom_args_enable": "false",
-        #         "custom_env_vars_enable": "false"
-        #     },
-        #     "global_auto_restart": {
-        #         "enable": "false",
-        #         "auto_upgrade": "false",
-        #         "rapid_restart": "false"
-        #     },
-        #     "global_p12": {
-        #         "nodeadmin": "nodeadmin",
-        #         "key_location": "/home/nodeadmin/tessellation/",
-        #         "key_name": "integrationnet-dj-2.p12",
-        #         "key_alias": "djwallet2-alias",
-        #         "passphrase": "J13Nn^&a*)0A!a!",
-        #         "key_store": "/home/nodeadmin/tessellation/integrationnet-dj-2.p12"
-        #     },
-        #     "global_elements": {
-        #         "metagraph_name": "integrationnet",
-        #         "nodectl_yaml": "v2.0.0"
-        #     }
-        # }
         
         self.metagraph_list = ["intnet-l0","intnet-l1"]
         # grab only the profile associated p12 items
@@ -470,22 +361,6 @@ class Configurator():
         if self.action == "new":
             self.migrate.keep_pass_visible = True
 
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         
     # =====================================================
     # P12 BUILD METHODS
@@ -834,6 +709,7 @@ class Configurator():
                         "replace_line": f"   {item}: {value}\n",
                         "skip_backup": True,
                     })
+
 
     def build_service_file(self,command_obj):
         # profiles=(list of str) # profiles that service file is created against
@@ -2037,8 +1913,8 @@ class Configurator():
         
 #         # auto_restart and upgrade section
 #         rebuild_obj = {
-#             "nodegarageeautoenable": str(self.config_obj["auto_restart"]["enable"]),
-#             "nodegarageautoupgrade": str(self.config_obj["auto_restart"]["auto_upgrade"]),
+#             "nodegarageeautoenable": str(self.config_obj["global_auto_restart"]["enable"]),
+#             "nodegarageautoupgrade": str(self.config_obj["global_auto_restart"]["auto_upgrade"]),
 #             "create_file": "config_yaml_autorestart",
 #         }
 #         self.migrate.configurator_builder(rebuild_obj)
@@ -2154,82 +2030,82 @@ class Configurator():
 #     # EDIT CONFIG METHODS  
 #     # =====================================================
     
-#     def edit_config(self):
-#         self.action = "edit"
-#         return_option = "init"
+    def edit_config(self):
+        self.action = "edit"
+        return_option = "init"
         
-#         while True:
-#             self.prepare_configuration("edit_config",True)
-            
-#             self.c.functions.print_header_title({
-#                 "line1": "NODECTL EDITOR READY",
-#                 "single_line": True,
-#                 "clear": False,
-#                 "newline": "both",
-#             })  
+        while True:
+            self.prepare_configuration("edit_config",True)
+            self.metagraph_list = self.c.metagraph_list
+            self.c.functions.print_header_title({
+                "line1": "NODECTL EDITOR READY",
+                "single_line": True,
+                "clear": True,
+                "newline": "both",
+            })  
 
-#             if self.detailed:        
-#                 self.c.functions.print_paragraphs([
-#                     ["nodectl",0,"blue","bold"], ["configuration yaml",0],["was found, loaded, and validated.",2],
+            if self.detailed:        
+                self.c.functions.print_paragraphs([
+                    ["nodectl",0,"blue","bold"], ["configuration yaml",0],["was found, loaded, and validated.",2],
                     
-#                     ["If the configuration found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
-#                     ["It is recommended to go through each",0,"red"],["issue",0,"yellow","underline"], ["one at a time, revalidating the configuration",0,"red"],
-#                     ["after each edit, in order to make sure that dependent values, are cleared by each edit",2,"red"],
+                    ["If the configuration found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
+                    ["It is recommended to go through each",0,"red"],["issue",0,"yellow","underline"], ["one at a time, revalidating the configuration",0,"red"],
+                    ["after each edit, in order to make sure that dependent values, are cleared by each edit",2,"red"],
                     
-#                     ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
-#                 ])
+                    ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
+                ])
             
-#             self.c.functions.print_header_title({
-#                 "line1": "OPTIONS MENU",
-#                 "show_titles": False,
-#                 "newline": "bottom"
-#             })
+            self.c.functions.print_header_title({
+                "line1": "OPTIONS MENU",
+                "show_titles": False,
+                "newline": "bottom"
+            })
 
-#             options = ["E","A","G","R","M","Q"]
-#             if return_option not in options:
-#                 self.c.functions.print_paragraphs([
-#                     ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
-#                     ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
-#                     ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
-#                     ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
-#                     ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
-#                     ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
-#                 ])
+            options = ["E","A","G","R","M","Q"]
+            if return_option not in options:
+                self.c.functions.print_paragraphs([
+                    ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
+                    # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
+                    ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
+                    ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
+                    ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
+                    ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
+                ])
 
-#                 return_option = "init" # reset
-#                 option = self.c.functions.get_user_keypress({
-#                     "prompt": "KEY PRESS an option",
-#                     "prompt_color": "cyan",
-#                     "options": options
-#                 })
-#             else:
-#                 option = return_option.lower()
+                return_option = "init" # reset
+                option = self.c.functions.get_user_keypress({
+                    "prompt": "KEY PRESS an option",
+                    "prompt_color": "cyan",
+                    "options": options
+                })
+            else:
+                option = return_option.lower()
             
-#             if option == "e":
-#                 self.edit_profiles()
-#                 return_option = self.edit_profile_sections()
-#             elif option == "m":
-#                 self.action = False
-#                 return
-#             elif option == "a":
-#                 self.edit_append_profile_global(False)
-#             elif option == "g": 
-#                 self.edit_append_profile_global(True)
-#             elif option == "r":
-#                 self.edit_auto_restart()
-#                 if self.detailed:
-#                     self.c.functions.print_paragraphs([
-#                         [" WARNING ",0,"white,on_blue"], ["auto_restart was modified in the configuration.",1,"magenta"],
-#                         ["The configurator will not",0,"magenta"], ["disable/enable",0,"red","underline"], 
-#                         ["any instances of auto_restart automatically.",1,"magenta"],
-#                         ["To enable issue :",0,"yellow"], ["sudo nodectl auto_restart enable",1],
-#                         ["To disable issue:",0,"yellow"], ["sudo nodectl auto_restart disable",2],
-#                     ])
-#                     self.c.functions.print_any_key({})
+            if option == "e":
+                self.edit_profiles()
+                return_option = self.edit_profile_sections()
+            elif option == "m":
+                self.action = False
+                return
+            elif option == "a":
+                self.edit_append_profile_global(False)
+            elif option == "g": 
+                self.edit_append_profile_global(True)
+            elif option == "r":
+                self.edit_auto_restart()
+                if self.detailed:
+                    self.c.functions.print_paragraphs([
+                        [" WARNING ",0,"white,on_blue"], ["auto_restart was modified in the configuration.",1,"magenta"],
+                        ["The configurator will not",0,"magenta"], ["disable/enable",0,"red","underline"], 
+                        ["any instances of auto_restart automatically.",1,"magenta"],
+                        ["To enable issue :",0,"yellow"], ["sudo nodectl auto_restart enable",1],
+                        ["To disable issue:",0,"yellow"], ["sudo nodectl auto_restart disable",2],
+                    ])
+                    self.c.functions.print_any_key({})
                 
-#             else:
-#                 cprint("  Configuration manipulation quit by Operator","magenta")
-#                 exit(0)  
+            else:
+                cprint("  Configuration manipulation quit by Operator","magenta")
+                exit(0)  
 
                 
 #     def edit_profiles(self):
@@ -2526,114 +2402,120 @@ class Configurator():
 #                     print_config_section()
 
 
-#     def edit_auto_restart(self):
-#         self.c.functions.print_header_title({
-#             "line1": "AUTO RESTART EDITOR",
-#             "show_titles": False,
-#             "newline": "top",
-#         })
+    def edit_auto_restart(self):
+        self.c.functions.print_header_title({
+            "line1": "AUTO RESTART EDITOR",
+            "show_titles": False,
+            "newline": "top",
+        })
         
-#         warning = False
-#         self.restart_needed = self.upgrade_needed = False
+        warning = False
+        self.restart_needed = self.upgrade_needed = False
         
-#         keys = list(self.c.config_obj.keys())
-#         keys.append("global_p12")
-#         for profile in keys:
-#             if profile == "global_p12":
-#                 if self.c.config_obj[profile]["passphrase"] == "None":
-#                     warning = True
-#                     break
-#             elif self.c.config_obj[profile]["p12_passphrase"] == "None":
-#                 warning = True
-#                 break
+        for profile in self.c.config_obj.keys():
+            if profile == "global_p12":
+                if self.c.config_obj[profile]["passphrase"] == "None":
+                    warning = True
+                    break
+            elif profile in self.c.metagraph_list:
+                if self.c.config_obj[profile]["p12_passphrase"] == "None":
+                    warning = True
+                    break
                 
-#         if warning:
-#             self.c.functions.print_paragraphs([
-#                 [" WARNING ",0,"yellow,on_red"], ["nodectl's",0, "blue","bold"], ["auto_restart will not be able to automate authentication to the",0,"red"],
-#                 ["Hypergrpah",0, "blue","bold"], ["unless a passphrase is present in the configuration.",2,"red"],
-#                 ["Please make necessary changes and try again",2,"yellow"]
-#             ])
-#             self.c.functions.get_user_keypress({
-#                 "prompt": "press any key to return to main menu",
-#                 "prompt_color": "magenta",
-#                 "options": ["any_key"],
-#             })
-#             return
+        if warning:
+            self.c.functions.print_paragraphs([
+                [" WARNING ",0,"yellow,on_red"], ["nodectl's",0, "blue","bold"], ["auto_restart will not be able to automate authentication to the",0,"red"],
+                ["Hypergrpah",0, "blue","bold"], ["unless a passphrase is present in the configuration.",2,"red"],
+                ["Please make necessary changes and try again",2,"yellow"]
+            ])
+            self.c.functions.get_user_keypress({
+                "prompt": "press any key to return to main menu",
+                "prompt_color": "magenta",
+                "options": ["any_key"],
+            })
+            return
         
-#         auto_restart_desc = "nodectl has a special automated feature called 'auto_restart' that will monitor your Node's on-line status. "
-#         auto_restart_desc += "In the event your Node is removed from 'Ready' state, or it is identified that your Node is not properly connected "
-#         auto_restart_desc += "to the current cluster, nodectl will attempt to bring the Node back online. "
-#         auto_restart_desc += "Please be aware that there are several different ways in which your Node might lose connection.  One "
-#         auto_restart_desc += "specific situation: It is important to understand that if Tessellation is upgraded to a new version, "
-#         auto_restart_desc += "nodectl will not auto_upgrade, unless the auto_upgrade feature is enabled. Please issue a "
-#         auto_restart_desc += "'sudo nodectl auto_restart help' for details."
+        auto_restart_desc = "nodectl has a special automated feature called 'auto_restart' that will monitor your Node's on-line status. "
+        auto_restart_desc += "In the event your Node is removed from 'Ready' state, or it is identified that your Node is not properly connected "
+        auto_restart_desc += "to the current cluster, nodectl will attempt to bring the Node back online. "
+        auto_restart_desc += "Please be aware that there are several different ways in which your Node might lose connection.  One "
+        auto_restart_desc += "specific situation: It is important to understand that if Tessellation is upgraded to a new version, "
+        auto_restart_desc += "nodectl will not auto_upgrade, unless the auto_upgrade feature is enabled. Please issue a "
+        auto_restart_desc += "'sudo nodectl auto_restart help' for details."
         
-#         auto_upgrade_desc = "nodectl has a special automated feature called 'auto_upgrade' that will monitor your Node's on-line status. "
-#         auto_upgrade_desc += "In the event your Node is removed from the network because of a version upgrade, this feature will attempt "
-#         auto_upgrade_desc += "to bring your Node back up online; by including an Tessellation upgrade, with the restart. "
-#         auto_restart_desc += "'auto_restart' must be enabled in conjunction with 'auto_upgrade'."
-#         auto_upgrade_desc += "Please be aware that this can be a dangerous feature, as in the (unlikely) event there are bugs presented in the new "
-#         auto_upgrade_desc += "releases, your Node will be upgraded regardless.  It is important to pay attention to your Node even if this feature "
-#         auto_upgrade_desc += "is enabled.  Please issue a 'sudo nodectl auto_upgrade help' for details."
+        auto_upgrade_desc = "nodectl has a special automated feature called 'auto_upgrade' that will monitor your Node's on-line status. "
+        auto_upgrade_desc += "In the event your Node is removed from the network because of a version upgrade, this feature will attempt "
+        auto_upgrade_desc += "to bring your Node back up online; by including an Tessellation upgrade, with the restart. "
+        auto_restart_desc += "'auto_restart' must be enabled in conjunction with 'auto_upgrade'."
+        auto_upgrade_desc += "Please be aware that this can be a dangerous feature, as in the (unlikely) event there are bugs presented in the new "
+        auto_upgrade_desc += "releases, your Node will be upgraded regardless.  It is important to pay attention to your Node even if this feature "
+        auto_upgrade_desc += "is enabled.  Please issue a 'sudo nodectl auto_upgrade help' for details."
         
-#         self.build_known_skelton(1)
+        restart = "disable" if self.c.config_obj["global_auto_restart"]["auto_restart"] else "enable"
+        upgrade = "disable" if self.c.config_obj["global_auto_restart"]["auto_upgrade"] else "enable"
         
-#         restart = "disable" if self.config_obj["auto_restart"]["enable"] else "enable"
-#         upgrade = "disable" if self.config_obj["auto_restart"]["auto_upgrade"] else "enable"
+        questions = {
+            "auto_restart": {
+                "question": f"  {colored('Do you want to [','cyan')}{colored(restart,'yellow',attrs=['bold'])}{colored('] auto_restart?','cyan')}",
+                "description": auto_restart_desc,
+                "default": "y" if restart == "disable" else "n",
+                "required": False,
+            },
+            "auto_upgrade": {
+                "question": f"  {colored('Do you want to [','cyan')}{colored(upgrade,'yellow',attrs=['bold'])}{colored('] auto_upgrade?','cyan')}",
+                "description": auto_upgrade_desc,
+                "default": "y" if upgrade == "disable" else "n",
+                "required": False,
+            },
+            "alt_confirm_dict": {
+                f"{restart} auto_restart": "auto_restart",
+                f"{upgrade} auto_upgrade": "auto_upgrade",
+            }
+        }
         
-#         questions = {
-#             "auto_restart": {
-#                 "question": f"  {colored('Do you want to [','cyan')}{colored(restart,'yellow',attrs=['bold'])}{colored('] auto_restart?','cyan')}",
-#                 "description": auto_restart_desc,
-#                 "default": "y" if restart == "disable" else "n",
-#                 "required": False,
-#             },
-#             "auto_upgrade": {
-#                 "question": f"  {colored('Do you want to [','cyan')}{colored(upgrade,'yellow',attrs=['bold'])}{colored('] auto_upgrade?','cyan')}",
-#                 "description": auto_upgrade_desc,
-#                 "default": "y" if upgrade == "disable" else "n",
-#                 "required": False,
-#             },
-#             "alt_confirm_dict": {
-#                 f"{restart} auto_restart": "auto_restart",
-#                 f"{upgrade} auto_upgrade": "auto_upgrade",
-#             }
-#         }
-        
-#         while True:
-#             restart_error = False
-#             enable_answers = self.ask_confirm_questions(questions,True)
-#             if restart == "disable" and upgrade == "disable":
-#                 if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "n":
-#                     restart_error = True
+        while True:
+            restart_error = False
+            enable_answers = self.ask_confirm_questions(questions,True)
+            if restart == "disable" and upgrade == "disable":
+                if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "n":
+                    restart_error = True
 
-#             if restart == "disable" and upgrade == "enable":
-#                 if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "y":
-#                     restart_error = True
+            if restart == "disable" and upgrade == "enable":
+                if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "y":
+                    restart_error = True
 
-#             if restart == "enable" and upgrade == "enable":
-#                 if enable_answers["auto_restart"] == "n" and enable_answers["auto_upgrade"] == "y":
-#                     restart_error = True
+            if restart == "enable" and upgrade == "enable":
+                if enable_answers["auto_restart"] == "n" and enable_answers["auto_upgrade"] == "y":
+                    restart_error = True
                 
-#             if not restart_error:
-#                 if restart == "enable" and enable_answers["auto_restart"] == "y":
-#                     self.c.functions.print_paragraphs([
-#                         ["",1], ["auto_restart",0,"yellow","bold"], ["will enabled on the next execution of nodectl",1],
-#                     ])
-#                 break
-#             self.c.functions.print_paragraphs([
-#                 [" ERROR ",0,"yellow,on_red"], ["auto_upgrade cannot be enabled without auto_restart, please try again.",1,"red"]
-#             ])
+            if not restart_error:
+                shell = ShellHandler(self.c.config_obj,False)
+                shell.argv = []
+                shell.profile_names = self.metagraph_list
+                if restart == "enable" and enable_answers["auto_restart"] == "y":
+                    self.c.functions.print_paragraphs([
+                        ["auto_restart",0,"yellow","bold"], ["will be enabled.",1],
+                    ])
+                    # shell.auto_restart_handler("enable",False,False)
+                elif restart == "disable" and enable_answers["auto_restart"] == "y":
+                    self.c.functions.print_paragraphs([
+                        ["auto_restart",0,"yellow","bold"], ["will be disabled.",1],
+                    ])
+                    # shell.auto_restart_handler("disable",False,False)
+                break
+            self.c.functions.print_paragraphs([
+                [" ERROR ",0,"yellow,on_red"], ["auto_upgrade cannot be enabled without auto_restart, please try again.",1,"red"]
+            ])
 
+        self.config_obj_apply = {"global_auto_restart":{}}
+        self.config_obj_apply["global_auto_restart"]["auto_restart"] = "False" if enable_answers["auto_restart"] == "y" else "True"
+        self.config_obj_apply["global_auto_restart"]["auto_upgrade"] = "False" if enable_answers["auto_upgrade"] == "y" else "True"
+        if restart == "enable":
+            self.config_obj_apply["global_auto_restart"]["auto_restart"] = "True" if enable_answers["auto_restart"] == "y" else "False"
+        if upgrade == "enable":
+            self.config_obj_apply["global_auto_restart"]["auto_upgrade"] = "True" if enable_answers["auto_upgrade"] == "y" else "False"
         
-#         self.config_obj["auto_restart"]["enable"] = "False" if enable_answers["auto_restart"] == "y" else "True"
-#         self.config_obj["auto_restart"]["auto_upgrade"] = "False" if enable_answers["auto_upgrade"] == "y" else "True"
-#         if restart == "enable":
-#             self.config_obj["auto_restart"]["enable"] = "True" if enable_answers["auto_restart"] == "y" else "False"
-#         if upgrade == "enable":
-#             self.config_obj["auto_restart"]["auto_upgrade"] = "True" if enable_answers["auto_upgrade"] == "y" else "False"
-        
-#         self.build_yaml()
+        self.apply_vars_to_config()
 
         
 #     def edit_append_profile_global(self,p12_only):
