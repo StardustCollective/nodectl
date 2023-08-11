@@ -17,7 +17,6 @@ from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
 from ..shell_handler import ShellHandler
 from ..troubleshoot.errors import Error_codes
-from ..install import Installer
 
 class Configurator():
     
@@ -31,6 +30,7 @@ class Configurator():
         self.config_path = "/var/tessellation/nodectl/"
         self.config_file = "cn-config.yaml"
         self.yaml_path = "/var/tmp/cnng-new-temp-config.yaml"
+        self.profile_to_edit = None
         self.config_obj = {}
         self.detailed = False if "-a" in argv_list else "init"
         self.keep_pass_visible = True
@@ -56,6 +56,8 @@ class Configurator():
         if "help" in argv_list:
             self.prepare_configuration("edit_config")
             self.show_help()
+        elif "-ep" in argv_list:
+            self.action = "edit_profile"
         elif "-e" in argv_list:
             self.action = "edit"
         elif "-n" in argv_list:
@@ -92,7 +94,10 @@ class Configurator():
         self.node_service = Node({
             "config_obj": self.c.config_obj
         },False) 
-        
+
+        self.node_service.functions.pull_profile({"req":"profile_names"})
+        self.c.functions.pull_profile({"req":"profile_names"})
+                
         self.wrapper = self.c.functions.print_paragraphs("wrapper_only")
         
         if action == "edit_config":
@@ -164,7 +169,7 @@ class Configurator():
                 "newline": top_newline
             })
             
-            if (self.action == "edit" or self.action == "help") and option != "reset":
+            if (self.action == "edit" or self.action == "help" or self.action == "edit_profile") and option != "reset":
                 option = "e"
             elif self.action == "new" and option != "reset":
                 option = "n"
@@ -774,14 +779,14 @@ class Configurator():
     # # MANUAL BUILD METHODS
     # # =====================================================
     
-    # def manual_section_header(self, profile, header):
-    #     self.c.functions.print_header_title(self.header_title)
-    #     self.c.functions.print_header_title({
-    #         "line1": f"{profile.upper()} PROFILE {header}",
-    #         "show_titles": False,
-    #         "single_line": True,
-    #         "newline": False if self.detailed else "bottom"
-    #     })
+    def manual_section_header(self, profile, header):
+        self.c.functions.print_header_title(self.header_title)
+        self.c.functions.print_header_title({
+            "line1": f"{profile.upper()} PROFILE {header}",
+            "show_titles": False,
+            "single_line": True,
+            "newline": False if self.detailed else "bottom"
+        })
         
         
     # def manual_build(self,default=True):
@@ -840,11 +845,11 @@ class Configurator():
     #     })
             
 
-    # def manual_build_append(self,append_obj):
-    #     self.profile_details = {
-    #         **self.profile_details,
-    #         **append_obj
-    #     }  
+    def manual_build_append(self,append_obj):
+        self.config_obj_apply = {
+            **self.config_obj_apply,
+            **append_obj
+        }  
         
               
     # def manual_build_setup(self):
@@ -1078,61 +1083,80 @@ class Configurator():
     #     self.profile_details.update(answers)
 
             
-    # def manual_build_tcp(self,profile=False):
-    #     port_start = "You must define a TCP (Transport Control Protocol) port that your Node will run on, to accept"
-    #     port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your layer0 or Metagraph administrator for recommended port values."
+    def manual_build_tcp(self,profile=False):
+        port_start = "You must define a TCP (Transport Control Protocol) port that your Node will run on, to accept"
+        port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your layer0 or Metagraph administrator for recommended port values."
 
-    #     tcp_range = [9000,9010,9020,9030,9040]
+        tcp_range = [9000,9010,9020,9030,9040]
         
-    #     try: 
-    #         _ = int(self.profile_details["layer"])
-    #     except:
-    #         self.log.logger.error("invalid blockchain layer entered [{profile_details['layer']}] cannot continue")
-    #         self.error_messages.error_code_messages({
-    #             "error_code": "cfr-369",
-    #             "line_code": "invalid_layer",
-    #             "extra": self.profile_details["layer"]
-    #         })
-            
-    #     if profile:
-    #         public_default = self.profile_details["public"]  
-    #         p2p_default = self.profile_details["p2p"]      
-    #         cli_default = self.profile_details["cli"]   
-    #     else:
-    #         profile = self.profile
-    #         for n, range in enumerate(tcp_range):
-    #             if self.profile_details["layer"] == str(n):
-    #                 public_default = f"{range}"
-    #                 p2p_default = f"{range+1}"
-    #                 cli_default = f"{range+2}" 
-    #                 break
-    #             else:
-    #                 self.log.logger.error(f"invalid transport layer entered? [{self.profile_details['layer']}] cannot derive default values")
-    #                 p2p_default = cli_default = public_default = None
+        if profile:
+            public_default = self.c.config_obj[profile]["public_port"]  
+            p2p_default = self.c.config_obj[profile]["p2p_port"]     
+            cli_default = self.c.config_obj[profile]["cli_port"]  
+        else:
+            profile = self.profile_to_edit
+            for n, range in enumerate(tcp_range):
+                if self.profile_details["layer"] == str(n):
+                    public_default = f"{range}"
+                    p2p_default = f"{range+1}"
+                    cli_default = f"{range+2}" 
+                    break
+                else:
+                    self.log.logger.error(f"invalid transport layer entered? [{self.profile_details['layer']}] cannot derive default values")
+                    p2p_default = cli_default = public_default = None
 
-    #     self.manual_section_header(profile,"TCP PORTS") 
+        try: 
+            _ = int(self.c.config_obj[profile]["layer"])
+        except:
+            self.log.logger.error(f'invalid blockchain layer entered [{self.c.config_obj[profile]["layer"]}] cannot continue')
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-369",
+                "line_code": "invalid_layer",
+                "extra": self.profile_details["layer"]
+            })
+            
+        self.manual_section_header(profile,"TCP PORTS") 
                             
-    #     questions = {
-    #         "public": {
-    #             "question": f"  {colored('Enter the public TCP port for this Node','cyan')}",
-    #             "description": f"{port_start} public inbound traffic. {port_ending}",
-    #             "required": False,
-    #             "default": public_default,
-    #         },
-    #         "p2p": {
-    #             "question": f"  {colored('Enter the P2P TCP port for this Node','cyan')}",
-    #             "description": f"{port_start} peer to peer (p2p) traffic. {port_ending}",
-    #             "required": False,
-    #             "default": p2p_default,
-    #         },
-    #         "cli": {
-    #             "question": f"  {colored('Enter the localhost TCP port for this Node','cyan')}",
-    #             "description": f"{port_start} internal/local host requests to access its own API (application program interface). {port_ending}",
-    #             "required": False,
-    #             "default": cli_default,
-    #         },
-    #     }
-    #     self.manual_build_append(self.ask_confirm_questions(questions))
+        questions = {
+            "public_port": {
+                "question": f"  {colored('Enter the public TCP port for this Node','cyan')}",
+                "description": f"{port_start} public inbound traffic. {port_ending}",
+                "required": False,
+                "default": public_default,
+            },
+            "p2p_port": {
+                "question": f"  {colored('Enter the P2P TCP port for this Node','cyan')}",
+                "description": f"{port_start} peer to peer (p2p) traffic. {port_ending}",
+                "required": False,
+                "default": p2p_default,
+            },
+            "cli_port": {
+                "question": f"  {colored('Enter the localhost TCP port for this Node','cyan')}",
+                "description": f"{port_start} internal/local host requests to access its own API (application program interface). {port_ending}",
+                "required": False,
+                "default": cli_default,
+            },
+        }
+        answers = self.ask_confirm_questions(questions)
+        answers = {
+            f"{profile}": {
+                **answers,
+            }
+        }
+        self.manual_build_append(answers)
+        
+        for i_profile in self.metagraph_list:
+            if i_profile != profile:
+                unaffected_profile_obj = {
+                  f"{i_profile}": {
+                    "public_port": self.c.config_obj[i_profile]["public_port"], 
+                    "p2p_port": self.c.config_obj[i_profile]["p2p_port"],  
+                    "cli_port": self.c.config_obj[i_profile]["cli_port"], 
+                  }
+                } 
+                
+        self.manual_build_append(unaffected_profile_obj)
+        pass
         
         
 #     def manual_build_service(self,profile=False):
@@ -2051,59 +2075,66 @@ class Configurator():
 #     # =====================================================
     
     def edit_config(self):
-        self.action = "edit"
+        # self.action = "edit"
         return_option = "init"
         
         while True:
             self.prepare_configuration("edit_config",True)
             self.metagraph_list = self.c.metagraph_list
-            self.c.functions.print_header_title({
-                "line1": "NODECTL EDITOR READY",
-                "single_line": True,
-                "clear": True,
-                "newline": "both",
-            })  
-
-            if self.detailed:        
-                self.c.functions.print_paragraphs([
-                    ["nodectl",0,"blue","bold"], ["configuration yaml",0],["was found, loaded, and validated.",2],
-                    
-                    ["If the configuration found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
-                    ["It is recommended to go through each",0,"red"],["issue",0,"yellow","underline"], ["one at a time, revalidating the configuration",0,"red"],
-                    ["after each edit, in order to make sure that dependent values, are cleared by each edit",2,"red"],
-                    
-                    ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
-                ])
             
-            self.c.functions.print_header_title({
-                "line1": "OPTIONS MENU",
-                "show_titles": False,
-                "newline": "bottom"
-            })
-
-            options = ["E","A","G","R","M","Q"]
-            if return_option not in options:
-                self.c.functions.print_paragraphs([
-                    ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
-                    # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
-                    ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
-                    ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
-                    ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
-                    ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
-                ])
-
-                return_option = "init" # reset
-                option = self.c.functions.get_user_keypress({
-                    "prompt": "KEY PRESS an option",
-                    "prompt_color": "cyan",
-                    "options": options
-                })
+            if self.action == "edit_profile":
+                option = "e"
             else:
-                option = return_option.lower()
+                self.c.functions.print_header_title({
+                    "line1": "NODECTL EDITOR READY",
+                    "single_line": True,
+                    "clear": True,
+                    "newline": "both",
+                })  
+
+                if self.detailed:        
+                    self.c.functions.print_paragraphs([
+                        ["nodectl",0,"blue","bold"], ["configuration yaml",0],["was found, loaded, and validated.",2],
+                        
+                        ["If the configuration found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
+                        ["It is recommended to go through each",0,"red"],["issue",0,"yellow","underline"], ["one at a time, revalidating the configuration",0,"red"],
+                        ["after each edit, in order to make sure that dependent values, are cleared by each edit",2,"red"],
+                        
+                        ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
+                    ])
+                
+                self.c.functions.print_header_title({
+                    "line1": "OPTIONS MENU",
+                    "show_titles": False,
+                    "newline": "bottom"
+                })
+
+                options = ["E","A","G","R","M","Q"]
+                if return_option not in options:
+                    self.c.functions.print_paragraphs([
+                        ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
+                        # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
+                        ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
+                        ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
+                        ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
+                        ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
+                    ])
+
+                    return_option = "init" # reset
+                    option = self.c.functions.get_user_keypress({
+                        "prompt": "KEY PRESS an option",
+                        "prompt_color": "cyan",
+                        "options": options
+                    })
+                else:
+                    option = return_option.lower()
             
             if option == "e":
-                self.edit_profiles()
-                return_option = self.edit_profile_sections()
+                return_option = self.edit_profiles()
+                if return_option == "q":
+                    option = return_option
+                elif return_option != "r":
+                    self.edit_profile_sections()
             elif option == "m":
                 self.action = False
                 return
@@ -2113,304 +2144,300 @@ class Configurator():
                 self.edit_append_profile_global(True)
             elif option == "r":
                 self.edit_auto_restart()
-            else:
-                cprint("  Configuration manipulation quit by Operator","magenta")
+                
+            if option == "q":
+                cprint("  Configurator quit by Node Operator...","green")
                 exit(0)  
 
                 
-#     def edit_profiles(self):
-#         print("")
-#         self.header_title = {
-#             "line1": "Edit Profiles",
-#             "show_titles": False,
-#             "clear": True,
-#             "newline": "top",
-#         }       
+    def edit_profiles(self):
+        print("")
+        self.header_title = {
+            "line1": "Edit Profiles",
+            "show_titles": False,
+            "clear": True,
+            "newline": "top",
+        }       
              
-#         self.c.functions.print_header_title({
-#             "line1": "Edit Profiles",
-#             "single_line": True,
-#             "newline": "bottom",
-#         })  
+        self.c.functions.print_header_title({
+            "line1": "Edit Profiles",
+            "single_line": True,
+            "newline": "bottom",
+        })  
         
-#         self.c.functions.print_paragraphs([
-#             ["nodectl",0,"blue","bold"], ["found the following profiles:",2]
-#         ])        
+        self.c.functions.print_paragraphs([
+            ["nodectl",0,"blue","bold"], ["found the following profiles:",2]
+        ])        
         
-#         # did a manual edit of the profile by node operator cause issue?
-#         try:
-#             _ = self.c.profile_obj.keys()
-#         except:
-#             self.error_messages.error_code_messages({
-#                 "error_code": "cfr-1887",
-#                 "line_code": "config_error",
-#                 "extra": "format",
-#                 "extra2": "existence",
-#             })
+        # did a manual edit of the profile by node operator cause issue?
+        try:
+            _ = self.c.metagraph_list
+        except:
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-1887",
+                "line_code": "config_error",
+                "extra": "format",
+                "extra2": "existence",
+            })
             
-#         for n, profile in enumerate(self.c.profile_obj.keys()):
-#             p_option = colored(n+1,"magenta",attrs=["bold"])
-#             profile = colored(f") {profile}","magenta")
-#             print(self.wrapper.fill(f"{p_option}{profile}"))
-            
-#         confirm_str = colored("\n  Please enter full name of profile to edit: ","cyan")
-#         while True:
-#             option = input(confirm_str)
-#             if option in self.c.profile_obj.keys():
-#                 self.profile_to_edit = option
-#                 break
-#             cprint("  Invalid option - exact profile name required.","red")
+        options = copy(self.c.metagraph_list) # don't want metagraph_list altered
+        choice = self.c.functions.print_option_menu({
+            "options": options,
+            "return_value": True,
+            "color": "magenta",
+            "r_and_q": "both",
+        })
+        
+        self.profile_to_edit = choice
+        return choice
             
         
-#     def edit_profile_sections(self,topic="EDIT"):
-#         menu_options = []
+    def edit_profile_sections(self,topic="EDIT"):
+        menu_options = []
         
-#         def print_config_section():
-#             self.c.functions.print_header_title({
-#                 "line1": "CONFIGURATOR SECTION",
-#                 "line2": f"{topic}",
-#                 "show_titles": False,
-#                 "newline": "top",
-#                 "clear": True
-#             })
-#         print_config_section()
+        def print_config_section():
+            self.c.functions.print_header_title({
+                "line1": "CONFIGURATOR SECTION",
+                "line2": f"{topic}",
+                "show_titles": False,
+                "newline": "top",
+                "clear": True
+            })
+        print_config_section()
 
-#         profile = self.profile_to_edit
-        
-#         for option in self.c.profile_obj[profile].keys():
-#             menu_options.append(option)
-
-#         section_change_name = [
-#             ("edge_point","API Edge Point or Load Balancer"),
-#             ("environment","Hypergraph Network Environment Name"),
-#             ("layer", "DLT Blockchain Layer Type"),
-#             ("ports","API TCP Connection Ports"),
-#             ("service", "Debian System Service"),
-#             ("gl0_link","Consensus Link Connection"),
-#             ("dirs","Directory Structure"),
-#             ("java","Java Memory Heap Manipulation"),
-#             ("pro", "Access List Setup"),
-#             ("node_type","Hypergraph Node Type"),
-#             ("description","Policy Description"),
-#             ("p12","Profile Specific Private p12 Key")
-#         ]
-
-#         self.profile_details = {}
+        profile = self.profile_to_edit
+         
+        # "Secondary Metagraph Seed list Requirements",  <--- Future option
+        section_change_names = [
+            ("API Edge Point",1),
+            ("API TCP Ports",2),
+            ("Consensus Linking",3),
+            ("System Service",4),
+            ("Directory Structure",5),
+            ("DLT Layer Type",6),
+            ("Environment Name",7),
+            ("Java Memory Heap",8),
+            ("Access List Setup",9),
+            ("Tessellation Binaries",10),
+            ("Hypergraph Node Type",11),
+            ("Policy Description",12),
+            ("Profile Private p12 Key",13),
+            ("Seed List Requirements",14),
+            ("Custom Variables",15),
+        ]
+        section_change_names.sort()
                         
-#         while True:
-#             do_build_profile = do_build_yaml = do_print_title = True 
-#             do_terminate = False
-#             option = 0
+        while True:
+            do_build_profile, do_build_yaml, do_print_title = True, True, True 
+            do_terminate = False
+            option = 0
             
-#             self.edit_enable_disable_profile(profile,"prepare")
-#             bright_profile = colored(profile,"magenta",attrs=["bold"])
-            
-#             print(f"{colored('  2','magenta',attrs=['bold'])}{colored(f') Change name [{bright_profile}','magenta')}{colored(']','magenta')}")
-#             print(f"{colored('  3','magenta',attrs=['bold'])}{colored(f') Delete profile [{bright_profile}','magenta')}{colored(']','magenta')}")
-            
-#             option_list = ["1","2","3"]
+            self.edit_enable_disable_profile(profile,"prepare")
+            bright_profile = colored(profile,"magenta",attrs=["bold"])
 
-#             self.c.functions.print_header_title({
-#                 "line1": f"CHOOSE A SECTION",
-#                 "single_line": True,
-#                 "newline": "both"
-#             })
+            print(f"{colored('  2','magenta',attrs=['bold'])}{colored(f') Change name [{bright_profile}','magenta')}{colored(']','magenta')}")
+            print(f"{colored('  3','magenta',attrs=['bold'])}{colored(f') Delete profile [{bright_profile}','magenta')}{colored(']','magenta')}")
             
-#             for p, section in enumerate(menu_options):
-#                 if p > 0: # skip first element
-#                     n = hex(p+3)[-1].upper()
-#                     p_option = colored(f'{n}',"magenta",attrs=["bold"]) 
-#                     option_list.append(f'{n}')
-#                     section = [item[1] for item in section_change_name if item[0] == section]
-#                     section = colored(f")  {section[0]}","magenta")
-#                     # if p < 8:
-#                     #     section = section.replace(") ",")  ")
-#                     print(self.wrapper.fill(f"{p_option}{section}")) 
-                    
-#             p_option = colored("H","magenta",attrs=["bold"])
-#             section = colored(")elp","magenta")
-#             print("\n",self.wrapper.fill(f"{p_option}{section}")) 
-                    
-#             p_option = colored(" R","magenta",attrs=["bold"])
-#             section = colored(")eview Config","magenta")
-#             print(self.wrapper.fill(f"{p_option}{section}")) 
-                    
-#             p_option = colored(" P","magenta",attrs=["bold"])
-#             section = colored(")rofile Menu","magenta")
-#             print(self.wrapper.fill(f"{p_option}{section}")) 
-                    
-#             p_option = colored(" M","magenta",attrs=["bold"])
-#             section = colored(")ain Menu","magenta")
-#             print(self.wrapper.fill(f"{p_option}{section}")) 
-                    
-#             p_option = colored(" Q","magenta",attrs=["bold"])
-#             section = colored(")uit","magenta")
-#             print(self.wrapper.fill(f"{p_option}{section}")) 
-#             print("")
+            option_list = ["1","2","3"]
 
-#             options2 = ["H","R","M","P","Q"]
-#             option_list.extend(options2)
+            self.c.functions.print_header_title({
+                "line1": f"CHOOSE A SECTION",
+                "single_line": True,
+                "newline": "both"
+            })
             
-#             option = self.c.functions.get_user_keypress({
-#                 "prompt": "KEY PRESS an option",
-#                 "prompt_color": "cyan",
-#                 "options": option_list,
-#                 "quit_option": "Q",
-#             })
+            for p, section in enumerate(section_change_names):
+                if p > 0: # skip first element
+                    # n = hex(p+3)[-1].upper()
+                    p = p+3
+                    p_option = colored(f'{p}',"magenta",attrs=["bold"]) 
+                    if p < 10:
+                        p_option = f" {p_option}"
+                    option_list.append(f'{p}')
+                    #section = colored(f")  {section[0]}","magenta")
+                    section = colored(f")  {section}","magenta")
+                    # if p < 8:
+                    #     section = section.replace(") ",")  ")
+                    print(self.wrapper.fill(f"{p_option}{section}")) 
+                    
+            p_option = colored("H","magenta",attrs=["bold"])
+            section = colored(")elp","magenta")
+            print("\n",self.wrapper.fill(f"{p_option}{section}")) 
+                    
+            p_option = colored(" R","magenta",attrs=["bold"])
+            section = colored(")eview Config","magenta")
+            print(self.wrapper.fill(f"{p_option}{section}")) 
+                    
+            p_option = colored(" P","magenta",attrs=["bold"])
+            section = colored(")rofile Menu","magenta")
+            print(self.wrapper.fill(f"{p_option}{section}")) 
+                    
+            p_option = colored(" M","magenta",attrs=["bold"])
+            section = colored(")ain Menu","magenta")
+            print(self.wrapper.fill(f"{p_option}{section}")) 
+                    
+            p_option = colored(" Q","magenta",attrs=["bold"])
+            section = colored(")uit","magenta")
+            print(self.wrapper.fill(f"{p_option}{section}")) 
+            print("")
+
+            options2 = ["H","R","M","P","Q"]
+            option_list.extend(options2)
+            
+            prompt = colored("  Enter an option: ","magenta",attrs=["bold"])
+            option = input(prompt)
         
-#             if option == "m":
-#                 return
-#             elif option == "p":
-#                 return "E"
-#             elif option == "r":
-#                 self.c.view_yaml_config("migrate")
-#                 print_config_section()
-#             elif option == "h":
-#                 self.show_help()
+            if option == "m":
+                return
+            elif option == "p":
+                return "E"
+            elif option == "r":
+                self.c.view_yaml_config("migrate")
+                print_config_section()
+            elif option == "h":
+                self.show_help()
 
-#             if option.upper() not in options2:
-#                 option = str(int(option,16))
-                
-#                 self.build_known_skelton(option)
+            if option not in options2:
+                try: option = int(option)-3
+                except: option = -1
+                if option > len(section_change_names)-1: option = -1
+            if option not in options2 and option > 0:
+                option = section_change_names[option][1]
 
-#                 self.profile_details = {
-#                     **self.config_obj[profile],
-#                     **self.profile_details,
-#                 }
-
-#                 if option == "1":
-#                     do_build_yaml = do_build_profile = self.edit_enable_disable_profile(profile)
+                if option == "1":
+                    do_build_yaml = do_build_profile = self.edit_enable_disable_profile(profile)
                     
-#                 elif option == "2":
-#                     do_terminate = do_build_yaml = self.edit_profile_name(profile)
-#                     do_build_profile = False
-#                     called_option = "Profile Name Change"
+                elif option == "2222":
+                    do_terminate = do_build_yaml = self.edit_profile_name(profile)
+                    do_build_profile = False
+                    called_option = "Profile Name Change"
                     
-#                 elif option == "3":
-#                     do_build_profile = False
-#                     do_terminate = True
-#                     do_build_yaml = self.delete_profile(profile)
-#                     called_option = "Delete Profile"
+                elif option == "3":
+                    do_build_profile = False
+                    do_terminate = True
+                    do_build_yaml = self.delete_profile(profile)
+                    called_option = "Delete Profile"
                     
-#                 elif option == "4":
-#                     self.manual_build_layer(profile)
-#                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
-#                     called_option = "layer modification"
-#                     self.verify_edit_options({
-#                         "keys": ["layer"],
-#                         "error": "layer",
-#                         "types": ["int"]
-#                     })
+                elif option == "4":
+                    self.manual_build_layer(profile)
+                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
+                    called_option = "layer modification"
+                    self.verify_edit_options({
+                        "keys": ["layer"],
+                        "error": "layer",
+                        "types": ["int"]
+                    })
                     
-#                 elif option == "5":
-#                     self.manual_build_edge_point(profile)
-#                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
-#                     called_option = "Edge Point Modification"
-#                     self.verify_edit_options({
-#                         "keys": ["host","host_port","https"],
-#                         "error": "Edge Point",
-#                         "types": ["host","host_port","https"]
-#                     })
+                elif option == "5":
+                    self.manual_build_edge_point(profile)
+                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
+                    called_option = "Edge Point Modification"
+                    self.verify_edit_options({
+                        "keys": ["host","host_port","https"],
+                        "error": "Edge Point",
+                        "types": ["host","host_port","https"]
+                    })
             
-#                 elif option == "6":
-#                     self.manual_build_environment(profile)
-#                     called_option = "Environment modification"
+                elif option == "6":
+                    self.manual_build_environment(profile)
+                    called_option = "Environment modification"
                     
-#                 elif option == "7":
-#                     self.tcp_change_preparation(profile)
-#                     self.manual_build_tcp(profile)
-#                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [TCP build] [{self.action}]"
-#                     called_option = "TCP modification"
-#                     self.verify_edit_options({
-#                         "keys": ["public","p2p","cli"],
-#                         "error": "TCP API ports",
-#                         "types": ["high_port","high_port","high_port"]
-#                     })   
+                elif option == 2:
+                    self.tcp_change_preparation(profile)
+                    self.manual_build_tcp(profile)
+                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [TCP build] [{self.action}]"
+                    called_option = "TCP modification"
+                    self.verify_edit_options({
+                        "keys": ["public","p2p","cli"],
+                        "error": "TCP API ports",
+                        "types": ["high_port","high_port","high_port"]
+                    })   
                                 
-#                 elif option == "8":
-#                     self.edit_service_name(profile)
-#                     do_terminate = True
-#                     called_option = "Service Name Change"
+                elif option == "8":
+                    self.edit_service_name(profile)
+                    do_terminate = True
+                    called_option = "Service Name Change"
                     
-#                 elif option == "9":
-#                     do_terminate = do_build_yaml = self.manual_build_link(profile)
-#                     called_option = "Layer0 link"
-#                     if do_build_yaml:
-#                         self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer link] [{self.action}]"
-#                         self.verify_edit_options({
-#                             "keys": ["gl0_key","gl0_host"],
-#                             "error": "Layer Linking",
-#                             "types": ["128hex","host"],
-#                         })
+                elif option == "9":
+                    do_terminate = do_build_yaml = self.manual_build_link(profile)
+                    called_option = "Layer0 link"
+                    if do_build_yaml:
+                        self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer link] [{self.action}]"
+                        self.verify_edit_options({
+                            "keys": ["gl0_key","gl0_host"],
+                            "error": "Layer Linking",
+                            "types": ["128hex","host"],
+                        })
                                     
-#                 elif option == "10":
-#                     self.migrate_directories(profile)
-#                     called_option = "Directory structure modification"
+                elif option == "10":
+                    self.migrate_directories(profile)
+                    called_option = "Directory structure modification"
                     
-#                 elif option == "11":
-#                     self.manual_build_memory(profile)
-#                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
-#                     called_option = "Memory modification"
-#                     self.verify_edit_options({
-#                         "keys": ["java_jvm_xms","java_jvm_xmx","java_jvm_xss"],
-#                         "error": "Java Memory Heap",
-#                         "types": ["mem_size","mem_size","mem_size"],
-#                     })
+                elif option == "11":
+                    self.manual_build_memory(profile)
+                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
+                    called_option = "Memory modification"
+                    self.verify_edit_options({
+                        "keys": ["java_jvm_xms","java_jvm_xmx","java_jvm_xss"],
+                        "error": "Java Memory Heap",
+                        "types": ["mem_size","mem_size","mem_size"],
+                    })
                     
-#                 elif option == "12":
-#                     self.manual_build_p12(profile)
-#                     called_option = "P12 modification"
-#                     keys = []; types = []
-#                     if self.profile_details["key_location"] != "global":
-#                         keys.append("key_location")
-#                         types.append("path")
-#                     if self.profile_details["p12_key_name"] != "global":
-#                         keys.append("p12_key_name")
-#                         types.append("p12_key_name")
+                elif option == "12":
+                    self.manual_build_p12(profile)
+                    called_option = "P12 modification"
+                    keys = []; types = []
+                    if self.profile_details["key_location"] != "global":
+                        keys.append("key_location")
+                        types.append("path")
+                    if self.profile_details["p12_key_name"] != "global":
+                        keys.append("p12_key_name")
+                        types.append("p12_key_name")
                     
-#                     if len(keys) > 0:
-#                         self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [p12 build] [{self.action}]"
-#                         self.verify_edit_options({
-#                             "keys": keys,
-#                             "error": "p12 input Error",
-#                             "types": types,
-#                         })
+                    if len(keys) > 0:
+                        self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [p12 build] [{self.action}]"
+                        self.verify_edit_options({
+                            "keys": keys,
+                            "error": "p12 input Error",
+                            "types": types,
+                        })
                     
-#                 elif option == "13":
-#                     self.manual_build_pro(profile)
-#                     called_option = "PRO modification"
-#                     self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
-#                     self.verify_edit_options({
-#                         "keys": ["seed_location"],
-#                         "error": "PRO/Seed Input Error",
-#                         "types": ["path"]
-#                     })
+                elif option == "13":
+                    self.manual_build_pro(profile)
+                    called_option = "PRO modification"
+                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
+                    self.verify_edit_options({
+                        "keys": ["seed_location"],
+                        "error": "PRO/Seed Input Error",
+                        "types": ["path"]
+                    })
                     
-#                 elif option == "14":
-#                     do_build_yaml = do_build_profile = self.manual_build_node_type(profile)
-#                     called_option = "Node type modification"
+                elif option == "14":
+                    do_build_yaml = do_build_profile = self.manual_build_node_type(profile)
+                    called_option = "Node type modification"
                     
-#                 elif option == "15":
-#                     self.manual_build_description(profile)
-#                     called_option = "Description modification"
+                elif option == "15":
+                    self.manual_build_description(profile)
+                    called_option = "Description modification"
                     
-#                 if do_build_profile:
-#                     self.build_profile()
-#                 if do_build_yaml:
-#                     self.build_yaml()
+                if do_build_profile:
+                    self.build_profile()
+                if do_build_yaml:
+                    self.build_yaml()
                     
-#                 if do_terminate:
-#                     self.c.functions.print_paragraphs([
-#                         [called_option,0,"green","bold"],["process has completed successfully.",2,"magenta"],
-#                         ["Please restart the",0,"magenta"],["configurator",0,"yellow,on_blue","bold"],
-#                         ["to reload the new configuration before continuing, if any further editing is necessary.",1,"magenta"],
-#                         ["sudo nodectl configure",2]
-#                     ])
-#                     exit(0)
+                if do_terminate:
+                    self.c.functions.print_paragraphs([
+                        [called_option,0,"green","bold"],["process has completed successfully.",2,"magenta"],
+                        ["Please restart the",0,"magenta"],["configurator",0,"yellow,on_blue","bold"],
+                        ["to reload the new configuration before continuing, if any further editing is necessary.",1,"magenta"],
+                        ["sudo nodectl configure",2]
+                    ])
+                    exit(0)
                     
-#                 if do_print_title:
-#                     print_config_section()
-
+                if do_print_title:
+                    print_config_section()
+            elif option not in options2:
+                cprint("  Invalid Option, please try again","red")
 
     def edit_auto_restart(self):
         self.c.functions.print_header_title({
@@ -2756,34 +2783,34 @@ class Configurator():
 #             })
         
         
-#     def edit_enable_disable_profile(self, profile, task="None"):
-#         c_enable_disable = f"enable {profile} [{colored('disabled','magenta',attrs=['bold'])}{colored(']','magenta')}"
-#         enable_disable = "enable"
-#         if self.c.profile_obj[profile]["enable"] == True:
-#             c_enable_disable = f"disable {profile} [{colored('enabled','magenta',attrs=['bold'])}{colored(']','magenta')}" 
-#             enable_disable = "disable"
-#         c_enable_disable = colored(f') {c_enable_disable}','magenta')
+    def edit_enable_disable_profile(self, profile, task="None"):
+        c_enable_disable = f"Enable {profile} [{colored('disabled','magenta',attrs=['bold'])}{colored(']','magenta')}"
+        enable_disable = "enable"
+        if self.c.profile_obj[profile]["enable"] == True:
+            c_enable_disable = f"Disable {profile} [{colored('enabled','magenta',attrs=['bold'])}{colored(']','magenta')}" 
+            enable_disable = "disable"
+        c_enable_disable = colored(f') {c_enable_disable}','magenta')
 
-#         if task == "prepare":            
-#             self.c.functions.print_header_title({
-#                 "line1": profile,
-#                 "single_line": True,
-#                 "newline": "both",
-#             })
-#             print(f"{colored('  1','magenta',attrs=['bold'])}{c_enable_disable}")
-#         else:
-#             if enable_disable == "enable":
-#                 new = "True"; new_v = "disable" 
-#                 old_v = "enable"
-#             else:
-#                 new = "False"; new_v = "enable"
-#                 old_v = "disable"
+        if task == "prepare":            
+            self.c.functions.print_header_title({
+                "line1": profile,
+                "single_line": True,
+                "newline": "both",
+            })
+            print(f"{colored('  1','magenta',attrs=['bold'])}{c_enable_disable}")
+        else:
+            if enable_disable == "enable":
+                new = "True"; new_v = "disable" 
+                old_v = "enable"
+            else:
+                new = "False"; new_v = "enable"
+                old_v = "disable"
             
-#             confirmation = self.edit_confirm_choice(new_v,old_v,"enable", profile)
-#             if confirmation:
-#                 self.profile_details["enable"] = new
-#                 return True
-#             return False
+            confirmation = self.edit_confirm_choice(new_v,old_v,"enable", profile)
+            if confirmation:
+                self.profile_details["enable"] = new
+                return True
+            return False
 
         
 #     def edit_confirm_choice(self, old, new, section, profile):
@@ -3310,29 +3337,30 @@ class Configurator():
                             self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.")                  
         
         
-#     def tcp_change_preparation(self,profile):
-#         if self.detailed:
-#             self.c.functions.print_paragraphs([
-#                 ["",1], ["In order to complete this edit request, this",0],
-#                 ["Node profile",0,"cyan","underline"], [profile,0,"yellow","bold"],
-#                 ["must be stopped.",2],
-#             ])
-#         else:
-#             # only ask if advanced (detailed) mode is on
-#             stop = self.c.functions.confirm_action({
-#                 "yes_no_default": "y",
-#                 "return_on": "y",
-#                 "prompt": "Do you want to stop services before continuing?",
-#                 "exit_if": False
-#             })      
-#             if not stop:
-#                 stop = self.c.functions.confirm_action({
-#                     "yes_no_default": "y",
-#                     "return_on": "y",
-#                     "prompt": "Are you sure you want to continue without stopping?",
-#                     "exit_if": True
-#                 })   
-#         self.handle_service(profile,profile)
+    def tcp_change_preparation(self,profile):
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1], ["In order to complete this edit request, this",0],
+                ["Node profile",0,"cyan"], [profile,0,"yellow","bold"],
+                ["must be stopped.",2],
+                
+            ])
+        else:
+            # only ask if advanced (detailed) mode is on
+            stop = self.c.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": "Do you want to stop services before continuing?",
+                "exit_if": False
+            })      
+            if not stop:
+                stop = self.c.functions.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": "Are you sure you want to continue without stopping?",
+                    "exit_if": True
+                })   
+        self.handle_service(profile,profile)
 
 
     def print_error(self,section):
@@ -3433,46 +3461,47 @@ class Configurator():
 #                     self.c.config_obj[profile][subsection][item] = self.profile_details[item]
         
 
-#     def handle_service(self,profile,s_type):
-#         # user will be notified to do a full restart at the of the process
-#         # to return to the network instead of doing it here.  This will ensure
-#         # all updates are enabled/activated/updated.
+    def handle_service(self,profile,s_type):
+        # user will be notified to do a full restart at the of the process
+        # to return to the network instead of doing it here.  This will ensure
+        # all updates are enabled/activated/updated.
         
-#         self.c.functions.config_obj = self.node_service.config_obj
-#         self.c.functions.get_service_status()
-#         service = self.profile_details["service"]
-#         self.node_service.profile = profile
+        self.c.functions.config_obj = self.node_service.config_obj
+        self.c.functions.profile_names = self.metagraph_list
+        self.c.functions.get_service_status()
+        service = self.c.config_obj[profile]["service"]
+        self.node_service.profile = profile
         
-#         actions = ["leave","stop"]
-#         for s_action in actions:
-#             if self.node_service.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
-#                 break
-#             self.c.functions.print_cmd_status({            
-#                 "text_start": "Updating Service",
-#                 "brackets": f"{service} => {s_action}",
-#                 "text_end": s_type,
-#                 "status": "stopping",
-#                 "status_color": "yellow",
-#                 "delay": .8
-#             })
-#             self.node_service.change_service_state({
-#                 "profile": profile,
-#                 "action": s_action,
-#                 "cli_flag": True,
-#                 "service_name": f"cnng-{self.profile_details['service']}",
-#                 "caller": "configurator"
-#             })
-#             if s_action == "leave":
-#                 self.c.functions.print_timer(40,"to gracefully leave the network")
+        actions = ["leave","stop"]
+        for s_action in actions:
+            if self.node_service.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
+                break
+            self.c.functions.print_cmd_status({            
+                "text_start": "Updating Service",
+                "brackets": f"{service} => {s_action}",
+                "text_end": s_type,
+                "status": "stopping",
+                "status_color": "yellow",
+                "delay": .8
+            })
+            self.node_service.change_service_state({
+                "profile": profile,
+                "action": s_action,
+                "cli_flag": True,
+                "service_name": f"cnng-{self.c.config_obj[profile]['service']}",
+                "caller": "configurator"
+            })
+            if s_action == "leave":
+                self.c.functions.print_timer(40,"to gracefully leave the network")
                     
-#         self.c.functions.print_cmd_status({
-#             "text_start": "Updating Service",
-#             "brackets": f"{service} => {s_action}",
-#             "text_end": s_type,
-#             "status": "complete",
-#             "status_color": "green",
-#             "newline": True
-#         })   
+        self.c.functions.print_cmd_status({
+            "text_start": "Updating Service",
+            "brackets": f"{service} => {s_action}",
+            "text_end": s_type,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True
+        })   
         
     
 #     def is_duplicate_profile(self,profile_name):
