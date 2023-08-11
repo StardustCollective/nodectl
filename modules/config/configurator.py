@@ -31,8 +31,9 @@ class Configurator():
         self.config_path = "/var/tessellation/nodectl/"
         self.config_file = "cn-config.yaml"
         self.yaml_path = "/var/tmp/cnng-new-temp-config.yaml"
-        
+        self.config_obj = {}
         self.detailed = False if "-a" in argv_list else "init"
+        self.keep_pass_visible = True
         self.action = False
         self.is_all_global = False
         self.profile_details = False
@@ -41,6 +42,7 @@ class Configurator():
         self.restart_needed = True
         self.is_new_config = False
         self.skip_convert = False  # self.convert_config_obj()
+        self.skip_prepare = False
         self.is_file_backedup = False
         self.backup_file_found = False
         self.error_msg = ""
@@ -94,6 +96,7 @@ class Configurator():
         self.wrapper = self.c.functions.print_paragraphs("wrapper_only")
         
         if action == "edit_config":
+            self.config_obj_apply = {}
             if path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
                 system(f"sudo cp /var/tessellation/nodectl/cn-config.yaml {self.yaml_path} > /dev/null 2>&1")
             else:
@@ -359,7 +362,7 @@ class Configurator():
                         
         # return True
 
-
+    
     def build_config_obj(self):
         self.config_obj = {
             "global_elements": {
@@ -380,6 +383,7 @@ class Configurator():
         set_default = command_obj.get("set_default",False)
         get_existing_global = command_obj.get("get_existing_global",True)
         profile = command_obj.get("profile","None")
+        preserved = command_obj.get("preserved","preserved")
         
         line_skip = 1
         new_config_warning = ""
@@ -410,7 +414,8 @@ class Configurator():
                 })
             
             if self.preserve_pass and get_existing_global:
-                self.prepare_configuration(f"edit_config")
+                if not self.skip_prepare:
+                    self.prepare_configuration(f"edit_config")
                 self.config_obj["global_p12"] = self.c.config_obj["global_p12"]
                 if self.c.error_found:
                     self.log.logger.critical("Attempting to pull existing p12 information for the configuration file failed.  Valid inputs did not exist.")
@@ -418,7 +423,7 @@ class Configurator():
                     self.print_error("Retrieving p12 details")
                 self.prepare_configuration("new_config")
                 self.c.functions.print_cmd_status({
-                    "text_start": "Existing global p12 details preserved",
+                    "text_start": f"Existing global p12 details {preserved}",
                     "newline": True,
                     "status": "success",
                     "status_color": "green",
@@ -429,27 +434,29 @@ class Configurator():
                 skip_to_end = True
         
         if not skip_to_end:
-            try:
-                self.sudo_user = environ["SUDO_USER"] 
-            except:  
-                self.sudo_user = getuser()
-                
-            if self.sudo_user == "root" or self.sudo_user == "ubuntu" or self.sudo_user == "admin":
-                self.sudo_user = "nodeadmin"
-                
-            nodeadmin_default = self.sudo_user
-            location_default = f"/home/{self.sudo_user}/tessellation/"
-            p12_default = ""
-            alias_default = ""
-            
-            p12_required = False if set_default else True
-            alias_required = False if set_default else True  
-                            
             if set_default:
                 nodeadmin_default = self.config_obj["global_p12"]["nodeadmin"]
                 location_default = self.config_obj["global_p12"]["key_location"]
                 p12_default = self.config_obj["global_p12"]["key_name"]
                 alias_default = self.config_obj["global_p12"]["key_alias"]   
+            else:
+                try:
+                    self.sudo_user = environ["SUDO_USER"] 
+                except:  
+                    self.sudo_user = getuser()
+                    
+                if self.sudo_user == "root" or self.sudo_user == "ubuntu" or self.sudo_user == "admin":
+                    self.sudo_user = "nodeadmin"
+                    
+                nodeadmin_default = self.sudo_user
+                location_default = f"/home/{self.sudo_user}/tessellation/"
+                p12_default = ""
+                alias_default = ""
+            
+            p12_required = False if set_default else True
+            alias_required = False if set_default else True  
+                            
+
             
             questions = {
                 "nodeadmin": {
@@ -478,7 +485,7 @@ class Configurator():
                 },
             }
             
-            if self.migrate.keep_pass_visible:
+            if self.keep_pass_visible:
                 description = "Enter in a passphrase. The passphrase [also called 'keyphrase' or simply 'password'] will not be seen as it is entered. This configurator does NOT create new p12 private key files. "
                 description += "The Node Operator should enter in their EXISTING p12 passphrase.  This configurator also does NOT change or alter the p12 file in ANY way. "
                 description += "A p12 file should have been created during the original installation of nodectl on this Node. "
@@ -510,7 +517,7 @@ class Configurator():
             p12_answers = self.ask_confirm_questions(questions)
             p12_pass = {"passphrase": "None", "pass2": "None"}
 
-            if self.migrate.keep_pass_visible:
+            if self.keep_pass_visible:
                 single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the passphrase for this profile","cyan")}'
                 if ptype == "global":
                     single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the global passphrase","cyan")}'
@@ -1530,7 +1537,8 @@ class Configurator():
 #     # =====================================================
 #     # COMMON BUILD METHODS  
 #     # =====================================================
-          
+
+      
     def ask_confirm_questions(self, questions, confirm=True):
         alternative_confirm_keys = questions.get("alt_confirm_dict",{})
         if len(alternative_confirm_keys) > 0:
@@ -2522,43 +2530,46 @@ class Configurator():
         self.apply_vars_to_config()
 
         
-#     def edit_append_profile_global(self,p12_only):
-#         line1 = "Edit P12 Global" if p12_only else "Append new profile"
-#         line2 = "Private Keys" if p12_only else "to configuration"
+    def edit_append_profile_global(self,p12_only):
+        line1 = "Edit P12 Global" if p12_only else "Append new profile"
+        line2 = "Private Keys" if p12_only else "to configuration"
         
-#         self.header_title = {
-#             "line1": line1,
-#             "line2": line2,
-#             "show_titles": False,
-#             "clear": True,
-#             "newline": "both",
-#         }
-#         self.build_known_skelton(1)
-#         self.migrate.keep_pass_visible = True
-#         if p12_only:
-#             self.profile_details["p12_passphrase_global"] = 'True'
-#             self.preserve_pass = True
-#             self.skip_convert = True
-#             self.request_p12_details({"ptype": "global"})
-#             new_globals = self.request_p12_details({
-#                 "ptype": "global_edit_prepare",
-#                 "set_default": True
-#             })
+        self.header_title = {
+            "line1": line1,
+            "line2": line2,
+            "show_titles": False,
+            "clear": True,
+            "newline": "both",
+        }
 
-#             for key in self.p12_items:
-#                 self.config_obj["global_p12"][key] = new_globals[key]
-#         else:
-#             self.manual_build(False)
-#             self.restart_needed = False
+        # self.migrate.keep_pass_visible = True
+        if p12_only:
+            self.profile_details["p12_passphrase_global"] = 'True'
+            self.preserve_pass = True
+            self.skip_convert = True
+            self.skip_prepare = True
+            self.is_all_global = True
+            self.request_p12_details({
+                "preserved": "identified"
+            })  # preserve old values for default
+            self.request_p12_details({
+                "ptype": "global_edit_prepare",
+                "set_default": True
+            })
+
+            self.config_obj_apply["global_p12"] = self.config_obj["global_p12"]
+        else:
+            self.manual_build(False)
+            self.restart_needed = False
             
-#         self.build_yaml(True)    
+        self.apply_vars_to_config()    
 
-#         if not p12_only:
-#             self.build_service_file({
-#                 "profiles": self.profile_name_list,
-#                 "action": "Create",
-#                 "rebuild": True,
-#             })   
+        if not p12_only:
+            self.build_service_file({
+                "profiles": self.profile_name_list,
+                "action": "Create",
+                "rebuild": True,
+            })   
                  
     
 #     def delete_profile(self,profile):
@@ -3324,28 +3335,24 @@ class Configurator():
 #         self.handle_service(profile,profile)
 
 
-#     def print_error(self,section):
-#         self.c.functions.print_paragraphs([
-#             ["",1], [" ERROR ",0,"grey,on_red","bold"],
-#             ["During the configuration editing session [",0,"red"],
-#             [section,-1,"yellow","bold"], ["] an incorrect input was detected",-1,"red"],["",2],
+    def print_error(self,section):
+        self.c.functions.print_paragraphs([
+            ["",1], [" ERROR ",0,"grey,on_red","bold"],
+            ["During the configuration editing session [",0,"red"],
+            [section,-1,"yellow","bold"], ["] an incorrect input was detected",-1,"red"],["",2],
             
-#             [" HINT ",0,"grey,on_yellow","bold"], ["If attempting to change directory structure or any elements,",0],
-#             ["the directory structure must exist already.",2],
+            [" HINT ",0,"grey,on_yellow","bold"], ["If attempting to change directory structure or any elements,",0],
+            ["the directory structure must exist already.",2],
             
-#             ["Please review the nodectl logs and/or Node operator notes and try again",1],
-#             ["Press",0,"magenta"], [" any key ",0,"grey,on_cyan","bold"], ["to return to the main menu",1,"magenta"]
-#         ])
+            ["Please review the nodectl logs and/or Node operator notes and try again",1],
+            ["Press",0,"magenta"], [" any key ",0,"grey,on_cyan","bold"], ["to return to the main menu",1,"magenta"]
+        ])
         
-#         if not self.is_new_config:
-#             _ = self.c.functions.get_user_keypress({
-#                 "prompt": "",
-#                 "prompt_color": "cyan",
-#                 "options": ["any_key"]
-#             })
-#             self.edit_profile_sections("RETRY")
-#         else:
-#             exit(1)
+        if not self.is_new_config:
+            self.c.functions.print_any_key({})
+            self.edit_profile_sections("RETRY")
+        else:
+            exit(1)
         
     
 #     def verify_edit_options(self,command_obj):
