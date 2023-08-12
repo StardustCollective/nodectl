@@ -1044,7 +1044,7 @@ class Configuration():
 
                 
     def validate_profile_types(self,profile,return_on=False):
-        validated = True
+        validated, return_on_validated = True, True
         special_case = None
         skip_validation = False
         
@@ -1154,6 +1154,7 @@ class Configuration():
                         
                         if not validated:
                             self.validated = False
+                            return_on_validated = False
                             self.error_list.append({
                                 "title": title,
                                 "section": section,
@@ -1165,7 +1166,7 @@ class Configuration():
                             })        
                     
         if return_on:
-            return self.validated
+            return return_on_validated
         self.skip_global_validation = True
 
         

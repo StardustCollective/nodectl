@@ -717,9 +717,8 @@ class Configurator():
                         search_dup_only = True
                     for p_key, p_value in values.items():
                             replace_line = f"    {p_key}: {p_value}\n"
-                            if search_dup_only:
-                                replace_line = False
-                            result = self.c.functions.test_or_replace_line_in_file({
+                            if search_dup_only: replace_line = False
+                            ignore_line = self.c.functions.test_or_replace_line_in_file({
                                 "file_path": self.yaml_path,
                                 "search_line": f"    {p_key}:",
                                 "replace_line": replace_line,
@@ -728,7 +727,7 @@ class Configurator():
                                 "skip_line_list": ignore_list,
                                 "allow_dups": False 
                             })
-                            ignore_list.append(result)
+                            if not isinstance(ignore_line,bool): ignore_list.append(ignore_line)
                     search_dup_only = False
             if "global" in key:
                 for item, value in values.items():
@@ -741,6 +740,7 @@ class Configurator():
                     
         system(f"sudo cp {self.yaml_path} /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
         system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
+        self.prepare_configuration("edit_config",True)
 
 
     def build_service_file(self,command_obj):
@@ -853,11 +853,7 @@ class Configurator():
     #     })
             
 
-    def manual_build_append(self,append_obj):
-        self.config_obj_apply = {
-            **self.config_obj_apply,
-            **append_obj
-        }  
+
         
               
     # def manual_build_setup(self):
@@ -979,24 +975,7 @@ class Configurator():
             
     #     self.profile_details.update(node_vars)
     #     return True
-        
-        
-    # def manual_build_layer(self,profile=False):
-    #     default = "1" if not profile else self.c.config_obj[profile]["layer"]
-    #     profile = self.profile if not profile else profile
-        
-    #     self.manual_section_header(profile,"DLT LAYER")
-        
-    #     questions = {
-    #         "layer": {
-    #             "question": f"  {colored(f'What blockchain (DLT) layer is this profile {profile} running','cyan')}",
-    #             "description": "The distributed layer technology 'DLT' generally called the blockchain ($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid integer (number) between 0 and 4, for the 5 available layers. Metagraphs are generally always layer 1.",
-    #             "default": default,
-    #             "required": False,
-    #         },
-    #     }
-    #     self.profile_details.update(self.ask_confirm_questions(questions))
-        
+
         
     # def manual_build_environment(self,profile=False):
     #     default = None if not profile else self.profile_details["environment"]
@@ -1090,7 +1069,77 @@ class Configurator():
             
     #     self.profile_details.update(answers)
 
-            
+
+    def manual_append_build_apply(self,command_obj):
+        profile = command_obj.get("profile",False)
+        questions = command_obj.get("questions",False)
+        unaffected_list = command_obj.get("unaffected_list",[])
+        append_obj = {}
+        
+        for i_profile in self.metagraph_list:
+            if i_profile != profile:
+                for item in unaffected_list:
+                    append_obj = {
+                        **append_obj,
+                        f"{i_profile}": {
+                            f"{item}": self.c.config_obj[i_profile][item], 
+                            "do_not_change": True,
+                        }
+                    } 
+        
+        for i_profile in self.metagraph_list:
+            if i_profile != profile:
+                i_append_obj = {}
+                for item in unaffected_list:
+                    i_append_obj = {
+                        **i_append_obj,
+                        f"{item}": self.c.config_obj[i_profile][item],
+                    }
+                append_obj = {
+                    **append_obj,
+                    f"{i_profile}": {
+                        **i_append_obj,
+                        "do_not_change": True,
+                    }
+                } 
+                
+        append_obj = {
+            f"{profile}": {
+                **self.ask_confirm_questions(questions),
+            },
+            **append_obj,
+        }   
+                 
+        self.config_obj_apply = {
+            **self.config_obj_apply,
+            **append_obj
+        } 
+        
+        self.apply_vars_to_config() 
+        
+        
+    def manual_build_layer(self,profile=False):
+        default = "1" if not profile else self.c.config_obj[profile]["layer"]
+        profile = self.profile_to_edit if not profile else profile
+        
+        self.manual_section_header(profile,"DLT LAYER")
+        
+        questions = {
+            "layer": {
+                "question": f"  {colored(f'What blockchain (DLT) layer is this profile {profile} running','cyan')}",
+                "description": "The distributed layer technology 'DLT' generally called the blockchain ($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid integer (number) between 0 and 4, for the 5 available layers. Metagraphs are generally always layer 1.",
+                "default": default,
+                "required": False,
+            },
+        }
+        
+        self.manual_append_build_apply({
+            "unaffected_list": ["layer"], 
+            "questions": questions, 
+            "profile": profile
+        })
+        
+        
     def manual_build_tcp(self,profile=False):
         port_start = "You must define a TCP (Transport Control Protocol) port that your Node will run on, to accept"
         port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your layer0 or Metagraph administrator for recommended port values."
@@ -1145,27 +1194,12 @@ class Configurator():
                 "default": cli_default,
             },
         }
-        answers = self.ask_confirm_questions(questions)
-        answers = {
-            f"{profile}": {
-                **answers,
-            }
-        }
-        self.manual_build_append(answers)
         
-        for i_profile in self.metagraph_list:
-            if i_profile != profile:
-                unaffected_profile_obj = {
-                  f"{i_profile}": {
-                    "public_port": self.c.config_obj[i_profile]["public_port"], 
-                    "p2p_port": self.c.config_obj[i_profile]["p2p_port"],  
-                    "cli_port": self.c.config_obj[i_profile]["cli_port"], 
-                    "do_not_change": True,
-                  }
-                } 
-                
-        self.manual_build_append(unaffected_profile_obj)
-        self.apply_vars_to_config()
+        self.manual_append_build_apply({
+            "unaffected_list": ["public_port","p2p_port","cli_port"], 
+            "questions": questions, 
+            "profile": profile
+        })
         
         
 #     def manual_build_service(self,profile=False):
@@ -1183,7 +1217,7 @@ class Configurator():
 #                 "required": required
 #             },
 #         }
-#         self.manual_build_append(self.ask_confirm_questions(questions))
+#         self.manual_append_build_apply(self.ask_confirm_questions(questions))
             
             
 #     def manual_build_link(self,profile=False): 
@@ -1313,7 +1347,7 @@ class Configurator():
 #                 **dict_link2,
 #                 **dict_link3,
 #             }
-#         self.manual_build_append(dict_link)
+#         self.manual_append_build_apply(dict_link)
 #         return True
  
  
@@ -1397,7 +1431,7 @@ class Configurator():
 #                 if c_path != "disable" and c_path != "default" and c_path[-1] != "/":
 #                     answers[directory] = c_path+"/"
             
-#             self.manual_build_append(answers)
+#             self.manual_append_build_apply(answers)
  
  
 #     def manual_build_pro(self,profile=False):  
@@ -1465,7 +1499,7 @@ class Configurator():
 #             if seed_results["seed_location"][-1] != "/":
 #                 seed_results["seed_location"] = seed_results["seed_location"]+"/"
                 
-#             self.manual_build_append(seed_results)
+#             self.manual_append_build_apply(seed_results)
                 
                 
 #     def manual_build_memory(self,profile=False):
@@ -1510,7 +1544,7 @@ class Configurator():
 #                 "default": xss_default
 #             },
 #         }
-#         self.manual_build_append(self.ask_confirm_questions(questions))
+#         self.manual_append_build_apply(self.ask_confirm_questions(questions))
         
         
 #     def manual_build_p12(self,profile=False):
@@ -1551,7 +1585,7 @@ class Configurator():
 #                 "exit_if": False
 #             })
 #             if dedicated_p12:
-#                 self.manual_build_append(
+#                 self.manual_append_build_apply(
 #                     self.request_p12_details({
 #                         "ptype": self.profile_details["profile_name"],
 #                         "get_existing_global": False,
@@ -2203,7 +2237,6 @@ class Configurator():
         
     def edit_profile_sections(self,topic="EDIT"):
         menu_options = []
-        
         def print_config_section():
             self.c.functions.print_header_title({
                 "line1": "CONFIGURATOR SECTION",
@@ -2226,7 +2259,7 @@ class Configurator():
             ("DLT Layer Type",6),
             ("Environment Name",7),
             ("Java Memory Heap",8),
-            ("Access List Setup",9),
+            ("Seed List Setup",9),
             ("Tessellation Binaries",10),
             ("Hypergraph Node Type",11),
             ("Policy Description",12),
@@ -2316,7 +2349,7 @@ class Configurator():
                 if option == "1":
                     do_build_yaml = do_build_profile = self.edit_enable_disable_profile(profile)
                     
-                elif option == "2222":
+                elif option == "2":
                     do_terminate = do_build_yaml = self.edit_profile_name(profile)
                     do_build_profile = False
                     self.called_option = "Profile Name Change"
@@ -2327,15 +2360,11 @@ class Configurator():
                     do_build_yaml = self.delete_profile(profile)
                     self.called_option = "Delete Profile"
                     
-                elif option == "4":
+                elif option == 6:
                     self.manual_build_layer(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
                     self.called_option = "layer modification"
-                    self.verify_edit_options({
-                        "keys": ["layer"],
-                        "error": "layer",
-                        "types": ["int"]
-                    })
+                    self.validate_config(profile)
                     
                 elif option == "5":
                     self.manual_build_edge_point(profile)
@@ -2357,12 +2386,6 @@ class Configurator():
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [TCP build] [{self.action}]"
                     self.called_option = "TCP modification"
                     self.validate_config(profile)
-                    # self.verify_edit_options({
-                    #     "keys": ["public","p2p","cli"],
-                    #     "error": "TCP API ports",
-                    #     "types": ["high_port","high_port","high_port"]
-                    # })
-                    pass   
                                 
                 elif option == "8":
                     self.edit_service_name(profile)
@@ -2431,19 +2454,19 @@ class Configurator():
                     self.manual_build_description(profile)
                     self.called_option = "Description modification"
                     
-                if do_build_profile:
-                    self.build_profile()
-                if do_build_yaml:
-                    self.build_yaml()
+                # if do_build_profile:
+                #     self.build_profile()
+                # if do_build_yaml:
+                #     self.build_yaml()
                     
-                if do_terminate:
-                    self.c.functions.print_paragraphs([
-                        [self.called_option,0,"green","bold"],["process has completed successfully.",2,"magenta"],
-                        ["Please restart the",0,"magenta"],["configurator",0,"yellow,on_blue","bold"],
-                        ["to reload the new configuration before continuing, if any further editing is necessary.",1,"magenta"],
-                        ["sudo nodectl configure",2]
-                    ])
-                    exit(0)
+                # if do_terminate:
+                #     self.c.functions.print_paragraphs([
+                #         [self.called_option,0,"green","bold"],["process has completed successfully.",2,"magenta"],
+                #         ["Please restart the",0,"magenta"],["configurator",0,"yellow,on_blue","bold"],
+                #         ["to reload the new configuration before continuing, if any further editing is necessary.",1,"magenta"],
+                #         ["sudo nodectl configure",2]
+                #     ])
+                #     exit(0)
                     
                 if do_print_title:
                     print_config_section()
@@ -3385,13 +3408,10 @@ class Configurator():
             
             ["Please review the nodectl logs and/or Node operator notes and try again",2],
             
-            ["You can also attempt to restore your",0,"yellow"], ["cn-config.yaml",0,"yellow","bold"], ["from backups.",2,"yellow"]
+            ["You can also attempt to restore your",0,"magenta"], ["cn-config.yaml",0,"yellow","bold"], ["from backups.",2,"magenta"]
         ])
         
         if not self.is_new_config:
-            self.c.functions.print_paragraphs([
-                ["Press",0,"magenta"], [" any key ",0,"grey,on_cyan","bold"], ["to return to the main menu",1,"magenta"],
-            ])
             self.c.functions.print_any_key({})
             self.edit_profile_sections("RETRY")
         else:
@@ -3399,7 +3419,9 @@ class Configurator():
         
     
     def validate_config(self,profile):
+        verified = True
         self.c.build_yaml_dict()
+        self.c.setup_config_vars()
         verified = self.c.validate_profile_types(profile,True)
 
         if not verified:
