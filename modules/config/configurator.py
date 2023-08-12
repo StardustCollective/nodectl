@@ -708,20 +708,28 @@ class Configurator():
     
     def apply_vars_to_config(self):
         ignore_list = []
+        search_dup_only = False
         
         for key,values in self.config_obj_apply.items():
             for profile in self.metagraph_list:
                 if key == profile:
+                    if "do_not_change" in self.config_obj_apply[profile]:
+                        search_dup_only = True
                     for p_key, p_value in values.items():
-                        ignore_list.append(self.c.functions.test_or_replace_line_in_file({
-                            "file_path": self.yaml_path,
-                            "search_line": f"    {p_key}:",
-                            "replace_line": f"    {p_key}: {p_value}\n",
-                            "skip_backup": True,
-                            "all_first_last": "first",
-                            "skip_line_list": ignore_list,
-                            "allow_dups": False
-                        }))
+                            replace_line = f"    {p_key}: {p_value}\n"
+                            if search_dup_only:
+                                replace_line = False
+                            result = self.c.functions.test_or_replace_line_in_file({
+                                "file_path": self.yaml_path,
+                                "search_line": f"    {p_key}:",
+                                "replace_line": replace_line,
+                                "skip_backup": True,
+                                "all_first_last": "first",
+                                "skip_line_list": ignore_list,
+                                "allow_dups": False 
+                            })
+                            ignore_list.append(result)
+                    search_dup_only = False
             if "global" in key:
                 for item, value in values.items():
                     self.c.functions.test_or_replace_line_in_file({
@@ -1152,11 +1160,12 @@ class Configurator():
                     "public_port": self.c.config_obj[i_profile]["public_port"], 
                     "p2p_port": self.c.config_obj[i_profile]["p2p_port"],  
                     "cli_port": self.c.config_obj[i_profile]["cli_port"], 
+                    "do_not_change": True,
                   }
                 } 
                 
         self.manual_build_append(unaffected_profile_obj)
-        pass
+        self.apply_vars_to_config()
         
         
 #     def manual_build_service(self,profile=False):
@@ -3383,24 +3392,25 @@ class Configurator():
             exit(1)
         
     
-#     def verify_edit_options(self,command_obj):
-#         var = SimpleNamespace(**command_obj)
+    def verify_edit_options(self,command_obj):
+        var = SimpleNamespace(**command_obj)
         
-#         values = []
-#         for key in var.keys:
-#             values.append(self.profile_details[key])
+        values = []
+        for key in var.keys:
+            values.append(self.profile_details[key])
 
-#         verified = self.c.verify_profile_types({
-#             "profile": self.profile_to_edit,
-#             "section": "edit_section",
-#             "values": values,
-#             "types": var.types,
-#             "key_list": var.keys,
-#             "return_on": True,
-#         })
-#         if not verified:
-#             self.log.logger.error(self.error_msg)
-#             self.print_error(var.error)   
+        verified = self.c.validate_profile_types(self.profile_to_edit,True)
+        # verified = self.c.verify_profile_types({
+        #     "profile": self.profile_to_edit,
+        #     "section": "edit_section",
+        #     "values": values,
+        #     "types": var.types,
+        #     "key_list": var.keys,
+        #     "return_on": True,
+        # })
+        if not verified:
+            self.log.logger.error(self.error_msg)
+            self.print_error(var.error)   
                   
 
 #     def confirm_with_word(self,command_obj):
