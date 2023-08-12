@@ -45,7 +45,7 @@ class Configurator():
         self.skip_prepare = False
         self.is_file_backedup = False
         self.backup_file_found = False
-        self.error_msg = ""
+        self.edit_error_msg = ""
         
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
@@ -2319,18 +2319,18 @@ class Configurator():
                 elif option == "2222":
                     do_terminate = do_build_yaml = self.edit_profile_name(profile)
                     do_build_profile = False
-                    called_option = "Profile Name Change"
+                    self.called_option = "Profile Name Change"
                     
                 elif option == "3":
                     do_build_profile = False
                     do_terminate = True
                     do_build_yaml = self.delete_profile(profile)
-                    called_option = "Delete Profile"
+                    self.called_option = "Delete Profile"
                     
                 elif option == "4":
                     self.manual_build_layer(profile)
-                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
-                    called_option = "layer modification"
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
+                    self.called_option = "layer modification"
                     self.verify_edit_options({
                         "keys": ["layer"],
                         "error": "layer",
@@ -2339,8 +2339,8 @@ class Configurator():
                     
                 elif option == "5":
                     self.manual_build_edge_point(profile)
-                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
-                    called_option = "Edge Point Modification"
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
+                    self.called_option = "Edge Point Modification"
                     self.verify_edit_options({
                         "keys": ["host","host_port","https"],
                         "error": "Edge Point",
@@ -2349,29 +2349,31 @@ class Configurator():
             
                 elif option == "6":
                     self.manual_build_environment(profile)
-                    called_option = "Environment modification"
+                    self.called_option = "Environment modification"
                     
                 elif option == 2:
                     self.tcp_change_preparation(profile)
                     self.manual_build_tcp(profile)
-                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [TCP build] [{self.action}]"
-                    called_option = "TCP modification"
-                    self.verify_edit_options({
-                        "keys": ["public","p2p","cli"],
-                        "error": "TCP API ports",
-                        "types": ["high_port","high_port","high_port"]
-                    })   
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [TCP build] [{self.action}]"
+                    self.called_option = "TCP modification"
+                    self.validate_config(profile)
+                    # self.verify_edit_options({
+                    #     "keys": ["public","p2p","cli"],
+                    #     "error": "TCP API ports",
+                    #     "types": ["high_port","high_port","high_port"]
+                    # })
+                    pass   
                                 
                 elif option == "8":
                     self.edit_service_name(profile)
                     do_terminate = True
-                    called_option = "Service Name Change"
+                    self.called_option = "Service Name Change"
                     
                 elif option == "9":
                     do_terminate = do_build_yaml = self.manual_build_link(profile)
-                    called_option = "Layer0 link"
+                    self.called_option = "Layer0 link"
                     if do_build_yaml:
-                        self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer link] [{self.action}]"
+                        self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer link] [{self.action}]"
                         self.verify_edit_options({
                             "keys": ["gl0_key","gl0_host"],
                             "error": "Layer Linking",
@@ -2380,12 +2382,12 @@ class Configurator():
                                     
                 elif option == "10":
                     self.migrate_directories(profile)
-                    called_option = "Directory structure modification"
+                    self.called_option = "Directory structure modification"
                     
                 elif option == "11":
                     self.manual_build_memory(profile)
-                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
-                    called_option = "Memory modification"
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
+                    self.called_option = "Memory modification"
                     self.verify_edit_options({
                         "keys": ["java_jvm_xms","java_jvm_xmx","java_jvm_xss"],
                         "error": "Java Memory Heap",
@@ -2394,7 +2396,7 @@ class Configurator():
                     
                 elif option == "12":
                     self.manual_build_p12(profile)
-                    called_option = "P12 modification"
+                    self.called_option = "P12 modification"
                     keys = []; types = []
                     if self.profile_details["key_location"] != "global":
                         keys.append("key_location")
@@ -2404,7 +2406,7 @@ class Configurator():
                         types.append("p12_key_name")
                     
                     if len(keys) > 0:
-                        self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [p12 build] [{self.action}]"
+                        self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [p12 build] [{self.action}]"
                         self.verify_edit_options({
                             "keys": keys,
                             "error": "p12 input Error",
@@ -2413,8 +2415,8 @@ class Configurator():
                     
                 elif option == "13":
                     self.manual_build_pro(profile)
-                    called_option = "PRO modification"
-                    self.error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
+                    self.called_option = "PRO modification"
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
                     self.verify_edit_options({
                         "keys": ["seed_location"],
                         "error": "PRO/Seed Input Error",
@@ -2423,11 +2425,11 @@ class Configurator():
                     
                 elif option == "14":
                     do_build_yaml = do_build_profile = self.manual_build_node_type(profile)
-                    called_option = "Node type modification"
+                    self.called_option = "Node type modification"
                     
                 elif option == "15":
                     self.manual_build_description(profile)
-                    called_option = "Description modification"
+                    self.called_option = "Description modification"
                     
                 if do_build_profile:
                     self.build_profile()
@@ -2436,7 +2438,7 @@ class Configurator():
                     
                 if do_terminate:
                     self.c.functions.print_paragraphs([
-                        [called_option,0,"green","bold"],["process has completed successfully.",2,"magenta"],
+                        [self.called_option,0,"green","bold"],["process has completed successfully.",2,"magenta"],
                         ["Please restart the",0,"magenta"],["configurator",0,"yellow,on_blue","bold"],
                         ["to reload the new configuration before continuing, if any further editing is necessary.",1,"magenta"],
                         ["sudo nodectl configure",2]
@@ -3372,45 +3374,37 @@ class Configurator():
         self.handle_service(profile,profile)
 
 
-    def print_error(self,section):
+    def print_error(self):
         self.c.functions.print_paragraphs([
             ["",1], [" ERROR ",0,"grey,on_red","bold"],
             ["During the configuration editing session [",0,"red"],
-            [section,-1,"yellow","bold"], ["] an incorrect input was detected",-1,"red"],["",2],
+            [self.called_option,-1,"yellow","bold"], ["] an incorrect input was detected",-1,"red"],["",2],
             
-            [" HINT ",0,"grey,on_yellow","bold"], ["If attempting to change directory structure or any elements,",0],
+            [" HINT ",0,"grey,on_yellow","bold"], ["If",0,"cyan","bold"], ["attempting to change directory structure or any elements,",0],
             ["the directory structure must exist already.",2],
             
-            ["Please review the nodectl logs and/or Node operator notes and try again",1],
-            ["Press",0,"magenta"], [" any key ",0,"grey,on_cyan","bold"], ["to return to the main menu",1,"magenta"]
+            ["Please review the nodectl logs and/or Node operator notes and try again",2],
+            
+            ["You can also attempt to restore your",0,"yellow"], ["cn-config.yaml",0,"yellow","bold"], ["from backups.",2,"yellow"]
         ])
         
         if not self.is_new_config:
+            self.c.functions.print_paragraphs([
+                ["Press",0,"magenta"], [" any key ",0,"grey,on_cyan","bold"], ["to return to the main menu",1,"magenta"],
+            ])
             self.c.functions.print_any_key({})
             self.edit_profile_sections("RETRY")
         else:
             exit(1)
         
     
-    def verify_edit_options(self,command_obj):
-        var = SimpleNamespace(**command_obj)
-        
-        values = []
-        for key in var.keys:
-            values.append(self.profile_details[key])
+    def validate_config(self,profile):
+        self.c.build_yaml_dict()
+        verified = self.c.validate_profile_types(profile,True)
 
-        verified = self.c.validate_profile_types(self.profile_to_edit,True)
-        # verified = self.c.verify_profile_types({
-        #     "profile": self.profile_to_edit,
-        #     "section": "edit_section",
-        #     "values": values,
-        #     "types": var.types,
-        #     "key_list": var.keys,
-        #     "return_on": True,
-        # })
         if not verified:
-            self.log.logger.error(self.error_msg)
-            self.print_error(var.error)   
+            self.log.logger.error(self.edit_error_msg)
+            self.print_error()   
                   
 
 #     def confirm_with_word(self,command_obj):

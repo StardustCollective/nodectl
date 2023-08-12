@@ -859,7 +859,7 @@ class Configuration():
                             
     def validate_profiles(self):
         self.log.logger.debug("[validate_config] method called.")
-        self.num_of_global_sections = 3  # auto_restart, global_p12, global_elements
+        self.num_of_global_sections = 3  # global_auto_restart, global_p12, global_elements
         profile_minimum_requirement = 1
         self.profiles = []
         
@@ -1165,7 +1165,7 @@ class Configuration():
                             })        
                     
         if return_on:
-            return validated
+            return self.validated
         self.skip_global_validation = True
 
         

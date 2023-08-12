@@ -379,7 +379,7 @@ class ShellHandler:
         ]
             
         if self.called_command != "install":    
-            if self.functions.config_obj["global_auto_restart"]["enable"]:
+            if self.functions.config_obj["global_auto_restart"]["auto_restart"]:
                 self.auto_restart_enabled = True
             
         if self.called_command in kill_auto_restart_commands:

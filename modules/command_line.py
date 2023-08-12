@@ -828,8 +828,7 @@ class CLI():
         profile_services = profile_details["profile_services"]
         metagraph_name = profile_details["metagraph_name"]
         profile_layers = profile_details["layer_list"]
-        
-        
+                
         for n,profile in enumerate(profile_names):
             self.profile = profile
             self.set_profile_api_ports()
