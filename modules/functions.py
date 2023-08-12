@@ -73,7 +73,7 @@ class Functions():
         self.latest_nodectl_version = "v0.0.0"
         self.upgrade_path = False
         self.version_obj = {}
-
+        
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
         
@@ -620,6 +620,9 @@ class Functions():
         # =========================
         self.config_obj["global_elements"]["node_service_status"] = {}
         
+        try: _ = self.profile_names
+        except: self.set_default_variables({"skip_error":True})
+        
         for profile in self.profile_names:
             service_name = f"cnng-{self.config_obj[profile]['service']}"
             service_status = system(f'systemctl is-active --quiet {service_name}')
@@ -1066,7 +1069,6 @@ class Functions():
         skip_error = command_obj.get("skip_error",False)
         self.default_profile = False
         
-        
         if profile != "skip":
             try:
                 for layer in range(0,3):
@@ -1367,15 +1369,30 @@ class Functions():
         if var.profile:
             profile = var.profile # profile in question (will default if not specified)
         
+        
+        global metagraph_name
+        global service_list
+        global description_list
+        global metagraph_layer_list
+        global metagraph_env_set 
+        global custom_values_dict 
+        
         metagraph_name = None
         service_list = []
         description_list = []
         metagraph_layer_list = []
         metagraph_env_set = set()
         custom_values_dict = {}
-        custom_values_dict = self.pull_custom_variables()
         
         def pull_all():
+            global metagraph_name
+            global service_list
+            global description_list
+            global metagraph_layer_list
+            global metagraph_env_set 
+            global custom_values_dict 
+            
+            custom_values_dict = self.pull_custom_variables()
             metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
             for i_profile in self.profile_names:
                 service_list.append(self.config_obj[i_profile]["service"]) 
@@ -2010,8 +2027,13 @@ class Functions():
         file = file[-1]
         i_replace_line = False
         
+        global search_only_found
+        search_only_found = False
+        
         def search_replace(done,replace_line,line_replaced):
+            global search_only_found
             if search_line in line and not done:
+                search_only_found = True
                 if replace_line:
                     temp_file.write(replace_line)
                     line_replaced = line_number
@@ -2072,7 +2094,7 @@ class Functions():
             f.close()
         
         if not replace_line:
-            result = done
+            result = search_only_found
                 
         if all_first_last == "last":
             f = open(temp)
@@ -2385,7 +2407,6 @@ class Functions():
         let_or_num = command_obj.get("let_or_num","num")
         return_value = command_obj.get("return_value",False)
         color = command_obj.get("color","cyan")
-        
         # If r_and_q is set ("r","q" or "both")
         # make sure if using "let" option, "r" and "q" do not conflict
         r_and_q = command_obj.get("r_and_q",False)
