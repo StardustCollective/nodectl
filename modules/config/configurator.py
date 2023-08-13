@@ -3328,7 +3328,7 @@ class Configurator():
             if user_confirm:
                 for profile in clean_up_old_list:
                     service = self.old_last_cnconfig[profile]["service"]
-                    service_name = f"cnng-{service}"
+                    service_name = f"cnng-{service}.service"
                     system(f"sudo rm -f /etc/systemd/system/{service_name} > /dev/null 2>&1")
                     self.log.logger.info(f"configuration removed abandend service file [{service_name}]")      
                     self.c.functions.print_cmd_status({
