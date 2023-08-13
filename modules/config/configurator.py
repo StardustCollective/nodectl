@@ -75,18 +75,18 @@ class Configurator():
             })
             return
         
-        if action == "new_config":
-            try:
-                self.old_last_cnconfig = deepcopy(self.c.config_obj)
-            except:
-                self.old_last_cnconfig = False
-            
+        try:
+            self.old_last_cnconfig = deepcopy(self.c.config_obj)
+        except:
+            self.old_last_cnconfig = False
+    
         self.c = Configuration({
             "action": action,
             "implement": implement,
             "skip_report": True,
             "argv_list": [action],
         })
+            
         if not self.profile_details:
             self.profile_details = {}
         
@@ -110,6 +110,7 @@ class Configurator():
                     "line_code": "config_error",
                     "extra": "existence"
                 })
+
 
     def setup(self):
         option = "start"
@@ -186,9 +187,8 @@ class Configurator():
                 })
             
             if option.lower() == "q":
-                cprint("  Configuration manipulation quit by Operator","magenta")
                 self.c.functions.print_auto_restart_warning()
-                exit(0)
+                self.quit_configurator()
             
             self.backup_config()
             
@@ -307,7 +307,16 @@ class Configurator():
             "newline": "both"
         })
         
-        environment_details = self.c.functions.pull_remote_profiles({"retrieve":"chosen_profile"})
+        environment_details = self.c.functions.pull_remote_profiles({
+            "retrieve":"chosen_profile",
+            "return_where": "Previous"
+        })
+        
+        if environment_details == "r": 
+            self.action = "init"
+            self.setup()
+        if environment_details == "q": self.quit_configurator()
+        
         environment = environment_details.pop(0)
         print("")
         self.c.functions.print_cmd_status({
@@ -420,7 +429,7 @@ class Configurator():
             
             if self.preserve_pass and get_existing_global:
                 if not self.skip_prepare:
-                    self.prepare_configuration(f"edit_config")
+                    self.prepare_configuration(f"new_config_init")
                 self.config_obj["global_p12"] = self.c.config_obj["global_p12"]
                 if self.c.error_found:
                     self.log.logger.critical("Attempting to pull existing p12 information for the configuration file failed.  Valid inputs did not exist.")
@@ -640,8 +649,6 @@ class Configurator():
             "exit_if": False
         })
         
-        system("clear")
-        
         self.c.functions.print_header_title({
             "line1": "GLOBAL P12 DETAILS",
             "single_line": True,
@@ -710,26 +717,27 @@ class Configurator():
         ignore_list = []
         search_dup_only = False
         
-        for key,values in self.config_obj_apply.items():
-            for profile in self.metagraph_list:
-                if key == profile:
-                    if "do_not_change" in self.config_obj_apply[profile]:
-                        search_dup_only = True
-                    for p_key, p_value in values.items():
-                            replace_line = f"    {p_key}: {p_value}\n"
-                            if search_dup_only: replace_line = False
-                            ignore_line = self.c.functions.test_or_replace_line_in_file({
-                                "file_path": self.yaml_path,
-                                "search_line": f"    {p_key}:",
-                                "replace_line": replace_line,
-                                "skip_backup": True,
-                                "all_first_last": "first",
-                                "skip_line_list": ignore_list,
-                                "allow_dups": False 
-                            })
-                            if not isinstance(ignore_line,bool): ignore_list.append(ignore_line)
-                    search_dup_only = False
-            if "global" in key:
+        #for key,values in self.config_obj_apply.items():
+        for profile, values in self.config_obj_apply.items():
+            # for profile in self.metagraph_list:
+            #     if key == profile:
+            if "do_not_change" in self.config_obj_apply[profile]:
+                search_dup_only = True
+            for p_key, p_value in values.items():
+                    replace_line = f"    {p_key}: {p_value}\n"
+                    if search_dup_only: replace_line = False
+                    _ , ignore_line = self.c.functions.test_or_replace_line_in_file({
+                        "file_path": self.yaml_path,
+                        "search_line": f"    {p_key}:",
+                        "replace_line": replace_line,
+                        "skip_backup": True,
+                        "all_first_last": "first",
+                        "skip_line_list": ignore_list,
+                        "allow_dups": False 
+                    })
+                    ignore_list.append(ignore_line)
+            search_dup_only = False
+            if "global" in profile:  # key
                 for item, value in values.items():
                     self.c.functions.test_or_replace_line_in_file({
                         "file_path": self.yaml_path,
@@ -740,7 +748,7 @@ class Configurator():
                     
         system(f"sudo cp {self.yaml_path} /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
         system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
-        self.prepare_configuration("edit_config",True)
+        if self.action != "new": self.prepare_configuration("edit_config",True)
 
 
     def build_service_file(self,command_obj):
@@ -766,7 +774,7 @@ class Configurator():
                 "brackets": profile,
             })
         
-        self.node_service.config_obj = deepcopy(self.config_obj)
+        self.node_service.config_obj = deepcopy(self.config_obj if len(self.config_obj)>0 else self.c.config_obj)
         self.node_service.profile_names = profile_list
         self.node_service.create_service_bash_file({
             "create_file_type": "service_file",
@@ -782,6 +790,7 @@ class Configurator():
                 "status": "complete",
                 "newline": True,
             })
+        
                         
     # # =====================================================
     # # MANUAL BUILD METHODS
@@ -976,109 +985,69 @@ class Configurator():
     #     self.profile_details.update(node_vars)
     #     return True
 
-        
-    # def manual_build_environment(self,profile=False):
-    #     default = None if not profile else self.profile_details["environment"]
-    #     profile = self.profile if not profile else profile
-    #     required = True if not profile else False
-        
-    #     self.manual_section_header(profile,"ENVIRONMENT")  
-          
-    #     questions = {
-    #         "environment": {
-    #             "question": f"  {colored('Enter network environment identifier: ','cyan')}",
-    #             "description": "The network you are connecting to (layer0 or Metagraph (layer1)) may require an environment identifier used internally; by the network, to define certain operational variables. Depending on the Metagraph, this is used to define customized elements within the Metagraph. You should obtain this information from the Administrators of this network.",
-    #             "default": default,
-    #             "required": required,
-    #         },
-    #     }
-    #     self.profile_details.update(self.ask_confirm_questions(questions))
-        
-        
-    # def manual_build_description(self,profile=False):
-    #     default = None if not profile else self.profile_details["description"]
-    #     profile = self.profile if not profile else profile
 
-    #     self.manual_section_header(profile,"DESCRIPTION") 
+    def manual_build_description(self,profile=False):
+        default = "none" if not profile else self.c.config_obj[profile]["description"]
+        profile = self.profile if not profile else profile
+
+        self.manual_section_header(profile,"DESCRIPTION") 
         
-    #     questions = {
-    #         "description": {
-    #             "question": f"  {colored('Enter a description for this profile: ','cyan')}",
-    #             "description": f"This is a description for the Node Operator to help identify the usage of this profile {profile}. It is local description only and does not affect the configuration.",
-    #             "default": default,
-    #             "required": False,
-    #         },
-    #     }
-    #     self.profile_details.update(self.ask_confirm_questions(questions))
+        questions = {
+            "description": {
+                "question": f"  {colored('Enter a description for this profile: ','cyan')}",
+                "description": f"This is a description for the Node Operator to help identify the usage of this profile {profile}. It is local description only and does not affect the configuration.",
+                "default": default,
+                "required": False,
+            },
+        }
         
-    #     # description test
-    #     if self.profile_details["description"] == "" or self.profile_details["description"] == None or self.profile_details["description"].strip(" ") == "":
-    #         self.profile_details["description"] = "None"          
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+        })
         
         
-    # def manual_build_edge_point(self,profile=False):
-    #     if profile:
-    #         host_default = self.profile_details["host"]
-    #         port_default = self.profile_details["host_port"]
-    #         https_default = "y" if self.profile_details["https"] == "True" else "n"
-    #         required = False
-    #     else:
-    #         host_default = None; https_default = "n"; port_default = "80"; profile = self.profile
-    #         required = True
+    def manual_build_edge_point(self,profile=False):
+        if profile:
+            host_default = self.c.config_obj[profile]["edge_point"]
+            port_default = self.c.config_obj[profile]["edge_point_tcp_port"]
+            required = False
+        else:
+            host_default = None; port_default = "80"; profile = self.profile_to_edit
+            required = True
             
-    #     self.manual_section_header(profile,"EDGE POINTS") 
+        self.manual_section_header(profile,"EDGE POINTS") 
         
-    #     questions = {
-    #         "host": {
-    #             "question": f"  {colored('Enter the edge point hostname or ip address: ','cyan')}",
-    #             "description": "Generally a layer0 or Metagraph (layer1) network should have a device on the network (most likely a load balancer type device/system/server) where API (application programming interface) calls can be directed.  These calls will hit the edge device and direct those API requests into the network.  This value can be a FQDN (full qualified domain name) hostname or IP address.  Do not enter a URL/URI (web address).  Please contact your layer0 or Metagraph Administrator for this information.",
-    #             "default": host_default,
-    #             "required": required,
-    #         },
-    #         "host_port": {
-    #             "question": f"  {colored('Enter the TCP port the network Edge device is listening on','cyan')}",
-    #             "description": f"When listening on the network, a network connected server (edge point server entered for this profile {profile}) will listen for incoming connections on a specific TCP (Transport Control Protocol) port.  You should consult with the Layer0 or Metagraph Administrators to obtain this port value.",
-    #             "default": port_default,
-    #             "required": False,
-    #         },
-    #         "https": {
-    #             "question": f"  {colored('Is this a secure connection (https)','cyan')}",
-    #             "description": "Does this connection ride across a secure HTTPS (hypertext transport protocol secure) connection?  If you entered in port 80 for the Edge Device connection port, this is should be answered as 'n'.",
-    #             "default": https_default,
-    #             "required": False,
-    #             "v_type": "bool"
-    #         },
-    #     }
-    #     answers = self.ask_confirm_questions(questions)
-    #     if answers["https"] == "y" and answers["host_port"] != "443":
-    #         self.c.functions.print_paragraphs([
-    #             [" NOTE ",0,"white,on_red"], ["Hypertext Transfer Protocol Secure will not properly function",0,"red"],
-    #             ["unless TCP",0,"red"], ["443",0,"yellow","bold"], ["is the default port number.",0,"red"],
-    #             ["nodectl will automatically correct this.",2,"red"],
-    #             ["Review configuration for auto corrected values, upon update completion.",2]
-    #         ])
-    #         answers["https"] = "n"
-    #     elif answers["https"] == "n" and answers["host_port"] == "443":
-    #         self.c.functions.print_paragraphs([
-    #             [" NOTE ",0,"white,on_red"], ["Hypertext Transfer Protocol must be set to secure",0,"red"],
-    #             ["when default TCP number",0,"red"], ["443",0,"yellow","bold"], ["is the port number.",0,"red"], 
-    #             ["nodectl will automatically correct the key [",0,"red"], ["https",-1,"yellow"], ["].",-1,"red"],["",2],
-    #             ["Review configuration for auto corrected values, upon update completion.",1]
-    #         ])
-    #         answers["https"] = "y"
-            
-    #     self.profile_details.update(answers)
+        questions = {
+            "edge_point": {
+                "question": f"  {colored('Enter the edge point hostname or ip address: ','cyan')}",
+                "description": "Generally a layer0 or Metagraph (layer1) network should have a device on the network (most likely a load balancer type device/system/server) where API (application programming interface) calls can be directed.  These calls will hit the edge device and direct those API requests into the network.  This value can be a FQDN (full qualified domain name) hostname or IP address.  Do not enter a URL/URI (web address).  Please contact your layer0 or Metagraph Administrator for this information.",
+                "default": host_default,
+                "required": required,
+            },
+            "edge_point_tcp_port": {
+                "question": f"  {colored('Enter the TCP port the network Edge device is listening on','cyan')}",
+                "description": f"When listening on the network, a network connected server (edge point server entered for this profile {profile}) will listen for incoming connections on a specific TCP (Transport Control Protocol) port.  You should consult with the Layer0 or Metagraph Administrators to obtain this port value.",
+                "default": port_default,
+                "required": False,
+            },
+        }
+        
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+        })
 
 
     def manual_append_build_apply(self,command_obj):
         profile = command_obj.get("profile",False)
         questions = command_obj.get("questions",False)
-        unaffected_list = command_obj.get("unaffected_list",[])
+        no_change_list = command_obj.get("no_change_list",list(questions.keys()))
         append_obj = {}
         
         for i_profile in self.metagraph_list:
             if i_profile != profile:
-                for item in unaffected_list:
+                for item in no_change_list:
                     append_obj = {
                         **append_obj,
                         f"{i_profile}": {
@@ -1090,7 +1059,7 @@ class Configurator():
         for i_profile in self.metagraph_list:
             if i_profile != profile:
                 i_append_obj = {}
-                for item in unaffected_list:
+                for item in no_change_list:
                     i_append_obj = {
                         **i_append_obj,
                         f"{item}": self.c.config_obj[i_profile][item],
@@ -1115,6 +1084,11 @@ class Configurator():
             **append_obj
         } 
         
+        # reorder search so that replacement happens
+        # at the correct lines in the correct order
+        for i_profile in reversed(self.metagraph_list):
+            self.config_obj_apply = {f"{i_profile}": self.config_obj_apply.pop(i_profile), **self.config_obj_apply }
+        
         self.apply_vars_to_config() 
         
         
@@ -1124,22 +1098,82 @@ class Configurator():
         
         self.manual_section_header(profile,"DLT LAYER")
         
+        description = "The distributed ledger technology 'DLT' generally called the blockchain "
+        description += "($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid "
+        description += "integer (number) between 0 and 4, for the 5 available layers. Metagraphs are generally always layer 0 or 1. "
+        description += "Metagraph Layer 0 can be referred to as ML0, Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description += "Network Global Layer0 Hypergraph can be referred to as GL0.  ML0 and ML1 should link to GL0.  ML1 should link to ML0. "
+        description += "See the linking section for link options and details."
+        
         questions = {
             "layer": {
                 "question": f"  {colored(f'What blockchain (DLT) layer is this profile {profile} running','cyan')}",
-                "description": "The distributed layer technology 'DLT' generally called the blockchain ($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid integer (number) between 0 and 4, for the 5 available layers. Metagraphs are generally always layer 1.",
+                "description": description,
                 "default": default,
                 "required": False,
             },
         }
         
         self.manual_append_build_apply({
-            "unaffected_list": ["layer"], 
             "questions": questions, 
             "profile": profile
         })
         
         
+    def manual_collateral(self,profile=False):
+        default = "0" if not profile else self.c.config_obj[profile]["collateral"]
+        profile = self.profile_to_edit if not profile else profile
+        
+        self.manual_section_header(profile,"COLLATERAL")
+        
+        description = "In order to participate on a Metagraph or Hypergraph a Node may be required to hold collateral within the "
+        description += "active (hot) wallet located on this Node.  In the event that collateral is waved or there is not a requirement "
+        description += "to hold collateral, this value can be set to 0. Please contact the Metagraph or Hypergraph administration to "
+        description += "define this requirement. "
+        
+        questions = {
+            "collateral": {
+                "question": f"  {colored(f'Enter the collateral amount required for this profile {profile}','cyan')}",
+                "description": description,
+                "default": default,
+                "required": False,
+            },
+        }
+        
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile
+        })
+        
+        
+    def manual_build_environment(self,profile=False):
+        default = None if not profile else self.c.config_obj[profile]["environment"]
+        profile = self.profile if not profile else profile
+        required = True if not profile else False
+        
+        self.manual_section_header(profile,"ENVIRONMENT")  
+          
+        description = "Metagraph Layer 0 can be referred to as ML0, Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description += "Network Global Layer0 Hypergraph can be referred to as GL0. "
+        description += "This networks require an environment identifier used internally; by the network, to define certain " 
+        description += "operational variables. Depending on the Metagraph, this is used to define " 
+        description += "customized elements within the Metagraph. You should obtain this information " 
+        description += "from the Administrators of this network. "
+                
+        questions = {
+            "environment": {
+                "question": f"  {colored('Enter network environment identifier: ','cyan')}",
+                "description": description,
+                "default": default,
+                "required": required,
+            },
+        }
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile
+        })
+    
+            
     def manual_build_tcp(self,profile=False):
         port_start = "You must define a TCP (Transport Control Protocol) port that your Node will run on, to accept"
         port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your layer0 or Metagraph administrator for recommended port values."
@@ -1196,28 +1230,31 @@ class Configurator():
         }
         
         self.manual_append_build_apply({
-            "unaffected_list": ["public_port","p2p_port","cli_port"], 
             "questions": questions, 
             "profile": profile
         })
         
         
-#     def manual_build_service(self,profile=False):
-#         default = None if not profile else self.profile_details["service"]
-#         required = True if not profile else False
-#         profile = self.profile if not profile else profile
+    def manual_build_service(self,profile=False):
+        default = None if not profile else self.c.config_obj[profile]["service"]
+        required = True if not profile else False
+        profile = self.profile_to_edit if not profile else profile
         
-#         self.manual_section_header(profile,"SYSTEM SERVICES") 
+        self.manual_section_header(profile,"SYSTEM SERVICES") 
         
-#         questions = {
-#             "service": {
-#                 "question": f"  {colored(f'Enter Debian service name for this profile: ','cyan')}",
-#                 "description": f"The Node that will run on this Debian based operating system will use a service. The service controls the server level 'under the hood' operations of this profile [{self.profile_details['profile_name']}]. Each profile runs its own service.  nodectl will create and control this service for the Node Operator. You have the ability to give it a specific name.",
-#                 "default": default,
-#                 "required": required
-#             },
-#         }
-#         self.manual_append_build_apply(self.ask_confirm_questions(questions))
+        questions = {
+            "service": {
+                "question": f"  {colored(f'Enter Debian service name for this profile: ','cyan')}",
+                "description": f"The Node that will run on this Debian based operating system will use a service. The service controls the server level 'under the hood' operations of this profile [{profile}]. Each profile runs its own service.  nodectl will create and control this service for the Node Operator. You have the ability to give it a specific name.",
+                "default": default,
+                "required": required
+            },
+        }
+        
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile
+        })
             
             
 #     def manual_build_link(self,profile=False): 
@@ -1502,49 +1539,53 @@ class Configurator():
 #             self.manual_append_build_apply(seed_results)
                 
                 
-#     def manual_build_memory(self,profile=False):
-#         xms_default = "1024M"
-#         xmx_default = None
-#         xss_default = "256K"
-#         required = True
-#         if profile:
-#             xms_default = self.profile_details["java_jvm_xms"]
-#             xmx_default = self.profile_details["java_jvm_xmx"]
-#             xss_default = self.profile_details["java_jvm_xss"]
-#             required = False
-#         else:
-#             profile = self.profile
+    def manual_build_memory(self,profile=False):
+        xms_default = "1024M"
+        xmx_default = None
+        xss_default = "256K"
+        required = True
+        if profile:
+            xms_default = self.c.config_obj[profile]["java_xms"]
+            xmx_default = self.c.config_obj[profile]["java_xmx"]
+            xss_default = self.c.config_obj[profile]["java_xss"]
+            required = False
+        else:
+            profile = self.profile_to_edit
         
-#         self.manual_section_header(profile,"JAVA MEMORY HEAPS")
+        self.manual_section_header(profile,"JAVA MEMORY HEAPS")
         
-#         if self.detailed:
-#             self.c.functions.print_paragraphs([
-#                 ["",1], ["You can setup your Node to use the default java memory heap values.",1],
-#                 ["K",0,"yellow","underline"], ["for kilobytes,",0], ["M",0,"yellow","underline"], ["for Megabytes, and",0], ["G",0,"yellow","underline"], ["for Gigabytes.",1],
-#                 ["example:",0,"magenta"], ["1024M",2,"yellow"]
-#             ])
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1], ["You can setup your Node to use the default java memory heap values.",1],
+                ["K",0,"yellow","underline"], ["for kilobytes,",0], ["M",0,"yellow","underline"], ["for Megabytes, and",0], ["G",0,"yellow","underline"], ["for Gigabytes.",1],
+                ["example:",0,"magenta"], ["1024M",2,"yellow"]
+            ])
 
-#         questions = {
-#             "java_jvm_xms": {
-#                 "question": f"  {colored('Enter the java','cyan')} {colored('Xms','yellow')} {colored('desired value','cyan')}",
-#                 "description": "Xms is used for setting the initial and minimum heap size. The heap is an area of memory used to store objects instantiated by Node's java software running on the JVM.",
-#                 "required": False,
-#                 "default": xms_default,
-#             },
-#             "java_jvm_xmx": {
-#                 "question": f"  {colored('Enter the java','cyan')} {colored('Xmx','yellow')} {colored('desired value: ','cyan')}",
-#                 "description": "Xmx is used for setting the maximum heap size. Warning: the performance of the Node will decrease if the max heap value is set lower than the amount of live data. This can force your Node to perform garbage collections more frequently, because memory space may be needed more habitually.",
-#                 "required": required,
-#                 "default": xmx_default,
-#             },
-#             "java_jvm_xss": {
-#                 "question": f"  {colored('Enter the java','cyan')} {colored('Xss','yellow')} {colored('desired value','cyan')}",
-#                 "description": "Your Node will run multiple threads and these threads have their own stacks.  This parameter is used to limit how much memory a stack consumes.",
-#                 "required": False,
-#                 "default": xss_default
-#             },
-#         }
-#         self.manual_append_build_apply(self.ask_confirm_questions(questions))
+        questions = {
+            "java_xms": {
+                "question": f"  {colored('Enter the java','cyan')} {colored('Xms','yellow')} {colored('desired value','cyan')}",
+                "description": "Xms is used for setting the initial and minimum heap size. The heap is an area of memory used to store objects instantiated by Node's java software running on the JVM.",
+                "required": False,
+                "default": xms_default,
+            },
+            "java_xmx": {
+                "question": f"  {colored('Enter the java','cyan')} {colored('Xmx','yellow')} {colored('desired value: ','cyan')}",
+                "description": "Xmx is used for setting the maximum heap size. Warning: the performance of the Node will decrease if the max heap value is set lower than the amount of live data. This can force your Node to perform garbage collections more frequently, because memory space may be needed more habitually.",
+                "required": required,
+                "default": xmx_default,
+            },
+            "java_xss": {
+                "question": f"  {colored('Enter the java','cyan')} {colored('Xss','yellow')} {colored('desired value','cyan')}",
+                "description": "Your Node will run multiple threads and these threads have their own stacks.  This parameter is used to limit how much memory a stack consumes.",
+                "required": False,
+                "default": xss_default
+            },
+        }
+        
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile
+        })
         
         
 #     def manual_build_p12(self,profile=False):
@@ -1625,8 +1666,8 @@ class Configurator():
                     question = f"{question} {colored('[','cyan')}{colored(default,'yellow',attrs=['bold'])}{colored(']: ','cyan')}"
 
                 while True:
+                    print("")
                     if description != None and self.detailed:
-                        print("")
                         self.c.functions.print_paragraphs([[description,2,"white","bold"]])
                     if v_type == "pass":
                         input_value = getpass(question)
@@ -2174,23 +2215,15 @@ class Configurator():
             
             if option == "e":
                 return_option = self.edit_profiles()
-                if return_option == "q":
-                    option = return_option
-                elif return_option != "r":
-                    self.edit_profile_sections()
+                if return_option == "q": option = return_option
+                elif return_option != "r": self.edit_profile_sections()
+            elif option == "a": self.edit_append_profile_global(False)
+            elif option == "g": self.edit_append_profile_global(True)
+            elif option == "r": self.edit_auto_restart()
             elif option == "m":
                 self.action = False
-                return
-            elif option == "a":
-                self.edit_append_profile_global(False)
-            elif option == "g": 
-                self.edit_append_profile_global(True)
-            elif option == "r":
-                self.edit_auto_restart()
-                
-            if option == "q":
-                cprint("  Configurator quit by Node Operator...","green")
-                exit(0)  
+                self.setup()
+            if option == "q": self.quit_configurator()
 
                 
     def edit_profiles(self):
@@ -2227,10 +2260,16 @@ class Configurator():
         choice = self.c.functions.print_option_menu({
             "options": options,
             "return_value": True,
+            "return_where": "Edit",
             "color": "magenta",
             "r_and_q": "both",
         })
-        
+        if choice == "r": 
+            self.action = "edit"
+            self.edit_config()
+        if choice == "q": 
+            self.quit_configurator()
+            
         self.profile_to_edit = choice
         return choice
             
@@ -2251,9 +2290,9 @@ class Configurator():
          
         # "Secondary Metagraph Seed list Requirements",  <--- Future option
         section_change_names = [
-            ("API Edge Point",1),
-            ("API TCP Ports",2),
-            ("Consensus Linking",3),
+            ("API Edge Point",18),
+            ("API TCP Ports",19),
+            ("Consensus Linking",20),
             ("System Service",4),
             ("Directory Structure",5),
             ("DLT Layer Type",6),
@@ -2261,16 +2300,18 @@ class Configurator():
             ("Java Memory Heap",8),
             ("Seed List Setup",9),
             ("Tessellation Binaries",10),
-            ("Hypergraph Node Type",11),
+            ("Node Type",11),
             ("Policy Description",12),
             ("Profile Private p12 Key",13),
-            ("Seed List Requirements",14),
-            ("Custom Variables",15),
+            ("Source Priority Setup",14),
+            ("Java Binary Setup",15),
+            ("Custom Variables",16),
+            ("Collateral Requirements",17),
         ]
         section_change_names.sort()
                         
         while True:
-            do_build_profile, do_build_yaml, do_print_title = True, True, True 
+            do_build_profile, do_build_yaml, do_print_title, do_validate = True, True, True, True 
             do_terminate = False
             option = 0
             
@@ -2289,18 +2330,11 @@ class Configurator():
             })
             
             for p, section in enumerate(section_change_names):
-                if p > 0: # skip first element
-                    # n = hex(p+3)[-1].upper()
-                    p = p+3
-                    p_option = colored(f'{p}',"magenta",attrs=["bold"]) 
-                    if p < 10:
-                        p_option = f" {p_option}"
-                    option_list.append(f'{p}')
-                    #section = colored(f")  {section[0]}","magenta")
-                    section = colored(f")  {section}","magenta")
-                    # if p < 8:
-                    #     section = section.replace(") ",")  ")
-                    print(self.wrapper.fill(f"{p_option}{section}")) 
+                p = p+4
+                p_option = colored(f" {p}","magenta",attrs=["bold"]) if p < 10 else colored(f'{p}',"magenta",attrs=["bold"])
+                option_list.append(f'{p}')
+                section = colored(f")  {section}","magenta")
+                print(self.wrapper.fill(f"{p_option}{section}")) 
                     
             p_option = colored("H","magenta",attrs=["bold"])
             section = colored(")elp","magenta")
@@ -2329,68 +2363,94 @@ class Configurator():
             prompt = colored("  Enter an option: ","magenta",attrs=["bold"])
             option = input(prompt)
         
-            if option == "m":
-                return
-            elif option == "p":
-                return "E"
+            if option == "m": return
+            elif option == "p": return "E"
+            elif option == "h": self.show_help()
+            elif option == "q": self.quit_configurator()
             elif option == "r":
                 self.c.view_yaml_config("migrate")
                 print_config_section()
-            elif option == "h":
-                self.show_help()
-
+                
             if option not in options2:
-                try: option = int(option)-3
+                try: option = int(option)-4
                 except: option = -1
-                if option > len(section_change_names)-1: option = -1
-            if option not in options2 and option > 0:
+                if option > len(section_change_names): option = -1
+            if option not in options2 and option > -1:
                 option = section_change_names[option][1]
 
                 if option == "1":
-                    do_build_yaml = do_build_profile = self.edit_enable_disable_profile(profile)
+                    self.edit_enable_disable_profile(profile)
                     
                 elif option == "2":
-                    do_terminate = do_build_yaml = self.edit_profile_name(profile)
-                    do_build_profile = False
+                    self.edit_profile_name(profile)
                     self.called_option = "Profile Name Change"
                     
                 elif option == "3":
-                    do_build_profile = False
-                    do_terminate = True
-                    do_build_yaml = self.delete_profile(profile)
+                    self.delete_profile(profile)
                     self.called_option = "Delete Profile"
+                    
+                    
+                    
+                    
+                    
+                    
                     
                 elif option == 6:
                     self.manual_build_layer(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
                     self.called_option = "layer modification"
-                    self.validate_config(profile)
+
                     
-                elif option == "5":
-                    self.manual_build_edge_point(profile)
-                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
-                    self.called_option = "Edge Point Modification"
-                    self.verify_edit_options({
-                        "keys": ["host","host_port","https"],
-                        "error": "Edge Point",
-                        "types": ["host","host_port","https"]
-                    })
-            
-                elif option == "6":
+                elif option == 17:
+                    self.manual_collateral(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [collateral] [{self.action}]"
+                    self.called_option = "layer modification"
+
+                    
+                elif option == 7:
                     self.manual_build_environment(profile)
                     self.called_option = "Environment modification"
+                    do_validate = False
                     
-                elif option == 2:
+                elif option == 12:
+                    self.manual_build_description(profile)
+                    self.called_option = "Description modification"   
+                    do_validate = False
+                    
+                elif option == 8:
+                    self.manual_build_memory(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
+                    self.called_option = "Java heap memory modification"
+                                                         
+                elif option == 19:
                     self.tcp_change_preparation(profile)
                     self.manual_build_tcp(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [TCP build] [{self.action}]"
                     self.called_option = "TCP modification"
-                    self.validate_config(profile)
-                                
-                elif option == "8":
+
+                elif option == 18:
+                    self.manual_build_edge_point(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
+                    self.called_option = "Edge Point Modification"
+                        
+                elif option == 4:
                     self.edit_service_name(profile)
-                    do_terminate = True
                     self.called_option = "Service Name Change"
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
                     
                 elif option == "9":
                     do_terminate = do_build_yaml = self.manual_build_link(profile)
@@ -2407,15 +2467,7 @@ class Configurator():
                     self.migrate_directories(profile)
                     self.called_option = "Directory structure modification"
                     
-                elif option == "11":
-                    self.manual_build_memory(profile)
-                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
-                    self.called_option = "Memory modification"
-                    self.verify_edit_options({
-                        "keys": ["java_jvm_xms","java_jvm_xmx","java_jvm_xss"],
-                        "error": "Java Memory Heap",
-                        "types": ["mem_size","mem_size","mem_size"],
-                    })
+
                     
                 elif option == "12":
                     self.manual_build_p12(profile)
@@ -2450,28 +2502,11 @@ class Configurator():
                     do_build_yaml = do_build_profile = self.manual_build_node_type(profile)
                     self.called_option = "Node type modification"
                     
-                elif option == "15":
-                    self.manual_build_description(profile)
-                    self.called_option = "Description modification"
-                    
-                # if do_build_profile:
-                #     self.build_profile()
-                # if do_build_yaml:
-                #     self.build_yaml()
-                    
-                # if do_terminate:
-                #     self.c.functions.print_paragraphs([
-                #         [self.called_option,0,"green","bold"],["process has completed successfully.",2,"magenta"],
-                #         ["Please restart the",0,"magenta"],["configurator",0,"yellow,on_blue","bold"],
-                #         ["to reload the new configuration before continuing, if any further editing is necessary.",1,"magenta"],
-                #         ["sudo nodectl configure",2]
-                #     ])
-                #     exit(0)
-                    
-                if do_print_title:
-                    print_config_section()
+                if do_validate: self.validate_config(profile)
+                if do_print_title: print_config_section()
             elif option not in options2:
                 cprint("  Invalid Option, please try again","red")
+
 
     def edit_auto_restart(self):
         self.c.functions.print_header_title({
@@ -2671,7 +2706,7 @@ class Configurator():
 #             "newline": True,
 #         })
 #         self.handle_service(profile,"service")  # leave and stop first
-#         self.cleanup_service_file(self.profile_details["service"])
+#         self.cleanup_service_file_msg()
 #         self.config_obj.pop(profile)
 
 #         self.c.functions.print_cmd_status({
@@ -2806,15 +2841,18 @@ class Configurator():
 #         return True                  
 
     
-#     def edit_service_name(self, profile):
-#         self.manual_build_service(profile)
-#         self.cleanup_service_file(self.config_obj[profile]["service"])
-#         self.c.config_obj[profile]["service"] = self.profile_details["service"]
-#         self.build_service_file({
-#             "profiles": [profile], 
-#             "action": "Create",
-#             "rebuild": False,
-#             })
+    def edit_service_name(self, profile):
+        self.manual_build_service(profile)
+        self.cleanup_service_file_msg()
+        self.cleanup_service_files()
+        # self.c.config_obj[profile]["service"] = self.profile_details["service"]
+        self.build_service_file({
+            "profiles": [profile], 
+            "action": "Create",
+            "rebuild": False,
+        })
+        print("")
+        self.c.functions.print_any_key({})
         
         
     def edit_enable_disable_profile(self, profile, task="None"):
@@ -3135,11 +3173,7 @@ class Configurator():
 #                 })
         
 
-#     def cleanup_service_file(self,service):
-#         self.c.functions.print_cmd_status({
-#             "text_start": "Cleaning up old service files",
-#             "status": "running",
-#         })  
+
         
 #         old_service = f"/etc/systemd/system/cnng-{service}.service"
 #         if path.exists(old_service):
@@ -3172,6 +3206,7 @@ class Configurator():
                 if stype == "profiles": system("sudo tree /var/tessellation/ -I 'data|logs|nodectl|backups|uploads|*.jar|*seedlist'")
             return True
         return False
+                
                 
     def cleanup_old_profiles(self):
         cleanup = False
@@ -3233,9 +3268,18 @@ class Configurator():
             ])
                 
 
+    def cleanup_service_file_msg(self):
+        self.c.functions.print_cmd_status({
+            "text_start": "Cleaning up old service files",
+            "status": "running",
+            "new_line": True,
+        })  
+        print("")
+        
+        
     def cleanup_service_files(self):
         cleanup = False
-        clean_up_old_list = []
+        clean_up_old_list, remove_profiles_from_cleanup = [], []
         self.log.logger.info("configuator is verifying old service file cleanup.")
         
         self.c.functions.print_header_title({
@@ -3248,21 +3292,27 @@ class Configurator():
             
         for old_profile in self.old_last_cnconfig.keys():
             if old_profile not in self.config_obj.keys():
-                cleanup = True
-                clean_up_old_list.append(old_profile)
-                self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
+                if "global" not in old_profile:
+                    cleanup = True
+                    if self.action == "new" or old_profile == self.profile_to_edit:
+                        clean_up_old_list.append(old_profile)
+                    self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
         
-        for old_profile in clean_up_old_list:
-            self.c.functions.print_cmd_status({
-                "text_start": "Abandoned",
-                "brackets": self.old_last_cnconfig[old_profile]["service"],
-                "text_end": "service",
-                "status": "found",
-                "color": "red",
-                "newline": True,
-            })
-            
-        if cleanup:
+        clean_up_old_list2 = copy(clean_up_old_list)
+        for old_profile in clean_up_old_list2:
+            if self.c.config_obj[old_profile]["service"] == self.old_last_cnconfig[old_profile]["service"]:
+                clean_up_old_list.pop(clean_up_old_list.index(old_profile))
+            else:
+                self.c.functions.print_cmd_status({
+                    "text_start": "Abandoned",
+                    "brackets": self.old_last_cnconfig[old_profile]["service"],
+                    "text_end": "service",
+                    "status": "found",
+                    "color": "red",
+                    "newline": True,
+                })
+                    
+        if cleanup and len(clean_up_old_list) > 0:
             self.c.functions.print_paragraphs([
                 ["It is recommended to clean up old services files. to:",1,"magenta"],
                 ["  - Avoid conflicts",1],
@@ -3374,8 +3424,8 @@ class Configurator():
     def tcp_change_preparation(self,profile):
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["In order to complete this edit request, this",0],
-                ["Node profile",0,"cyan"], [profile,0,"yellow","bold"],
+                ["",1], ["In order to complete this edit request, the services",0],
+                ["related to Node profile",0,"cyan"], [profile,0,"yellow","bold"],
                 ["must be stopped.",2],
                 
             ])
@@ -3577,6 +3627,11 @@ class Configurator():
         if user_confirm:           
             self.c.view_yaml_config("migrate")     
             
-                               
+
+    def quit_configurator(self):
+        cprint("  Configurator exited upon Node Operator request","green")
+        exit(0)             
+        
+                          
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

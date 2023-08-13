@@ -387,6 +387,7 @@ class Error_codes():
             
             
         elif var.line_code == "profile_error":
+            if var.extra is None: var.extra = "unknown"
             self.log.logger.critical(f"invalid profile entered for execution [{var.extra}]")
             self.functions.print_paragraphs([
                 ["Tessellation attempted load a non-existent profile -",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],

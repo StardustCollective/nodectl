@@ -1075,24 +1075,25 @@ class Functions():
                     if self.default_profile:
                         break
                     for i_profile in self.config_obj.keys():
-                        if profile != None and profile != "all":
-                            i_profile = profile
-                        profile_layer = self.config_obj[i_profile]["layer"]
-                        profile_enable = self.config_obj[i_profile]["enable"]
-                        if profile_layer == layer and profile_enable:
-                            self.default_profile = i_profile
-                            
-                            uri = self.set_api_url(
-                                self.config_obj[self.default_profile]["edge_point"],
-                                self.config_obj[self.default_profile]["edge_point_tcp_port"],
-                                "" # no post_fix
-                            )
-                            self.default_edge_point = {
-                                "host": self.config_obj[self.default_profile]["edge_point"],
-                                "host_port":self.config_obj[self.default_profile]["edge_point_tcp_port"],
-                                "uri": uri
-                            } 
-                            break # on 1st and lowest layer   
+                        if "global" not in i_profile: 
+                            if profile != None and profile != "all":
+                                i_profile = profile
+                            profile_layer = self.config_obj[i_profile]["layer"]
+                            profile_enable = self.config_obj[i_profile]["enable"]
+                            if profile_layer == layer and profile_enable:
+                                self.default_profile = i_profile
+                                
+                                uri = self.set_api_url(
+                                    self.config_obj[self.default_profile]["edge_point"],
+                                    self.config_obj[self.default_profile]["edge_point_tcp_port"],
+                                    "" # no post_fix
+                                )
+                                self.default_edge_point = {
+                                    "host": self.config_obj[self.default_profile]["edge_point"],
+                                    "host_port":self.config_obj[self.default_profile]["edge_point_tcp_port"],
+                                    "uri": uri
+                                } 
+                                break # on 1st and lowest layer   
             except:
                 self.log.logger.error("functions unable to process profile while setting up default values")
                 if not skip_error:
@@ -1552,6 +1553,7 @@ class Functions():
     def pull_remote_profiles(self,command_obj):
         r_and_q = command_obj.get("r_and_q","both")
         retrieve = command_obj.get("retrieve","profile_names")
+        return_where = command_obj.get("return_where","Main")
         predefined_envs = []
         url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/predefined_configs'
         url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/predefined_configs"
@@ -1577,17 +1579,16 @@ class Functions():
         if retrieve == "profile_names" or retrieve == "chosen_profile":    
             chosen_profile = self.print_option_menu({
                 "options": predefined_envs,
+                "return_where": return_where,
                 "r_and_q": r_and_q,
                 "color": "green",
                 "return_value": True,
             })
 
-        if retrieve == "profile_names":
-            return chosen_profile
-        elif retrieve == "config_file":
-            return predefined_configs
-        elif retrieve == "chosen_profile":
-            return [chosen_profile, predefined_configs[chosen_profile]]
+        if chosen_profile == "r" or chosen_profile == "q": return chosen_profile
+        elif retrieve == "profile_names": return chosen_profile
+        elif retrieve == "config_file": return predefined_configs
+        elif retrieve == "chosen_profile": return [chosen_profile, predefined_configs[chosen_profile]]
 
 
     def pull_upgrade_path(self,config=False):
@@ -2030,18 +2031,18 @@ class Functions():
         global search_only_found
         search_only_found = False
         
-        def search_replace(done,replace_line,line_replaced):
+        def search_replace(done,replace_line,line_position):
             global search_only_found
             if search_line in line and not done:
                 search_only_found = True
+                line_position = line_number
+                if all_first_last != "all" and line_position not in skip_line_list:
+                    done = True
                 if replace_line:
                     temp_file.write(replace_line)
-                    line_replaced = line_number
-                    if all_first_last != "all":
-                        done = True
-                    return done, line_replaced
+                    return done, line_position
             temp_file.write(line)  
-            return done, line_replaced
+            return done, line_position
                     
         if replace_line and not skip_backup:
             date = self.get_date_time({"action":"datetime"})
@@ -2073,23 +2074,22 @@ class Functions():
         
         remove_temps()
                 
-        line_number, line_replaced = 0, 0       
+        line_number, line_position = 0, 0       
         with open(temp,"w") as temp_file:
             if replace_line and not skip_backup:
                 system(f"cp {file_path} {backup_dir}{file}_{date} > /dev/null 2>&1")
             if all_first_last == "last":
                 for line in reversed(list(f)):
-                    search_returns = search_replace(done,i_replace_line,line_replaced)
-                    done, line_replaced = search_returns
-
+                    search_returns = search_replace(done,i_replace_line,line_position)
+                    done, line_position = search_returns
             else:
                 for line in list(f):
                     line_number += 1
                     i_replace_line = replace_line
                     if line_number in skip_line_list:
                         i_replace_line = False
-                    search_returns = search_replace(done,i_replace_line,line_replaced)
-                    done, line_replaced = search_returns
+                    search_returns = search_replace(done,i_replace_line,line_position)
+                    done, line_position = search_returns
 
             f.close()
         
@@ -2104,8 +2104,8 @@ class Functions():
                 all_first_last = "all"
                 done = True            
                 for line in reversed(list(f)):
-                    search_returns = search_replace(done,i_replace_line,line_replaced)
-                    try: done, line_replaced = search_returns
+                    search_returns = search_replace(done,i_replace_line,line_position)
+                    try: done, line_position = search_returns
                     except: done = search_returns
                     
         f.close() # make sure closed properly                
@@ -2116,7 +2116,9 @@ class Functions():
         remove_temps()
         
         if replace_line and not allow_dups:
-            return line_replaced 
+            return [result, line_position]
+        elif not allow_dups:
+            return [result, line_position] 
         return result
 
 
@@ -2406,6 +2408,7 @@ class Functions():
         options = command_obj.get("options")
         let_or_num = command_obj.get("let_or_num","num")
         return_value = command_obj.get("return_value",False)
+        return_where = command_obj.get("return_where","Main")
         color = command_obj.get("color","cyan")
         # If r_and_q is set ("r","q" or "both")
         # make sure if using "let" option, "r" and "q" do not conflict
@@ -2427,7 +2430,7 @@ class Functions():
         if r_and_q:
             if r_and_q == "both" or r_and_q == "r":
                 self.print_paragraphs([
-                    ["R",0,color,"bold"], [")",-1,color], ["eturn to Main Menu",-1,color], ["",1],
+                    ["R",0,color,"bold"], [")",-1,color], [f"eturn to {return_where} Menu",-1,color], ["",1],
                 ])
                 prefix_list.append("R")
                 options.append("r")

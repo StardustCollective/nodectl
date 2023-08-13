@@ -63,6 +63,7 @@ class Configuration():
 
         skip_validation = ["configure","new_config","install"]
         self.do_validation = False if self.action in skip_validation else True
+        if self.action == "new_config_init": self.action = "edit_config"
 
                 
         self.current_layer = None
@@ -77,7 +78,7 @@ class Configuration():
 
     def implement_config(self):
         continue_list = ["normal","edit_config","edit_on_error"]
-                
+        
         self.setup_schemas()
         self.build_yaml_dict()
         self.check_for_migration()
