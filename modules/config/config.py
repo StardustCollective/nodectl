@@ -100,6 +100,7 @@ class Configuration():
                     self.skip_global_validation = False
                     for profile in self.profiles:
                         self.validate_profile_keys(profile)
+                    self.setup_path_formats("global_p12")
                     if self.validated:
                         self.validate_port_duplicates()
                         self.validate_services()
@@ -793,6 +794,25 @@ class Configuration():
         }
         
         
+    def setup_path_formats(self,profile):
+        def check_slash(st_val,path_value):
+            if "def" in st_val and path_value == "default": return
+            if "dis" in st_val and path_value == "disable": return
+            if path_value[-1] != "/": 
+                self.config_obj[profile][s_type] = f"{path_value}/" 
+                           
+        for section, section_types in self.schema.items():
+            if "global" not in profile and "global" not in section:
+                for s_type, st_val in section_types:
+                    if "path" in st_val:
+                        path_value = self.config_obj[profile][s_type]
+                        check_slash(st_val,path_value)
+                        
+        if profile == "global_p12":
+            path_value = self.config_obj[profile]["key_location"]
+            check_slash("key_location",path_value)
+                
+
     def validate_yaml_keys(self):
         # self.common_test_dict = {
         #     "auto_restart": ["enable","auto_upgrade","rapid_restart"],
@@ -1042,6 +1062,8 @@ class Configuration():
         
         if "global" not in profile:
             self.validate_profile_types(profile)
+        if self.validated:
+            self.setup_path_formats(profile)
 
                 
     def validate_profile_types(self,profile,return_on=False):
@@ -1140,8 +1162,6 @@ class Configuration():
                                 title = f"{test_value} is an invalid keyword for layer0"
                             elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
                                 title = f"{test_value} is an invalid keyword"
-                            elif test_value[-1] != "/":
-                                title = "invalid path definition missing '/'"
                             elif not path.isdir(test_value):
                                 title = "invalid or path not found"
                             else:
