@@ -469,8 +469,6 @@ class Configurator():
             
             p12_required = False if set_default else True
             alias_required = False if set_default else True  
-                            
-
             
             questions = {
                 "nodeadmin": {
@@ -603,7 +601,7 @@ class Configurator():
             for p12key, p12value in p12_values.items():
                 self.config_obj[profile][f"p12_{p12key}"] = p12value
             
-        return
+        return p12_values
 
 
     def handle_global_p12(self):
@@ -1259,141 +1257,165 @@ class Configurator():
         })
             
             
-#     def manual_build_link(self,profile=False): 
-#         dict_link = dict_link2 = dict_link3 = {}       
-#         link = False if not profile else True
-#         title_profile = self.profile if not profile else profile
+    def manual_build_link(self,profile=False): 
+        dict_link,dict_link2, dict_link3 = {}, {}, {}      
+        link = False if not profile else True
+        title_profile = self.profile_to_edit if not profile else profile
         
-#         def print_header():
-#             self.manual_section_header(title_profile,"LINK SETUP") 
-            
-#         link_description = "Generally, a Metagraph will be required to link to a layer0 (Global L0) Hypergraph network to transmit "
-#         link_description += "consensus information between the local Node and the Validator Nodes on the Layer0 network. You should consult "
-#         link_description += "with your Metagraph Administrators for further details. "
-#         link_description += "IMPORTANT: If you plan to use the recommended process of linking to Layer0 through another profile residing "
-#         link_description += "on this Node, enter \"self\" for the NodeId and enter \"self\" for the IP address.  Failure to do so will "
-#         link_description += "result in this profile \"thinking\" it is linking to a remote Node."
+        gl0_linking, ml0_linking, gl0_self, ml0_self = True, True, True, True
+        defaults, gl0_ask_questions, ml0_ask_questions = False, False, False
         
-#         if profile:
-#             print("")
-#             print_header()
+        layer_types = ["gl0","ml0"]
+        questions = {}
+        
+        def print_header():
+            print("")
+            self.manual_section_header(title_profile,"LINK SETUP") 
             
-#             if int(self.profile_details["layer"]) < 1:
-#                 self.c.functions.print_paragraphs([
-#                     ["",1],[" WARNING ",0,"red,on_yellow"], ["Generally enabling a link dependency on a",0,"red"],
-#                     ["layer 0",0,"red","bold,underline"], ["profile is not recommended.",1,"red"],
-#                 ])
-#                 if self.c.functions.confirm_action({
-#                     "prompt": "Cancel link setup?",
-#                     "yes_no_default": "y",
-#                     "return_on": "y",
-#                     "exit_if": False
-#                 }):
-#                     return False
-            
-#             enable_disable = "enable" if self.profile_details["gl0_enable"] == "False" else "disable"
-#             enable_disable = colored(enable_disable,"cyan",attrs=["underline","bold"])
-#             part_two = colored("the link for this profile:","cyan")
-#             questions = {
-#                 "gl0_link": {
-#                     "question": f"  {colored(f'Do you want to {enable_disable} {part_two}','cyan')}",
-#                     "description": link_description,
-#                     "default": "n",
-#                     "required": False,                    
-#                 }
-#             }
-#             enable_answer = self.ask_confirm_questions({
-#                "questions": questions,
-#                "confirm": False,
-#             })
+        link_description = "Generally, a Metagraph Layer0 (ML0) and/or Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
+        link_description += "(GL0) network to transmit consensus information between the local Node and the Validator Nodes on the Layer0 network. "
+        link_description += "The Node Operator should consult with your Metagraph Administrators for further details. "
+        link_description += "Also, a ML1 will be required to link to the ML0 thereby creating to separate links. "
+        link_description += "IMPORTANT: If you plan to use the recommended process of linking to ML1 to GL0, ML1 to ML0, and/or ML0 to GL0 "
+        link_description += "through another profile residing on this Node, "
+        link_description += "enter \"self\" for the NodeId and enter \"self\" for the IP address.  Failure to do so will "
+        link_description += "result in this profile \"thinking\" it is linking to a remote Node."
+        
+        def set_link_obj(l_type,value):
+            return {
+                f"{l_type}_enable_link": "False" if value == "None" else "True",
+                f"{l_type}_link_key": value,
+                f"{l_type}_link_host": value,
+                f"{l_type}_link_port": value,                
+                f"{l_type}_link_profile": value,                
+            }
 
-#             if enable_answer["gl0_link"].lower() == "y" or enable_answer["gl0_link"].lower() == "yes":
-#                 if "disable" in enable_disable:  # color formatted value  
-#                     self.profile_details["gl0_link"] = "n"
-#                     self.profile_details["gl0_enable"] = "False"
-#                     return True # only change layer0_enable to False 
-#             else:
-#                 if "enable" in enable_disable:
-#                     cprint("  Nothing to do","red")
-#                     return False
+        def self_linking(l_type,questions):
+            set_self = False
+            self_items = {}
             
-#             self.profile_details["gl0_link"] = "y"  # revert because "disable"
-#             self.profile_details["gl0_enable"] = "True"
-#             key_default = self.profile_details["gl0_key"] if self.profile_details["gl0_key"] != "None" else "self"
-#             host_default = self.profile_details["gl0_host"] if self.profile_details["gl0_host"] != "None" else "self"
-#             port_default = self.profile_details["gl0_port"] if self.profile_details["gl0_port"] != "None" else "self"
-#             profile_default = self.profile_details["link_profile"] if self.profile_details["gl0_port"] != "None" else None
+            if self.c.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": f"Do you want to link {l_type.upper()} to itself?",
+                "exit_if": False
+            }):
+                self_items = set_link_obj(l_type,"self")
+                print("")
+                cprint("  Which profile do you want to link to?","cyan")
+                
+                linkable_profiles = []
+                for i_profile in self.metagraph_list:
+                    if i_profile != profile:
+                        if self.c.config_obj[i_profile]["layer"] < 1:
+                            linkable_profiles.append(i_profile)
+                
+                if len(linkable_profiles) < 1:
+                    cprint("  No avaliable profiles to link to cancelling","red")
+                else:
+                    option = self.c.functions.print_option_menu({
+                        "options": linkable_profiles,
+                        "let_or_num": "num",
+                        "color": "magenta",
+                        "return_value": True
+                    })
+                    self_items[f"{l_type}_link_profile"] = option   
             
+                    questions = {
+                        **questions,
+                        **self_items
+                    }
+                    set_self = True
             
-#         else:
-#             if self.profile_details["layer"] == "0":
-#                 self.profile_details["gl0_link"] = "n"
-#             else:
-#                 print_header()
-#                 questions = {
-#                     "gl0_link": {
-#                         "question": f"  {colored('Does this Metagraph require a link to gl0','cyan')}",
-#                         "description": link_description,
-#                         "default": "y",
-#                         "required": False,
-#                     },    
-#                 }
-#                 dict_link = self.self.ask_confirm_questions({
-#                   "questions": questions,
-#                   "confirm": False,
-#                 })
-#                 link = True if dict_link["gl0_link"].lower() == "y" or dict_link["gl0_link"].lower() == "yes" else False
-#                 print("")
+            return [set_self, questions]
             
-#             key_default = "self"
-#             host_default = port_default = "self"
-#             profile_default = None
-            
-#         if link:
-#             questions = {
-#                 "gl0_key": {
-#                     "question": f"  {colored('Enter the layer0 link public key','cyan')}",
-#                     "description": "You need to identify the public key of the Node that you going to attempt to link to. This is required for security purposes to avoid man-in-the-middle cybersecurity attacks.  It is highly recommended to use the public key of your own Node if you are running a layer0 network on the same Node as the Node running this Metagraph.  In order to do this you can simply enter in 'self' and nodectl will take care of the rest.  If you are not using your own Node, you will need to obtain the public p12 key from the Node you are attempting to link through.",
-#                     "default": key_default,
-#                     "required": False,
-#                 },    
-#             }
-#             dict_link2 = self.ask_confirm_questions({"questions":questions})  
-#             if dict_link2["gl0_key"] != "self":
-#                 dict_link2["link_profile"] = "None"
-#                 questions = { 
-#                     "gl0_host": {
-#                         "question": f"  {colored('Enter the layer0 link ip address or hostname','cyan')}",
-#                         "description": "You need to identify the ip address or hostname the Node that you going to attempt to link to. This value can be a FQDN (full qualified domain name) hostname or IP address.  Do not enter a URL/URI (web address). It is highly recommended to use the ip address of your own Node if you are running a layer0 network on the same Node as the Node running this Metagraph.  In order to do this you can simply enter in 'self' and nodectl will take care of the rest.  If you are not using your own Node, you will need to obtain the ip address or hostname of the Node you are attempting to link through.",
-#                         "default": host_default,
-#                         "required": False,
-#                     },   
-#                     "gl0_port": {
-#                         "question": f"  {colored('Enter the public TCP port of the link host: ','cyan')}",
-#                         "description": "You need to identify the TCP (Transport Control Protocol) port that the Node that you going to attempt to link to uses for public communication. This value must match the exact TCP port of the Node you are linking through. You can find this value by reviewing the '/node/info' link from the IP address of the link host, or by contacting the Node Administrator for the host Node you are attempting to link through.",
-#                         "default": port_default,
-#                         "required": False,
-#                     },   
-#                 }  
-#             else: 
-#                 dict_link2["gl0_host"] = "self"
-#                 dict_link2["gl0_port"] = "self"
-#                 questions = {             
-#                     "link_profile": {
-#                         "question": f"  {colored('Enter the name of the profile that your Node will link with: ','cyan')}",
-#                         "description": "If you chose 'self' in any of the above questions, you should use the profile you created for your layer0 network.  If you are using an external Validator Node to link through, you can leave blank.",
-#                         "default": profile_default,
-#                         "required": False,
-#                     },    
-#                 }
-#             dict_link3 = self.ask_confirm_questions({"questions":questions})
-#             dict_link = {
-#                 **dict_link,
-#                 **dict_link2,
-#                 **dict_link3,
-#             }
-#         self.manual_append_build_apply(dict_link)
-#         return True
+        def ask_link_questions(l_type, questions, key_default, host_default, port_default):
+            warning_msg = f"running a {'ML0' if l_type == 'ml0' else 'GL0'} network on the same Node as the Node running this Metagraph.  In order to do this you cancel this setup and choose the 'self' option when requested."
+            questions = {
+                **questions,
+                f"{l_type}_link_key": {
+                    "question": f"  {colored(f'Enter the {l_type.upper()} link public key','cyan')}",
+                    "description": f"You need to identify the public key of the Node that you going to attempt to link to. This is required for security purposes to avoid man-in-the-middle cybersecurity attacks.  It is highly recommended to use the public key of your own Node if you are {warning_msg} If you are not using your own Node, you will need to obtain the public p12 key from the Node you are attempting to link through.",
+                    "default": key_default,
+                    "required": False,
+                },          
+                f"{l_type}_link_host": {
+                    "question": f"  {colored(f'Enter the {l_type.upper()} link host ip address','cyan')}",
+                    "description": f"You need to identify the public ip address of the Node that you going to attempt to link with. It is highly recommended to use your own Node if you are {warning_msg}",
+                    "default": host_default,
+                    "required": False,
+                },  
+                f"{l_type}_link_port": {
+                    "question": f"  {colored(f'Enter the {l_type.upper()} link public port','cyan')}",
+                    "description": f"You need to identify the public TCP port open on the Node that you going to attempt to link with. It is highly recommended to use your own Node if you are {warning_msg}",
+                    "default": port_default,
+                    "required": False,
+                },  
+            }
+            return questions        
+ 
+        if profile:  # left in place in case full manual profile creation is reinstituted
+            print(" ")
+            print_header()
+            print(" ")
+
+            for l_type in layer_types:
+                if self.c.config_obj[profile][f"{l_type}_link_enable"]:
+                    if self.c.functions.confirm_action({
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "prompt": f"Do you want to disable the {l_type.upper()} link?",
+                        "exit_if": False
+                    }):
+                        disable = set_link_obj(l_type,"None")
+                        questions = {
+                            **questions,
+                            **disable
+                        }
+                        if l_type == "gl0": gl0_linking = False
+                        if l_type == "ml0": ml0_linking = False
+                else:
+                    if self.c.functions.confirm_action({
+                        "yes_no_default": "n",
+                        "return_on": "n",
+                        "prompt": f"Do you want to enable the {l_type.upper()} link?",
+                        "exit_if": False
+                    }):
+                        if l_type == "gl0": gl0_linking = False
+                        if l_type == "ml0": ml0_linking = False
+                        
+            if gl0_linking:
+                results = self_linking("gl0",questions)
+                if not results[0]:
+                    gl0_ask_questions = True
+                questions = results[1]
+            if ml0_linking:
+                results = self_linking("ml0",questions)
+                if not results[0]:
+                    ml0_ask_questions = True
+                questions = results[1]
+                
+            if gl0_ask_questions:
+                defaults = True
+                key_default = self.c.config_obj[profile]["gl0_link_key"]
+                host_default = self.c.config_obj[profile]["gl0_link_host"]
+                port_default = self.c.config_obj[profile]["gl0_link_port"]
+                questions = ask_link_questions(questions,key_default,host_default,port_default)
+                
+            if ml0_ask_questions:
+                defaults = True
+                key_default = self.c.config_obj[profile]["ml0_link_key"]
+                host_default = self.c.config_obj[profile]["ml0_link_host"]
+                port_default = self.c.config_obj[profile]["ml0_link_port"]
+                questions = ask_link_questions(questions,key_default,host_default,port_default)
+
+        if not gl0_linking and not ml0_linking and not gl0_ask_questions and not ml0_ask_questions:
+            return
+        
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+        })
  
  
     def manual_build_dirs(self,profile=False):   
@@ -1639,59 +1661,58 @@ class Configurator():
         })
         
         
-#     def manual_build_p12(self,profile=False):
-#         if profile:
-#             self.is_all_global = False
-#             self.keep_pass_visible = True
-#             self.manual_section_header(profile,"P12 UPDATES")
-#             self.c.functions.print_paragraphs([
-#                 ["",1], ["You are requesting to update the [",-1,"magenta"],["p12",-1,"yellow","bold"], 
-#                 ["] settings for the configuration profile [",-1,"magenta"],
-#                 [profile,-1,"yellow","bold"],["]. ",-1,"magenta"],["",2],
-#             ])
+    def manual_build_p12(self,profile=False):
+        if profile:
+            self.is_all_global = False
+            self.keep_pass_visible = True
+            self.manual_section_header(profile,"P12 UPDATES")
+            self.c.functions.print_paragraphs([
+                ["",1], ["You are requesting to update the [",-1,"magenta"],["p12",-1,"yellow","bold"], 
+                ["] settings for the configuration profile [",-1,"magenta"],
+                [profile,-1,"yellow","bold"],["]. ",-1,"magenta"],["",2],
+            ])
 
-#         self.profile_details["p12_passphrase_global"] = 'False'
-#         print("")          
-#         if self.is_all_global:
-#             self.profile_details["p12_passphrase_global"] = 'True'
-#         else:
-#             verb = "profiles" if self.profile_details['profile_name'] == "all new" else "profile"
-#             if self.detailed:
-#                 self.c.functions.print_paragraphs([
-#                     ["The configuration file for this Node is setup with profile sections for each Metagraph or Hypergraph cluster.",0,"white","bold"],
-#                     ["Each profile can be configured with unique or shared (global) p12 private key file (wallet setup) details. These details",0,"white","bold"],
-#                     ["help nodectl understand what wallets and authorization values to use for each cluster configured.",2,"white","bold"],
-                    
-#                     [f"Do you want to setup your configuration using a single p12 private key file for the {verb}",0,"white","bold"],
-#                     [f"being setup here by the {self.action} action?",2,"white","bold"],
-                    
-#                     ["This will place the \"global\" key word in the configuration",0,"white","bold"],
-#                     [f"for this {'new configuration' if self.action == 'new' else 'profile'}",0,"white","bold"],
-#                     ["and as a result the p12 private key information in the global section will be used",0,"white","bold"],
-#                     ["for the configured profiles with \"global\" set as their values.",2,"white","bold"],
-#                 ])
-#             dedicated_p12 = self.c.functions.confirm_action({
-#                 "prompt": f"Use the global p12 settings for {colored(self.profile_details['profile_name'],'yellow')} {colored('profile(s)?','cyan')}",
-#                 "yes_no_default": "y",
-#                 "return_on": "n",
-#                 "exit_if": False
-#             })
-#             if dedicated_p12:
-#                 self.manual_append_build_apply(
-#                     self.request_p12_details({
-#                         "ptype": self.profile_details["profile_name"],
-#                         "get_existing_global": False,
-#                         "set_default": True
-#                     })
-#                 )
-#             elif profile:
-#                 for p12_item in self.p12_items:
-#                     self.profile_details[f"p12_{p12_item}_global"] = 'True'
-#                     self.profile_details[p12_item] = "global"
-#             elif self.profile_details["profile_name"] == "all new":
-#                 self.profile_details["p12_passphrase_global"] = 'True'
-#             return              
-#         return
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["The configuration file for this Node is setup with profile sections for each Metagraph or Hypergraph cluster.",0,"white","bold"],
+                ["Each profile can be configured with unique or shared (global) p12 private key file (wallet setup) details. These details",0,"white","bold"],
+                ["help nodectl understand what wallets and authorization values to use for each cluster configured.",2,"white","bold"],
+                
+                [f"Do you want to setup your configuration using a single p12 private key file for this profile?",2,"white","bold"],
+                
+                ["This will place the \"global\" key word in the configuration",0,"white","bold"],
+                [f"for this profile",0,"white","bold"],
+                ["and as a result the p12 private key information in the global section will be used",0,"white","bold"],
+                ["for the configured profiles with \"global\" set as their values.",2,"white","bold"],
+            ])
+        dedicated_p12 = self.c.functions.confirm_action({
+            "prompt": f"Use the global p12 settings for {colored(profile,'yellow')} {colored('profile(s)?','cyan')}",
+            "yes_no_default": "y",
+            "return_on": "n",
+            "exit_if": False
+        })
+        single_p12_obj = {}
+        if dedicated_p12:
+            self.config_obj = deepcopy(self.c.config_obj)
+            p12_obj = self.request_p12_details({
+                "profile": profile,
+                "ptype": "single",
+                "get_existing_global": False,
+                "set_default": True
+            })
+            for p12_item in p12_obj.keys():
+                single_p12_obj[f"p12_{p12_item}"] = p12_obj[p12_item]
+        else:
+            for p12_item in self.p12_items:
+                single_p12_obj[f"p12_{p12_item}"] = "global"
+                
+        self.manual_append_build_apply({
+                "profile": profile,
+                "questions": single_p12_obj,
+                "defaults": True,
+        })
+            
+        return
 
 #     # =====================================================
 #     # COMMON BUILD METHODS  
@@ -2509,55 +2530,13 @@ class Configurator():
                     self.migrate_directories(profile)
                     self.called_option = "Directory structure modification"                    
                     
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                elif option == "9":
-                    do_terminate = do_build_yaml = self.manual_build_link(profile)
-                    self.called_option = "Layer0 link"
-                    if do_build_yaml:
-                        self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer link] [{self.action}]"
-                        self.verify_edit_options({
-                            "keys": ["gl0_key","gl0_host"],
-                            "error": "Layer Linking",
-                            "types": ["128hex","host"],
-                        })
-                                    
-
-                    
-
-                    
-                elif option == "12":
+                elif option == 13:
                     self.manual_build_p12(profile)
                     self.called_option = "P12 modification"
-                    keys = []; types = []
-                    if self.profile_details["key_location"] != "global":
-                        keys.append("key_location")
-                        types.append("path")
-                    if self.profile_details["p12_key_name"] != "global":
-                        keys.append("p12_key_name")
-                        types.append("p12_key_name")
-                    
-                    if len(keys) > 0:
-                        self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [p12 build] [{self.action}]"
-                        self.verify_edit_options({
-                            "keys": keys,
-                            "error": "p12 input Error",
-                            "types": types,
-                        })
-                    
 
-                    
-
+                elif option == 20:
+                    self.manual_build_link(profile)
+                    self.called_option = "Layer0 link"
                     
                 if do_validate: self.validate_config(profile)
                 if do_print_title: print_config_section()
