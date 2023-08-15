@@ -528,7 +528,7 @@ class Configurator():
                 "single_line": True,
                 "newline": False if self.detailed else "bottom"
             })
-            p12_answers = self.ask_confirm_questions(questions)
+            p12_answers = self.ask_confirm_questions({"questions": questions})
             p12_pass = {"passphrase": "None", "pass2": "None"}
 
             if self.keep_pass_visible:
@@ -543,7 +543,10 @@ class Configurator():
                 }):
                     while True:
                         confirm = True
-                        p12_pass = self.ask_confirm_questions(pass_questions,False)
+                        p12_pass = self.ask_confirm_questions({
+                            "questions": pass_questions,
+                            "confirm": False
+                        })
                         if not compare_digest(p12_pass["passphrase"],p12_pass["pass2"]):
                             confirm = False
                             cprint("  passphrase did not match","red",attrs=["bold"])
@@ -830,7 +833,7 @@ class Configurator():
     #         self.manual_build_link()
     #         self.manual_build_dirs()
     #         self.manual_build_memory()
-    #         self.manual_build_pro()
+    #         self.manual_build_file_repo()
     #         self.manual_build_p12()
             
     #         self.build_profile()
@@ -911,7 +914,7 @@ class Configurator():
     #     }
         
     #     while True:
-    #         self.profile_details = self.ask_confirm_questions(questions)
+    #         self.profile_details = self.ask_confirm_questions({"questions": questions})
             
     #         self.c.functions.print_header_title(self.header_title)
     #         self.manual_section_header(self.profile_details['profile_name'],"SPECIFICS")
@@ -930,60 +933,44 @@ class Configurator():
     #     self.profile_name_list.append(self.profile_details['profile_name'])
         
         
-    # def manual_build_node_type(self,profile=False):
-    #     # default = "validator" if not profile else self.profile_details["node_type"]
-    #     profile = self.profile if not profile else profile
+    def manual_build_node_type(self,profile=False):
+        profile = self.profile_to_edit if not profile else profile
 
-    #     self.manual_section_header(profile,"NODE TYPE")
+        self.manual_section_header(profile,"NODE TYPE")
         
-    #     if self.detailed:
-    #         self.c.functions.print_paragraphs([
-    #             ["",1], ["There are only two options: 'validator' and 'genesis'. Unless you are an advanced Metagraph or Global Layer0 administrator, the 'validator' option should be chosen.",2,"white","bold"],
-    #         ])
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1], ["There are only two options: 'validator' and 'genesis'. Unless you are an advanced Metagraph ",0,"white","bold"],
+                ["administrator, the 'validator' option should be chosen.",2,"white","bold"],
+            ])
             
-    #     self.c.functions.print_paragraphs([
-    #         ["Constellation Node Types",1,"yellow,on_blue"],
-    #         ["=","half","blue","bold"],
-    #     ])
+        self.c.functions.print_paragraphs([
+            ["Constellation Node Types",1,"yellow,on_blue"],
+            ["=","half","blue","bold"],
+        ])
 
-    #     option = self.c.functions.print_option_menu({
-    #         "options": [
-    #             "Validator",
-    #             "Genesis",
-    #         ],
-    #         "let_or_num": "let",
-    #         "r_and_q": "q",
-    #         "color": "magenta",
-    #     })
+        option = self.c.functions.print_option_menu({
+            "options": [
+                "Validator",
+                "Genesis",
+            ],
+            "let_or_num": "let",
+            "r_and_q": "q",
+            "color": "magenta",
+        })
         
-    #     if option.lower() == "q":
-    #         return False
-    #     if option.lower() == "v":
-    #         node_vars = {"node_type": "validator"}
-    #     if option.lower() == "g":
-    #         node_vars = {"node_type": "genesis"}
-            
-    #     # questions = {
-    #     #     "node_type": {
-    #     #         "question": f"  {colored('The type of Node this VPS will become','cyan')}",
-    #     #         "description": "There are only two options: 'validator' and 'genesis'. Unless you are an advanced Metagraph or Global Layer0 administrator, the 'validator' option should be chosen.",
-    #     #         "default": default,
-    #     #         "required": False,
-    #     #     },
-    #     # }
+        if option.lower() == "q":
+            self.quit_configurator()
+        if option.lower() == "v":
+            questions = {"node_type": "validator"}
+        if option.lower() == "g":
+            questions = {"node_type": "genesis"}
 
-    #     # while True:
-    #     #     node_vars = self.ask_confirm_questions(questions)
-    #     #     if node_vars["node_type"] == "validator" or node_vars["node_type"] == "genesis":
-    #     #         break
-    #     #     self.c.functions.print_paragraphs([
-    #     #         ["invalid node type, try again [",0,"red"],
-    #     #         ["validator",-1,"yellow","bold"], ["] or [",-1,"red"],
-    #     #         ["genesis",-1,"yellow","bold"], ["] only.",-1,"red"], ["",1],
-    #     #     ])
-            
-    #     self.profile_details.update(node_vars)
-    #     return True
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+            "defaults": True,
+        })
 
 
     def manual_build_description(self,profile=False):
@@ -1018,16 +1005,29 @@ class Configurator():
             
         self.manual_section_header(profile,"EDGE POINTS") 
         
+        default_desc = "You can use the word \"default\" to allow nodectl to use known default values."
+        description1 = "Generally a layer0 or Metagraph (layer1) network should have a device on the network (most likely a load balancer type "
+        description1 += "device/system/server) where API (application programming interface) calls can be directed.  These calls will hit the "
+        description1 += "edge device and direct those API requests into the network.  This value can be a FQDN (full qualified domain name) hostname " 
+        description1 += "or IP address.  Do not enter a URL/URI (should not include http:// or https://).  Please contact your layer0 or Metagraph Administrator for "
+        description1 += "this information. "
+        description1 += default_desc
+        
+        description2 = f"When listening on the network, a network connected server (edge point server entered for this profile {profile}) "
+        description2 += "will listen for incoming connections on a specific TCP (Transport Control Protocol) port.  You should consult with the "
+        description2 += "Layer0 or Metagraph Administrators to obtain this port value. "
+        description2 += default_desc
+        
         questions = {
             "edge_point": {
                 "question": f"  {colored('Enter the edge point hostname or ip address: ','cyan')}",
-                "description": "Generally a layer0 or Metagraph (layer1) network should have a device on the network (most likely a load balancer type device/system/server) where API (application programming interface) calls can be directed.  These calls will hit the edge device and direct those API requests into the network.  This value can be a FQDN (full qualified domain name) hostname or IP address.  Do not enter a URL/URI (web address).  Please contact your layer0 or Metagraph Administrator for this information.",
+                "description": description1,
                 "default": host_default,
                 "required": required,
             },
             "edge_point_tcp_port": {
                 "question": f"  {colored('Enter the TCP port the network Edge device is listening on','cyan')}",
-                "description": f"When listening on the network, a network connected server (edge point server entered for this profile {profile}) will listen for incoming connections on a specific TCP (Transport Control Protocol) port.  You should consult with the Layer0 or Metagraph Administrators to obtain this port value.",
+                "description": description2,
                 "default": port_default,
                 "required": False,
             },
@@ -1042,39 +1042,41 @@ class Configurator():
     def manual_append_build_apply(self,command_obj):
         profile = command_obj.get("profile",False)
         questions = command_obj.get("questions",False)
+        defaults = command_obj.get("defaults",False)
+        confirm = command_obj.get("confirm",True)
+        apply = command_obj.get("apply",True)
+        
         no_change_list = command_obj.get("no_change_list",list(questions.keys()))
         append_obj = {}
         
+        # identify profiles that do not change
         for i_profile in self.metagraph_list:
-            if i_profile != profile:
-                for item in no_change_list:
-                    append_obj = {
-                        **append_obj,
-                        f"{i_profile}": {
-                            f"{item}": self.c.config_obj[i_profile][item], 
-                            "do_not_change": True,
-                        }
-                    } 
-        
+            if i_profile == profile:
+                continue
+
+            for item in no_change_list:
+                if i_profile not in append_obj:
+                    append_obj[i_profile] = {}
+
+                append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
+                append_obj[i_profile]["do_not_change"] = True
+
+        # append and add to the append_obj
         for i_profile in self.metagraph_list:
             if i_profile != profile:
                 i_append_obj = {}
                 for item in no_change_list:
-                    i_append_obj = {
-                        **i_append_obj,
-                        f"{item}": self.c.config_obj[i_profile][item],
-                    }
-                append_obj = {
-                    **append_obj,
-                    f"{i_profile}": {
-                        **i_append_obj,
-                        "do_not_change": True,
-                    }
-                } 
+                    i_append_obj[f"{item}"] = self.c.config_obj[i_profile][item]
+                append_obj[f"{i_profile}"] = {**i_append_obj, "do_not_change": True}
                 
+        # append the changing items to the append obj
         append_obj = {
             f"{profile}": {
-                **self.ask_confirm_questions(questions),
+                **self.ask_confirm_questions({
+                    "questions": questions,
+                    "confirm": confirm,
+                    "defaults": defaults,
+                }),
             },
             **append_obj,
         }   
@@ -1089,7 +1091,7 @@ class Configurator():
         for i_profile in reversed(self.metagraph_list):
             self.config_obj_apply = {f"{i_profile}": self.config_obj_apply.pop(i_profile), **self.config_obj_apply }
         
-        self.apply_vars_to_config() 
+        if apply: self.apply_vars_to_config() 
         
         
     def manual_build_layer(self,profile=False):
@@ -1300,7 +1302,10 @@ class Configurator():
 #                     "required": False,                    
 #                 }
 #             }
-#             enable_answer = self.ask_confirm_questions(questions,False)
+#             enable_answer = self.ask_confirm_questions({
+#                "questions": questions,
+#                "confirm": False,
+#             })
 
 #             if enable_answer["gl0_link"].lower() == "y" or enable_answer["gl0_link"].lower() == "yes":
 #                 if "disable" in enable_disable:  # color formatted value  
@@ -1333,7 +1338,10 @@ class Configurator():
 #                         "required": False,
 #                     },    
 #                 }
-#                 dict_link = self.ask_confirm_questions(questions,False)
+#                 dict_link = self.self.ask_confirm_questions({
+#                   "questions": questions,
+#                   "confirm": False,
+#                 })
 #                 link = True if dict_link["gl0_link"].lower() == "y" or dict_link["gl0_link"].lower() == "yes" else False
 #                 print("")
             
@@ -1350,7 +1358,7 @@ class Configurator():
 #                     "required": False,
 #                 },    
 #             }
-#             dict_link2 = self.ask_confirm_questions(questions)  
+#             dict_link2 = self.ask_confirm_questions({"questions":questions})  
 #             if dict_link2["gl0_key"] != "self":
 #                 dict_link2["link_profile"] = "None"
 #                 questions = { 
@@ -1378,7 +1386,7 @@ class Configurator():
 #                         "required": False,
 #                     },    
 #                 }
-#             dict_link3 = self.ask_confirm_questions(questions)
+#             dict_link3 = self.ask_confirm_questions({"questions":questions})
 #             dict_link = {
 #                 **dict_link,
 #                 **dict_link2,
@@ -1388,156 +1396,199 @@ class Configurator():
 #         return True
  
  
-#     def manual_build_dirs(self,profile=False):   
-#         title_profile = self.profile if not profile else profile
-#         self.manual_section_header(title_profile,"DIRECTORY STRUCTURE")
-    
-#         if self.detailed:
-#             self.c.functions.print_paragraphs([
-#                 ["",1], ["You can setup your Node to use the default directories for all definable directories.",2,"magenta"],
-#                 [" IMPORTANT ",0,"white,on_blue"], ["Directories being migrated to (and from) must already exist.",2],
-#             ])
-            
-#         dir_default = self.c.functions.confirm_action({
-#             "prompt": "Use defaults?",
-#             "yes_no_default": "y",
-#             "return_on": "y",
-#             "exit_if": False
-#         })
+    def manual_build_dirs(self,profile=False):   
+        title_profile = self.profile_to_edit if not profile else profile
+        self.manual_section_header(title_profile,"DIRECTORY STRUCTURE")
+        defaults = False
         
-#         sn_default = "default" if self.profile_details["layer"] == "0" else "disable"
-#         if dir_default:
-#             self.c.functions.print_cmd_status({
-#                 "text_start": "Using defaults for directory structures",
-#                 "status": "complete",
-#                 "newline": True,
-#             })
-#             self.profile_details = {
-#                 **self.profile_details,
-#                 "snapshots": sn_default,
-#                 "backups": "default",
-#                 "uploads": "default"
-#             }            
-#             print("")
-#         else:
-#             up_default = bk_default = "default"
-#             if profile:
-#                 sn_default = self.profile_details["snapshots"]
-#                 up_default = self.profile_details["uploads"]
-#                 bk_default = self.profile_details["backups"]
-                
-#             snapshot_instructions = f"The snapshots directory is where a local copy of your Node's blockchain data is held. "
-#             snapshot_instructions += "This directory can get really large and needs to be maintained. Some administrators will want to move this "
-#             snapshot_instructions += "directory to a network attached (or other) location. This location must be a mounted directory. For inexperienced or"
-#             snapshot_instructions += "non-technical Node Operators, it is advised to enter in the key word 'default' here. Also note that for some Layer "
-#             snapshot_instructions += "1 Metagraphs (including Constellation's DAG Metagraph) the snapshots directory should be set to 'disable' "
-#             snapshot_instructions += "as it is not used. Consult with the Metagraph user guides or with their administrators for proper directory "
-#             snapshot_instructions += "locations. The snapshot directory should be set from the onset of the Node setup, it is dangerous to change its location "
-#             snapshot_instructions += "'after-the-fact'.  THIS DIRECTORY SHOULD BE A FULL PATH "
-#             snapshot_instructions += "( starting with a / and ending with a / ) eg) /var/snapshots/ "
-#             snapshot_instructions += "Warning: If you use a remotely mounted directory, this directory MUST be accessible; otherwise, nodectl will "
-#             snapshot_instructions += "exit with an inaccessible error."
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1], ["You can setup your Node to use the default directories for all definable directories.",2,"magenta"],
+                [" IMPORTANT ",0,"white,on_blue"], ["Directories being migrated to (and from) must already exist.",2],
+            ])
             
-#             questions = {
-#                 # disabling in order to refactor for incremental snapshots
-#                 # "snapshots": {
-#                 #     "question": f"  {colored('Enter a valid','cyan')} {colored('snapshots','yellow')} {colored('directory','cyan')}",
-#                 #     "description": snapshot_instructions,
-#                 #     "required": False,
-#                 #     "default": sn_default,
-#                 # },
-#                 "uploads": {
-#                     "question": f"  {colored('Enter a valid','cyan')} {colored('uploads','yellow')} {colored('directory','cyan')}",
-#                     "description": f"The uploads directory is where any files that may be needed for troubleshooting or analysis are placed by nodectl. This directory should be a full path!",
-#                     "required": False,
-#                     "default": up_default
-#                 },
-#                 "backups": {
-#                     "question": f"  {colored('Enter a valid','cyan')} {colored('backups','yellow')} {colored('directory','cyan')}",
-#                     "description": f"The backups directory is where any files that may need to be restored or referenced at a later date are placed by nodectl. This directory should be a full path!",
-#                     "required": False,
-#                     "default": bk_default,
-#                 },
-#             }
+        dir_default = self.c.functions.confirm_action({
+            "prompt": "Use defaults?",
+            "yes_no_default": "y",
+            "return_on": "y",
+            "exit_if": False
+        })
+
+        if dir_default:
+            defaults = True
+            self.c.functions.print_cmd_status({
+                "text_start": "Using defaults for directory structures",
+                "status": "complete",
+                "newline": True,
+            })
+            questions = {
+                "directory_backups": "default",
+                "directory_uploads": "default"
+            }            
+            print("")
+        else:
+            up_default = bk_default = "default"
+            if profile:
+                up_default = self.c.config_obj[profile]["directory_uploads"]
+                bk_default = self.c.config_obj[profile]["directory_backups"]
             
-#             answers = self.ask_confirm_questions(questions)
-#             # temp until refactor is completed
-#             answers["snapshots"] = sn_default
+            defaultdescr = "Alternatively, the Node Operator can enter the string \"default\" to allow nodectl to use default values. "
+            description1 = "The uploads directory is where any files that may be needed for troubleshooting or "
+            description1 += "analysis are placed by nodectl. This directory should be a full path! "
+            description1 += defaultdescr
             
-#             for directory, c_path in answers.items():
-#                 if c_path != "disable" and c_path != "default" and c_path[-1] != "/":
-#                     answers[directory] = c_path+"/"
+            description2 = "The backups directory is where any files that may need to be restored or referenced at a later date are "
+            description2 += "placed by nodectl. This directory should be a full path!"
+            description2 += defaultdescr
             
-#             self.manual_append_build_apply(answers)
+            questions = {
+                "directory_uploads": {
+                    "question": f"  {colored('Enter a valid','cyan')} {colored('uploads','yellow')} {colored('directory','cyan')}",
+                    "description": description1,
+                    "required": False,
+                    "default": up_default
+                },
+                "directory_backups": {
+                    "question": f"  {colored('Enter a valid','cyan')} {colored('backups','yellow')} {colored('directory','cyan')}",
+                    "description": description2,
+                    "required": False,
+                    "default": bk_default,
+                },
+            }
+            
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+            "defaults": defaults,
+            "apply": False  # don't apply this will be done later
+        })
  
  
-#     def manual_build_pro(self,profile=False):  
-#         title_profile = self.profile if not profile else profile
-#         self.manual_section_header(title_profile,"PRO SCORE - SEED-LIST")
+    def manual_build_file_repo(self, file_repo_type, profile=False):  
+        title_profile = self.profile_to_edit if not profile else profile
+        questions = {}
+        defaults = False
+        allow_disable = True
+        one_off = "location"
         
-#         if self.detailed:
-#             self.c.functions.print_paragraphs([
-#                 ["",1], ["You can setup your Node to use the",0], ["default",0,"magenta"], ["PRO score",0,"yellow"],
-#                 ["and",0], ["seed list",0,"yellow"], ["elements.",2,"magenta"],
-#             ])
-            
-#         dir_default = self.c.functions.confirm_action({
-#             "prompt": "Use defaults?",
-#             "yes_no_default": "y",
-#             "return_on": "y",
-#             "exit_if": False
-#         })
+        verb = "seed list" 
+        if file_repo_type == "priority_source": verb = "priority source list"
+        if file_repo_type == "jar": 
+            verb = "jar binary"
+            allow_disable = False
+            one_off = "version"
+        self.manual_section_header(title_profile,f"PRO SCORE - {verb.upper()}")
+        print("")
         
-#         if dir_default:
-#             self.c.functions.print_cmd_status({
-#                 "text_start": "Using defaults for PRO and SEED-LIST structures",
-#                 "status": "complete",
-#                 "newline": True,
-#             })
-#             if int(self.profile_details["layer"]) < 1:
-#                 self.profile_details = {
-#                     **self.profile_details,
-#                     "seed_location": "/var/tessellation/",
-#                     "seed_file": "seed-list"
-#                 }      
-#             else:
-#                 self.profile_details = {
-#                     **self.profile_details,
-#                     "seed_location": "disable",
-#                     "seed_file": "disable"
-#                 }                         
-#             print("")
-#         else:
-#             if profile:
-#                 location_default = self.profile_details["seed_location"]
-#                 seed_file = self.profile_details["seed_file"]
-#             else:
-#                 location_default = "/var/tessellation/"
-#                 seed_file = "seed-list"
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1], ["You can setup your Node to use the default"],
+                [verb,0,"yellow"], ["elements.",2],
+            ])
             
-#             questions = {
-#                 "seed_location": {
-#                     "question": f"  {colored('Enter a valid','cyan')} {colored('pro/seed','yellow')} {colored('directory','cyan')}",
-#                     "description": f"The PRO directory is where a local copy of your Node's Hypergraph temporary implemented access-list is held.",
-#                     "required": False,
-#                     "default": location_default,
-#                 },
-#                 "seed_file": {
-#                     "question": f"  {colored('Enter a valid','cyan')} {colored('seed-list','yellow')} {colored('file name','cyan')}",
-#                     "description": f"The file name is the name used to read the access-list entries.  This file must match up exactly with the current seed-list held on the Hypergraph by the other members of the network.  If the file does not match exactly, the Node attempt to authenticate to the Hypergraph will be denied.",
-#                     "required": False,
-#                     "default": seed_file
-#                 },
-#             }
+        dir_default = self.c.functions.confirm_action({
+            "prompt": "Use defaults?",
+            "yes_no_default": "y",
+            "return_on": "y",
+            "exit_if": False
+        })
+        
+        if dir_default:
+            defaults = True
+            self.c.functions.print_cmd_status({
+                "text_start": f"Using defaults for {file_repo_type.upper()}-LIST structures",
+                "status": "complete",
+                "newline": True,
+            })
+            if int(self.c.config_obj[profile]["layer"]) < 1:
+                questions = {
+                    f"{file_repo_type}_{one_off}": "default",
+                    f"{file_repo_type}_file": "default",
+                    f"{file_repo_type}_repository": "default"
+                }
+            else:
+                questions = {
+                    f"{file_repo_type}_{one_off}": "disable",
+                    f"{file_repo_type}_file": "disable",
+                    f"{file_repo_type}_repository": "disable"
+                } 
+             
+            print("")
             
-#             seed_results = self.ask_confirm_questions(questions)
+        else:
+            if profile:
+                location_default = self.c.config_obj[profile][f"{file_repo_type}_{one_off}"]
+                file_default = self.c.config_obj[profile][f"{file_repo_type}_file"]
+                repo_default = self.c.config_obj[profile][f"{file_repo_type}_repository"]
+            else:
+                def_value = "default" if int(self.c.config_obj[profile]["layer"]) < 1 else "disable"
+                location_default, file_default, repo_default = def_value, def_value, def_value
             
-#             # make sure location is proper directly semantics 
-#             if seed_results["seed_location"][-1] != "/":
-#                 seed_results["seed_location"] = seed_results["seed_location"]+"/"
-                
-#             self.manual_append_build_apply(seed_results)
-                
+            defaultdescr = "Alternatively, the Node Operator can enter the string \"default\" to allow nodectl to use default values. "
+            if allow_disable: defaultdescr += "Enter the string \"disable\" to disable this feature for this profile."
+            
+            description1 = ""
+            if file_repo_type == "priority_source":
+                description1 += f"The {verb} is a specialized access-list that is mostly designated for Metagraph special access-list "
+                description1 += f"elements, out of the scope of nodectl.  The values associated with these configuration values "
+                description1 += f"should be obtained directly from the Metagraph administrators. "
+            description1 += f"The {verb} is part of the PRO (proof of reputable observation) elements of Constellation Network. "
+            description1 += "Enter the location (needs to be a full path not including the file name.  Note: The file name will be defined "
+            description1 += "succeeding this entry.) on your local Node.  This is where the Node Operator would like to store the local copy of "
+            description1 += "this access list. "
+            if file_repo_type == "seed":
+                description1 += "This is a requirement to authenticate to the Metagraph and/or Hypergraph the Node Operator is "
+                description1 += "attempting to connect to. "
+            if file_repo_type == "jar":
+                description1 = f"The {verb} version is the version number associated with the Metagraph or Hypergraph.  It is necessary that "
+                description1 += "nodectl understand where it is intending to download the proper jar binaries from. In the event that the "
+                description1 += "Metagraph associated jar binaries are located as artifacts in a github repository, is a prime example of the "
+                description1 += "importance of knowing the version number. "
+                description1 += "The version should be in the form: vX.X.X where X is a number.  Example) v2.0.0. "
+            description1 += defaultdescr
+
+            description2 = f"The file name to be used to contain the {verb} entries.  This should be a single string value with no spaces (if you "
+            description2 += f"want to use multiple strings, delineate them with an underscore, dash, or other). After the {verb} is downloaded "
+            description2 += "from a Metagraph or Hypergraph "
+            description2 += "repository (defined succeeding this entry), the contents will be saved to this file.  The file (downloaded from the repository) " 
+            description2 += "must contain the exact same information as all other Nodes that participate on the cluster. "
+            description2 += "The file will be placed in the location defined by the seed location variable entered above. "
+            description2 += defaultdescr
+            
+            description3 = f"The {verb} repository is the location on the Internet (generally a github repository or artifact location) where nodectl can download "
+            description3 += f"the {verb} associated with the Metagraph or Hypergraph. Do not enter a URL or URI (do not include "
+            description3 += "http:// or https:// in the FQDN (fully qualified domain name)). The Node Operator should obtain this information "
+            description3 += "from the Metagraph or Hypergraph administrators. "
+            description3 += defaultdescr
+            
+            one_off2 = "version" if file_repo_type == "jar" else "directory"
+            questions = {
+                f"{file_repo_type}_{one_off}": {
+                    "question": f"  {colored(f'Enter a valid {verb} {one_off2}','cyan')}",
+                    "description": description1,
+                    "required": False,
+                    "default": location_default,
+                },
+                f"{file_repo_type}_file": {
+                    "question": f"  {colored(f'Enter a valid {verb} file name','cyan')}",
+                    "description": description2, 
+                    "required": False,
+                    "default": file_default
+                },
+                f"{file_repo_type}_repository": {
+                    "question": f"  {colored(f'Enter a valid {verb} repository','cyan')}",
+                    "description": description3,
+                    "required": False,
+                    "default": repo_default
+                },
+            }
+            
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+            "defaults": defaults,
+        })
+
                 
     def manual_build_memory(self,profile=False):
         xms_default = "1024M"
@@ -1647,7 +1698,13 @@ class Configurator():
 #     # =====================================================
 
       
-    def ask_confirm_questions(self, questions, confirm=True):
+    def ask_confirm_questions(self, command_obj):
+        questions = command_obj["questions"]
+        confirm = command_obj.get("confirm",True)
+        defaults = command_obj.get("defaults",False)
+        
+        if defaults: return questions
+        
         alternative_confirm_keys = questions.get("alt_confirm_dict",{})
         if len(alternative_confirm_keys) > 0:
             alternative_confirm_keys = questions.pop("alt_confirm_dict")
@@ -2288,7 +2345,6 @@ class Configurator():
 
         profile = self.profile_to_edit
          
-        # "Secondary Metagraph Seed list Requirements",  <--- Future option
         section_change_names = [
             ("API Edge Point",18),
             ("API TCP Ports",19),
@@ -2437,8 +2493,21 @@ class Configurator():
                     self.edit_service_name(profile)
                     self.called_option = "Service Name Change"
                     
-                    
-                    
+                elif option == 9 or option == 14 or option == 10:
+                    file_repo_type = "seed" 
+                    if option == 14: file_repo_type ="priority_source"
+                    if option == 10: file_repo_type = "jar"
+                    self.manual_build_file_repo(file_repo_type,profile)
+                    self.called_option = "PRO modification"
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
+                   
+                elif option == 11:
+                    self.manual_build_node_type(profile)
+                    self.called_option = "Node type modification"                    
+
+                elif option == 5:
+                    self.migrate_directories(profile)
+                    self.called_option = "Directory structure modification"                    
                     
                     
                     
@@ -2463,9 +2532,7 @@ class Configurator():
                             "types": ["128hex","host"],
                         })
                                     
-                elif option == "10":
-                    self.migrate_directories(profile)
-                    self.called_option = "Directory structure modification"
+
                     
 
                     
@@ -2488,19 +2555,9 @@ class Configurator():
                             "types": types,
                         })
                     
-                elif option == "13":
-                    self.manual_build_pro(profile)
-                    self.called_option = "PRO modification"
-                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
-                    self.verify_edit_options({
-                        "keys": ["seed_location"],
-                        "error": "PRO/Seed Input Error",
-                        "types": ["path"]
-                    })
+
                     
-                elif option == "14":
-                    do_build_yaml = do_build_profile = self.manual_build_node_type(profile)
-                    self.called_option = "Node type modification"
+
                     
                 if do_validate: self.validate_config(profile)
                 if do_print_title: print_config_section()
@@ -2581,7 +2638,7 @@ class Configurator():
         
         while True:
             restart_error = False
-            enable_answers = self.ask_confirm_questions(questions,True)
+            enable_answers = self.ask_confirm_questions({"questions": questions})
             enable_answers["auto_restart"] = enable_answers["auto_restart"].lower()
             enable_answers["auto_upgrade"] = enable_answers["auto_upgrade"].lower()
             if restart == "disable" and upgrade == "disable":
@@ -3001,196 +3058,139 @@ class Configurator():
 #         })
        
     
-#     def migrate_directories(self,profile):
-#         dir_list = ["snapshots","uploads","backups"]
-#         migration_dirs = {}; values = []
+    def migrate_directories(self,profile):
+        dir_list = ["directory_uploads","directory_backups"]
+        values = []
         
-#         for dir in dir_list:
-#             migration_dirs[dir] = {
-#                 "old_name": self.profile_details[dir],
-#                 "changed": False
-#             }
-            
-#         self.manual_build_dirs(profile)
-
-#         for key in self.profile_details.keys():
-#             if key in dir_list:
-#                 values.append(self.profile_details[key])    
+        migration_dirs = {dir: {"old_name": self.c.config_obj[profile][dir], "changed": False} for dir in dir_list}
+        self.manual_build_dirs(profile)
+        values = [self.c.config_obj[profile][key] for key in dir_list if key in self.c.config_obj[profile]]
+         
+        for c_dir in dir_list:
+            if self.config_obj_apply[profile][c_dir] != migration_dirs[c_dir]["old_name"]:
+                migration_dirs[c_dir] = {
+                    **migration_dirs[c_dir],
+                    "new_name": self.config_obj_apply[profile][c_dir],
+                    "changed": True
+                }
                 
-#         verified = self.c.verify_profile_types({
-#             "profile": profile,
-#             "section": "dirs",
-#             "values": values,
-#             "types": ["path","path","path"],
-#             "key_list": dir_list,
-#             "return_on": True,
-#         })
-#         if not verified:
-#             self.log.logger.error(f"During edit session a directory path was determined to be invalid or non-existent, causing an error to be triggered. action [{self.action}]")
-#             self.print_error("directory migration")
-                            
-#         for dir in dir_list:
-#             if self.profile_details[dir] != migration_dirs[dir]["old_name"]:
-#                 migration_dirs[dir] = {
-#                     **migration_dirs[dir],
-#                     "new_name": self.profile_details[dir],
-#                     "changed": True
-#                 }
+        migration_dirs["profile"] = profile
                 
-#         migration_dirs["profile"] = profile
-                
-#         def file_dir_error(directory, new_path):
-#             self.c.functions.print_clear_line()
-#             self.c.functions.print_paragraphs([
-#                 ["An error occurred attempting to automate the creation of [",-1,"red"],[f"{new_path}",-1,"yellow","bold"],
-#                 ["]",-1,"red"],[f". In the event that you are attempting to point your Node's {directory} towards",0,"red"],
-#                 ["an external storage device, nodectl will continue the configuration change without migrating",0,"red"],
-#                 [f"the {directory} to the new user defined location.",0,"red"],["nodectl will leave this up to the Node Operator.",2],
-#             ])
-#             if directory == "snapshots":
-#                 self.c.functions.print_paragraphs([
-#                     ["In the event you are attempting to change the location of your snapshot storage to an external device please keep",0],
-#                     ["in mind that not migrating your snapshots should",0], ["not",0,"red"], ["cause any issues; other than, you may",0],
-#                     ["incur extra I/O on your Node while the snapshots are re-downloaded for proper Node functionality",2],
-                    
-#                     ["Also",0], ["warning",0,"yellow","bold"], ["attempting to share snapshot external storage between multiple Nodes",0],
-#                     ["for any operations other than 'reading', may cause race conditions and 'out of memory' errors.",2],
-#                 ])
+        def file_dir_error(directory, new_path):
+            self.c.functions.print_clear_line()
+            self.c.functions.print_paragraphs([
+                ["An error occurred attempting to automate the creation of [",-1,"red"],[f"{new_path}",-1,"yellow","bold"],
+                ["]",-1,"red"],[f". In the event that you are attempting to point your Node's {directory} towards",0,"red"],
+                ["an external storage device, nodectl will continue the configuration change without migrating",0,"red"],
+                [f"the {directory} to the new user defined location.",0,"red"],["nodectl will leave this up to the Node Operator.",2],
+            ])
                          
-#         def check_for_default(directory, new_path, old_path):
-#             path_list = [new_path,old_path]; updated_path_list = []
-#             for c_path in path_list:
-#                 if c_path == "default":
-#                     updated_path_list.append(f"/var/tessellation/{profile}/data/snapshot/") if directory == "snapshots" else updated_path_list.append(f"/var/tessellation/{directory}")
-#                 else:
-#                     updated_path_list.append(c_path) 
+        def check_for_default(directory, new_path, old_path):
+            path_list = [new_path,old_path]; updated_path_list = []
+            for c_path in path_list:
+                if c_path == "default":
+                    updated_path_list.append(f'/var/tessellation/{directory}/')
+                else:
+                    updated_path_list.append(c_path) 
                         
-#             return updated_path_list
+            return updated_path_list
                            
-#         profile = migration_dirs.pop("profile")   
-#         for directory, values in migration_dirs.items():
-#             status = "skipped"
-#             status_color = "yellow"
+        profile = migration_dirs.pop("profile")   
+        for directory, values in migration_dirs.items():
+            directory_name = directory.replace("directory_","")
+            status = "skipped"
+            status_color = "yellow"
             
-#             if values["changed"]:
-#                 new_path = values["new_name"]
-#                 old_path = values["old_name"]
+            if values["changed"]:
+                new_path = values["new_name"]
+                old_path = values["old_name"]
                 
-#                 new_path, old_path = check_for_default(directory, new_path, old_path)
-                    
+                new_path, old_path = check_for_default(directory_name, new_path, old_path)
 
-#                 if new_path != "disable":
-#                     do_migration = True
+                if new_path != "disable" or new_path != old_path:
+                    do_migration = True
                     
-#                     if directory == "snapshots":
-#                         self.c.functions.print_paragraphs([
-#                             [" Required: ",0,"grey,on_yellow"],
-#                             ["In order to migrate the snapshots directory to a custom location, the profile's service will be",0,"red"],
-#                             ["stopped",0,"red","underline,bold"],[".",-1,"red"], ["",2]
-#                         ])
-#                         self.handle_service(profile,"location")
-                        
-#                     progress = {
-#                         "text_start": "Migrating directory",
-#                         "brackets": directory,
-#                         "text_end": "location",
-#                         "status": "migrating",
-#                         "status_color": "magenta",
-#                         "delay": .8,
-#                     }                    
-#                     self.c.functions.print_cmd_status(progress)
+                    progress = {
+                        "text_start": "Migrating directory",
+                        "brackets": directory_name,
+                        "text_end": "location",
+                        "status": "migrating",
+                        "status_color": "magenta",
+                        "delay": .8,
+                    }                    
+                    self.c.functions.print_cmd_status(progress)
                             
-#                     if not path.exists(new_path):
-#                         try:
-#                             makedirs(new_path)
-#                         except Exception as e:
-#                             self.log.logger.error(f"unable to create new [{new_path}] directory from configurator - migration issue | error [{e}]")
-#                             file_dir_error(directory, new_path)
-#                             do_migration = False
+                    if not path.exists(new_path):
+                        try:
+                            makedirs(new_path)
+                        except Exception as e:
+                            self.log.logger.error(f"unable to create new [{new_path}] directory from configurator - migration issue | error [{e}]")
+                            file_dir_error(directory, new_path)
+                            do_migration = False
 
-#                     if do_migration:
-#                         if not path.exists(old_path) and old_path != "disable":
-#                             self.log.logger.error(f"unable to find [old] directory from configurator - unable to migrate. | old path not found [{old_path}]")
-#                             file_dir_error(directory, new_path)
-#                             do_migration = False
-#                         elif old_path != "disable":
-#                             old_path = f"{old_path}/" if old_path[-1] != "/" else old_path
-#                             new_path = f"{new_path}/" if new_path[-1] != "/" else new_path
+                    if do_migration:
+                        if not path.exists(old_path) and old_path != "disable":
+                            self.log.logger.error(f"unable to find [old] directory from configurator - unable to migrate. | old path not found [{old_path}]")
+                            file_dir_error(directory, new_path)
+                            do_migration = False
+                        elif old_path != "disable":
+                            old_path = f"{old_path}/" if old_path[-1] != "/" else old_path
+                            new_path = f"{new_path}/" if new_path[-1] != "/" else new_path
                             
-#                         if old_path != new_path:
-#                             if directory == "snapshots":
-#                                 self.c.functions.print_paragraphs([
-#                                     ["",1], [" NOTE: ",0,"grey,on_red","bold"],
-#                                     ["The snapshot directory may be very large and take some time to transfer.",0,"yellow"],
-#                                     ["Please exercise patience during the migration.",1,"yellow"]
-#                                 ])
-                            
-#                             with ThreadPoolExecutor() as executor:
-#                                 self.c.functions.event = True
-#                                 _ = executor.submit(self.c.functions.print_spinner,{
-#                                     "msg": "migrating files please wait ",
-#                                     "color": "magenta",
-#                                     "newline": "both"
-#                                     })
-#                                 cmd = f"rsync -a --remove-source-files {old_path} {new_path} > /dev/null 2>&1"
-#                                 system(cmd)
-#                                 cmd = f"rm -rf {old_path} > /dev/null 2>&1"
-#                                 system(cmd)
-#                                 self.c.functions.event = False
-#                             if path.exists(old_path):
-#                                 clean_up = {
-#                                     "text_start": "Cleaning up directories",
-#                                     "brackets": directory,
-#                                     "newline": True
-#                                 }
-#                                 confirm = self.c.functions.confirm_action({
-#                                     "yes_no_default": "n",
-#                                     "return_on": "y",
-#                                     "prmopt": "Do you want to remove the old directory?",
-#                                     "exit_if": False
-#                                 })
-#                                 if confirm:                                
-#                                     system(f"rm -rf {old_path} > /dev/null 2>&1")
-#                                     self.c.functions.print_cmd_status({
-#                                         **clean_up,
-#                                         "status": "complete",
-#                                         "status_color": "green",
-#                                     })
-#                                 else:
-#                                     self.c.functions.print_cmd_status({
-#                                         **clean_up,
-#                                         "status": "skipped",
-#                                         "status_color": "yellow",
-#                                     })
-#                             status = "complete"
-#                             status_color = "green"
+                        if old_path != new_path:
+                            with ThreadPoolExecutor() as executor:
+                                self.c.functions.event = True
+                                _ = executor.submit(self.c.functions.print_spinner,{
+                                    "msg": "migrating files please wait ",
+                                    "color": "magenta",
+                                    "newline": "both"
+                                    })
+                                cmd = f"rsync -a {old_path} {new_path} > /dev/null 2>&1"
+                                system(cmd)
+                                self.c.functions.event = False
+                                clean_up = {
+                                    "text_start": "Cleaning up directories",
+                                    "brackets": directory_name,
+                                }
+                                self.c.functions.print_cmd_status({
+                                    "status": "running",
+                                    "status_color": "yellow",
+                                    "newline": True,
+                                    **clean_up,
+                                })
+                                confirm = self.c.functions.confirm_action({
+                                    "yes_no_default": "n",
+                                    "return_on": "y",
+                                    "prompt": "Do you want to remove the old directory?",
+                                    "exit_if": False
+                                })
+                                if confirm:                                
+                                    system(f"rm -rf {old_path} > /dev/null 2>&1")
+                                    self.c.functions.print_cmd_status({
+                                        **clean_up,
+                                        "status": "complete",
+                                        "status_color": "green",
+                                        "newline": True,
+                                    })
+                                else:
+                                    self.c.functions.print_cmd_status({
+                                        **clean_up,
+                                        "status": "skipped",
+                                        "status_color": "yellow",
+                                    })
+                            status = "complete"
+                            status_color = "green"
                                     
-#                 self.c.functions.print_cmd_status({
-#                     **progress,
-#                     "status": status,
-#                     "status_color": status_color,
-#                     "newline": True
-#                 })
-        
-
-
-        
-#         old_service = f"/etc/systemd/system/cnng-{service}.service"
-#         if path.exists(old_service):
-#             self.log.logger.debug(f"configurator edit request - removing deprecated [service] file [{service}]")
-#             system(f"rm -f {old_service} > /dev/null 2>&1")
-            
-#         old_service = f"/usr/local/bin/cnng-{service}"
-#         if path.exists(old_service):
-#             self.log.logger.debug(f"configurator edit request - removing deprecated [bash] file [{service}]")
-#             system(f"rm -f {old_service} > /dev/null 2>&1")
-            
-#         self.c.functions.print_cmd_status({
-#             "text_start": "Cleaning up old service file",
-#             "status": "complete",
-#             "newline": True,
-#         })        
+                self.c.functions.print_cmd_status({
+                    **progress,
+                    "status": status,
+                    "status_color": status_color,
+                    "newline": True
+                })
                 
+        sleep(1) # allow Node Operator to see output
+        self.apply_vars_to_config() 
+            
 
     def print_old_file_warning(self,stype):
         if not self.old_last_cnconfig:

@@ -67,6 +67,10 @@ class Functions():
         # dev
         self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_v290/admin/upgrade_path.json"
         
+        
+        self.nodectl_profiles_url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/predefined_configs'
+        self.nodectl_profiles_url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/predefined_configs"
+
         # versioning
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
         self.node_tess_version = "v0.0.0"
@@ -1555,16 +1559,14 @@ class Functions():
         retrieve = command_obj.get("retrieve","profile_names")
         return_where = command_obj.get("return_where","Main")
         predefined_envs = []
-        url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/predefined_configs'
-        url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/predefined_configs"
-        repo_profiles = self.get_from_api(url,"json")
+        repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
         repo_profiles = repo_profiles["payload"]["tree"]["items"]
         metagraph_name = None
         
         predefined_configs = {}
         for repo_profile in repo_profiles:
             if "predefined_configs" in repo_profile["path"] and "yaml" in repo_profile["name"]:
-                f_url = f"{url_raw}/{repo_profile['name']}" 
+                f_url = f"{self.nodectl_profiles_url_raw}/{repo_profile['name']}" 
                 details = self.get_from_api(f_url,"yaml")
                 metagraph_name = details["nodectl"]["global_elements"]["metagraph_name"] # readability
                 predefined_envs.append(metagraph_name)
