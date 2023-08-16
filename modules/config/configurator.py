@@ -9,7 +9,8 @@ from copy import deepcopy, copy
 from secrets import compare_digest
 from time import sleep
 from requests import get
-
+from itertools import chain
+	
 from .migration import Migration
 from .config import Configuration
 from ..troubleshoot.logger import Logging
@@ -35,13 +36,13 @@ class Configurator():
         self.detailed = False if "-a" in argv_list else "init"
         self.keep_pass_visible = True
         self.action = False
+        self.error_hint = False
         self.is_all_global = False
         self.profile_details = False
         self.preserve_pass = False
         self.upgrade_needed = False
         self.restart_needed = True
         self.is_new_config = False
-        self.skip_convert = False  # self.convert_config_obj()
         self.skip_prepare = False
         self.is_file_backedup = False
         self.backup_file_found = False
@@ -193,10 +194,10 @@ class Configurator():
             self.backup_config()
             
             if option.lower() == "n":
-                self.is_new_config = self.skip_convert = True
+                self.is_new_config = True
                 self.new_config()
             elif option.lower() == "e":
-                self.is_new_config = self.skip_convert = False
+                self.is_new_config = False
                 self.edit_config()
                 
             option = "reset"
@@ -336,46 +337,6 @@ class Configurator():
             "status_color": "green"
         })
         
-        # self.has_existing_p12 = self.c.functions.confirm_action({
-        #     "yes_no_default": "n",
-        #     "return_on": "y",
-        #     "prompt": "Are you migrating an existing p12 private key to this Node?",
-        #     "exit_if": False,
-        # })
-
-        # self.predefined_configuration = predefined_configs[option]
-        # del predefined_configs
-                
-        # self.build_profile()
-        # self.c.functions.print_cmd_status({
-        #     **progress,
-        #     "status": "complete",
-        #     "newline": True
-        # })
-        
-        # if not self.is_all_global:
-        #     for n in range(0,len(option)+1):
-        #         print("")
-        #         if self.detailed:
-        #             paragraph = [
-        #                 ["During the configuration build, it was requested [selected] to not set all the p12 private information to all profiles.",2,"green"],
-                        
-        #             ]
-        #             self.c.functions.print_paragraphs(paragraph)
-                    
-        #         if int(option) < 3: # dag
-        #             non_global = self.c.functions.confirm_action({
-        #                 "prompt": f"Update dedicated p12 on profile dag-l{n}?",
-        #                 "yes_no_default": "n",
-        #                 "return_on": "y",
-        #                 "exit_if": False
-        #             })
-        #             if non_global:
-        #                 self.preserve_pass = False
-        #                 self.handle_global_p12(f"dag-l{n}")
-                        
-        # return True
-
     
     def build_config_obj(self):
         self.config_obj = {
@@ -805,132 +766,8 @@ class Configurator():
             "single_line": True,
             "newline": False if self.detailed else "bottom"
         })
-        
-        
-    # def manual_build(self,default=True):
-        
-    #     if default: 
-    #         self.header_title = {
-    #             "line1": "New Manual Profile",
-    #             "line2": "Builder",
-    #             "show_titles": False,
-    #             "clear": True,
-    #             "newline": "both",
-    #         }
-    #         self.manual_build_setup()
-
-    #     while True:
-    #         self.manual_build_profile()
-    #         self.manual_build_node_type()
-    #         self.manual_build_layer()
-    #         self.manual_build_environment()
-    #         self.manual_build_description()
-    #         self.manual_build_edge_point()
-    #         self.manual_build_tcp()
-    #         self.manual_build_service()
-    #         self.manual_build_link()
-    #         self.manual_build_dirs()
-    #         self.manual_build_memory()
-    #         self.manual_build_file_repo()
-    #         self.manual_build_p12()
-            
-    #         self.build_profile()
-            
-    #         another = self.c.functions.confirm_action({
-    #             "prompt": "Add another profile?",
-    #             "yes_no_default": "n",
-    #             "return_on": "y",
-    #             "exit_if": False
-    #         })
-    #         if not another:
-    #             break
-            
-    #         self.c.functions.print_header_title({
-    #             "line1": "ANOTHER NEW PROFILE",
-    #             "line2": f"Last Created: {self.profile_details['profile_name']}",
-    #             "clear": True,
-    #             "newline": "top"
-    #         })
-        
-    #     self.c.functions.print_cmd_status({
-    #         "text_start": "Configuration profile build complete",
-    #         "status": "complete",
-    #         "newline": True,
-    #     })
-    #     self.c.functions.print_cmd_status({
-    #         "text_start": "Submitting for verification and build",
-    #         "status": "running",
-    #     })
-            
 
 
-        
-              
-    # def manual_build_setup(self):
-    #     self.c.functions.print_header_title({
-    #         "line1": "MANUAL CONFIGURATION SETUP",
-    #         "show_titles": False,
-    #         "clear": True,
-    #         "newline": "both"
-    #     })
-        
-    #     if self.detailed:
-    #         paragraph = [
-    #             ["WARNING",0,"red,on_white","bold"],
-    #             ["Please make sure you understand and know all the proper configuration settings when using this option.",2,"white"],
-                
-    #             ["Since the",0,],["advanced",0,"white","underline"],
-    #             ["option was chosen, a brief explanation will be presented for each option.",2],
-                
-    #             ["Recommended/Default options will be presented in",0,],["[]",0,"yellow","bold"],
-    #             ["simply hit the",0], ["<enter>",0, "magenta","bold"], ["key to accept.",2],
-    #         ]
-    #         self.c.functions.print_paragraphs(paragraph)
-        
-    #     self.handle_global_p12("global") # adds to config_obj by default
-            
-    #     self.c.functions.print_header_title({
-    #         "line1": "PREPARE PROFILES",
-    #         "single_line": True,
-    #         "newline": "both" if not self.detailed else "top"
-    #     })
-        
-        
-    # def manual_build_profile(self,profile=False):
-    #     default = None if not profile else profile
-    #     required = True if not profile else False
-    #     profile_title = profile if profile else ""
-    #     self.manual_section_header(profile_title,"NAME")
-            
-    #     questions = {
-    #         "profile_name": {
-    #             "question": f"  {colored('Enter new profile name to add to this Node: ','cyan')}",
-    #             "description": "It is important to pick a profile name that you do not want to change too often. This is because the profile name is used to create the directory structure that holds a lot of variable (changing or scaling in and out) data, changing this name in the future will cause a lot of data migration on your Node.",
-    #             "default": default,
-    #             "required": required,
-    #         }
-    #     }
-        
-    #     while True:
-    #         self.profile_details = self.ask_confirm_questions({"questions": questions})
-            
-    #         self.c.functions.print_header_title(self.header_title)
-    #         self.manual_section_header(self.profile_details['profile_name'],"SPECIFICS")
-            
-    #         if not self.is_duplicate_profile(self.profile_details['profile_name']):
-    #             break
-            
-    #         self.c.functions.print_paragraphs([
-    #             [" ERROR ",0,"yellow,on_red","bold"], ["A profile matching [",0],
-    #             [self.profile_details['profile_name'],-1,"yellow","bold"], ["] already exists. Please try again.",-1],
-    #             ["",2],
-    #         ])
-
-    #     print("")
-    #     self.profile = f"[{self.profile_details['profile_name']}]"
-    #     self.profile_name_list.append(self.profile_details['profile_name'])
-        
-        
     def manual_build_node_type(self,profile=False):
         profile = self.profile_to_edit if not profile else profile
 
@@ -960,14 +797,14 @@ class Configurator():
         if option.lower() == "q":
             self.quit_configurator()
         if option.lower() == "v":
-            questions = {"node_type": "validator"}
+            defaults = {"node_type": "validator"}
         if option.lower() == "g":
-            questions = {"node_type": "genesis"}
+            defaults = {"node_type": "genesis"}
 
         self.manual_append_build_apply({
-            "questions": questions, 
+            "questions": False, 
             "profile": profile,
-            "defaults": True,
+            "defaults": defaults,
         })
 
 
@@ -1044,7 +881,11 @@ class Configurator():
         confirm = command_obj.get("confirm",True)
         apply = command_obj.get("apply",True)
         
-        no_change_list = command_obj.get("no_change_list",list(questions.keys()))
+        no_change_list = []
+        if questions: no_change_list.append(command_obj.get("no_change_list_questions",list(questions.keys())))
+        if defaults: no_change_list.append(command_obj.get("no_change_list_defaults",list(defaults.keys())))
+        if len(no_change_list) > 0:
+            no_change_list = list(chain(*no_change_list))
         append_obj = {}
         
         # identify profiles that do not change
@@ -1053,36 +894,39 @@ class Configurator():
                 continue
 
             for item in no_change_list:
-                if i_profile not in append_obj:
-                    append_obj[i_profile] = {}
-
+                if i_profile not in append_obj: append_obj[i_profile] = {}
                 append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
                 append_obj[i_profile]["do_not_change"] = True
 
         # append and add to the append_obj
         for i_profile in self.metagraph_list:
-            if i_profile != profile:
+            if i_profile != profile: 
                 i_append_obj = {}
                 for item in no_change_list:
                     i_append_obj[f"{item}"] = self.c.config_obj[i_profile][item]
                 append_obj[f"{i_profile}"] = {**i_append_obj, "do_not_change": True}
                 
         # append the changing items to the append obj
-        append_obj = {
+        if not defaults: defaults = {}
+        if questions:
+            append_obj = {
+                f"{profile}": {
+                    **defaults,
+                    **self.ask_confirm_questions({
+                        "questions": questions,
+                        "confirm": confirm,
+                    }),
+                },
+                **append_obj,
+            } 
+        elif defaults: append_obj = {
             f"{profile}": {
-                **self.ask_confirm_questions({
-                    "questions": questions,
-                    "confirm": confirm,
-                    "defaults": defaults,
-                }),
+                **defaults,
             },
             **append_obj,
-        }   
+        }  
                  
-        self.config_obj_apply = {
-            **self.config_obj_apply,
-            **append_obj
-        } 
+        self.config_obj_apply = {**self.config_obj_apply, **append_obj} 
         
         # reorder search so that replacement happens
         # at the correct lines in the correct order
@@ -1262,38 +1106,46 @@ class Configurator():
         link = False if not profile else True
         title_profile = self.profile_to_edit if not profile else profile
         
-        gl0_linking, ml0_linking, gl0_self, ml0_self = True, True, True, True
-        defaults, gl0_ask_questions, ml0_ask_questions = False, False, False
+        gl0_linking, ml0_linking = True, True
+        gl0_enabled, ml0_enabled = False, False
+        gl0_ask_questions, ml0_ask_questions = False, False
+        questions, defaults, separate = False, False, False
         
         layer_types = ["gl0","ml0"]
-        questions = {}
         
         def print_header():
+            link_description = "Generally, a Metagraph Layer0 (ML0) and/or Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
+            link_description += "(GL0) network to transmit consensus information between the local Node and the Validator Nodes on the Layer0 network. "
+            link_description += "The Node Operator should consult with your Metagraph Administrators for further details. "
+            link_description += "Also, a ML1 will be required to link to the ML0 thereby creating to separate links. "
+            link_description += "IMPORTANT: If you plan to use the recommended process of linking to ML1 to GL0, ML1 to ML0, and/or ML0 to GL0 "
+            link_description += "through another profile residing on this Node, it is required to answer \"yes\" to the link to self question, "
+            link_description += "when asked by this configurator feature; otherwise, all necessary values will not be populated and unexpected "
+            link_description += "results/errors may be experienced. "
+
             print("")
-            self.manual_section_header(title_profile,"LINK SETUP") 
-            
-        link_description = "Generally, a Metagraph Layer0 (ML0) and/or Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
-        link_description += "(GL0) network to transmit consensus information between the local Node and the Validator Nodes on the Layer0 network. "
-        link_description += "The Node Operator should consult with your Metagraph Administrators for further details. "
-        link_description += "Also, a ML1 will be required to link to the ML0 thereby creating to separate links. "
-        link_description += "IMPORTANT: If you plan to use the recommended process of linking to ML1 to GL0, ML1 to ML0, and/or ML0 to GL0 "
-        link_description += "through another profile residing on this Node, "
-        link_description += "enter \"self\" for the NodeId and enter \"self\" for the IP address.  Failure to do so will "
-        link_description += "result in this profile \"thinking\" it is linking to a remote Node."
+            self.manual_section_header(title_profile,"LINK SETUP")
+            self.c.functions.print_paragraphs([
+                ["",1],
+                ["Terminology",1,"yellow","bold"],
+                ["GL0",0,"blue","bold"],[":",-1,"blue"], ["Global Layer0 Hypergraph",1,"cyan"],
+                ["ML0",0,"blue","bold"],[":",-1,"blue"], ["Metagraph Layer0",1,"cyan"],
+                ["ML1",0,"blue","bold"],[":",-1,"blue"], ["Metagraph Layer1",2,"cyan"],
+                [link_description,1,"white","bold"],
+            ]) 
+            self.print_quit_option()
         
         def set_link_obj(l_type,value):
             return {
-                f"{l_type}_enable_link": "False" if value == "None" else "True",
                 f"{l_type}_link_key": value,
                 f"{l_type}_link_host": value,
                 f"{l_type}_link_port": value,                
                 f"{l_type}_link_profile": value,                
             }
 
-        def self_linking(l_type,questions):
-            set_self = False
+        def self_linking(l_type, defaults):
+            set_self_successful = False
             self_items = {}
-            
             if self.c.functions.confirm_action({
                 "yes_no_default": "n",
                 "return_on": "y",
@@ -1302,7 +1154,7 @@ class Configurator():
             }):
                 self_items = set_link_obj(l_type,"self")
                 print("")
-                cprint("  Which profile do you want to link to?","cyan")
+                cprint(f"  Which profile do you want to {l_type.upper()} to link with?","magenta")
                 
                 linkable_profiles = []
                 for i_profile in self.metagraph_list:
@@ -1311,7 +1163,7 @@ class Configurator():
                             linkable_profiles.append(i_profile)
                 
                 if len(linkable_profiles) < 1:
-                    cprint("  No avaliable profiles to link to cancelling","red")
+                    cprint("  No available profiles to link to cancelling","red")
                 else:
                     option = self.c.functions.print_option_menu({
                         "options": linkable_profiles,
@@ -1320,33 +1172,32 @@ class Configurator():
                         "return_value": True
                     })
                     self_items[f"{l_type}_link_profile"] = option   
-            
-                    questions = {
-                        **questions,
+                    defaults = {
+                        **defaults,
                         **self_items
                     }
-                    set_self = True
-            
-            return [set_self, questions]
+                    set_self_successful = True
+                    
+            return [defaults, set_self_successful]
             
         def ask_link_questions(l_type, questions, key_default, host_default, port_default):
             warning_msg = f"running a {'ML0' if l_type == 'ml0' else 'GL0'} network on the same Node as the Node running this Metagraph.  In order to do this you cancel this setup and choose the 'self' option when requested."
             questions = {
                 **questions,
                 f"{l_type}_link_key": {
-                    "question": f"  {colored(f'Enter the {l_type.upper()} link public key','cyan')}",
+                    "question": f"  {colored(f'Enter the {l_type.upper()} link public key','cyan')} : ",
                     "description": f"You need to identify the public key of the Node that you going to attempt to link to. This is required for security purposes to avoid man-in-the-middle cybersecurity attacks.  It is highly recommended to use the public key of your own Node if you are {warning_msg} If you are not using your own Node, you will need to obtain the public p12 key from the Node you are attempting to link through.",
                     "default": key_default,
                     "required": False,
                 },          
                 f"{l_type}_link_host": {
-                    "question": f"  {colored(f'Enter the {l_type.upper()} link host ip address','cyan')}",
+                    "question": f"  {colored(f'Enter the {l_type.upper()} link host ip address','cyan')} : ",
                     "description": f"You need to identify the public ip address of the Node that you going to attempt to link with. It is highly recommended to use your own Node if you are {warning_msg}",
                     "default": host_default,
                     "required": False,
                 },  
                 f"{l_type}_link_port": {
-                    "question": f"  {colored(f'Enter the {l_type.upper()} link public port','cyan')}",
+                    "question": f"  {colored(f'Enter the {l_type.upper()} link public port','cyan')} : ",
                     "description": f"You need to identify the public TCP port open on the Node that you going to attempt to link with. It is highly recommended to use your own Node if you are {warning_msg}",
                     "default": port_default,
                     "required": False,
@@ -1354,13 +1205,54 @@ class Configurator():
             }
             return questions        
  
+        def retain_info(profile, gl0_linking, ml0_linking):
+            self.c.functions.print_cmd_status({
+                "text_start": "Values for",
+                "brackets": l_type.upper(),
+                "text_end": "will be",
+                "status": "retained",
+                "status_color": "green",
+                "newline": True,
+            })
+            current_boj = {
+                f"{l_type}_link_key": self.c.config_obj[profile][f"{l_type}_link_key"],
+                f"{l_type}_link_host": self.c.config_obj[profile][f"{l_type}_link_host"],
+                f"{l_type}_link_port": self.c.config_obj[profile][f"{l_type}_link_port"],             
+                f"{l_type}_link_profile": self.c.config_obj[profile][f"{l_type}_link_profile"],               
+            }
+            if l_type == "gl0": gl0_linking = False
+            if l_type == "ml0": ml0_linking = False
+            return current_boj, gl0_linking, ml0_linking
+
         if profile:  # left in place in case full manual profile creation is reinstituted
             print(" ")
             print_header()
             print(" ")
 
             for l_type in layer_types:
+                status = "disabled"; status_color = "red"
                 if self.c.config_obj[profile][f"{l_type}_link_enable"]:
+                    status = "enabled"; status_color = "green"
+                self.c.functions.print_cmd_status({
+                    "text_start": "Linking for",
+                    "brackets": f"{profile} -> {l_type.upper()}",
+                    "text_end": "found",
+                    "status": status,
+                    "status_color": status_color,
+                    "newline": True
+                })
+                if status == "disabled":
+                    if self.c.functions.confirm_action({
+                            "yes_no_default": "n",
+                            "return_on": "y",
+                            "prompt": f"Do you want to enable the {l_type.upper()} link?",
+                            "exit_if": False
+                        }):
+                            if not defaults: defaults = {}
+                            defaults = {**defaults, f"{l_type}_link_enable": "True"} 
+                    elif l_type == "gl0": gl0_linking = False
+                    elif l_type == "ml0": ml0_linking = False
+                elif status == "enabled":
                     if self.c.functions.confirm_action({
                         "yes_no_default": "n",
                         "return_on": "y",
@@ -1368,60 +1260,51 @@ class Configurator():
                         "exit_if": False
                     }):
                         disable = set_link_obj(l_type,"None")
-                        questions = {
-                            **questions,
-                            **disable
-                        }
+                        if not defaults: defaults = {}
+                        defaults = {**defaults, **disable, f"{l_type}_link_enable": "False" }
                         if l_type == "gl0": gl0_linking = False
                         if l_type == "ml0": ml0_linking = False
-                else:
-                    if self.c.functions.confirm_action({
-                        "yes_no_default": "n",
-                        "return_on": "n",
-                        "prompt": f"Do you want to enable the {l_type.upper()} link?",
-                        "exit_if": False
-                    }):
-                        if l_type == "gl0": gl0_linking = False
-                        if l_type == "ml0": ml0_linking = False
-                        
-            if gl0_linking:
-                results = self_linking("gl0",questions)
-                if not results[0]:
-                    gl0_ask_questions = True
-                questions = results[1]
-            if ml0_linking:
-                results = self_linking("ml0",questions)
-                if not results[0]:
-                    ml0_ask_questions = True
-                questions = results[1]
-                
-            if gl0_ask_questions:
-                defaults = True
-                key_default = self.c.config_obj[profile]["gl0_link_key"]
-                host_default = self.c.config_obj[profile]["gl0_link_host"]
-                port_default = self.c.config_obj[profile]["gl0_link_port"]
-                questions = ask_link_questions(questions,key_default,host_default,port_default)
-                
-            if ml0_ask_questions:
-                defaults = True
-                key_default = self.c.config_obj[profile]["ml0_link_key"]
-                host_default = self.c.config_obj[profile]["ml0_link_host"]
-                port_default = self.c.config_obj[profile]["ml0_link_port"]
-                questions = ask_link_questions(questions,key_default,host_default,port_default)
+                    else:
+                        if self.c.functions.confirm_action({
+                                "yes_no_default": "n",
+                                "return_on": "y",
+                                "prompt": f"Do you want to retain old values for the {l_type.upper()} link?",
+                                "exit_if": False
+                            }):
+                                if not defaults: defaults = {}
+                                c_defaults, gl0_linking, ml0_linking = retain_info(profile, gl0_linking, ml0_linking)
+                                defaults = {**c_defaults, **defaults}
+                                
+                if eval(f"{l_type}_linking"):
+                    results = self_linking(l_type, defaults if defaults else {})
+                    if not defaults: defaults = {}
+                    if results[1]: defaults = {**defaults, **results[0]}
+                    elif l_type == "gl0": gl0_ask_questions = True
+                    elif l_type == "ml0": ml0_ask_questions = True
 
-        if not gl0_linking and not ml0_linking and not gl0_ask_questions and not ml0_ask_questions:
-            return
+                if eval(f"{l_type}_ask_questions"):
+                    key_default = self.c.config_obj[profile][f"{l_type}_link_key"]
+                    host_default = self.c.config_obj[profile][f"{l_type}_link_host"]
+                    port_default = self.c.config_obj[profile][f"{l_type}_link_port"]
+                    if not questions: questions = {}
+                    if not defaults: defaults = {}
+                    defaults = {**defaults, f"{l_type}_link_profile": "None"}
+                    questions = {
+                        **questions,
+                        **ask_link_questions(l_type, questions, key_default, host_default, port_default)
+                    }
         
         self.manual_append_build_apply({
             "questions": questions, 
             "profile": profile,
+            "defaults": defaults,
         })
- 
- 
+
+  
     def manual_build_dirs(self,profile=False):   
         title_profile = self.profile_to_edit if not profile else profile
         self.manual_section_header(title_profile,"DIRECTORY STRUCTURE")
-        defaults = False
+        defaults, questions = False, False
         
         if self.detailed:
             self.c.functions.print_paragraphs([
@@ -1437,13 +1320,12 @@ class Configurator():
         })
 
         if dir_default:
-            defaults = True
             self.c.functions.print_cmd_status({
                 "text_start": "Using defaults for directory structures",
                 "status": "complete",
                 "newline": True,
             })
-            questions = {
+            defaults = {
                 "directory_backups": "default",
                 "directory_uploads": "default"
             }            
@@ -1488,8 +1370,7 @@ class Configurator():
  
     def manual_build_file_repo(self, file_repo_type, profile=False):  
         title_profile = self.profile_to_edit if not profile else profile
-        questions = {}
-        defaults = False
+        questions, defaults = False, False
         allow_disable = True
         one_off = "location"
         
@@ -1523,13 +1404,13 @@ class Configurator():
                 "newline": True,
             })
             if int(self.c.config_obj[profile]["layer"]) < 1:
-                questions = {
+                defaults = {
                     f"{file_repo_type}_{one_off}": "default",
                     f"{file_repo_type}_file": "default",
                     f"{file_repo_type}_repository": "default"
                 }
             else:
-                questions = {
+                defaults = {
                     f"{file_repo_type}_{one_off}": "disable",
                     f"{file_repo_type}_file": "disable",
                     f"{file_repo_type}_repository": "disable"
@@ -1708,11 +1589,12 @@ class Configurator():
                 
         self.manual_append_build_apply({
                 "profile": profile,
-                "questions": single_p12_obj,
-                "defaults": True,
+                "questions": False,
+                "defaults": single_p12_obj,
         })
             
         return
+
 
 #     # =====================================================
 #     # COMMON BUILD METHODS  
@@ -1722,9 +1604,6 @@ class Configurator():
     def ask_confirm_questions(self, command_obj):
         questions = command_obj["questions"]
         confirm = command_obj.get("confirm",True)
-        defaults = command_obj.get("defaults",False)
-        
-        if defaults: return questions
         
         alternative_confirm_keys = questions.get("alt_confirm_dict",{})
         if len(alternative_confirm_keys) > 0:
@@ -1805,432 +1684,6 @@ class Configurator():
                 
             if user_confirm:
                 return value_dict
-        
-    
-#     def build_profile(self):
-#         profiles = []
-#         try:
-#             profiles.append(self.profile_details["profile_name"])
-#         except:
-#             # pre-defined selected
-#             environment = self.environment
-            
-#             self.profile_name_list = profiles = ["dag-l0","dag-l1"]
-#             if "integrationnet" in environment:
-#                 self.profile_name_list = profiles = ["intnet-l0","intnet-l1"]
-                
-#             layers = ["0","1"]
-#             tcp_ports = [["9000","9001","9002"],["9010","9011","9012"]]
-#             java = [["1024M","7G","256K"],["1024M","3G","256K"]]
-#             p12 = ["global","global","global","global","global"]; p12 = [p12,p12]
-#             node_type = ["validator","validator"]
-            
-#             services = ["node_l0","node_l1"] 
-#             if "integrationnet" in environment:
-#                 services = ["intnetserv_l0","intnetserv_l1"]   
-                
-#             dirs = [["default","default","default"],["disable","default","default"]]
-#             host = [self.edge_host0,self.edge_host1]
-            
-#             description = [
-#                 "Constellation Network Global Hypergraph",
-#                 "Constellation Network Layer1 Metagraph" 
-#             ]
-#             link_zero = [["False","None","None","None","None"],["True","self","self","self",profiles[0]]]
-#             https = "False"
-            
-#             port = ["80","80"]
-                
-#             seed_location = ["/var/tessellation/","disable"]
-#             seed_file = ["seed-list","disable"]
-#             enable = "True"
-#         else: # manual
-#             profile_obj = self.profile_details
-
-#             if "enable" not in profile_obj:
-#                 enable = "True"
-#             else:
-#                 enable = profile_obj["enable"]
-                
-#             # ====================
-#             # PREPARE MEMORY
-#             # ====================
-#             java =  [
-#                 [
-#                     profile_obj["java_jvm_xms"],
-#                     profile_obj["java_jvm_xmx"],
-#                     profile_obj["java_jvm_xss"],
-#                 ]
-#             ]
-            
-#             # ====================
-#             # PREPARE LAYER
-#             # ====================
-#             layers = [profile_obj["layer"]]  # blockchain_invalid tested at 'manual_tcp_build'
-            
-#             # ====================
-#             # PREPARE TCP PORTS
-#             # ====================
-#             try:
-#                 int(profile_obj["public"]),
-#                 int(profile_obj["p2p"]),
-#                 int(profile_obj["cli"]),
-#             except:
-#                 self.log.logger.error(f"invalid TCP ports given cannot continue, exiting utility public [{profile_obj['public']}], p2p [{profile_obj['p2p']}], cli [{profile_obj['cli']}]")
-#                 self.error_messages.error_code_messages({
-#                     "error_code": "cfr-829",
-#                     "line_code": "invalid_tcp_ports",
-#                     "extra": f"public [{profile_obj['public']}], p2p [{profile_obj['p2p']}], cli [{profile_obj['cli']}]"
-#                 })
-#             public = str(profile_obj["public"])
-#             p2p = str(profile_obj["p2p"])
-#             cli = str(profile_obj["cli"])
-#             tcp_ports = [[public,p2p,cli]] 
-            
-#             # ====================
-#             # PREPARE EDGE POINTS
-#             # ====================
-#             try:
-#                 port = [str(profile_obj["host_port"])]
-#             except:
-#                 self.log.logger.error(f"edge point host port may be invalid [{profile_obj['host_port']}] using [80] as default")
-#                 port = ["80"]
-                
-#             host = [profile_obj["host"]]
-            
-#             try:
-#                 https = "True" if profile_obj["https"].lower() == "y" or profile_obj["https"].lower() == "yes" else "False"
-#             except:
-#                 self.log.logger.error(f"new configuration build; secure https option was not a valid entry [{profile_obj['https']}] defaulting to False")
-#                 https = "False"
-                                
-#             # ====================
-#             # PREPARE DIRECTORIES
-#             # ====================
-#             dirs = [
-#                 [profile_obj['snapshots'], profile_obj['backups'], profile_obj['uploads']]
-#             ]
-                                
-#             # ====================
-#             # PREPARE SERVICES
-#             # ====================
-            
-#             services = [profile_obj["service"]]
-                        
-#             # ====================
-#             # PREPARE NODE TYPE
-#             # ====================
-#             if profile_obj["node_type"] != "validator" and profile_obj["node_type"] != "genesis":
-#                 self.log.logger.error(f"invalid Node type entered by user [{profile_obj['node_type']}] defaulting to 'validator'")
-#                 profile_obj["node_type"] = "validator"
-                
-#             node_type = [profile_obj["node_type"]]
-            
-#             # ====================
-#             # DESCRIPTION AND ENVIRONMENT
-#             # ====================
-#             description = [profile_obj["description"]]
-#             environment = profile_obj["environment"]
-
-#             # ====================
-#             # PREPARE SEED / PRO DETAILS
-#             # ====================
-#             seed_location = [profile_obj.get("seed_location")]
-#             seed_file = [profile_obj.get("seed_file")]
-            
-#             # ====================
-#             # PREPARE P12 DETAILS
-#             # ====================
-#             key_name = profile_obj.get("p12_key_name", "global")
-#             alias = profile_obj.get("key_alias", "global")
-#             passphrase = profile_obj.get("passphrase", "global")
-#             nodeadmin = profile_obj.get("nodeadmin", "global")
-#             location = profile_obj.get("key_location", "global")
-#             p12 = [
-#                 [nodeadmin, location, key_name, alias, passphrase]
-#             ]
-            
-#             # ====================
-#             # PREPARE LINK PROFILE
-#             # ====================
-#             if profile_obj["gl0_link"].lower() == "y" or profile_obj["gl0_link"].lower() == "yes":
-#                 link_zero = [
-#                     [
-#                         "True",
-#                         profile_obj["gl0_key"],
-#                         profile_obj["gl0_host"],
-#                         profile_obj["gl0_port"],
-#                         profile_obj["link_profile"]
-#                     ]
-#                 ]
-#             else:
-#                 link_zero = [["False","None","None","None","None"]]
-
-#         try:
-#             for n, profile in enumerate(profiles):
-#                 profile_obj = {
-#                     f"{profile}": {
-#                         "enable": enable,
-#                         "layer": layers[n],
-#                         "https": https,
-#                         "host": host[n],
-#                         "host_port": port[n],
-#                         "environment": environment,
-#                         "public": tcp_ports[n][0],
-#                         "p2p":  tcp_ports[n][1],
-#                         "cli":  tcp_ports[n][2],
-#                         "service": services[n],
-#                         "gl0_enable": link_zero[n][0],
-#                         "gl0_key": link_zero[n][1],
-#                         "gl0_host": link_zero[n][2],
-#                         "gl0_port": link_zero[n][3],
-#                         "link_profile": link_zero[n][4],
-#                         "snapshots": dirs[n][0],
-#                         "backups": dirs[n][1],
-#                         "uploads": dirs[n][2],
-#                         "java_jvm_xms": java[n][0],
-#                         "java_jvm_xmx": java[n][1],
-#                         "java_jvm_xss": java[n][2],
-#                         "p12_nodeadmin": p12[n][0],
-#                         "p12_key_location": p12[n][1],
-#                         "p12_key_name": p12[n][2],
-#                         "p12_key_alias": p12[n][3],
-#                         "p12_passphrase": p12[n][4],
-#                         "node_type": node_type[n],
-#                         "description": description[n],
-#                         "seed_location": seed_location[n],
-#                         "seed_file": seed_file[n],
-#                     }
-#                 } 
-                
-#                 self.config_ob = {
-#                     **self.config_ob,
-#                     **profile_obj,
-#                 }
-                
-#         except Exception as e:
-#             self.log.logger.error(f"Error building user defined profile details | error [{e}]")
-#             self.error_messages.error_code_messages({
-#                 "error_code": "cfr-1066",
-#                 "line_code": "profile_build_error",
-#                 "extra": e
-#             })
-            
-#         return
-
-
-
-        
-
-#     def build_yaml(self,quiet=False):
-#         # correlates to migration class - build_yaml
-        
-#         # self.build_known_skelton(1)
-#         # sorted_profile_obj =  sorted(self.config_obj.items(), key = lambda x: x[1]["layer"])
-#         sorted_profile_obj =  sorted(self.config_obj.items(), key = lambda x: (x[1]["layer"], x[0]))
-#         sorted_config_obj = {"profiles": {}}
-#         for profile in sorted_profile_obj:
-#             sorted_config_obj[profile[0]] = profile[1]
-#         self.config_ob = sorted_config_obj
-#         # self.build_yaml(True)
-        
-#         progress = {
-#             "text_start": "building",
-#             "brackets": "cn-config.yaml",
-#             "text_end": "file",
-#             "status": "in progress",
-#             "status_color": "yellow",
-#             "newline": False,
-#         }
-#         self.c.functions.print_cmd_status(progress)
-
-#         self.migrate.create_n_write_yaml()
-        
-#         # profile sections
-#         for profile in self.config_obj.keys():
-#             details = self.config_obj[profile]
-#             link_port = "None"
-#             if details["gl0_enable"] == "True":
-#                 try:
-#                     link_port = self.config_obj[details["link_profile"]]["public"]
-#                 except:
-#                     link_port = details["gl0_port"]
-#                     try:
-#                         int(link_port)
-#                     except Exception as e:
-#                         self.error_messages.error_code_messages({
-#                             "error_code": "cfr-1137",
-#                             "line_code": "link_to_profile",
-#                             "extra": profile,
-#                             "extra2": details["link_profile"]
-#                         })
-
-#             for p_detail in self.p12_items:
-#                 if p_detail == "passphrase":
-#                     try:
-#                         if details["p12_passphrase_global"] == "True" or self.is_all_global:
-#                             details[p_detail] = "global"
-#                     except:
-#                         if self.action == "new" or self.is_all_global:
-#                             details[p_detail] = "global"
-
-#                 elif self.is_all_global:
-#                     details[p_detail] = "global"
-
-#             if details["passphrase"] != "None" and details["passphrase"] != "global":
-#                 details["passphrase"] = f'"{details["passphrase"]}"'
-                
-#             rebuild_obj = {
-#                 "nodegarageprofile": profile,
-#                 "nodegarageenable": details["enable"],
-#                 "nodegarageblocklayer": details["layer"],
-#                 "nodegarageedgehttps": details["https"],
-#                 "nodegarageedgehost": details['host'],
-#                 "nodegarageedgeporthost": details["host_port"],
-#                 "nodegarageenvironment": details["environment"],
-#                 "nodegaragepublic": details["public"],
-#                 "nodegaragep2p": details["p2p"],
-#                 "nodegaragecli":details["cli"],
-#                 "nodegarageservice": details["service"],
-#                 "nodegaragelinkenable": details["gl0_enable"],
-#                 "nodegarage0layerkey": details["gl0_key"],
-#                 "nodegarage0layerhost": details["gl0_host"],
-#                 "nodegarage0layerport": str(link_port),
-#                 "ndoegarage0layerlink": details["link_profile"],
-#                 "nodegaragexms": details["java_jvm_xms"],
-#                 "nodegaragexmx": details["java_jvm_xmx"],
-#                 "nodegaragexss": details["java_jvm_xss"],
-#                 "nodegaragenodetype": details["node_type"],
-#                 "nodegaragedescription": details["description"],
-#                 "nodegaragesnaphostsdir": details["snapshots"],
-#                 "nodegaragebackupsdir": details["backups"],
-#                 "nodegarageuploadsdir": details["uploads"],
-#                 "nodegaragenodeadmin": details["p12_nodeadmin"],
-#                 "nodegaragekeylocation": details["p12_key_location"],
-#                 "nodegaragep12name": details["p12_key_name"],
-#                 "nodegaragewalletalias": details["p12_key_alias"],
-#                 "nodegaragepassphrase": details["p12_passphrase"],
-#                 "nodegarageseedlistloc": details["seed_location"],
-#                 "nodegarageseedlistfile": details["seed_file"],
-#                 "create_file": "config_yaml_profile",
-#             }
-#             self.migrate.configurator_builder(rebuild_obj)
-        
-        
-#         # auto_restart and upgrade section
-#         rebuild_obj = {
-#             "nodegarageeautoenable": str(self.config_obj["global_auto_restart"]["enable"]),
-#             "nodegarageautoupgrade": str(self.config_obj["global_auto_restart"]["auto_upgrade"]),
-#             "create_file": "config_yaml_autorestart",
-#         }
-#         self.migrate.configurator_builder(rebuild_obj)
-        
-#         # p12 section
-#         if self.config_obj["global_p12"]["passphrase"] != "None":
-#             self.config_obj["global_p12"]["passphrase"] = f'"{self.config_obj["global_p12"]["passphrase"]}"'
-            
-#         rebuild_obj = {
-#             "nodegaragenodeadmin": self.config_obj["global_p12"]["nodeadmin"],
-#             "nodegaragekeylocation": self.config_obj["global_p12"]["key_location"],
-#             "nodegaragep12name": self.config_obj["global_p12"]["key_name"],
-#             "nodegaragewalletalias": self.config_obj["global_p12"]["wallet_alias"],
-#             "nodegaragepassphrase": self.config_obj["global_p12"]["passphrase"],
-#             "create_file": "config_yaml_p12",
-#         }
-
-#         self.migrate.configurator_builder(rebuild_obj)
-        
-#         complete = self.migrate.final_yaml_write_out()
-#         self.move_config_backups()
-        
-#         if complete:
-#             self.c.functions.print_cmd_status({
-#                 **progress,
-#                 "status": "complete",
-#                 "status_color": "green",
-#                 "newline": True,
-#             })
-#             if not quiet:
-#                 self.ask_review_config()
-#                 self.c.functions.print_header_title({
-#                     "line1": "CONFIGURATOR UPDATED",
-#                     "show_titles": False,
-#                     "newline": "both",
-#                     "clear": True
-#                 })
-#                 self.c.functions.print_cmd_status({
-#                     "text_start": "Validating",
-#                     "brackets": "new",
-#                     "text_end": "config",
-#                     "status": "please wait",
-#                     "status_color": "yellow",
-#                     "newline": True,
-#                 })
-            
-#             self.move_config_backups()
-#             self.prepare_configuration("edit_config",True) # rebuild 
-            
-#             press_any = False
-#             if self.upgrade_needed:            
-#                 self.c.functions.print_paragraphs([
-#                     ["WARNING:",0,"yellow,on_blue","bold"],["This Node will need to be upgraded in order for changes to take affect.",2,"yellow"],
-#                     ["sudo nodectl upgrade",2,"grey,on_yellow","bold"],
-#                 ])
-#                 press_any = True
-#             elif self.restart_needed:
-#                 self.c.functions.print_paragraphs([
-#                     ["WARNING:",0,"yellow,on_blue","bold"],["This Node will need to be restarted in order for changes to take affect.",2,"yellow"],
-#                     [" sudo nodectl restart -p all ",2,"grey,on_yellow","bold"],
-#                 ])
-#                 press_any = True
-#             if press_any:
-#                 self.c.functions.print_any_key({})
-                    
-#         else:
-#             self.error_messages.error_code_messages({
-#                 "error_code": "cfr-1177",
-#                 "line_code": "missing_dirs"
-#             })
-        
-        
-#     def build_known_skelton(self,option):
-#         # option == numeric request or profile name
-#         # make copy of complex config config_obj without reference
-#         self.config_obj = deepcopy(self.c.config_obj)
-        
-#         try:
-#             int(option)
-#         except:
-#             for key, value in self.c.config_obj[option].items():
-#                 self.profile_details[key] = str(value)
-#         else:
-#             singles = ["enable","layer","environment","service","node_type","description"]
-#             key_replacements = {
-#                 "xms": "java_jvm_xms",
-#                 "xmx": "java_jvm_xmx",
-#                 "xss": "java_jvm_xss",
-#             }
-#             for profile in self.c.config_obj.keys():
-#                 profile_details = {}
-                
-#                 obj = self.config_obj[profile]
-#                 for key, value in obj.items():
-#                     if key in singles:
-#                         profile_details[key] = str(value)
-#                     else:
-#                         for i_key, i_value in obj[key].items():
-#                             if i_key in key_replacements:
-#                                 i_key = key_replacements[i_key]
-#                             if i_key == "enable": # layer0_link
-#                                 i_key = "gl0_enable"
-#                             profile_details[i_key] = str(i_value)
-                
-#                 profile_details["gl0_link"] = "y" if profile_details["gl0_enable"] == "True" else "n"
-#                 profile_details["profile_name"] = profile
-#                 self.config_obj[profile] = profile_details
-        
-#         self.prepare_configuration("migrator")
-            
             
 #     # =====================================================
 #     # EDIT CONFIG METHODS  
@@ -2310,7 +1763,7 @@ class Configurator():
             "line1": "Edit Profiles",
             "show_titles": False,
             "clear": True,
-            "newline": "top",
+            "newline": "both",
         }       
              
         self.c.functions.print_header_title({
@@ -2353,7 +1806,6 @@ class Configurator():
             
         
     def edit_profile_sections(self,topic="EDIT"):
-        menu_options = []
         def print_config_section():
             self.c.functions.print_header_title({
                 "line1": "CONFIGURATOR SECTION",
@@ -2362,6 +1814,7 @@ class Configurator():
                 "newline": "top",
                 "clear": True
             })
+            
         print_config_section()
 
         profile = self.profile_to_edit
@@ -2449,13 +1902,17 @@ class Configurator():
                 print_config_section()
                 
             if option not in options2:
-                try: option = int(option)-4
+                try: option =int(option)
                 except: option = -1
-                if option > len(section_change_names): option = -1
+                if option > 3:
+                    try: option = option-3
+                    except: option = -1
+                    if option > len(section_change_names): option = -1
+                
             if option not in options2 and option > -1:
-                option = section_change_names[option][1]
+                if option > 3: option = section_change_names[option-1][1]
 
-                if option == "1":
+                if option == 1:
                     self.edit_enable_disable_profile(profile)
                     
                 elif option == "2":
@@ -2465,24 +1922,16 @@ class Configurator():
                 elif option == "3":
                     self.delete_profile(profile)
                     self.called_option = "Delete Profile"
-                    
-                    
-                    
-                    
-                    
-                    
-                    
+
                 elif option == 6:
                     self.manual_build_layer(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
                     self.called_option = "layer modification"
-
                     
                 elif option == 17:
                     self.manual_collateral(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [collateral] [{self.action}]"
                     self.called_option = "layer modification"
-
                     
                 elif option == 7:
                     self.manual_build_environment(profile)
@@ -2528,6 +1977,7 @@ class Configurator():
 
                 elif option == 5:
                     self.migrate_directories(profile)
+                    self.error_hint = "dir"
                     self.called_option = "Directory structure modification"                    
                     
                 elif option == 13:
@@ -2536,6 +1986,7 @@ class Configurator():
 
                 elif option == 20:
                     self.manual_build_link(profile)
+                    self.error_hint = "link"
                     self.called_option = "Layer0 link"
                     
                 if do_validate: self.validate_config(profile)
@@ -2678,7 +2129,6 @@ class Configurator():
         if p12_only:
             self.profile_details["p12_passphrase_global"] = 'True'
             self.preserve_pass = True
-            self.skip_convert = True
             self.skip_prepare = True
             self.is_all_global = True
             self.request_p12_details({
@@ -2894,7 +2344,7 @@ class Configurator():
     def edit_enable_disable_profile(self, profile, task="None"):
         c_enable_disable = f"Enable {profile} [{colored('disabled','magenta',attrs=['bold'])}{colored(']','magenta')}"
         enable_disable = "enable"
-        if self.c.profile_obj[profile]["enable"] == True:
+        if self.c.config_obj[profile]["profile_enable"] == True:
             c_enable_disable = f"Disable {profile} [{colored('enabled','magenta',attrs=['bold'])}{colored(']','magenta')}" 
             enable_disable = "disable"
         c_enable_disable = colored(f') {c_enable_disable}','magenta')
@@ -2907,62 +2357,19 @@ class Configurator():
             })
             print(f"{colored('  1','magenta',attrs=['bold'])}{c_enable_disable}")
         else:
-            if enable_disable == "enable":
-                new = "True"; new_v = "disable" 
-                old_v = "enable"
-            else:
-                new = "False"; new_v = "enable"
-                old_v = "disable"
+            defaults = {
+                "profile_enable": "True" if enable_disable == "enable" else "False"
+            }
             
-            confirmation = self.edit_confirm_choice(new_v,old_v,"enable", profile)
-            if confirmation:
-                self.profile_details["enable"] = new
-                return True
-            return False
-
+            self.manual_append_build_apply({
+                "questions": False,
+                "defaults": defaults,
+                "profile": profile,
+            })
         
-#     def edit_confirm_choice(self, old, new, section, profile):
-#         self.c.functions.print_paragraphs([
-#             ["",1],["For section [",0], [section,-1,"yellow","bold"], ["]",-1],["",1],
-#             ["Are you sure you want to change [",-1], [old,-1,"red","bold"], ["] to [",-1], [new,-1,"green","bold"],["]?",-1],["",1]
-#         ])   
-        
-#         if self.c.functions.confirm_action({
-#             "yes_no_default": "y",
-#             "return_on": "y",
-#             "prompt": f"Confirm choice to {new}?",
-#             "exit_if": False
-#         }):
-#             warning_confirm = True
-#             if section == "enable" and new == "disable":
-#                 for replace_link_p in self.c.config_obj.keys():
-#                     if self.c.config_obj[replace_link_p]["gl0_link_profile"] == profile:
-#                         self.c.functions.print_paragraphs([
-#                             [" WARNING ",0,"red,on_yellow"], ["Selected Profile [",0], [replace_link_p,-1,"yellow"], 
-#                             ["] seems to be reliant on [",-1], [profile,-1,"yellow","bold"], ["]. Continuing will",-1],
-#                             ["introduce possible errors.  Either remove the dependent profile from the other profiles before",0],
-#                             ["continuing, quit, or proceed with this understanding.",2]
-#                         ])
-#                         warning_confirm = self.c.functions.confirm_action({
-#                             "yes_no_default": "n",
-#                             "return_on": "y",
-#                             "prompt": f"Still perform {new}?",
-#                             "prompt_color": "red",
-#                             "exit_if": False
-#                         })
-#             if warning_confirm:        
-#                 return True
-#         cprint("  Action cancelled","red")
-#         return False
-    
-          
-#     def edit_globals(self):
-#         pass
-    
-    
-#     # =====================================================
-#     # OTHER
-#     # =====================================================
+    # =====================================================
+    # OTHER
+    # =====================================================
     
     def backup_config(self):
         print("")
@@ -3016,26 +2423,6 @@ class Configurator():
 
         self.is_file_backedup = True       
 
-
-#     def show_help(self):
-#         cli = CLI({
-#             "caller": "config",
-#             "config_obj": self.c.config_obj,
-#             "ip_address": None,
-#             "command": "help",
-#             "version_obj": None
-#         })
-        
-#         cli.version_obj = cli.functions.get_version({"which": "nodectl_all"})
-        
-#         cli.functions.print_help({
-#                 "nodectl_version_only": True,
-#                 "title": True,
-#                 "extended": "configure",
-#                 "usage_only": False,
-#                 "hint": False,
-#         })
-       
     
     def migrate_directories(self,profile):
         dir_list = ["directory_uploads","directory_backups"]
@@ -3431,22 +2818,39 @@ class Configurator():
             ["",1], [" ERROR ",0,"grey,on_red","bold"],
             ["During the configuration editing session [",0,"red"],
             [self.called_option,-1,"yellow","bold"], ["] an incorrect input was detected",-1,"red"],["",2],
-            
-            [" HINT ",0,"grey,on_yellow","bold"], ["If",0,"cyan","bold"], ["attempting to change directory structure or any elements,",0],
-            ["the directory structure must exist already.",2],
-            
+        ])
+        if self.error_hint:
+            if self.error_hint == "dir":
+                self.c.functions.print_paragraphs([
+                    [" HINT ",0,"grey,on_yellow","bold"], ["If",0,"cyan","bold"], ["attempting to change directory structure for any elements,",0],
+                    ["the directory structure must exist already.",2],
+                ])
+            if self.error_hint == "link":
+                self.c.functions.print_paragraphs([
+                    [" HINT ",0,"grey,on_yellow","bold"], ["If",0,"cyan","bold"], ["attempting to change or add a link key,",0],
+                    ["please make sure it is a valid 128bit hexadecimal value.",1],
+                    [" HINT ",0,"grey,on_yellow","bold"], ["If",0,"cyan","bold"], ["attempting to change or add a link host,",0],
+                    ["please make sure it is a valid FQDN (Full Qualified Domain Name) or decimal period delineated value.",2],
+                ])
+            self.error_hint = False # reset
+        self.c.functions.print_paragraphs([
             ["Please review the nodectl logs and/or Node operator notes and try again",2],
             
             ["You can also attempt to restore your",0,"magenta"], ["cn-config.yaml",0,"yellow","bold"], ["from backups.",2,"magenta"]
         ])
         
         if not self.is_new_config:
-            self.c.functions.print_any_key({})
+            self.c.functions.print_any_key({"prompt":"Press any key to return and try again"})
             self.edit_profile_sections("RETRY")
         else:
             exit(1)
         
-    
+
+    def print_quit_option(self):
+        self.c.functions.print_paragraphs([
+            [f"Press the <ctrl>+c key to quit any time",1,"yellow"],
+        ]) 
+
     def validate_config(self,profile):
         verified = True
         self.c.build_yaml_dict()
@@ -3456,66 +2860,8 @@ class Configurator():
         if not verified:
             self.log.logger.error(self.edit_error_msg)
             self.print_error()   
+        
                   
-
-#     def confirm_with_word(self,command_obj):
-#         notice = command_obj.get("notice",False)
-#         word = command_obj.get("word")
-#         action = command_obj.get("action")
-#         profile = command_obj.get("profile")
-#         default = command_obj.get("default","n")  # "y" or "n"
-        
-#         confirm_str = f"{colored(f'  Confirm {action} by entering exactly [','cyan')} {colored(f'YES-{profile}','green')} {colored(']','cyan')}: "
-#         confirm = input(confirm_str)
-        
-#         def word_any_key(prompt):
-#             print("")
-#             self.c.functions.get_user_keypress({
-#                 "prompt": prompt,
-#                 "prompt_color": "red",
-#                 "options": ["any_key"],
-#             })      
-                  
-#         if f"{word}-{profile}" == confirm:
-#             if self.detailed:
-#                 self.c.functions.print_paragraphs(notice)
-
-#             if notice:
-#                 confirm_notice = self.c.functions.confirm_action({
-#                     "yes_no_default": default,
-#                     "return_on": "y",
-#                     "prompt": "Continue?",
-#                     "exit_if": False
-#                 })
-#                 if not confirm_notice:
-#                     word_any_key("action cancelled by Node Operator, press any key")
-#                     return False    
-                
-#             return True
-        
-#         word_any_key("confirmation phrase did not match, cancelling operation, press any key")
-#         return False
-        
-            
-#     def convert_config_obj(self):
-#         # self.c.functions.print_json_debug(self.config_obj,False)
-        
-#         sections = deepcopy(self.c.test_dict)
-#         sections.pop("top"); sections.pop("profiles")
-#         sections["java"] = ["java_jvm_xms","java_jvm_xms","java_jvm_xms"]
-#         sections["gl0_link"][0] = "gl0_enable"
-#         singles = ["enable","layer","environment","service","node_type","description"]
-        
-#         for profile in self.c.config_obj.keys():
-#             for section in self.c.config_obj[profile].keys():
-#                 if section in singles:
-#                   self.c.config_obj[profile][section] = self.profile_details[section]
-
-#             for subsection in sections:
-#                 for item in sections[subsection]:
-#                     self.c.config_obj[profile][subsection][item] = self.profile_details[item]
-        
-
     def handle_service(self,profile,s_type):
         # user will be notified to do a full restart at the of the process
         # to return to the network instead of doing it here.  This will ensure
@@ -3556,8 +2902,83 @@ class Configurator():
             "status": "complete",
             "status_color": "green",
             "newline": True
+        })  
+
+
+    def ask_review_config(self):
+        user_confirm = self.c.functions.confirm_action({
+            "yes_no_default": "y",
+            "return_on": "y",
+            "prompt": "Review the created configuration?",
+            "exit_if": False
         })   
+        if user_confirm:           
+            self.c.view_yaml_config("migrate")     
+            
+
+    def quit_configurator(self):
+        cprint("  Configurator exited upon Node Operator request","green")
+        exit(0)  
         
+        
+#     def show_help(self):
+#         cli = CLI({
+#             "caller": "config",
+#             "config_obj": self.c.config_obj,
+#             "ip_address": None,
+#             "command": "help",
+#             "version_obj": None
+#         })
+        
+#         cli.version_obj = cli.functions.get_version({"which": "nodectl_all"})
+        
+#         cli.functions.print_help({
+#                 "nodectl_version_only": True,
+#                 "title": True,
+#                 "extended": "configure",
+#                 "usage_only": False,
+#                 "hint": False,
+#         })
+
+
+#     def confirm_with_word(self,command_obj):
+#         notice = command_obj.get("notice",False)
+#         word = command_obj.get("word")
+#         action = command_obj.get("action")
+#         profile = command_obj.get("profile")
+#         default = command_obj.get("default","n")  # "y" or "n"
+        
+#         confirm_str = f"{colored(f'  Confirm {action} by entering exactly [','cyan')} {colored(f'YES-{profile}','green')} {colored(']','cyan')}: "
+#         confirm = input(confirm_str)
+        
+#         def word_any_key(prompt):
+#             print("")
+#             self.c.functions.get_user_keypress({
+#                 "prompt": prompt,
+#                 "prompt_color": "red",
+#                 "options": ["any_key"],
+#             })      
+                  
+#         if f"{word}-{profile}" == confirm:
+#             if self.detailed:
+#                 self.c.functions.print_paragraphs(notice)
+
+#             if notice:
+#                 confirm_notice = self.c.functions.confirm_action({
+#                     "yes_no_default": default,
+#                     "return_on": "y",
+#                     "prompt": "Continue?",
+#                     "exit_if": False
+#                 })
+#                 if not confirm_notice:
+#                     word_any_key("action cancelled by Node Operator, press any key")
+#                     return False    
+                
+#             return True
+        
+#         word_any_key("confirmation phrase did not match, cancelling operation, press any key")
+#         return False
+  
     
 #     def is_duplicate_profile(self,profile_name):
 #         for profile in self.config_obj.keys():
@@ -3594,23 +3015,7 @@ class Configurator():
 #         else:
 #             system(f"mv {self.config_path}cn-config_yaml_* {backup_dir} > /dev/null 2>&1")
 #             self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
-
-        
-    def ask_review_config(self):
-        user_confirm = self.c.functions.confirm_action({
-            "yes_no_default": "y",
-            "return_on": "y",
-            "prompt": "Review the created configuration?",
-            "exit_if": False
-        })   
-        if user_confirm:           
-            self.c.view_yaml_config("migrate")     
-            
-
-    def quit_configurator(self):
-        cprint("  Configurator exited upon Node Operator request","green")
-        exit(0)             
-        
+    
                           
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

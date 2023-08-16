@@ -534,13 +534,13 @@ class Configuration():
         remove_list = []
         
         for profile in self.metagraph_list:
-            if not self.config_obj[profile]["enable"]:
+            if not self.config_obj[profile]["profile_enable"]:
                 if "edit_config" not in self.argv_list:
                     remove_list.append(profile)
 
         for profile in remove_list:
             self.config_obj.pop(profile)
-            self.metagraph_list.pop(profile)
+            self.metagraph_list.pop(self.metagraph_list.index(profile))
 
 
     def is_passphrase_required(self):
@@ -633,7 +633,7 @@ class Configuration():
             self.functions.print_clear_line()
         
         for profile in self.metagraph_list:
-            if profile_obj[profile]["enable"] and self.action != "edit_config":
+            if profile_obj[profile]["profile_enable"] and self.action != "edit_config":
                 for m_or_g in ["ml0","gl0"]:
                     if profile_obj[profile][f"{m_or_g}_link_host"] == "self":
                         print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
@@ -708,7 +708,7 @@ class Configuration():
         # =====================================================         
         self.schema = {
             "metagraphs": [
-                ["enable","bool"],
+                ["profile_enable","bool"],
                 ["environment","str"],
                 ["description","str"],
                 ["node_type","node_type"],                
@@ -768,6 +768,7 @@ class Configuration():
             "global_auto_restart": [
                 ["auto_restart","bool"],
                 ["auto_upgrade","bool"],
+                ["on_boot","bool"],
                 ["rapid_restart","bool"],
             ],
             "global_p12": [

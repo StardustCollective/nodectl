@@ -835,7 +835,7 @@ class CLI():
 
             print_out_list = [
                 {
-                    "METAGRAPH NAME": metagraph_name[n],
+                    "METAGRAPH NAME": metagraph_name,
                     "PROFILE NAME": profile,
                 },
                 {
