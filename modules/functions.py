@@ -1083,7 +1083,7 @@ class Functions():
                             if profile != None and profile != "all":
                                 i_profile = profile
                             profile_layer = self.config_obj[i_profile]["layer"]
-                            profile_enable = self.config_obj[i_profile]["enable"]
+                            profile_enable = self.config_obj[i_profile]["profile_enable"]
                             if profile_layer == layer and profile_enable:
                                 self.default_profile = i_profile
                                 
@@ -1534,18 +1534,13 @@ class Functions():
             }
         
         elif var.req == "exists" or var.req == "enabled":
-            try:
-                test = self.config_obj[profile]["enable"]
-            except:
-                test = False
+            try: test = self.config_obj[profile]["profile_enable"]
+            except: test = False
                 
             if test:
-                if var.req == "enabled" and test:
-                    return True
-                elif var.req == "enabled" and not test:
-                    return False
-                else:
-                    return test
+                if var.req == "enabled" and test: return True
+                elif var.req == "enabled" and not test: return False
+                else: return test
                 
             self.error_messages.error_code_messages({
                 "error_code": "fnt-998",
@@ -2466,15 +2461,16 @@ class Functions():
     def print_any_key(self,command_obj):
         quit_option = command_obj.get("quit_option",False)
         newline = command_obj.get("newline",False)
+        prompt = command_obj.get("prompt",False)
         key_pressed = None
         
         if newline == "top" or newline == "both":
             print("")
             
-        prompt = "Press any key to continue"
+        if not prompt: prompt = "Press any key to continue"
         options = ["any_key"]
         if quit_option:
-            prompt = "Press any key or 'q' to quit"
+            prompt = f"{prompt} or 'q' to quit"
             options = ["any_key","q"]
             
         key_pressed = self.get_user_keypress({
@@ -2694,7 +2690,7 @@ class Functions():
     
     def print_auto_restart_warning(self):
         try:
-            if self.config_obj["global_auto_restart"]["enable"]:
+            if self.config_obj["global_auto_restart"]["auto_restart"]:
                 self.print_paragraphs([
                     ["",1], ["If",0,"red"], ["global_auto_restart",0,"yellow","bold"], ["is enabled, this is an",0,"red"], ["exception",0,"red","bold"],
                     ["and auto_restart will not reengage. You will have to do this manually.",2,"red"],
