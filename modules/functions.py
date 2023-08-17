@@ -2452,10 +2452,10 @@ class Functions():
             if let_or_num == "let":
                 if option == return_option[0]:
                     return return_option
-            try:
-                return options[int(option)-1]
-            except:
-                return option # r_and_q exception
+        try:
+            return options[int(option)-1]
+        except:
+            return option # r_and_q exception
         
         
     def print_any_key(self,command_obj):

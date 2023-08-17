@@ -30,6 +30,7 @@ class Configurator():
                         
         self.config_path = "/var/tessellation/nodectl/"
         self.config_file = "cn-config.yaml"
+        self.config_file_path = "/var/tessellation/nodectl/cn-config.yaml"
         self.yaml_path = "/var/tmp/cnng-new-temp-config.yaml"
         self.profile_to_edit = None
         self.config_obj = {}
@@ -38,7 +39,6 @@ class Configurator():
         self.action = False
         self.error_hint = False
         self.is_all_global = False
-        self.profile_details = False
         self.preserve_pass = False
         self.upgrade_needed = False
         self.restart_needed = True
@@ -87,9 +87,6 @@ class Configurator():
             "skip_report": True,
             "argv_list": [action],
         })
-            
-        if not self.profile_details:
-            self.profile_details = {}
         
         self.c.config_obj["global_elements"] = {"caller":"config"}
         self.node_service = Node({
@@ -103,8 +100,8 @@ class Configurator():
         
         if action == "edit_config":
             self.config_obj_apply = {}
-            if path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
-                system(f"sudo cp /var/tessellation/nodectl/cn-config.yaml {self.yaml_path} > /dev/null 2>&1")
+            if path.isfile(self.config_file_path):
+                system(f"sudo cp {self.config_file_path} {self.yaml_path} > /dev/null 2>&1")
             else:
                 self.error_messages.error_code_messages({
                     "error_code": "cfr-101",
@@ -708,8 +705,16 @@ class Configurator():
                         "skip_backup": True,
                     })
                     
-        system(f"sudo cp {self.yaml_path} /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
+        system(f"sudo cp {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
         system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
+        print("")
+        self.c.functions.print_cmd_status({
+            "text_start": "Configuration changes applied",
+            "status": "successfully",
+            "status_color": "green",
+            "newline": True,
+            "delay": 1.5,
+        })
         if self.action != "new": self.prepare_configuration("edit_config",True)
 
 
@@ -810,7 +815,7 @@ class Configurator():
 
     def manual_build_description(self,profile=False):
         default = "none" if not profile else self.c.config_obj[profile]["description"]
-        profile = self.profile if not profile else profile
+        profile = self.profile_to_edit if not profile else profile
 
         self.manual_section_header(profile,"DESCRIPTION") 
         
@@ -827,6 +832,144 @@ class Configurator():
             "questions": questions, 
             "profile": profile,
         })
+
+
+    def manual_args(self,profile=False):
+        profile = self.profile_to_edit if not profile else profile
+        custom_args_envs = {}
+        add_or_remove = False
+        c_types = ["custom_args","custom_env_vars"]
+        arg_types = ["custom option arguments","custom environment variables"]
+        
+        self.manual_section_header(profile,"CUSTOM ARGUMENTS") 
+        self.c.functions.print_paragraphs([
+            ["",1],["Please choose the type of custom argument(s) you would like to append, update, or remove:",2]
+        ])
+        option = self.c.functions.print_option_menu({
+            "options": arg_types,
+            "let_or_num": "num",
+            "color": "magenta",
+        })
+        option = int(option)-1
+        c_type = "args" if option == 0 else "env_vars"
+        self.manual_section_header(profile, arg_types[option])
+        print("")
+        if self.c.config_obj[profile][f"custom_{c_type}_enable"]:
+            enable_disable_str = "disable" 
+            return_on = "n"
+        else: 
+            enable_disable_str = "enable"
+            return_on = "y"
+        enable_disable = self.c.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": return_on,
+            "prompt": f"Do you want to {enable_disable_str} {arg_types[option]}",
+            "exit_if": False
+        })
+        defaults = {f"custom_{c_type}_enable": f"{enable_disable}"}
+        start_line = f"    custom_{c_type}_enable: {enable_disable}\n"
+        
+        if enable_disable:
+            description = "Custom arguments are key pairs (name of an option and its value) that will be added as an "
+            description += "option to the command line that starts the Node's process during the start phase of the process "
+            if c_type == "env_vars":
+                description = "Custom environment variables are key pairs (name of a distribution shell environment variable and its value) "
+                description += "that will be added to the shell environment prior to the start of the Node's process "
+            description += "that runs on your Node to allow it to prepare to join a cluster.  This value should be added only "
+            description += "as instructed or required by the Administrators of a Metagraph." 
+            self.c.functions.print_paragraphs([
+                ["",1], [description,2,"white","bold"],
+                ["If you enter a key value that already exists, it will be overwritten in the configuration",0,"yellow"],
+                ["by the new value entered here.",2,"yellow"],
+                ["Do not include the 'custom_args_' or 'custom_env_vars' in your key name.",2,"red"],
+            ])
+            
+            add_or_remove = self.c.functions.print_option_menu({
+                "options": [f"add or update {arg_types[option]}",f"remove existing {arg_types[option]}"],
+                "let_or_num": "let",
+                "return_value": True,
+                "color": "magenta",
+            })
+            add_or_remove = add_or_remove.split(" ")[0]
+            cprint(f"  Enter entries to {add_or_remove}","green")
+            
+            while True:
+                does_not_exist = False
+                key_name = input(colored(f"  Enter {arg_types[option]} key name: ","cyan"))
+                if add_or_remove == "add":
+                    key_value = input(colored(f"  Enter {arg_types[option]} value: ","cyan"))
+                else: 
+                    try: key_value = self.c.config_obj[profile][f"custom_{c_type}_{key_name}"]
+                    except: does_not_exist = True
+                
+                if c_type in key_name: key_name.replace(f"custom_{c_type}_","")
+                if does_not_exist:
+                    self.c.functions.print_cmd_status({
+                        "text_start": f"custom {c_type}",
+                        "brackets": key_name,
+                        "text_end": "not found",
+                        "status": "skipping",
+                        "status_color": "yellow",
+                        "newline": True,
+                    })
+                elif key_name != "" and key_value != "":
+                    custom_args_envs[f"custom_{c_type}_{key_name}"] = key_value           
+                if not self.c.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": f"Do you want to enter another {arg_types[option]}?",
+                    "exit_if": False
+                }): 
+                    break
+        
+        if len(custom_args_envs) > 0:
+            self.c.functions.print_paragraphs([
+                ["",1], ["Verify Values",1,"blue","bold"],
+                ["=============",1,"blue","bold"],
+            ])
+            for key, value in custom_args_envs.items():
+                cprint(f'  {key.replace(f"custom_{c_type}_","")} = {value}',"yellow")
+            
+            print("")    
+            if self.c.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "n",
+                "prompt": f"Verify custom entries to {'add/update' if add_or_remove == 'add' else 'remove'}",
+                "exit_if": False
+            }):
+                cprint("  Canceling custom variable process","red")
+                sleep(1.5)
+                return             
+        
+        for key,value in custom_args_envs.items():
+            if f"custom_{c_type}" not in key: custom_args_envs[f"{c_type}_{key}"] = value 
+            else: custom_args_envs[f"{key}"] = value 
+
+        if add_or_remove == "add":
+            for key in self.c.config_obj[profile].keys():
+                if key in custom_args_envs.keys():
+                    defaults = {
+                        **defaults,
+                        f"{key}": f"{custom_args_envs[key]}",
+                    }
+                    del custom_args_envs[key]
+            
+        self.manual_append_build_apply({
+            "questions": False, 
+            "profile": profile,
+            "defaults": defaults,
+        })
+        
+        list_of_lines = [f"    {key}: {value}\n" for key, value in custom_args_envs.items()]
+        if len(list_of_lines) > 0:
+            self.append_remove_config_lines({
+                "profile": profile,
+                "append": True if add_or_remove == "add" else False,
+                "start_line": start_line,
+                "end_line": self.metagraph_list[self.metagraph_list.index(profile)+1],
+                "exclude_string": "link_profile",
+                "list_of_lines": list_of_lines
+            })
         
         
     def manual_build_edge_point(self,profile=False):
@@ -880,6 +1023,7 @@ class Configurator():
         defaults = command_obj.get("defaults",False)
         confirm = command_obj.get("confirm",True)
         apply = command_obj.get("apply",True)
+        custom = False
         
         no_change_list = []
         if questions: no_change_list.append(command_obj.get("no_change_list_questions",list(questions.keys())))
@@ -890,12 +1034,21 @@ class Configurator():
         
         # identify profiles that do not change
         for i_profile in self.metagraph_list:
-            if i_profile == profile:
-                continue
+            if i_profile == profile: continue
 
             for item in no_change_list:
                 if i_profile not in append_obj: append_obj[i_profile] = {}
-                append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
+                try: append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
+                except:
+                    if "custom_" in item: 
+                        custom = True
+                        self.log.logger.debug(f"Did not find custom variable in config, skipping [{item}]")
+                    else:
+                        self.error_messages.error_code_messages({
+                            "error_code": "cfg-1046",
+                            "line_code": "config_error",
+                            "extra": "format"
+                        })
                 append_obj[i_profile]["do_not_change"] = True
 
         # append and add to the append_obj
@@ -903,7 +1056,9 @@ class Configurator():
             if i_profile != profile: 
                 i_append_obj = {}
                 for item in no_change_list:
-                    i_append_obj[f"{item}"] = self.c.config_obj[i_profile][item]
+                    try: i_append_obj[f"{item}"] = self.c.config_obj[i_profile][item]
+                    except: 
+                        if custom: continue
                 append_obj[f"{i_profile}"] = {**i_append_obj, "do_not_change": True}
                 
         # append the changing items to the append obj
@@ -992,7 +1147,7 @@ class Configurator():
         
     def manual_build_environment(self,profile=False):
         default = None if not profile else self.c.config_obj[profile]["environment"]
-        profile = self.profile if not profile else profile
+        profile = self.profile_to_edit if not profile else profile
         required = True if not profile else False
         
         self.manual_section_header(profile,"ENVIRONMENT")  
@@ -1021,24 +1176,11 @@ class Configurator():
     def manual_build_tcp(self,profile=False):
         port_start = "You must define a TCP (Transport Control Protocol) port that your Node will run on, to accept"
         port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your layer0 or Metagraph administrator for recommended port values."
-
-        tcp_range = [9000,9010,9020,9030,9040]
         
         if profile:
             public_default = self.c.config_obj[profile]["public_port"]  
             p2p_default = self.c.config_obj[profile]["p2p_port"]     
             cli_default = self.c.config_obj[profile]["cli_port"]  
-        else:
-            profile = self.profile_to_edit
-            for n, range in enumerate(tcp_range):
-                if self.profile_details["layer"] == str(n):
-                    public_default = f"{range}"
-                    p2p_default = f"{range+1}"
-                    cli_default = f"{range+2}" 
-                    break
-                else:
-                    self.log.logger.error(f"invalid transport layer entered? [{self.profile_details['layer']}] cannot derive default values")
-                    p2p_default = cli_default = public_default = None
 
         try: 
             _ = int(self.c.config_obj[profile]["layer"])
@@ -1047,7 +1189,7 @@ class Configurator():
             self.error_messages.error_code_messages({
                 "error_code": "cfr-369",
                 "line_code": "invalid_layer",
-                "extra": self.profile_details["layer"]
+                "extra": self.c.config_obj["layer"]
             })
             
         self.manual_section_header(profile,"TCP PORTS") 
@@ -1102,14 +1244,11 @@ class Configurator():
             
             
     def manual_build_link(self,profile=False): 
-        dict_link,dict_link2, dict_link3 = {}, {}, {}      
-        link = False if not profile else True
         title_profile = self.profile_to_edit if not profile else profile
         
         gl0_linking, ml0_linking = True, True
-        gl0_enabled, ml0_enabled = False, False
         gl0_ask_questions, ml0_ask_questions = False, False
-        questions, defaults, separate = False, False, False
+        questions, defaults = False, False
         
         layer_types = ["gl0","ml0"]
         
@@ -1820,9 +1959,6 @@ class Configurator():
         profile = self.profile_to_edit
          
         section_change_names = [
-            ("API Edge Point",18),
-            ("API TCP Ports",19),
-            ("Consensus Linking",20),
             ("System Service",4),
             ("Directory Structure",5),
             ("DLT Layer Type",6),
@@ -1830,21 +1966,22 @@ class Configurator():
             ("Java Memory Heap",8),
             ("Seed List Setup",9),
             ("Tessellation Binaries",10),
-            ("Node Type",11),
+            ("Source Priority Setup",11),
             ("Policy Description",12),
             ("Profile Private p12 Key",13),
-            ("Source Priority Setup",14),
-            ("Java Binary Setup",15),
-            ("Custom Variables",16),
-            ("Collateral Requirements",17),
+            ("Node Type",14),
+            ("Custom Variables",15),
+            ("Collateral Requirements",16),
+            ("API Edge Point",17),
+            ("API TCP Ports",18),
+            ("Consensus Linking",19),
         ]
         section_change_names.sort()
                         
         while True:
-            do_build_profile, do_build_yaml, do_print_title, do_validate = True, True, True, True 
-            do_terminate = False
+            do_print_title, do_validate = True, True
             option = 0
-            
+            self.called_option = "profile editor"
             self.edit_enable_disable_profile(profile,"prepare")
             bright_profile = colored(profile,"magenta",attrs=["bold"])
 
@@ -1913,81 +2050,89 @@ class Configurator():
                 if option > 3: option = section_change_names[option-1][1]
 
                 if option == 1:
+                    self.called_option = "enable_disable"
                     self.edit_enable_disable_profile(profile)
                     
                 elif option == "2":
-                    self.edit_profile_name(profile)
                     self.called_option = "Profile Name Change"
-                    
-                elif option == "3":
-                    self.delete_profile(profile)
-                    self.called_option = "Delete Profile"
+                    self.edit_profile_name(profile)
 
+                    
+                elif option == 3:
+                    self.called_option = "Delete Profile"
+                    self.delete_profile(profile)
+                    return "E" # return to edit menu
+                        
+                elif option == 4:
+                    self.called_option = "Service Name Change"
+                    self.edit_service_name(profile)
+
+                elif option == 5:
+                    self.called_option = "Directory structure modification"  
+                    self.migrate_directories(profile)
+                    self.error_hint = "dir"
+                                                            
                 elif option == 6:
+                    self.called_option = "layer modification"
                     self.manual_build_layer(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [layer] [{self.action}]"
-                    self.called_option = "layer modification"
-                    
-                elif option == 17:
-                    self.manual_collateral(profile)
-                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [collateral] [{self.action}]"
-                    self.called_option = "layer modification"
                     
                 elif option == 7:
-                    self.manual_build_environment(profile)
                     self.called_option = "Environment modification"
+                    self.manual_build_environment(profile)
                     do_validate = False
-                    
-                elif option == 12:
-                    self.manual_build_description(profile)
-                    self.called_option = "Description modification"   
-                    do_validate = False
-                    
+
                 elif option == 8:
+                    self.called_option = "Java heap memory modification"
                     self.manual_build_memory(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
-                    self.called_option = "Java heap memory modification"
-                                                         
-                elif option == 19:
+
+                elif option == 9 or option == 10 or option == 11:
+                    self.called_option = "PRO modification"
+                    file_repo_type = "seed" 
+                    if option == 11: file_repo_type ="priority_source"
+                    if option == 10: file_repo_type = "jar"
+                    self.manual_build_file_repo(file_repo_type,profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
+                   
+                elif option == 12:
+                    self.called_option = "Description modification"  
+                    self.manual_build_description(profile)
+                    do_validate = False
+                    
+                elif option == 13:
+                    self.called_option = "P12 modification"
+                    self.manual_build_p12(profile)
+                    
+                elif option == 14:
+                    self.called_option = "Node type modification"  
+                    self.manual_build_node_type(profile)
+                    
+                elif option == 15:
+                    self.called_option = "Custom Arguments"
+                    self.manual_args(profile)
+                    do_validate = False      
+                                                                               
+                elif option == 16:
+                    self.called_option = "layer modification"
+                    self.manual_collateral(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [collateral] [{self.action}]"
+
+                elif option == 17:
+                    self.called_option = "Edge Point Modification"    
+                    self.manual_build_edge_point(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
+                    
+                elif option == 18:
+                    self.called_option = "TCP modification"
                     self.tcp_change_preparation(profile)
                     self.manual_build_tcp(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [TCP build] [{self.action}]"
-                    self.called_option = "TCP modification"
 
-                elif option == 18:
-                    self.manual_build_edge_point(profile)
-                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [edge_point] [{self.action}]"
-                    self.called_option = "Edge Point Modification"
-                        
-                elif option == 4:
-                    self.edit_service_name(profile)
-                    self.called_option = "Service Name Change"
-                    
-                elif option == 9 or option == 14 or option == 10:
-                    file_repo_type = "seed" 
-                    if option == 14: file_repo_type ="priority_source"
-                    if option == 10: file_repo_type = "jar"
-                    self.manual_build_file_repo(file_repo_type,profile)
-                    self.called_option = "PRO modification"
-                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
-                   
-                elif option == 11:
-                    self.manual_build_node_type(profile)
-                    self.called_option = "Node type modification"                    
-
-                elif option == 5:
-                    self.migrate_directories(profile)
-                    self.error_hint = "dir"
-                    self.called_option = "Directory structure modification"                    
-                    
-                elif option == 13:
-                    self.manual_build_p12(profile)
-                    self.called_option = "P12 modification"
-
-                elif option == 20:
+                elif option == 19:
+                    self.called_option = "Layer0 link"
                     self.manual_build_link(profile)
                     self.error_hint = "link"
-                    self.called_option = "Layer0 link"
                     
                 if do_validate: self.validate_config(profile)
                 if do_print_title: print_config_section()
@@ -2127,7 +2272,6 @@ class Configurator():
 
         # self.migrate.keep_pass_visible = True
         if p12_only:
-            self.profile_details["p12_passphrase_global"] = 'True'
             self.preserve_pass = True
             self.skip_prepare = True
             self.is_all_global = True
@@ -2154,57 +2298,72 @@ class Configurator():
             })   
                  
     
-#     def delete_profile(self,profile):
-#         self.c.functions.print_header_title({
-#             "line1": f"DELETE A PROFILE",
-#             "line2": profile,
-#             "single_line": True,
-#             "clear": True,
-#             "newline": "both"
-#         })
+    def delete_profile(self,profile):
+        self.c.functions.print_header_title({
+            "line1": f"DELETE A PROFILE",
+            "line2": profile,
+            "single_line": True,
+            "clear": True,
+            "newline": "both"
+        })
 
-#         notice = [
-#             ["",1],
-#             [" WARNING! ",2,"grey,on_red"],
-#             ["This will",0,"red"], ["not",0,"red","bold"], ["only",0,"yellow","underline"], ["remove the profile from the configuration;",0,"red"],
-#             ["moreover, this will also remove all",0,"red"], ["data",0,"magenta","bold,underline"], ["from the",0,"red"],
-#             ["Node",0,"yellow","bold"], ["pertaining to profile",0,"red"], [profile,0,"yellow","bold,underline"],["",2],
+        notice = [
+            ["",1],
+            [" WARNING! ",2,"grey,on_red"],
+            ["This will",0,"red"], ["not",0,"red","bold"], ["only",0,"yellow","underline"], ["remove the profile from the configuration;",0,"red"],
+            ["moreover, this will also remove all",0,"red"], ["data",0,"magenta","bold,underline"], ["from the",0,"red"],
+            ["Node",0,"yellow","bold"], ["pertaining to profile",0,"red"], [profile,0,"yellow","bold,underline"],["",2],
             
-#             ["-",0,"magenta","bold"], ["configuration",1,"magenta"],
-#             ["-",0,"magenta","bold"], ["services",1,"magenta"],
-#             ["-",0,"magenta","bold"], ["associated bash files",1,"magenta"],
-#             ["-",0,"magenta","bold"], ["blockchain data (snapshots)",2,"magenta"],
-#         ]
+            ["-",0,"magenta","bold"], ["configuration",1,"magenta"],
+            ["-",0,"magenta","bold"], ["services",1,"magenta"],
+            ["-",0,"magenta","bold"], ["associated bash files",1,"magenta"],
+            ["-",0,"magenta","bold"], ["blockchain data (snapshots)",2,"magenta"],
+        ]
 
-#         confirm_notice = self.confirm_with_word({
-#             "notice": notice,
-#             "action": "change",
-#             "word": "YES",
-#             "profile": profile,
-#             "default": "n"
-#         })
-#         if not confirm_notice:
-#             return False    
+        confirm_notice = self.confirm_with_word({
+            "notice": notice,
+            "action": "change",
+            "word": "YES",
+            "profile": profile,
+            "default": "n"
+        })
+        if not confirm_notice:
+            return False    
         
-#         print("")
-#         self.c.functions.print_cmd_status({
-#             "text_start": "Starting deletion process",
-#             "newline": True,
-#         })
-#         self.handle_service(profile,"service")  # leave and stop first
-#         self.cleanup_service_file_msg()
-#         self.config_obj.pop(profile)
-
-#         self.c.functions.print_cmd_status({
-#             "text_start": f"Profile",
-#             "brackets": profile,
-#             "status": "deleted",
-#             "status_color": "red",
-#             "newline": True
-#         })
-
-#         return True
+        print("")
+        self.c.functions.print_cmd_status({
+            "text_start": "Starting deletion process",
+            "newline": True,
+        })
+        self.handle_service(profile,"service")  # leave and stop first
         
+        self.config_obj = deepcopy(self.c.config_obj)
+        self.old_last_cnconfig = deepcopy(self.c.config_obj)
+        del self.config_obj[profile]
+        self.cleanup_service_file_msg()
+        self.cleanup_service_files(True)
+        
+        for n, end_profile in enumerate(self.metagraph_list):
+            if profile == end_profile:
+                next_profile = self.metagraph_list[n+1]
+                break
+            
+        self.append_remove_config_lines({
+            "profile": profile,
+            "start_line": f"  {profile}:\n",
+            "end_line": f"  {next_profile}:\n"
+        })
+
+        self.c.functions.print_cmd_status({
+            "text_start": f"Profile",
+            "brackets": profile,
+            "status": "deleted",
+            "status_color": "red",
+            "newline": True,
+            "delay": 1.5,
+        })
+        
+
         
 #     def edit_profile_name(self, old_profile):
 #         self.c.functions.print_header_title({
@@ -2331,7 +2490,6 @@ class Configurator():
         self.manual_build_service(profile)
         self.cleanup_service_file_msg()
         self.cleanup_service_files()
-        # self.c.config_obj[profile]["service"] = self.profile_details["service"]
         self.build_service_file({
             "profiles": [profile], 
             "action": "Create",
@@ -2389,14 +2547,14 @@ class Configurator():
                 backup_dir = "/var/tessellation/nodectl"
                                 
             self.c.functions.print_cmd_status(progress)
-            if path.isfile(f"/var/tessellation/nodectl/cn-config.yaml"):
+            if path.isfile(self.config_file_path):
                 self.backup_file_found = True
                 c_time = self.c.functions.get_date_time({"action":"datetime"})
                 if not path.isdir(backup_dir):
                     makedirs(backup_dir)
                 backup_dir = self.c.functions.cleaner(backup_dir,"trailing_backslash")
                 dest = f"{backup_dir}/cn-config_{c_time}"
-                system(f"cp /var/tessellation/nodectl/cn-config.yaml {dest} > /dev/null 2>&1")
+                system(f"cp {self.config_file_path} {dest} > /dev/null 2>&1")
                 self.c.functions.print_cmd_status({
                     **progress,
                     "status": "complete",
@@ -2643,7 +2801,7 @@ class Configurator():
         print("")
         
         
-    def cleanup_service_files(self):
+    def cleanup_service_files(self,delete=False):
         cleanup = False
         clean_up_old_list, remove_profiles_from_cleanup = [], []
         self.log.logger.info("configuator is verifying old service file cleanup.")
@@ -2665,8 +2823,9 @@ class Configurator():
                     self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
         
         clean_up_old_list2 = copy(clean_up_old_list)
+
         for old_profile in clean_up_old_list2:
-            if self.c.config_obj[old_profile]["service"] == self.old_last_cnconfig[old_profile]["service"]:
+            if self.c.config_obj[old_profile]["service"] == self.old_last_cnconfig[old_profile]["service"] and not delete:
                 clean_up_old_list.pop(clean_up_old_list.index(old_profile))
             else:
                 self.c.functions.print_cmd_status({
@@ -2696,7 +2855,7 @@ class Configurator():
                     service = self.old_last_cnconfig[profile]["service"]
                     service_name = f"cnng-{service}.service"
                     system(f"sudo rm -f /etc/systemd/system/{service_name} > /dev/null 2>&1")
-                    self.log.logger.info(f"configuration removed abandend service file [{service_name}]")      
+                    self.log.logger.info(f"configuration removed abandoned service file [{service_name}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
                         "brackets": service,
@@ -2851,6 +3010,7 @@ class Configurator():
             [f"Press the <ctrl>+c key to quit any time",1,"yellow"],
         ]) 
 
+
     def validate_config(self,profile):
         verified = True
         self.c.build_yaml_dict()
@@ -2920,64 +3080,114 @@ class Configurator():
         cprint("  Configurator exited upon Node Operator request","green")
         exit(0)  
         
-        
-#     def show_help(self):
-#         cli = CLI({
-#             "caller": "config",
-#             "config_obj": self.c.config_obj,
-#             "ip_address": None,
-#             "command": "help",
-#             "version_obj": None
-#         })
-        
-#         cli.version_obj = cli.functions.get_version({"which": "nodectl_all"})
-        
-#         cli.functions.print_help({
-#                 "nodectl_version_only": True,
-#                 "title": True,
-#                 "extended": "configure",
-#                 "usage_only": False,
-#                 "hint": False,
-#         })
 
-
-#     def confirm_with_word(self,command_obj):
-#         notice = command_obj.get("notice",False)
-#         word = command_obj.get("word")
-#         action = command_obj.get("action")
-#         profile = command_obj.get("profile")
-#         default = command_obj.get("default","n")  # "y" or "n"
+    def append_remove_config_lines(self, command_obj):
+        # this method will default to list_of_lines if not False
+        # if list_of_line is provided, the appending of the list
+        # will happen after the start_line specifier
         
-#         confirm_str = f"{colored(f'  Confirm {action} by entering exactly [','cyan')} {colored(f'YES-{profile}','green')} {colored(']','cyan')}: "
-#         confirm = input(confirm_str)
-        
-#         def word_any_key(prompt):
-#             print("")
-#             self.c.functions.get_user_keypress({
-#                 "prompt": prompt,
-#                 "prompt_color": "red",
-#                 "options": ["any_key"],
-#             })      
-                  
-#         if f"{word}-{profile}" == confirm:
-#             if self.detailed:
-#                 self.c.functions.print_paragraphs(notice)
+        # start and end will remove
 
-#             if notice:
-#                 confirm_notice = self.c.functions.confirm_action({
-#                     "yes_no_default": default,
-#                     "return_on": "y",
-#                     "prompt": "Continue?",
-#                     "exit_if": False
-#                 })
-#                 if not confirm_notice:
-#                     word_any_key("action cancelled by Node Operator, press any key")
-#                     return False    
+        profile = command_obj.get("profile",self.profile_to_edit)
+        append = command_obj.get("append",False)
+        remove_yaml = command_obj.get("remove_yaml",False)
+        list_of_lines = command_obj.get("list_of_lines", False)
+        exclude_string = command_obj.get("exclude_string",False)
+        start_line = command_obj.get("start_line",False) # start_line will be removed
+        end_line = command_obj.get("end_line",False) # end line will not be removed 
+        
+        def look_for_update(line,list_of_lines):
+            line = line.split(":")[0]
+            for test_line in list_of_lines:
+                test_line = test_line.split(":")[0]
+                if line == test_line:
+                    return True
+            return False
                 
-#             return True
+        update, check_for_update = False, False
+        do_write = False if append else True
         
-#         word_any_key("confirmation phrase did not match, cancelling operation, press any key")
-#         return False
+        f = open(self.config_file_path)
+        with open(self.yaml_path,"w") as temp_file:
+            config_lines = list(f)
+            for line in config_lines:
+                if not list_of_lines:
+                    if line == start_line: 
+                        do_write = False
+                    if line == end_line: do_write = True
+                    if do_write: temp_file.write(line)
+                elif append:
+                    if profile in line and not exclude_string: do_write = True; check_for_update = True
+                    if profile in line and exclude_string not in line: do_write = True; check_for_update = True
+                    if check_for_update: update = look_for_update(line,list_of_lines)
+                    if not update: temp_file.write(line)
+                    if line == start_line and do_write:
+                        for append_line in list_of_lines:
+                            temp_file.write(append_line)
+                        do_write = False
+                    if line == end_line: check_for_update = False
+                else: # remove
+                    if profile in line and not exclude_string: check_for_update = True
+                    if profile in line and exclude_string not in line: check_for_update = True
+                    if check_for_update:
+                        for append_line in list_of_lines:
+                            if line == append_line: 
+                                do_write = False
+                                break
+                    if do_write: temp_file.write(line)
+                    do_write = True
+                    if line == end_line: check_for_update = False
+                            
+        f.close()
+        system(f"sudo cp {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
+        if remove_yaml: system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
+        if list_of_lines:
+            self.c.functions.print_cmd_status({
+                "text_start": f"Configuration changes {'appended' if append else 'removed'}",
+                "status": "successfully",
+                "status_color": "green",
+                "newline": True,
+                "delay": 1.5,
+            })
+
+
+    def confirm_with_word(self,command_obj):
+        notice = command_obj.get("notice",False)
+        word = command_obj.get("word")
+        action = command_obj.get("action")
+        profile = command_obj.get("profile")
+        default = command_obj.get("default","n")  # "y" or "n"
+        
+        confirm_str = f"{colored(f'  Confirm {action} by entering exactly [','cyan')} {colored(f'YES-{profile}','green')} {colored(']','cyan')}: "
+        confirm = input(confirm_str)
+        
+        def word_any_key(prompt):
+            print("")
+            self.c.functions.get_user_keypress({
+                "prompt": prompt,
+                "prompt_color": "red",
+                "options": ["any_key"],
+            })      
+                  
+        if f"{word}-{profile}" == confirm:
+            if self.detailed:
+                self.c.functions.print_paragraphs(notice)
+
+            if notice:
+                confirm_notice = self.c.functions.confirm_action({
+                    "yes_no_default": default,
+                    "return_on": "y",
+                    "prompt": "Continue?",
+                    "exit_if": False
+                })
+                if not confirm_notice:
+                    word_any_key("action cancelled by Node Operator, press any key")
+                    return False    
+                
+            return True
+        
+        word_any_key("confirmation phrase did not match, cancelling operation, press any key")
+        return False
   
     
 #     def is_duplicate_profile(self,profile_name):
