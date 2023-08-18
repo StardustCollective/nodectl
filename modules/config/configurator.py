@@ -832,6 +832,13 @@ class Configurator():
             "questions": questions, 
             "profile": profile,
         })
+        
+        self.config_obj = deepcopy(self.c.config_obj) 
+        self.build_service_file({
+            "profiles": [profile],
+            "action": "Updating",
+            "rebuild": False,
+        })
 
 
     def manual_args(self,profile=False):
