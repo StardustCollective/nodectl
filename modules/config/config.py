@@ -805,7 +805,7 @@ class Configuration():
         for section, section_types in self.schema.items():
             if "global" not in profile and "global" not in section:
                 for s_type, st_val in section_types:
-                    if "path" in st_val:
+                    if "path" not in s_type and "path" in st_val:
                         path_value = self.config_obj[profile][s_type]
                         check_slash(st_val,path_value)
                         
