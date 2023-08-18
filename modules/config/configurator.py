@@ -1892,8 +1892,9 @@ class Configurator():
             
             if option == "e":
                 return_option = self.edit_profiles()
-                if return_option == "q": option = return_option
-                elif return_option != "r": self.edit_profile_sections()
+                if return_option == "q": self.quit_configurator()
+                elif return_option != "r": return_option = self.edit_profile_sections()
+                if return_option == "e": self.edit_profiles() # return option can change again
             elif option == "a": self.edit_append_profile_global(False)
             elif option == "g": self.edit_append_profile_global(True)
             elif option == "r": self.edit_auto_restart()
