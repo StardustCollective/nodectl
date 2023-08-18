@@ -812,6 +812,30 @@ class Configurator():
         })
 
 
+    def edit_log_level(self):
+        profile = "global_elements"
+        self.manual_section_header(profile,"SET LOGGING LEVEL")
+        
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1], ["You can set the log level to the most verbose DEBUG all the way to off NOSET.",0,"white","bold"],
+                ["It is recommended to use INFO as your log level to avoid unnecessary logging when reviewing.",2,"white","bold"],
+            ])
+
+        option = self.c.functions.print_option_menu({
+            "options": ["NOTSET","DEBUG","INFO","WARN","ERROR","CRITICAL"],
+            "let_or_num": "let",
+            "return_value": True,
+            "color": "magenta",
+        })
+        
+        if option.lower() == "q":
+            self.quit_configurator()
+            
+        self.config_obj_apply = {"global_elements": {"log_level": option}}
+        self.apply_vars_to_config()
+
+
     def manual_build_description(self,profile=False):
         default = "none" if not profile else self.c.config_obj[profile]["description"]
         profile = self.profile_to_edit if not profile else profile
@@ -1869,13 +1893,14 @@ class Configurator():
                     "newline": "bottom"
                 })
 
-                options = ["E","A","G","R","M","Q"]
+                options = ["E","A","G","R","L","M","Q"]
                 if return_option not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
                         # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
                         ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
                         ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
+                        ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
                         ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
                         ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
                     ])
@@ -1894,9 +1919,11 @@ class Configurator():
                 if return_option == "q": self.quit_configurator()
                 elif return_option != "r": return_option = self.edit_profile_sections()
                 if return_option == "e": self.edit_profiles() # return option can change again
-            elif option == "a": self.edit_append_profile_global(False)
-            elif option == "g": self.edit_append_profile_global(True)
+            elif option == "a": self.edit_append_profile_global("None")
+            elif option == "g": self.edit_append_profile_global("p12")
             elif option == "r": self.edit_auto_restart()
+            elif option == "l": 
+                self.edit_append_profile_global("log_level")
             elif option == "m":
                 self.action = False
                 self.setup()
@@ -2270,9 +2297,9 @@ class Configurator():
         self.apply_vars_to_config()
 
         
-    def edit_append_profile_global(self,p12_only):
-        line1 = "Edit P12 Global" if p12_only else "Append new profile"
-        line2 = "Private Keys" if p12_only else "to configuration"
+    def edit_append_profile_global(self,s_type):
+        line1 = "Edit P12 Global" if s_type else "Append new profile"
+        line2 = "Private Keys" if s_type else "to configuration"
         
         self.header_title = {
             "line1": line1,
@@ -2283,7 +2310,7 @@ class Configurator():
         }
 
         # self.migrate.keep_pass_visible = True
-        if p12_only:
+        if s_type == "p12":
             self.preserve_pass = True
             self.skip_prepare = True
             self.is_all_global = True
@@ -2296,13 +2323,14 @@ class Configurator():
             })
 
             self.config_obj_apply["global_p12"] = self.config_obj["global_p12"]
-        else:
-            self.manual_build(False)
-            self.restart_needed = False
-            
+
+        if s_type == "log_level": 
+            self.edit_log_level()
+            return
+                    
         self.apply_vars_to_config()    
 
-        if not p12_only:
+        if s_type != "p12":
             self.build_service_file({
                 "profiles": self.profile_name_list,
                 "action": "Create",

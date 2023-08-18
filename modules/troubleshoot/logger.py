@@ -13,13 +13,20 @@ class Logging():
         self.full_log_path = f"{self.log_path}{self.log_file_name}"
         
         self.check_for_log_file()
+        self.get_log_level()
         self.log_setup()
                         
                 
     def log_setup(self):
         logger = logging.getLogger("nodectl_logging")
         if not len(logger.handlers):
-            logger.setLevel(logging.INFO)
+            
+            if self.level == "NOTSET": logger.setLevel(logging.NOTSET)
+            elif self.level == "DEBUG": logger.setLevel(logging.DEBUG)
+            elif self.level == "INFO": logger.setLevel(logging.INFO)
+            elif self.level == "WARN": logger.setLevel(logging.WARN)
+            elif self.level == "ERROR": logger.setLevel(logging.ERROR)
+            elif self.level == "CRITICAL": logger.setLevel(logging.CRITICAL)
 
             formatter = logging.Formatter(
                 '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',
@@ -31,6 +38,7 @@ class Logging():
 
             logger.addHandler(log_handler)
         self.logger = logger
+
 
     def check_for_log_file(self):
         log_dir_exists = path.exists(self.log_path)
@@ -44,5 +52,20 @@ class Logging():
             system(f"touch {self.full_log_path} > /dev/null 2>&1")
             
             
+    def get_log_level(self):
+        try:
+            with open(f"{self.log_path}cn-config.yaml","r") as find_level:
+                for line in find_level:
+                    if "log_level" in line:
+                        self.level = line.split(":")[-1].upper()
+                        self.level = self.level.strip()
+                        break
+        except:
+            self.level = "INFO"
+        
+        levels = ["NOTSET","DEBUG","INFO","WARN","ERROR","CRITICAL"]
+        if self.level not in levels: self.level = "INFO"
+
+                
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

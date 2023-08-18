@@ -781,7 +781,8 @@ class Configuration():
             ],
             "global_elements": [
                 ["metagraph_name","str"],
-                ["nodectl_config","str"],
+                ["nodectl_yaml","str"],
+                ["log_level","log_level"],
             ]
         }
         
@@ -851,7 +852,9 @@ class Configuration():
                 missing = [x for x in missing if x not in ["seed_path","gl0_link_is_self","ml0_link_is_self","p12_key_store","jar_github"]]
                 for item in missing:
                     missing_list.append([config_key, item])
-        
+            if "global" in config_key:
+                section = self.schema[config_key]
+                missing_list = [[config_key, section_item[0]] for section_item in section if section_item[0] not in config_value.keys()]
         
         # for config_key, config_value in self.config_obj.items():
         #     if config_key not in self.common_test_dict.keys() and "global" not in config_key:
@@ -1090,29 +1093,24 @@ class Configuration():
                 profile = section
             for key, test_value in self.config_obj[profile].items():
                 for section_key, req_type in section_types:
-                    if key == section_key:
+                    if key == section_key: 
                         validated = False
                         
                         if skip_validation:
-                            if "gl0_link" in key or "ml0_link" in key:
-                                validated = True
-                            else:
-                                skip_validation = False
+                            if "gl0_link" in key or "ml0_link" in key: validated = True
+                            else: skip_validation = False
                         
                         if req_type in valuation_dict.keys():
-                            try:
-                                validated = isinstance(test_value,valuation_dict[req_type])   
+                            try: validated = isinstance(test_value,valuation_dict[req_type])   
                             except Exception as e:
                                 for value in valuation_dict[req_type]:
                                     if test_value == value:
                                         validated = True
                                         break
                                     title = "invalid range"
-                            if not validated:
-                                title = "invalid type"
+                            if not validated: title = "invalid type"
                             if "key_name" in key and req_type == "str":
-                                if test_value[-4::] != ".p12":
-                                    title = "missing .p12 extension"
+                                if test_value[-4::] != ".p12": title = "missing .p12 extension"
                             if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
                                 skip_validation = True
                             if "passphrase" in key and test_value != "none" and req_type != "bool":
@@ -1122,26 +1120,19 @@ class Configuration():
                                 validated = True
                             
                         elif "host" in req_type:
-                            if req_type == "host_def" and test_value == "default":
-                                validated = True
-                            elif req_type == "host_def_disable" and test_value == "disable":
-                                validated = True
-                            elif self.functions.test_hostname_or_ip(test_value) or test_value == "self":
-                                validated = True
-                            else:
-                                title = "invalid host or ip"
+                            if req_type == "host_def" and test_value == "default": validated = True
+                            elif req_type == "host_def_disable" and test_value == "disable": validated = True
+                            elif self.functions.test_hostname_or_ip(test_value) or test_value == "self": validated = True
+                            else: title = "invalid host or ip"
                         
                         elif req_type == "128hex":
                             pattern = "^[a-fA-F0-9]{128}$"
-                            if not match(pattern,test_value) and test_value != "self":
-                                title = "invalid nodeid"
-                            else:
-                                validated = True 
+                            if not match(pattern,test_value) and test_value != "self": title = "invalid nodeid"
+                            else: validated = True 
                                 
                         elif req_type == "list_of_strs":
                             title = "invalid list of strings"
-                            if isinstance(test_value,list):
-                                validated = True
+                            if isinstance(test_value,list): validated = True
                             if validated:
                                 for v in test_value:
                                     if not isinstance(v,str):
@@ -1150,30 +1141,26 @@ class Configuration():
 
                         elif "path" in req_type:
                             # global paths replaced already
-                            if "path" in req_type:
-                                # dynamic value skip validation
-                                validated = True
-                            if "path_def" in req_type and test_value == "default":
-                                validated = True
-                            elif req_type == "path_def_dis" and test_value == "disable":
-                                validated = True
-                            elif path.isdir(test_value):
-                                validated = True
+                            if "path" in req_type: validated = True # dynamic value skip validation
+                            if "path_def" in req_type and test_value == "default": validated = True
+                            elif req_type == "path_def_dis" and test_value == "disable": validated = True
+                            elif path.isdir(test_value): validated = True
                             elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
                                 title = f"{test_value} is an invalid keyword for layer0"
                             elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
                                 title = f"{test_value} is an invalid keyword"
-                            elif not path.isdir(test_value):
-                                title = "invalid or path not found"
-                            else:
-                                validated = True
+                            elif not path.isdir(test_value): title = "invalid or path not found"
+                            else: validated = True
                                 
                         elif req_type == "mem_size":
-                            if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)):
-                                title = "memory sizing format"
-                            else:
-                                validated = True
+                            if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
+                            else: validated = True
                         
+                        elif req_type == "log_level":
+                            levels = ["NOTSET","DEBUG","INFO","WARN","ERROR","CRITICAL"]
+                            if test_value.upper() not in levels: title = "invalid log level"
+                            else: validated = True
+                            
                         if not validated:
                             self.validated = False
                             return_on_validated = False
@@ -1297,6 +1284,7 @@ class Configuration():
             "host_def": "must be a valid host or ip address",
             "pro": "must be a valid existing path or file",
             "metagraphs": "There is a misconfigured element in your metagraph profile",
+            "log_level": "Log level of INFO (recommended) or NOTSET, DEBUG, INFO, WARN, ERROR, CRITICAL required"
         }
         
         if self.action != "normal" or not self.validated:
