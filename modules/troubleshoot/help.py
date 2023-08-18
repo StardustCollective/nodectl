@@ -414,6 +414,7 @@ def build_help(command_obj):
        of the arguments being requested
   {colored('-n','green')} | skip directly to a new configuration
   {colored('-e','green')} | skip directly to configuration editor
+  {colored('-ep','green')} | skip directly to configuration profile editor
   
   In new configuration mode:
   -------------------------
@@ -450,6 +451,13 @@ def build_help(command_obj):
   enter configurator directly to edit config options
   in advanced mode
   # {colored('sudo nodectl configure -a -e','cyan')}  
+   
+  enter configurator directly to edit config profile options
+  # {colored('sudo nodectl configure -ep','cyan')}  
+   
+  enter configurator directly to edit config profile options
+  in advanced mode
+  # {colored('sudo nodectl configure -a -ep','cyan')}  
         '''
   
     if extended == "send_logs":
