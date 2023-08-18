@@ -56,7 +56,7 @@ class Configurator():
         
         if "help" in argv_list:
             self.prepare_configuration("edit_config")
-            self.show_help()
+            self.c.functions.check_for_help(["help"],"configure")
         elif "-ep" in argv_list:
             self.action = "edit_profile"
         elif "-e" in argv_list:
@@ -233,9 +233,6 @@ class Configurator():
         self.handle_global_p12()
         self.request_p12_details({})
         self.config_obj_apply = {}      
-          
-        # debug
-        self.c.functions.print_json_debug(self.config_obj,False)
         
         self.metagraph_list = self.c.functions.clear_global_profiles(self.config_obj)
         
@@ -259,6 +256,8 @@ class Configurator():
         self.cleanup_old_profiles()
         self.cleanup_service_files()
         self.cleanup_create_snapshot_dirs() 
+        self.prepare_configuration("edit_config",False)
+        self.move_config_backups()
         
         self.c.functions.print_paragraphs([
             ["",1],[" CONGRATULATIONS ",1,"yellow,on_green"],
@@ -2040,7 +2039,11 @@ class Configurator():
         
             if option == "m": return
             elif option == "p": return "E"
-            elif option == "h": self.show_help()
+            elif option == "h": 
+                self.move_config_backups()
+                self.c.functions.config_obj = deepcopy(self.c.config_obj)
+                self.c.functions.config_obj["global_elements"]["metagraph_name"] = "None"
+                self.c.functions.check_for_help(["help"],"configure")
             elif option == "q": self.quit_configurator()
             elif option == "r":
                 self.c.view_yaml_config("migrate")
@@ -2597,7 +2600,7 @@ class Configurator():
                 self.c.functions.set_default_variables({"skip_error",True})
                 backup_dir = self.c.config_obj[self.c.functions.default_profile]["directory_backups"]
             except:
-                backup_dir = "/var/tessellation/nodectl"
+                backup_dir = "/var/tessellation/nodectl/"
                                 
             self.c.functions.print_cmd_status(progress)
             if path.isfile(self.config_file_path):
@@ -2605,8 +2608,7 @@ class Configurator():
                 c_time = self.c.functions.get_date_time({"action":"datetime"})
                 if not path.isdir(backup_dir):
                     makedirs(backup_dir)
-                backup_dir = self.c.functions.cleaner(backup_dir,"trailing_backslash")
-                dest = f"{backup_dir}/cn-config_{c_time}"
+                dest = f"{backup_dir}backup_cn-config_{c_time}"
                 system(f"cp {self.config_file_path} {dest} > /dev/null 2>&1")
                 self.c.functions.print_cmd_status({
                     **progress,
@@ -3130,6 +3132,7 @@ class Configurator():
             
 
     def quit_configurator(self):
+        self.move_config_backups()
         cprint("  Configurator exited upon Node Operator request","green")
         exit(0)  
         
@@ -3241,43 +3244,34 @@ class Configurator():
         
         word_any_key("confirmation phrase did not match, cancelling operation, press any key")
         return False
-  
-    
-#     def is_duplicate_profile(self,profile_name):
-#         for profile in self.config_obj.keys():
-#             if profile_name == profile:
-#                 return True   
-#         return False
     
                          
-#     def move_config_backups(self):
-#         # move any backup configs out of the config dir and into the backup dir
-#         backup_dir = "empty"
+    def move_config_backups(self):
+        # move any backup configs out of the config dir and into the backup dir
+        backup_dir = "empty"
         
-#         try:
-#             for key in self.c.config_obj.keys():
-#                 backup_dir = self.c.config_obj[key]["directory_backups"]
-#                 break
-#         except: # global
-#             for key in self.config_obj.keys():
-#                 backup_dir = self.config_obj[key]["backups"]
-#                 break 
-                       
-#         if backup_dir == "default":
-#             backup_dir = "/var/tessellation/backups/"  
+        try:
+            for profile in self.metagraph_list: # grab first available
+                backup_dir = self.c.config_obj[profile]["directory_backups"]
+                break
+        except: pass
+
+        if backup_dir == "default": backup_dir = "/var/tessellation/backups/"  
                   
-#         if backup_dir == "empty":
-#             self.log.logger.warn("backup migration skipped.")
-#             if self.detailed:
-#                 self.c.functions.print_paragraphs([
-#                     ["",1],["Configuration not moved to proper backup directory due to cancellation request.",1,"red"],
-#                     ["location retained:",0,"red"], [f"{self.config_path}",1,"yellow","bold"],
-#                     ["Configurations may contain sensitive information, please handle removal manually.",1,"magenta"]
-#                 ])
-#                 self.c.functions.print_any_key({})
-#         else:
-#             system(f"mv {self.config_path}cn-config_yaml_* {backup_dir} > /dev/null 2>&1")
-#             self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
+        if backup_dir == "empty":
+            self.log.logger.warn("backup migration skipped.")
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1], ["While attempting to migrate backups from a temporary location the Configurator was not able",0,"red"],
+                    ["to determine a properly configured backup directory location.",2,"red"],
+                    ["Configuration backups not moved to proper backup directory due to cancellation request.",1,"red"],
+                    ["location retained:",0,"red"], [f"{self.config_path}",2,"yellow","bold"],
+                    ["Configurations may contain sensitive information, please handle removal manually.",1,"magenta"]
+                ])
+                self.c.functions.print_any_key({})
+        else:
+            system(f"mv {self.config_path}backup_cn-config_* {backup_dir} > /dev/null 2>&1")
+            self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
     
                           
 if __name__ == "__main__":
