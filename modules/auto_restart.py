@@ -18,7 +18,7 @@ class AutoRestart():
 
         config_obj = {
             **config_obj,
-            "caller": "auto_restart",
+            "global_elements": {"caller":"auto_restart"},
         }
         
         self.functions = Functions(config_obj)        
@@ -27,29 +27,26 @@ class AutoRestart():
             "profile": thread_profile
         })
 
-        debug_short_timer = False # secondary debug mechanism for faster testing
         self.debug = False # full debug - disable restart and join actions
         self.allow_upgrade = allow_upgrade # only want one thread to attempt auto_upgrade
         self.retry_tolerance = 50
         self.observing_tolerance = 5        
         self.thread_profile = thread_profile  # initialize
-                
-        self.sleep_on_critical = 600
+        self.rapid_restart = config_obj["global_auto_restart"]["rapid_restart"]    
+        self.sleep_on_critical = 600 if not self.rapid_restart else 15
+        self.link_types = ["ml0","gl0"]
         
-        self.random_times = []
-        for n in range(40,220,10):
-            self.random_times.append(n)
-        
-        self.sleep_times = []
-        for n in range(95,125,5):
-            self.sleep_times.append(n)
+        if self.rapid_restart: self.random_times = [5]; self.timer = 5; self.sleep_on_critical = 15
+        else:
+            self.random_times = []
+            for n in range(40,220,10):
+                self.random_times.append(n)
             
-        self.timer = random.choice(self.sleep_times)
-        
-        if debug_short_timer:
-            self.timer = 5  # seconds 3m
-            self.random_times = [5] # debug    
-            self.sleep_on_critical = 10
+            self.sleep_times = []
+            for n in range(95,125,5):
+                self.sleep_times.append(n)
+                
+            self.timer = random.choice(self.sleep_times)
         
         self.log.logger.info(f"\n==================\nAUTO RESTART - {self.thread_profile} Thread - Initiated\n==================")
         
@@ -90,28 +87,26 @@ class AutoRestart():
         profile_pairings = self.functions.pull_profile({
             "req": "pairings",
         })
-        if self.functions.config_obj[self.thread_profile]["layer"] < 1:
-            self.profile_names = [self.thread_profile]
-        else:
-            complete = False
-            for single_pairing in profile_pairings:
-                for profile in single_pairing:
-                    if profile["profile"] == self.thread_profile:
-                        self.profile_names = [single_pairing[-1]["profile"]]
-                        self.profile_names.append(self.thread_profile)
-                        complete = True
-                        break
-                if complete:
+
+        complete = False
+        for single_pairing in profile_pairings:
+            for profile in single_pairing:
+                if profile["profile"] == self.thread_profile:
+                    self.profile_names = [single_pairing[-1]["profile"]]
+                    self.profile_names.append(self.thread_profile)
+                    complete = True
                     break
+            if complete:
+                break
 
         remove_profile_list = []
-        self.link_profile = self.functions.config_obj[self.thread_profile]["ml0_link_profile"]
         
-        for profile in self.profile_names:
-            if profile != self.thread_profile and profile != self.link_profile:
-                if int(self.functions.config_obj[profile]["layer"]) == 0:
-                    remove_profile_list.append(profile)
-                else:
+        self.gl0_link_profile = self.functions.config_obj[self.thread_profile]["gl0_link_profile"]
+        self.ml0_link_profile = self.functions.config_obj[self.thread_profile]["ml0_link_profile"]
+            
+        for link_type in self.link_types:            
+            for profile in self.profile_names:
+                if profile != self.thread_profile and profile != eval(f"self.{link_type}_link_profile"):
                     remove_profile_list.append(profile)
                     
         for remove in remove_profile_list:
@@ -123,14 +118,13 @@ class AutoRestart():
         self.profile_states = {}
         
         self.auto_upgrade = self.passphrase_warning = False
-        if self.functions.config_obj["auto_restart"]["auto_upgrade"] and self.allow_upgrade:
+        if self.functions.config_obj["global_auto_restart"]["auto_upgrade"] and self.allow_upgrade:
             self.auto_upgrade = True
-        if self.functions.config_obj["global_cli_pass"]:
+        if self.functions.config_obj["global_p12"]["passphrase"] == "None":
             self.passphrase_warning = True
             
         for profile in self.profile_names:
-            #if self.functions.config_obj[profile]["global_p12"]["cli_pass"]:
-            if self.functions.config_obj[profile]["global_cli_pass"]:
+            if self.functions.config_obj[profile]["global_p12_cli_pass"]:
                 self.passphrase_warning = True
             self.profile_states[profile] = {}
             self.profile_states[profile]["remote_session"] = None
@@ -139,17 +133,15 @@ class AutoRestart():
             self.profile_states[profile]["match"] = None
             self.profile_states[profile]["ep_ready"] = None
             self.profile_states[profile]["action"] = None
-            self.profile_states[profile]["link_profile"] = False
+            self.profile_states[profile]["gl0_link_profile"] = False
+            self.profile_states[profile]["ml0_link_profile"] = False
             self.profile_states[profile]["layer"] = int(self.functions.config_obj[profile]["layer"])
             
-            if self.functions.config_obj[profile]["layer"] == 0:  
-                self.profile_states[profile]["observing_timer"] = 0
-            else:
-                # handle layer1 link dependencies
-                if self.functions.config_obj[self.thread_profile]["ml0_link_enable"] == True:
-                    if self.link_profile != "None":
-                        self.profile_states[profile]["link_profile"] = self.link_profile
-       
+            for link_type in self.link_types:
+                if self.functions.config_obj[self.thread_profile][f"{link_type}_link_enable"] == True:
+                    if self.gl0_link_profile != "None": self.profile_states[profile]["gl0_link_profile"] = self.gl0_link_profile
+                    if self.gl0_link_profile != "None": self.profile_states[profile]["gl0_link_profile"] = self.gl0_link_profile
+
     
     def update_profile_states(self):
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | all profile [{self.profile_names}]")
@@ -372,7 +364,8 @@ class AutoRestart():
             versions = self.functions.test_n_check_version("get")
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version checked | [{versions}]")
             try:
-                if versions[0] == versions[1]:
+                # 0 == on node  1 == on cluster
+                if versions[0][self.thread_profile] == versions[1][self.thread_profile]["node_tess_version"]:
                     self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions matched | Hypergraph [{versions[0]}] Node [{versions[1]}]")
                     if not self.auto_upgrade or auto_upgrade_success:
                         return True
