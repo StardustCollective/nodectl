@@ -2053,10 +2053,11 @@ class Configurator():
                     self.called_option = "enable_disable"
                     self.edit_enable_disable_profile(profile)
                     
-                elif option == "2":
+                elif option == 2:
                     self.called_option = "Profile Name Change"
-                    self.edit_profile_name(profile)
-
+                    profile = self.edit_profile_name(profile) # returns new profile name
+                    self.prepare_configuration("edit_config",True)
+                    do_validate = False
                     
                 elif option == 3:
                     self.called_option = "Delete Profile"
@@ -2363,129 +2364,173 @@ class Configurator():
             "delay": 1.5,
         })
         
+        
+    def edit_profile_name(self, old_profile):
+        self.c.functions.print_header_title({
+            "line1": "Change Profile Name",
+            "line2": old_profile,
+            "clear": True,
+            "show_titles": False,
+        })
+        
+        self.c.functions.print_paragraphs([
+            [" WARNING! ",0,"grey,on_red","bold"], ["This is a dangerous command and should be done with precaution.  It will migrate an entire profile's settings and directory structure.",2],
+            
+            ["Please make sure you know what you are doing before continuing...",1],
+            ["press ctrl-c to quit at any time",2,"yellow"],     
+                   
+            ["Please enter in the new profile name you would like to change to at the input.",1,"magenta"],
 
+        ])
         
-#     def edit_profile_name(self, old_profile):
-#         self.c.functions.print_header_title({
-#             "line1": "Change Profile Name",
-#             "line2": old_profile,
-#             "clear": True,
-#             "show_titles": False,
-#         })
-        
-#         self.c.functions.print_paragraphs([
-#             [" WARNING! ",0,"grey,on_red","bold"], ["This is a dangerous command and should be done with precaution.  It will migrate an entire profile's settings and directory structure.",2],
-            
-#             ["Please make sure you know what you are doing before continuing...",2],
-            
-#             ["Please enter in the new profile name you would like to change to at the input.",1,"magenta"]
-#         ])
-        
-#         new_profile_question = colored("  new profile: ","yellow")
-#         while True:
-#             new_profile = input(new_profile_question)
-#             if new_profile != "":
-#                 break
-#             print("\033[F",end="\r")
+        new_profile_question = colored("  new profile: ","yellow")
+        while True:
+            new_profile = input(new_profile_question)
+            if new_profile != "":
+                break
+            print("\033[F",end="\r")
                 
-#         print("")
+        print("")
         
-#         if new_profile == old_profile:
-#             self.log.logger.error(f"Attempt to change profile names that match, taking no action | new [{new_profile}] -> old [{old_profile}]")
-#             self.c.functions.get_user_keypress({
-#                 "prompt": f"error: {new_profile} equals {old_profile}, press any key to return",
-#                 "prompt_color": "red",
-#                 "options": ["any_key"],
-#             })
-#             cprint("  Skipping, nothing to do!","yellow")
-#             return False
-        
-#         self.c.functions.print_header_title({
-#             "line1": f"OLD: {old_profile}",
-#             "line2": f"NEW: {new_profile}",
-#             "clear": False,
-#             "show_titles": False,
-#         })
-            
-#         notice = [
-#             ["",1], [ "NOTICE ",0,"blue,on_yellow","bold,underline"], 
-#             ["The Node's",0,"yellow"],["service name",0,"cyan","underline"], ["has not changed.",2,"yellow"],
-#             ["Although this is",0],["not",0,"yellow","bold,underline"],
-#             ["an issue and your Node will not be affected; moreover, this is being conveyed in case the Node Administrator wants to correlate the",0],
-#             ["service name",0,"cyan","underline"], ["with the",0], ["profile name",0,"cyan","underline"], [".",2]
-#         ]
-        
-#         confirm_notice = self.confirm_with_word({
-#             "notice": notice,
-#             "action": "change",
-#             "word": "YES",
-#             "profile": new_profile,
-#             "default": "n"
-#         })
-#         if not confirm_notice:
-#             return False
-
-#         self.profile_details["profile_name"] = new_profile
-#         # change the key for the profiles
-#         self.c.config_obj[new_profile] = self.c.config_obj.pop(old_profile)
-#         self.config_obj[new_profile] = self.config_obj.pop(old_profile)
-        
-#         dir_progress = {
-#             "text_start": "updating directory structure",
-#             "status_color": "yellow",
-#             "newline": True,
-#         }
-#         dirs = ["snapshots","backups","uploads"]
-#         self.c.functions.print_cmd_status({
-#             "text_start": "Update data link dependencies",
-#             "status_color": "green",
-#             "status": "complete",
-#             "newline": True,
-#         })
-#         for replace_link_p in self.c.config_obj.keys():
-#             if self.c.config_obj[replace_link_p]["gl0_link_profile"] == old_profile:
-#                 self.config_obj[replace_link_p]["link_profile"] = new_profile
-#             for dir_p in dirs:
-#                 if old_profile in self.config_obj[replace_link_p][dir_p]: 
-#                     self.c.functions.print_cmd_status({
-#                         **dir_progress,
-#                         "status": dir_p,
-#                     })
-#                     dir_value = self.config_obj[replace_link_p][dir_p]
-#                     self.config_obj[replace_link_p][dir_p] = dir_value.replace(old_profile,new_profile)
+        if new_profile in self.metagraph_list:
+            if new_profile == old_profile:
+                self.log.logger.error(f"Attempt to change profile names that match, taking no action | new [{new_profile}] -> old [{old_profile}].")
+                prompt = f"{new_profile} equals {old_profile}, nothing to do!"
+            else:
+                self.log.logger.error(f"Attempt to change profile name already exists for another profile in this configuration, taking no action | new [{new_profile}] -> old [{old_profile}]")
+                prompt = f"{new_profile} already exists for another configured profile in your configuration."
                 
-#         self.build_service_file({
-#             "profiles": [new_profile],
-#             "action": "Updating",
-#             "rebuild": False,
-#         })
+            self.c.functions.print_paragraphs([
+                [" ERROR ",1,"yellow,on_red"], [prompt,1,"red"],
+            ])
+            self.c.functions.print_any_key({})
+            return False
         
-#         progress = {
-#             "text_start": f"Changing profile name {old_profile}",
-#             "brackets": new_profile,
-#             "status": "running"
-#         }
-#         self.c.functions.print_cmd_status(progress)
-#         self.log.logger.debug(f"configurator edit request - moving [{old_profile}] to [{new_profile}]")
+        self.c.functions.print_header_title({
+            "line1": f"OLD: {old_profile}",
+            "line2": f"NEW: {new_profile}",
+            "clear": False,
+            "show_titles": False,
+        })
+            
+        notice = [
+            ["",1], [" NOTICE ",1,"blue,on_yellow","bold"], 
+            ["This Node's service name will not changed.",2,"yellow"],
+            ["Although this is",0],["not",0,"green","bold"],
+            ["an issue and your Node will not be affected; be aware that",0], 
+            ["this is being conveyed in case the Node Administrator wants to correlate the",0],
+            ["service name",0,"cyan"], ["with the",0], ["profile name.  You can use the profile editor",0],
+            ["in the configurator to update the service name.",1,"cyan",],
+            ["service name:",0,"yellow"], [self.c.config_obj[old_profile]["service"],2,"magenta"],
+            
+            [" NOTICE ",1,"blue,on_yellow","bold"], 
+            ["Custom defined directory structures will not be changed.",2,"yellow"],
+            
+            ["The Node's directory path will change to accommodate the new profile migration.",0],
+            ["This is may",0],["not",0,"green","bold"],
+            ["be an issue. Be aware that this is being conveyed in case the Node Administrator has configured",0],
+            ["custom path locations for backups and or uploads that include the old [",0],
+            [old_profile,0,"yellow"], ["] name included in the path file. If this is the case,",0],
+            ["the Node Operator will have to update the custom directory locations using the configuration editor, and",0],
+            ["may need to manually migrate any files from the new profile path to the custom location to preserve this",0],
+            ["information and properly manage any disk usage that may be used by abandoned files.",1],
+            ["backups:",0,"yellow"], [self.c.config_obj[old_profile]["directory_backups"],1,"magenta"],
+            ["uploads:",0,"yellow"], [self.c.config_obj[old_profile]["directory_uploads"],2,"magenta"],
+        ]
         
-#         try:
-#             system(f"mv /var/tessellation/{old_profile}/ /var/tessellation/{new_profile}/ > /dev/null 2>&1")
-#             pass
-#         except:
-#             self.error_messages.error_code_messages({
-#                 "error_code": "cfr-2275",
-#                 "line_code": "not_new_install",
-#             })
+        confirm_notice = self.confirm_with_word({
+            "notice": notice,
+            "action": "change",
+            "word": "YES",
+            "profile": new_profile,
+            "default": "n"
+        })
+        if not confirm_notice:
+            return False
 
-#         self.c.functions.print_cmd_status({
-#             **progress,
-#             "status": "complete",
-#         })  
-        
-#         self.log.logger.info(f"Changed profile names | new [{new_profile}] -> old [{old_profile}]")
-#         return True                  
+        replace_list = [
+            [f"  {old_profile}:",f"  {new_profile}:\n"],
+            [f"    gl0_link_profile: {old_profile}",f"    gl0_link_profile: {new_profile}\n"],
+            [f"    ml0_link_profile: {old_profile}",f"    ml0_link_profile: {new_profile}\n"],
+        ]
+        for group in replace_list:
+            self.c.functions.test_or_replace_line_in_file({
+                "file_path": self.yaml_path,
+                "search_line": group[0],
+                "replace_line": group[1],
+                "skip_backup": True,
+            })
 
-    
+        progress = {
+            "status_color": "green",
+            "status": "complete",
+            "newline": True,
+        }
+        self.c.functions.print_cmd_status({
+            **progress,
+            "text_start": "Remove",
+            "brackets": old_profile,
+            "text_end": "profile"
+        })
+        self.c.functions.print_cmd_status({
+            **progress,
+            "text_start": "Build",
+            "brackets": new_profile,
+            "text_end": "profile"
+        })
+        self.c.functions.print_cmd_status({
+            **progress,
+            "text_start": "Update data link dependencies",
+        })
+
+        system(f"mv {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
+        
+        self.c.functions.print_cmd_status({
+            **progress,
+            "text_start": "Migrate over config yaml",
+        })
+        
+        self.prepare_configuration("edit_config",True)
+        self.c.functions.print_cmd_status({
+            **progress,
+            "text_start": "Process new configuration",
+        })        
+        
+        self.config_obj = deepcopy(self.c.config_obj) 
+        self.metagraph_list[self.metagraph_list.index(old_profile)] = new_profile
+                
+        self.build_service_file({
+            "profiles": [new_profile],
+            "action": "Updating",
+            "rebuild": False,
+        })
+        
+        progress = {
+            "text_start": "Handle backend manipulation",
+            "brackets": new_profile,
+            "status": "running"
+        }
+        self.c.functions.print_cmd_status(progress)
+        self.log.logger.debug(f"configurator edit request - moving [{old_profile}] to [{new_profile}]")
+        
+        try: system(f"mv /var/tessellation/{old_profile}/ /var/tessellation/{new_profile}/ > /dev/null 2>&1")
+        except:
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-2275",
+                "line_code": "not_new_install",
+            })
+
+        self.c.functions.print_cmd_status({
+            **progress,
+            "status": "complete",
+            "newline": True,
+        })  
+        
+        self.log.logger.info(f"Changed profile names | new [{new_profile}] -> old [{old_profile}]")
+        self.c.functions.print_any_key({})
+        return new_profile
+               
+
     def edit_service_name(self, profile):
         self.manual_build_service(profile)
         self.cleanup_service_file_msg()
