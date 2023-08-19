@@ -558,16 +558,17 @@ class Node():
             f.write(f"CL_EXTERNAL_IP={self.functions.get_ext_ip()}\n")
             f.write(f"CL_APP_ENV={self.functions.config_obj[profile]['environment']}\n")
             
-            if self.functions.config_obj[profile]["ml0_link_enable"]:
-                f.write(f"CL_L0_PEER_ID={self.functions.config_obj[profile]['ml0_link_key']}\n")
-                f.write(f"CL_L0_PEER_HTTP_HOST={self.functions.config_obj[profile]['ml0_link_host']}\n")
-                link_profile = self.functions.config_obj[profile]['ml0_link_profile']
-                link_port = self.functions.config_obj[profile]['ml0_link_port']
-                if link_profile in self.functions.config_obj.keys():
-                    # forces auto_correct of port if inconsistent with link_profile public
-                    link_port = self.functions.config_obj[link_profile]['public_port']
-                    
-                f.write(f"CL_L0_PEER_HTTP_PORT={link_port}\n")
+            for link_type in ["gl0","ml0"]:
+                if self.functions.config_obj[profile][f"{link_type}_link_enable"]:
+                    subkey = "GLOBAL_" if link_type == "gl0" else ""
+                    f.write(f"CL_{subkey}L0_PEER_ID={self.functions.config_obj[profile][f'{link_type}_link_key']}\n")
+                    f.write(f"CL_{subkey}L0_PEER_HTTP_HOST={self.functions.config_obj[profile][f'{link_type}_link_host']}\n")
+                    link_profile = self.functions.config_obj[profile][f'{link_type}_link_profile']
+                    link_port = self.functions.config_obj[profile][f'{link_type}_link_port']
+                    if link_profile in self.functions.config_obj.keys():
+                        # forces auto_correct of port if inconsistent with link_profile public
+                        link_port = self.functions.config_obj[link_profile]['public_port']
+                    f.write(f"CL_{subkey}L0_PEER_HTTP_PORT={link_port}\n")
                 
             p12_keys = [
                 ['CL_PASSWORD','p12_passphrase'],
