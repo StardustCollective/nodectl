@@ -3164,6 +3164,7 @@ class Configurator():
 
     def quit_configurator(self):
         self.move_config_backups()
+        if path.isfile(self.yaml_path): system(f"rm -f {self.yaml_path} > /dev/null 2>&1")
         cprint("  Configurator exited upon Node Operator request","green")
         exit(0)  
         

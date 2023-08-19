@@ -103,6 +103,7 @@ class Configuration():
                     self.setup_path_formats("global_p12")
                     if self.validated:
                         self.validate_port_duplicates()
+                        self.validate_seedlist_duplicates()
                         self.validate_services()
                         self.validate_p12_exists()
                         self.validate_link_dependencies()
@@ -350,23 +351,7 @@ class Configuration():
         if "--pass" in self.argv_list:
             self.config_obj["global_elements"]["global_cli_pass"] = True
             self.config_obj["global_p12"]["passphrase"] = self.argv_list[self.argv_list.index("--pass")+1]
-            
-        # init = {}
-    
-        # for profile in self.config_obj.keys():
-        #     if "global" not in profile:
-        #         for p12_key in self.config_obj[profile].keys():
-        #             if "p12" in p12_key:
-        #                 p12_item = self.config_obj[profile][p12_key]
-        #                 init[f"global_{p12_key}"] = False
-        #                 if self.config_obj[profile][p12_key] == "global" and "cli" not in p12_item:
-        #                     init[f"global_{p12_key}"] = True
-            
-        #         for key, value in init.items():
-        #             self.config_obj[profile][key] = value
-    
-        # 1 == 1
-        
+
         
     def create_path_variable(self, path, file):
         try:
@@ -481,7 +466,7 @@ class Configuration():
                     if self.config_obj[profile][tdir] == "default":
                         if tdir == "seed_file":
                             # exception
-                            self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist'
+                            self.config_obj[profile][tdir] = f'{profile}-seedlist'
                         elif isinstance(def_value,list):
                             self.config_obj[profile][tdir] = def_value[0]
                             if int(self.config_obj[profile]["layer"]) > 0:
@@ -1210,7 +1195,30 @@ class Configuration():
                 "special_case": None,
             })    
 
-                         
+
+    def validate_seedlist_duplicates(self):
+        seeds = []; duplicates = []
+        for profile in self.metagraph_list: seeds.append(self.config_obj[profile]["seed_path"])
+        seeds_set = set(seeds)
+        if len(seeds_set) != len(seeds):
+            self.validated = False
+            for seed in seeds:
+                if seeds.count(seed) > 1 and seed not in duplicates:
+                    duplicates.append(seed)
+        
+        if not self.validated:
+            self.error_list.append({
+                "title": "duplicate seed path found",
+                "section": "metagraphs",
+                "profile": "metagraphs",
+                "type": "seed_path_dups",
+                "missing_keys": "seed_location, seed_file",
+                "key": None,
+                "value": duplicates,
+                "special_case": None,
+            })  
+            
+                             
     def print_report(self):
         if self.skip_final_report:
             return
@@ -1254,6 +1262,7 @@ class Configuration():
         hints = {
             "ports": "port must be a integer between 1 and 65535",
             "api_port_dups": "Tessellation API ports cannot conflict.",
+            "seed_path_dups": "cannot have the same file name and path for different profiles.",
             "high_port": "port must be a integer between 1024 and 65535",
             "int": "collateral must be an integer value",
             "wallet_alias": f"{wallet_error1} {wallet_error2} {wallet_error3}",
