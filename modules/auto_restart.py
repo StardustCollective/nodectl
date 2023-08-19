@@ -32,9 +32,12 @@ class AutoRestart():
         self.retry_tolerance = 50
         self.observing_tolerance = 5        
         self.thread_profile = thread_profile  # initialize
-        self.rapid_restart = config_obj["global_auto_restart"]["rapid_restart"]    
+        self.rapid_restart = config_obj["global_auto_restart"]["rapid_restart"] 
+        self.gl0_link_profile = config_obj[self.thread_profile]["gl0_link_profile"]
+        self.ml0_link_profile = config_obj[self.thread_profile]["ml0_link_profile"]
         self.sleep_on_critical = 600 if not self.rapid_restart else 15
         self.link_types = ["ml0","gl0"]
+        self.independent_profile = False
         
         if self.rapid_restart: self.random_times = [5]; self.timer = 5; self.sleep_on_critical = 15
         else:
@@ -62,7 +65,7 @@ class AutoRestart():
         command_obj = {
             "caller": "cli",
             "config_obj": self.functions.config_obj,
-            "profile": self.profile_names[0],
+            "profile": self.thread_profile,
             "command": "auto_restart",
         }
         self.node_service = Node(command_obj,False)   
@@ -91,6 +94,7 @@ class AutoRestart():
         complete = False
         for single_pairing in profile_pairings:
             for profile in single_pairing:
+                self.profile_pairing = single_pairing
                 if profile["profile"] == self.thread_profile:
                     self.profile_names = [single_pairing[-1]["profile"]]
                     self.profile_names.append(self.thread_profile)
@@ -98,19 +102,6 @@ class AutoRestart():
                     break
             if complete:
                 break
-
-        remove_profile_list = []
-        
-        self.gl0_link_profile = self.functions.config_obj[self.thread_profile]["gl0_link_profile"]
-        self.ml0_link_profile = self.functions.config_obj[self.thread_profile]["ml0_link_profile"]
-            
-        for link_type in self.link_types:            
-            for profile in self.profile_names:
-                if profile != self.thread_profile and profile != eval(f"self.{link_type}_link_profile"):
-                    remove_profile_list.append(profile)
-                    
-        for remove in remove_profile_list:
-            self.profile_names.pop(self.profile_names.index(remove))
 
 
     def setup_profile_states(self):
@@ -138,19 +129,21 @@ class AutoRestart():
             self.profile_states[profile]["layer"] = int(self.functions.config_obj[profile]["layer"])
             
             for link_type in self.link_types:
-                if self.functions.config_obj[self.thread_profile][f"{link_type}_link_enable"] == True:
-                    if self.gl0_link_profile != "None": self.profile_states[profile]["gl0_link_profile"] = self.gl0_link_profile
-                    if self.gl0_link_profile != "None": self.profile_states[profile]["gl0_link_profile"] = self.gl0_link_profile
+                if self.functions.config_obj[profile][f"{link_type}_link_enable"] == True:
+                    if eval(f"self.{link_type}_link_profile") != "None": 
+                        self.profile_states[profile][f"{link_type}_link_profile"] = eval(f"self.{link_type}_link_profile")
+                        
+        if len(self.profile_states) < 2: self.independent_profile = True
 
     
     def update_profile_states(self):
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | all profile [{self.profile_names}]")
         
-        profile_states = self.profile_states
-        if self.profile_states[self.thread_profile]["layer"] == 0:  # layer0 doesn't care about layer1
-            profile_states = [self.thread_profile]
+        # profile_states = self.profile_states
+        # if self.profile_states[self.thread_profile]["layer"] == 0:  # layer0 doesn't care about layer1
+        #     profile_states = [self.thread_profile]
         
-        for profile in profile_states:
+        for profile in self.profile_states:
            self.node_service.set_profile(profile)
            self.set_ep()
            self.set_session_and_state()
@@ -196,6 +189,7 @@ class AutoRestart():
         
         self.log.logger.debug(f"auto_restart - set sessions - profile [{self.thread_profile}] | session_list | {session_list}")
         
+        # default everything
         self.profile_states[self.node_service.profile]["match"] = True
         self.profile_states[self.node_service.profile]["ep_ready"] = True
         self.profile_states[self.node_service.profile]["action"] = None
@@ -206,7 +200,8 @@ class AutoRestart():
         self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
         self.profile_states[self.node_service.profile]["action"] = "NoActionNeeded"
         
-        dependent_link = self.profile_states[self.node_service.profile]["link_profile"]
+        gl0_dependent_link = self.profile_states[self.node_service.profile]["gl0_link_profile"]
+        ml0_dependent_link = self.profile_states[self.node_service.profile]["ml0_link_profile"]
         
         # check if LB is up first
         if session_list["session0"] == 0:
@@ -214,15 +209,32 @@ class AutoRestart():
             self.profile_states[self.node_service.profile]["ep_ready"] = False
             self.profile_states[self.node_service.profile]["action"] = "ep_wait"
             self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
+            continue_checking = False
             
-        # force layer1 to wait until layer0 is Ready
-        elif self.profile_states[self.node_service.profile]["layer"] > 0:
-            if dependent_link and self.profile_states[dependent_link]["node_state"] != "Ready":
+        if continue_checking:
+            if gl0_dependent_link and self.profile_states[gl0_dependent_link]["node_state"] != "Ready":
+                self.log.logger.debug(f'auto_restart - set sessions - profile [{self.thread_profile}] | gl0 link not ready | state [{self.profile_states[gl0_dependent_link]["node_state"]}] - setting layer0_wait flag')
                 self.profile_states[self.node_service.profile]["match"] = False
                 self.profile_states[self.node_service.profile]["ep_ready"] = True
-                self.profile_states[self.node_service.profile]["action"] = "layer1_wait"
+                self.profile_states[self.node_service.profile]["action"] = "layer0_wait"
                 self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
                 continue_checking = False
+            if self.profile_states[self.node_service.profile]["layer"] > 0:
+                if ml0_dependent_link and self.profile_states[ml0_dependent_link]["node_state"] != "Ready":
+                    self.log.logger.debug(f'auto_restart - set sessions - profile [{self.thread_profile}] | ml0 link not ready | state [{self.profile_states[ml0_dependent_link]["node_state"]}] - setting layer1_wait flag')
+                    self.profile_states[self.node_service.profile]["match"] = False
+                    self.profile_states[self.node_service.profile]["ep_ready"] = True
+                    self.profile_states[self.node_service.profile]["action"] = "layer1_wait"
+                    self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
+                    continue_checking = False
+                
+        # elif self.profile_states[self.node_service.profile]["layer"] > 0:
+        #     if dependent_link and self.profile_states[dependent_link]["node_state"] != "Ready":
+        #         self.profile_states[self.node_service.profile]["match"] = False
+        #         self.profile_states[self.node_service.profile]["ep_ready"] = True
+        #         self.profile_states[self.node_service.profile]["action"] = "layer1_wait"
+        #         self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
+        #         continue_checking = False
         
         if continue_checking:    
             if session_list["session0"] > session_list["session1"] and session_list['session1'] > 0:
@@ -299,9 +311,11 @@ class AutoRestart():
         # Observing looper includes WaitingForReady State (>1.9.0)
         attempts = 1
         max_attempts = 10
+
         while True:
             self.update_profile_states()
-            state = self.profile_states[self.profile_names[0]]['node_state']  # layer0 state
+            state = self.profile_states[self.profile_pairing[1]['profile']]['node_state']  # layer0 state
+
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  Observing/WaitingForReady looper - action [{self.node_service.profile}] initiated | current found state [{state}]")
             if state == "Observing" or state == "WaitingForReady":
                 attempts = self.attempts_looper(attempts,f"waiting: {state} --> Ready",16,max_attempts,False)  # 4 minutes of testing
@@ -329,7 +343,7 @@ class AutoRestart():
                 self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  possible cluster restart false positive detected - skipping restart | profile [{self.node_service.profile}]")
                 return
             
-            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  cluster restart false positive detection cleared - continuing with restart | profile [{self.node_service.profile}]")        
+            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  cluster restart false positive detection test cleared - continuing with restart | profile [{self.node_service.profile}]")        
             self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  silent restart [stop] initiating | profile [{self.node_service.profile}]")
             self.stop_start_handler("stop")
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - updating [seed_list]")
@@ -381,7 +395,7 @@ class AutoRestart():
                 auto_upgrade_success = self.node_service.download_constellation_binaries({
                     "print_version": False,
                     "action": "auto_restart",
-                    "download_version": versions[0],
+                    "environment": self.functions.config_obj[self.thread_profile]["environment"],
                 })
                 if not auto_upgrade_success:
                     warning = True
@@ -422,6 +436,7 @@ class AutoRestart():
                 
             elif action == "start":
                 self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  stop start - waiting for [start] to complete with desired state [ReadyToJoin]")
+                # note: DownloadInProgress may take a long time to complete.
                 if "Ready" in state or "Observing" in state: # Ready, Observing, WaitingForReady, WaitingForObserving
                     self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  stop start - profile [{self.node_service.profile}] stop start exiting [start] found state [{state}]")
                     break
@@ -446,16 +461,16 @@ class AutoRestart():
         # The stop and start procedures would not allow us to get here without being "ReadyToJoin"
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler - starting action [join] | state is [{state}]")
         
-        try:
-            if self.node_service.profile == self.profile_names[1]:
+        if not self.independent_profile: # we do not need to test other layers before joining
+            try:
                 self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler - action [join] | detected layer1 [{self.node_service.profile}] - waiting for layer0 to become ready entering Observing/WaitingForReady state looper")
                 observing_to_ready = self.observing_looper()
                 if not observing_to_ready:
                     self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler - action [join] | detected layer1 [{self.node_service.profile}] - failed to see L0 set to [Ready] returning to restart handler")
                     return
-        except:
-            # single profile no dependencies
-            pass
+            except:
+                # single profile no dependencies
+                pass
         
         if not self.debug:
             self.node_service.join_cluster({
@@ -503,9 +518,9 @@ class AutoRestart():
 
         while True:
             if self.passphrase_warning:
-                self.log.logger.error("auto_restart - restart handler - found possible manual passphrase requirement - auto_restart will not be able to proper authenticate on restart requirement, sleeping [20 minutes].")
+                self.log.logger.error(f"auto_restart - restart handler -  thread [{self.thread_profile}] found possible manual passphrase requirement - auto_restart will not be able to proper authenticate on restart requirement, sleeping [20 minutes].")
                 sleep(1200)
-                self.log.logger.info("auto_restart - restart handler - re-checking if configuration has been updated...")
+                self.log.logger.info(f"auto_restart - restart handler -  thread [{self.thread_profile}] re-checking if configuration has been updated...")
                 self.setup_profile_states()
             else:
                 self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] -  restart handler - timer invoked thread [{self.thread_profile}] - sleeping [{self.timer}] seconds")
@@ -521,19 +536,41 @@ class AutoRestart():
                 extra_wait_time = random.choice(self.random_times)
                 
                 if action == "ep_wait":
-                    self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - LOAD BALANCER NOT REACHABLE | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                    warn_msg = "\n==========================================================================\n"
+                    warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - LOAD BALANCER NOT REACHABLE | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                    warn_msg += "=========================================================================="
+                    self.log.logger.warn(warn_msg)
                     self.wait_for_ep_looper()
                 elif match and action == "NoActionNeeded":
-                    self.log.logger.info(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - SESSION MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                    warn_msg = "\n==========================================================================\n"
+                    warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                    warn_msg += "=========================================================================="
+                    self.log.logger.info(warn_msg)
+                elif action == "layer0_wait" or action == "layer1_wait":
+                    cause = "Global layer0 link (GL0)" if action == "layer0_wait" else "Metagraph Layer0 (ML0)"
+                    warn_msg = "\n==========================================================================\n"
+                    warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - {cause} link state not ready | profile [{self.thread_profile}] action [{action}]\n"
+                    warn_msg += f"auto_restart - take no action at this time | thread [{self.thread_profile}] state [{state}]\n"
+                    warn_msg += "=========================================================================="
+                    self.log.logger.warn(warn_msg)
                 else:
                     self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  restart handler - random sleep before executing restart request | sleep [{extra_wait_time}s]")
                     sleep(extra_wait_time)
                     if not match:
-                        self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                        warn_msg += "=========================================================================="                        
+                        self.log.logger.warn(warn_msg)
                     elif action == "restart_full":
-                        self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED but SESSION MATCH | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED but SESSION MATCH | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                        warn_msg += "=========================================================================="      
+                        self.log.logger.warn(warn_msg)
                     elif action == "join_only":
-                        self.log.logger.warn(f"\n==========================================================================\nauto_restart - thread [{self.thread_profile}] -  restart handler - JOIN ONLY ACTION NEEDED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n==========================================================================")
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - JOIN ONLY ACTION NEEDED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                        warn_msg += "=========================================================================="      
+                        self.log.logger.warn(warn_msg)
                     self.silent_restart(action)
 
 
