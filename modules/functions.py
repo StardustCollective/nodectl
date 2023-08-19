@@ -94,11 +94,13 @@ class Functions():
             
         self.default_profile = None
         self.default_edge_point = {}
-        
+        self.link_types = ["ml0","gl0"]   
+             
         self.event = False # used for different threading events
         self.status_dots = False # used for different threading events
         
         ignore_defaults = ["config","install","auto_restart","ts"]
+
         if config_obj["global_elements"]["caller"] not in ignore_defaults:
             self.set_default_variables({})
             
@@ -622,6 +624,7 @@ class Functions():
         # this needs to be migrated to node_services
         # move this to node.service
         # =========================
+        self.log.logger.debug("functions [get_service_status]")
         self.config_obj["global_elements"]["node_service_status"] = {}
         
         try: _ = self.profile_names
@@ -637,7 +640,8 @@ class Functions():
             else:
                 self.config_obj["global_elements"]["node_service_status"][profile] = "error (exit code)"
             self.config_obj["global_elements"]["node_service_status"]["service_return_code"] = service_status   
-
+            self.log.logger.debug(f'get_service_status -> [{profile}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][profile]}]')
+            
     
     def get_date_time(self,command_obj):
         action = command_obj.get("action",False)
@@ -702,8 +706,9 @@ class Functions():
         return_value = command_obj.get("return_value", desired_value)
         specific_ip = command_obj.get("specific_ip",False)
         spinner = command_obj.get("spinner",False)
+        max_range = command_obj.get("max_range",10)
         cluster_info = []
-        max_range = 10
+        
             
         api_str = "/cluster/info"
         if api_endpoint_type == "consensus":
@@ -1424,22 +1429,19 @@ class Functions():
             pairing_list = []
                        
             for profile in self.profile_names:
-                if self.config_obj[profile]["ml0_link_enable"]:
-                    # list of lists of matching profile to linked profile
-                    link_profile = self.config_obj[profile]["ml0_link_profile"]
-                    layer = self.config_obj[profile]["layer"]
-                    if layer > 0 and link_profile != "None":
-                        pairing_list.append([profile, self.config_obj[profile]["ml0_link_profile"]])
-                    else:
-                        pairing_list.append([profile])
+                for link_type in self.link_types:
+                    if self.config_obj[profile][f"{link_type}_link_enable"]:
+                        # list of lists of matching profile to linked profile
+                        link_profile = self.config_obj[profile][f"{link_type}_link_profile"]
+                        if link_profile != "None":
+                            pairing_list.append([profile, self.config_obj[profile][f"{link_type}_link_profile"]])
+                        else: pairing_list.append([profile])
             
             n = 0
             while True:
                 list1 = pairing_list[n]
-                try:
-                    list2 = pairing_list[n+1]
-                except IndexError:
-                    break
+                try: list2 = pairing_list[n+1]
+                except IndexError: break
                 else:
                     list1 = test_replace_last_elements(list1,list2)
                     if list1:
@@ -1450,16 +1452,16 @@ class Functions():
                         
             dup_keys = []
 
-            for key in self.profile_names:
-                for x in pairing_list:
-                    if key in x:
-                        dup_keys.append(key)
+            for profile in self.profile_names:
+                for p_pair in pairing_list:
+                    if profile in p_pair:
+                        dup_keys.append(profile)
                         break
-            for key in self.profile_names:
-                if key not in dup_keys:
-                    key_list = []
-                    key_list.append(key)
-                    pairing_list.append(key_list)
+            # for profile in self.profile_names:
+            #     if p_pair not in dup_keys:
+            #         key_list = []
+            #         key_list.append(profile)
+            #         pairing_list.append(key_list)
             
             # add services to the pairing list
             for n, s_list in enumerate(pairing_list):
@@ -1875,6 +1877,7 @@ class Functions():
         skip_thread = command_obj.get("skip_thread",False)
         spinner = command_obj.get("spinner", False)
         spinner = False if self.auto_restart else spinner
+        api_not_ready_flag = False
         
         results = {
             "node_on_src": False,
@@ -1924,7 +1927,10 @@ class Functions():
                       
             while True:
                 for n,ip_address in enumerate(ip_addresses):
-                    
+                    if api_not_ready_flag: 
+                        ip_address["ip"] = "127.0.0.1"
+                        ip_address["publicPort"] = self.config_obj[profile]["public_port"]
+                        
                     uri = self.set_api_url(ip_address["ip"], ip_address["publicPort"],"/node/state")
                         
                     if ip_address["ip"] is not None:
@@ -1945,12 +1951,12 @@ class Functions():
                                 results['edge_node_color'] = color
                                 
                         except:
-                            # try 5 times before passing with ApiNotReady
+                            if api_not_ready_flag: break_while = True
+                            # try 2 times before passing with ApiNotReady
                             attempt = attempt+1
-                            if attempt > 4:
-                                pass
-                                break_while = True
-                            sleep(1)
+                            if attempt > 1:
+                                api_not_ready_flag = True
+                            sleep(.5)
                             break
                         else:
                             break_while = True
@@ -2450,7 +2456,7 @@ class Functions():
             return option
         for return_option in options:
             if let_or_num == "let":
-                if option == return_option[0]:
+                if option.lower() == return_option[0].lower():
                     return return_option
         try:
             return options[int(option)-1]
@@ -2665,8 +2671,7 @@ class Functions():
         self.help_text += build_help(command_obj)
         
         print(self.help_text)
-        
-        
+                
         if "profile" in hint:
             self.print_paragraphs([
                 ["HINT:",0,"yellow","bold"],
@@ -2685,7 +2690,7 @@ class Functions():
         elif isinstance(hint,str) and hint != "None":
             cprint(f"{  hint}","cyan")
             
-        exit(1) # auto_restart not affected
+        exit(0) # auto_restart not affected
         
     
     def print_auto_restart_warning(self):
