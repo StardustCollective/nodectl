@@ -2358,6 +2358,9 @@ class Configurator():
             ["-",0,"magenta","bold"], ["services",1,"magenta"],
             ["-",0,"magenta","bold"], ["associated bash files",1,"magenta"],
             ["-",0,"magenta","bold"], ["blockchain data (snapshots)",2,"magenta"],
+            
+            [" WARNING! ",0,"red,on_yellow"],["If you have any profiles linking to this profile (GL0 or ML0) you will need to use the",0,"yellow"],
+            ["configurator to update the consensus linking per profile, the configurator will not update these elements for you.",2,"yellow"]
         ]
 
         confirm_notice = self.confirm_with_word({

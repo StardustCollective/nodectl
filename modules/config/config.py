@@ -1209,8 +1209,8 @@ class Configuration():
                 "value": duplicates,
                 "special_case": None,
             })    
-                        
-                                       
+
+                         
     def print_report(self):
         if self.skip_final_report:
             return
