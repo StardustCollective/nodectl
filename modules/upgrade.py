@@ -507,15 +507,37 @@ class Upgrader():
         self.functions.print_cmd_status(progress)
         if path.exists("/var/tessellation/seed-list"):
             remove("/var/tessellation/seed-list")
-                
+            
+        self.functions.print_cmd_status({
+            **progress,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+        
         self.service_file_manipulation() # default directories are setup in the verify_directories method
        
+        progress = {
+            "text_start": "Removing old tmp files",
+            "status": "running",
+            "status_color": "yellow",
+        }
+        self.functions.print_cmd_status(progress)
         # remove any private key file info to keep
         # security a little more cleaned up
         if path.isfile(f"{self.p12.p12_file_location}/id_ecdsa.hex"):
             remove(f"{self.p12.p12_file_location}/id_ecdsa.hex > /dev/null 2>&1")
+        system(f"rm -f /var/tmp/cnng-* > /dev/null 2>&1")
+        system(f"rm -f /var/tmp/cn-* > /dev/null 2>&1")
 
-     
+        self.functions.print_cmd_status({
+            **progress,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+        
+             
     def service_file_manipulation(self):
         # version older than 0.15.0 only
         self.log.logger.warn(f"upgrader removing older <2.x.x service file if exists.")
