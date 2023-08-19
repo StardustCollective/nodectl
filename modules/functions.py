@@ -963,6 +963,9 @@ class Functions():
         if quit_option and (self.key_pressed.upper() == quit_option.upper()):
             cprint("  Action cancelled by User","yellow")
             exit(0)
+            
+        try: _ = self.key_pressed.lower()  # avoid NoneType error
+        except: return
         return self.key_pressed.lower()
 
 
@@ -2488,7 +2491,9 @@ class Functions():
         if newline == "bottom" or newline == "both":
             print("")
             
-        if quit_option and quit_option == key_pressed.lower():
+        try: key_pressed = key_pressed.lower()
+        except: key_pressed = "None"
+        if quit_option and quit_option == key_pressed:
             return True
         return
         
