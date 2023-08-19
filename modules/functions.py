@@ -1742,41 +1742,6 @@ class Functions():
         except:
             if not self.network_name:
                 self.network_name = self.pull_remote_profiles({"r_and_q": None})
-                # while True:
-                #     self.print_clear_line()
-
-                #     self.print_paragraphs([
-                #         ["nodectl",0,"blue","bold"], ["which environment your Node will be running on.",2],
-                        
-                #         ["OPTIONS",1,"magenta","bold"], ["-------",1,"magenta"],
-                #         ["M",0,"magenta","bold"], [")",-1,"magenta"], ["ainNet",-1,"magenta"],["",1],
-                #         ["I",0,"magenta","bold"], [")",-1,"magenta"], ["ntegrationNet",-1,"magenta"],["",1],
-                #         ["T",0,"magenta","bold"], [")",-1,"magenta"], ["estNet",-1,"magenta"],["",1],
-                #         ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
-                #     ])
-
-                #     options_dict = {"M": "mainnet", "T": "testnet", "I": "integrationnet", "Q": "Q"}
-                #     option = self.get_user_keypress({
-                #         "prompt": "KEY PRESS an option",
-                #         "prompt_color": "cyan",
-                #         "quit_option": "Q",
-                #         "options": list(options_dict.keys())
-                #     })
-                    
-                #     self.network_name = options_dict[option.upper()]
-                #     self.print_cmd_status({
-                #         "text_start": "Node environment set",
-                #         "status": self.network_name,
-                #         "status_color": "green",
-                #         "newline": True,
-                #     })
-                #     return
-                
-                
-        # if self.network_name == "dev":
-            # integrationnet started from dev environment - renaming here
-            # This will be changed in future versions of Tessellation
-        #   self.network_name = "integrationnet"
 
             
     def check_for_help(self,argv_list,extended):
