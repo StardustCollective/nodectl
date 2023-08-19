@@ -3268,12 +3268,12 @@ class Configurator():
                     "exit_if": False
                 })
                 if not confirm_notice:
-                    word_any_key("action cancelled by Node Operator, press any key")
+                    word_any_key("Action cancelled by Node Operator, press any key")
                     return False    
                 
             return True
         
-        word_any_key("confirmation phrase did not match, cancelling operation, press any key")
+        word_any_key("Confirmation phrase did not match, cancelling operation, press any key")
         return False
     
                          

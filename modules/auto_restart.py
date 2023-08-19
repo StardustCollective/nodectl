@@ -91,6 +91,16 @@ class AutoRestart():
             "req": "pairings",
         })
 
+        # merge pairing lists if first element is the same
+        # indication that gl0 and ml0 are needed
+        merge_list = []
+        profile = None  # skip the first merge pair
+        for merge_pairing in profile_pairings:
+            if merge_pairing[0]["profile"] == profile:
+                merge_list.append(merge_pairing[1])
+            profile = merge_pairing[0]["profile"]
+
+
         complete = False
         for single_pairing in profile_pairings:
             for profile in single_pairing:
@@ -102,6 +112,10 @@ class AutoRestart():
                     break
             if complete:
                 break
+            
+        for merge_profile in merge_list: 
+            self.profile_pairing.append(merge_profile)
+            self.profile_names.append(merge_profile["profile"])
 
 
     def setup_profile_states(self):
@@ -227,14 +241,6 @@ class AutoRestart():
                     self.profile_states[self.node_service.profile]["action"] = "layer1_wait"
                     self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
                     continue_checking = False
-                
-        # elif self.profile_states[self.node_service.profile]["layer"] > 0:
-        #     if dependent_link and self.profile_states[dependent_link]["node_state"] != "Ready":
-        #         self.profile_states[self.node_service.profile]["match"] = False
-        #         self.profile_states[self.node_service.profile]["ep_ready"] = True
-        #         self.profile_states[self.node_service.profile]["action"] = "layer1_wait"
-        #         self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
-        #         continue_checking = False
         
         if continue_checking:    
             if session_list["session0"] > session_list["session1"] and session_list['session1'] > 0:

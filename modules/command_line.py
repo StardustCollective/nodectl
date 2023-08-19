@@ -2795,7 +2795,7 @@ class CLI():
         self.log.logger.info(f"Request to display nodeid | type {command}")
 
         if not outside_node_request and not target:
-            self.functions.config_obj["global_elements"]["caller"] = "command_lne"
+            self.functions.config_obj["global_elements"]["caller"] = "command_line"
             action_obj = {
                 "action": command,
                 "config_obj": self.functions.config_obj,
