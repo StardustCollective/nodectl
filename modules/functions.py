@@ -2431,7 +2431,40 @@ class Functions():
         except:
             return option # r_and_q exception
         
+
+    def print_profile_menu(self,command_obj):
+        print_header = command_obj.get("print_header", True)
+        color = command_obj.get("color","magenta")
         
+        print("")
+        if print_header:
+            self.print_header_title({
+            "line1": "Press choose required profile",
+            "single_line": True,
+            "newline": True,  
+            })
+        
+        print("")
+        return_value = self.print_option_menu({
+            "options": self.profile_names,
+            "return_value": True,
+            "color": color,
+            "r_and_q": "q"
+        })
+        
+        if return_value == "q":
+            self.print_paragraphs([
+                ["Command operation canceled by Node Operator",2,"green"],
+            ])
+            exit(0)
+            
+        self.print_paragraphs([
+            ["",1], [f" {return_value} ",2,"yellow,on_blue","bold"],
+        ])
+        
+        return return_value
+        
+                
     def print_any_key(self,command_obj):
         quit_option = command_obj.get("quit_option",False)
         newline = command_obj.get("newline",False)

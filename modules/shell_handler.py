@@ -635,13 +635,16 @@ class ShellHandler:
         if env_hint and profile_hint and either_or_hint:
             send_to_help_method("profile_env")
         elif profile_hint and not either_or_hint:
-            send_to_help_method("profile")
+            # send_to_help_method("profile")
+            self.profile = self.functions.print_profile_menu({})
+            self.argv.append("-p")
+            self.argv.append(self.profile)
+            need_profile = False
         elif env_hint and not either_or_hint:
             send_to_help_method("env")
             
         if need_profile and self.called_command != "empty":
-            if "-p" in self.argv:
-                self.profile = called_profile
+           if "-p" in self.argv: self.profile = called_profile
      
     # =============  
     
@@ -1129,6 +1132,7 @@ class ShellHandler:
         
         self.installer.install_process()
         self.functions.print_perftime(performance_start,"installation")
+
 
     def handle_exit(self,value):
         self.check_auto_restart("end")
