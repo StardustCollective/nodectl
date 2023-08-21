@@ -2415,6 +2415,9 @@ class CLI():
         defined_connection_threshold = .8
         max_timer = 300
         peer_count, old_peer_count, src_peer_count, increase_check = 0, 0, 0, 0
+        
+        gl0_link = self.functions.config_obj[called_profile]["gl0_link_enable"]
+        ml0_link = self.functions.config_obj[called_profile]["ml0_link_enable"]
 
         states = list(zip(*self.functions.get_node_states("on_network")))[0]
         break_states = list(zip(*self.functions.get_node_states("past_observing")))[0]
@@ -2434,8 +2437,11 @@ class CLI():
         if self.functions.config_obj[called_profile]["layer"] < 1 and not single_profile:
             found_dependency = False
             if not watch_peer_counts: # check to see if we can skip waiting for Ready
-                for link_profile in self.functions.config_obj.keys():
-                    if self.functions.config_obj[link_profile]["ml0_link_profile"] == called_profile:
+                for link_profile in self.profile_names:
+                    if self.functions.config_obj[link_profile]["gl0_link_profile"] == called_profile:
+                        found_dependency = True
+                        break
+                    elif self.functions.config_obj[link_profile]["ml0_link_profile"] == called_profile:
                         found_dependency = True
                         break
             if not found_dependency:

@@ -810,9 +810,54 @@ class Configurator():
             "profile": profile,
             "defaults": defaults,
         })
+        
+        
+    def manual_define_meta(self,profile=False):
+        profile = self.profile_to_edit if not profile else profile
+
+        self.manual_section_header(profile,"METAGRAPH TYPE")
+        
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1], ["There are only two options: 'gl' and 'ml'.",2,"white","bold"],
+                ["nodectl identifies 'gl' as",0,"white","bold"], ["global layer.",1,"yellow","bold"],
+                ["nodectl identifies 'ml' as",0,"white","bold"], ["metagraph layer.",2,"yellow","bold"],
+                
+                ["This value helps nodectl determine the order of how each cluster needs to be started.  It is an",0,"white","bold"],
+                ["important aspect of allowing a Node to connect to the network successfully.",0,"white","bold"],
+                ["Layer 1 clusters should always be identified as 'ml'",2,"white","bold"],
+            ])
+            
+        self.c.functions.print_paragraphs([
+            ["Metagraph Types",1,"yellow,on_blue"],
+            ["=","half","blue","bold"],
+        ])
+
+        option = self.c.functions.print_option_menu({
+            "options": [
+                "gl",
+                "ml",
+            ],
+            "let_or_num": "num",
+            "r_and_q": "q",
+            "color": "magenta",
+        })
+        
+        if option.lower() == "q":
+            self.quit_configurator()
+        if option.lower() == "1":
+            defaults = {"meta_type": "gl"}
+        if option.lower() == "2":
+            defaults = {"meta_type": "ml"}
+
+        self.manual_append_build_apply({
+            "questions": False, 
+            "profile": profile,
+            "defaults": defaults,
+        })
 
 
-    def edit_log_level(self):
+    def manual_log_level(self):
         profile = "global_elements"
         self.manual_section_header(profile,"SET LOGGING LEVEL")
         
@@ -2009,6 +2054,7 @@ class Configurator():
             ("API Edge Point",17),
             ("API TCP Ports",18),
             ("Consensus Linking",19),
+            ("Metagraph Type",20),
         ]
         section_change_names.sort()
                         
@@ -2034,7 +2080,7 @@ class Configurator():
                 p = p+4
                 p_option = colored(f" {p}","magenta",attrs=["bold"]) if p < 10 else colored(f'{p}',"magenta",attrs=["bold"])
                 option_list.append(f'{p}')
-                section = colored(f")  {section}","magenta")
+                section = colored(f")  {section[0]}","magenta")
                 print(self.wrapper.fill(f"{p_option}{section}")) 
                     
             p_option = colored("H","magenta",attrs=["bold"])
@@ -2172,7 +2218,12 @@ class Configurator():
                     self.called_option = "Layer0 link"
                     self.manual_build_link(profile)
                     self.error_hint = "link"
-                    
+                                                            
+                elif option == 20:
+                    self.called_option = "metagraph identification"
+                    self.manual_define_meta(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
+                                        
                 if do_validate: self.validate_config(profile)
                 if do_print_title: print_config_section()
             elif option not in options2:
@@ -2325,7 +2376,7 @@ class Configurator():
             self.config_obj_apply["global_p12"] = self.config_obj["global_p12"]
 
         if s_type == "log_level": 
-            self.edit_log_level()
+            self.manual_log_level()
             return
                     
         self.apply_vars_to_config()    

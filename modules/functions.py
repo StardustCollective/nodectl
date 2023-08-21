@@ -95,6 +95,7 @@ class Functions():
         self.default_profile = None
         self.default_edge_point = {}
         self.link_types = ["ml0","gl0"]   
+        self.environment_names = []
              
         self.event = False # used for different threading events
         self.status_dots = False # used for different threading events
@@ -112,17 +113,17 @@ class Functions():
         
     def get_version(self,command_obj):
         #which=(str), print_message=(bool)
-        var = SimpleNamespace(**command_obj)
-        var.print_message = command_obj.get("print_message",True)
-        var.action = command_obj.get("action","normal")
-        
+        print_message = command_obj.get("print_message",True)
+        action = command_obj.get("action","normal")
+        which = command_obj["which"]
+
         # handle auto_restart
-        var.print_message = False if self.auto_restart else var.print_message
+        print_message = False if self.auto_restart else print_message
         self.pre_release = False
         
         with ThreadPoolExecutor() as executor:                            
             def print_msg():
-                if var.print_message:
+                if print_message:
                     self.print_clear_line()
                     self.event = True
                     _ = executor.submit(self.print_spinner,{
@@ -154,7 +155,7 @@ class Functions():
                 for profile in self.profile_names:
                     jar = self.config_obj[profile]["jar_file"]
                     bashCommand = f"/usr/bin/java -jar /var/tessellation/{jar} --version"
-                    if var.print_message: # not auto_restart
+                    if print_message: # not auto_restart
                         with ThreadPoolExecutor() as executor:
                             _ = executor.submit(thread_or_not)
                     else:
@@ -177,7 +178,7 @@ class Functions():
                 cluster_tess_version_obj = {}
                 if action == "normal":
                     for profile in self.profile_names:
-                        if var.print_message: # not auto_restart
+                        if print_message: # not auto_restart
                             with ThreadPoolExecutor() as executor:
                                 _ = executor.submit(thread_or_not)
                         else:
@@ -219,42 +220,42 @@ class Functions():
                 #     self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
 
 
-            profile = None if var.action == "normal" else "skip"
+            profile = None if action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
                 self.set_default_variables({
                     "profile": profile,
                 })
                 
-            if var.which == "nodectl":
+            if which == "nodectl":
                 self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}] nodectl_yaml_version [{self.node_nodectl_yaml_version}]")
                 return {
                     "node_nodectl_version":self.node_nodectl_version,
                     "node_nodectl_yaml_version":self.node_nodectl_yaml_version
                 }
-            elif var.which == "current_tess":
+            elif which == "current_tess":
                 print_msg()
                 get_running_tess_on_node() 
-                if var.print_message:
+                if print_message:
                     print(colored(" ".ljust(50),"magenta"),end="\r")
                 self.log.logger.info(f"node tess version: [{self.node_tess_version}]")
                 self.event = False
                 return self.node_tess_version
-            elif var.which == "cluster_tess":
+            elif which == "cluster_tess":
                 print_msg()
-                get_cluster_tess(var.action,self.network_name) 
-                if var.print_message:
+                get_cluster_tess(action,self.network_name) 
+                if print_message:
                     print(colored(" ".ljust(50),"magenta"),end="\r")
                 self.log.logger.info(f"cluster tess version: [{self.cluster_tess_version}]")
                 self.event = False
                 return self.cluster_tess_version
-            elif var.which == "latest_nodectl":
+            elif which == "latest_nodectl":
                 get_latest_nodectl(self.network_name) 
-                if var.print_message:
+                if print_message:
                     print(colored(" ".ljust(50),"magenta"),end="\r")
                 self.log.logger.info(f"repository nodectl version: [{self.latest_nodectl_version}]")
                 self.event = False
                 return self.latest_nodectl_version
-            elif var.which == "nodectl_all":
+            elif which == "nodectl_all":
                 get_latest_nodectl(self.network_name)
                 self.event = False
                 return {
@@ -269,7 +270,7 @@ class Functions():
                 get_latest_nodectl(self.network_name) 
                 
                 self.event = False
-                if var.which == "all":
+                if which == "all":
                     return {
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
@@ -1117,6 +1118,14 @@ class Functions():
             
         self.config_obj["global_elements"]["node_profile_states"] = {}  # initialize 
         self.profile_names = self.clear_global_profiles(self.config_obj)
+        
+        try: self.profile_names.pop(self.profile_names.index("upgrader"))
+        except ValueError: pass
+        
+        for profile in self.profile_names:
+            self.environment_names.append(self.config_obj[profile]["environment"])
+        self.environment_names = list(set(self.environment_names))
+        
         self.ip_address = self.get_ext_ip()
         self.check_config_environment()
                 
@@ -1452,14 +1461,23 @@ class Functions():
                         pairing_list.remove(list2)
                     else:
                         n += 1
-                        
-            dup_keys = []
+            
+            # final_order_list = False
+            # for n, order_list in enumerate(pairing_list):
+            #     for profile in order_list:
+            #         meta_type = f'{self.config_obj[profile]["meta_type"]}{self.config_obj[profile]["layer"]}'
+            #         if meta_type == "gl0":
+            #             final_order_list = order_list.insert(0, order_list.pop()) # move to front
+            #             break 
+            # if final_order_list: pairing_list[n] = final_order_list       
+     
+            # dup_keys = []
 
-            for profile in self.profile_names:
-                for p_pair in pairing_list:
-                    if profile in p_pair:
-                        dup_keys.append(profile)
-                        break
+            # for profile in self.profile_names:
+            #     for p_pair in pairing_list:
+            #         if profile in p_pair:
+            #             dup_keys.append(profile)
+            #             break
             # for profile in self.profile_names:
             #     if p_pair not in dup_keys:
             #         key_list = []
@@ -2432,21 +2450,23 @@ class Functions():
             return option # r_and_q exception
         
 
-    def print_profile_menu(self,command_obj):
+    def print_profile_env_menu(self,command_obj):
         print_header = command_obj.get("print_header", True)
         color = command_obj.get("color","magenta")
-        
+        p_type = command_obj.get("p_type","profile")
+        p_type_list = self.profile_names if p_type == "profile" else self.environment_names
+
         print("")
         if print_header:
             self.print_header_title({
-            "line1": "Press choose required profile",
+            "line1": f"Press choose required {p_type}",
             "single_line": True,
             "newline": True,  
             })
         
         print("")
         return_value = self.print_option_menu({
-            "options": self.profile_names,
+            "options": p_type_list,
             "return_value": True,
             "color": color,
             "r_and_q": "q"

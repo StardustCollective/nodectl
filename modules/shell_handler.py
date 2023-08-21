@@ -441,8 +441,8 @@ class ShellHandler:
             if not show_list:
                 show_list = True if environments["multiple_environments"] else show_list
             
-            print("")
             if env_provided:
+                print("")
                 if env_provided not in list(environments["environment_names"]):
                     self.error_messages.error_code_messages({
                         "error_code": "sh-441",
@@ -635,14 +635,18 @@ class ShellHandler:
         if env_hint and profile_hint and either_or_hint:
             send_to_help_method("profile_env")
         elif profile_hint and not either_or_hint:
-            # send_to_help_method("profile")
-            self.profile = self.functions.print_profile_menu({})
-            self.argv.append("-p")
-            self.argv.append(self.profile)
+            self.profile = self.functions.profile_names[0]
+            if len(self.functions.profile_names) > 1:
+                self.profile = self.functions.print_profile_env_menu({"p_type": "profile"})
+            self.argv.extend(["-p",self.profile])
             need_profile = False
         elif env_hint and not either_or_hint:
-            send_to_help_method("env")
-            
+            self.environment_requested = self.functions.environment_names[0]
+            if len(self.functions.environment_names) > 1:
+                self.environment_requested = self.functions.print_profile_env_menu({"p_type": "environment"})
+            self.argv.extend(["-e",self.environment_requested])
+            need_profile = False  
+                      
         if need_profile and self.called_command != "empty":
            if "-p" in self.argv: self.profile = called_profile
      

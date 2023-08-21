@@ -65,7 +65,7 @@ class Configuration():
         self.do_validation = False if self.action in skip_validation else True
         if self.action == "new_config_init": self.action = "edit_config"
 
-                
+        self.requested_configuration = False        
         self.current_layer = None
         self.profile_enable = {
             "profile": None,
@@ -115,6 +115,7 @@ class Configuration():
             exit(0)
         if self.action == "edit_on_error":
             self.edit_on_error_args = ["-e"]
+            self.requested_configuration = True
             return
         
         
@@ -697,6 +698,7 @@ class Configuration():
                 ["environment","str"],
                 ["description","str"],
                 ["node_type","node_type"],                
+                ["meta_type","meta_type"],                
                 ["layer","layer"],   
                 ["collateral","int"],
                 ["service","str"],
@@ -724,7 +726,6 @@ class Configuration():
                 ["java_xss","mem_size"],
                 ["jar_repository","host_def"], 
                 ["jar_file","str"],
-                ["jar_version","str"],
                 ["jar_github","bool"], # automated value [not part of yaml]
                 ["p12_nodeadmin","str"],
                 ["p12_key_location","path"],
@@ -805,7 +806,7 @@ class Configuration():
         #     "auto_restart": ["enable","auto_upgrade","rapid_restart"],
         #     "global_p12": ["nodeadmin","key_location","key_name","key_alias","passphrase"],
         #     "cnng_dynamic_profiles": [
-        #         "enable","metagraph_name","description","node_type","layer","service",
+        #         "enable","metagraph_name","description","node_type","meta_type","layer","service",
         #         "environment","edge_point","edge_point_tcp_port",
         #         "public_port","p2p_port","cli_port",
         #         "gl0_link_enable","gl0_link_key","gl0_link_host","gl0_link_port","gl0_link_profile",
@@ -813,7 +814,6 @@ class Configuration():
         #         "directory_backups","directory_uploads",
         #         "java_xms","java_xmx",
         #         "java_xss","jar_repository",
-        #         "jar_file","jar_version",
         #         "p12_nodeadmin","p12_key_location","p12_key_name","p12_key_alias","p12_passphrase",
         #         "seed_location","seed_file",
         #         "custom_args_enable","custom_env_vars_enable",
@@ -1038,6 +1038,8 @@ class Configuration():
             missing1 = [x for x in key_list if x not in found_list]
             missing2 = [x for x in found_list if x not in key_list]
             missing = set(missing1 + missing2)
+            special_case = "missing"
+            if len(missing2) > len(missing1): special_case = "invalid"
             self.validated = False
             self.error_list.append({
                 "title": "key_existence",
@@ -1046,7 +1048,7 @@ class Configuration():
                 "type": "key",
                 "key": "multiple",
                 "value": missing,
-                "special_case": None
+                "special_case": special_case
             })
         
         if "global" not in profile:
@@ -1068,6 +1070,7 @@ class Configuration():
             "str": str,
             "layer": [0,1],
             "node_type": ["validator","genesis"],
+            "meta_type": ["gl","ml"],
             "port": range(1,65535),
             "high_port": range(1024,65535),
             "self_port": range(1024,65535),
@@ -1223,6 +1226,7 @@ class Configuration():
         if self.skip_final_report:
             return
         
+        skip_special_case = False
         value_text = "Value Found"
         wallet_error1 = "wallet alias must match what was"
         wallet_error2 = "configured during p12 original"
@@ -1277,9 +1281,11 @@ class Configuration():
             "auto_upgrade": "must include a boolean (true/false) enable key.",
             "rapid_restart": "must include a boolean (true/false) enable key.",
             "multiple": "configuration key(s) are missing",
+            "invalid_key": "configuration found keys that are invalid and should not be in the configuration.",
             "list_of_strs": "must be a list of strings",
             "mem_size": f"{mem1} {mem2} {mem3} {mem4} {mem5} {mem6}",
             "node_type": f"{node_type1} {node_type2}",
+            "meta_type": "options include 'gl' or 'ml'",
             "service": f"{service_dups} {service_dups2}",
             "link_profile": "dependency link profile not found",
             "dirs": f"{dir1} {dir2}",
@@ -1312,15 +1318,21 @@ class Configuration():
             try:
                 for error in self.error_list:
                     if error["key"] in hints:
-                        hint = hints[error["key"]]
                         if error["key"] == "multiple":
-                            value_text = "    Missing"
+                            if error["special_case"] == "invalid": 
+                                value_text = "    Invalid"
+                                hint = hints["invalid_key"]
+                                skip_special_case = True
+                            else: 
+                                value_text = "    Missing"
+                                hint = hints[error["key"]]
                     elif error["type"] in hints:
                         hint = hints[error["type"]]
                     else:
                         hint = hints[error["section"]]
                         
-                    if error["special_case"] != None:
+                    if error["special_case"] != None and not skip_special_case:
+                        skip_special_case = False
                         hint = error["special_case"]
                 
                     config_key = ""

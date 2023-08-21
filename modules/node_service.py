@@ -101,6 +101,11 @@ class Node():
         action = command_obj.get("action","normal")
         environment = command_obj.get("environment",False)
         
+        argv_list = command_obj.get("argv_list",[])
+        backup = command_obj.get("backup", True)
+        
+        if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
+        
         def screen_print_download_results(file,first=False):
             backup = ""
             
@@ -127,7 +132,6 @@ class Node():
                 })
                 return i_file['pos']
             
-            
         def threaded_download(download_list):
             file_obj_copy = download_list[0]
             file = download_list[1]
@@ -153,7 +157,6 @@ class Node():
                 download_version = self.version_obj["cluster_tess_version"][profile]
             uri = self.set_github_repository(uri,profile,download_version)
 
-                
             attempts = 0
             if not path.exists(tess_dir):
                 makedirs(tess_dir)
@@ -226,11 +229,12 @@ class Node():
         file_obj["cur_pos"] = 1
         files = list(file_obj.keys())
         
-        self.functions.backup_restore_files({
-            "file_list": files,
-            "location": "/var/tessellation",
-            "action": "backup"
-        })
+        if backup:
+            self.functions.backup_restore_files({
+                "file_list": files,
+                "location": "/var/tessellation",
+                "action": "backup"
+            })
         
         if action == "auto_restart":
             result = True
@@ -641,7 +645,7 @@ class Node():
         
                                
     def check_for_ReadyToJoin(self,caller):
-        for n in range(0,5):
+        for n in range(1,4):
             state = self.functions.test_peer_state({
                 "profile": self.profile,
                 "simple": True
@@ -649,7 +653,7 @@ class Node():
             if state == "ReadyToJoin":
                 return True
             print(colored(f"  API not ready on {self.profile}","red"),colored(state,"yellow"),end=" ")
-            print(f'{colored("attempt ","red")}{colored(n,"yellow",attrs=["bold"])}{colored(" of 5","red")}',end="\r")
+            print(f'{colored("attempt ","red")}{colored(n,"yellow",attrs=["bold"])}{colored(" of 3","red")}',end="\r")
             sleep(3)
             
         if caller == "upgrade":
