@@ -65,11 +65,11 @@ class Functions():
         # constellation nodectl statics
         self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
         # dev
-        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_v290/admin/upgrade_path.json"
+        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
         
         
-        self.nodectl_profiles_url = 'https://github.com/StardustCollective/nodectl/tree/nodectl_v290/predefined_configs'
-        self.nodectl_profiles_url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/nodectl_v290/predefined_configs"
+        self.nodectl_profiles_url = 'https://github.com/StardustCollective/nodectl/tree/main/predefined_configs'
+        self.nodectl_profiles_url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs"
 
         # versioning
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
@@ -211,14 +211,6 @@ class Functions():
             def get_latest_nodectl(network):
                 self.pull_upgrade_path()
                 self.latest_nodectl_version = self.upgrade_path[network]["version"]
-                
-                # integrationnet will be default to adhere to any metagraph
-                # self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
-                # if network == "testnet": 
-                #     self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
-                # elif network == "mainnet":
-                #     self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
-
 
             profile = None if action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
@@ -2696,16 +2688,6 @@ class Functions():
                 env = self.config_obj[profile]["environment"].upper()
                 node_tess_version = self.version_obj['node_tess_version'][profile]['node_tess_version']
                 self.help_text += f"\n  {env} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
-            
-            
-            
-            # for env in environments["environment_names"]:
-            #     for profile in self.profile_names:
-            #         if self.config_obj[profile]["environment"] in last_env:
-            #             pass
-            #         else:
-            #             self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(self.version_obj['node_tess_version'][profile]['node_tess_version'],'yellow')}]"
-            #         last_env.add(env)
 
         self.help_text += build_help(command_obj)
         
