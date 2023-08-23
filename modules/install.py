@@ -177,21 +177,8 @@ class Installer():
                     "replace_line": f"    {p12_item[0]}: {p12_item[1]}\n",
                     "skip_backup": True,
                 })
-            # migrate = Migration({
-            #     "config_obj": self.fun_obj,
-            #     "caller": "install",
-            # })
-            
-            # rebuild_obj = {
-            #     "nodegaragep12passphrase": self.p12_session.p12_password,
-            #     "nodegaragep12keylocation": self.p12_session.p12_file_location,
-            #     "nodegaragep12keyalias": self.p12_session.wallet_alias,
-            #     "nodegaragep12nodeadmin": self.user.username,
-            #     "nodegaragep12keyname": self.p12_session.p12_filename
-            # }
-            # self.migrate.create_n_write_yaml()
-    
-    
+
+
     def create_dynamic_elements(self):
         print("")
         self.functions.print_header_title({
