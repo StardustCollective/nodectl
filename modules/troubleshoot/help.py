@@ -38,7 +38,7 @@ def build_help(command_obj):
                          clean_files [-cf], clear_uploads [-cul], log, id, nodeid,
                          passwd12, configure, validate_config [-val], view_config [-vc],
                          install, upgrade, upgrade-nodectl, upgrade_path [-up], 
-                         refresh_binaries [-rtb], auto_restart ]
+                         refresh_binaries [-rtb], auto_restart ], show_service_log [-ssl],
                        
         optional: --pass <passphrase>   
           - Note: --pass will override the configuration's passphrase entry
@@ -195,6 +195,9 @@ def build_help(command_obj):
                                                             
     show_node_states  | - show a list of known Node states                    
     
+    show_service_log -p <profile> | - show the distribution service logs 
+                                       associated with profile 
+                                       
     refresh_binaries -e <env> | - download latest binaries
                                   for latest release of Tessellation
                               
@@ -778,7 +781,7 @@ def build_help(command_obj):
     if extended == "refresh_binaries":
         help_text += title(extended)
         help_text += f'''
-  The {colored(extended,'cyan')} command does not take any arguments.
+  The {colored(extended,'cyan')} command takes several arguments.
   
   This command will download and overwrite the existing Tessellation
   binaries files that are required to run your Node.  The result of 
@@ -806,6 +809,37 @@ def build_help(command_obj):
   
   execute the {extended} command
   # {colored(f'sudo nodectl {extended} -e <environment_name>','cyan')}
+  '''      
+        
+        
+    if extended == "show_service_log":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command takes one argument.
+  
+  This command will search the Debian distribution based journal 
+  specifically for service logs which launch the Tessellation process
+  that allows a Node profile to connect to a cluster.
+  
+  You can press {colored("q",'cyan')} to quit the log viewing
+  at any time.  
+  
+  You can press {colored("the space bar",'cyan')} to advance to the next
+  screen in the logs, if multiple pages of logs are available.
+
+  required:
+  {colored('-p <profile_name>','green')}
+       
+  optional option alias:
+  {colored('-ssl','green')} 
+  
+    Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}
+  
+  execute the {extended} command
+  # {colored(f'sudo nodectl {extended} -p <profile>','cyan')}
   '''      
         
         
@@ -1716,7 +1750,7 @@ def build_help(command_obj):
     if extended == "restart":
         help_text += title(f"{extended} service")
         help_text += f'''
-  The command takes a single argument.
+  The command takes multiple arguments.
   
   This command will execute a series of steps to
   bring your Node offline and then restart it and
@@ -1757,7 +1791,9 @@ def build_help(command_obj):
 
         if {colored("-p all","cyan")} is specified, nodectl will continue
         to watch the join process until the layer0 is in {colored("Ready","cyan")} state.
-  
+  {colored('-r','green')} - {colored('retries','cyan')}
+        If specified at the command line, nodectl will replace all retries
+        on failure with a numeric integer following the -r option.
   Example Usage
   -------------
   show this help screen

@@ -16,9 +16,10 @@ class Troubleshooter():
             profile_names = [single_profile]
             
         for profile in profile_names:
-            self.log_dict[profile] = {}
-            self.log_dict[profile]["app"] = f"/var/tessellation/{profile}/logs/app.log"
-            self.log_dict[profile]["http"] = f"/var/tessellation/{profile}/logs/http.log"
+            if "global" not in profile:
+                self.log_dict[profile] = {}
+                self.log_dict[profile]["app"] = f"/var/tessellation/{profile}/logs/app.log"
+                self.log_dict[profile]["http"] = f"/var/tessellation/{profile}/logs/http.log"
 
 
     def test_for_connect_error(self):

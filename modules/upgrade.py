@@ -41,13 +41,16 @@ class Upgrader():
         
         self.error_messages = Error_codes() 
         self.functions = Functions(self.config_obj) # all refs to config_obj should be from functions
-        
+
+        self.link_types = ["gl0","ml0"]
+                
         self.command_obj = {
             **command_obj,
             "caller": "upgrader",
             "command": "upgrade",
         }
         self.cli = CLI(self.command_obj)
+
         self.cli_global_pass = False
         
 
@@ -275,16 +278,27 @@ class Upgrader():
                 
     def request_version(self):
         self.version_obj["cluster_tess_version"] = self.functions.get_version({"which": "cluster_tess"})
+        ml_version_found = False
         
         for profile in self.profile_progress.keys():
+            if ml_version_found and self.config_copy[profile]["meta_type"] == "ml": 
+                self.profile_progress[profile]["download_version"] = ml_download_version
+                continue
             
             self.functions.print_paragraphs([
                 ["PROFILE:   ",0], [profile,1,"yellow","bold"], 
                 ["METAGRAPH: ",0],[self.environment,2,"yellow","bold"],
             ])
             
-            found_tess_version = self.version_obj['cluster_tess_version'][profile]
-            running_tess_version = self.version_obj["node_tess_version"][profile]["node_tess_version"]
+            try:
+                found_tess_version = self.version_obj['cluster_tess_version'][profile]
+                running_tess_version = self.version_obj["node_tess_version"][profile]["node_tess_version"]
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "upg-298",
+                    "line_code": "version_fetch"
+                })
+                
             self.log.logger.info(f"upgrade handling versioning: profile [{profile}] latest [{found_tess_version}] current: [{running_tess_version}]")
             
             self.functions.print_cmd_status({
@@ -320,7 +334,7 @@ class Upgrader():
             while True:
                 if not self.profile_progress[profile]["download_version"]:
                     version_str = colored("  Please enter version to upgrade to".ljust(45,"."),"cyan")+"["+colored(found_tess_version,"yellow",attrs=['bold'])+"] : "
-                    download_version = input(version_str)
+                    download_version = input(version_str) if not self.non_interactive else False
                 if not download_version:
                     download_version = found_tess_version
                     break
@@ -379,13 +393,18 @@ class Upgrader():
                 "newline": True
             })  
             self.profile_progress[profile]["download_version"] = download_version
+            
+            if self.config_copy[profile]["meta_type"] == "ml": 
+                ml_version_found = True # only need once
+                ml_download_version = download_version
+                
             self.functions.print_paragraphs([
                 ["",1], ["=","full","blue","bold"],["",1],
             ])
 
             
     def leave_cluster(self):
-        # < 2.0.0  shutdown legacy  
+        # < 2.0.0  shutdown legacy
         with ThreadPoolExecutor() as executor:
             for profile_list in self.profile_items:
                 for item in profile_list:
@@ -398,7 +417,8 @@ class Upgrader():
                             "secs": 30,
                             "reboot_flag": False,
                             "skip_msg": False,
-                            "print_timer": print_timer
+                            "print_timer": print_timer,
+                            "threaded": True,
                         }
                         executor.submit(cli.cli_leave, leave_obj)
                         sleep(1.5)
@@ -711,7 +731,7 @@ class Upgrader():
         })
 
         self.cli.node_service.download_constellation_binaries({
-            "download_version": self.download_version,
+            "download_version": self.profile_progress,
             "environment": self.environment,
             "print_version": False,
             "action": "upgrade",
@@ -751,13 +771,16 @@ class Upgrader():
             self.cli.set_profile(profile)
             self.cli.cli_start({
                 "argv_list": [],
-                "wait": False
+                "wait": False,
+                "threaded": True,
             })
             if self.functions.config_obj[profile]["layer"] > 0:
                 self.functions.print_timer(5,"wait for restart",1)
     
             
     def check_for_api_readytojoin(self,profile,service):
+        if self.profile_progress[profile]["join_complete"]: return
+        
         self.cli.node_service.set_profile(profile)
         self.cli.set_profile(profile)
         
@@ -789,36 +812,59 @@ class Upgrader():
         })
         
         self.log.logger.info(f'check for api results: service [{service}] state [{state}]')
-                
+
+
+    def check_for_link_success(self,profile):
+        for link_type in self.link_types:
+            if self.config_copy[profile][f"{link_type}_link_enable"]:
+                link_profile = self.config_copy[profile][f"{link_type}_link_profile"]
+                if not self.profile_progress[link_profile]["ready_to_join"]:
+                    return link_type
+        return False
+
         
     def re_join_tessellation(self,profile):
         if not self.get_update_core_statuses("get","join_complete",profile):
-            self.get_update_core_statuses("update","join_complete",profile,True)        
-            self.cli.node_service.set_profile(profile)
-            self.cli.set_profile(profile)
-            self.log.logger.info(f"attempting to rejoin to [{profile}]")
-            if self.profile_progress[profile]["ready_to_join"]:   
-                self.functions.print_paragraphs([
-                    ["Please wait while [",0], [profile,-1,"yellow","bold"], ["] attempts to join the network.",-1],["",1],
-                ])
-                if self.config_copy[profile]["gl0_link_enabled"] or self.config_copy[profile]["ml0_link_enabled"]:
+            self.get_update_core_statuses("update","join_complete",profile,True)
+            join_check_error = self.check_for_link_success(profile)
+            if not join_check_error:    
+                self.cli.node_service.set_profile(profile)
+                self.cli.set_profile(profile)
+                self.log.logger.info(f"attempting to rejoin to [{profile}]")
+                if self.profile_progress[profile]["ready_to_join"]:   
                     self.functions.print_paragraphs([
-                        [" NOTE ",0,"yellow,on_magenta","bold"], ["ml0 or ml1",0,"cyan"], ["networks will not join the Hypergraph until its",0],
-                        ["gl0 or ml0",0,"cyan"], ["linked profile changes to",0], ["Ready",0,"green","bold"], ["state, this could take up to a",0],
-                        ["few",0,"cyan",], ["minutes.",1]
+                        ["Please wait while [",0], [profile,-1,"yellow","bold"], ["] attempts to join the network.",-1],["",1],
                     ])
-                self.cli.cli_join({
-                    "skip_msg": False,
-                    "wait": False,
-                    "upgrade": True,
-                    "single_profile": False,
-                    "interactive": False if self.non_interactive else True,
-                    "argv_list": ["-p",profile]
-                })
+                    if self.config_copy[profile]["gl0_link_enable"] or self.config_copy[profile]["ml0_link_enable"]:
+                        self.functions.print_paragraphs([
+                            [" NOTE ",0,"yellow,on_magenta","bold"], ["ml0 or ml1",0,"cyan"], ["networks will not join the Hypergraph until its",0],
+                            ["gl0 or ml0",0,"cyan"], ["linked profile changes to",0], ["Ready",0,"green","bold"], ["state, this could take up to a",0],
+                            ["few",0,"cyan",], ["minutes.",1]
+                        ])
+                    self.cli.cli_join({
+                        "skip_msg": False,
+                        "wait": False,
+                        "upgrade": True,
+                        "single_profile": False,
+                        "interactive": False if self.non_interactive else True,
+                        "argv_list": ["-p",profile]
+                    })
+                else:
+                    self.log.logger.warn(f"There was an issue found with the API status [{profile}]")
+                    self.functions.print_paragraphs([
+                        ["Issues were found with the API while attempting to join [",0,"red"], [profile,0,"yellow"],
+                        ["]. The join process cannot be completed for this profile.  Continuing upgrade...",2,"red"],
+                    ])
             else:
-                self.log.logger.warn(f"There was an issue found with the API status [{profile}]")
-                print(colored("  Issue found with API status","red"),colored("profile:","magenta"),colored(profile,"yellow"))
-    
+                self.functions.print_paragraphs([
+                    [" ERROR ",0,"yellow,on_red"], ["This profile [",0,"red"], [profile,0,"yellow"], ["] cannot initiate the join",0,"red"],
+                    ["process because it has a",0,"red"], [join_check_error.upper(),0,"yellow"], ["dependency.",0,"red"],
+                    [f"The profile associated with this {join_check_error.upper()} dependency is not in",0,"red"], ["Ready",0,"green"],
+                    ["state.",1,"red"],
+                    ["Please try again later... Continuing upgrade...",1,"yellow"]
+                ])
+                if not self.non_interactive: self.functions.print_any_key({})
+                
     
     def complete_process(self):
         self.functions.print_clear_line()

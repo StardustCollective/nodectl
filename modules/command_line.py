@@ -1672,7 +1672,8 @@ class CLI():
         found = colored("False","red",attrs=["bold"])
         profile = command_list[command_list.index("-p")+1]
         skip = True if "skip_warnings" in command_list else False
-        self.print_title("Check Seed List Request")
+        
+        if not "skip_seedlist_title" in command_list: self.print_title("Check Seed List Request")
 
         is_target = command_list[command_list.index("-p")+1] if "-t" in command_list else False
         target = ["-t",target] if is_target else []
@@ -1944,6 +1945,7 @@ class CLI():
         spinner = command_obj.get("spinner",False)
         service_name = command_obj.get("service_name",self.service_name)
         threaded = command_obj.get("threaded", False)
+        skip_seedlist_title = command_obj.get("skip_seedlist_title",False)
         
         self.functions.check_for_help(argv_list,"start")
 
@@ -1955,7 +1957,9 @@ class CLI():
             "newline": True,
         }
         self.functions.print_cmd_status(progress)
-        found = self.check_seed_list(["-p",profile,"skip_warnings"])
+        check_seed_list_options = ["-p",profile,"skip_warnings"]
+        if skip_seedlist_title: check_seed_list_options.append("skip_seedlist_title")
+        found = self.check_seed_list(check_seed_list_options)
 
         self.functions.print_cmd_status({
             "text_start": "Node found on Seed List",
@@ -2128,7 +2132,18 @@ class CLI():
         cli_join_cmd = command_obj["cli_join_cmd"]
         called_profile = argv_list[argv_list.index("-p")+1]
         watch = True if "-w" in argv_list else False
-                    
+        link_types = ["gl0","ml0"] 
+        
+        failure_retries = 3
+        if "-r" in argv_list:
+            try: failure_retries = int(argv_list[argv_list.index("-r")+1])
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "cmd-2138",
+                    "line_code": "input_error",
+                    "extra": f'-r {argv_list[argv_list.index("-r")+1]}'
+                })
+                
         self.functions.print_clear_line()
         performance_start = perf_counter()  # keep track of how long
         self.functions.print_cmd_status({
@@ -2150,7 +2165,7 @@ class CLI():
         self.slow_flag = slow_flag
         valid_request, single_profile = False, True
    
-        profile_obj_list = self.functions.pull_profile({
+        profile_pairing_list = self.functions.pull_profile({
             "req": "pairings",
         })
         
@@ -2158,10 +2173,10 @@ class CLI():
             single_profile = False
             valid_request = True
         elif called_profile != "empty" and called_profile != None:
-            for profile_list in profile_obj_list:
+            for profile_list in profile_pairing_list:
                 for profile_dict in profile_list:
                     if called_profile == profile_dict["profile"]:
-                        profile_obj_list = [[profile_dict]]  # double list due to "all" parameter
+                        profile_pairing_list = [[profile_dict]]  # double list due to "all" parameter
                         valid_request = True
                         break
                     
@@ -2173,101 +2188,91 @@ class CLI():
                 "extra2": None
             })
 
-        # ====================
-        # LEAVE OPERATIONS
-        # ====================
-        self.print_title("Leaving Hypergraph")
+        pre_profile_order = []; profile_order = []
+        for profile_group in profile_pairing_list:
+            for profile_obj in reversed(profile_group):
+                pre_profile_order.append(profile_obj["profile"])
+        [profile_order.append(element) for element in pre_profile_order if element not in profile_order]
         
         with ThreadPoolExecutor() as executor:
-            leave_list = []; delay = 0
-            for profile_objs in profile_obj_list: 
-                for n, profile_obj in enumerate(profile_objs):
-                    leave_obj = {
-                        "secs": secs,
-                        "delay": delay,
-                        "profile": profile_obj["profile"],
-                        "reboot_flag": False,
-                        "skip_msg": False if n == len(profile_objs)-1 else True
-                    }
-                    leave_list.append(leave_obj)
-                    delay = delay+.3
-                    
+            leave_list = []; stop_list = []; delay = 0
+            for n, profile in enumerate(profile_order):
+                leave_obj = {
+                    "secs": secs,
+                    "delay": delay,
+                    "profile": profile,
+                    "reboot_flag": False,
+                    "threading": True,
+                }
+                leave_list.append(leave_obj)
+                delay = delay+.3
+                stop_obj = {
+                    "show_timer": False,
+                    "profile": profile,
+                    "delay": delay,
+                    "argv_list": []
+                }
+                stop_list.append(stop_obj)  
+                         
+            # leave
+            self.print_title("Leaving Metagraphs") 
+            leave_list[-1]["skip_msg"] = False                    
             futures = [executor.submit(self.cli_leave, obj) for obj in leave_list]
             thread_wait(futures)
 
-        self.functions.print_cmd_status({
-            "text_start": "Leave network operations",
-            "status": "complete",
-            "status_color": "green",
-            "newline": True,
-        })
+            self.functions.print_cmd_status({
+                "text_start": "Leave network operations",
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+            })
         
-        # ====================
-        # STOP OPERATIONS
-        # ====================
-        self.print_title(f"Stopping profile {'services' if called_profile == 'all' else 'service'}")
-        
-        with ThreadPoolExecutor() as executor:
-            stop_list = []; delay = 0
-            for profile_objs in profile_obj_list: 
-                for profile_obj in profile_objs:
-                    stop_obj = {
-                        "show_timer": False,
-                        "profile": profile_obj["profile"],
-                        "delay": delay,
-                        "argv_list": []
-                    }
-                    stop_list.append(stop_obj)
-                    delay = delay+.4
-                    
+            # stop
+            self.print_title(f"Stopping profile {'services' if called_profile == 'all' else 'service'}")    
             stop_list[-1]["spinner"] = True
             futures = [executor.submit(self.cli_stop, obj) for obj in stop_list]
-            thread_wait(futures)
-                    
-        self.functions.print_cmd_status({
-            "text_start": "Stop network services",
-            "status": "complete",
-            "status_color": "green",
-            "newline": True,
-        })                    
+            thread_wait(futures)  
+            
+            self.functions.print_cmd_status({
+                "text_start": "Stop network services",
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+            })        
 
         self.print_title("Updating seed list")
         
-        for profile_objs in profile_obj_list: 
-            for profile_obj in profile_objs:
-                self.node_service.set_profile(profile_obj["profile"])
-                self.node_service.download_update_seedlist({
-                    "action": "normal",
-                    "install_upgrade": False,
-                    "download_version": self.config_obj[profile_obj["profile"]]["jar_version"]
-                })
-                sleep(1)    
+        for n, profile in enumerate(profile_order):
+            self.node_service.set_profile(profile)
+            self.node_service.download_update_seedlist({
+                "action": "normal",
+                "install_upgrade": False,
+            })
+            sleep(.5)    
             
         # ====================
         # CONTROLLED START & JOIN OPERATIONS
         # ====================
-        self.print_title(f"Restarting profile {'services' if called_profile == 'all' else 'service'}")    
 
         if not cli_leave_cmd:
-            for profile_objs in profile_obj_list: 
-                for profile_obj in reversed(profile_objs):
-                    link_profile = False
-                    profile = profile_obj["profile"]
-                    self.set_profile(profile)
+            for profile in profile_order:
+                self.set_profile(profile)
                     
-                    if restart_type == "restart_only":
-                        link_profile = self.functions.pull_profile({
-                            "profile": profile,
-                            "req": "link_profile",
-                        })
-                        if link_profile:
+                if restart_type == "restart_only":
+                    link_profiles = self.functions.pull_profile({
+                        "profile": profile,
+                        "req": "all_link_profiles",
+                    })
+                    for link_type in link_types:
+                        if link_profiles[f"{link_type}_link_enable"]:
                             state = self.functions.test_peer_state({
-                                "profile": profile,
+                                "profile": link_profiles[f"{link_type}_profile"],
                                 "skip_thread": False,
                                 "simple": True
                             })    
-                         
+                            
                             if state != "Ready":
+                                link_profile = link_profiles[f"{link_type}_profile"]
                                 self.functions.print_paragraphs([
                                     ["",1], 
                                     [" WARNING ",2,"white,on_red"], 
@@ -2275,77 +2280,78 @@ class CLI():
                                     ["nodectl",0,"cyan","bold"], ["has detected a [",0], ["restart_only",-1,"yellow","bold"], 
                                     ["] request.  However, the configuration is showing that this node is (",-1],
                                     ["properly",0,"green","underline"], [") linking to a layer0 profile [",0],
-                                    [link_profile['profile'],-1,"yellow","bold"], ["].",-1], ["",2],
+                                    [link_profile,-1,"yellow","bold"], ["].",-1], ["",2],
                                     
                                     ["Due to this",0], ["recommended",0,"cyan","underline"], ["configurational setup, the layer1 [",0],
-                                    [profile,-1,"yellow","bold"], ["]'s associated service will",-1], ["not",0,"red","bold"], ["be able to start until after",0],
-                                    [f"the {link_profile['profile']} profile is joined successfully to the network.  A restart_only will not join the network.",2],
+                                    [profile,-1,"yellow","bold"], ["]'s associated service will",-1], ["not",0,"red","bold"], 
+                                    ["be able to start until after",0],
+                                    [f"the {link_profile} profile is joined successfully to the network. A restart_only will not join the network.",2],
                                     
-                                    ["      link profile: ",0,"yellow"], [link_profile['profile'],1,"magenta"],
+                                    ["      link profile: ",0,"yellow"], [link_profile,1,"magenta"],
                                     ["link profile state: ",0,"yellow"], [state,2,"red","bold"],
                                     
                                     ["This",0], ["restart_only",0,"magenta"], ["request will be",0], ["skipped",0,"red","underline"],
                                     [f"for {profile}.",-1]
                                 ])
-                                break
                             
-                    service_name = profile_obj["service"] 
-                    if not service_name.startswith("cnng-"):
-                        service_name = f"cnng-{service_name}"
-                        
-                    for n in range(1,4):
-                        self.cli_start({
-                            "spinner": False,
-                            "profile": profile,
-                            "service_name": service_name,
-                        })
-                        
-                        peer_test_results = self.functions.test_peer_state({
-                            "profile": profile,
-                            "test_address": "127.0.0.1",
-                            "simple": True,
-                        })
-
-
-                        ready_states = list(zip(*self.functions.get_node_states("ready_states")))[0]
-                        if peer_test_results in ready_states:  # ReadyToJoin and Ready
-                            break
-                        else:
-                            if n == 3:
-                                self.functions.print_paragraphs([
-                                    [" Failure: ",0,"yellow,on_red","bold"],
-                                    ["Unable to reach",0], ["Ready",0,"yellow","bold,underline"],
-                                    ["state.",0], ["exiting",0,"red"], ["Please review logs.",1]
-                                ])
-                                ts = Troubleshooter({"config_obj": self.functions.config_obj})
-                                ts.setup_logs({
-                                    "profile": profile,
-                                })
-                                results = ts.test_for_connect_error() 
-                                if results:
-                                    self.functions.print_paragraphs([
-                                        ["",1], ["The following was identified in the logs",1],
-                                        [results[0][1],2,"yellow"],
-                                    ])
-                                self.functions.print_auto_restart_warning()
-                                exit(1)
-                            self.functions.print_paragraphs([
-                                [" Issue Found: ",0,"yellow,on_red","bold"],
-                                ["Service did not reach",0], ["Ready",0,"yellow","bold,underline"],
-                                ["state. Attempting stop/start again",0], [str(n),0,"yellow","bold"],
-                                ["of",0], ["3",1,"yellow","bold"]
-                            ])
-                            sleep(2)
-                            self.cli_stop = {
-                                "show_timer": False,
-                                "profile": profile,
-                                "argv_list": []
-                            }
+                service_name = self.config_obj[profile]["service"] 
+                start_failed_list = []
+                if not service_name.startswith("cnng-"): service_name = f"cnng-{service_name}"
                     
-                    if cli_join_cmd or restart_type != "restart_only":
-                        environment = self.functions.config_obj[profile]["environment"]
-                        self.print_title(f"Joining [{environment}] [{profile}]")   
+                for n in range(1,failure_retries+1):
+                    self.print_title(f"Restarting profile {'services' if called_profile == 'all' else 'service'}")
+                    self.cli_start({
+                        "spinner": False,
+                        "profile": profile,
+                        "service_name": service_name,
+                        "skip_seedlist_title": True,
+                    })
+                    
+                    peer_test_results = self.functions.test_peer_state({
+                        "profile": profile,
+                        "test_address": "127.0.0.1",
+                        "simple": True,
+                    })
 
+                    ready_states = list(zip(*self.functions.get_node_states("ready_states")))[0]
+                    if peer_test_results in ready_states:  # ReadyToJoin and Ready
+                        break
+                    else:
+                        if n == failure_retries:
+                            self.functions.print_paragraphs([
+                                [profile,0,"red","bold"], ["service failed to start...",1]
+                            ])
+                            ts = Troubleshooter({"config_obj": self.config_obj})
+                            ts.setup_logs({
+                                "profile": profile,
+                            })
+                            results = ts.test_for_connect_error() 
+                            if results:
+                                self.functions.print_paragraphs([
+                                    ["",1], ["The following was identified in the logs",1],
+                                    [results[0][1],2,"yellow"],
+                                ])
+                            self.functions.print_auto_restart_warning()
+                            start_failed_list.append(profile)
+                            
+                        self.functions.print_paragraphs([
+                            [" Issue Found: ",0,"yellow,on_red","bold"],
+                            [f"{profile}'s service was unable to start properly. Attempting stop/start again",0], 
+                            [str(n),0,"yellow","bold"],
+                            ["of",0], [str(failure_retries),1,"yellow","bold"]
+                        ])
+                        sleep(1)
+                        self.cli_stop = {
+                            "show_timer": False,
+                            "profile": profile,
+                            "argv_list": []
+                        }
+                
+                if cli_join_cmd or restart_type != "restart_only":
+                    environment = self.config_obj[profile]["environment"]
+                    self.print_title(f"Joining [{environment}] [{profile}]")   
+
+                    if profile not in start_failed_list:
                         self.cli_join({
                             "skip_msg": False,
                             "skip_title": True,
@@ -2354,6 +2360,11 @@ class CLI():
                             "single_profile": single_profile,
                             "argv_list": ["-p",profile]
                         })
+                    else:
+                        self.functions.print_paragraphs([
+                            [profile,0,"red","bold"], ["did not start properly; therefore,",0,"red"],
+                            ["the join process cannot begin",0,"red"], ["skipping",1, "yellow"],
+                        ])
                         
         print("")        
         self.functions.print_perftime(performance_start,"restart")

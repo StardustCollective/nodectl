@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from os import system, path, makedirs
 from sys import exit
 from time import sleep
@@ -105,6 +105,7 @@ class Node():
         backup = command_obj.get("backup", True)
         
         if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
+
         
         def screen_print_download_results(file,first=False):
             backup = ""
@@ -131,6 +132,7 @@ class Node():
                     "newline": True
                 })
                 return i_file['pos']
+            
             
         def threaded_download(download_list):
             file_obj_copy = download_list[0]
@@ -213,13 +215,16 @@ class Node():
         }
 
         for n, profile in enumerate(self.functions.profile_names):
+            version = download_version
+            if action == "upgrade": version = download_version[profile]["download_version"]
+                
             if self.config_obj[profile]["environment"] == environment:
                 first_profile = profile if n < 1 else first_profile
                 file_obj[self.config_obj[profile]["jar_file"]] = {
                     "state": "fetching",
                     "pos": n+3,
                     "location": self.config_obj[profile]["jar_repository"],
-                    "version": self.config_obj[profile]["jar_version"],
+                    "version": version,
                     "profile": profile
                 }
                 
@@ -615,17 +620,18 @@ class Node():
             })   
         
 
-    def build_remote_link(self):
+    def build_remote_link(self,link_type):
         for n in range(0,4):
             source_node_list = self.functions.get_api_node_info({
-                "api_host": self.config_obj[self.profile]["ml0_link_host"],
-                "api_port": self.config_obj[self.profile]["ml0_link_port"],
+                "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
+                "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
             if source_node_list[3] == "Ready":
-                break
+                return True
+
             self.functions.print_cmd_status({
-                "text_start": "Link Node in",
+                "text_start": f"{link_type.upper()} Link Node in",
                 "brackets": source_node_list[3],
                 "text_end": "state | not",
                 "status": "Ready",
@@ -637,11 +643,22 @@ class Node():
                     ["Exiting join process, please try again later or check Node configuration.",2,"red"],
                 ])
                 self.functions.print_auto_restart_warning()
-                exit(1)
+                return False
             
             error_str = colored("before trying again ","red")+colored(n,"yellow",attrs=["bold"])
             error_str += colored(" of ","red")+colored("3","yellow",attrs=["bold"])
+            with ProcessPoolExecutor() as executor:
+                early_quit = executor.submit(self.functions.key_pressed({
+                    "quit_option": "quit_only",
+                    "newline": True,    
+                }))
+                if early_quit:
+                    cprint("  Node Operator requested to quit operations","green")
+                    exit(0)
             self.functions.print_timer(5,error_str)
+        
+        executor.shutdown(wait=False,cancel_futures=True)
+        return False
         
                                
     def check_for_ReadyToJoin(self,caller):
@@ -654,7 +671,7 @@ class Node():
                 return True
             print(colored(f"  API not ready on {self.profile}","red"),colored(state,"yellow"),end=" ")
             print(f'{colored("attempt ","red")}{colored(n,"yellow",attrs=["bold"])}{colored(" of 3","red")}',end="\r")
-            sleep(3)
+            sleep(1.5)
             
         if caller == "upgrade":
             return False
@@ -734,9 +751,11 @@ class Node():
         cli_flag = command_obj.get("cli_flag",False)
         profile = command_obj.get("profile",self.profile)
         skip_thread = command_obj.get("skip_thread",False)
+        threaded = command_obj.get("threaded",False)
         self.set_profile(profile)
 
         state = self.functions.test_peer_state({
+            "threaded": threaded,
             "profile": self.profile,
             "skip_thread": skip_thread,
             "simple": True
@@ -769,28 +788,35 @@ class Node():
         state = None
         
         # profile is set by cli.set_profile method
-        link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"]
-        linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
+        gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"]
+        gl0_linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
+        ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"]
+        ml0_linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
         profile_layer = self.functions.config_obj[self.profile]["layer"]
-        
-        if linking_enabled:
-            self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
-            if not self.auto_restart:
-                verb = "profile" if link_profile != "None" else ""
-                link_word = link_profile if verb == "profile" else "Remote Link"
-                self.functions.print_paragraphs([
-                    [f"Waiting on {verb} [",0,"yellow"],[link_word,-1,"green","bold"],["] state to be [",-1,"yellow"],
-                    ["Ready",-1,"green","bold"], ["] before initiating Hypergraph join.",-1,"yellow"],["",1]
-                ])
-                
+        link_types = ["gl0","ml0"]
         headers = {
             'Content-type': 'application/json',
         }
-       
-        if linking_enabled and self.functions.config_obj[self.profile]["ml0_link_profile"] == "None":
-            self.build_remote_link()
-            linking_enabled = False
-            layer_zero_ready = True
+                
+        found_link_types = []
+        if gl0_linking_enabled or ml0_linking_enabled:
+            self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
+            if not self.auto_restart:
+                for link_type in link_types:
+                    verb = "profile" if eval(f"{link_type}_link_profile") != "None" else ""
+                    link_word = eval(f"{link_type}_link_profile") if verb == "profile" else "Remote Link"
+                    graph_type = "Hypergraph" if link_type == "gl0" else "Metagraph"
+                    if eval(f"{link_type}_linking_enabled"):
+                        self.functions.print_paragraphs([
+                            [f"Waiting on {verb}",0,"yellow"],[link_word,0,"green"],["state to be",0,"yellow"],
+                            ["Ready",0,"green"], [f"before initiating {graph_type} join.",1,"yellow"]
+                        ])
+                        found_link_types.append(link_type)
+                    if eval(f"{link_type}_linking_enabled") and eval(f"{link_type}_link_profile") == "None":
+                        layer_zero_ready = self.build_remote_link(link_type)
+                        if not layer_zero_ready:
+                            if link_type == "gl0": gl0_linking_enabled = False
+                            elif link_type == "ml0": ml0_linking_enabled = False
 
         self.source_node_choice = self.functions.get_info_from_edge_point({
             "profile": self.profile,
@@ -809,83 +835,84 @@ class Node():
 
         join_session = Session()  # this is a requests Session external library
                 
-        if linking_enabled:
-            if self.functions.config_obj[self.profile]["ml0_link_profile"] != "None":
-                try:
-                    _ = self.functions.pull_profile({
-                        "req": "ports",
-                        "profile": link_profile
-                    })  
-                except:
-                    self.error_messages.error_code_messages({
-                        "error_code": "ser-357",
-                        "line_code": "link_to_profile",
-                        "extra": self.profile,
-                        "extra2": link_profile
-                })
-            
-            while True:
-                for n in range(1,10):
-                    start = n*12-12
-                    if n == 1:
-                        start = 1
-
-                    state = self.functions.test_peer_state({
-                        "profile": link_profile,
-                        "simple": True
+        if gl0_linking_enabled or ml0_linking_enabled:
+            for link_type in link_types:
+                if eval(f"{link_type}_link_profile") != "None":
+                    try:
+                        _ = self.functions.pull_profile({
+                            "req": "ports",
+                            "profile": eval(f"{link_type}_link_profile")
+                        })  
+                    except:
+                        self.error_messages.error_code_messages({
+                            "error_code": "ser-357",
+                            "line_code": "link_to_profile",
+                            "extra": self.profile,
+                            "extra2": eval(f"{link_type}_link_profile")
                     })
+            
+                    while True:
+                        for n in range(1,10):
+                            start = n*12-12
+                            if n == 1:
+                                start = 1
+
+                            state = self.functions.test_peer_state({
+                                "profile": eval(f"{link_type}_link_profile"),
+                                "simple": True
+                            })
+
+                            if not self.auto_restart:
+                                self.functions.print_cmd_status({
+                                    "text_start": "Current Found State",
+                                    "brackets": eval(f"{link_type}_link_profile"),
+                                    "status": state,
+                                    "newline": True,
+                                })
+                                
+                            if state == "Ready":
+                                layer_zero_ready = True
+                                break
+                            if state != "Observing" and state != "WaitingForReady":
+                                layer_zero_ready = False
+                                join_failure = True
+                                break
+                            
+                            if action == "cli":
+                                self.functions.print_clear_line()
+                                self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
+                            else:
+                                self.functions.print_timer(12,"Sleeping prior to retry")
+                        if layer_zero_ready or join_failure:
+                            break
 
                     if not self.auto_restart:
-                        self.functions.print_cmd_status({
-                            "text_start": "Current Found State",
-                            "brackets": link_profile,
-                            "status": state,
-                            "newline": True,
+                        self.functions.print_paragraphs([
+                            ["",1], [" ERROR ",0,"red,on_yellow"],
+                            [f"nodectl was unable to find the {link_type.upper()} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
+                            [f"continue to wait for the state to become 'Ready' or exit now and try again to join after the link profile or Node becomes",0,"red"],
+                            [f"'Ready'.",2,"red"],
+
+                            ["If the Node Operator chooses to exit, issue the following commands to verify the status of each profile and restart when 'Ready' state is found:",1],                        
+                            ["sudo nodectl status",1,"yellow"],
+                            [f"sudo nodectl restart -p {self.profile}",2,"yellow"],
+                        ])
+
+                    if interactive:
+                        self.functions.confirm_action({
+                            "yes_no_default": "y",
+                            "return_on": "y",
+                            "prompt": "Would you like to continue waiting?",
+                            "exit_if": True,
                         })
-                        
-                    if state == "Ready":
-                        layer_zero_ready = True
-                        break
-                    if state != "Observing" and state != "WaitingForReady":
-                        layer_zero_ready = False
-                        join_failure = True
-                        break
-                    
-                    if action == "cli":
-                        self.functions.print_clear_line()
-                        self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
+                        cprint("  Continuing to wait...","green")
                     else:
-                        self.functions.print_timer(12,"Sleeping prior to retry")
-                if layer_zero_ready or join_failure:
-                    break
-
-                if not self.auto_restart:
-                    self.functions.print_paragraphs([
-                        ["",1], ["In order to properly join the a",0,"yellow"],[" Layer 1 ",0,"red"], ["",-1], 
-                        ["network, if a",0,"yellow"], [" layer 0 ",0,"red"], ["Node appropriated to link to against",0,"yellow"],
-                        ["must be available and in",0,"yellow"], ["Ready",0,"green","bold"], ["state.",2,"yellow"],
-                        
-                        ["You can exit now, wait",0,"magenta"], ["5",0,"red"], ["to",0,"magenta"], ["10",0,"red"], ["minutes and then attempt to rejoin",0,"magenta"],
-                        ["or restart again...",2,"magenta"],
-                        
-                        ["sudo nodectl status",1],
-                        [f"sudo nodectl restart -p {self.profile}",2],
-                    ])
-
-                if interactive:
-                    self.functions.confirm_action({
-                        "yes_no_default": "y",
-                        "return_on": "y",
-                        "prompt": "Would you like to continue waiting?",
-                        "exit_if": True,
-                    })
-                    cprint("  Continuing to wait...","green")
-                else:
-                    if final:
-                        break
-                    final = True  # only allow one retry
+                        cprint("  Non-interactive mode detected...","yellow")
+                        if final:
+                            break
+                        final = True  # only allow one retry
                     
-        if profile_layer == 0 or layer_zero_ready:
+        if (profile_layer == 0 and not gl0_linking_enabled) or layer_zero_ready:
             if not self.auto_restart:
                 self.functions.print_cmd_status({
                     "text_start": "Preparing to join cluster",
@@ -951,14 +978,15 @@ class Node():
                 
             result = "done".ljust(32)
         else:
-            result = "L0 not Ready".ljust(32)
+            try: return_str = found_link_types.pop()
+            except: return_str == self.profile
+            else:
+                for link_type in found_link_types:
+                    return_str += f" and {link_type}"
+            result = f"{return_str} not Ready".ljust(32)
                 
         if action == "cli":
             return result       
-        
-
-    def obtain_local_layer_zero(self):
-        pass
         
         
     def create_files(self,command_obj):

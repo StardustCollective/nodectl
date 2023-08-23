@@ -1619,7 +1619,7 @@ class Configurator():
             })
             if int(self.c.config_obj[profile]["layer"]) < 1:
                 defaults = {
-                    f"{file_repo_type}_{one_off}": "default",
+                    # f"{file_repo_type}_{one_off}": "default",
                     f"{file_repo_type}_file": "default",
                     f"{file_repo_type}_repository": "default"
                 }
@@ -1634,7 +1634,8 @@ class Configurator():
             
         else:
             if profile:
-                location_default = self.c.config_obj[profile][f"{file_repo_type}_{one_off}"]
+                if one_off == "version": location_default = "default"
+                else: location_default = self.c.config_obj[profile][f"{file_repo_type}_{one_off}"]
                 file_default = self.c.config_obj[profile][f"{file_repo_type}_file"]
                 repo_default = self.c.config_obj[profile][f"{file_repo_type}_repository"]
             else:
@@ -1657,11 +1658,16 @@ class Configurator():
                 description1 += "This is a requirement to authenticate to the Metagraph and/or Hypergraph the Node Operator is "
                 description1 += "attempting to connect to. "
             if file_repo_type == "jar":
-                description1 = f"The {verb} version is the version number associated with the Metagraph or Hypergraph.  It is necessary that "
-                description1 += "nodectl understand where it is intending to download the proper jar binaries from. In the event that the "
-                description1 += "Metagraph associated jar binaries are located as artifacts in a github repository, is a prime example of the "
-                description1 += "importance of knowing the version number. "
-                description1 += "The version should be in the form: vX.X.X where X is a number.  Example) v2.0.0. "
+                description1 = f"The {verb} version is currently disabled in nodectl's configuration and will serve as a placeholder "
+                description1 += "to be deprecated from the utility in future releases if deemed unnecessary.  nodectl will request "
+                description1 += "versioning during the upgrade process or by options from the command line when using the refresh "
+                description1 += "binaries feature.  Thank you for your patience and understanding. "
+                description1 += "Please leave as 'default' here. "
+                # description1 = f"The {verb} version is the version number associated with the Metagraph or Hypergraph.  It is necessary that "
+                # description1 += "nodectl understand where it is intending to download the proper jar binaries from. In the event that the "
+                # description1 += "Metagraph associated jar binaries are located as artifacts in a github repository, is a prime example of the "
+                # description1 += "importance of knowing the version number. "
+                # description1 += "The version should be in the form: vX.X.X where X is a number.  Example) v2.0.0. "
             description1 += defaultdescr
 
             description2 = f"The file name to be used to contain the {verb} entries.  This should be a single string value with no spaces (if you "
@@ -1699,6 +1705,8 @@ class Configurator():
                     "default": repo_default
                 },
             }
+        
+            if one_off2 == "version":  questions.pop(f"{file_repo_type}_{one_off}")  # version will be deprecated.
             
         self.manual_append_build_apply({
             "questions": questions, 

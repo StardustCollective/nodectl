@@ -351,8 +351,13 @@ class Error_codes():
             self.log.logger.warn(f"invalid input from user was entered for option [{var.extra}], exited program.")
             self.functions.print_paragraphs([
                 ["nodectl found an invalid input entered by the Node Operator.",2,"red","bold"],
-                ["Please try again later or issue the",0], ["help",0,"yellow","bold"], ["option with the command in question for extended details",2],
-            ])         
+                ["Please try again later or issue the",0], ["help",0,"yellow","bold"], 
+                ["option with the command in question for extended details",2],
+            ])  
+            if var.extra:
+                self.functions.print_paragraphs([
+                    ["option",0], [var.extra,2,"yellow"]
+                ])       
             
             
         elif var.line_code == "file_not_found":

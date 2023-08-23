@@ -34,11 +34,13 @@ def cli_commands(argv_list):
                 elif argv_list[1] == "install":
                     current_shell = ShellHandler({"global_elements":{"caller":"install"}},False)
                 else:  
-                    Configuration({
+                    config_needed = Configuration({
                         "action": argv_list[1],
                         "implement": True,
                         "argv_list": argv_list
                     }) 
+                    if config_needed.requested_configuration:
+                        Configurator(["-e"])
             else:
                 if "main_error" not in argv_list and argv_list[1] not in exclude_config:
                     config = Configuration({

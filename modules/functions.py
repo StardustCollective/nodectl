@@ -1544,14 +1544,25 @@ class Functions():
         if var.req == "default_profile":
             return list(self.config_obj.keys())[0]
             
-        elif var.req == "link_profile":
-            if self.config_obj[profile]["ml0_link_enable"]:
-                return {
-                    "profile": self.config_obj[profile]["ml0_link_profile"],
-                    "port": self.config_obj[profile]["ml0_link_port"],
-                    "host": self.config_obj[profile]["ml0_link_host"],
-                    "key": self.config_obj[profile]["ml0_link_key"],
-                }   
+        elif "link_profile" in var.req:
+            gl0_link_obj = {
+                "gl0_link_enable": self.config_obj[profile]["gl0_link_enable"],
+                "gl0_profile": self.config_obj[profile]["gl0_link_profile"],
+                "gl0_port": self.config_obj[profile]["gl0_link_port"],
+                "gl0_host": self.config_obj[profile]["gl0_link_host"],
+                "gl0_key": self.config_obj[profile]["gl0_link_key"],                
+            }
+            ml0_link_obj = {
+                    "ml0_link_enable": self.config_obj[profile]["ml0_link_enable"],
+                    "ml0_profile": self.config_obj[profile]["ml0_link_profile"],
+                    "ml0_port": self.config_obj[profile]["ml0_link_port"],
+                    "ml0_host": self.config_obj[profile]["ml0_link_host"],
+                    "ml0_key": self.config_obj[profile]["ml0_link_key"],                
+            }
+            all_link_obj = gl0_link_obj | ml0_link_obj
+            if var.req == "gl0_link_profile": return gl0_link_obj
+            if var.req == "ml0_link_profile": return ml0_link_obj
+            if var.req == "all_link_profiles": return all_link_obj
             return False 
                         
         elif var.req == "ports":
