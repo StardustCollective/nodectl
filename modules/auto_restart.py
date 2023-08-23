@@ -155,10 +155,6 @@ class AutoRestart():
     def update_profile_states(self):
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | all profile [{self.profile_names}]")
         
-        # profile_states = self.profile_states
-        # if self.profile_states[self.thread_profile]["layer"] == 0:  # layer0 doesn't care about layer1
-        #     profile_states = [self.thread_profile]
-        
         for profile in self.profile_states:
            self.node_service.set_profile(profile)
            self.set_ep()
