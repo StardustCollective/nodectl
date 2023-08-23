@@ -280,12 +280,6 @@ class Send():
                         self.functions.print_paragraphs([
                             [f"{count}     ",0,"yellow"], [self.profile,0,"magenta"], ["=>",0,"white","bold"], [file[file_name_index],1]
                         ])
-                        # print(
-                        #     colored(f"  {count}".ljust(5),"yellow"),
-                        #     colored(self.profile,"magenta"),
-                        #     colored("=>","white",attrs=["bold"]),
-                        #     colored(file[file_name_index],"cyan")
-                        # )
                         count = count + 1
                         dir_list.append(file[file_name_index])
                         
