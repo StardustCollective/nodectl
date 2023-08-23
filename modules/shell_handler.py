@@ -592,8 +592,6 @@ class ShellHandler:
         if "-p" in self.argv:
             called_profile = self.argv[self.argv.index("-p")+1]
             self.functions.check_valid_profile(called_profile)
-        # if "-e" in self.argv:
-        #     called_environment = self.argv[self.argv.index("-e")+1]
                     
         need_environemnt_list = [
             "refresh_binaries","_rtb",
