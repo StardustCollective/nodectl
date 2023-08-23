@@ -365,7 +365,7 @@ class Configuration():
     def setup_config_vars(self):
         # sets up the automated values not present in the 
         # yaml file
-        
+
         def error_found():
             self.error_found = True
             self.error_list.append({
@@ -399,18 +399,6 @@ class Configuration():
             "java_xmx": ["7G","3G"],
         }
         
-        # snapshots = {
-        #     "CL_SNAPSHOT_STORED_PATH":
-        #         "/var/tessellation/cnng-profile_name/data/snapshot/"
-        #     ,
-        #     "CL_INCREMENTAL_SNAPSHOT_STORED_PATH":
-        #         "/var/tessellation/cnng-profile_name/data/incremental_snapshot/"
-        #     ,
-        #     "CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH":
-        #         "/var/tessellation/cnng-profile_name/data/incremental_snapshot_tmp/"
-        #     ,
-        # }
-            
         try:
             self.config_obj["global_p12"]["key_store"] = self.create_path_variable(
                 self.config_obj["global_p12"]["key_location"],
@@ -840,16 +828,6 @@ class Configuration():
             if "global" in config_key:
                 section = self.schema[config_key]
                 missing_list = [[config_key, section_item[0]] for section_item in section if section_item[0] not in config_value.keys()]
-        
-        # for config_key, config_value in self.config_obj.items():
-        #     if config_key not in self.common_test_dict.keys() and "global" not in config_key:
-        #         # testing profiles
-        #         missing = list(profile_value_list - config_value.keys())
-        #         possible_invalid = list(config_value.keys() - profile_value_list)
-        #         possible_invalid = [x for x in missing if "global" not in x and "custom" not in x]
-        #         missing += possible_invalid
-        #         for item in missing:
-        #             missing_list.append([config_key, item])
 
         if len(missing_list) > 0:
             self.validated = False
@@ -887,12 +865,6 @@ class Configuration():
                 "value": "skip"
             })
             return False
-        
-        # for profile in profiles_list:
-        #     # clean up globals
-        #     if not "global" in profile:
-        #         self.profiles.append(profile)
-                
         return True
     
     

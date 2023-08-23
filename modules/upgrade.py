@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from os import system, path, makedirs, remove
+from os import system, path, makedirs, remove, environ
 from time import sleep
 from termcolor import colored, cprint
 from re import match
@@ -13,7 +13,7 @@ from .p12 import P12Class
 from .command_line import CLI
 from .troubleshoot.logger import Logging
 from .config.config import Configuration
-
+from .install import Installer
 
 class Upgrader():
 
@@ -550,6 +550,44 @@ class Upgrader():
         confirm = True if self.non_interactive else False
 
         # version 2.9.0
+
+        self.log.logger.info(f"upgrader process installing [tree]")
+        with ThreadPoolExecutor() as executor:
+            self.functions.status_dots = True
+            environ['DEBIAN_FRONTEND'] = 'noninteractive'
+            
+            _ = executor.submit(self.functions.print_cmd_status,{
+                "text_start": "Installing dependency",
+                "brackets": "tree",
+                "dotted_animation": True,
+                "status": "installing",
+                "status_color": "yellow",
+            })
+                    
+            bashCommand = f"apt-get install -y tree"
+            self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "timeout",
+            })
+            
+            while True:
+                sleep(2)
+                bashCommand = f"dpkg -s tree"
+                result = self.functions.process_command({
+                    "bashCommand": bashCommand,
+                    "proc_action": "timeout",
+                })
+                if "install ok installed" in str(result):
+                    break   
+
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                "text_start": "Installing dependency",
+                "brackets": "tree",
+                "status": "complete",
+                "newline": True
+            })
+        
         progress = {
             "text_start": "Removing old default seed file",
             "status": "running",

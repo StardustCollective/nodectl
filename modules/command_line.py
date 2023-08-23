@@ -2132,6 +2132,8 @@ class CLI():
         cli_join_cmd = command_obj["cli_join_cmd"]
         called_profile = argv_list[argv_list.index("-p")+1]
         watch = True if "-w" in argv_list else False
+        interactive = True if "-i" in argv_list else False
+        
         link_types = ["gl0","ml0"] 
         
         failure_retries = 3
@@ -2353,6 +2355,7 @@ class CLI():
                             "skip_title": True,
                             "wait": False,
                             "watch": watch,
+                            "interactive": interactive,
                             "single_profile": single_profile,
                             "argv_list": ["-p",profile]
                         })
@@ -2436,6 +2439,7 @@ class CLI():
         watch_peer_counts = command_obj.get("watch",False)
         single_profile = command_obj.get("single_profile",True)
         upgrade = command_obj.get("upgrade",False)
+        interactive = command_obj.get("interactive",False)
         
         called_profile = argv_list[argv_list.index("-p")+1]
         self.set_profile(called_profile)
@@ -2535,7 +2539,7 @@ class CLI():
         
         join_result = self.node_service.join_cluster({
             "action":"cli",
-            "interactive": watch_peer_counts,
+            "interactive": True if watch_peer_counts or interactive else False, 
         })
       
         if gl0_link or ml0_link:
@@ -2677,8 +2681,8 @@ class CLI():
         if peer_count < src_peer_count and not watch_peer_counts:
             call_type = "upgrade" if upgrade else "default"
             self.functions.print_paragraphs([
-                [" ok ",0,"grey,on_green"], ["that peer count < cluster peer count",1,"yellow"],
-                ["watch mode was",0,"yellow"], ["not",0,"red"], [f"chosen by {call_type}.",1,"yellow"],
+                [" IMPORTANT ",0,"grey,on_green"], ["It is ok that the peer count < cluster peer count",1,"yellow"],
+                ["because watch mode was",0,"yellow"], ["not",0,"red"], [f"chosen by {call_type}.",1,"yellow"],
             ])
             if not upgrade:
                 self.functions.print_paragraphs([

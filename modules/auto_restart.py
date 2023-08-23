@@ -116,6 +116,8 @@ class AutoRestart():
         for merge_profile in merge_list: 
             self.profile_pairing.append(merge_profile)
             self.profile_names.append(merge_profile["profile"])
+        
+        pass
 
 
     def setup_profile_states(self):

@@ -1587,7 +1587,7 @@ class Functions():
         predefined_envs = []
         repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
         repo_profiles = repo_profiles["payload"]["tree"]["items"]
-        metagraph_name = None
+        metagraph_name, chosen_profile = None, None
         
         predefined_configs = {}
         for repo_profile in repo_profiles:

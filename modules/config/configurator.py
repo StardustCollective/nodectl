@@ -3041,7 +3041,6 @@ class Configurator():
                 ]
                 
                 for lookup_path in found_snap_list:
-                    test = listdir(lookup_path)
                     if path.isdir(lookup_path) and listdir(lookup_path):
                         self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
                         found_snap = True
