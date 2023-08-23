@@ -1441,18 +1441,21 @@ class Functions():
                 pull_all()
                 return service_list
             
-        elif var.req == "pairings":
+        elif "pairings" in var.req:
             # return list of profile objects that are paired via layer0_link
             pairing_list = []
                        
             for profile in self.profile_names:
+                link_found = False
                 for link_type in self.link_types:
                     if self.config_obj[profile][f"{link_type}_link_enable"]:
+                        link_found = True
                         # list of lists of matching profile to linked profile
                         link_profile = self.config_obj[profile][f"{link_type}_link_profile"]
                         if link_profile != "None":
                             pairing_list.append([profile, self.config_obj[profile][f"{link_type}_link_profile"]])
                         else: pairing_list.append([profile])
+                if not link_found: pairing_list.append([profile])
             
             n = 0
             while True:
@@ -1467,28 +1470,6 @@ class Functions():
                     else:
                         n += 1
             
-            # final_order_list = False
-            # for n, order_list in enumerate(pairing_list):
-            #     for profile in order_list:
-            #         meta_type = f'{self.config_obj[profile]["meta_type"]}{self.config_obj[profile]["layer"]}'
-            #         if meta_type == "gl0":
-            #             final_order_list = order_list.insert(0, order_list.pop()) # move to front
-            #             break 
-            # if final_order_list: pairing_list[n] = final_order_list       
-     
-            # dup_keys = []
-
-            # for profile in self.profile_names:
-            #     for p_pair in pairing_list:
-            #         if profile in p_pair:
-            #             dup_keys.append(profile)
-            #             break
-            # for profile in self.profile_names:
-            #     if p_pair not in dup_keys:
-            #         key_list = []
-            #         key_list.append(profile)
-            #         pairing_list.append(key_list)
-            
             # add services to the pairing list
             for n, s_list in enumerate(pairing_list):
                 for i, profile in enumerate(s_list):
@@ -1500,8 +1481,19 @@ class Functions():
                     s_list[i] = pair_dict
                 pairing_list[n] = s_list
 
+            if "order_pairing" in var.req:
+                # put profiles in order of leave, stop, start, join
+                # order_pairing option should have the last element with the
+                # pairing dict popped before the returned list is used.
+                pre_profile_order = []; profile_order = []
+                for profile_group in pairing_list:
+                    for profile_obj in reversed(profile_group):
+                        pre_profile_order.append(profile_obj["profile"])
+                [profile_order.append(element) for element in pre_profile_order if element not in profile_order]         
+                pairing_list.append(profile_order)
+                
             return pairing_list
-            
+
         elif "environments" in var.req:
             pull_all()
             return {

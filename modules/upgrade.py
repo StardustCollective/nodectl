@@ -78,8 +78,8 @@ class Upgrader():
                 
     def upgrade_process(self):
 
-        self.setup_argv_list()
         self.handle_profiles()
+        self.setup_argv_list()
         self.handle_verification()
         
         self.build_p12_obj()
@@ -105,26 +105,25 @@ class Upgrader():
         self.print_section("Bring Node Back Online")
         self.reload_node_service()
   
-        for profile_list in self.profile_items:
-            for item in reversed(profile_list):
-                self.start_node_service(item["profile"])
-                self.check_for_api_readytojoin(item["profile"],item["service"])
-                self.re_join_tessellation(item["profile"])
+        for profile in self.profile_order:
+            self.start_node_service(profile)
+            self.check_for_api_readytojoin(profile)
+            self.re_join_tessellation(profile)
         
         self.complete_process()
     
     
     def handle_profiles(self):
-        profile_items = self.functions.pull_profile({"req": "pairings"})
-        
+        profile_items = self.functions.pull_profile({"req": "order_pairings"})
+        self.profile_order = profile_items.pop()
         self.profiles_by_env = list(self.functions.pull_profile({
             "req": "profiles_by_environment",
             "environment": self.environment
         }))
         
-        # remove any profiles that don't belong to this environment
+        # removes any profiles that don't belong to this environment
         for n, profile_list in enumerate(profile_items):
-            for i, profile in enumerate(profile_list):
+            for profile in profile_list:
                 if profile["profile"] not in self.profiles_by_env: profile_items.pop(n)
                 else:
                     self.profile_progress = {
@@ -210,7 +209,7 @@ class Upgrader():
             "single_line": True,
         })
 
-                       
+   
     def get_node_id(self):
 
         def pull_node_id(profile):
@@ -280,8 +279,11 @@ class Upgrader():
         self.version_obj["cluster_tess_version"] = self.functions.get_version({"which": "cluster_tess"})
         ml_version_found = False
         
+        # all profiles with the ml type should be the same version
         for profile in self.profile_progress.keys():
-            if ml_version_found and self.config_copy[profile]["meta_type"] == "ml": 
+            if self.profile_progress[profile]["download_version"]:
+                download_version = self.profile_progress[profile]["download_version"]
+            elif ml_version_found and self.config_copy[profile]["meta_type"] == "ml": 
                 self.profile_progress[profile]["download_version"] = ml_download_version
                 continue
             
@@ -345,7 +347,7 @@ class Upgrader():
                         elif download_version[0] != "v": 
                             download_version = f"v{download_version}"
                         
-                    if self.functions.is_version_valid(download_version):
+                    if self.functions.is_version_valid(download_version) or self.forced:
                         confirm = True
                         if self.forced:
                             self.functions.print_paragraphs([
@@ -778,7 +780,7 @@ class Upgrader():
                 self.functions.print_timer(5,"wait for restart",1)
     
             
-    def check_for_api_readytojoin(self,profile,service):
+    def check_for_api_readytojoin(self,profile):
         if self.profile_progress[profile]["join_complete"]: return
         
         self.cli.node_service.set_profile(profile)
@@ -811,6 +813,10 @@ class Upgrader():
             "newline": True
         })
         
+        service = self.functions.pull_profile({
+            "req": "service",
+            "profile": profile,
+        })
         self.log.logger.info(f'check for api results: service [{service}] state [{state}]')
 
 
@@ -923,16 +929,48 @@ class Upgrader():
         
     
     def setup_argv_list(self):
+        input_error = False
         if "-f" in self.argv_list:
             self.forced = True  
         if "-v" in self.argv_list:
-            self.download_version = self.argv_list[self.argv_list.index("-v")+1]
-            if not self.functions.is_version_valid(self.download_version) and not self.forced:
-                self.error_messages.error_code_messages({
-                    "error_code": "upg-550",
-                    "line_code": "input_error",
-                    "extra": "-v <version format vX.X.X>"
-                })
+            if self.argv_list.count("-v") > 1:
+                extra = "all -v <version> must be preceded by accompanying -p <profile>"
+                if self.argv_list.count("-v") != self.argv_list.count("-p"): input_error = True
+        
+                if not input_error:
+                  for arg in self.argv_list:
+                      if arg == "-p":
+                          # if the profile doesn't exist shell_handler will intercept
+                          profile = self.argv_list[self.argv_list.index("-p")+1]
+                          if self.argv_list[self.argv_list.index("-p")+2] != "-v": input_error = True
+                          version = self.argv_list[self.argv_list.index("-p")+3]
+                          if not self.functions.is_version_valid(version): input_error = True
+                          if input_error: break
+        
+                if not input_error:
+                    while True:
+                        for arg in self.argv_list:
+                            if arg == "-p":
+                                profile = self.argv_list[self.argv_list.index("-p")+1]
+                                version = self.argv_list[self.argv_list.index("-p")+3]
+                                break
+                        if not "-p" in self.argv_list: break
+                        del self.argv_list[self.argv_list.index("-p"):self.argv_list.index("-p")+4]
+                        if not input_error: self.profile_progress[profile]["download_version"] = version              
+                              
+            else:
+                self.download_version = self.argv_list[self.argv_list.index("-v")+1]
+                if not self.functions.is_version_valid(self.download_version) and not self.forced: 
+                    input_error = True
+                    extra = "-v <version format vX.X.X>"
+            
+        if input_error:        
+            self.error_messages.error_code_messages({
+                "error_code": "upg-550",
+                "line_code": "input_error",
+                "extra": extra
+            })
+            
         if "-ni" in self.argv_list:
             self.non_interactive = True      
         if "--pass" in self.argv_list:

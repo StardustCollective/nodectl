@@ -354,8 +354,8 @@ class ShellHandler:
         if "help" in self.argv:
             self.help_requested = True
         
-        max = len(self.argv) if len(self.argv) > 7 else 8    
-        for n in range(2,max):  # allow argv[2] - argv[7]
+        max = len(self.argv) if len(self.argv) > 7 else 8
+        for n in range(2,max):  # make sure at least 8 entries
             try:
                 self.argv[n]
             except:

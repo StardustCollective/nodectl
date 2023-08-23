@@ -356,7 +356,7 @@ class Error_codes():
             ])  
             if var.extra:
                 self.functions.print_paragraphs([
-                    ["option",0], [var.extra,2,"yellow"]
+                    ["option or hint: ",0], [var.extra,2,"yellow"]
                 ])       
             
             

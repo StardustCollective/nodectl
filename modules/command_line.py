@@ -2166,8 +2166,9 @@ class CLI():
         valid_request, single_profile = False, True
    
         profile_pairing_list = self.functions.pull_profile({
-            "req": "pairings",
+            "req": "order_pairings",
         })
+        profile_order = profile_pairing_list.pop()
         
         if called_profile == "all":
             single_profile = False
@@ -2177,6 +2178,7 @@ class CLI():
                 for profile_dict in profile_list:
                     if called_profile == profile_dict["profile"]:
                         profile_pairing_list = [[profile_dict]]  # double list due to "all" parameter
+                        profile_order = [called_profile]
                         valid_request = True
                         break
                     
@@ -2187,12 +2189,6 @@ class CLI():
                 "extra": called_profile,
                 "extra2": None
             })
-
-        pre_profile_order = []; profile_order = []
-        for profile_group in profile_pairing_list:
-            for profile_obj in reversed(profile_group):
-                pre_profile_order.append(profile_obj["profile"])
-        [profile_order.append(element) for element in pre_profile_order if element not in profile_order]
         
         with ThreadPoolExecutor() as executor:
             leave_list = []; stop_list = []; delay = 0
