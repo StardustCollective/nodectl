@@ -80,7 +80,6 @@ nodectl:
     java_xss: default
     jar_repository: default
     jar_file: default
-    jar_version: default
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
@@ -125,7 +124,6 @@ nodectl:
     java_xss: default
     jar_repository: default
     jar_file: default
-    jar_version: default
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
