@@ -418,22 +418,6 @@ class CLI():
                 },
                 "spacing": 15
             },
-            # {
-            #     "header_elements" : {
-            #         "SNAPSHOTS": "test",
-            #         "BACKUPS": "test",
-            #         "UPLOADS": "test"
-            #     },
-            #     "spacing": 15
-            # },
-            # {
-            #     "header_elements" : {
-            #         "ARCHIVE LOGS": "test",
-            #         "JSON LOGS": "test",
-            #         "LOGS": "test"
-            #     },
-            #     "spacing": 15
-            # },
         ]
         
         for n, profile in enumerate(status.profile_sizes.keys()):
@@ -2981,7 +2965,6 @@ class CLI():
 
             # this creates a print /r status during retrieval so placed here to not affect output
             if wallet_only:
-                # nodeid = argv_list[argv_list.index("-w")+1]
                 self.functions.is_valid_address("dag",False,nodeid)
                     
             wallet_balance = self.functions.pull_node_balance(ip_address,nodeid.strip())
