@@ -54,6 +54,7 @@ nodectl:
     environment: integrationnet
     description: Constellation Network IntgrationNet Hyergraph Global gl0
     node_type: validator
+    meta_type: gl
     collateral: 0
     layer: 0
     service: intnetserv_l0
@@ -98,6 +99,7 @@ nodectl:
     environment: integrationnet
     description: Constellation Network IntgrationNet Metagraph Layer1
     node_type: validator
+    meta_type: ml
     collateral: 0
     layer: 1
     service: intnetserv_l1

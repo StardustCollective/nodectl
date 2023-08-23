@@ -54,8 +54,9 @@ nodectl:
     environment: testnet
     description: Constellation Network TestNet Hyergraph Global gl0
     node_type: validator
-    collateral: 0
+    meta_type: gl
     layer: 0
+    collateral: 0
     service: node_l0
     edge_point: default
     edge_point_tcp_port: default
@@ -79,7 +80,6 @@ nodectl:
     java_xss: default
     jar_repository: default
     jar_file: default
-    jar_version: default
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
@@ -98,8 +98,9 @@ nodectl:
     environment: testnet
     description: Constellation Network TestNet Metagraph Layer1
     node_type: validator
-    collateral: 0
+    meta_type: ml
     layer: 1
+    collateral: 0
     service: node_l1
     edge_point: default
     edge_point_tcp_port: default
@@ -123,7 +124,6 @@ nodectl:
     java_xss: default
     jar_repository: default
     jar_file: default
-    jar_version: default
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
