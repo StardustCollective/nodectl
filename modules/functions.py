@@ -100,7 +100,7 @@ class Functions():
         self.event = False # used for different threading events
         self.status_dots = False # used for different threading events
         
-        ignore_defaults = ["config","install","auto_restart","ts"]
+        ignore_defaults = ["config","install","auto_restart","ts","debug"]
 
         if config_obj["global_elements"]["caller"] not in ignore_defaults:
             self.set_default_variables({})
@@ -708,6 +708,7 @@ class Functions():
         specific_ip = command_obj.get("specific_ip",False)
         spinner = command_obj.get("spinner",False)
         max_range = command_obj.get("max_range",10)
+        threaded = command_obj.get("threaded", False)
         cluster_info = []
         
             
@@ -743,10 +744,14 @@ class Functions():
             try:
                 cluster_info_tmp.pop()
             except:
-                self.error_messages.error_code_messages({
-                    "error_code": "fun-648",
-                    "line_code": "off-network",
-                })
+                if threaded: 
+                    self.log.logger.error("get_info_from_edge_point reached error while threaded, error skipped")
+                    cprint("  error attempting to reach edge point","red")
+                else:
+                    self.error_messages.error_code_messages({
+                        "error_code": "fun-648",
+                        "line_code": "off-network",
+                    })
             
             for n in range(0,max_range):
                 node = random.choice(cluster_info)
@@ -1861,6 +1866,7 @@ class Functions():
         simple = command_obj.get("simple",False)
         current_source_node = command_obj.get("current_source_node",False)
         skip_thread = command_obj.get("skip_thread",False)
+        threaded = command_obj.get("threaded", False)
         spinner = command_obj.get("spinner", False)
         spinner = False if self.auto_restart else spinner
         api_not_ready_flag = False
@@ -1882,6 +1888,7 @@ class Functions():
         if not current_source_node:
             try:
                 current_source_node = self.get_info_from_edge_point({
+                    "threaded": threaded,
                     "profile": profile,
                     "spinner": spinner,
                 })
@@ -1893,6 +1900,7 @@ class Functions():
             if not isinstance(ip,dict):
                 try:
                     ip_addresses[n] = self.get_info_from_edge_point({
+                        "threaded": threaded,
                         "profile": profile,
                         "specific_ip": ip,
                         "spinner": spinner,
@@ -2489,6 +2497,8 @@ class Functions():
         quit_option = command_obj.get("quit_option",False)
         newline = command_obj.get("newline",False)
         prompt = command_obj.get("prompt",False)
+        color = command_obj.get("color", "yellow")
+        
         key_pressed = None
         
         if newline == "top" or newline == "both":
@@ -2496,13 +2506,16 @@ class Functions():
             
         if not prompt: prompt = "Press any key to continue"
         options = ["any_key"]
-        if quit_option:
+        if quit_option == "quit_only":
+            prompt = f"press 'q' to quit"
+            options = ["q"]
+        elif quit_option:
             prompt = f"{prompt} or 'q' to quit"
             options = ["any_key","q"]
             
         key_pressed = self.get_user_keypress({
             "prompt": prompt,
-            "prompt_color": "yellow",
+            "prompt_color": color,
             "options": options,
         })
         

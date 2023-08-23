@@ -307,6 +307,8 @@ class ShellHandler:
             cli.download_tess_binaries(self.argv)
         elif self.called_command == "health":
             cli.show_health(self.argv)
+        elif self.called_command == "show_service_log" or self.called_command == "_ssl":
+            cli.show_service_log(self.argv)
         elif self.called_command == "sec":
             cli.show_security(self.argv)
         elif self.called_command == "price" or self.called_command == "prices":
@@ -607,6 +609,7 @@ class ShellHandler:
             "send_logs","_sl",
             "nodeid","id","dag","export_private_key",
             "check_seedlist","_csl","update_seedlist","_usl",
+            "show_service_log","_ssl",
         ]                
         
         if self.called_command in need_profile_list and self.called_command in need_environemnt_list:

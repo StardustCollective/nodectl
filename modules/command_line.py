@@ -130,6 +130,7 @@ class CLI():
         do_wait = command_obj.get("wait",True)
         print_title = command_obj.get("print_title",True)
         spinner = command_obj.get("spinner",True)
+        threaded = command_obj.get("threaded",False)
         all_profile_request = False
         called_profile = self.profile
         called_command = command_obj.get("called","default")
@@ -241,6 +242,7 @@ class CLI():
                         self.functions.print_timer(20)
                         
                     sessions["state1"] = self.functions.test_peer_state({
+                        "threaded": threaded,
                         "spinner": spinner,
                         "profile": called_profile,
                         "simple": True
@@ -279,7 +281,30 @@ class CLI():
                         "header_elements" : header_elements
                     })
         
+
+    def show_service_log(self,command_list):
+        self.functions.check_for_help(command_list, "show_service_log")
+        profile = command_list[command_list.index("-p")+1]
+        service = self.functions.pull_profile({
+            "req":"service",
+            "profile": profile,
+        })
+        bash_command = f"journalctl -b -u cnng-{service}"
         
+        self.functions.print_paragraphs([
+            ["",1],["SERVICE JOURNAL LOGS",1,"blue","bold"],
+            ["=","half","blue","bold"],
+            ["press",0], ["q",0,"yellow"],["to quit",1],
+            ["press",0], ["the space bar",0,"yellow"],["to advance screens",1],
+        ])
+        self.functions.print_any_key({
+            "prompt": "Press any key to begin",
+            "color": "cyan",
+        })
+        system(bash_command)
+        cprint("  Service log review complete","blue")
+
+            
     def show_prices(self,command_list):
         self.functions.check_for_help(command_list,"price")
             
@@ -1918,6 +1943,7 @@ class CLI():
         argv_list = command_obj.get("argv_list",[])
         spinner = command_obj.get("spinner",False)
         service_name = command_obj.get("service_name",self.service_name)
+        threaded = command_obj.get("threaded", False)
         
         self.functions.check_for_help(argv_list,"start")
 
@@ -1985,6 +2011,7 @@ class CLI():
                 "rebuild": True,
                 "wait": False,
                 "print_title": False,
+                "threaded": threaded,
                 "-p": profile
             })
         
@@ -2422,6 +2449,23 @@ class CLI():
         states = list(zip(*self.functions.get_node_states("on_network")))[0]
         break_states = list(zip(*self.functions.get_node_states("past_observing")))[0]
         
+        
+        def print_update():
+            nonlocal first_attempt
+            if first_attempt:
+                first_attempt = False
+                self.functions.print_paragraphs([
+                    [" Max Timer ",0,"yellow,on_blue"],["300",0,"yellow"], ["seconds",1]
+                ])
+                
+            self.functions.print_clear_line()
+            print(colored("  Peers:","cyan"),colored(f"{src_peer_count}","yellow"),
+                colored("Connected:","cyan"),colored(f"{peer_count}","yellow"), 
+                colored("State:","cyan"),colored(f"{state}","yellow"), 
+                colored("Timer:","cyan"),colored(f"{allocated_time}","yellow"),
+                end='\r')
+            
+                    
         if not skip_title:
             self.print_title(f"Joining {called_profile}")  
         
@@ -2433,8 +2477,8 @@ class CLI():
                 "status_color": "magenta",
                 "newLine": True
             })
-        
-        if self.functions.config_obj[called_profile]["layer"] < 1 and not single_profile:
+
+        if gl0_link and ml0_link and not single_profile:
             found_dependency = False
             if not watch_peer_counts: # check to see if we can skip waiting for Ready
                 for link_profile in self.profile_names:
@@ -2487,8 +2531,8 @@ class CLI():
             "interactive": watch_peer_counts,
         })
       
-        if self.config_obj[called_profile]["layer"] > 0:
-            if "L0 not Ready" in str(join_result):
+        if gl0_link or ml0_link:
+            if "not Ready" in str(join_result):
                 color = "red"
                 attempt = " attempt"
             else:
@@ -2496,24 +2540,7 @@ class CLI():
         else:
             color = "green"
         
-    
-        def print_update():
-            nonlocal first_attempt
-            if first_attempt:
-                first_attempt = False
-                self.functions.print_paragraphs([
-                    [" Max Timer ",0,"yellow,on_blue"],["300",0,"yellow"], ["seconds",1]
-                ])
-                
-            self.functions.print_clear_line()
-            print(colored("  Peers:","cyan"),colored(f"{src_peer_count}","yellow"),
-                colored("Connected:","cyan"),colored(f"{peer_count}","yellow"), 
-                colored("State:","cyan"),colored(f"{state}","yellow"), 
-                colored("Timer:","cyan"),colored(f"{allocated_time}","yellow"),
-                end='\r')
-
-            
-        if self.config_obj[called_profile]["layer"] == 0 or (self.config_obj[called_profile]["layer"] > 0 and color == "green"):
+        if color == "green":
             for allocated_time in range(0,max_timer):
                 sleep(1)
                 
@@ -2678,11 +2705,12 @@ class CLI():
                 
                 
     def cli_leave(self,command_obj):
-        profile = command_obj.get("profile",self.profile)
-        print_timer = command_obj.get("print_timer",True)
-        secs = command_obj.get("secs",30)
-        reboot_flag = command_obj.get("reboot_flag",False)
-        skip_msg = command_obj.get("skip_msg",False)
+        profile = command_obj.get("profile", self.profile)
+        print_timer = command_obj.get("print_timer", True)
+        secs = command_obj.get("secs", 30)
+        reboot_flag = command_obj.get("reboot_flag", False)
+        skip_msg = command_obj.get("skip_msg", False)
+        threaded = command_obj.get("threaded", False)
         
         sleep(command_obj.get("delay",0))
 
@@ -2704,6 +2732,7 @@ class CLI():
         self.node_service.set_profile(profile)
         state = self.node_service.leave_cluster({
             "skip_thread": True,
+            "threaded": threaded,
             "profile": profile,
             "secs": secs,
             "cli_flag": True    
@@ -2725,6 +2754,7 @@ class CLI():
                     "profile": profile,
                     "skip_thread": True,
                     "simple": True,
+                    "treaded": threaded,
                 })
                 
                 self.functions.print_cmd_status({
