@@ -131,7 +131,7 @@ class ShellHandler:
                 "rebuild": False,
                 "wait": False,
                 "print_title": True,
-                "-p": self.argv[1],
+                "-p": self.argv[self.argv.index("-p")+1],
                 "called": self.called_command
             })
             
