@@ -127,11 +127,13 @@ class ShellHandler:
             self.functions.print_clear_line()
         
         if self.called_command in status_commands:
+            try: profile = self.argv[self.argv.index("-p")+1]
+            except: profile = "empty"
             cli.show_system_status({
                 "rebuild": False,
                 "wait": False,
                 "print_title": True,
-                "-p": self.argv[self.argv.index("-p")+1],
+                "-p": profile,
                 "called": self.called_command
             })
             
