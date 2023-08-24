@@ -1165,6 +1165,8 @@ def build_help(command_obj):
   and displays the details of the profiles 
   found in the {colored('cn-config.yaml','green')} file.
   
+    optional:
+    {colored('-p','green')} : print out only profile names on the Node
   '''      
         
         

@@ -589,15 +589,11 @@ class ShellHandler:
         if self.help_requested:
             return
 
-        if "-p" in self.argv:
-            called_profile = self.argv[self.argv.index("-p")+1]
-            self.functions.check_valid_profile(called_profile)
-                    
         need_environemnt_list = [
             "refresh_binaries","_rtb",
             "update_seedlist", "_usl",
         ]
-        
+
         need_profile_list = [
             "find","quick_check","logs",
             "start","stop","restart",
@@ -609,6 +605,11 @@ class ShellHandler:
             "check_seedlist","_csl","update_seedlist","_usl",
             "show_service_log","_ssl",
         ]                
+
+        if "-p" in self.argv:
+            called_profile = self.argv[self.argv.index("-p")+1]
+            if called_profile not in need_profile_list: return
+            self.functions.check_valid_profile(called_profile)
         
         if self.called_command in need_profile_list and self.called_command in need_environemnt_list:
             either_or_hint = True

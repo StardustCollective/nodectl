@@ -820,6 +820,8 @@ class CLI():
         self.log.logger.info(f"Request for list of known profiles requested")
         self.functions.check_for_help(command_list,"list")
         
+        profile_only = True if "-p" in command_list else False
+        
         self.functions.print_clear_line()
         self.functions.print_header_title({
             "line1": "CURRENT LOADED METAGRAPHS",
@@ -837,6 +839,12 @@ class CLI():
         profile_services = profile_details["profile_services"]
         metagraph_name = profile_details["metagraph_name"]
         profile_layers = profile_details["layer_list"]
+        
+        if profile_only:
+            cprint("  PROFILE NAMES ON NODE","blue",attrs=["bold"])
+            for profile in profile_names:
+                cprint(f"  {profile}","cyan")
+            return           
                 
         for n,profile in enumerate(profile_names):
             self.profile = profile
