@@ -43,7 +43,7 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.8.1"
+        self.node_nodectl_version = "v2.9.0"
         self.node_nodectl_yaml_version = "v2.0.0"
         exclude_config = ["-v","_v","version"]
         
