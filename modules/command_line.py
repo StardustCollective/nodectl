@@ -58,6 +58,8 @@ class CLI():
         if self.profile_names != None:
             self.profile_names = self.functions.clear_global_profiles(self.profile_names)
             
+        self.skip_warning_messages = True if "--skip_warning_messages" in self.command_list else False
+        
         if not self.skip_services:
             # try:
             # review and change to spread operator if able
@@ -1851,6 +1853,8 @@ class CLI():
         profile = command_obj.get("profile","default")
         nodectl_version_check = False
         caller = command_obj.get("caller",None)
+        
+        if self.skip_warning_messages: return
         
         self.functions.get_service_status()
         if tess_version_check:
