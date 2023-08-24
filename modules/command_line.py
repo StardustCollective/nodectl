@@ -560,7 +560,7 @@ class CLI():
             if not is_basic:
                 nodeid = self.cli_grab_id({
                     "dag_addr_only": True,
-                    "argv_list": ["-p",profile,"-t",peer,"--port",public_port]
+                    "argv_list": ["-p",profile,"-t",peer,"--port",public_port,"-l"]
                 })
                 wallet = self.cli_nodeid2dag([nodeid, "return_only"])
                 
