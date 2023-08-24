@@ -2828,6 +2828,7 @@ class CLI():
                 except:
                     argv_list.append("help")
                 target = True
+                outside_node_request = True
 
             if "--port" in argv_list:
                 api_port = argv_list[argv_list.index("--port")+1] 
@@ -2904,8 +2905,7 @@ class CLI():
                         
                     if not nodeid_to_ip:
                         ip_address = colored("not found?","red")
-                    else:
-                        nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
+                    elif "-l" not in argv_list: nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
 
                 elif not nodeid:
                     nodeid = self.functions.get_api_node_info({
