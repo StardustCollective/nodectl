@@ -131,7 +131,7 @@ class Error_codes():
             if var.error_code == "service_join":
                 self.functions.print_paragraphs([
                     ["You may not be joined to the",0,"red","bold"],["Global Layer0",0,"yellow","bold"],
-                    ["or a",0,"red","bold"],["State Channel?",2,"yellow","bold"],
+                    ["or a",0,"red","bold"],["Metagraph?",2,"yellow","bold"],
                 ])
             else:
                 self.functions.print_paragraphs([
@@ -156,7 +156,7 @@ class Error_codes():
                 ])   
             self.functions.print_paragraphs([
                 ["You may not be joined to the",0,"red","bold"],["Global Layer0",0,"cyan","bold"],
-                ["or a",2,"red","bold"],["State Channel?",2,"cyan","bold"],
+                ["or a",2,"red","bold"],["Metagraph?",2,"cyan","bold"],
                 ["Are you sure the",0,"red","bold"], ["Node",0,"yellow","bold,underline"],
                 ["service is running?",2,"red","bold"]
             ])
@@ -273,7 +273,7 @@ class Error_codes():
         elif var.line_code == "ip_not_found":
             self.log.logger.warn("unable to find the external IP address of the Node, there may be internet access issues ensuring, exited program")
             self.functions.print_paragraphs([
-                ["In an attempt to search the State Channel with an IP address,",0,"red"],
+                ["In an attempt to search the Metagraph with an IP address,",0,"red"],
                 [var.extra,0,"yellow","bold"],
                 ["is invalid or not found, please check this",0,"red"] ,["ip address",0,"red","underline"], ["and try again.",2,"red"],
             ])            

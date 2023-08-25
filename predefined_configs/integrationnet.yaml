@@ -55,8 +55,8 @@ nodectl:
     description: Constellation Network IntgrationNet Hyergraph Global gl0
     node_type: validator
     meta_type: gl
-    collateral: 0
     layer: 0
+    collateral: 0
     service: intnetserv_l0
     edge_point: default
     edge_point_tcp_port: default

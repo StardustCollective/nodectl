@@ -308,7 +308,7 @@ class Node():
         # hardcoded seed-list download locations.
         # 
         # This method can be either deprecated or refactored
-        # after new State Channel requirements are identified
+        # after new Metagraph Channel requirements are identified
         # ===============================
         
         self.log.logger.debug("node service - download seed list initiated...")
@@ -1118,7 +1118,7 @@ nodectl:
         
         if var.file == "config_yaml_autorestart":
             cur_file = '''  global_auto_restart:
-    enable: nodegarageeautoenable
+    auto_restart: nodegarageeautoenable
     auto_upgrade: nodegarageautoupgrade
     on_boot: nodegarageonboot
     rapid_restart: nodegaragerapidrestart

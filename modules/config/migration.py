@@ -398,7 +398,7 @@ class Migration():
     def confirm_config(self):
         self.functions.print_clear_line()
         self.functions.print_paragraphs([
-            ["cn-node",0,"yellow","bold"], ["MIGRATION COMPLETED SUCCESSFULLY!!",1,"green","bold"],
+            ["",1],["cn-config",0,"yellow","bold"], ["MIGRATION COMPLETED SUCCESSFULLY!!",1,"green","bold"],
             ["Ready to continue with upgrade",2,"blue","bold"],
         ])
         

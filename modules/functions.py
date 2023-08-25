@@ -783,7 +783,7 @@ class Functions():
         
         # dictionary
         #  api_host: to do api call against
-        #  api_port: for the L0 or state channel
+        #  api_port: for the L0 or metagraph channel
         #  info_list:  list of details to return from the call
         #       if info_list is string "all" will return everything
         #  
