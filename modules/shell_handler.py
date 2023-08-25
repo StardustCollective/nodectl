@@ -138,7 +138,7 @@ class ShellHandler:
             })
             
         elif self.called_command in service_change_commands:
-            cli.set_profile(self.argv[1])
+            cli.set_profile(self.argv[self.argv.index("-p")+1])
             if not show_help:            
                 if self.called_command == "start":
                     cli.cli_start({
@@ -591,7 +591,7 @@ class ShellHandler:
         if self.help_requested:
             return
 
-        need_environemnt_list = [
+        need_environment_list = [
             "refresh_binaries","_rtb",
             "update_seedlist", "_usl",
         ]
@@ -613,7 +613,7 @@ class ShellHandler:
             if called_profile not in need_profile_list: return
             self.functions.check_valid_profile(called_profile)
         
-        if self.called_command in need_profile_list and self.called_command in need_environemnt_list:
+        if self.called_command in need_profile_list and self.called_command in need_environment_list:
             either_or_hint = True
             
         if self.called_command in need_profile_list:
@@ -626,7 +626,7 @@ class ShellHandler:
             elif len(self.argv) == 0 or ("-p" not in self.argv or called_profile == "empty"):
                 profile_hint = True
                 
-        if self.called_command in need_environemnt_list:
+        if self.called_command in need_environment_list:
             # need_environment = True
             if "help" in self.argv:
                 pass

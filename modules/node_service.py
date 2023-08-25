@@ -736,7 +736,7 @@ class Node():
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "timeout" if action == "stop" else "wait",
-            "timeout": 15 if action == "stop" else 180
+            "timeout": 5 if action == "stop" else 180
         })
 
         if action == "start":
