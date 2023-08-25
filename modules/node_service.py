@@ -1071,12 +1071,13 @@ nodectl:
         
         if var.file == "config_yaml_profile":
             cur_file = '''  nodegarageprofile:
-    enable: nodegarageenable
+    profile_enable: nodegarageenable
     environment: nodegarageenvironment
     description: nodegaragedescription
     node_type: nodegaragenodetype
-    collateral: nodegaragecollateral
+    meta_type: nodegaragemetatype
     layer: nodegarageblocklayer
+    collateral: nodegaragecollateral
     service: nodegarageservice
     edge_point: nodegarageedgepointhost
     edge_point_tcp_port: nodegarageedgepointtcpport
@@ -1100,7 +1101,6 @@ nodectl:
     java_xss: nodegaragexss
     jar_repository: nodegaragejarrepository
     jar_file: nodegaragejarfile
-    jar_version: nodegaragejarversion
     p12_nodeadmin: nodegaragep12nodeadmin
     p12_key_location: nodegaragep12keylocation
     p12_key_name: nodegaragep12keyname
@@ -1120,6 +1120,7 @@ nodectl:
             cur_file = '''  global_auto_restart:
     enable: nodegarageeautoenable
     auto_upgrade: nodegarageautoupgrade
+    on_boot: nodegarageonboot
     rapid_restart: nodegaragerapidrestart
 '''
         
@@ -1136,6 +1137,7 @@ nodectl:
             cur_file = '''  global_elements:
     metagraph_name: nodegaragemetagraphname            
     nodectl_yaml: nodegaragenodectlyaml
+    log_level: nodegarageloglevel
 '''
 
         elif var.file == "upgrade":

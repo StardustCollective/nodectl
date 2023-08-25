@@ -249,9 +249,10 @@ class Migration():
             rebuild_obj = {
                 **rebuild_obj,
                 "nodegaragecollateral": 0,
+                "nodegaragemetatype": "ml",
                 "nodegaragejarrepository": "default",
                 "nodegaragejarfile": "default",
-                "nodegaragejarversion": "default",
+                # "nodegaragejarversion": "default",  # future?
                 "nodegarageprioritysourcelocation": "default",
                 "nodegarageprioritysourcerepository": "default",
                 "nodegarageprioritysourcefile": "default",
@@ -338,6 +339,7 @@ class Migration():
         rebuild_obj = {
             "nodegarageeautoenable": "False",
             "nodegarageautoupgrade": "False",
+            "nodegarageonboot": "False",
             "nodegaragerapidrestart": "False",
             "create_file": "config_yaml_autorestart",
         }
@@ -363,6 +365,7 @@ class Migration():
         rebuild_obj = {
             "nodegaragemetagraphname": self.found_environment,
             "nodegaragenodectlyaml": self.functions.node_nodectl_yaml_version,
+            "nodegarageloglevel": "INFO",
             "create_file": "config_yaml_global_elements",
         }
         self.yaml += self.build_yaml(rebuild_obj)
