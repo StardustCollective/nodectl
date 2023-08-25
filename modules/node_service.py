@@ -886,31 +886,31 @@ class Node():
                         if layer_zero_ready or join_failure:
                             break
 
-                    if not self.auto_restart and not layer_zero_ready:
-                        self.functions.print_paragraphs([
-                            ["",1], [" ERROR ",0,"red,on_yellow"],
-                            [f"nodectl was unable to find the {link_type.upper()} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
-                            [f"continue to wait for the state to become 'Ready' or exit now and try again to join after the link profile or Node becomes",0,"red"],
-                            [f"'Ready'.",2,"red"],
+                        if not self.auto_restart and not layer_zero_ready:
+                            self.functions.print_paragraphs([
+                                ["",1], [" ERROR ",0,"red,on_yellow"],
+                                [f"nodectl was unable to find the {link_type.upper()} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
+                                [f"continue to wait for the state to become 'Ready' or exit now and try again to join after the link profile or Node becomes",0,"red"],
+                                [f"'Ready'.",2,"red"],
 
-                            ["If the Node Operator chooses to exit, issue the following commands to verify the status of each profile and restart when 'Ready' state is found:",1],                        
-                            ["sudo nodectl status",1,"yellow"],
-                            [f"sudo nodectl restart -p {self.profile}",2,"yellow"],
-                        ])
+                                ["If the Node Operator chooses to exit, issue the following commands to verify the status of each profile and restart when 'Ready' state is found:",1],                        
+                                ["sudo nodectl status",1,"yellow"],
+                                [f"sudo nodectl restart -p {self.profile}",2,"yellow"],
+                            ])
 
-                        if interactive:
-                            self.functions.confirm_action({
-                                "yes_no_default": "y",
-                                "return_on": "y",
-                                "prompt": "Would you like to continue waiting?",
-                                "exit_if": True,
-                            })
-                            cprint("  Continuing to wait...","green")
-                        else:
-                            cprint("  Non-interactive mode detected...","yellow")
-                            if final:
-                                break
-                            final = True  # only allow one retry
+                            if interactive:
+                                self.functions.confirm_action({
+                                    "yes_no_default": "y",
+                                    "return_on": "y",
+                                    "prompt": "Would you like to continue waiting?",
+                                    "exit_if": True,
+                                })
+                                cprint("  Continuing to wait...","green")
+                            else:
+                                cprint("  Non-interactive mode detected...","yellow")
+                                if final:
+                                    break
+                                final = True  # only allow one retry
                     
         if (profile_layer == 0 and not gl0_linking_enabled) or layer_zero_ready:
             if not self.auto_restart:

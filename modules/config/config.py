@@ -387,8 +387,8 @@ class Configuration():
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": "github.com/Constellation-Labs/tessellation/",
             "edge_point": [
-                "l0-lb-integrationnet.constellationnetwork.io",
-                "l1-lb-integrationnet.constellationnetwork.io",
+                "l0-lb-cnng_edge_name.constellationnetwork.io",
+                "l1-lb-cnng_edge_name.constellationnetwork.io",
             ],
             "edge_point_tcp_port": 80,
             "public_port": [9000,9010],
@@ -453,15 +453,14 @@ class Configuration():
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
-                        if tdir == "seed_file":
-                            # exception
-                            self.config_obj[profile][tdir] = f'{profile}-seedlist'
+                        if tdir == "seed_file": self.config_obj[profile][tdir] = f'{profile}-seedlist' # exception
                         elif isinstance(def_value,list):
+                            if tdir == "edge_point": 
+                                for n, edge in enumerate(def_value): 
+                                    def_value[n] = edge.replace("cnng_edge_name",self.config_obj[profile]["environment"])
                             self.config_obj[profile][tdir] = def_value[0]
-                            if int(self.config_obj[profile]["layer"]) > 0:
-                                self.config_obj[profile][tdir] = def_value[1]
-                        else:
-                            self.config_obj[profile][tdir] = def_value  
+                            if int(self.config_obj[profile]["layer"]) > 0: self.config_obj[profile][tdir] = def_value[1]
+                        else: self.config_obj[profile][tdir] = def_value  
                 except Exception as e:
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found()

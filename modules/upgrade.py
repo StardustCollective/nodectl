@@ -27,7 +27,8 @@ class Upgrader():
         self.called_command = command_obj.get("called_command")
         self.environment = command_obj.get("environment")
         self.argv_list = command_obj.get("argv_list")
-
+        
+        self.skip_warning = True if "--skip_warning_messages" in self.argv_list else False
         self.non_interactive = self.download_version = self.forced = False
         self.debug = command_obj.get("debug",False)
         
@@ -278,19 +279,26 @@ class Upgrader():
     def request_version(self):
         self.version_obj["cluster_tess_version"] = self.functions.get_version({"which": "cluster_tess"})
         ml_version_found = False
-        
+
         # all profiles with the ml type should be the same version
-        for profile in self.profile_progress.keys():
+        for profile in self.profile_order:
+            do_continue = False
             if self.profile_progress[profile]["download_version"]:
                 download_version = self.profile_progress[profile]["download_version"]
             elif ml_version_found and self.config_copy[profile]["meta_type"] == "ml": 
                 self.profile_progress[profile]["download_version"] = ml_download_version
-                continue
+                do_continue = True
             
             self.functions.print_paragraphs([
                 ["PROFILE:   ",0], [profile,1,"yellow","bold"], 
                 ["METAGRAPH: ",0],[self.environment,2,"yellow","bold"],
             ])
+            
+            if do_continue:
+                self.functions.print_paragraphs([
+                    [f"Metagraph {self.environment} for profile {profile} using {ml_download_version}",1]
+                ])
+                continue
             
             try:
                 found_tess_version = self.version_obj['cluster_tess_version'][profile]
@@ -982,7 +990,8 @@ class Upgrader():
                           profile = self.argv_list[self.argv_list.index("-p")+1]
                           if self.argv_list[self.argv_list.index("-p")+2] != "-v": input_error = True
                           version = self.argv_list[self.argv_list.index("-p")+3]
-                          if not self.functions.is_version_valid(version): input_error = True
+                          if not self.forced:
+                            if not self.functions.is_version_valid(version): input_error = True
                           if input_error: break
         
                 if not input_error:

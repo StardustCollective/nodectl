@@ -431,6 +431,7 @@ class ShellHandler:
         env_provided = command_obj.get("env_provided",False)
         action = command_obj.get("action","normal")
         self.log.logger.info("testing permissions")
+        skip_warning = True if "--skip_warning_messages" in self.argv else False
         
         progress = {
             "status": "running",
@@ -530,12 +531,12 @@ class ShellHandler:
                     ["  - Restart this upgrade of Tessellation.",1,"magenta"],
                 ])
                     
-                if force:
+                if force or skip_warning:
                     self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
-                        [f"this {self.install_upgrade}. It will continue at the Node Operator's",0,"yellow"],
-                        ["own risk and decision.",1,"yellow","underline"]
+                        [f"this {self.install_upgrade}",0],["It will continue at the Node Operator's",0,"yellow"],
+                        ["own risk and decision.",2,"yellow","underline"]
                     ])
                 else:
                     self.log.logger.warn(f"an attempt to {self.install_upgrade} with an older nodectl detected {current}")  
