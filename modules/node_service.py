@@ -1065,6 +1065,40 @@ WantedBy=multi-user.target
 # documentation hub for details on how to configure
 # this file.
 # =========================================================
+# Metagraph sections isolated by profile key name
+# =========================================================
+# Custom Options and Environment Variables
+# ---------------------------------------------------------
+# Required arguments must be listed BEFORE any custom
+# entered options or environment variables !!
+#
+# Failure to do so may create undesired results from
+# nodectl (especially the configurator) the Node Operator
+# should use the configurator over manually updating this 
+# config file.
+# ---------------------------------------------------------
+# Required arguments 
+# ---------------------------------------------------------
+# custom_args_enable: True (or False)
+# custom_env_vars_enable: True (or False)
+# ---------------------------------------------------------
+# MANUAL ENTRY MUST PREFIX "custom_args_" to your arg
+# customer_args_collateral: 0
+# custom_args_var1: value1
+# custom_args_var2: value2
+# MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
+# ---------------------------------------------------------
+# MANUAL ENTRY MUST BE IN CORRECT ORDER FOR CONFIGURATOR
+# TO WORK PROPERLY.  
+# custom_args_enable followed by all custom_args
+# custom_env_vars_enabled followed by all custom_env_var
+# Failure to do so will lead to unexpected behavior
+# ---------------------------------------------------------
+# Examples)
+# custom_env_vars_CL_SNAPSHOT_STORED_PATH: /location1/here/
+# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_STORED_PATH: /location2/here/
+# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH: /location3/here/
+# =========================================================
 
 nodectl:
 '''
