@@ -1494,7 +1494,7 @@ class CLI():
                     pass
         
         self.functions.check_for_help(command_list,"check_connection")
-        self.set_profile(self.profile)
+        self.set_profile(command_list[command_list.index("-p")+1])
         
         if "-s" in command_list:
             source = command_list[command_list.index("-s")+1]
