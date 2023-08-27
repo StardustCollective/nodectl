@@ -462,7 +462,7 @@ class Error_codes():
         if when == "start":
             self.functions.print_paragraphs([
                 ["",1], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
-                ["Terminating",0], ["nodectl",0,"cyan","underline"], ["utility.",2],
+                ["Terminating",0], ["nodectl",0,"cyan","underline"], ["utility or current thread process.",2],
                 ["Error Code:",0,"white","bold"], [self.error_code,2,"yellow","bold"],
             ])
             return

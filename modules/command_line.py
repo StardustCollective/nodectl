@@ -2196,7 +2196,7 @@ class CLI():
                     "delay": delay,
                     "profile": profile,
                     "reboot_flag": False,
-                    "threading": True,
+                    "threaded": True,
                 }
                 leave_list.append(leave_obj)
                 delay = delay+.3
@@ -2779,7 +2779,7 @@ class CLI():
                         "newline": True
                     })
                     break
-                elif start != 1:
+                elif start > 1:
                     self.functions.print_cmd_status({
                         "text_start": f"{profile} not out of cluster",
                         "text_color": "red",
