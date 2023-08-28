@@ -93,7 +93,7 @@ nodectl:
     priority_source_file: default
     custom_args_enable: False
     custom_env_vars_enable: False
-  intnet-l1:
+  dag-l1:
     profile_enable: True
     environment: testnet
     description: Constellation Network TestNet Metagraph Layer1
