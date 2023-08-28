@@ -1070,6 +1070,7 @@ class Configuration():
                             if not validated: title = "invalid type"
                             if "key_name" in key and req_type == "str":
                                 if test_value[-4::] != ".p12": title = "missing .p12 extension"
+                                else: validated = True
                             if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
                                 skip_validation = True
                             if "passphrase" in key and test_value != "none" and req_type != "bool":

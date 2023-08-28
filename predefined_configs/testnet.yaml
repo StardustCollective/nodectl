@@ -49,12 +49,12 @@
 # =========================================================
 
 nodectl:
-  intnet-l0:
+  dag-l0:
     profile_enable: True
     environment: testnet
     description: Constellation Network TestNet Hyergraph Global gl0
     node_type: validator
-    meta_type: gl
+    meta_type: ml
     layer: 0
     collateral: 0
     service: node_l0
@@ -150,5 +150,5 @@ nodectl:
     passphrase: blank
   global_elements:
     metagraph_name: testnet
-    nodectl_yaml: "v2.0.0"
-    log_level: "debug"
+    nodectl_yaml: v2.0.0
+    log_level: DEBUG

@@ -2737,18 +2737,26 @@ class CLI():
              secs = 15 # reboot don't need to wait
                        
         self.node_service.set_profile(profile)
-        state = self.node_service.leave_cluster({
-            "skip_thread": True,
-            "threaded": threaded,
-            "profile": profile,
-            "secs": secs,
-            "cli_flag": True    
-        })
+        
+        def call_leave_cluster():
+            state = self.node_service.leave_cluster({
+                "skip_thread": True,
+                "threaded": threaded,
+                "profile": profile,
+                "secs": secs,
+                "cli_flag": True    
+            })
+            return state
 
+        call_leave_cluster()
         if not skip_msg:
             start = 1
             while True:
                 self.log.logger.info(f"leave in progress | profile [{profile}] port [{api_port}] | ip [127.0.0.1]")
+                if start > secs*3:
+                    self.log.logger.warn(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
+                    call_leave_cluster()
+
                 progress = {
                     "status": "testing",
                     "text_start": "Retrieving Node Service State",
@@ -2787,6 +2795,17 @@ class CLI():
                         "status_color": "yellow",
                         "newline": True
                     })  
+                if start > secs*4:
+                    self.log.logger.warn(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
+                    if print_timer:
+                        self.functions.print_cmd_status({
+                            "text_start": "Unable to gracefully leave",
+                            "brackets": profile,
+                            "status": "skipping",
+                            "newline": True,
+                            "status_color": "red"
+                        })
+                    break
                 if print_timer:
                     leave_str = "to allow Node to gracefully leave"
                     self.functions.print_timer(secs,leave_str,start)
@@ -2794,7 +2813,8 @@ class CLI():
                     sleep(secs) # silent sleep 
                 self.functions.print_clear_line()
                 start = start - 1 if secs > 1 else start
-                start = start+secs          
+                start = start+secs      
+                    
         
 
     def cli_grab_id(self,command_obj):

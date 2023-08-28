@@ -610,7 +610,7 @@ class ShellHandler:
 
         if "-p" in self.argv:
             called_profile = self.argv[self.argv.index("-p")+1]
-            if called_profile not in need_profile_list: return
+            if self.called_command not in need_profile_list: return
             self.functions.check_valid_profile(called_profile)
         
         if self.called_command in need_profile_list and self.called_command in need_environment_list:

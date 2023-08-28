@@ -31,7 +31,6 @@
 # custom_env_vars_enable: True (or False)
 # ---------------------------------------------------------
 # MANUAL ENTRY MUST PREFIX "custom_args_" to your arg
-# customer_args_collateral: 0
 # custom_args_var1: value1
 # custom_args_var2: value2
 # MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
@@ -49,12 +48,12 @@
 # =========================================================
 
 nodectl:
-  intnet-l0:
+  dag-l0:
     profile_enable: True
     environment: mainnet
     description: Constellation Network MainNet Hypergraph Global gl0
     node_type: validator
-    meta_type: gl
+    meta_type: ml
     layer: 0
     collateral: 0
     service: node_l0
@@ -150,5 +149,5 @@ nodectl:
     passphrase: blank
   global_elements:
     metagraph_name: mainnet
-    nodectl_yaml: "v2.0.0"
-    log_level: "debug"
+    nodectl_yaml: v2.0.0
+    log_level: DEBUG
