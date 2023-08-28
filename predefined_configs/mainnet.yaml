@@ -51,7 +51,7 @@ nodectl:
   dag-l0:
     profile_enable: True
     environment: mainnet
-    description: Constellation Network MainNet Hypergraph Global gl0
+    description: Constellation Network Mainnet Global layer0 ml0
     node_type: validator
     meta_type: ml
     layer: 0
@@ -95,7 +95,7 @@ nodectl:
   dag-l1:
     profile_enable: True
     environment: mainnet
-    description: Constellation Network MainNet Metagraph Layer1
+    description: Constellation Network Mainnet layer1 ml1
     node_type: validator
     meta_type: ml
     layer: 1

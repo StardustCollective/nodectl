@@ -51,7 +51,7 @@ nodectl:
   dag-l0:
     profile_enable: True
     environment: testnet
-    description: Constellation Network TestNet Hyergraph Global gl0
+    description: Constellation Network TestNet Global layer0 ml0
     node_type: validator
     meta_type: ml
     layer: 0
@@ -95,7 +95,7 @@ nodectl:
   dag-l1:
     profile_enable: True
     environment: testnet
-    description: Constellation Network TestNet Metagraph Layer1
+    description: Constellation Network TestNet layer1 ml1
     node_type: validator
     meta_type: ml
     layer: 1

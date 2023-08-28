@@ -51,7 +51,7 @@ nodectl:
   intnet-l0:
     profile_enable: True
     environment: integrationnet
-    description: Constellation Network IntgrationNet Hyergraph Global gl0
+    description: Constellation Network IntegrationNet Global layer0 gl0
     node_type: validator
     meta_type: ml
     layer: 0
@@ -95,7 +95,7 @@ nodectl:
   intnet-l1:
     profile_enable: True
     environment: integrationnet
-    description: Constellation Network IntgrationNet Metagraph Layer1
+    description: Constellation Network IntegrationNet layer1 ml1
     node_type: validator
     meta_type: ml
     collateral: 0
