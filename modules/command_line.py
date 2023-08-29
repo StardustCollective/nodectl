@@ -2326,9 +2326,9 @@ class CLI():
                             if results:
                                 self.functions.print_paragraphs([
                                     ["",1], ["The following was identified in the logs",1],
-                                    ["Profile",0],[results[0],1,"yellow"],
+                                    ["       Profile:",0],[results[0],1,"yellow"],
                                     ["Possible Cause:",0],[results[1],1,"yellow"],
-                                    ["Result:",0],[results[2],2,"yellow"],
+                                    ["        Result:",0],[results[2],2,"yellow"],
                                 ])
                             self.functions.print_auto_restart_warning()
                             start_failed_list.append(profile)

@@ -705,6 +705,7 @@ class Configuration():
                 ["ml0_link_host","host"], 
                 ["ml0_link_port","self_port"],
                 ["ml0_link_profile","str"],
+                ["token_identifier","wallet"],
                 ["ml0_link_is_self","bool"], # automated value [not part of yaml]
                 ["directory_backups","path_def"],
                 ["directory_uploads","path_def"],
@@ -1088,6 +1089,11 @@ class Configuration():
                         elif req_type == "128hex":
                             pattern = "^[a-fA-F0-9]{128}$"
                             if not match(pattern,test_value) and test_value != "self": title = "invalid nodeid"
+                            else: validated = True 
+                        
+                        elif req_type == "wallet":
+                            pattern = "^DAG[0-9][A-Za-z0-9]{36}"
+                            if not match(pattern,test_value) and test_value != "disable": title = "invalid token identifier"
                             else: validated = True 
                                 
                         elif req_type == "list_of_strs":

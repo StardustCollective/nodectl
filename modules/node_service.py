@@ -436,16 +436,15 @@ class Node():
                     profile
                 ) 
                 
-                if self.config_obj[profile]["layer"] < 1:
+                if self.config_obj[profile]["seed_path"] == "disable/disable":
+                    template = template.replace("--seedlist nodegarageseedlistv","")
+                    template = template.rstrip()
+                else:
                     template = template.replace(
                         "nodegarageseedlistv",
                         self.config_obj[profile]["seed_location"]+"/"+self.config_obj[profile]["seed_file"]
                     )
                     template = template.replace("//","/") # avoid double //
-                    template = template.rstrip()
-                    
-                else: # layer1
-                    template = template.replace("--seedlist nodegarageseedlistv","")
                     template = template.rstrip()
                     
                 template = template.replace(
@@ -1034,7 +1033,7 @@ WantedBy=multi-user.target
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --collateral nodegaragecollateral  --l0-token-identifier nodegaragetoken
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
 '''
         
         if var.file == "service_restart":
@@ -1134,6 +1133,7 @@ nodectl:
     ml0_link_host: nodegarageml0linkhost
     ml0_link_port: nodegarageml0linkport
     ml0_link_profile: nodegarageml0linkprofile
+    token_identifier: nodegaragetokenidentifier
     directory_backups: nodegaragedirectorybackups
     directory_uploads: nodegaragedirectoryuploads
     java_xms: nodegaragexms
