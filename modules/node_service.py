@@ -479,6 +479,13 @@ class Node():
                         )
                         template = template.rstrip()
                             
+                    # token identifier
+                    if key == "token_identifier":
+                        if value == "disable":
+                            template = template.replace("--l0-token-identifier nodegaragetoken","")
+                        else: template = template.replace("nodegaragetoken",value)
+                        template = template.rstrip()
+                            
                     # custom arguments
                     if self.config_obj[profile]["custom_args_enable"]:
                         if "custom_args_enable" not in key and "custom_args_" in key:
@@ -1027,7 +1034,7 @@ WantedBy=multi-user.target
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --collateral nodegaragecollateral
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --collateral nodegaragecollateral  --l0-token-identifier nodegaragetoken
 '''
         
         if var.file == "service_restart":
