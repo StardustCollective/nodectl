@@ -72,6 +72,7 @@ nodectl:
     ml0_link_host: None
     ml0_link_port: None
     ml0_link_profile: None
+    token_identifier: disabled
     directory_backups: default
     directory_uploads: default
     java_xms: default
@@ -116,6 +117,7 @@ nodectl:
     ml0_link_host: self
     ml0_link_port: self
     ml0_link_profile: dag-l0
+    token_identifier: disabled
     directory_backups: default
     directory_uploads: default
     java_xms: default
