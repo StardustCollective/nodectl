@@ -502,6 +502,7 @@ class Upgrader():
         file_paths = ["directory_backups","directory_uploads"]
         for file_path in file_paths:
             for profile in self.profiles_by_env:
+                build_profile_dirs = False
                 f_dir = self.functions.cleaner(self.functions.config_obj[profile][file_path],"trailing_backslash")
                 if not path.exists(f_dir):
                     progress = {
@@ -530,7 +531,16 @@ class Upgrader():
                         "status": bu_status,
                         "status_color": bu_color,
                         "newline": True,
-                    })    
+                    })  
+                # verify that data dirs are in place in event full configuration file is replaced
+                if not path.exists(f"/var/tessellation/{profile}"):
+                    build_profile_dirs = True
+                elif not path.exists(f"/var/tessellation/{profile}/data") and  self.functions.config_obj[profile]["layer"] > 0: 
+                    build_profile_dirs = True
+                if build_profile_dirs:
+                    self.log.logger.info(f"upgrader creating non-existent directories for core profile files | profile [{profile}]")
+                    makedirs(f"/var/tessellation/{profile}/data")
+
                     
         self.functions.print_cmd_status({
             "status": overall_status,
@@ -865,11 +875,15 @@ class Upgrader():
 
 
     def check_for_link_success(self,profile):
-        for link_type in self.link_types:
-            if self.config_copy[profile][f"{link_type}_link_enable"]:
-                link_profile = self.config_copy[profile][f"{link_type}_link_profile"]
-                if not self.profile_progress[link_profile]["ready_to_join"]:
-                    return link_type
+        try:
+            for link_type in self.link_types:
+                if self.config_copy[profile][f"{link_type}_link_enable"]:
+                    link_profile = self.config_copy[profile][f"{link_type}_link_profile"]
+                    if not self.profile_progress[link_profile]["ready_to_join"]:
+                        return link_type
+        except Exception as e:
+            self.log.logger.error(f"upgrader ran into error on check_for_link_success | error [{e}]")
+            
         return False
 
         

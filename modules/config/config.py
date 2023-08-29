@@ -1173,7 +1173,10 @@ class Configuration():
 
     def validate_seedlist_duplicates(self):
         seeds = []; duplicates = []
-        for profile in self.metagraph_list: seeds.append(self.config_obj[profile]["seed_path"])
+        # for profile in self.metagraph_list: 
+        #     if self.config_obj[profile]["seed_path"] != "disable":
+        #         seeds.append(self.config_obj[profile]["seed_path"])
+        seeds = [self.config_obj[profile]["seed_path"] for profile in self.metagraph_list if "disable" not in self.config_obj[profile]["seed_path"]]
         seeds_set = set(seeds)
         if len(seeds_set) != len(seeds):
             self.validated = False
