@@ -27,17 +27,18 @@ class P12Class():
         self.user = command_obj.get("user_obj",None)
         self.cli = command_obj.get("cli_obj",None)
         process = command_obj.get("process",None)
+        self.config_obj = command_obj["config_obj"]
         
-        self.functions = Functions(command_obj["config_obj"])
+        self.functions = Functions(self.config_obj)
  
         self.profile = self.functions.default_profile
         if "profile" in command_obj:
             self.profile = command_obj["profile"]
                            
         try:
-            self.app_env = self.functions.config_obj["profiles"][self.profile]["environment"]
+            self.app_env = self.functions.config_obj[self.profile]["environment"]
         except:
-            self.app_env = command_obj["config_obj"]["network_name"]
+            self.app_env = command_obj["config_obj"]["global_elements"]["network_name"]
             
         self.solo = False # part of install or solo request to create p12?
         if process == "install":
@@ -180,7 +181,7 @@ class P12Class():
                     self.log.logger.info(f"p12 alias accepted [{alias}]")
                     break
                 
-        self.wallet_alias = alias
+        self.key_alias = alias
 
 
     def ask_for_keyphrase(self):
@@ -218,8 +219,14 @@ class P12Class():
             else:
                 self.set_variables(False,profile)   
             
-            if profile == "global" and passwd == False and self.functions.config_obj["upgrader"] == False:
-                cprint("  Global profile passphrase not found.","yellow")
+            try:
+                if profile == "global" and passwd == False and self.functions.config_obj["upgrader"] == False:
+                    cprint("  Global profile passphrase not found.","yellow")
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "p12-227",
+                    "line_code": "invalid_passphrase"
+                })
             
             if not passwd:
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
@@ -241,10 +248,10 @@ class P12Class():
                     if profile == "global":
                         self.functions.config_obj["global_p12"]["passphrase"] = passwd
                         if self.functions.config_obj["all_global"]:
-                            for pass_profile in self.functions.config_obj["profiles"].keys():
-                                self.functions.config_obj["profiles"][pass_profile]["p12"]["passphrase"] = passwd
+                            for pass_profile in self.functions.config_obj.keys():
+                                self.functions.config_obj[pass_profile]["p12_passphrase"] = passwd
                     else:
-                        self.functions.config_obj["profiles"][profile]["p12"]["passphrase"] = passwd
+                        self.functions.config_obj[profile]["p12_passphrase"] = passwd
                 break
 
             self.log.logger.warn(f"invalid keyphrase entered [{attempts}] of 3")
@@ -297,6 +304,17 @@ class P12Class():
             self.log.logger.info("p12 file unlocked successfully - keytool")
             return True
         
+        # check p12 agasint method 3
+        bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -legacy")
+        results = self.functions.process_command({
+            "bashCommand": bashCommand3,
+            "proc_action": "wait", 
+            "return_error": True
+        })
+        if not "Invalid password" in str(results):
+            self.log.logger.info("p12 file unlocked successfully - openssl")
+            return True
+        
         self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
         return False
 
@@ -306,10 +324,10 @@ class P12Class():
         self.log.logger.info("p12 file importing variables.")
         if is_global:
             self.path_to_p12 = self.functions.config_obj["global_p12"]["key_location"]
-            self.p12_file = self.functions.config_obj["global_p12"]["p12_name"]
+            self.p12_file = self.functions.config_obj["global_p12"]["key_name"]
         else:
-            self.path_to_p12 = self.functions.config_obj["profiles"][profile]["p12"]["key_location"]
-            self.p12_file = self.functions.config_obj["profiles"][profile]["p12"]["p12_name"]
+            self.path_to_p12 = self.functions.config_obj[profile]["p12_key_location"]
+            self.p12_file = self.functions.config_obj[profile]["p12_key_name"]
         
         
     def export_private_key_from_p12(self):
@@ -375,26 +393,27 @@ class P12Class():
         if env_vars:
             # used for p12 generation on install of solo p12 build
             environ['CL_KEYSTORE'] = f"{self.p12_file_location}/{self.p12_filename}"
+            # environ['CL_KEYSTORE'] = f"{self.p12_key_store}"
             environ['CL_KEYPASS'] = f"{self.p12_password}"
             environ['CL_STOREPASS'] = f"{self.p12_password}"
             environ['CL_PASSWORD'] = f"{self.p12_password}"
-            environ['CL_KEYALIAS'] = f"{self.wallet_alias}"
+            environ['CL_KEYALIAS'] = f"{self.key_alias}"
             return
         
         if is_global:
             passphrase = self.functions.config_obj["global_p12"]["passphrase"]
             nodeadmin = self.functions.config_obj["global_p12"]["nodeadmin"]
             key_location = self.functions.config_obj["global_p12"]["key_location"]
-            p12_name = self.functions.config_obj["global_p12"]["p12_name"]
-            wallet_alias = self.functions.config_obj["global_p12"]["wallet_alias"]
+            p12_key_name = self.functions.config_obj["global_p12"]["key_name"]
+            key_alias = self.functions.config_obj["global_p12"]["key_alias"]
             key_store = self.functions.config_obj["global_p12"]["key_store"]
         else:
-            passphrase =self.functions.config_obj["profiles"][profile]["p12"]["passphrase"]
-            nodeadmin =self.functions.config_obj["profiles"][profile]["p12"]["nodeadmin"]
-            key_location =self.functions.config_obj["profiles"][profile]["p12"]["key_location"]
-            p12_name =self.functions.config_obj["profiles"][profile]["p12"]["p12_name"]
-            wallet_alias =self.functions.config_obj["profiles"][profile]["p12"]["wallet_alias"]            
-            key_store =self.functions.config_obj["profiles"][profile]["p12"]["key_store"]
+            passphrase =self.functions.config_obj[profile]["p12_passphrase"]
+            nodeadmin =self.functions.config_obj[profile]["p12_nodeadmin"]
+            key_location =self.functions.config_obj[profile]["p12_key_location"]
+            p12_key_name =self.functions.config_obj[profile]["p12_key_name"]
+            key_alias =self.functions.config_obj[profile]["p12_key_alias"]            
+            key_store =self.functions.config_obj[profile]["p12_key_store"]
 
         self.log.logger.info("p12 file exporting p12 details into env variables.")
             
@@ -403,7 +422,7 @@ class P12Class():
             environ[key] = passphrase
             
         try:
-            environ["CL_KEYALIAS"] = wallet_alias
+            environ["CL_KEYALIAS"] = key_alias
             environ["CL_KEYSTORE"] = key_store
         except Exception as e:
             self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}]")
@@ -414,7 +433,7 @@ class P12Class():
             })
         self.path_to_p12 = key_location
         self.p12_username = nodeadmin
-        self.p12_file = p12_name
+        self.p12_file = p12_key_name
 
                   
     def generate(self):
@@ -469,9 +488,9 @@ class P12Class():
 
         
     def change_passphrase(self,command_obj):
-        p12_name = command_obj.get("p12_name")
+        p12_key_name = command_obj.get("p12_key_name")
         p12_location = command_obj.get("p12_location")
-        p12_location = f"{p12_location}{p12_name}"
+        p12_location = f"{p12_location}{p12_key_name}"
         org_pass = command_obj.get("original")
         new_pass = command_obj.get("new")
         
@@ -493,10 +512,10 @@ class P12Class():
         profile = self.functions.pull_profile({
             "req": "default_profile"
         })
-        backup_dir = self.functions.config_obj["profiles"][profile]["dirs"]["backups"]
-        p12_name_bk = p12_name.replace(".p12","_")
+        backup_dir = self.functions.config_obj[profile]["directory_backups"]
+        p12_key_name_bk = p12_key_name.replace(".p12","_")
         if path.exists(p12_location):
-            system(f"cp {p12_location} {backup_dir}{p12_name_bk}{datetime}.p12.bak > /dev/null 2>&1")
+            system(f"cp {p12_location} {backup_dir}{p12_key_name_bk}{datetime}.p12.bak > /dev/null 2>&1")
         else:
             self.error_messages.error_code_messages({
                 "error_code": "p-350",

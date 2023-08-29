@@ -1,0 +1,155 @@
+---
+# NODECTL CONFIGURATION FILE
+# @netmet72
+# =========================================================
+# IMPORTANT IMPORTANT IMPORTANT IMPORTANT
+#
+# It is discouraged to update this file manually.  nodectl may
+# update this file through automation at any time, causing any
+# changes you make to be lost.
+#
+# Do NOT update this file unless you know what you are
+# doing !!  Please see the Constellation Network
+# documentation hub for details on how to configure
+# this file.
+# =========================================================
+# Metagraph sections isolated by profile key name
+# =========================================================
+# Custom Options and Environment Variables
+# ---------------------------------------------------------
+# Required arguments must be listed BEFORE any custom
+# entered options or environment variables !!
+#
+# Failure to do so may create undesired results from
+# nodectl (especially the configurator) the Node Operator
+# should use the configurator over manually updating this 
+# config file.
+# ---------------------------------------------------------
+# Required arguments 
+# ---------------------------------------------------------
+# custom_args_enable: True (or False)
+# custom_env_vars_enable: True (or False)
+# ---------------------------------------------------------
+# MANUAL ENTRY MUST PREFIX "custom_args_" to your arg
+# custom_args_var1: value1
+# custom_args_var2: value2
+# MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
+# ---------------------------------------------------------
+# MANUAL ENTRY MUST BE IN CORRECT ORDER FOR CONFIGURATOR
+# TO WORK PROPERLY.  
+# custom_args_enable followed by all custom_args
+# custom_env_vars_enabled followed by all custom_env_var
+# Failure to do so will lead to unexpected behavior
+# ---------------------------------------------------------
+# Examples)
+# custom_env_vars_CL_SNAPSHOT_STORED_PATH: /location1/here/
+# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_STORED_PATH: /location2/here/
+# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH: /location3/here/
+# =========================================================
+
+nodectl:
+  dag-l0:
+    profile_enable: True
+    environment: testnet
+    description: Constellation Network TestNet Global layer0 ml0
+    node_type: validator
+    meta_type: ml
+    layer: 0
+    collateral: 0
+    service: node_l0
+    edge_point: default
+    edge_point_tcp_port: default
+    public_port: default
+    p2p_port: default
+    cli_port: default
+    gl0_link_enable: False
+    gl0_link_key: None
+    gl0_link_host: None
+    gl0_link_port: None
+    gl0_link_profile: None
+    ml0_link_enable: False
+    ml0_link_key: None
+    ml0_link_host: None
+    ml0_link_port: None
+    ml0_link_profile: None
+    token_identifier: disable
+    directory_backups: default
+    directory_uploads: default
+    java_xms: default
+    java_xmx: default
+    java_xss: default
+    jar_repository: default
+    jar_file: default
+    p12_nodeadmin: global
+    p12_key_location: global
+    p12_key_name: global
+    p12_key_alias: global
+    p12_passphrase: global
+    seed_location: default
+    seed_repository: default
+    seed_file: default
+    priority_source_location: default
+    priority_source_repository: default
+    priority_source_file: default
+    custom_args_enable: False
+    custom_env_vars_enable: False
+  dag-l1:
+    profile_enable: True
+    environment: testnet
+    description: Constellation Network TestNet layer1 ml1
+    node_type: validator
+    meta_type: ml
+    layer: 1
+    collateral: 0
+    service: node_l1
+    edge_point: default
+    edge_point_tcp_port: default
+    public_port: default
+    p2p_port: default
+    cli_port: default
+    gl0_link_enable: False
+    gl0_link_key: None
+    gl0_link_host: None
+    gl0_link_port: None
+    gl0_link_profile: None
+    ml0_link_enable: True
+    ml0_link_key: self
+    ml0_link_host: self
+    ml0_link_port: self
+    ml0_link_profile: dag-l0
+    token_identifier: disable
+    directory_backups: default
+    directory_uploads: default
+    java_xms: default
+    java_xmx: default
+    java_xss: default
+    jar_repository: default
+    jar_file: default
+    p12_nodeadmin: global
+    p12_key_location: global
+    p12_key_name: global
+    p12_key_alias: global
+    p12_passphrase: global
+    seed_location: disable
+    seed_repository: disable
+    seed_file: disable
+    priority_source_location: default
+    priority_source_repository: default
+    priority_source_file: default
+    custom_args_enable: False
+    custom_env_vars_enable: False
+  global_auto_restart:
+    auto_restart: False
+    auto_upgrade: False
+    on_boot: False
+    rapid_restart: False
+  global_p12:
+    nodeadmin: blank
+    key_location: blank
+    key_name: blank
+    key_alias: blank
+    passphrase: blank
+  global_elements:
+    metagraph_name: testnet
+    nodectl_yaml: v2.0.0
+    log_level: DEBUG

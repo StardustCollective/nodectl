@@ -40,7 +40,7 @@ class Cleaner():
             ["I/O",0,"yellow"], ["on the Node.",2],
             
             ["This should be done",0], ["only",0,"yellow","underline"], ["when either completely necessary due to disk space issues",0],
-            ["or when specifically requested from an Administrator (or experienced Node Operator) of a State Channel or Global Layer0.",2],
+            ["or when specifically requested from an Administrator (or experienced Node Operator) of the Hypergraph or a Metagraph.",2],
             
             ["Check system health via:",1],
             ["sudo nodectl health",2,"green"],
@@ -195,12 +195,13 @@ class Cleaner():
         log_path_list = []
         
         if dir_type == "logs":
-            subdirs = ["archived","json_logs"]
+            dir_type = "directory_logs"
+            subdirs = ["directory_archived","directory_json_logs"]
             for profile in dirs.keys():
                 for c_dir in subdirs:
                     if path.isdir(dirs[profile][c_dir]):  # make sure all paths exist
                         log_dict = {
-                            "layer": self.functions.config_obj["profiles"][profile]["layer"],
+                            "layer": self.functions.config_obj[profile]["layer"],
                             "log_path": dirs[profile][c_dir]
                         
                         }
@@ -218,6 +219,7 @@ class Cleaner():
             })   
         else:
             # snapshots, backups, uploads
+            dir_type = f"directory_{dir_type}"
             for profile in dirs.keys():
                 try: 
                     log_path_list.append({
@@ -231,9 +233,9 @@ class Cleaner():
 
         file_count = 0
         
-        if dir_type == "snapshots" and action == "find_only":
+        if dir_type == "directory_snapshots" and action == "find_only":
             cprint("  snapshot directories can be large, please wait patiently...","yellow")
-        if dir_type == "snapshots" and action != "find_only":
+        if dir_type == "directory_snapshots" and action != "find_only":
             cprint("  snapshot directories can be large, snapshot removal will take a lot of time","yellow")
             cprint("  please wait patiently...","yellow")
             
@@ -245,47 +247,47 @@ class Cleaner():
             except:
                 c_ignore_list = []
 
-            try:
-                for f in listdir(log_path):
-                    file = path.join(log_path, f)
-                    
-                    key_word = "log" if dir_type != "config_change" else "cnng-"
-                    all_file_type = ["snapshots","uploads","backups"] # scalability later
-                    
-                    if time_check == -1 or stat(file).st_mtime < time_check:
-                        if key_word in file or dir_type in all_file_type:
-                            if f not in c_ignore_list:
-                                single_file = False if path.isdir(file) else True
-                                calc_size += self.functions.get_size(file,single_file)
-                                file_count += 1
+            if log_path != "disabled":
+                try:
+                    for f in listdir(log_path):
+                        file = path.join(log_path, f)
+                        key_word = "log" if dir_type != "config_change" else "cnng-"
+                        all_file_type = ["directory_snapshots","directory_uploads","directory_backups"] # scalability later
+                        
+                        if time_check == -1 or stat(file).st_mtime < time_check:
+                            if key_word in file or dir_type in all_file_type:
+                                if f not in c_ignore_list:
+                                    single_file = False if path.isdir(file) else True
+                                    calc_size += self.functions.get_size(file,single_file)
+                                    file_count += 1
 
-                                if action == "find_only":
-                                    verb = " to be"
-                                    file_list.append(f'{colored("  remove?","yellow")} {colored(pre_text,"cyan")} {file}')
-                                else:
-                                    self.functions.print_clear_line()
-                                    if dir_type == "snapshots":
-                                        print(
-                                            colored(f"  removing [","red"),
-                                            file_count,
-                                            colored("] of [","red"),
-                                            self.total_file_count,
-                                            colored("]","red"),
-                                            end="\r"
-                                        )
+                                    if action == "find_only":
+                                        verb = " to be"
+                                        file_list.append(f'{colored("  remove?","yellow")} {colored(pre_text,"cyan")} {file}')
                                     else:
-                                        print(f'{colored("  removing:","red")} {colored(pre_text,"cyan")} {file}',end="\r")
-                                    system(f"rm -rf {file} > /dev/null 2>&1")
-            except:
-                if dir_type == "config_change":
-                    self.log.logger.warn("during configuration change unable to find file to replace.")
-                    pass
-                else:
-                    self.error_messages.error_code_messages({
-                        "error_code": "cln-291",
-                        "line_code": "upgrade_needed",
-                        "extra": "Missing Directories"
-                    })
+                                        self.functions.print_clear_line()
+                                        if dir_type == "directory_snapshots":
+                                            print(
+                                                colored(f"  removing [","red"),
+                                                file_count,
+                                                colored("] of [","red"),
+                                                self.total_file_count,
+                                                colored("]","red"),
+                                                end="\r"
+                                            )
+                                        else:
+                                            print(f'{colored("  removing:","red")} {colored(pre_text,"cyan")} {file}',end="\r")
+                                        system(f"rm -rf {file} > /dev/null 2>&1")
+                except:
+                    if dir_type == "config_change":
+                        self.log.logger.warn("during configuration change unable to find file to replace.")
+                        pass
+                    else:
+                        self.error_messages.error_code_messages({
+                            "error_code": "cln-291",
+                            "line_code": "upgrade_needed",
+                            "extra": "Missing Directories"
+                        })
                         
         converted_calc_size = size(calc_size, system=alternative)
         if calc_size == 0 and file_count == 0:
@@ -298,7 +300,7 @@ class Cleaner():
             skip = True
         else:
             for p_file in file_list:
-                if dir_type != "snapshots" and action == "find_only":
+                if dir_type != "directory_snapshots" and action == "find_only":
                     print(p_file) 
             self.functions.print_clear_line()
             paragraphs = [

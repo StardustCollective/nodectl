@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from os import system, path, makedirs
 from sys import exit
 from time import sleep
@@ -83,32 +83,31 @@ class Node():
         })
 
 
+    def set_github_repository(self,repo,profile,download_version):
+        if repo == "default":
+            repo = "https://github.com/Constellation-Labs/tessellation"
+            
+        if self.config_obj[profile]["jar_github"]:
+            repo = f"{repo}/releases/download/{download_version}"
+        
+        return repo
+    
+    
     def download_constellation_binaries(self,command_obj):
         # download_version=(bool) "default"
         # print_version=(bool) True
         download_version = command_obj.get("download_version","default")
         print_version = command_obj.get("print_version",True)
         action = command_obj.get("action","normal")
-
-        if download_version == "default":
-            self.version_obj["cluster_tess_version"] = self.functions.get_version({
-                "which": "cluster_tess",
-                "print_version": print_version,
-                "action": action
-            })
-            download_version = self.version_obj["cluster_tess_version"]
+        environment = command_obj.get("environment",False)
         
-        file_obj = {
-            "cl-keytool.jar": { "state": "fetching", "pos": 4 },
-            "cl-node.jar":    { "state": "fetching", "pos": 3 },
-            "cl-dag-l1.jar":  { "state": "fetching", "pos": 2 },
-            "cl-wallet.jar":  { "state": "fetching", "pos": 1 },
-            "cur_pos": 1
-        }
-        files = list(file_obj.keys())
+        argv_list = command_obj.get("argv_list",[])
+        backup = command_obj.get("backup", True)
+        
+        if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
+
         
         def screen_print_download_results(file,first=False):
-            #line_len = 70
             backup = ""
             
             if file != "cur_pos":
@@ -116,7 +115,6 @@ class Node():
                 colors = {"fetching": "magenta", "complete": "green", "failed": "red"}
                 color = colors.get(i_file['state'])
                 state_str = colored(i_file['state'],color,attrs=['bold'])
-                # dotted_line = colored(''.rjust(line_len-len(state_str),'.'),'cyan')
                 
                 new_pos = i_file['pos']+2
                 old_pos = file_obj["cur_pos"]
@@ -135,23 +133,41 @@ class Node():
                 })
                 return i_file['pos']
             
+            
         def threaded_download(download_list):
             file_obj_copy = download_list[0]
             file = download_list[1]
             auto_restart = download_list[2]
             copy_state = "complete"
             tess_dir = "/var/tessellation/"
-            attempts = 0
             
+            try:
+                profile = file_obj_copy[file]["profile"]
+            except:
+                profile = first_profile
+            
+            download_version = file_obj_copy[file]["version"]
+            
+            uri = file_obj_copy[file]["location"]
+            uri = self.functions.cleaner(uri,"trailing_backslash")
+            if uri[0:3] != "http" and uri != "default":
+                # default to https://
+                uri = f"https://{uri}"
+                
+            if download_version == "default":
+                # retreived from the edge point
+                download_version = self.version_obj["cluster_tess_version"][profile]
+            uri = self.set_github_repository(uri,profile,download_version)
+
+            attempts = 0
             if not path.exists(tess_dir):
                 makedirs(tess_dir)
                 
             self.log.logger.info(f"downloading binary jar files: {file}")
-            
             while True:
                 if file != "cur_pos":
                     if file_obj_copy[file]["state"] != "complete":
-                        bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/{file} -O /var/tessellation/{file} -o /dev/null"
+                        bashCommand = f"sudo wget {uri}/{file} -O /var/tessellation/{file} -o /dev/null"
                         self.functions.process_command({
                             "bashCommand": bashCommand,
                             "proc_action": "timeout"
@@ -177,7 +193,54 @@ class Node():
                     cur_pos = screen_print_download_results(file)
                     file_obj_copy["cur_pos"] = cur_pos
                     return file_obj_copy
-            
+
+
+        if not environment:
+            self.error_messages.error_code_messages({
+                "error_code": "ns-95",
+                "line_code": "environment_error",
+                "extra": "binary downloads",
+            })
+        
+        if download_version == "default":
+            self.version_obj["cluster_tess_version"] = self.functions.get_version({
+                "which": "cluster_tess",
+                "print_version": print_version,
+                "action": action
+            })
+        
+        file_obj = {
+            "cl-keytool.jar": { "state": "fetching", "pos": 1, "location": "default", "version": "default"},
+            "cl-wallet.jar":  { "state": "fetching", "pos": 2, "location": "default", "version": "default"},
+        }
+
+        for n, profile in enumerate(self.functions.profile_names):
+            version = download_version
+            if action == "upgrade": version = download_version[profile]["download_version"]
+                
+            if self.config_obj[profile]["environment"] == environment:
+                first_profile = profile if n < 1 else first_profile
+                file_obj[self.config_obj[profile]["jar_file"]] = {
+                    "state": "fetching",
+                    "pos": n+3,
+                    "location": self.config_obj[profile]["jar_repository"],
+                    "version": version,
+                    "profile": profile
+                }
+                
+        # reorder cursor positions
+        for n, file in enumerate(file_obj):
+            file_obj[file]["pos"] = len(file_obj)-n
+        file_obj["cur_pos"] = 1
+        files = list(file_obj.keys())
+        
+        if backup:
+            self.functions.backup_restore_files({
+                "file_list": files,
+                "location": "/var/tessellation",
+                "action": "backup"
+            })
+        
         if action == "auto_restart":
             result = True
             for file in files:
@@ -215,19 +278,26 @@ class Node():
                         file_obj = return_obj.result()
             elif fail_count > 0 and n > 3:
                 self.functions.print_paragraphs([
-                    ["Possible network issues downloading files, please try again later",1,"red"]
+                    ["Possible network issues downloading files, please try again later.",1,"red"],
+                    ["Original binaries will be automatically restored if they were present before the download process initiated.",1,"yellow"]
                 ])
+                self.functions.backup_restore_files({
+                    "file_list": files,
+                    "location": "/var/tessellation",
+                    "action": "restore"
+                })
             elif fail_count == 0:
                 break
             
-        if action != "install":
-            for profile in self.config_obj["profiles"].keys():
-                command_obj = {
-                    **command_obj,
-                    "profile": profile,
-                    "network_name": self.functions.config_obj["profiles"][profile]["environment"]
-                }
-                self.download_update_seedlist(command_obj)
+        # if action != "install":
+        for profile in self.functions.profile_names:
+            command_obj = {
+                **command_obj,
+                "profile": profile,
+                "global_elements": {"network_name": self.functions.config_obj[profile]["environment"]},
+                "download_version": download_version,
+            }
+            self.download_update_seedlist(command_obj)
            
 
     def download_update_seedlist(self,command_obj):
@@ -238,17 +308,19 @@ class Node():
         # hardcoded seed-list download locations.
         # 
         # This method can be either deprecated or refactored
-        # after new State Channel requirements are identified
+        # after new Metagraph Channel requirements are identified
         # ===============================
         
         self.log.logger.debug("node service - download seed list initiated...")
         profile = command_obj.get("profile",self.profile)
         install_upgrade = command_obj.get("install_upgrade",True)
-        download_version = command_obj.get("download_version","default")
-        environment_name = self.functions.config_obj["profiles"][profile]["environment"]
-        seed_path = self.functions.config_obj["profiles"][profile]["pro"]["seed_path"]    
-        
+        download_version = command_obj.get("download_version",None)
+        environment_name = self.functions.config_obj[profile]["environment"]
+        seed_path = self.functions.config_obj[profile]["seed_path"]    
+        seed_file = self.config_obj[profile]['seed_file']
+        seed_repo = self.config_obj[profile]['seed_repository']
         print_message = True
+        
         if self.auto_restart or install_upgrade:
             print_message = False    
         
@@ -269,14 +341,13 @@ class Node():
                 })
             return
         
-        if not self.version_obj:
-            self.version_obj = self.functions.get_version({
-                "which": "all",
-                "print_message": print_message
-            })
-        
         # includes seed-list access-list  
         if download_version == "default":
+            if not self.version_obj:
+                self.version_obj = self.functions.get_version({
+                    "which": "all",
+                    "print_message": print_message
+                })
             download_version = self.version_obj['cluster_tess_version']
             if self.version_obj == None or self.version_obj['cluster_tess_version'] == "v0.0.0":
                 try:
@@ -288,13 +359,20 @@ class Node():
                 except Exception as e:
                     self.log.logger.error(f"could not properly retrieve cluster version [{e}]")
         
-        self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
-        if environment_name == "testnet":
-            bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
-        elif environment_name == "integrationnet" or environment_name == "dev":
-            bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
+            self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
+
+        if self.config_obj[profile]["seed_repository"] == "default":
+            if environment_name == "testnet":
+                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
+            elif environment_name == "integrationnet":
+                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
+            elif environment_name == "mainnet":
+                bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
         else:
-            bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
+            # makes ability to not include https or http
+            if "http://" not in seed_repo and "https://" not in seed_repo:
+                seed_repo = f"https://{seed_repo}"
+            bashCommand = f"sudo wget {seed_repo}/{seed_file} -O {seed_path} -o /dev/null"
             
         if not self.auto_restart:
             self.functions.print_cmd_status(progress)
@@ -309,7 +387,7 @@ class Node():
             system(bashCommand)
             if path.exists(seed_path):
                 if self.functions.get_size(seed_path,True) > 0:
-                    system(f"chmod 644 /var/tessellation/seed-list > /dev/null 2>&1")
+                    system(f"chmod 644 {seed_path} > /dev/null 2>&1")
                     break
             if n == 3:
                 if self.auto_restart:
@@ -335,14 +413,11 @@ class Node():
         # restart_build=(bool) # default True;  build the auto_restart service?
         
         def replace_service_file_items(profile,template,create_file_type):
-            layer0_service = "cl-node.jar"
-            layer1_service = "cl-dag-l1.jar"
-        
             if create_file_type == "service_file":
                 chmod = "644"
                 template = template.replace(
                     "nodegarageservicedescription",
-                    self.config_obj["profiles"][profile]["description"]
+                    self.config_obj[profile]["description"]
                 )
                 template = template.replace(
                     "nodegarageworkingdir",
@@ -350,7 +425,7 @@ class Node():
                 )
                 template = template.replace(
                     "nodegarageexecstartbash",
-                    f"cnng-{self.config_obj['profiles'][profile]['service']}"
+                    f"cnng-{self.config_obj[profile]['service']}"
                 ) 
 
             elif create_file_type == "service_bash":
@@ -361,40 +436,69 @@ class Node():
                     profile
                 ) 
                 
-                if self.config_obj["profiles"][profile]["layer"] == 0:
+                if self.config_obj[profile]["seed_path"] == "disable/disable":
+                    template = template.replace("--seedlist nodegarageseedlistv","")
+                    template = template.rstrip()
+                else:
                     template = template.replace(
                         "nodegarageseedlistv",
-                        self.config_obj["profiles"][profile]["pro"]["seed_location"]+"/"+self.config_obj["profiles"][profile]["pro"]["seed_file"]
+                        self.config_obj[profile]["seed_location"]+"/"+self.config_obj[profile]["seed_file"]
                     )
                     template = template.replace("//","/") # avoid double //
+                    template = template.rstrip()
                     
-                    template = template.replace(
-                        "nodegaragetessbinaryfile",
-                        layer0_service
-                    )                     
+                template = template.replace(
+                    "nodegaragetessbinaryfile",
+                    self.config_obj[profile]["jar_file"]
+                )   
+                template = template.rstrip()                   
                     
-                else: # layer1
-                    template = template.replace("--seedlist nodegarageseedlistv","")
+                template = template.replace(
+                    "nodegaragecollateral",
+                    str(self.config_obj[profile]["collateral"])
+                )   
+                template = template.rstrip()                   
                     
-                    template = template.replace(
-                        "nodegaragetessbinaryfile",
-                        layer1_service
-                    )                      
-                    
-                if self.config_obj["profiles"][profile]["environment"] == "mainnet":
-                    template = template.replace("--collateral 0","")
-                    
-                for key in self.config_obj["profiles"][profile]["java"].keys():
-                    template = template.replace(
-                        f"nodegarage{key}v",
-                        str(self.config_obj["profiles"][profile]["java"][key])
-                    )
-                for key in self.config_obj["profiles"][profile]["ports"].keys():
-                    template = template.replace(
-                        f"nodegarage{key}port",
-                        str(self.config_obj["profiles"][profile]["ports"][key])
-                    )
- 
+                port_types = ["public_port","p2p_port","cli_port"]
+                for key, value in self.config_obj[profile].items():
+                    # java heap updates
+                    if "java_" in key:
+                        java_mem_type = key[-3::]
+                        template = template.replace(
+                            f"nodegarage{java_mem_type}v",
+                            str(value)
+                        )
+                        template = template.rstrip()
+                        
+                    # tcp port updates
+                    if key in port_types:
+                        template = template.replace(
+                            f"nodegarage{key}",
+                            str(value)
+                        )
+                        template = template.rstrip()
+                            
+                    # token identifier
+                    if key == "token_identifier":
+                        if value == "disable":
+                            template = template.replace("--l0-token-identifier nodegaragetoken","")
+                        else: template = template.replace("nodegaragetoken",value)
+                        template = template.rstrip()
+                            
+                    # custom arguments
+                    if self.config_obj[profile]["custom_args_enable"]:
+                        if "custom_args_enable" not in key and "custom_args_" in key:
+                            template = f'{template} --{key.replace("custom_args_","")} {value}'
+                            template = template.rstrip()
+                            
+            # clean up the template
+            substring = "/usr/bin/java"
+            index = template.find(substring)
+            pre_template = template[:index]; post_template = self.functions.cleaner(template[index:],"new_line")
+            template = f"{pre_template}{post_template}"
+            
+            # append background switch to command
+            template = f"{template} & \n"
             return(template,chmod)               
                
         # ===========================================
@@ -402,20 +506,19 @@ class Node():
         single_profile = command_obj.get("single_profile",False)
         rebuild_restart = command_obj.get("rebuild_restart",False)
         create_file_type = command_obj["create_file_type"]
-        profiles = self.config_obj["profiles"]  # pull profiles out of configuration
         
-        for profile in profiles:
+        for profile in self.profile_names:
             profile = single_profile if single_profile else profile
             template = self.create_files({"file": create_file_type})
             template, chmod = replace_service_file_items(profile,template,create_file_type)
 
             if create_file_type == "service_file":
-                service_dir_file = f"/etc/systemd/system/cnng-{profiles[profile]['service']}.service"
+                service_dir_file = f"/etc/systemd/system/cnng-{self.config_obj[profile]['service']}.service"
             if create_file_type == "service_bash":
-                profile_service = profiles[profile]['service']
+                profile_service = self.config_obj[profile]['service']
                 # service_dir_file = f"/usr/local/bin/cnng-{profiles[profile]['service']}"
                 if single_profile:
-                    profile_service = profiles[single_profile]['service']
+                    profile_service = self.config_obj[single_profile]['service']
                 self.temp_bash_file = service_dir_file = f"/var/tessellation/nodectl/cnng-{profile_service}"
                 
             with open(service_dir_file,'w') as file:
@@ -462,39 +565,37 @@ class Node():
             system(f"rm {self.env_conf_file} > /dev/null 2>&1")
             
         with open(self.env_conf_file,"w") as f:
+            if self.config_obj[profile]["custom_env_vars_enable"]:
+                for env, value in self.config_obj[profile].items():
+                    if "custom_env_vars" in env and env != "custom_env_vars_enable":
+                        f.write(f'{env.replace("custom_env_vars_","")}={value}\n')
+                        
             f.write(f"CL_EXTERNAL_IP={self.functions.get_ext_ip()}\n")
-            f.write(f"CL_APP_ENV={self.functions.config_obj['profiles'][profile]['environment']}\n")
+            f.write(f"CL_APP_ENV={self.functions.config_obj[profile]['environment']}\n")
             
-            if self.functions.config_obj['profiles'][profile]['layer0_link']["enable"]:
-                f.write(f"CL_L0_PEER_ID={self.functions.config_obj['profiles'][profile]['layer0_link']['layer0_key']}\n")
-                f.write(f"CL_L0_PEER_HTTP_HOST={self.functions.config_obj['profiles'][profile]['layer0_link']['layer0_host']}\n")
-                link_profile = self.functions.config_obj['profiles'][profile]['layer0_link']['link_profile']
-                link_port = self.functions.config_obj['profiles'][profile]['layer0_link']['layer0_port']
-                if link_profile in self.functions.config_obj['profiles'].keys():
-                    # forces auto_correct of port if inconsistent with link_profile public
-                    link_port = self.functions.config_obj['profiles'][link_profile]['ports']['public']
-                    
-                f.write(f"CL_L0_PEER_HTTP_PORT={link_port}\n")
-        
-            try: # profiles with dir snapshot "disable" will not have an entry
-                snapshots = self.functions.config_obj['profiles'][profile]['dirs']["snapshots"]
-            except:
-                pass
-            else:
-                if snapshots != "disable" and snapshots != "default":
-                    f.write(f"CL_SNAPSHOT_STORED_PATH={snapshots}\n")
+            for link_type in ["gl0","ml0"]:
+                if self.functions.config_obj[profile][f"{link_type}_link_enable"]:
+                    subkey = "GLOBAL_" if link_type == "gl0" else ""
+                    f.write(f"CL_{subkey}L0_PEER_ID={self.functions.config_obj[profile][f'{link_type}_link_key']}\n")
+                    f.write(f"CL_{subkey}L0_PEER_HTTP_HOST={self.functions.config_obj[profile][f'{link_type}_link_host']}\n")
+                    link_profile = self.functions.config_obj[profile][f'{link_type}_link_profile']
+                    link_port = self.functions.config_obj[profile][f'{link_type}_link_port']
+                    if link_profile in self.functions.config_obj.keys():
+                        # forces auto_correct of port if inconsistent with link_profile public
+                        link_port = self.functions.config_obj[link_profile]['public_port']
+                    f.write(f"CL_{subkey}L0_PEER_HTTP_PORT={link_port}\n")
                 
             p12_keys = [
-                ['CL_PASSWORD','passphrase'],
-                ['CL_KEYPASS','passphrase'],
-                ['CL_STOREPASS','passphrase'],
-                ['CL_KEYALIAS','wallet_alias'],
-                ['CL_KEYSTORE','key_store'],
+                ['CL_PASSWORD','p12_passphrase'],
+                ['CL_KEYPASS','p12_passphrase'],
+                ['CL_STOREPASS','p12_passphrase'],
+                ['CL_KEYALIAS','p12_key_alias'],
+                ['CL_KEYSTORE','p12_key_store'],
             ]
-            for key in self.functions.config_obj['profiles'][profile]['p12'].keys():
-                for key2 in p12_keys:
-                    if key == key2[1]:
-                        f.write(f"{key2[0]}={self.functions.config_obj['profiles'][profile]['p12'][key]}\n")
+            for key, value in self.functions.config_obj[profile].items():
+                for env_key_value in p12_keys:
+                    if key == env_key_value[1]:
+                        f.write(f'{env_key_value[0]}="{self.functions.config_obj[profile][key]}"\n')
         f.close()
 
         if not self.auto_restart:        
@@ -525,17 +626,18 @@ class Node():
             })   
         
 
-    def build_remote_link(self):
+    def build_remote_link(self,link_type):
         for n in range(0,4):
             source_node_list = self.functions.get_api_node_info({
-                "api_host": self.config_obj["profiles"][self.profile]["layer0_link"]["layer0_host"],
-                "api_port": self.config_obj["profiles"][self.profile]["layer0_link"]["layer0_port"],
+                "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
+                "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
             if source_node_list[3] == "Ready":
-                break
+                return True
+
             self.functions.print_cmd_status({
-                "text_start": "Link Node in",
+                "text_start": f"{link_type.upper()} Link Node in",
                 "brackets": source_node_list[3],
                 "text_end": "state | not",
                 "status": "Ready",
@@ -547,15 +649,26 @@ class Node():
                     ["Exiting join process, please try again later or check Node configuration.",2,"red"],
                 ])
                 self.functions.print_auto_restart_warning()
-                exit(1)
+                return False
             
             error_str = colored("before trying again ","red")+colored(n,"yellow",attrs=["bold"])
             error_str += colored(" of ","red")+colored("3","yellow",attrs=["bold"])
+            with ProcessPoolExecutor() as executor:
+                early_quit = executor.submit(self.functions.key_pressed({
+                    "quit_option": "quit_only",
+                    "newline": True,    
+                }))
+                if early_quit:
+                    cprint("  Node Operator requested to quit operations","green")
+                    exit(0)
             self.functions.print_timer(5,error_str)
+        
+        executor.shutdown(wait=False,cancel_futures=True)
+        return False
         
                                
     def check_for_ReadyToJoin(self,caller):
-        for n in range(0,5):
+        for n in range(1,4):
             state = self.functions.test_peer_state({
                 "profile": self.profile,
                 "simple": True
@@ -563,8 +676,8 @@ class Node():
             if state == "ReadyToJoin":
                 return True
             print(colored(f"  API not ready on {self.profile}","red"),colored(state,"yellow"),end=" ")
-            print(f'{colored("attempt ","red")}{colored(n,"yellow",attrs=["bold"])}{colored(" of 5","red")}',end="\r")
-            sleep(3)
+            print(f'{colored("attempt ","red")}{colored(n,"yellow",attrs=["bold"])}{colored(" of 3","red")}',end="\r")
+            sleep(1.5)
             
         if caller == "upgrade":
             return False
@@ -587,12 +700,12 @@ class Node():
         self.log.logger.debug(f"changing service state method - action [{action}] service_name [{service_display}] caller = [{caller}] debug [{self.debug}]")
         self.functions.get_service_status()
         if action == "start":
-            if "inactive" not in self.functions.config_obj["node_service_status"][profile]:
+            if "inactive" not in self.functions.config_obj["global_elements"]["node_service_status"][profile]:
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
                         ["Skipping service change request [",0,"yellow"], [service_display,-1,], ["] because the service is already set to",-1,"yellow"],
-                        [self.functions.config_obj['node_service_status'][profile],1,"yellow"]
+                        [self.functions.config_obj["global_elements"]['node_service_status'][profile],1,"yellow"]
                     ])
                 self.log.logger.warn(f"change service state [{service_display}] request aborted because service [inactive (dead)]")
                 return
@@ -604,8 +717,8 @@ class Node():
             })
 
         if action == "stop":
-            if self.functions.config_obj["node_service_status"][profile] == "inactive (dead)":
-                self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['node_service_status'][profile]}]")
+            if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
+                self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_cmd_status({
@@ -616,20 +729,22 @@ class Node():
                         "newline": True
                     })
                 return "skip_timer"
+        else: # don't do on stop
+            bashCommand = f"systemctl daemon-reload" # done for extra stability
+            _ = self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "poll"
+            })
+            
         self.log.logger.debug(f"changing service state method - action [{action}] service [{service_display}] caller = [{caller}] - issuing systemctl command")
 
-        bashCommand = f"systemctl daemon-reload" # done for extra stability
-        _ = self.functions.process_command({
-            "bashCommand": bashCommand,
-            "proc_action": "poll"
-        })
-        
         bashCommand = f"systemctl {action} {service_name}"
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
-            "proc_action": "poll"
+            "proc_action": "timeout" if action == "stop" else "wait",
+            "timeout": 5 if action == "stop" else 180
         })
-        
+
         if action == "start":
             # clean up for a little more security of passphrases and cleaner installation
             system(f"rm {self.env_conf_file} {self.temp_bash_file} > /dev/null 2>&1")
@@ -642,9 +757,11 @@ class Node():
         cli_flag = command_obj.get("cli_flag",False)
         profile = command_obj.get("profile",self.profile)
         skip_thread = command_obj.get("skip_thread",False)
+        threaded = command_obj.get("threaded",False)
         self.set_profile(profile)
 
         state = self.functions.test_peer_state({
+            "threaded": threaded,
             "profile": self.profile,
             "skip_thread": skip_thread,
             "simple": True
@@ -677,28 +794,35 @@ class Node():
         state = None
         
         # profile is set by cli.set_profile method
-        link_profile = self.functions.config_obj["profiles"][self.profile]["layer0_link"]["link_profile"]
-        linking_enabled = self.functions.config_obj["profiles"][self.profile]["layer0_link"]["enable"]
-        profile_layer = self.functions.config_obj["profiles"][self.profile]["layer"]
-        
-        if linking_enabled:
-            self.log.logger.info(f"join environment [{self.functions.config_obj['profiles'][self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
-            if not self.auto_restart:
-                verb = "profile" if link_profile != "None" else ""
-                link_word = link_profile if verb == "profile" else "Remote Link"
-                self.functions.print_paragraphs([
-                    [f"Waiting on {verb} [",0,"yellow"],[link_word,-1,"green","bold"],["] state to be [",-1,"yellow"],
-                    ["Ready",-1,"green","bold"], ["] before initiating Hypergraph join.",-1,"yellow"],["",1]
-                ])
-                
+        gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"]
+        gl0_linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
+        ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"]
+        ml0_linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
+        profile_layer = self.functions.config_obj[self.profile]["layer"]
+        link_types = ["gl0","ml0"]
         headers = {
             'Content-type': 'application/json',
         }
-       
-        if linking_enabled and self.functions.config_obj["profiles"][self.profile]["layer0_link"]["link_profile"] == "None":
-            self.build_remote_link()
-            linking_enabled = False
-            layer_zero_ready = True
+                
+        found_link_types = []
+        if gl0_linking_enabled or ml0_linking_enabled:
+            self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
+            if not self.auto_restart:
+                for link_type in link_types:
+                    verb = "profile" if eval(f"{link_type}_link_profile") != "None" else ""
+                    link_word = eval(f"{link_type}_link_profile") if verb == "profile" else "Remote Link"
+                    graph_type = "Hypergraph" if link_type == "gl0" else "Metagraph"
+                    if eval(f"{link_type}_linking_enabled"):
+                        self.functions.print_paragraphs([
+                            [f"Waiting on {verb}",0,"yellow"],[link_word,0,"green"],["state to be",0,"yellow"],
+                            ["Ready",0,"green"], [f"before initiating {graph_type} join.",1,"yellow"]
+                        ])
+                        found_link_types.append(link_type)
+                    if eval(f"{link_type}_linking_enabled") and eval(f"{link_type}_link_profile") == "None":
+                        layer_zero_ready = self.build_remote_link(link_type)
+                        if not layer_zero_ready:
+                            if link_type == "gl0": gl0_linking_enabled = False
+                            elif link_type == "ml0": ml0_linking_enabled = False
 
         self.source_node_choice = self.functions.get_info_from_edge_point({
             "profile": self.profile,
@@ -717,83 +841,84 @@ class Node():
 
         join_session = Session()  # this is a requests Session external library
                 
-        if linking_enabled:
-            if self.functions.config_obj["profiles"][self.profile]["layer0_link"]["link_profile"] != "None":
-                try:
-                    _ = self.functions.pull_profile({
-                        "req": "ports",
-                        "profile": link_profile
-                    })  
-                except:
-                    self.error_messages.error_code_messages({
-                        "error_code": "ser-357",
-                        "line_code": "link_to_profile",
-                        "extra": self.profile,
-                        "extra2": link_profile
-                })
+        if gl0_linking_enabled or ml0_linking_enabled:
+            for link_type in link_types:
+                if eval(f"{link_type}_link_profile") != "None":  # if None should be static
+                    try:
+                        _ = self.functions.pull_profile({
+                            "req": "ports",
+                            "profile": eval(f"{link_type}_link_profile")
+                        })  
+                    except:
+                        self.error_messages.error_code_messages({
+                            "error_code": "ser-357",
+                            "line_code": "link_to_profile",
+                            "extra": self.profile,
+                            "extra2": eval(f"{link_type}_link_profile")
+                    })
             
-            while True:
-                for n in range(1,10):
-                    start = n*12-12
-                    if n == 1:
-                        start = 1
+                    while True:
+                        for n in range(1,10):
+                            start = n*12-12
+                            if n == 1:
+                                start = 1
 
-                    state = self.functions.test_peer_state({
-                        "profile": link_profile,
-                        "simple": True
-                    })
+                            state = self.functions.test_peer_state({
+                                "profile": eval(f"{link_type}_link_profile"),
+                                "simple": True
+                            })
 
-                    if not self.auto_restart:
-                        self.functions.print_cmd_status({
-                            "text_start": "Current Found State",
-                            "brackets": link_profile,
-                            "status": state,
-                            "newline": True,
-                        })
-                        
-                    if state == "Ready":
-                        layer_zero_ready = True
-                        break
-                    if state != "Observing" and state != "WaitingForReady":
-                        layer_zero_ready = False
-                        join_failure = True
-                        break
+                            if not self.auto_restart:
+                                self.functions.print_cmd_status({
+                                    "text_start": "Current Found State",
+                                    "brackets": eval(f"{link_type}_link_profile"),
+                                    "status": state,
+                                    "newline": True,
+                                })
+                                
+                            if state == "Ready":
+                                layer_zero_ready = True
+                                break
+                            if state != "Observing" and state != "WaitingForReady":
+                                layer_zero_ready = False
+                                join_failure = True
+                                break
+                            
+                            if action == "cli":
+                                self.functions.print_clear_line()
+                                self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
+                            else:
+                                self.functions.print_timer(12,"Sleeping prior to retry")
+                        if layer_zero_ready or join_failure:
+                            break
+
+                        if not self.auto_restart and not layer_zero_ready:
+                            self.functions.print_paragraphs([
+                                ["",1], [" ERROR ",0,"red,on_yellow"],
+                                [f"nodectl was unable to find the {link_type.upper()} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
+                                [f"continue to wait for the state to become 'Ready' or exit now and try again to join after the link profile or Node becomes",0,"red"],
+                                [f"'Ready'.",2,"red"],
+
+                                ["If the Node Operator chooses to exit, issue the following commands to verify the status of each profile and restart when 'Ready' state is found:",1],                        
+                                ["sudo nodectl status",1,"yellow"],
+                                [f"sudo nodectl restart -p {self.profile}",2,"yellow"],
+                            ])
+
+                            if interactive:
+                                self.functions.confirm_action({
+                                    "yes_no_default": "y",
+                                    "return_on": "y",
+                                    "prompt": "Would you like to continue waiting?",
+                                    "exit_if": True,
+                                })
+                                cprint("  Continuing to wait...","green")
+                            else:
+                                cprint("  Non-interactive mode detected...","yellow")
+                                if final:
+                                    break
+                                final = True  # only allow one retry
                     
-                    if action == "cli":
-                        self.functions.print_clear_line()
-                        self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
-                    else:
-                        self.functions.print_timer(12,"Sleeping prior to retry")
-                if layer_zero_ready or join_failure:
-                    break
-
-                if not self.auto_restart:
-                    self.functions.print_paragraphs([
-                        ["",1], ["In order to properly join the a",0,"yellow"],[" Layer 1 ",0,"red"], ["",-1], 
-                        ["network, if a",0,"yellow"], [" layer 0 ",0,"red"], ["Node appropriated to link to against",0,"yellow"],
-                        ["must be available and in",0,"yellow"], ["Ready",0,"green","bold"], ["state.",2,"yellow"],
-                        
-                        ["You can exit now, wait",0,"magenta"], ["5",0,"red"], ["to",0,"magenta"], ["10",0,"red"], ["minutes and then attempt to rejoin",0,"magenta"],
-                        ["or restart again...",2,"magenta"],
-                        
-                        ["sudo nodectl status",1],
-                        [f"sudo nodectl restart -p {self.profile}",2],
-                    ])
-
-                if interactive:
-                    self.functions.confirm_action({
-                        "yes_no_default": "y",
-                        "return_on": "y",
-                        "prompt": "Would you like to continue waiting?",
-                        "exit_if": True,
-                    })
-                    cprint("  Continuing to wait...","green")
-                else:
-                    if final:
-                        break
-                    final = True  # only allow one retry
-                    
-        if profile_layer == 0 or layer_zero_ready:
+        if (profile_layer == 0 and not gl0_linking_enabled) or layer_zero_ready:
             if not self.auto_restart:
                 self.functions.print_cmd_status({
                     "text_start": "Preparing to join cluster",
@@ -859,14 +984,15 @@ class Node():
                 
             result = "done".ljust(32)
         else:
-            result = "L0 not Ready".ljust(32)
+            try: return_str = found_link_types.pop()
+            except: return_str == self.profile
+            else:
+                for link_type in found_link_types:
+                    return_str += f" and {link_type}"
+            result = f"{return_str} not Ready".ljust(32)
                 
         if action == "cli":
             return result       
-        
-
-    def obtain_local_layer_zero(self):
-        pass
         
         
     def create_files(self,command_obj):
@@ -899,7 +1025,7 @@ WantedBy=multi-user.target
         if var.file == "service_bash":
             cur_file = '''#!/bin/bash
             
-# This file is used by the [nodegarageservicename] service
+# This file is used by the [nodegarageservicename] profile
 # to run your Node's debian service.
 #
 # Node Operators should not alter this file;
@@ -907,7 +1033,7 @@ WantedBy=multi-user.target
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublicport --p2p-port nodegaragep2pport --cli-port nodegaragecliport --collateral 0 --seedlist nodegarageseedlistv &
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
 '''
         
         if var.file == "service_restart":
@@ -945,67 +1071,114 @@ WantedBy=multi-user.target
 # documentation hub for details on how to configure
 # this file.
 # =========================================================
+# Metagraph sections isolated by profile key name
+# =========================================================
+# Custom Options and Environment Variables
+# ---------------------------------------------------------
+# Required arguments must be listed BEFORE any custom
+# entered options or environment variables !!
+#
+# Failure to do so may create undesired results from
+# nodectl (especially the configurator) the Node Operator
+# should use the configurator over manually updating this 
+# config file.
+# ---------------------------------------------------------
+# Required arguments 
+# ---------------------------------------------------------
+# custom_args_enable: True (or False)
+# custom_env_vars_enable: True (or False)
+# ---------------------------------------------------------
+# MANUAL ENTRY MUST PREFIX "custom_args_" to your arg
+# custom_args_var1: value1
+# custom_args_var2: value2
+# MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
+# ---------------------------------------------------------
+# MANUAL ENTRY MUST BE IN CORRECT ORDER FOR CONFIGURATOR
+# TO WORK PROPERLY.  
+# custom_args_enable followed by all custom_args
+# custom_env_vars_enabled followed by all custom_env_var
+# Failure to do so will lead to unexpected behavior
+# ---------------------------------------------------------
+# Examples)
+# custom_env_vars_CL_SNAPSHOT_STORED_PATH: /location1/here/
+# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_STORED_PATH: /location2/here/
+# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH: /location3/here/
+# =========================================================
 
 nodectl:
-  profiles:
 '''
         
         if var.file == "config_yaml_profile":
-            cur_file = '''    nodegarageprofile:
-      enable: nodegarageenable
-      layer: nodegaragelayer
-      edge_point: 
-        https: nodegarageedgehttps
-        host: nodegarageedgehost
-        host_port: nodegarageedgeporthost
-      environment: nodegarageenvironment
-      ports:
-        public: nodegaragepublic
-        p2p: nodegaragep2p
-        cli: nodegaragecli
-      service: nodegarageservice
-      layer0_link: 
-        enable: nodegaragelinkenable
-        layer0_key: nodegarage0layerkey
-        layer0_host: nodegarage0layerhost
-        layer0_port: nodegarage0layerport
-        link_profile: ndoegarage0layerlink
-      dirs:
-        snapshots: nodegaragesnaphostsdir
-        backups: nodegaragebackupsdir
-        uploads: nodegarageuploadsdir
-      java:
-        xms: nodegaragexms
-        xmx: nodegaragexmx
-        xss: nodegaragexss
-      p12:
-        nodeadmin: nodegaragenodeadmin
-        key_location: nodegaragekeylocation
-        p12_name: nodegaragep12name
-        wallet_alias: nodegaragewalletalias
-        passphrase: nodegaragepassphrase
-      pro:
-        seed_location: nodegarageseedlistloc
-        seed_file: nodegarageseedlistfile
-      node_type: nodegaragenodetype
-      description: nodegaragedescription
+            cur_file = '''  nodegarageprofile:
+    profile_enable: nodegarageenable
+    environment: nodegarageenvironment
+    description: nodegaragedescription
+    node_type: nodegaragenodetype
+    meta_type: nodegaragemetatype
+    layer: nodegarageblocklayer
+    collateral: nodegaragecollateral
+    service: nodegarageservice
+    edge_point: nodegarageedgepointhost
+    edge_point_tcp_port: nodegarageedgepointtcpport
+    public_port: nodegaragepublic
+    p2p_port: nodegaragep2p
+    cli_port: nodegaragecli
+    gl0_link_enable: nodegaragegl0linkenable
+    gl0_link_key: nodegaragegl0linkkey
+    gl0_link_host: nodegaragegl0linkhost
+    gl0_link_port: nodegaragegl0linkport
+    gl0_link_profile: nodegaragegl0linkprofile
+    ml0_link_enable: nodegarageml0linkenable
+    ml0_link_key: nodegarageml0linkkey
+    ml0_link_host: nodegarageml0linkhost
+    ml0_link_port: nodegarageml0linkport
+    ml0_link_profile: nodegarageml0linkprofile
+    token_identifier: nodegaragetokenidentifier
+    directory_backups: nodegaragedirectorybackups
+    directory_uploads: nodegaragedirectoryuploads
+    java_xms: nodegaragexms
+    java_xmx: nodegaragexmx
+    java_xss: nodegaragexss
+    jar_repository: nodegaragejarrepository
+    jar_file: nodegaragejarfile
+    p12_nodeadmin: nodegaragep12nodeadmin
+    p12_key_location: nodegaragep12keylocation
+    p12_key_name: nodegaragep12keyname
+    p12_key_alias: nodegaragep12keyalias
+    p12_passphrase: nodegaragep12passphrase
+    seed_location: nodegarageseedlocation
+    seed_repository: nodegarageseedrepository
+    seed_file: nodegarageseedfile
+    priority_source_location: nodegarageprioritysourcelocation
+    priority_source_repository: nodegarageprioritysourcerepository
+    priority_source_file: nodegarageprioritysourcefile
+    custom_args_enable: nodegaragecustomargsenable
+    custom_env_vars_enable: nodegaragecustomenvvarsenable      
 '''
         
         if var.file == "config_yaml_autorestart":
-            cur_file = '''  auto_restart:
-    enable: nodegarageeautoenable
+            cur_file = '''  global_auto_restart:
+    auto_restart: nodegarageeautoenable
     auto_upgrade: nodegarageautoupgrade
+    on_boot: nodegarageonboot
+    rapid_restart: nodegaragerapidrestart
 '''
         
         if var.file == "config_yaml_p12":
             cur_file = '''  global_p12:
-    nodeadmin: nodegaragenodeadmin
-    key_location: nodegaragekeylocation
-    p12_name: nodegaragep12name
-    wallet_alias: nodegaragewalletalias
-    passphrase: nodegaragepassphrase
+    nodeadmin: nodegaragep12nodeadmin
+    key_location: nodegaragep12keylocation
+    key_name: nodegaragep12keyname
+    key_alias: nodegaragep12keyalias
+    passphrase: nodegaragep12passphrase
 '''
-
+        
+        if var.file == "config_yaml_global_elements":
+            cur_file = '''  global_elements:
+    metagraph_name: nodegaragemetagraphname            
+    nodectl_yaml: nodegaragenodectlyaml
+    log_level: nodegarageloglevel
+'''
 
         elif var.file == "upgrade":
             url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"

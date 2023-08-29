@@ -1,6 +1,7 @@
 from termcolor import colored, cprint
 from types import SimpleNamespace
 from os import system, path, makedirs
+from copy import deepcopy
 
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
@@ -11,27 +12,23 @@ from ..functions import Functions
 class Migration():
     
     def __init__(self,command_obj):
-        var = SimpleNamespace(**command_obj)
+        self.config_obj = command_obj["config_obj"]
         self.log = Logging()
         self.log.logger.debug("migration process started...")
         self.errors = Error_codes()
         self.caller = command_obj.get("caller","default")
         self.ingest = False 
-        
-        self.functions = Functions(var.config_obj)
+        self.functions = Functions(self.config_obj)
         self.yaml = "" # initialize 
     
+    
     def migrate(self):
-        confirm = self.start_migration()
-        if not confirm:
+        self.start_migration()
+        self.handle_old_profiles()
+        if not self.verify_config_type():
             return
-        
-        self.keep_pass_visible = self.handle_passphrase()
-        
-        self.ingest_cn_node()
-        self.backup_cn_node()
+        self.backup_config()
         self.create_n_write_yaml()
-        
         return self.confirm_config()
         
 
@@ -42,7 +39,53 @@ class Migration():
             "clear": True,
         })
                 
+    
+    def handle_old_profiles(self):
+        self.config_keys = self.config_obj.keys()
+        self.profile_keys = self.config_obj["profiles"].keys()
+        self.old_config_keys = ["profiles","auto_restart","global_p12","global_elements"]
+        self.old_profile_subsections = [
+            "edge_point","ports","layer0_link",
+            "dirs","java","p12","pro"]
+        self.old_profile_keys = self.old_profile_subsections + [
+            "enable","layer","environment","service",
+            "node_type","description"]
+        self.old_dir_keys = ["uploads","backups"]
+        self.old_p12_keys = ["nodeadmin","key_location","p12_name","wallet_alias","passphrase"]
                 
+                
+    def verify_config_type(self):
+        try:
+            config_yaml_version = self.config_obj["global_elements"]["nodectl_yaml"]
+        except:
+            pass
+        else:
+            if config_yaml_version == self.functions.node_nodectl_yaml_version:
+                return False
+
+        valid = True
+        
+        for key in self.config_keys:
+            if key not in self.old_config_keys:
+                valid = False
+                
+        if valid:
+            for profile in self.profile_keys:
+                for i_key in self.config_obj["profiles"][profile].keys():
+                    if i_key not in self.old_profile_keys:
+                        valid = False
+                
+        if not valid:
+            self.errors.error_code_messages({
+                "error_code": "mig-59",
+                "line_code": "config_error",
+                "extra": "format",
+                "extra2": None
+            })
+        
+        return True
+        
+
     def start_migration(self):
         # version 2.0.0 only!
         # used to upgrade from v1.12.0 (upgrade path)
@@ -51,217 +94,45 @@ class Migration():
         self.printer_config_header()
 
         self.functions.print_paragraphs([
-            ["During program initialization, a",0,"blue","bold"], ["configuration",0,"yellow","bold,underline"],["file was found",0,"blue","bold"], 
-            ["missing",0,"yellow,on_red","bold"], ["on this server/Node.",2,"blue","bold"],
+            ["During program initialization, an outdated and/or improperly formatted",0,"blue","bold"], ["configuration",0,"yellow","bold,underline"],["file was found",0,"blue","bold"], 
+            ["on this server/Node.",2,"blue","bold"],
             
-            ["nodectl found an existing file",0,"blue","bold"], ["cn-node",0, "yellow","bold,underline"],
-            ["file on your existing server/Node. nodectl can backup this file and attempt to migrate to the new",0,"blue","bold"],
+            ["nodectl will backup your original configruation file and attempt to migrate to the new",0,"blue","bold"],
             ["required",0,"yellow,on_red","bold"], ["format.",2,"blue","bold"],
         ])
 
-        confirm = self.functions.confirm_action({
+        self.functions.confirm_action({
             "yes_no_default": "y",
             "return_on": "y",
-            "prompt": f"Attempt cn-node file migration?",
-            "exit_if": False
+            "prompt": f"Attempt update and migrate configuration file?",
+            "exit_if": True
         })
-        
-        return confirm   
-        
-        
-    def handle_passphrase(self,disclaimer=True):
-        paragraphs = [
-            ["",2],["nodectl v2",0,"cyan","bold"], ["allows removal of the passphrase from your configuration. It is up to the",0,"blue","bold"],
-            ["Node Operator administering this Node to decide on the best course of action.",2,"blue","bold"],
-        ]
-        self.functions.print_paragraphs(paragraphs)
-        paragraphs = [
-            ["PROS:",0,"green","bold"], ["- One less location with an exposed clear-text passphrase.",1,"green"],
-        ]
-        self.functions.print_paragraphs(paragraphs,{"sub_indent": "          " })
-        wrapper = self.functions.print_paragraphs("wrapper_only")
-        wrapper.initial_indent = "        "
-        wrapper.subsequent_indent = "          "
 
-        cprint(wrapper.fill("- Adds small layer of security to force a possible attacker to work harder to gain access to the Node's wallet."),"green")
-        print("")
         
-        paragraphs = [
-            ["CONS:",0,"yellow","bold"], ["- Your passphrase will be requested whenever required by nodectl.",1,"red"],
-        ]
-        self.functions.print_paragraphs(paragraphs,{"sub_indent": "          " })
-        
-        exposed = colored("exposed","red",attrs=["bold"])
-        exposed1 = '- In the event your Node is compromised, your passphrase will still be'
-        exposed2 = 'because any nefarious actor able to penetrate your system authentication practices will '
-        exposed2 += 'know how to expose any passphrases in use by the processes running on the VPS/Node.'
-        exposed2 = colored(exposed2,"red")
-        cprint(wrapper.fill(f"{exposed1} {exposed} {exposed2}"),"red")
-        
-        print("")
-        recommend = colored("Recommended:","blue",attrs=["bold"])
-        recommend2 = colored("Keep passphrases","cyan")
-        wrapper.initial_indent = "  "
-        cprint(wrapper.fill(f"{recommend} {recommend2}"),"cyan")
-        print("")
-        
-        keep_pass_visible = self.functions.confirm_action({
-            "yes_no_default": "y",
-            "return_on": "y",
-            "prompt": "Keep passphrase visible in configuration?",
-            "exit_if": False
-        })
-        
-        if not keep_pass_visible:
-            print("")
-            paragraphs = [
-                ["WARNING!",0,"red","bold"],["The passphrases will not be in the configuration.  Make sure you have them written down in a safe place",0],
-                ["losing your passphrase is equivalent to losing the access to your bank accounts with no way of recovering.",2],
-                
-                ["Remember this is one of the most important self governing elements of decentralized finance!",2,"red","bold"]
-            ]
-            self.functions.print_paragraphs(paragraphs)
-            
-        if disclaimer:
-            self.printer_config_header()
-            paragraphs = [
-                ["",1],["nodectl v2",0,"cyan","bold"], ["introduces the ability to use different Node wallets",0,"blue","bold"],
-                ["(p12 private keys)",0,"yellow"], ["per profile",0,"blue","bold"], ["(layer0 and/or layer1 Metagraphs)",0,"yellow"],[".",-1,"blue","bold"],
-                ["",2],
-                
-                ["A new concept for",0,"blue","bold"], ["nodectl v2",0,"cyan","bold"], ["includes a",0,"blue","bold"],
-                ["GLOBAL",0,"yellow,on_magenta","bold"], ["section within the configuration that can be used to assign a single p12 to all or some",0,"blue","bold"],
-                ["of the profiles, on your Node.",2,"blue","bold"],
-                
-                ["The p12 content details from the Node's",0,"blue","bold"], ["global p12",0,"yellow"], ["cn-node",0,"cyan","underline"],["",0],
-                ["file including credentials will be added to the",0,"blue","bold"], ["global p12",0,"yellow"],
-                ["section of the new configuration file.",2,"blue","bold"],
-                
-                ["You can setup the global p12 wallet configuration to handle all or only selected profiles of your choosing.",2,"green","bold"]
-            ]
-            self.functions.print_paragraphs(paragraphs)
-            
-            while True:
-                confirm = self.functions.confirm_action({
-                    "yes_no_default": "y",
-                    "return_on": "y",
-                    "prompt": "I have read the information above:",
-                    "exit_if": True
-                })
-                if confirm:
-                    break
-            
-            self.printer_config_header()
-        return keep_pass_visible   
-        
-        
-    def ingest_cn_node(self):
-        print("")
-        self.ingest = True
-        progress = {
-            "text_start": "Ingesting",
-            "text_end": "file",
-            "brackets": "cn-node",
-            "status": "running",
-            "status_color": "yellow",
-            "newline": True,
-        }
-        self.functions.print_cmd_status(progress)
-        
-        self.config_details = {}
-        with open("/usr/local/bin/cn-node","r") as f:
-            for line in f:
-                if "CL_PASSWORD" in line and self.keep_pass_visible:
-                    var = "passphrase"
-                elif "CL_KEYSTORE" in line:
-                    var = "keystore"
-                elif " CL_KEYALIAS" in line:
-                    var = "alias"
-                elif "CL_APP_ENV" in line:
-                    var = "environment"
-                elif "CL_PUBLIC_HTTP_PORT" in line:
-                    var = "public"
-                elif "CL_P2P_HTTP_PORT" in line:
-                    var = "p2p"
-                elif "CL_CLI_HTTP_PORT" in line:
-                    var = "cli"
-                else:
-                    continue
-                cn_var = line.split("=")
-                cn_var = cn_var[1].replace("'","").strip()
-                self.config_details[var] = cn_var
-        f.close()
-        
-        if not self.keep_pass_visible:
-            self.config_details["passphrase"] = "None"
-        
-        # grab username
-        parts = self.config_details["keystore"].split("/")
-        username = parts[2]
-        p12_file = parts[-1]
-        
-        confirm_list = {
-            "admin user": username,
-            "p12 filename": p12_file
-        }
-        
-        for key,value  in confirm_list.items():
-            print(colored("\n  nodectl found [","cyan"),colored(value,"yellow",attrs=['bold']),colored(f"] as your Node's {key}.","cyan"))
-            user_confirm = self.functions.confirm_action({
-                "yes_no_default": "y",
-                "return_on": "y",
-                "prompt": "Is this correct?",
-                "exit_if": False
-            })
-            if not user_confirm:
-                while True:
-                    print(colored(f"  Please enter your Node's {key}:","cyan"),end=" ")
-                    value = input("")
-                    print(colored("  confirm [","cyan"),colored(value,"yellow",attrs=['bold']),colored("]","cyan"),end=" ")
-                    user_confirm = self.functions.confirm_action({
-                        "yes_no_default": "n",
-                        "return_on": "y",
-                        "prompt": "is correct?",
-                        "exit_if": False
-                    })            
-                    if user_confirm:
-                        break
-            if key == "admin user":
-                self.config_details["nodeadmin"] = value
-            else:
-                self.config_details["p12_name"] = value
-        
-        self.config_details["keystore"] = self.config_details["keystore"].replace(p12_file,"")
-        self.functions.print_cmd_status({
-            **progress,
-            "status": "complete",
-            "status_color": "green",
-        })
-        
-        
-    def backup_cn_node(self):
+    def backup_config(self):
         self.functions.print_clear_line()
         if not self.ingest:
             print("") # UX clean up
         progress = {
-            "text_start": "Backing up cn-node file",
+            "text_start": "Backing up cn-config yaml",
             "status": "running",
             "status_color": "yellow",
         }
         self.functions.print_cmd_status(progress)
                         
+        backup_dir = "/var/tessellation/backups"
         datetime = self.functions.get_date_time({"action":"datetime"})
-        
-        default_dirs = [
-            "/var/tessellation/uploads/",
-            "/var/tessellation/backups/",
-            "/var/tessellation/dag-l0/data/snapshot/"
-        ]
-        for dir in default_dirs:
-            if not path.isdir(dir):
-                makedirs(dir)
-                
-        system(f"mv /usr/local/bin/cn-node /var/tessellation/backups/cn-node.{datetime}backup > /dev/null 2>&1")        
+        for profile in self.config_obj["profiles"].keys():
+            for section, value in self.config_obj["profiles"][profile].items():
+                if section == "dirs":
+                    backup_dir = value
+                    if backup_dir == "default":
+                        backup_dir = "/var/tessellation/backups"
+                    break
+            break
+            
+        system(f"mv /var/tessellation/nodectl/cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
+
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -270,20 +141,23 @@ class Migration():
             "delay": .8
         })
         
-        self.log.logger.warn("backing up legacy cn-node file to [/var/tessellation/backups] this file should be removed at a later date.")
+        self.log.logger.warn("backing up cn-config.yaml file to default backup directory from original configuration, this file should be removed at a later date.")
         
         self.functions.print_paragraphs([
-            ["",1], [" DANGER ",0,"yellow,on_red"], ["THE",0,"red","bold"], ["cn-node",0, "yellow","underline"], 
+            ["",1], [" DANGER ",0,"yellow,on_red"], ["THE",0,"red","bold"], ["cn-config.yaml",0, "yellow","underline"], 
             ["FILE MAY CONTAIN A P12 PASSPHRASE, FOR SECURITY PURPOSES, PLEASE REMOVE AS NECESSARY!",2,"red","bold"],
             
             [" CAUTION ",0,"red,on_yellow"],["After the",0,"yellow"], ["migration",0,"cyan","underline"], ["is complete, the",0,"yellow"], 
             ["upgrader",0,"magenta","bold"], ["will continue and will prompt you to remove the contents of the backup directory",0,"yellow"],
-            ["where the",0,"yellow"], [" cn-node ",0,"white,on_blue"], ["has been backed up within. If you choose to empty the contents",0,"yellow"],
-            ["of this directory, you will remove the backup",0,"yellow"], ["cn-node",0,"cyan","underline"], ["file.",2,"yellow"],
+            ["where the original",0,"yellow"], ["cn-config.yaml",0,"white,on_blue"], ["has been backed up within.",2,"yellow"], 
             
-            ["backup filename:",0], [f"cn-node.{datetime}backup",1,"magenta"],
+            ["If you choose to empty the contents",0,"yellow"],
+            ["of this directory, you will remove the backup",0,"yellow"], ["cn-config.yaml",0,"cyan"], ["file.",2,"yellow"],
+            
+            ["backup filename:",0], [f"cn-config.{datetime}backup.yaml",1,"magenta"],
             ["backup location:",0], ["/var/tessellation/backups/",1,"magenta"],
         ])
+
 
     # =======================================================
     # build methods
@@ -292,71 +166,106 @@ class Migration():
 
     def migrate_profiles(self):
         # =======================================================
-        # create profile sections using Constellation Network defaults
-        # and inputs from the legacy cn-node file that was identified
+        # create profile sections
         # =======================================================
-        ports = [[9000,9001,9002],[9010,9011,9012]]
-        for n in range(0,2):
-            link_bool = "False" if n == 0 else "True"
+        rebuild_obj = {}
+        self.found_environment = "NA"
+        
+        port_keys = ["nodegaragepublic","nodegaragep2p","nodegaragecli"]
+        layer0_ports = [9000,9001,9002]; layer1_ports = [9010,9011,9012]
+        rebuild_defaults = {
+            "nodegaragehost": [
+                "l0-lb-mainnet.constellationnetwork.io",
+                "l1-lb-mainnet.constellationnetwork.io",
+                "l0-lb-testnet.constellationnetwork.io",
+                "l1-lb-testnet.constellationnetwork.io",
+                "l0-lb-integrationnet.constellationnetwork.io",
+                "l1-lb-integrationnet.constellationnetwork.io",
+            ],
+            "nodegaragehostport": "80",
+            "nodegaragedirectorybackups": "/var/tessellation/backups",
+            "nodegaragedirectoryuploads": "/var/tessellation/uploads",
+            "nodegaragexms": "1024M",
+            "nodegaragexmx": ["7G","3G"],
+            "nodegaragexss": "256K",
+            "nodegarageseedlocation": "/var/tessellation",
+            "nodegarageseedfile": "seed-list",
+        }
+        
+        for profile in self.config_obj["profiles"].keys():
+            rebuild_obj["nodegarageprofile"] = profile
+            self.found_environment = self.config_obj["profiles"][profile]["environment"] # will set final found env to value
+            for section, value in self.config_obj["profiles"][profile].items():
+                link_section = "ml0link" if section == "layer0_link" else "" # enable dup key value
+                if section in self.old_profile_subsections:
+                    for i_section, value in self.config_obj["profiles"][profile][section].items():
+                        if link_section == "ml0link": # exception
+                            i_section = i_section.replace("layer0","")
+                            i_section = i_section.replace("link","")
+                        elif i_section in self.old_dir_keys:
+                            i_section = f"directory{i_section}"
+                        elif i_section in self.old_p12_keys:
+                            i_section = f"p12{i_section}"
+                            i_section = "p12keyalias" if i_section == "p12wallet_alias" else i_section
+                            i_section = "p12keyname" if i_section == "p12p12_name" else i_section
+                        rebuild_obj[f"nodegarage{link_section}{i_section.replace('_','')}"] = value
+                        if link_section == "ml0link":
+                            value =  False if "enable" in i_section else "None"
+                            rebuild_obj[f"nodegaragegl0link{i_section.replace('_','')}"] = value
+                else:
+                    section = "blocklayer" if section == "layer" else section # exception
+                    rebuild_obj[f"nodegarage{section.replace('_','')}"] = value
+                        
+            # replace default values
+            rebuild_obj_copy = deepcopy(rebuild_obj)
+            for key, value in rebuild_obj_copy.items():
+                layer = self.config_obj["profiles"][profile]["layer"]
+                if key in port_keys:
+                    index = port_keys.index(key)
+                    if layer < 1:
+                        value = "default" if value == layer0_ports[index] and key == port_keys[index] else value
+                        rebuild_obj[key] = value
+                    elif layer > 0:
+                        value = "default" if value == layer1_ports[index] and key == port_keys[index] else value
+                        rebuild_obj[key] = value
+                if key in rebuild_defaults.keys():
+                    if "port" in key and rebuild_obj[key] == value:
+                        rebuild_obj["nodegarageedgepointtcpport"] = "default"
+                    elif "host" in key and value in rebuild_obj[key]:
+                        if str(layer) in value[0:2]:
+                            rebuild_obj["nodegarageedgepointhost"] = "default"
+                    elif ("backups" in key or "uploads" in key) and value[:-1] in rebuild_defaults[key]:
+                        rebuild_obj[key] = "default"
+                    elif ("xms" in key or "xss" in key) and value == rebuild_defaults[key]:
+                        rebuild_obj[key] = "default"
+                    elif "xmx" in key and value == rebuild_defaults[key][layer]:
+                        rebuild_obj[key] = "default"    
+                    elif "seedlocation" in key and value[:-1] in rebuild_defaults[key]:                        
+                        rebuild_obj[key] = "default"    
+                    elif "seedfile" in key and value == rebuild_defaults[key]:                        
+                        rebuild_obj[key] = "default"    
+
+            # new key pair >= v2.9.0
             rebuild_obj = {
-                "nodegarageprofile": f"dag-l{n}",
-                "nodegarageenable": "True",   
-                "nodegaragelayer": f"{n}",
-                "nodegarageedgehttps": "False",
-                "nodegarageedgehost": f"l{n}-lb-{self.config_details['environment']}.constellationnetwork.io",
-                "nodegarageedgeporthost": "80",
-                "nodegarageenvironment": self.config_details["environment"],
-                "nodegaragepublic": str(ports[n][0]),
-                "nodegaragep2p": str(ports[n][1]),
-                "nodegaragecli": str(ports[n][2]),
-                "nodegarageservice": f"node_l{n}",
-                "nodegaragelinkenable": link_bool,
-                "nodegarage0layerkey": "None",
-                "nodegarage0layerhost": "None",
-                "nodegarage0layerport": "None",
-                "ndoegarage0layerlink": "None",
-                "nodegaragexms": "1024M",
-                "nodegaragexmx": "7G",
-                "nodegaragexss": "256K",
-                "nodegaragenodetype": "validator",
-                "nodegaragedescription": "Constellation Network Global Hypergraph",
-                "nodegaragesnaphostsdir": "default",
-                "nodegaragebackupsdir": "default",
-                "nodegarageuploadsdir": "default",
-                "nodegaragenodeadmin": "global",
-                "nodegaragekeylocation": "global",
-                "nodegaragep12name": "global",
-                "nodegaragewalletalias": "global",
-                "nodegaragepassphrase": "global",
-                "nodegarageseedlistloc": "/var/tessellation/",
-                "nodegarageseedlistfile": "seed-list",
+                **rebuild_obj,
+                "nodegaragecollateral": 0,
+                "nodegaragemetatype": "ml",
+                "nodegaragetokenidentifier": "disable",
+                "nodegaragejarrepository": "default",
+                "nodegaragejarfile": "default",
+                # "nodegaragejarversion": "default",  # future?
+                "nodegarageprioritysourcelocation": "default",
+                "nodegarageprioritysourcerepository": "default",
+                "nodegarageprioritysourcefile": "default",
+                "nodegaragecustomargsenable": False,
+                "nodegaragecustomenvvarsenable": False,
+                "nodegarageseedrepository": "default",
             }
 
-            link_profile = "dag-l0"
-            if self.config_details['environment'] == "integrationnet":
-                rebuild_obj["nodegarageenvironment"] = "integrationnet"
-                rebuild_obj["nodegarageedgehost"] = f"l{n}-lb-integrationnet.constellationnetwork.io"
-                rebuild_obj["nodegarageprofile"] = f"intnet-l{n}" 
-                rebuild_obj["nodegarageservice"] = f"intnetserv_l{n}"
-                # rebuild_obj["nodegarageedgeporthost"] = f"90{n}0"
-                link_profile = "intnet-l0"        
-                                        
-            if n == 1:
-                # rewrite for layer1
-                rebuild_obj["nodegarage0layerkey"] = "self"
-                rebuild_obj["nodegarage0layerhost"] = "self"
-                rebuild_obj["nodegarage0layerport"] = str(ports[0][0])
-                rebuild_obj["ndoegarage0layerlink"] = link_profile
-                rebuild_obj["nodegaragesnaphostsdir"] = "disable"
-                rebuild_obj["nodegaragexmx"] = "3G"
-                rebuild_obj["nodegaragedescription"] = "Constellation Network Layer1 Metagraph" 
-                rebuild_obj["nodegarageseedlistloc"] = "disable"
-                rebuild_obj["nodegarageseedlistfile"] = "disable"
-
             rebuild_obj["create_file"] = "config_yaml_profile"
+            rebuild_obj["show_status"] = False
             self.yaml += self.build_yaml(rebuild_obj) 
     
-
            
     def build_yaml(self,rebuild_obj): 
 
@@ -376,29 +285,37 @@ class Migration():
         if action != "skip":
             try:
                 for yaml_item in rebuild_obj.keys():
-                    profile = profile.replace(yaml_item,rebuild_obj[yaml_item])
+                    if "layer" in yaml_item:
+                        pass
+                    profile = profile.replace(yaml_item,str(rebuild_obj[yaml_item]))
             except Exception as e:
                 self.errors.error_code_messages({
                     "error_code": "mig-348",
                     "line_code": "profile_build_error",
                     "extra": e
                 })
-        
+
         return profile
                 
     
     def create_n_write_yaml(self): 
         self.node_service = Node({
-            "config_obj": {"caller":"config"}
+            "config_obj": {
+                "global_elements": {
+                    "caller":"config"
+                },
+            },
         },False)  
 
         rebuild_obj = {
             "action": "skip",
             "create_file": "config_yaml_init"
         }        
+        
         # =======================================================
         # start building the yaml file initial comments and setup
         # =======================================================
+        
         # status progress in build_yaml method
         if self.caller == "configurator":
             rebuild_obj["show_status"] = False
@@ -423,6 +340,8 @@ class Migration():
         rebuild_obj = {
             "nodegarageeautoenable": "False",
             "nodegarageautoupgrade": "False",
+            "nodegarageonboot": "False",
+            "nodegaragerapidrestart": "False",
             "create_file": "config_yaml_autorestart",
         }
         self.yaml += self.build_yaml(rebuild_obj)
@@ -432,41 +351,46 @@ class Migration():
         # =======================================================
         
         rebuild_obj = {
-            "nodegaragenodeadmin": self.config_details["nodeadmin"],
-            "nodegaragekeylocation": self.config_details["keystore"],
-            "nodegaragep12name": self.config_details["p12_name"],
-            "nodegaragewalletalias": self.config_details["alias"],
-            "nodegaragepassphrase": f'"{self.config_details["passphrase"]}"',
+            "nodegaragep12nodeadmin": self.config_obj["global_p12"]["nodeadmin"],
+            "nodegaragep12keylocation": self.config_obj["global_p12"]["key_location"],
+            "nodegaragep12keyname": self.config_obj["global_p12"]["p12_name"],
+            "nodegaragep12keyalias": self.config_obj["global_p12"]["wallet_alias"],
+            "nodegaragep12passphrase": f'"{self.config_obj["global_p12"]["passphrase"]}"',
             "create_file": "config_yaml_p12",
+        }
+        self.yaml += self.build_yaml(rebuild_obj)
+        
+        # =======================================================
+        # build yaml global elements section
+        # =======================================================        
+        rebuild_obj = {
+            "nodegaragemetagraphname": self.found_environment,
+            "nodegaragenodectlyaml": self.functions.node_nodectl_yaml_version,
+            "nodegarageloglevel": "INFO",
+            "create_file": "config_yaml_global_elements",
         }
         self.yaml += self.build_yaml(rebuild_obj)
 
         # =======================================================
         # write final yaml out to file and offer review
         # =======================================================
-        
-        if not path.isdir("/var/tessellation/nodectl/"):
-            makedirs("/var/tessellation/nodectl/")
-            
         self.final_yaml_write_out()
         
         
     def final_yaml_write_out(self):
-        if path.isdir("/var/tessellation/nodectl/"):
-            with open("/var/tessellation/nodectl/cn-config.yaml","w") as newfile:
-                newfile.write(self.yaml)
-            newfile.close()
+        if not path.isdir("/var/tessellation/nodectl/"):
+            makedirs("/var/tessellation/nodectl/")
+        with open("/var/tessellation/nodectl/cn-config.yaml","w") as newfile:
+            newfile.write(self.yaml)
+        newfile.close()
             
-            self.functions.print_cmd_status({
-                "text_start": "Creating configuration file",
-                "status": "complete",
-                "status_color": "green",
-                "newline": True,
-            })
-        else:
-            return False
-        return True
-         
+        self.functions.print_cmd_status({
+            "text_start": "Creating configuration file",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
 
     def configurator_builder(self,rebuild_obj):
         self.yaml += self.build_yaml(rebuild_obj)
@@ -475,7 +399,7 @@ class Migration():
     def confirm_config(self):
         self.functions.print_clear_line()
         self.functions.print_paragraphs([
-            ["cn-node",0,"yellow","bold"], ["MIGRATION COMPLETED SUCCESSFULLY!!",1,"green","bold"],
+            ["",1],["cn-config",0,"yellow","bold"], ["MIGRATION COMPLETED SUCCESSFULLY!!",1,"green","bold"],
             ["Ready to continue with upgrade",2,"blue","bold"],
         ])
         

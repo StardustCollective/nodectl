@@ -32,18 +32,20 @@ def cli_commands(argv_list):
                 if argv_list[1] == "configure":
                     Configurator(argv_list)
                 elif argv_list[1] == "install":
-                    current_shell = ShellHandler({"caller": "install"},False)
+                    current_shell = ShellHandler({"global_elements":{"caller":"install"}},False)
                 else:  
-                    Configuration({
+                    config_needed = Configuration({
                         "action": argv_list[1],
                         "implement": True,
                         "argv_list": argv_list
                     }) 
+                    if config_needed.requested_configuration:
+                        Configurator(["-e"])
             else:
                 if "main_error" not in argv_list and argv_list[1] not in exclude_config:
                     config = Configuration({
                         "action": "normal",
-                        "caller": "normal",
+                        "global_elements": {"caller":"normal"},
                         "implement": True,
                         "argv_list": argv_list
                     })
@@ -53,7 +55,7 @@ def cli_commands(argv_list):
                         current_shell = ShellHandler(config.config_obj,False)               
                 else:
                     caller = argv_list[1] if argv_list[1] in exclude_config else "config"
-                    current_shell = ShellHandler({"caller": caller},False)
+                    current_shell = ShellHandler({"global_elements":{"caller":caller}},False)
             if current_shell:        
                 current_shell.start_cli(argv_list)
                 

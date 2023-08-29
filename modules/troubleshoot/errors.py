@@ -12,7 +12,7 @@ class Error_codes():
         self.log = Logging()
         from ..functions import Functions
         self.functions = Functions({
-            "caller": "config",
+            "global_elements": {"caller": "config"},
             "sudo_rights": False
         })
         self.debug = debug
@@ -52,7 +52,7 @@ class Error_codes():
                 ["Possible Upgrade Required!",1,"red","bold"],
                 ["Necessary configuration files or directories are missing.",2,"red","bold"],
             ])
-            if not var.extra:
+            if var.extra:
                 self.functions.print_paragraphs([
                     [f"{var.extra}",2,"yellow","bold"],
                 ])            
@@ -64,6 +64,45 @@ class Error_codes():
                 ["Please issue the following command to attempt to rectify the issue:",1,"magenta"],
                 ["sudo nodectl upgrade",2,"cyan","bold"],
             ])            
+
+            
+        elif "upgrade_path_needed" in str(var.line_code):
+            self.log.logger.error(f"missing components to the VPS running nodectl. The necessary upgrade path may not have been followed? This may not be a valid configuration? | error code: [{var.line_code}]")
+            self.functions.print_paragraphs([
+                ["Possible Upgrade Required!",0,"red"], ["This must be done by following the necessary upgrade path",1,"red","bold"],
+                ["Necessary configuration components may be missing.",2,"red"],
+                ["Please issue the following command to attempt to rectify the issue:",1,"magenta"],
+                ["sudo nodectl upgrade_path",2,"cyan","bold"],
+                ["Once the necessary path is found, please use the",0,"yellow"], ["wget",0,"cyan","bold"], ["followed by an",0,"yellow"],
+                ["sudo nodectl upgrade",0,"cyan","bold"], ["to follow the necessary version path upgrades.",2],
+            ])            
+
+
+        elif var.line_code == "environment_error":
+            self.log.logger.critical(f"missing metagraph environment variable, unable to continue")
+            self.functions.print_paragraphs([
+                ["nodectl attempted to start a command:",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
+                ["Please verify the Metagraph environment variable is correct or present.",2,"red","bold"],
+                ["Are you sure you have a",0,"magenta"],["valid",0,"magenta"], ["environment requested in your command, loaded or configured?",2,"magenta"]
+            ])
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    ["Environment Requested:",0], [var.extra2,2,"yellow","bold"]
+                ])
+                        
+                        
+        elif "upgrade_incompatibility" in str(var.line_code):
+            self.log.logger.critical(f"Upgrade cannot continue because nodectl found multiple metagraph environment that is not supported by this version of nodectl: environment [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
+
+                ["nodectl found metagraph environments installed on this Node that may not be supported by this version of nodectl.",0,"yellow"],
+                ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
+                
+                ["In order to continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
+                ["Please see the Constellation documentation portal for more details.",2],
+                ["https://docs.constellationnetwork.io/validate/",2],
+            ])
 
             
         elif "lb_not_up" in str(var.line_code):
@@ -92,7 +131,7 @@ class Error_codes():
             if var.error_code == "service_join":
                 self.functions.print_paragraphs([
                     ["You may not be joined to the",0,"red","bold"],["Global Layer0",0,"yellow","bold"],
-                    ["or a",0,"red","bold"],["State Channel?",2,"yellow","bold"],
+                    ["or a",0,"red","bold"],["Metagraph?",2,"yellow","bold"],
                 ])
             else:
                 self.functions.print_paragraphs([
@@ -117,7 +156,7 @@ class Error_codes():
                 ])   
             self.functions.print_paragraphs([
                 ["You may not be joined to the",0,"red","bold"],["Global Layer0",0,"cyan","bold"],
-                ["or a",2,"red","bold"],["State Channel?",2,"cyan","bold"],
+                ["or a",2,"red","bold"],["Metagraph?",2,"cyan","bold"],
                 ["Are you sure the",0,"red","bold"], ["Node",0,"yellow","bold,underline"],
                 ["service is running?",2,"red","bold"]
             ])
@@ -143,9 +182,12 @@ class Error_codes():
             
             
         elif var.line_code == "api_error":
-            self.log.logger.critical("API timeout error detected.  nodectl terminating...")
+            extra2 = "unknown" if var.extra2 == None else var.extra2
+            self.log.logger.critical(f"API timeout error detected.  url [{extra2}] nodectl terminating...")
             self.functions.print_paragraphs([
-                ["Timed Out or Error encountered while waiting for API. Are you sure the",0,"red","bold"],
+                ["Timed Out or Error encountered while waiting for API.",1,"red","bold"],
+                ["An API call returned an invalid response.",2,"red","bold"],
+                ["Possible other reasons could be service related? Are you sure the",0,"red","bold"],
                 ["Node",0,"yellow","underline"], ["service(s) are running?",2,"red","bold"],
                 ["Make sure your",0,"magenta"], ["firewall",0,"magenta","underline"], ["has the proper TCP ports opened.",2,"magenta"],
             ])
@@ -233,7 +275,7 @@ class Error_codes():
         elif var.line_code == "ip_not_found":
             self.log.logger.warn("unable to find the external IP address of the Node, there may be internet access issues ensuring, exited program")
             self.functions.print_paragraphs([
-                ["In an attempt to search the State Channel with an IP address,",0,"red"],
+                ["In an attempt to search the Metagraph with an IP address,",0,"red"],
                 [var.extra,0,"yellow","bold"],
                 ["is invalid or not found, please check this",0,"red"] ,["ip address",0,"red","underline"], ["and try again.",2,"red"],
             ])            
@@ -311,8 +353,13 @@ class Error_codes():
             self.log.logger.warn(f"invalid input from user was entered for option [{var.extra}], exited program.")
             self.functions.print_paragraphs([
                 ["nodectl found an invalid input entered by the Node Operator.",2,"red","bold"],
-                ["Please try again later or issue the",0], ["help",0,"yellow","bold"], ["option with the command in question for extended details",2],
-            ])         
+                ["Please try again later or issue the",0], ["help",0,"yellow","bold"], 
+                ["option with the command in question for extended details",2],
+            ])  
+            if var.extra:
+                self.functions.print_paragraphs([
+                    ["option or hint: ",0], [var.extra,2,"yellow"]
+                ])       
             
             
         elif var.line_code == "file_not_found":
@@ -347,6 +394,7 @@ class Error_codes():
             
             
         elif var.line_code == "profile_error":
+            if var.extra is None: var.extra = "unknown"
             self.log.logger.critical(f"invalid profile entered for execution [{var.extra}]")
             self.functions.print_paragraphs([
                 ["Tessellation attempted load a non-existent profile -",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
@@ -378,6 +426,13 @@ class Error_codes():
             ]) 
             
             
+        elif var.line_code == "download_yaml":
+            self.log.logger.critical(f"unable to download valid configuration file [cn-config.yaml]")
+            self.functions.print_paragraphs([
+                ["nodectl installer attempted to download an invalid or non-existent yaml pre-defined configuration.",0,"red"],
+                ["The installer cannot continue, please try installation again or seek assistance from the official Constellation Discord channel.",0,"red"],
+            ])
+            
         elif var.line_code == "config_error":
             self.log.logger.critical(f"unable to load configuration file [cn-config.yaml]")
             if var.extra == "existence":
@@ -408,8 +463,8 @@ class Error_codes():
         #system("clear")
         if when == "start":
             self.functions.print_paragraphs([
-                ["",1], [" CRITICAL ERROR ",1,"red,on_yellow"], 
-                ["Terminating",0], ["nodectl",0,"cyan","underline"], ["utility.",2],
+                ["",1], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
+                ["Terminating",0], ["nodectl",0,"cyan","underline"], ["utility or current thread process.",2],
                 ["Error Code:",0,"white","bold"], [self.error_code,2,"yellow","bold"],
             ])
             return

@@ -9,16 +9,17 @@ class Troubleshooter():
         self.log = Logging()
         
     def setup_logs(self,command_obj):
-        profile_names = list(self.config_obj["profiles"].keys())
+        profile_names = list(self.config_obj.keys())
         self.log_dict = {}
         single_profile = command_obj.get("profile",False)
         if single_profile:
             profile_names = [single_profile]
             
         for profile in profile_names:
-            self.log_dict[profile] = {}
-            self.log_dict[profile]["app"] = f"/var/tessellation/{profile}/logs/app.log"
-            self.log_dict[profile]["http"] = f"/var/tessellation/{profile}/logs/http.log"
+            if "global" not in profile:
+                self.log_dict[profile] = {}
+                self.log_dict[profile]["app"] = f"/var/tessellation/{profile}/logs/app.log"
+                self.log_dict[profile]["http"] = f"/var/tessellation/{profile}/logs/http.log"
 
 
     def test_for_connect_error(self):
@@ -45,6 +46,8 @@ class Troubleshooter():
                         # the end of the current app file
                         if "CollateralNotSatisfied" in line:
                             return (profile,"Collateral Not Satisfied","join_error")
+                        if "SeedlistDoesNotMatch" in line:
+                            return (profile,"Seed List Issue","join_error")
                         if "VersionMismatch" in line:
                             return (profile,"Version Issue","upgrade_needed")
                         if "Unauthorized for request" in line:

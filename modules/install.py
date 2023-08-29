@@ -26,44 +26,57 @@ class Installer():
         self.ip_address = command_obj["ip_address"]
         self.network_name = command_obj["network_name"]
         self.existing_p12 = command_obj["existing_p12"]
+        self.command_obj = command_obj
         
         self.error_messages = Error_codes() 
         self.fun_obj = {
-            "caller": "install",
-            "network_name": self.network_name    
+            "global_elements": {
+                "caller": "install",
+                "network_name": self.network_name    
+            },
         }
         self.functions = Functions(self.fun_obj)
         self.log = Logging()
-
-        command_obj = {
-            "caller": "installer",
-            "profile": "empty",
-            "command": "install",
-            "command_list": [],
-            "version_obj": command_obj["version_obj"],
-            "config_obj": self.functions.config_obj,
-            "ip_address": command_obj["ip_address"],
-            "skip_services": False
-        }
-        self.cli = CLI(command_obj)
-        self.log = Logging()
-        self.user = UserClass(self.cli,True)
         
 
     def install_process(self):
         self.verify_existing()
-        self.process_dependencies()
+        self.build_config_file("skeleton")
+        self.build_classes()
+        self.build_config_file("defaults")
+        self.process_distro_dependencies()
+        self.download_binaries()
         self.make_swap_file()
-        self.user.setup_user()
+        self.setup_user()
         self.create_dynamic_elements()
         self.generate_p12_from_install()
-        self.build_config_file()
+        self.build_config_file("p12")
         self.setup_new_configuration()
         self.populate_node_service()
-        self.download_seedlist()
         self.complete_install()
     
 
+    def build_classes(self):
+        cli_obj = {
+            "caller": "installer",
+            "profile": "empty",
+            "command": "install",
+            "command_list": [],
+            "version_obj": self.command_obj["version_obj"],
+            "config_obj": self.config_obj,
+            "ip_address": self.command_obj["ip_address"],
+            "skip_services": False
+        }
+        self.cli = CLI(cli_obj)
+        self.user = UserClass(self.cli,True)
+        
+        self.setup_config = Configuration({
+            "implement": False,
+            "action": "install",
+            "argv_list": ["None"]
+        })
+        
+        
     def verify_existing(self):
         found_files = self.functions.get_list_of_files({
             "paths": ["/var/tessellation/","/home/nodeadmin/"],
@@ -112,26 +125,60 @@ class Installer():
                 "status_color": "green"
             })        
             
-            
-    def build_config_file(self):
-        migrate = Migration({
-            "config_obj": self.fun_obj,
-            "caller": "install",
-        })
-        
-        
-        migrate.config_details = {
-            "passphrase": self.p12_session.p12_password,
-            "keystore": self.p12_session.p12_file_location,
-            "alias": self.p12_session.wallet_alias,
-            "environment": self.network_name,
-            "nodeadmin": self.user.username,
-            "p12_name": self.p12_session.p12_filename
-        }
 
-        migrate.create_n_write_yaml()
-    
-    
+    def setup_user(self):
+        self.functions.print_any_key({})
+        self.user.setup_user()  
+        
+                  
+    def build_config_file(self,action):
+        skeleton = None
+        
+        if action == "skeleton":
+            skeleton = self.functions.pull_remote_profiles({
+                "retrieve": "config_file"
+            })
+            self.config_obj = skeleton[self.network_name]["json"]["nodectl"]
+            self.config_obj["global_elements"] = {
+                "caller": "installer",
+                "network_name": self.network_name,
+            }
+            
+            # download specific file to Node
+            try:
+                system(f'sudo wget {skeleton[self.network_name]["yaml_url"]} -O /var/tessellation/nodectl/cn-config.yaml -o /dev/null')
+            except Exception as e:
+                self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton[self.network_name]["nodectl"]["yaml_url"]}] with error [{e}]')
+                self.error_messages.error_code_messages({
+                    "error_code": "int-149",
+                    "line_code": "download_yaml",
+                })
+        
+        elif action == "defaults":
+            self.setup_config.config_obj = self.config_obj
+            self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
+            self.setup_config.metagraph_list = self.metagraph_list
+            self.config_obj = self.setup_config.setup_config_vars()
+            self.functions.config_obj = self.config_obj
+
+        elif action == "p12":
+            p12_replace_list = [
+                ("passphrase", f'"{self.p12_session.p12_password}"'),
+                ("key_location",self.p12_session.p12_file_location),
+                ("key_name", self.p12_session.p12_filename),
+                ("key_alias",self.p12_session.key_alias),
+                ("nodeadmin",self.user.username),
+            ]
+            
+            for p12_item in p12_replace_list:
+                self.functions.test_or_replace_line_in_file({
+                    "file_path": "/var/tessellation/nodectl/cn-config.yaml",
+                    "search_line": f"    {p12_item[0]}: blank",
+                    "replace_line": f"    {p12_item[0]}: {p12_item[1]}\n",
+                    "skip_backup": True,
+                })
+
+
     def create_dynamic_elements(self):
         print("")
         self.functions.print_header_title({
@@ -144,12 +191,12 @@ class Installer():
             [" IMPORTANT ",2,"white,on_red"], 
             ["nodectl installation will install the new",0,"magenta"], ["Node",0,"blue","bold"], 
             ["with default",0,"magenta"],
-            ["Constellation Network",0,"blue","bold,underline"], ["DAG Global Layer0",0,"yellow","bold"],
-            ["and",0,"magenta"], ["DAG Layer1 State Channel",0,"yellow","bold"], ["settings.",2,"magenta"],
+            ["Metagraph Network Variables",2,"blue","bold,underline"],
             
-            ["After installation is complete, the Node Administrator may alter the",0,"magenta"], ["nodectl",0,"blue","bold,underline"],
-            ["configuration to modify",0,"magenta"], ["nodectl",0,"blue","bold"],
-            ["to connect to the",0,"magenta"], ["State Channel",0,"magenta","underline"], ["of choice via the command:",2,"magenta"],
+            ["Metagraph:",0], [self.config_obj['global_elements']['network_name'],2,"yellow"],
+            
+            ["After installation is complete, the Node Operator may alter the",0,"magenta"], ["nodectl",0,"blue","bold"],
+            ["configuration to allow connection to the",0,"magenta"], ["Metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
             
             ["sudo nodectl configure",2],
         ])
@@ -177,22 +224,20 @@ class Installer():
                 "delay": .1,
             })
                     
-        self.log.logger.info("creating directories backups logs layer0 and layer1") 
+        self.log.logger.info("creating directory structure data, backups, and uploads") 
         
-        layer0 = "dag-l0"
-        layer1 = "dag-l1"
-        if self.network_name == "integrationnet":
-            layer0 = "intnet-l0"
-            layer1 = "intnet-l1"
-            
         dir_obj = {
             "tessellation": "/var/tessellation/",
-            "backups": "/var/tessellation/backups/",
-            "uploads": "/var/tessellation/uploads/",
             "nodectl": "/var/tessellation/nodectl/",
-            "default_layer0": f"/var/tessellation/{layer0}/data/snapshot",
-            "default_layer1": f"/var/tessellation/{layer1}/",
         }
+        for profile in self.metagraph_list:
+            dir_obj[f"{profile}_backups"] = self.config_obj[profile]["directory_backups"]
+            dir_obj[f"{profile}_uploads"] = self.config_obj[profile]["directory_uploads"]
+            if self.config_obj[profile]["layer"] < 1:
+                dir_obj[f"{profile}_data_layer0"] = f"/var/tessellation/{profile}/data/snapshot"
+            else:
+                dir_obj[f"{profile}_data_layer1"] = f"/var/tessellation/{profile}/"
+
         for ux, dir in dir_obj.items():
             progress(ux,False)
             if not path.isdir(dir):
@@ -207,7 +252,7 @@ class Installer():
         sleep(.8) # UX allow user to see output
         
            
-    def process_dependencies(self):
+    def process_distro_dependencies(self):
         self.log.logger.info("installer - downloading binaries")
         print("")
         self.functions.print_header_title({
@@ -222,6 +267,7 @@ class Installer():
             "vim": False,
             "curl": False,
             "wget": False,
+            "tree": False,
         }
                 
         environ['DEBIAN_FRONTEND'] = 'noninteractive'         
@@ -271,8 +317,14 @@ class Installer():
                         "status": "complete",
                         "newline": True
                     })
-            
-        self.cli.node_service.download_constellation_binaries({"action": "install"})
+
+
+    def download_binaries(self):            
+        self.cli.node_service.download_constellation_binaries({
+            "action": "install",
+            "environment": self.network_name
+        })
+        
         self.functions.print_cmd_status({
             "text_start": "Installing Tessellation binaries",
             "status": "complete",
@@ -357,6 +409,13 @@ class Installer():
             "delay": 0,
             "newline": True
         })   
+
+        self.functions.print_cmd_status({
+            "text_start": "System Requirements",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })   
     
 
     def generate_p12_from_install(self):
@@ -390,7 +449,7 @@ class Installer():
         if len(possible_found.keys()) < 1:
             verb = "Example"
             user_action = "Please select it below"
-            possible_found = [f"/home/{current_user}/my_p12_name.p12"]
+            possible_found = [f"/home/{current_user}/my_p12_key_name.p12"]
         
         self.functions.print_paragraphs([
             ["",2], ["nodectl has detected an existing p12 migration to this new Node has been requested;",0,"yellow"],
@@ -447,45 +506,27 @@ class Installer():
         
     def setup_new_configuration(self):
         # rebuild node service with config
-        setup_config = Configuration({
-            "implement": False,
-            "action": "install",
-            "argv_list": ["None"]
-        })
-        setup_config.config_obj = {
-            **setup_config.config_obj,
+        self.setup_config.config_obj = {
+            **self.config_obj,
+            **self.setup_config.config_obj,
             **self.functions.config_obj,
             "upgrader": True
         }
         self.log.logger.info("Installation populating node service variables for build")
-        setup_config.build_yaml_dict()
-        setup_config.setup_config_vars()
+        self.setup_config.build_yaml_dict()
+        self.setup_config.setup_config_vars()
         # replace cli and node service config object with newly created obj
-        self.cli.functions.config_obj = setup_config.config_obj
-        self.cli.node_service.config_obj = setup_config.config_obj
+        self.cli.functions.config_obj = self.setup_config.config_obj
+        self.cli.node_service.config_obj = self.setup_config.config_obj
 
 
-    def download_seedlist(self):
-        self.config = Configuration({
-            "action": "edit_config",
-            "implement": True,
-            "argv_list": ["install","empty"] # needs two positional values
-        }) 
-        self.cli.node_service.functions.config_obj = self.config.config_obj
-        self.cli.functions.config_obj = self.config.config_obj
-        
-        for profile in self.config.config_obj["profiles"].keys():
-            self.cli.node_service.download_update_seedlist({
-                "profile": profile,
-            })
-            
-            
     def populate_node_service(self):                
         progress = {
             "text_start": "Creating Services",
             "status": "running",
         }
         self.functions.print_cmd_status(progress)
+        self.cli.node_service.profile_names = self.metagraph_list
         self.cli.node_service.build_service()
         self.functions.print_cmd_status({
             **progress,
@@ -527,9 +568,9 @@ class Installer():
                 ["sudo nodectl configure",2,"cyan"]
             ])
         else:
-            for profile in self.config.config_obj["profiles"].keys():
-                if self.config.config_obj["profiles"][profile]["pro"]["seed_location"] != "disable":
-                    self.cli.check_seed_list(["-p",profile])
+            for profile in self.metagraph_list:
+                if self.config_obj[profile]["seed_location"] != "disable":
+                    self.cli.check_seed_list(["-p",profile,"-id",self.cli.nodeid])
 
         self.functions.print_paragraphs([
             ["",1], [f"Please review the next Steps in order to gain access to the {self.network_name} environment.",0],
@@ -538,7 +579,7 @@ class Installer():
             ["Please follow the instructions below, as indicated.",2],
             ["1",0,"magenta","bold"], [")",-1,"magenta"], ["Submit your NodeID to Constellation Admins.",1,"cyan"],
             ["2",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node.",1,"cyan"],
-            ["3",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl check_seedlist -p dag-l0",1,"cyan"],
+            ["3",0,"magenta","bold"], [")",-1,"magenta"], [f"sudo nodectl check_seedlist -p {self.metagraph_list[0]}",1,"cyan"],
             ["4",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",2,"cyan"],
             ["enod!",2,"white","bold"],
         ])        

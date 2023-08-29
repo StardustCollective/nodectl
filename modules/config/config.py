@@ -20,7 +20,7 @@ class Configuration():
     def __init__(self,command_obj):
         
         self.functions = Functions({
-            "caller": "config",
+            "global_elements": {"caller":"config"},
             "sudo_rights": False
         })
         self.functions.check_sudo()
@@ -30,8 +30,6 @@ class Configuration():
         
         self.argv_list = command_obj["argv_list"]
         
-
-            
         if "help" in self.argv_list[0]:
             return
 
@@ -47,13 +45,14 @@ class Configuration():
             
         # rebuild functions with errors and logging
         self.functions = Functions({
-            "caller": "config",
+            "global_elements": {"caller": "config"},
         })
 
         self.error_messages = Error_codes() 
         
         execute = command_obj["implement"]
         self.action = command_obj["action"]        
+        self.skip_final_report = command_obj.get("skip_report",False)
         self.yaml_file = '/var/tessellation/nodectl/cn-config.yaml'
         
         if "view" in self.action or self.action == "-vc":
@@ -64,8 +63,9 @@ class Configuration():
 
         skip_validation = ["configure","new_config","install"]
         self.do_validation = False if self.action in skip_validation else True
+        if self.action == "new_config_init": self.action = "edit_config"
 
-                
+        self.requested_configuration = False        
         self.current_layer = None
         self.profile_enable = {
             "profile": None,
@@ -76,23 +76,13 @@ class Configuration():
             self.implement_config()
         
 
-    def is_passphrase_required(self):
-        passphrase_required_list = [
-            "start","stop","upgrade","restart","check_seedlist",
-            "nodeid","id","export_private_key",
-            "leave","join", "upgrade",
-            "passwd","clean_snapshots","clean_files",
-            "auto_restart", "refresh_binaries","sec"
-        ]                
-        if self.called_command in passphrase_required_list:
-            return True
-        return False
-    
-    
     def implement_config(self):
         continue_list = ["normal","edit_config","edit_on_error"]
-                
+        
+        self.setup_schemas()
         self.build_yaml_dict()
+        self.check_for_migration()
+        self.finalize_config_tests()
         self.validate_yaml_keys()
         self.remove_disabled_profiles()
         self.setup_config_vars()
@@ -107,10 +97,13 @@ class Configuration():
             if len(self.error_list) == 0:
                 result = self.validate_profiles()
                 if result:
-                    self.setup_schemas()
+                    self.skip_global_validation = False
                     for profile in self.profiles:
-                        self.verify_profile_keys(profile)
+                        self.validate_profile_keys(profile)
+                    self.setup_path_formats("global_p12")
                     if self.validated:
+                        self.validate_port_duplicates()
+                        self.validate_seedlist_duplicates()
                         self.validate_services()
                         self.validate_p12_exists()
                         self.validate_link_dependencies()
@@ -122,31 +115,31 @@ class Configuration():
             exit(0)
         if self.action == "edit_on_error":
             self.edit_on_error_args = ["-e"]
+            self.requested_configuration = True
             return
         
         
     def build_yaml_dict(self,return_dict=False):
-        while True:
-            try:
-                with open(self.yaml_file, 'r', encoding='utf-8') as f:
-                    yaml_data = f.read()
-            except:
-                if path.isfile("/usr/local/bin/cn-node") and not path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
-                    if self.called_command != "upgrade":
-                        self.error_messages.error_code_messages({
-                            "error_code": "cfg-99",
-                            "line_code": "upgrade_needed"
-                        })
-                    
-                    self.migration()
-                    self.do_validation = False
-                else:
-                    self.send_error("cfg-99") 
+        try:
+            with open(self.yaml_file, 'r', encoding='utf-8') as f:
+                yaml_data = f.read()
+        except:
+            if path.isfile("/usr/local/bin/cn-node") and not path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
+                if self.called_command != "upgrade":
+                    self.error_messages.error_code_messages({
+                        "error_code": "cfg-99",
+                        "line_code": "upgrade_path_needed"
+                    })
+                self.error_messages.error_code_messages({
+                    "error_code": "cfg-143",
+                    "line_code": ""
+                })
+                self.do_validation = False
             else:
-                break
+                self.send_error("cfg-99") 
 
         try:
-            yaml_dict = yaml.safe_load(yaml_data)
+            self.yaml_dict = yaml.safe_load(yaml_data)
         except Exception as e:
             continue_to_error = True
             self.log.logger.error(f"configuration file [cn-config.yaml] error code [cfg-32] not able to be loaded into memory, nodectl will attempt to issue a fix... | error: [{e}]")
@@ -156,7 +149,7 @@ class Configuration():
                     with open(self.yaml_file, 'r', encoding='utf-8') as f:
                         yaml_data = f.read()
                     try:
-                        yaml_dict = yaml.safe_load(yaml_data)
+                        self.yaml_dict = yaml.safe_load(yaml_data)
                     except Exception as ee:
                         self.log.logger.critical(f"configuration file [cn-config.yaml] error code [cfg-32] not able to be loaded into memory, issue with formatting. | error: [{ee}]")
                     else:
@@ -170,16 +163,59 @@ class Configuration():
                     "extra2": None
                 })      
 
+        self.nodectl_config_simple_format_check = list(self.yaml_dict.keys())
+        
         self.config_obj = {
             **self.config_obj,
-            **yaml_dict["nodectl"]
+            **self.yaml_dict[self.nodectl_config_simple_format_check[0]],
         }
         
         if return_dict:
             return self.config_obj
         
+        
+    def check_for_migration(self):
+        self.functions.pull_upgrade_path(True)
+        self.version_obj = self.functions.get_version({"which":"nodectl"})
+        nodectl_version = self.version_obj["node_nodectl_version"]
+        nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
+        
+        validate = True
+        if len(self.nodectl_config_simple_format_check) > 1 or "nodectl" not in self.nodectl_config_simple_format_check[0]:
+            validate = False
+            
+        if not validate:
+            self.error_messages.error_code_messages({
+                "error_code": "cfg-180",
+                "line_code": "config_error",
+                "extra": "format",
+                "extra2": None,
+            })
+        
         try:
-            _ = json.dumps(yaml_dict, sort_keys=True, indent=4)
+            found_yaml_version = self.config_obj["global_elements"]["nodectl_yaml"]
+        except:
+            found_yaml_version = False
+            
+        if not found_yaml_version or found_yaml_version != nodectl_yaml_version:
+            self.log.logger.info(f"configuaration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
+            if self.called_command != "upgrade":
+                self.error_messages.error_code_messages({
+                    "error_code": "cfg-199",
+                    "line_code": "upgrade_needed"
+                })
+            self.migration()
+            self.config_obj = {}  # reset
+            self.build_yaml_dict() # rebuild new configuration format
+        else:
+            self.log.logger.debug(f"configuaration validator did not find a migration need for current configuration format - nodectl version [{nodectl_version}]")    
+            
+            
+    def finalize_config_tests(self):
+        self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
+        
+        try:
+            _ = json.dumps(self.yaml_dict, sort_keys=True, indent=4)
         except:
             self.log.logger.critical("configuration file [cn-config.yaml] error code [cfg-37] able to be formatted for reading, issue with formatting.")
             self.error_messages.error_code_messages({
@@ -189,27 +225,16 @@ class Configuration():
                 "extra2": None
             }) 
         
-        self.config_obj["global_cli_pass"] = False # initialize 
-        self.config_obj["upgrader"] = False # initialize 
-        self.config_obj["all_global"] = False # initialize 
+        self.config_obj["global_elements"]["global_cli_pass"] = False # initialize 
+        self.config_obj["global_elements"]["global_upgrader"] = False # initialize 
+        self.config_obj["global_elements"]["all_global"] = False # initialize 
         
         self.validate_global_setting()
         try:
-            self.handle_global_passphrase()
+            self.handle_cli_passphrase()
         except KeyError:
             pass
-        
-        for profile in self.config_obj["profiles"].keys():
-            for p12_key in self.config_obj["profiles"][profile]["p12"].keys():
-                if self.action == "edit_config":
-                    if "global" in p12_key:
-                        self.config_obj["profiles"][profile]["p12"][p12_key] = False
-                else:
-                    if "global" not in p12_key and "global" in self.config_obj["profiles"][profile]["p12"][p12_key]:
-                        self.config_obj["profiles"][profile]["p12"][p12_key] = self.config_obj["global_p12"][p12_key]
 
-            self.config_obj["profiles"][profile]["p12"]["cli_pass"] = False # initialize
-        
 
     def yaml_passphrase_fix(self):
         temp_file = "/var/tmp/cn-config_temp.yaml"
@@ -258,7 +283,10 @@ class Configuration():
         
     def migration(self):
         self.migrate = Migration({
-            "config_obj": self.functions.config_obj
+            "config_obj": {
+                **self.config_obj,
+                **self.functions.config_obj,
+            }
         })
         if self.migrate.migrate():
             self.view_yaml_config("migrate")
@@ -319,45 +347,24 @@ class Configuration():
         exit(0)
                 
         
-    def handle_global_passphrase(self):
+    def handle_cli_passphrase(self):
         # grab cli passphrase if present
         if "--pass" in self.argv_list:
-            self.config_obj["global_cli_pass"] = True
+            self.config_obj["global_elements"]["global_cli_pass"] = True
             self.config_obj["global_p12"]["passphrase"] = self.argv_list[self.argv_list.index("--pass")+1]
-            
-        init = {}
-        for profile in self.config_obj["profiles"].keys():
-            for p12_key in self.config_obj["profiles"][profile]["p12"].keys():
-                p12_item = self.config_obj["profiles"][profile]["p12"][p12_key]
-                init[f"p12_{p12_key}_global"] = False
-                if self.config_obj["profiles"][profile]["p12"][p12_key] == "global" and "cli" not in p12_item:
-                    init[f"p12_{p12_key}_global"]= True
-            
-            for key, value in init.items():
-                self.config_obj["profiles"][profile]["p12"][key] = value
 
-            pass
-                      
-    
+        
+    def create_path_variable(self, path, file):
+        try:
+            path = f"{path}/{file}" if path[-1] != "/" else f"{path}{file}"
+        except:
+            return False
+        return path
+
+
     def setup_config_vars(self):
         # sets up the automated values not present in the 
         # yaml file
-        
-        dirs = {
-            "backups": "/var/tessellation/backups/",
-            "uploads": "/var/tessellation/uploads/",
-            "snapshots": "/var/tessellation/cnng-profile_name/data/snapshot/"
-        }
-        
-        def create_path_variable(path, file):
-            try:
-                if path[-1] != "/":
-                    path = f"{path}/{file}"
-                else:
-                    path = f"{path}{file}"
-            except:
-                return False
-            return path
 
         def error_found():
             self.error_found = True
@@ -370,23 +377,41 @@ class Configuration():
                 "value": "global_p12",
                 "special_case": None
             }) 
-                        
+            
+        # default seed_repository setup in node_services -> download_update_seedlist        
+        defaults = {
+            "directory_backups": "/var/tessellation/backups/",
+            "directory_uploads": "/var/tessellation/uploads/",
+            "seed_file": "seed-list",
+            "seed_location": "/var/tessellation",
+            "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
+            "jar_repository": "github.com/Constellation-Labs/tessellation/",
+            "edge_point": [
+                "l0-lb-cnng_edge_name.constellationnetwork.io",
+                "l1-lb-cnng_edge_name.constellationnetwork.io",
+            ],
+            "edge_point_tcp_port": 80,
+            "public_port": [9000,9010],
+            "p2p_port": [9001,9011],
+            "cli_port": [9002,9012],
+            "java_xms": "1024M",
+            "java_xss": "256K",
+            "java_xmx": ["7G","3G"],
+        }
+        
         try:
-            self.config_obj["global_p12"]["key_store"] = create_path_variable(
+            self.config_obj["global_p12"]["key_store"] = self.create_path_variable(
                 self.config_obj["global_p12"]["key_location"],
-                self.config_obj["global_p12"]["p12_name"],
+                self.config_obj["global_p12"]["key_name"],
             ) 
         except:
             error_found()
         
-        for profile in self.config_obj["profiles"].keys():
-            # handle "global" key word
-            # any keys that are global will be reset to the global value
-            # setup the key_store dynamic value based on existing or new values
+        for profile in self.metagraph_list:
             try:
-                self.config_obj["profiles"][profile]["p12"]["key_store"] = create_path_variable(
-                    self.config_obj["profiles"][profile]["p12"]["key_location"],
-                    self.config_obj["profiles"][profile]["p12"]["p12_name"]
+                self.config_obj[profile]["p12_key_store"] = self.create_path_variable(
+                    self.config_obj[profile]["p12_key_location"],
+                    self.config_obj[profile]["p12_key_name"]
                 )
             except KeyError:
                     self.error_list.append({
@@ -398,13 +423,23 @@ class Configuration():
                         "value": "p12",
                         "special_case": None
                     })
-                    
+                
             # does the profile link through itself?
+            link_key_error = False
             try:
-                self.config_obj["profiles"][profile]["layer0_link"]["is_self"] = True
-                if self.config_obj["profiles"][profile]["layer0_link"]["link_profile"] == "None":
-                    self.config_obj["profiles"][profile]["layer0_link"]["is_self"] = False
+                self.config_obj[profile]["ml0_link_is_self"] = True
+                if self.config_obj[profile]["ml0_link_profile"] == "None":
+                    self.config_obj[profile]["ml0_link_is_self"] = False
             except KeyError:
+                link_key_error = True
+            try:
+                self.config_obj[profile]["gl0_link_is_self"] = True
+                if self.config_obj[profile]["gl0_link_profile"] == "None":
+                    self.config_obj[profile]["gl0_link_is_self"] = False
+            except KeyError:
+                link_key_error = True
+                
+            if link_key_error:
                     self.error_list.append({
                         "title": "section_missing",
                         "section": "global",
@@ -415,10 +450,29 @@ class Configuration():
                         "special_case": None
                     })
                     
+            for tdir, def_value in defaults.items():
+                try:
+                    if self.config_obj[profile][tdir] == "default":
+                        if tdir == "seed_file": self.config_obj[profile][tdir] = f'{profile}-seedlist' # exception
+                        elif isinstance(def_value,list):
+                            if tdir == "edge_point": 
+                                for n, edge in enumerate(def_value): 
+                                    def_value[n] = edge.replace("cnng_edge_name",self.config_obj[profile]["environment"])
+                            self.config_obj[profile][tdir] = def_value[0]
+                            if int(self.config_obj[profile]["layer"]) > 0: self.config_obj[profile][tdir] = def_value[1]
+                        else: self.config_obj[profile][tdir] = def_value  
+                except Exception as e:
+                    self.log.logger.error(f"setting up configuration variables error detected [{e}]")
+                    error_found()
+
+            self.config_obj[profile]["jar_github"] = False         
+            if "github.com" in self.config_obj[profile]["jar_repository"]:
+                self.config_obj[profile]["jar_github"] = True 
+                
             try:
-                self.config_obj["profiles"][profile]["pro"]["seed_path"] = create_path_variable(
-                    self.config_obj["profiles"][profile]["pro"]["seed_location"],
-                    self.config_obj["profiles"][profile]["pro"]["seed_file"]
+                self.config_obj[profile]["seed_path"] = self.create_path_variable(
+                    self.config_obj[profile]["seed_location"],
+                    self.config_obj[profile]["seed_file"]
                 )
             except KeyError:
                 self.error_list.append({
@@ -430,14 +484,11 @@ class Configuration():
                     "value": "p12",
                     "special_case": None
                 })
-                    
-            for dir, location in dirs.items():
-                if self.config_obj["profiles"][profile]["dirs"][dir] == "default":
-                    if dir == "snapshots":
-                        location = location.replace("cnng-profile_name",profile)
-                    self.config_obj["profiles"][profile]["dirs"][dir] = location                    
-                    
-        self.config_obj["caller"] = None  # init key (used outside of this class)
+        
+        if self.action == "install":
+            return self.config_obj
+        
+        self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
             
             
     def prepare_p12(self):
@@ -454,21 +505,36 @@ class Configuration():
     
     def remove_disabled_profiles(self):
         remove_list = []
-        for profile in self.config_obj["profiles"].keys():
-            if not self.config_obj["profiles"][profile]["enable"]:
+        
+        for profile in self.metagraph_list:
+            if not self.config_obj[profile]["profile_enable"]:
                 if "edit_config" not in self.argv_list:
                     remove_list.append(profile)
 
         for profile in remove_list:
-            self.config_obj["profiles"].pop(profile)
+            self.config_obj.pop(profile)
+            self.metagraph_list.pop(self.metagraph_list.index(profile))
 
-            
+
+    def is_passphrase_required(self):
+        passphrase_required_list = [
+            "start","stop","upgrade","restart","check_seedlist",
+            "nodeid","id","export_private_key",
+            "leave","join", "upgrade",
+            "passwd","clean_snapshots","clean_files",
+            "auto_restart", "refresh_binaries","sec"
+        ]                
+        if self.called_command in passphrase_required_list:
+            return True
+        return False
+    
+                
     def setup_passwd(self,force=False):
         def verify_passwd(passwd, profile):
             clear, top_new_line, show_titles = False, False, True 
-            if profile == "global" and ( not self.config_obj["upgrader"] or self.argv_list[1] != "upgrade" ):
+            if profile == "global" and ( not self.config_obj["global_elements"]["global_upgrader"] or self.argv_list[1] != "upgrade" ):
                 clear = True
-            if self.config_obj["upgrader"] or self.argv_list[1] == "upgrade":
+            if self.config_obj["global_elements"]["global_upgrader"] or self.argv_list[1] == "upgrade":
                 if profile != "global":
                     print("") # newline
                 show_titles = False
@@ -492,27 +558,26 @@ class Configuration():
             
         passwd = self.config_obj["global_p12"]["passphrase"]
         if passwd == None or passwd == "None":
-            self.config_obj["global_cli_pass"] = True
+            self.config_obj["global_elements"]["global_cli_pass"] = True
             passwd = False
 
         if self.is_passphrase_required() or force:
             verify_passwd(passwd,"global")  
         
-        if not self.config_obj["all_global"]:
-            for profile in self.config_obj["profiles"].keys():
+        if not self.config_obj["global_elements"]["all_global"]:
+            for profile in self.metagraph_list:
                 # print(json.dumps(self.config_obj,indent=3))
-                if not self.config_obj["profiles"][profile]["p12"]["p12_passphrase_global"]:
-                    passwd = self.config_obj["profiles"][profile]["p12"]["passphrase"]
+                if not self.config_obj[profile]["global_p12_passphrase"]:
+                    passwd = self.config_obj[profile]["p12_passphrase"]
                     if passwd == "None" or passwd == None:
-                        self.config_obj["profiles"][profile]["p12"]["cli_pass"] = True
+                        self.config_obj[profile]["global_p12_cli_pass"] = True
                         passwd = False
                     if self.is_passphrase_required():
                         verify_passwd(passwd,profile)
                 else:
-                    self.config_obj["profiles"][profile]["p12"]["passphrase"] = self.config_obj["global_p12"]["passphrase"]
+                    self.config_obj[profile]["p12_passphrase"] = self.config_obj["global_p12"]["passphrase"]
 
         
-    
     def setup_self_settings(self):
         # configuration key word "self" for linking to global l0
         def grab_nodeid(profile):
@@ -532,41 +597,49 @@ class Configuration():
                 sleep(2)
             return False
                        
-        write_out = False
+        write_out, success = False, False
         attempts = 0
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
-        profile_obj = self.config_obj["profiles"]; self.profile_obj = profile_obj
+        profile_obj = self.config_obj; self.profile_obj = profile_obj
         
         if not self.auto_restart:
             self.functions.print_clear_line()
         
-        for profile in profile_obj.keys():
-            if profile_obj[profile]["enable"] and self.action != "edit_config":
-                if profile_obj[profile]["layer0_link"]["layer0_host"] == "self":
-                    print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
-                    profile_obj[profile]["layer0_link"]["layer0_host"] = self.functions.get_ext_ip() 
-                if profile_obj[profile]["layer0_link"]["layer0_key"] == "self":
-                    self.setup_passwd(True)
-                    while True:
-                        print(f"{print_str}{colored('link host public key','yellow')}",end="\r")
-                        if not write_out:
-                            write_out = True
-                            success = grab_nodeid(profile)
-                        if success:
-                            self.nodeid = self.nodeid.strip("\n")
-                            profile_obj[profile]["layer0_link"]["layer0_key"] = self.nodeid
-                            break
-                        sleep(2)
-                        attempts += 1
-                        if attempts > 2:
-                            self.error_messages.error_code_messages({
-                                "error_code": "cfg-337",
-                                "line_code": "node_id_issue",
-                                "extra": "config"
-                            })
+        for profile in self.metagraph_list:
+            if profile_obj[profile]["profile_enable"] and self.action != "edit_config":
+                for m_or_g in ["ml0","gl0"]:
+                    if profile_obj[profile][f"{m_or_g}_link_host"] == "self":
+                        print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
+                        sleep(.8) # allow user to see
+                        profile_obj[profile][f"{m_or_g}_link_host"] = self.functions.get_ext_ip() 
+                    if profile_obj[profile][f"{m_or_g}_link_port"] == "self":
+                        print(f"{print_str}{colored('link public port','yellow')}",end="\r")
+                        sleep(.8) # allow user to see
+                        link_profile_port = self.config_obj[self.config_obj[profile][f"{m_or_g}_link_profile"]]["public_port"]
+                        profile_obj[profile][f"{m_or_g}_link_port"] = link_profile_port 
+                    if profile_obj[profile][f"{m_or_g}_link_key"] == "self":
+                        self.setup_passwd(True)
+                        while True:
+                            print(f"{print_str}{colored('link host public key','yellow')}",end="\r")
+                            if not write_out:
+                                write_out = True
+                                if not success:
+                                    success = grab_nodeid(profile)
+                            if success:
+                                self.nodeid = self.nodeid.strip("\n")
+                                profile_obj[profile][f"{m_or_g}_link_key"] = self.nodeid
+                                break
+                            sleep(2)
+                            attempts += 1
+                            if attempts > 2:
+                                self.error_messages.error_code_messages({
+                                    "error_code": "cfg-337",
+                                    "line_code": "node_id_issue",
+                                    "extra": "config"
+                                })
 
             if write_out:  
-                done_ip, done_key, current_profile, skip_write = False, False, False, False
+                done_ip, done_key, done_port, current_profile, skip_write = False, False, False, False, False
                 self.log.logger.warn("found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
                 f = open("/var/tessellation/nodectl/cn-config.yaml")
                 with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
@@ -575,12 +648,24 @@ class Configuration():
                         if f"{profile}:" in line:
                             current_profile = True
                         if current_profile:
-                            if "layer0_key: self" in line and not done_key:
-                                newfile.write(f"        layer0_key: {self.nodeid}\n")
+                            if "ml0_link_key: self" in line and not done_key:
+                                newfile.write(f"    ml0_link_key: {self.nodeid}\n")
                                 done_key,skip_write = True, True
-                            elif "layer0_host: self" in line and not done_ip:
-                                newfile.write(f"        layer0_host: {self.functions.get_ext_ip()}\n")
+                            elif "ml0_link_host: self" in line and not done_ip:
+                                newfile.write(f"    ml0_link_host: {self.functions.get_ext_ip()}\n")
                                 done_ip, skip_write = True, True
+                            elif "ml0_link_port: self" in line and not done_port:
+                                newfile.write(f"    ml0_link_port: {link_profile_port}\n")
+                                done_port, skip_write = True, True
+                            elif "gl0_link_key: self" in line and not done_key:
+                                newfile.write(f"    gl0_link_key: {self.nodeid}\n")
+                                done_key,skip_write = True, True
+                            elif "gl0_link_host: self" in line and not done_ip:
+                                newfile.write(f"    gl0_link_host: {self.functions.get_ext_ip()}\n")
+                                done_ip, skip_write = True, True
+                            elif "gl0_link_port: self" in line and not done_port:
+                                newfile.write(f"    gl0_link_port: {link_profile_port}\n")
+                                done_port, skip_write = True, True
                         if not skip_write:
                             newfile.write(line)
                 newfile.close()
@@ -588,71 +673,171 @@ class Configuration():
                 system("mv /var/tmp/cn-config-temp.yaml /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
 
 
-    def validate_yaml_keys(self):
-        def test_missing(key):
-            try:
-                _ = self.obj[key]
-            except Exception as e:
-                return True
-            return False
-                
-        self.test_dict = {
-            "top": ["profiles","auto_restart","global_p12","global_cli_pass","upgrader","all_global"],
-            "profiles": [
-                "enable","layer","edge_point","environment","ports","service",
-                "layer0_link","dirs","java","p12","node_type","description"
+    def setup_schemas(self):   
+        # ===================================================== 
+        # schema order of sections needs to be in the exact
+        # same order as the yaml file setup both in the profile
+        # list values and each profile subsection below that...
+        # =====================================================         
+        self.schema = {
+            "metagraphs": [
+                ["profile_enable","bool"],
+                ["environment","str"],
+                ["description","str"],
+                ["node_type","node_type"],                
+                ["meta_type","meta_type"],                
+                ["layer","layer"],   
+                ["collateral","int"],
+                ["service","str"],
+                ["edge_point","host"],
+                ["edge_point_tcp_port","port"],
+                ["public_port","high_port"], 
+                ["p2p_port","high_port"], 
+                ["cli_port","high_port"], 
+                ["gl0_link_enable","bool"],
+                ["gl0_link_key","128hex"], 
+                ["gl0_link_host","host"], 
+                ["gl0_link_port","self_port"],
+                ["gl0_link_profile","str"],
+                ["gl0_link_is_self","bool"], # automated value [not part of yaml]
+                ["ml0_link_enable","bool"],
+                ["ml0_link_key","128hex"], 
+                ["ml0_link_host","host"], 
+                ["ml0_link_port","self_port"],
+                ["ml0_link_profile","str"],
+                ["token_identifier","wallet"],
+                ["ml0_link_is_self","bool"], # automated value [not part of yaml]
+                ["directory_backups","path_def"],
+                ["directory_uploads","path_def"],
+                ["java_xms","mem_size"],
+                ["java_xmx","mem_size"],
+                ["java_xss","mem_size"],
+                ["jar_repository","host_def"], 
+                ["jar_file","str"],
+                ["jar_github","bool"], # automated value [not part of yaml]
+                ["p12_nodeadmin","str"],
+                ["p12_key_location","path"],
+                ["p12_key_name","str"],
+                ["p12_key_alias","str"],
+                ["p12_passphrase","str"], 
+                ["p12_key_store","str"], # automated value [not part of yaml]              
+                ["seed_location","path_def_dis"],
+                ["seed_repository","host_def_dis"],
+                ["seed_file","str"],             
+                ["seed_path","path_def_dis"], # automated value [not part of yaml]
+                ["priority_source_location","path_def_dis"],
+                ["priority_source_repository","host_def_dis"],
+                ["priority_source_file","str"],             
+                ["priority_source_path","path_def_dis"], # automated value [not part of yaml]
+                ["custom_args_enable","bool"],
+                ["custom_env_vars_enable","bool"],
+                ["global_p12_all_global","bool"], # automated value [not part of yaml]
+                ["global_p12_passphrase","bool"], # automated value [not part of yaml]
+                ["global_p12_key_location","bool"], # automated value [not part of yaml]
+                ["global_p12_key_name","bool"], # automated value [not part of yaml]
+                ["global_p12_nodeadmin","bool"], # automated value [not part of yaml]
+                ["global_p12_key_alias","bool"], # automated value [not part of yaml]
+                ["global_p12_cli_pass","bool"], # automated value [not part of yaml]
             ],
-            "edge_point": ["https","host","host_port"],
-            "ports": ["public","p2p","cli"],
-            "layer0_link":  ["enable","layer0_key","layer0_host","layer0_port","link_profile"],
-            "dirs": ["snapshots","backups","uploads"],
-            "java":  ["xms","xmx","xss"],
-            "p12": ["nodeadmin","key_location","p12_name","wallet_alias","passphrase"]
-            
-        } 
+            "global_auto_restart": [
+                ["auto_restart","bool"],
+                ["auto_upgrade","bool"],
+                ["on_boot","bool"],
+                ["rapid_restart","bool"],
+            ],
+            "global_p12": [
+                ["nodeadmin","str"],
+                ["key_location","path"],
+                ["key_name","str"],
+                ["key_alias","str"],
+                ["passphrase","str"],
+                ["key_store","str"], # automated value [not part of yaml]
+            ],
+            "global_elements": [
+                ["metagraph_name","str"],
+                ["nodectl_yaml","str"],
+                ["log_level","log_level"],
+            ]
+        }
+        
+        # make sure to update validate_profile_types -> int_types or enabled_section
+        # as needed if the schema changes
+        
+        # set section progress dict
+        self.global_section_completed = {
+            "global_p12": False,
+            "global_auto_restart": False,
+        }
+        
+        
+    def setup_path_formats(self,profile):
+        def check_slash(st_val,path_value):
+            if "def" in st_val and path_value == "default": return
+            if "dis" in st_val and path_value == "disable": return
+            if path_value[-1] != "/": 
+                self.config_obj[profile][s_type] = f"{path_value}/" 
+                           
+        for section, section_types in self.schema.items():
+            if "global" not in profile and "global" not in section:
+                for s_type, st_val in section_types:
+                    if "path" not in s_type and "path" in st_val:
+                        path_value = self.config_obj[profile][s_type]
+                        check_slash(st_val,path_value)
+                        
+        if profile == "global_p12":
+            path_value = self.config_obj[profile]["key_location"]
+            check_slash("key_location",path_value)
                 
-        prof_obj = self.config_obj["profiles"]
+
+    def validate_yaml_keys(self):
+        # self.common_test_dict = {
+        #     "auto_restart": ["enable","auto_upgrade","rapid_restart"],
+        #     "global_p12": ["nodeadmin","key_location","key_name","key_alias","passphrase"],
+        #     "cnng_dynamic_profiles": [
+        #         "enable","metagraph_name","description","node_type","meta_type","layer","service",
+        #         "environment","edge_point","edge_point_tcp_port",
+        #         "public_port","p2p_port","cli_port",
+        #         "gl0_link_enable","gl0_link_key","gl0_link_host","gl0_link_port","gl0_link_profile",
+        #         "ml0_link_enable","ml0_link_key","ml0_link_host","ml0_link_port","ml0_link_profile",
+        #         "directory_backups","directory_uploads",
+        #         "java_xms","java_xmx",
+        #         "java_xss","jar_repository",
+        #         "p12_nodeadmin","p12_key_location","p12_key_name","p12_key_alias","p12_passphrase",
+        #         "seed_location","seed_file",
+        #         "custom_args_enable","custom_env_vars_enable",
+        #     ],
+        # }
+        # profile_value_list = self.common_test_dict["cnng_dynamic_profiles"]
         missing_list = []
         
-        for n, (k, v) in enumerate(self.test_dict.items()):
-            if n == 0:
-                self.obj = self.config_obj
-                missing = list(filter(test_missing,v))
-                if len(missing) > 0:
-                    missing_list.append(["top",missing])
-            elif n == 1:
-                try:
-                    self.obj = self.config_obj["profiles"]
-                except:
-                    missing_list.append(["profiles","profiles","profiles"])
-            if n > 0:
-                for profile in prof_obj:
-                    if n == 1:
-                        self.obj = prof_obj[profile]
-                    else:
-                        self.obj = prof_obj[profile][k]
-                                    
-                    missing = list(filter(test_missing,v))
-                    if len(missing) > 0:
-                        missing_list.append([profile, k, missing])
+        # ====================================
+        # placeholder for source priority path
+        # ====================================
+        for profile in self.metagraph_list:
+            self.config_obj[profile]["priority_source_path"] = "/var/tessellation/"
+            
+        for config_key, config_value in self.config_obj.items():
+            if "global" not in config_key:
+                # testing profiles
+                # key_test_list = list(config_value.keys())
+                # schema_test_list = [item[0] for item in self.schema["metagraphs"]]
+                missing =  [item[0] for item in self.schema["metagraphs"]] - config_value.keys()
+                missing = [x for x in missing if x not in ["seed_path","gl0_link_is_self","ml0_link_is_self","p12_key_store","jar_github"]]
+                for item in missing:
+                    missing_list.append([config_key, item])
+            if "global" in config_key:
+                section = self.schema[config_key]
+                missing_list = [[config_key, section_item[0]] for section_item in section if section_item[0] not in config_value.keys()]
 
-        title = "invalid cn-config.yaml"
         if len(missing_list) > 0:
             self.validated = False
             for error in missing_list:
-                section = profile = missing_keys = None
-                if error[0] == "top":
-                    missing_keys = error[1]
-                else:
-                    profile = error[0]
-                    section = error[1]
-                    missing_keys = error[2]
-                    
+                profile, missing_key = error
                 self.error_list.append({
-                    "title": title,
-                    "section": section,
+                    "title": "invalid cn-config.yaml",
+                    "section": "metagraph profiles",
                     "profile": profile,
-                    "missing_keys": missing_keys, 
+                    "missing_keys": missing_key, 
                     "key": None,
                     "type": "yaml",
                     "special_case": None,
@@ -662,10 +847,13 @@ class Configuration():
                             
     def validate_profiles(self):
         self.log.logger.debug("[validate_config] method called.")
+        self.num_of_global_sections = 3  # global_auto_restart, global_p12, global_elements
+        profile_minimum_requirement = 1
+        self.profiles = []
         
         # test #1 - at least one profile
-        self.profiles = self.config_obj["profiles"].keys()
-        if len(self.profiles) < 1:
+        self.profiles = list(self.config_obj.keys())
+        if len(self.profiles) < self.num_of_global_sections+profile_minimum_requirement:
             self.validated = False
             self.error_list.append({
                 "title":"no_profiles",
@@ -682,8 +870,8 @@ class Configuration():
     
     def validate_services(self):
         service_names = []
-        for i_profile in self.profiles:
-            service_names.append(self.config_obj["profiles"][i_profile]["service"]) 
+        for i_profile in self.metagraph_list:
+            service_names.append(self.config_obj[i_profile]["service"]) 
             
         if len(service_names) != len(set(service_names)):
             self.error_list.append({
@@ -692,7 +880,7 @@ class Configuration():
                 "profile": None,
                 "missing_keys": None, 
                 "key": "service",
-                "value": "skip",
+                "value": service_names,
                 "type": None,
                 "special_case": None
             })
@@ -700,13 +888,17 @@ class Configuration():
         
 
     def validate_global_setting(self):
-        global_count = 0
-        
+        # key_name, passphrase, and alias all have to match if set to global
+        self.config_obj["global_elements"]["all_global"] = True
         try:
-            for profile in self.config_obj["profiles"].keys():
-                g_tests = []
-                g_tests.append(self.config_obj["profiles"][profile]["p12"]["p12_name"])
-                g_tests.append(self.config_obj["profiles"][profile]["p12"]["passphrase"])
+            for profile in self.metagraph_list:
+                self.config_obj[profile]["global_p12_all_global"] = False
+                g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x in ["key_name","passphrase","key_alias"]]
+                self.config_obj[profile] = {
+                    **self.config_obj[profile],
+                    **{ f"global_p12_{x}": False for x in self.config_obj["global_p12"] },
+                }
+                    
                 if g_tests.count("global") != 0 and g_tests.count("global") != len(g_tests):
                     self.validated = False
                     self.error_list.append({
@@ -715,421 +907,307 @@ class Configuration():
                         "profile": profile,
                         "missing_keys": None, 
                         "type": "global",
-                        "key": "p12_name, passphrase",
+                        "key": "p12_key_name, p12_passphrase, p12_alias",
                         "special_case": None,
                         "value": "skip"
                     })
-                elif g_tests.count("global") != 0:
+                    
+                g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"]]
+                if g_tests.count("global") == len(self.config_obj["global_p12"]):
                     # test if everything is set to global
-                    global_count += 1
-        except:
-            self.send_error("cfg-705","format","existence")
+                    self.config_obj[profile]["global_p12_all_global"] = True
 
+        except Exception as e:
+            self.log.logger.critical(f"configuration format failure detected | exception [{e}]")
+            self.send_error("cfg-705","format","existence")
             
-        if len(self.config_obj["profiles"].keys()) == global_count:
-            self.config_obj["all_global"] = True
-            
-        if self.validated:
-            return True
-        return False
+        for profile in self.metagraph_list:
+            if not self.config_obj[profile]["global_p12_all_global"]:
+                self.config_obj["global_elements"]["all_global"] = False
+            for p12_key, p12_value in self.config_obj[profile].items():
+                if self.action == "edit_config":
+                    if "p12_" in p12_key and "global" in p12_key:
+                        self.config_obj[profile][p12_key] = False
+                else:
+                    if "p12_" in p12_key and "global" not in p12_key:
+                        if "global" in p12_value:
+                            self.config_obj[profile][f"global_{p12_key}"] = True
+                            self.config_obj[profile][p12_key] = self.config_obj["global_p12"][p12_key[4:]]
+                        else:
+                            self.config_obj[profile][f"global_{p12_key}"] = False
+            self.config_obj[profile]["global_p12_cli_pass"] = False # initialize
+
+        return self.validated
                   
 
     def validate_p12_exists(self):
-        for profile in self.config_obj["profiles"].keys():
-            p12 = self.config_obj["profiles"][profile]["p12"]["p12_name"]
-            location = self.config_obj["profiles"][profile]["p12"]["key_location"]
-            if location != "global" and location[-1] == "/":
-                location = location[:-1]
-                if not path.isfile(f"{location}/{p12}"):
-                    self.validated = False
-                    self.error_list.append({
-                        "title":"p12 not found",
-                        "section": "p12",
-                        "profile": profile,
-                        "missing_keys": None, 
-                        "type": "p12_nf",
-                        "key": p12,
-                        "special_case": None,
-                        "value": f"{location}/{p12}",
-                    })
+        for profile in self.metagraph_list:
+            if not path.isfile(self.config_obj[profile]["p12_key_store"]):
+                self.validated = False
+                self.error_list.append({
+                    "title":"p12 not found",
+                    "section": "p12",
+                    "profile": profile,
+                    "missing_keys": None, 
+                    "type": "p12_nf",
+                    "key": "p12",
+                    "special_case": None,
+                    "value": self.config_obj[profile]["p12_key_store"],
+                })
                     
 
     def validate_link_dependencies(self):
         # this is done after the disabled profiles are removed.
-        link_profiles = []
-        for profile in self.profiles:
-            link_profile = self.config_obj["profiles"][profile]["layer0_link"]["link_profile"]
-            if link_profiles != "None":
-                link_profiles.append((profile,link_profile)) 
-                
-        for profile in link_profiles:
-            if self.config_obj["profiles"][profile[0]]["layer0_link"]["enable"]:
-                if profile[0] == profile[1]:
-                    self.error_list.append({
-                        "title":"Link Profile Dependency Conflict",
-                        "section": "layer0_link",
-                        "profile": profile[0],
-                        "missing_keys": None, 
-                        "key": "link_profile",
-                        "value": profile[1],
-                        "type": None,
-                        "special_case": "Cannot link profile to itself"
-                    })  
-                    self.validated = False              
-                elif profile[1] not in self.profiles:
-                    self.error_list.append({
-                        "title":"Link Profile Dependency Not Met",
-                        "section": "layer0_link",
-                        "profile": profile[0],
-                        "missing_keys": None, 
-                        "key": "link_profile",
-                        "value": profile[1],
-                        "type": None,
-                        "special_case": None
-                    })
-                    self.validated = False   
-
-                                    
-    def setup_schemas(self):   
-        # ===================================================== 
-        # schema order of sections needs to be in the exact
-        # same order as the yaml file setup both in the profile
-        # list values and each profile subsection below that...
-        # =====================================================         
-        self.schema = {
-            "profiles": [
-                ["enable","bool"],
-                ["layer","layer"],
-                ["edge_point","key"],
-                ["environment","str"],
-                ["ports","key"],
-                ["service","str"],
-                ["layer0_link","key"],
-                ["dirs","key"],
-                ["java","key"],
-                ["p12","key"],
-                ["pro","key"],
-                ["node_type","node_type"],
-                ["description","str"],
-            ],
-            "edge_point": [
-                ["https","bool"],
-                ["host","host"], 
-                ["host_port","port"],
-            ],
-            "ports": [
-                ["public","high_port"],
-                ["p2p","high_port"],
-                ["cli","high_port"],
-            ],
-            "layer0_link": [
-                ["enable","bool"], 
-                ["layer0_key","128hex"], 
-                ["layer0_host","host"], 
-                ["layer0_port","self_port"],
-                ["link_profile","str"],
-                ["is_self","bool"], # automated value [not part of yaml]
-            ],
-            "dirs": [
-                ["snapshots","path"],
-                ["backups","path"],
-                ["uploads","path"],
-            ],
-            "java": [
-                ["xms","mem_size"],
-                ["xmx","mem_size"],
-                ["xss","mem_size"],
-            ],
-            "p12": [
-                ["nodeadmin","str"],
-                ["key_location","path"],
-                ["p12_name","str"],
-                ["wallet_alias","str"],
-                ["passphrase","str"],
-                ["p12_passphrase_global","bool"], # automated value [not part of yaml]
-                ["p12_key_location_global","bool"], # automated value [not part of yaml]
-                ["p12_p12_name_global","bool"], # automated value [not part of yaml]
-                ["p12_nodeadmin_global","bool"], # automated value [not part of yaml]
-                ["p12_wallet_alias_global","bool"], # automated value [not part of yaml]
-                ["cli_pass","bool"], # automated value [not part of yaml]
-                ["key_store","str"], # automated value [not part of yaml]
-            ],
-            "pro": [
-                ["seed_location","path"],
-                ["seed_file","str"],
-                ["seed_path","str"], # automated value [not part of yaml]
-            ],
-            "auto_restart": [
-                ["enable","bool"],
-                ["auto_upgrade","bool"],
-            ],
-            "global_p12": [
-                ["nodeadmin","str"],
-                ["key_location","path"],
-                ["p12_name","str"],
-                ["wallet_alias","str"],
-                ["passphrase","str"],
-                ["key_store","str"], # automated value [not part of yaml]
-            ]
-        }
-        
-        # make sure to update verify_profile_types -> int_types or enabled_section
-        # as needed if the schema changes
-        
-        # set section progress dict
-        self.global_section_completed = {
-            "global_p12": False,
-            "auto_restart": False,
-        }
+        for m_or_g in ["ml0","gl0"]:
+            link_profiles = []            
+            for profile in self.metagraph_list:
+                link_profile = self.config_obj[profile][f"{m_or_g}_link_profile"]
+                if link_profile != "None":
+                    link_profiles.append((profile,link_profile)) 
+                    
+            for profile in link_profiles:
+                if self.config_obj[profile[0]][f"{m_or_g}_link_enable"]:
+                    if profile[0] == profile[1]:
+                        self.error_list.append({
+                            "title":"Link Profile Dependency Conflict",
+                            "section": f"{m_or_g}_link",
+                            "profile": profile[0],
+                            "missing_keys": None, 
+                            "key": "link_profile",
+                            "value": profile[1],
+                            "type": None,
+                            "special_case": "Cannot link profile to itself"
+                        })  
+                        self.validated = False              
+                    elif profile[1] not in self.profiles:
+                        self.error_list.append({
+                            "title":"Link Profile Dependency Not Met",
+                            "section": f"{m_or_g}_link",
+                            "profile": profile[0],
+                            "missing_keys": None, 
+                            "key": "link_profile",
+                            "value": profile[1],
+                            "type": None,
+                            "special_case": None
+                        })
+                        self.validated = False   
 
         
-    def verify_profile_keys(self,profile):
-        values = []
-        types = []
-        skip = False
-        
-        for section, check_keys in self.schema.items():
-            verify = True
-            key_list = [x[0] for x in check_keys]
-            get_key_value_list = [ x for x in check_keys if x[1] != "key"]
+    def validate_profile_keys(self,profile):
+        custom_requirements = ["custom_env_vars_enable","custom_args_enable"]
+        found_list = list(self.config_obj[profile])        
+        skip = True if "elements" in profile else False
+
+        if "global" not in profile:
+            found_list = [x for x in found_list if x in custom_requirements or "custom" not in x]
+            key_list = [x[0] for x in self.schema["metagraphs"]]
+            section = "metagraphs"
+        elif not skip:
+            key_list = [x[0] for x in self.schema[profile]]
+            section = profile.replace("global_","")
             
-            if section == "profiles":
-                try:
-                    found_list = list(self.config_obj[section][profile])
-                except:
-                    found_list = []
-            elif section in self.global_section_completed.keys():  # other key sections
-                try:
-                    found_list = list(self.config_obj[section])
-                except:
-                    found_list = []
-            else: # sub_keys
-                try:
-                    found_list = list(self.config_obj["profiles"][profile][section])
-                except:
-                    found_list = []
-            
-            # exception
-            if "cli_pass" in key_list:
-                try:
-                    found_list.pop(found_list.index("p12_cli_pass_global"))
-                except:
-                    pass # will force error
-                
-            if sorted(key_list) != sorted(found_list): # main keys
-                if section in self.global_section_completed.keys() and self.global_section_completed[section]:
-                    skip = True
-                if section in self.global_section_completed.keys():
-                    self.global_section_completed[section] = True
-                    profile = "N/A"
-                    
-                if not skip:
-                    missing =  [x for x in key_list if x not in found_list]
-                    self.validated = False
-                    self.error_list.append({
-                        "title": "key_existence",
-                        "section": section,
-                        "profile": profile,
-                        "type": "key",
-                        "key": "multiple",
-                        "value": missing,
-                        "special_case": None
-                    })
-            else:
-                for value in get_key_value_list:
-                    if section == "profiles":
-                        values.append(self.config_obj[section][profile][value[0]]) # first element of first list in list of lists
-                    elif section in self.global_section_completed.keys():
-                        values.append(self.config_obj[section][value[0]])
-                    else:
-                        values.append(self.config_obj["profiles"][profile][section][value[0]])
-                    types.append(value[1])
-                    
-                get_key_list = [x[0] for x in get_key_value_list]
-                
-                if section in self.global_section_completed.keys(): 
-                    verify = False
-                    if self.global_section_completed[section] == False: 
-                        self.global_section_completed[section] = True
-                        verify = True
-                        
-                if verify:
-                    if section in self.global_section_completed:
-                        profile = "N/A"
-                    self.verify_profile_types({
-                        "section": section,
-                        "values": values,
-                        "profile": profile,
-                        "types": types,
-                        "key_list": get_key_list
-                    })  
-                
-                values = [] # reset list  
-                types = [] # reset list        
-                        
-                                    
-    def verify_profile_types(self,obj):
-        section = obj["section"]
-        values = obj['values']
-        profile = obj['profile']
-        types = obj['types']
-        keys = obj['key_list']
+        if not skip and sorted(key_list) != sorted(found_list):
+            missing1 = [x for x in key_list if x not in found_list]
+            missing2 = [x for x in found_list if x not in key_list]
+            missing = set(missing1 + missing2)
+            special_case = "missing"
+            if len(missing2) > len(missing1): special_case = "invalid"
+            self.validated = False
+            self.error_list.append({
+                "title": "key_existence",
+                "section": section,
+                "profile": profile,
+                "type": "key",
+                "key": "multiple",
+                "value": missing,
+                "special_case": special_case
+            })
         
-        return_on = obj.get("return_on",False)
-        validated = True
+        if "global" not in profile:
+            self.validate_profile_types(profile)
+        if self.validated:
+            self.setup_path_formats(profile)
+
+                
+    def validate_profile_types(self,profile,return_on=False):
+        validated, return_on_validated = True, True
         special_case = None
+        skip_validation = False
         
-        int_types = ["int","port","high_port","layer"] 
-        enabled_sections = ["profiles","layer0_link","auto_restart"]
-
-        # test for required enable boolean
-        if section in enabled_sections:
-            if "enable" not in keys:
-                validated = False
-                error_key = "enable"
-                value = "missing key"
-            else:
-                index = keys.index("enable")
-                if values[index] == False:
-                    if section == "profiles":
-                        self.profile_enable["profile"] = profile
-                        self.profile_enable["enable"] = False
-                    return
+        # int_types = ["int","port","high_port","layer"] 
+        valuation_dict = {
+            "bool": bool,
+            "int": int,
+            "float": float,
+            "str": str,
+            "layer": [0,1],
+            "node_type": ["validator","genesis"],
+            "meta_type": ["gl","ml"],
+            "port": range(1,65535),
+            "high_port": range(1024,65535),
+            "self_port": range(1024,65535),
+        }
         
-        if section == "profiles":
-            if "layer" in keys:
-                self.current_layer = values[keys.index("layer")]
-                        
-        if validated:
-            for n, value in enumerate(values):
-                title = "invalid type" # default
-                
-                if return_on and not validated:
-                    return validated
-                validated = True
-                                 
-                if types[n] in int_types:
-                    try:
-                        value = int(value)
-                    except:
+        for section, section_types in self.schema.items():
+            if "global" in section and not self.skip_global_validation:
+                profile = section
+            for key, test_value in self.config_obj[profile].items():
+                for section_key, req_type in section_types:
+                    if key == section_key: 
                         validated = False
                         
-                    if types[n] == "layer" and validated: # Crypto Blockchain Layer 0,1,2,3,4
-                                                            # - 0 hardware layer 
-                                                            # - 1 data layer
-                                                            # - 2 network layer
-                                                            # - 3 consensus layer
-                                                            # - 4 application layer.
-                        if value > 4:
-                            title = "blockchain layer"
-                            validated = False
-                    if types[n] == "self_port" and value == "self":
-                        pass 
-                    if (types[n] == "port" or types[n] == "self_port" or types[n] == "high_port") and validated: 
-                        lower = 1
-                        if types[n] == "high_port":
-                            lower = 1024
-                        if value < lower or value > 65535:
-                            title = "TCP port"
-                            validated = False 
-
-                if types[n] == "str":
-                    if not isinstance(value,str):
-                        validated = False   
-
-                if types[n] == "128hex":
-                    pattern = "^[a-fA-F0-9]{128}$"
-                    if not match(pattern,value) and value != "self":
-                        validated = False   
-                                                        
-                elif types[n] == "host":
-                    if value != "self" and not self.functions.test_hostname_or_ip(value):
-                        validated = False  
+                        if skip_validation:
+                            if "gl0_link" in key or "ml0_link" in key: validated = True
+                            else: skip_validation = False
                         
-                elif types[n] == "bool":
-                    if not isinstance(value,bool):
-                        validated = False
+                        if req_type in valuation_dict.keys():
+                            try: validated = isinstance(test_value,valuation_dict[req_type])   
+                            except Exception as e:
+                                for value in valuation_dict[req_type]:
+                                    if test_value == value:
+                                        validated = True
+                                        break
+                                    title = "invalid range"
+                            if not validated: title = "invalid type"
+                            if "key_name" in key and req_type == "str":
+                                if test_value[-4::] != ".p12": title = "missing .p12 extension"
+                                else: validated = True
+                            if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
+                                skip_validation = True
+                            if "passphrase" in key and test_value != "none" and req_type != "bool":
+                                if "'" in test_value or '"' in test_value:
+                                    title = "invalid single and or double quotes in passphrase"
+                            if (key == "gl0_link_port" or key == "ml0_link_port") and test_value == "self":
+                                validated = True
+                            
+                        elif "host" in req_type:
+                            if req_type == "host_def" and test_value == "default": validated = True
+                            elif req_type == "host_def_disable" and test_value == "disable": validated = True
+                            elif self.functions.test_hostname_or_ip(test_value) or test_value == "self": validated = True
+                            else: title = "invalid host or ip"
                         
-                elif types[n] == "y_or_n":
-                    if value != "yes" and value != "no":
-                        validated = False
+                        elif req_type == "128hex":
+                            pattern = "^[a-fA-F0-9]{128}$"
+                            if not match(pattern,test_value) and test_value != "self": title = "invalid nodeid"
+                            else: validated = True 
                         
-                elif types[n] == "node_type":
-                    if value != "genesis" and value != "validator":
-                        title = "Node type"
-                        validated = False
-                
-                elif types[n] == "list_of_strs":
-                    if not isinstance(value,list):
-                        validated = False
-                    else:
-                        for v in value:
-                            if not isinstance(v,str):
-                                validated = False
-                                break
-
-                elif types[n] == "path":
-                    if value != "global":
-                        if "key_location" in keys or (value == "default" or value == "disable"):
-                            if value == "disable" and ( keys[n] != "snapshots" and keys[n] != "seed_location" ):
-                                title = "disable is an invalid keyword"
-                                validated = False
-                        if value == "disable" and (profile == "N/A" or self.config_obj["profiles"][profile]["layer"] < 1):
-                            title = "disable is an invalid keyword for layer0"
-                            validated = False
-                        elif value != "disable" and value != "default":
-                            title = "invalid or path not found"
-                            if not path.isdir(value):
-                                validated = False
-                        if value[-1] != "/" and (value != "default" and value != "disable"):
-                            validated = False
-                            title = "invalid path definition missing '/'"
-
-                elif types[n] == "mem_size":
-                    if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(value)):
-                        title = "memory sizing format"
-                        validated = False
-                    
-                if keys[n] == "passphrase":
-                    if not isinstance(value,str) and value != None and value != "None":
-                        validated = False
-                    if value == None: # exception to str type requirement for passphrase
-                        validated = True
+                        elif req_type == "wallet":
+                            pattern = "^DAG[0-9][A-Za-z0-9]{36}"
+                            if not match(pattern,test_value) and test_value != "disable": title = "invalid token identifier"
+                            else: validated = True 
                                 
-                if keys[n] == "p12_name":
-                    if value != "global":
-                        p12_test = value.split(".")
-                        if not isinstance(p12_test[0],str):
-                            validated = False
-                        try:
-                            _ = p12_test[1]
-                        except:
-                            title = "invalid p12_name"
-                            validated = False
-                        else:
-                            if p12_test[1] != "p12":
-                                title = "invalid extension"
-                                validated = False
+                        elif req_type == "list_of_strs":
+                            title = "invalid list of strings"
+                            if isinstance(test_value,list): validated = True
+                            if validated:
+                                for v in test_value:
+                                    if not isinstance(v,str):
+                                        validated = False
+                                        break                          
 
-                error_key = keys[n]
-
-                if not validated:
-                    self.validated = False  
-                    self.error_list.append({
-                        "title": title,
-                        "section": section,
-                        "profile": profile,
-                        "type": types[n],
-                        "key": error_key,
-                        "value": value,
-                        "special_case": special_case
-                    })
+                        elif "path" in req_type:
+                            # global paths replaced already
+                            if "path" in req_type: validated = True # dynamic value skip validation
+                            if "path_def" in req_type and test_value == "default": validated = True
+                            elif req_type == "path_def_dis" and test_value == "disable": validated = True
+                            elif path.isdir(test_value): validated = True
+                            elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
+                                title = f"{test_value} is an invalid keyword for layer0"
+                            elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
+                                title = f"{test_value} is an invalid keyword"
+                            elif not path.isdir(test_value): title = "invalid or path not found"
+                            else: validated = True
+                                
+                        elif req_type == "mem_size":
+                            if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
+                            else: validated = True
+                        
+                        elif req_type == "log_level":
+                            levels = ["NOTSET","DEBUG","INFO","WARN","ERROR","CRITICAL"]
+                            if test_value.upper() not in levels: title = "invalid log level"
+                            else: validated = True
+                            
+                        if not validated:
+                            self.validated = False
+                            return_on_validated = False
+                            self.error_list.append({
+                                "title": title,
+                                "section": section,
+                                "profile": profile,
+                                "type": req_type,
+                                "key": key,
+                                "value": test_value,
+                                "special_case": special_case
+                            })        
                     
         if return_on:
-            return validated
+            return return_on_validated
+        self.skip_global_validation = True
 
+        
+    def validate_port_duplicates(self):
+        found_ports = []
+        found_keys = []
+        error_keys = []
+        ignore = ["gl0_link_port","ml0_link_port","edge_point_tcp_port"]
+        
+        for section in self.metagraph_list:
+            for key, value in self.config_obj[section].items():
+                if "port" in key and key not in ignore and value != 'None' and value != 'self':
+                    found_keys.append(key)
+                    found_ports.append(value) 
                         
+        if len(found_ports) != len(set(found_ports)):
+            duplicates = [x for x in found_ports if found_ports.count(x) > 1]
+            duplicates = set(duplicates)
+            for dup in duplicates:
+                index = found_ports.index(dup)
+                error_keys.append(found_keys[index])
+                                
+            self.validated = False
+            self.error_list.append({
+                "title": "duplicate api port values found",
+                "section": "metagraphs",
+                "profile": "metagraphs",
+                "type": "api_port_dups",
+                "missing_keys": error_keys,
+                "key": None,
+                "value": duplicates,
+                "special_case": None,
+            })    
+
+
+    def validate_seedlist_duplicates(self):
+        seeds = []; duplicates = []
+        # for profile in self.metagraph_list: 
+        #     if self.config_obj[profile]["seed_path"] != "disable":
+        #         seeds.append(self.config_obj[profile]["seed_path"])
+        seeds = [self.config_obj[profile]["seed_path"] for profile in self.metagraph_list if "disable" not in self.config_obj[profile]["seed_path"]]
+        seeds_set = set(seeds)
+        if len(seeds_set) != len(seeds):
+            self.validated = False
+            for seed in seeds:
+                if seeds.count(seed) > 1 and seed not in duplicates:
+                    duplicates.append(seed)
+        
+        if not self.validated:
+            self.error_list.append({
+                "title": "duplicate seed path found",
+                "section": "metagraphs",
+                "profile": "metagraphs",
+                "type": "seed_path_dups",
+                "missing_keys": "seed_location, seed_file",
+                "key": None,
+                "value": duplicates,
+                "special_case": None,
+            })  
+            
+                             
     def print_report(self):
+        if self.skip_final_report:
+            return
+        
+        skip_special_case = False
         value_text = "Value Found"
         wallet_error1 = "wallet alias must match what was"
         wallet_error2 = "configured during p12 original"
@@ -1168,28 +1246,41 @@ class Configuration():
                 
         hints = {
             "ports": "port must be a integer between 1 and 65535",
+            "api_port_dups": "Tessellation API ports cannot conflict.",
+            "seed_path_dups": "cannot have the same file name and path for different profiles.",
             "high_port": "port must be a integer between 1024 and 65535",
+            "int": "collateral must be an integer value",
             "wallet_alias": f"{wallet_error1} {wallet_error2} {wallet_error3}",
-            "p12_name": f"{p12_name_error1} {string2}",
+            "p12_key_name": f"{p12_name_error1} {string2}",
             "key_location": f"{key_location1} {string2}",
             "p12_nf": "unable to location the p12 file, file not found.",
             "passphrase": "must be a string or empty value.",
             "str": "must be a string.",
             "bool": "must include a boolean (true/false)",
             "enable": "must include a boolean (true/false) enable key.",
+            "auto_restart": "must include a boolean (true/false) enable key.",
+            "auto_upgrade": "must include a boolean (true/false) enable key.",
+            "rapid_restart": "must include a boolean (true/false) enable key.",
             "multiple": "configuration key(s) are missing",
+            "invalid_key": "configuration found keys that are invalid and should not be in the configuration.",
             "list_of_strs": "must be a list of strings",
             "mem_size": f"{mem1} {mem2} {mem3} {mem4} {mem5} {mem6}",
             "node_type": f"{node_type1} {node_type2}",
+            "meta_type": "options include 'gl' or 'ml'",
             "service": f"{service_dups} {service_dups2}",
             "link_profile": "dependency link profile not found",
             "dirs": f"{dir1} {dir2}",
             "128hex": f"{hex1} {hex2}",
-            "layer0_link": "invalid link type",
+            "gl0_link": "invalid link type",
+            "ml0_link": "invalid link type",
             "global": f"{global1} {global2} {global3}",
             "yaml": f"{yaml1} {yaml2} {yaml3}",
             "edge_point": "must be a valid host or ip address",
+            "host": "must be a valid host or ip address",
+            "host_def": "must be a valid host or ip address",
             "pro": "must be a valid existing path or file",
+            "metagraphs": "There is a misconfigured element in your metagraph profile",
+            "log_level": "Log level of INFO (recommended) or NOTSET, DEBUG, INFO, WARN, ERROR, CRITICAL required"
         }
         
         if self.action != "normal" or not self.validated:
@@ -1208,22 +1299,31 @@ class Configuration():
             try:
                 for error in self.error_list:
                     if error["key"] in hints:
-                        hint = hints[error["key"]]
                         if error["key"] == "multiple":
-                            value_text = "    Missing"
+                            if error["special_case"] == "invalid": 
+                                value_text = "    Invalid"
+                                hint = hints["invalid_key"]
+                                skip_special_case = True
+                            else: 
+                                value_text = "    Missing"
+                                hint = hints[error["key"]]
                     elif error["type"] in hints:
                         hint = hints[error["type"]]
                     else:
                         hint = hints[error["section"]]
                         
-                    if error["special_case"] != None:
+                    if error["special_case"] != None and not skip_special_case:
+                        skip_special_case = False
                         hint = error["special_case"]
                 
                     config_key = ""
                     if error["key"] == None and error["missing_keys"] != None:
-                        for key_str in error["missing_keys"]:
-                            config_key += key_str+", "
-                        config_key = config_key[:-2]
+                        if isinstance(error["missing_keys"],list):
+                            for key_str in error["missing_keys"]:
+                                config_key += key_str+", "
+                            config_key = config_key[:-2]
+                        else:
+                            config_key = error["missing_keys"]
                     else:
                         config_key = error["key"]
 
@@ -1244,9 +1344,9 @@ class Configuration():
                         self.functions.print_paragraphs([
                             [value_text,0,"yellow"], [error["value"],2,"red","bold"],
                         ]) 
-                    ok_to_ignore = True if error["key"] == "snapshots" else False
+                    ok_to_ignore = True if "snapshot" in error["key"] else False
                     
-            except:
+            except Exception as e:
                 self.send_error("cfg-1094")
 
             if self.action == "edit_config":

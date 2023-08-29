@@ -3,6 +3,8 @@ import random
 import json
 import urllib3
 import csv
+import yaml
+import select
 
 from getpass import getuser
 from re import match
@@ -20,7 +22,7 @@ from threading import Timer
 from platform import platform
 from re import sub, compile
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir
-from sys import exit, stdout
+from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
 from packaging import version
@@ -28,6 +30,7 @@ from datetime import datetime
 from .troubleshoot.help import build_help
 from pycoingecko import CoinGeckoAPI
 import socket
+import validators
 
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
@@ -40,9 +43,11 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.8.1"
+        self.node_nodectl_version = "v2.9.0"
+        self.node_nodectl_yaml_version = "v2.0.0"
         exclude_config = ["-v","_v","version"]
-        if config_obj["caller"] in exclude_config:
+        
+        if config_obj["global_elements"]["caller"] in exclude_config:
             return
         
         urllib3.disable_warnings()
@@ -59,14 +64,20 @@ class Functions():
         
         # constellation nodectl statics
         self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        # dev
+        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
         
+        
+        self.nodectl_profiles_url = 'https://github.com/StardustCollective/nodectl/tree/main/predefined_configs'
+        self.nodectl_profiles_url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs"
+
         # versioning
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
         self.node_tess_version = "v0.0.0"
         self.latest_nodectl_version = "v0.0.0"
         self.upgrade_path = False
         self.version_obj = {}
-
+        
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
         
@@ -74,18 +85,25 @@ class Functions():
         self.join_timeout = 300 # 5 minutes
         self.auto_restart = False  # auto_restart will set this to True to avoid print statements
         
-        self.network_name = config_obj.get("network_name",False)
+        try:
+            self.network_name = config_obj["global_elements"]["network_name"]
+        except:
+            self.network_name = False
+            
         self.config_obj = config_obj
             
         self.default_profile = None
         self.default_edge_point = {}
-        
+        self.link_types = ["ml0","gl0"]   
+        self.environment_names = []
+             
         self.event = False # used for different threading events
         self.status_dots = False # used for different threading events
         
-        ignore_defaults = ["config","install","auto_restart","ts"]
-        if config_obj["caller"] not in ignore_defaults:
-            self.set_default_variables()
+        ignore_defaults = ["config","install","auto_restart","ts","debug"]
+
+        if config_obj["global_elements"]["caller"] not in ignore_defaults:
+            self.set_default_variables({})
             
         pass
  
@@ -95,17 +113,17 @@ class Functions():
         
     def get_version(self,command_obj):
         #which=(str), print_message=(bool)
-        var = SimpleNamespace(**command_obj)
-        var.print_message = command_obj.get("print_message",True)
-        var.action = command_obj.get("action","normal")
-        
+        print_message = command_obj.get("print_message",True)
+        action = command_obj.get("action","normal")
+        which = command_obj["which"]
+
         # handle auto_restart
-        var.print_message = False if self.auto_restart else var.print_message
+        print_message = False if self.auto_restart else print_message
         self.pre_release = False
         
         with ThreadPoolExecutor() as executor:                            
             def print_msg():
-                if var.print_message:
+                if print_message:
                     self.print_clear_line()
                     self.event = True
                     _ = executor.submit(self.print_spinner,{
@@ -113,25 +131,58 @@ class Functions():
                         "color": "magenta",
                     })  
             
+            
             def get_running_tess_on_node():
-                bashCommand = "/usr/bin/java -jar /var/tessellation/cl-node.jar --version"
-                self.node_tess_version = self.process_command({
-                    "bashCommand": bashCommand,
-                    "proc_action": "wait"
-                })
-                try:
-                    self.node_tess_version = self.node_tess_version.strip("\n")
-                except:
-                    self.node_tess_version = "X.X.X"
-                if self.node_tess_version == "":
-                    self.node_tess_version = "X.X.X"
-                if not "v" in self.node_tess_version and not "V" in self.node_tess_version:
-                    self.node_tess_version = f"v{self.node_tess_version}"  
+                def thread_or_not():
+                    node_tess_version = self.process_command({
+                        "bashCommand": bashCommand,
+                        "proc_action": "wait"
+                    })
+                    try:
+                        node_tess_version = node_tess_version.strip("\n")
+                    except:
+                        node_tess_version = "X.X.X"
+                    if self.node_tess_version == "":
+                        node_tess_version = "X.X.X"
+                    if not "v" in node_tess_version and not "V" in node_tess_version:
+                        node_tess_version = f"v{node_tess_version}"
+                    node_tess_version_obj[profile] = {
+                        "node_tess_version": node_tess_version,
+                        "node_tess_jar": jar,
+                    } 
+                                        
+                node_tess_version_obj = {}
+                for profile in self.profile_names:
+                    jar = self.config_obj[profile]["jar_file"]
+                    bashCommand = f"/usr/bin/java -jar /var/tessellation/{jar} --version"
+                    if print_message: # not auto_restart
+                        with ThreadPoolExecutor() as executor:
+                            _ = executor.submit(thread_or_not)
+                    else:
+                        thread_or_not()
+
+                self.node_tess_version = node_tess_version_obj
+                    
                     
             def get_cluster_tess(action,network):
+                def thread_or_not():
+                    version = self.get_api_node_info({
+                        "api_host": self.config_obj[profile]["edge_point"],
+                        "api_port": self.config_obj[profile]["edge_point_tcp_port"],
+                        "info_list": ["version"],
+                        "tolerance": 2,
+                    })
+                    # version = ["1.11.3"]  # debugging
+                    cluster_tess_version_obj[profile] = f"v{version[0]}" 
+                                       
+                cluster_tess_version_obj = {}
                 if action == "normal":
-                    api_host = self.config_obj["profiles"][self.default_profile]["edge_point"]["host"]
-                    api_port = self.config_obj["profiles"][self.default_profile]["edge_point"]["host_port"]
+                    for profile in self.profile_names:
+                        if print_message: # not auto_restart
+                            with ThreadPoolExecutor() as executor:
+                                _ = executor.submit(thread_or_not)
+                        else:
+                            thread_or_not()
                 elif action == "install":
                     if network == "mainnet":
                         # use the hardcoded version because no configuration to start installation
@@ -145,73 +196,58 @@ class Functions():
                         # use the hardcoded version
                         api_host = self.i_hardcode_api_host
                         api_port = self.hardcode_api_port
-                       
-                version = self.get_api_node_info({
-                    "api_host": api_host,
-                    "api_port": api_port,
-                    "info_list": ["version"]
-                },2)  # tolerance of 2
-                # version = ["1.11.3"]  # debugging
-                self.cluster_tess_version = f"v{version[0]}"
+                    version = self.get_api_node_info({
+                        "api_host": api_host,
+                        "api_port": api_port,
+                        "info_list": ["version"],
+                        "tolerance": 2,
+                    })
+                    # version = ["1.11.3"]  # debugging
+                    for profile in self.profile_names:
+                        cluster_tess_version_obj[profile] = f"v{version[0]}"
+                self.cluster_tess_version = cluster_tess_version_obj
+                    
                     
             def get_latest_nodectl(network):
                 self.pull_upgrade_path()
-                self.latest_nodectl_version = self.upgrade_path["mainnet"]["version"]
-                if network == "testnet": 
-                    self.latest_nodectl_version = self.upgrade_path["testnet"]["version"]
-                elif network == "integrationnet":
-                    self.latest_nodectl_version = self.upgrade_path["integrationnet"]["version"]
-                pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{self.latest_nodectl_version}"
-                pre_success = True
-                for n in range(0,3):
-                    try:
-                        pre_release = get(pre_release_uri).json()
-                    except:
-                        sleep(1)
-                        self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
-                        pre_success = False
-                    else:
-                        break
-                    
-                if not pre_success:
-                    self.print_paragraphs([
-                        ["Unables to determine if this release is a pre-release, continuing anyway...",1,"red"]
-                    ])
-                else:
-                    # self.release_details = pre_release # save for future use
-                    self.pre_release = pre_release["prerelease"]  
-        
-            profile = None if var.action == "normal" else "skip"
+                self.latest_nodectl_version = self.upgrade_path[network]["version"]
+
+            profile = None if action == "normal" else "skip"
             if command_obj["which"] != "nodectl":
-                self.set_default_variables(profile)
+                self.set_default_variables({
+                    "profile": profile,
+                })
                 
-            if var.which == "nodectl":
-                self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}]")
-                return {"node_nodectl_version":self.node_nodectl_version}
-            elif var.which == "current_tess":
+            if which == "nodectl":
+                self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}] nodectl_yaml_version [{self.node_nodectl_yaml_version}]")
+                return {
+                    "node_nodectl_version":self.node_nodectl_version,
+                    "node_nodectl_yaml_version":self.node_nodectl_yaml_version
+                }
+            elif which == "current_tess":
                 print_msg()
                 get_running_tess_on_node() 
-                if var.print_message:
+                if print_message:
                     print(colored(" ".ljust(50),"magenta"),end="\r")
                 self.log.logger.info(f"node tess version: [{self.node_tess_version}]")
                 self.event = False
                 return self.node_tess_version
-            elif var.which == "cluster_tess":
+            elif which == "cluster_tess":
                 print_msg()
-                get_cluster_tess(var.action,self.network_name) 
-                if var.print_message:
+                get_cluster_tess(action,self.network_name) 
+                if print_message:
                     print(colored(" ".ljust(50),"magenta"),end="\r")
                 self.log.logger.info(f"cluster tess version: [{self.cluster_tess_version}]")
                 self.event = False
                 return self.cluster_tess_version
-            elif var.which == "latest_nodectl":
+            elif which == "latest_nodectl":
                 get_latest_nodectl(self.network_name) 
-                if var.print_message:
+                if print_message:
                     print(colored(" ".ljust(50),"magenta"),end="\r")
                 self.log.logger.info(f"repository nodectl version: [{self.latest_nodectl_version}]")
                 self.event = False
                 return self.latest_nodectl_version
-            elif var.which == "nodectl_all":
+            elif which == "nodectl_all":
                 get_latest_nodectl(self.network_name)
                 self.event = False
                 return {
@@ -222,19 +258,15 @@ class Functions():
             else:
                 print_msg()
                 get_running_tess_on_node() 
+                # get_cluster_tess too slow
                 get_latest_nodectl(self.network_name) 
-                            
-                self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}]")
-                self.log.logger.info(f"latest nodectl version: [{self.latest_nodectl_version}]")
-                self.log.logger.info(f"tessellation version on node: [{self.node_tess_version}]")
                 
                 self.event = False
-                if var.which == "all":
+                if which == "all":
                     return {
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
                         "cluster_tess_version": self.cluster_tess_version,
-                        "latest_nodectl_version": self.latest_nodectl_version,
                         "upgrade_path": self.upgrade_path,
                         "pre_release": self.pre_release
                     }
@@ -242,7 +274,6 @@ class Functions():
                     return {
                         "node_nodectl_version":self.node_nodectl_version,
                         "node_tess_version": self.node_tess_version,
-                        "latest_nodectl_version": self.latest_nodectl_version,
                         "upgrade_path": self.upgrade_path,
                         "pre_release": self.pre_release
                     }
@@ -571,7 +602,7 @@ class Functions():
 
     def get_service_name(self,profile):
         try:
-            return f"cnng-{self.config_obj['profiles'][profile]['service']}"
+            return f"cnng-{self.config_obj[profile]['service']}"
         except:
             self.error_messages.error_code_messages({
                 "error_code": "fnt-645",
@@ -580,6 +611,30 @@ class Functions():
                 "extra2": None
             })            
     
+
+    def get_service_status(self):
+        # =========================
+        # this needs to be migrated to node_services
+        # move this to node.service
+        # =========================
+        self.log.logger.debug("functions [get_service_status]")
+        self.config_obj["global_elements"]["node_service_status"] = {}
+        
+        try: _ = self.profile_names
+        except: self.set_default_variables({"skip_error":True})
+        
+        for profile in self.profile_names:
+            service_name = f"cnng-{self.config_obj[profile]['service']}"
+            service_status = system(f'systemctl is-active --quiet {service_name}')
+            if service_status == 0:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "active (running)"
+            elif service_status == 768:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "inactive (dead)"
+            else:
+                self.config_obj["global_elements"]["node_service_status"][profile] = "error (exit code)"
+            self.config_obj["global_elements"]["node_service_status"]["service_return_code"] = service_status   
+            self.log.logger.debug(f'get_service_status -> [{profile}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][profile]}]')
+            
     
     def get_date_time(self,command_obj):
         action = command_obj.get("action",False)
@@ -644,28 +699,30 @@ class Functions():
         return_value = command_obj.get("return_value", desired_value)
         specific_ip = command_obj.get("specific_ip",False)
         spinner = command_obj.get("spinner",False)
+        max_range = command_obj.get("max_range",10)
+        threaded = command_obj.get("threaded", False)
         cluster_info = []
-        max_range = 10
+        
             
         api_str = "/cluster/info"
         if api_endpoint_type == "consensus":
-            if self.config_obj["profiles"][profile]["layer"] == 0:
+            if self.config_obj[profile]["layer"] == 0:
                 api_str = "/consensus/latest/peers"
 
         local_only = ["self","localhost","127.0.0.1"]
         if specific_ip in local_only:
             return {
                 "ip": self.get_ext_ip(),
-                "publicPort": self.config_obj["profiles"][profile]["ports"]["public"],
-                "p2pPort": self.config_obj["profiles"][profile]["ports"]["p2p"],
-                "cli": self.config_obj["profiles"][profile]["ports"]["cli"],
+                "publicPort": self.config_obj[profile]["public_port"],
+                "p2pPort": self.config_obj[profile]["p2p_port"],
+                "cli": self.config_obj[profile]["cli_port"],
             }
             
         while True:
             try:
                 cluster_info = self.get_cluster_info_list({
-                    "ip_address": self.config_obj["profiles"][profile]["edge_point"]["host"],
-                    "port": self.config_obj["profiles"][profile]["edge_point"]["host_port"],
+                    "ip_address": self.config_obj[profile]["edge_point"],
+                    "port": self.config_obj[profile]["edge_point_tcp_port"],
                     "api_endpoint": api_str,
                     "spinner": spinner,
                     "error_secs": 3,
@@ -675,21 +732,32 @@ class Functions():
                 self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                 pass
             
+            cluster_info_tmp = cluster_info
             try:
-                cluster_info.pop()
+                cluster_info_tmp.pop()
             except:
-                self.error_messages.error_code_messages({
-                    "error_code": "fun-648",
-                    "line_code": "off-network",
-                })
+                if threaded: 
+                    self.log.logger.error("get_info_from_edge_point reached error while threaded, error skipped")
+                    cprint("  error attempting to reach edge point","red")
+                else:
+                    self.error_messages.error_code_messages({
+                        "error_code": "fun-648",
+                        "line_code": "off-network",
+                    })
             
             for n in range(0,max_range):
                 node = random.choice(cluster_info)
                 if specific_ip:
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
-                    for node in cluster_info:
-                        if specific_ip == node["ip"]:
+                    for i_node in cluster_info:
+                        if specific_ip == i_node["ip"]:
+                            node = i_node
                             break
+                
+                node["specific_ip_found"] = False
+                if specific_ip:
+                    node["specific_ip_found"] = (specific_ip,node["ip"])
+                        
                 try:
                     if desired_value == "cnng_current" or desired_value == node[desired_key]:
                         if desired_key == "all" or return_value == "all":
@@ -706,15 +774,16 @@ class Functions():
                         self.print_timer(10,"Pausing 10 seconds",1)
 
         
-    def get_api_node_info(self,command_obj,tolerance=5):
+    def get_api_node_info(self,command_obj):
         # api_host=(str), api_port=(int), info_list=(list)
         api_host = command_obj.get("api_host")
         api_port = command_obj.get("api_port")
         info_list = command_obj.get("info_list","all")
+        tolerance = command_obj.get("tolerance",2)
         
         # dictionary
         #  api_host: to do api call against
-        #  api_port: for the L0 or state channel
+        #  api_port: for the L0 or metagraph channel
         #  info_list:  list of details to return from the call
         #       if info_list is string "all" will return everything
         #  
@@ -741,7 +810,7 @@ class Functions():
                 session = get(api_url,verify=False,timeout=(2,2)).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
-                if n > tolerance-1:
+                if n == tolerance-1:
                     self.log.logger.warn(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
                     return None
                 sleep(1.5)
@@ -759,25 +828,31 @@ class Functions():
             return result_list
 
 
-    def get_service_status(self):
-        # =========================
-        # this needs to be migrated to node_services
-        # move this to node.service
-        # =========================
-        self.config_obj["node_service_status"] = {}
+    def get_from_api(self,url,utype,tolerance=5):
         
-        for profile in self.config_obj["profiles"].keys():
-            service_name = f"cnng-{self.config_obj['profiles'][profile]['service']}"
-            service_status = system(f'systemctl is-active --quiet {service_name}')
-            if service_status == 0:
-                self.config_obj["node_service_status"][profile] = "active (running)"
-            elif service_status == 768:
-                self.config_obj["node_service_status"][profile] = "inactive (dead)"
+        for n in range(1,tolerance):
+            try:
+                if utype == "json":
+                    response = get(url,timeout=2).json()
+                else:
+                    response = get(url,timeout=2)
+            except Exception as e:
+                self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
+                if n > 1:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cfr-240",
+                        "line_code": "api_error",
+                        "extra2": url,
+                        "extra": None
+                    })
             else:
-                self.config_obj["node_service_status"][profile] = "error (exit code)"
-            self.config_obj["node_service_status"]["service_return_code"] = service_status   
-
-
+                if utype == "yaml_raw":
+                    return response.content.decode("utf-8").replace("\n","").replace(" ","")
+                elif utype == "yaml":
+                    return yaml.safe_load(response.content)
+                return response
+                        
+                    
     def get_cluster_info_list(self,command_obj):
         # ip_address, port, api_endpoint, error_secs, attempt_range
         var = SimpleNamespace(**command_obj)
@@ -832,13 +907,18 @@ class Functions():
         self.set_default_directories()
         
         return_obj = {}
-        for i_profile in self.config_obj["profiles"].keys(): 
-            if profile == profile and profile != "all":
+        for i_profile in self.profile_names: 
+            if i_profile == profile and profile != "all":
                 if specific:
-                    return self.config_obj["profiles"][i_profile]["dirs"][specific]
-                return self.config_obj["profiles"][i_profile]["dirs"]
+                    return self.config_obj[i_profile][specific]
+                for directory in self.config_obj[i_profile].keys():
+                    if "directory" in directory:
+                        return_obj[directory] =  self.config_obj[i_profile][directory]
             elif profile == "all":
-                return_obj[i_profile] = self.config_obj["profiles"][i_profile]["dirs"]  
+                return_obj[i_profile] = {}
+                for directory in self.config_obj[i_profile].keys():
+                    if "directory" in directory and "userset" not in directory:
+                        return_obj[i_profile][directory] =  self.config_obj[i_profile][directory]
         return return_obj
     
         
@@ -882,6 +962,9 @@ class Functions():
         if quit_option and (self.key_pressed.upper() == quit_option.upper()):
             cprint("  Action cancelled by User","yellow")
             exit(0)
+            
+        try: _ = self.key_pressed.lower()  # avoid NoneType error
+        except: return
         return self.key_pressed.lower()
 
 
@@ -990,9 +1073,11 @@ class Functions():
         return api_url
     
     
-    def set_default_variables(self,profile=None):
+    def set_default_variables(self,command_obj):
         # set default profile
         # set default edge point
+        profile = command_obj.get("profile",None)
+        skip_error = command_obj.get("skip_error",False)
         self.default_profile = False
         
         if profile != "skip":
@@ -1000,61 +1085,99 @@ class Functions():
                 for layer in range(0,3):
                     if self.default_profile:
                         break
-                    for i_profile in self.config_obj["profiles"]:
-                        if profile != None and profile != "all":
-                            i_profile = profile
-                        profile_layer = self.config_obj["profiles"][i_profile]["layer"]
-                        profile_enable = self.config_obj["profiles"][i_profile]["enable"]
-                        if profile_layer == layer and profile_enable:
-                            self.default_profile = i_profile
-                            host_port = self.config_obj["profiles"][self.default_profile]["edge_point"]["host_port"]
-                            
-                            uri = self.set_api_url(
-                                self.config_obj["profiles"][self.default_profile]["edge_point"]["host"],
-                                host_port,
-                                "" # no post_fix
-                            )
-
-                            self.default_edge_point = {
-                                "host": self.config_obj["profiles"][self.default_profile]["edge_point"]["host"],
-                                "host_port": host_port,
-                                "uri": uri
-                            } 
-                            break # on 1st and lowest layer   
+                    for i_profile in self.config_obj.keys():
+                        if "global" not in i_profile: 
+                            if profile != None and profile != "all":
+                                i_profile = profile
+                            profile_layer = self.config_obj[i_profile]["layer"]
+                            profile_enable = self.config_obj[i_profile]["profile_enable"]
+                            if profile_layer == layer and profile_enable:
+                                self.default_profile = i_profile
+                                
+                                uri = self.set_api_url(
+                                    self.config_obj[self.default_profile]["edge_point"],
+                                    self.config_obj[self.default_profile]["edge_point_tcp_port"],
+                                    "" # no post_fix
+                                )
+                                self.default_edge_point = {
+                                    "host": self.config_obj[self.default_profile]["edge_point"],
+                                    "host_port":self.config_obj[self.default_profile]["edge_point_tcp_port"],
+                                    "uri": uri
+                                } 
+                                break # on 1st and lowest layer   
             except:
-                self.error_messages.error_code_messages({
-                    "error_code": "fnt-924",
-                    "line_code": "profile_error",
-                    "extra": profile,
-                })
+                self.log.logger.error("functions unable to process profile while setting up default values")
+                if not skip_error:
+                    self.error_messages.error_code_messages({
+                        "error_code": "fnt-924",
+                        "line_code": "profile_error",
+                        "extra": profile,
+                    })
             
-        self.config_obj["node_profile_states"] = {}  # initialize 
+        self.config_obj["global_elements"]["node_profile_states"] = {}  # initialize 
+        self.profile_names = self.clear_global_profiles(self.config_obj)
+        
+        try: self.profile_names.pop(self.profile_names.index("upgrader"))
+        except ValueError: pass
+        
+        for profile in self.profile_names:
+            self.environment_names.append(self.config_obj[profile]["environment"])
+        self.environment_names = list(set(self.environment_names))
+        
         self.ip_address = self.get_ext_ip()
         self.check_config_environment()
                 
 
     def set_default_directories(self):
         # only to be set if "default" value is found
-        for profile in self.config_obj["profiles"].keys():
-            try:
-                if self.config_obj["profiles"][profile]["dirs"]["snapshots"] == "default": # otherwise already set
-                    self.config_obj["profiles"][profile]["dirs"]["snapshots"] = f"/var/tessellation/{profile}/data/snapshot"
-            except: # disabled exception
-                pass    
-            if self.config_obj["profiles"][profile]["dirs"]["backups"] == "default": # otherwise already set
-                self.config_obj["profiles"][profile]["dirs"]["backups"] = "/var/tessellation/backups/"
-            if self.config_obj["profiles"][profile]["dirs"]["uploads"] == "default": # otherwise already set
-                self.config_obj["profiles"][profile]["dirs"]["uploads"] = "/var/tessellation/uploads/"
+
+        for profile in self.config_obj.keys():
+            if "global" not in profile:
+                self.config_obj[profile]["directory_snapshots_userset"] = False
+                self.config_obj[profile]["directory_inc_snapshot_userset"] = False
+                self.config_obj[profile]["directory_inc_snapshot_tmp_userset"] = False
+                
+                snap_dict = {
+                    "custom_env_vars_CL_SNAPSHOT_STORED_PATH": {
+                        "config_key": "directory_snapshots", 
+                        "path": f"/var/tessellation/{profile}/data/snapshot"
+                    },
+                    "custom_env_vars_CL_INCREMENTAL_SNAPSHOT_STORED_PATH": {
+                        "config_key": "directory_inc_snapshot", 
+                        "path": f"/var/tessellation/{profile}/data/incremental_snapshot"
+                    },
+                    "custom_env_vars_CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH": {
+                        "config_key": "directory_inc_snapshot_tmp", 
+                        "path": f"/var/tessellation/{profile}/data/incremental_snapshot_tmp",
+                    },
+                }   
+        
+                for env_arg, values in snap_dict.items():
+                    default_setting = values["path"] if self.config_obj[profile]["layer"] < 1 else "disabled"
+                    if not self.config_obj[profile]["custom_env_vars_enable"]:
+                        self.config_obj[profile][values["config_key"]] = default_setting
+                    else:
+                        try:
+                            value = self.config_obj[profile][env_arg]
+                        except: # disabled exception
+                            self.config_obj[profile][values["config_key"]] = default_setting
+                        else:
+                            self.config_obj[profile][values["config_key"]] = value
+                            self.config_obj[profile][f"{values['config_key']}_userset"] = True
+                         
+                if self.config_obj[profile]["directory_backups"] == "default": # otherwise already set
+                    self.config_obj[profile]["directory_backups"] = "/var/tessellation/backups/"
+                if self.config_obj[profile]["directory_uploads"] == "default": # otherwise already set
+                    self.config_obj[profile]["directory_uploads"] = "/var/tessellation/uploads/"
+                if self.config_obj[profile]["seed_location"] == "default": # otherwise already set
+                    self.config_obj[profile]["seed_location"] = "/var/tessellation/"
+                if self.config_obj[profile]["seed_file"] == "default": # otherwise already set
+                    self.config_obj[profile]["seed_file"] = "seed-list"
                  
-            self.config_obj["profiles"][profile]["dirs"]["logs"] = f"/var/tessellation/{profile}/logs/"   
-            self.config_obj["profiles"][profile]["dirs"]["archived"] = f"/var/tessellation/{profile}/logs/archived"  
-            self.config_obj["profiles"][profile]["dirs"]["json_logs"] = f"/var/tessellation/{profile}/logs/json_logs"  
-            
-            try:
-                if self.config_obj["profiles"][profile]["dirs"]["snapshots"] == "disable":
-                    del self.config_obj["profiles"][profile]["dirs"]["snapshots"]
-            except: # disabled exception
-                pass
+            # currently not configurable
+            self.config_obj[profile]["directory_logs"] = f"/var/tessellation/{profile}/logs/"   
+            self.config_obj[profile]["directory_archived"] = f"/var/tessellation/{profile}/logs/archived"  
+            self.config_obj[profile]["directory_json_logs"] = f"/var/tessellation/{profile}/logs/json_logs"  
             
             
     def set_system_prompt(self,username):
@@ -1089,7 +1212,7 @@ class Functions():
         profile = command_obj['profile']
         spinner = command_obj.get("spinner",True)
         
-        local_port = self.config_obj["profiles"][profile]["ports"]["public"]
+        local_port = self.config_obj[profile]["public_port"]
         nodes = command_obj['edge_device']['remote'], self.ip_address
         session = {}
 
@@ -1109,7 +1232,7 @@ class Functions():
             state = None
                 
             if i > 0: # remote session first
-                if self.config_obj["node_service_status"][profile] == "inactive (dead)":
+                if self.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
                     break # state defaulted to ApiNotReady
                 port = local_port    
 
@@ -1163,13 +1286,12 @@ class Functions():
     
     def pull_edge_point(self,i_profile):
         self.log.logger.debug(f"function - pull edge point device [{i_profile}]")
-        self.log.logger.debug(f"function - pull edge point device i_profile [{i_profile}]")
         while True:
             try:
                 self.log.logger.debug(f"function - pull edge point device i_profile [{i_profile}]")
                 return {
-                    "remote": self.config_obj["profiles"][i_profile]["edge_point"]["host"],
-                    "remote_port": self.config_obj["profiles"][i_profile]["edge_point"]["host_port"],
+                    "remote": self.config_obj[i_profile]["edge_point"],
+                    "remote_port": self.config_obj[i_profile]["edge_point_tcp_port"],
                     "port_list": self.pull_profile({
                         "req": "localhost",
                         "profile": i_profile,
@@ -1240,6 +1362,21 @@ class Functions():
         return return_obj
     
    
+    def pull_custom_variables(self):
+        return_obj = {
+            "custom_args": [],
+            "custom_env_vars": [],
+        }
+        for profile in self.profile_names:
+            for item,value in self.config_obj[profile].items():
+                if "custom_args" in item:
+                    return_obj["custom_args"].append((profile,item.replace("custom_args_",""),value))
+                if "custom_env_vars" in item:
+                    return_obj["custom_env_vars"].append((profile, item.replace("custom_env_vars_",""),value))
+                    
+        return return_obj
+            
+        
     def pull_profile(self,command_obj):
         # profile=(str)
         # req=(str) # what do you want to do?
@@ -1252,14 +1389,37 @@ class Functions():
         if var.profile:
             profile = var.profile # profile in question (will default if not specified)
         
+        
+        global metagraph_name
+        global service_list
+        global description_list
+        global metagraph_layer_list
+        global metagraph_env_set 
+        global custom_values_dict 
+        
+        metagraph_name = None
         service_list = []
         description_list = []
-
+        metagraph_layer_list = []
+        metagraph_env_set = set()
+        custom_values_dict = {}
+        
         def pull_all():
-            for i_profile in self.config_obj["profiles"]:
-                service_list.append(self.config_obj["profiles"][i_profile]["service"]) 
-                description_list.append(self.config_obj["profiles"][i_profile]["description"]) 
+            global metagraph_name
+            global service_list
+            global description_list
+            global metagraph_layer_list
+            global metagraph_env_set 
+            global custom_values_dict 
             
+            custom_values_dict = self.pull_custom_variables()
+            metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
+            for i_profile in self.profile_names:
+                service_list.append(self.config_obj[i_profile]["service"]) 
+                description_list.append(self.config_obj[i_profile]["description"]) 
+                metagraph_layer_list.append(self.config_obj[i_profile]["layer"]) 
+                metagraph_env_set.add(self.config_obj[i_profile]["environment"]) 
+
         def test_replace_last_elements(list1,list2):
             if list1[-1] == list2[-1]:
                 list1.append(list2[0])
@@ -1269,33 +1429,32 @@ class Functions():
 
         if var.req == "service":
             if profile != "empty":
-                return self.config_obj["profiles"][profile]["service"]
+                return self.config_obj[profile]["service"]
             else:
                 pull_all()
                 return service_list
             
-        elif var.req == "pairings":
+        elif "pairings" in var.req:
             # return list of profile objects that are paired via layer0_link
-            profile_list = list(self.config_obj["profiles"].keys())
             pairing_list = []
                        
-            for profile in profile_list:
-                if self.config_obj["profiles"][profile]["layer0_link"]["enable"]:
-                    # list of lists of matching profile to linked profile
-                    link_profile = self.config_obj["profiles"][profile]["layer0_link"]["link_profile"]
-                    layer = self.config_obj["profiles"][profile]["layer"]
-                    if layer > 0 and link_profile != "None":
-                        pairing_list.append([profile, self.config_obj["profiles"][profile]["layer0_link"]["link_profile"]])
-                    else:
-                        pairing_list.append([profile])
+            for profile in self.profile_names:
+                link_found = False
+                for link_type in self.link_types:
+                    if self.config_obj[profile][f"{link_type}_link_enable"]:
+                        link_found = True
+                        # list of lists of matching profile to linked profile
+                        link_profile = self.config_obj[profile][f"{link_type}_link_profile"]
+                        if link_profile != "None":
+                            pairing_list.append([profile, self.config_obj[profile][f"{link_type}_link_profile"]])
+                        else: pairing_list.append([profile])
+                if not link_found: pairing_list.append([profile])
             
             n = 0
             while True:
                 list1 = pairing_list[n]
-                try:
-                    list2 = pairing_list[n+1]
-                except IndexError:
-                    break
+                try: list2 = pairing_list[n+1]
+                except IndexError: break
                 else:
                     list1 = test_replace_last_elements(list1,list2)
                     if list1:
@@ -1303,73 +1462,109 @@ class Functions():
                         pairing_list.remove(list2)
                     else:
                         n += 1
-                        
-            profile_keys = list(self.config_obj["profiles"].keys())
-            dup_keys = []
-
-            for key in profile_keys:
-                for x in pairing_list:
-                    if key in x:
-                        dup_keys.append(key)
-                        break
-            for key in profile_keys:
-                if key not in dup_keys:
-                    key_list = []
-                    key_list.append(key)
-                    pairing_list.append(key_list)
             
             # add services to the pairing list
             for n, s_list in enumerate(pairing_list):
                 for i, profile in enumerate(s_list):
                     pair_dict = {
                         "profile": profile,
-                        "service": self.config_obj["profiles"][profile]["service"],
-                        "layer": self.config_obj["profiles"][profile]["layer"]
+                        "service": self.config_obj[profile]["service"],
+                        "layer": self.config_obj[profile]["layer"]
                     }
                     s_list[i] = pair_dict
                 pairing_list[n] = s_list
 
+            if "order_pairing" in var.req:
+                # put profiles in order of leave, stop, start, join
+                # order_pairing option should have the last element with the
+                # pairing dict popped before the returned list is used.
+                pre_profile_order = []; profile_order = []
+                for profile_group in pairing_list:
+                    for profile_obj in reversed(profile_group):
+                        pre_profile_order.append(profile_obj["profile"])
+                [profile_order.append(element) for element in pre_profile_order if element not in profile_order]         
+                pairing_list.append(profile_order)
+                
             return pairing_list
-            
+
+        elif "environments" in var.req:
+            pull_all()
+            return {
+                "environment_names": metagraph_env_set,
+                "multiple_environments": True if len(metagraph_env_set) > 1 else False
+            }
+        
+        elif "one_profile_per_env" in var.req:
+            pull_all()
+            last_env = set(); profiles = []
+            for env in metagraph_env_set:
+                for profile in self.profile_names:
+                    if not self.config_obj[profile]["environment"] in last_env:
+                        profiles.append(profile)
+                    last_env.add(env)
+            return profiles
+
+        elif var.req == "profiles_by_environment":
+            pull_all()
+            profiles = set()
+            for i_profile in self.profile_names:
+                if self.config_obj[i_profile]["environment"] == var.environment:
+                    profiles.add(i_profile)
+            return profiles   
+                
         elif "list" in var.req:
             if var.req == "list":
-                return list(self.config_obj["profiles"].keys())
+                return list(self.config_obj.keys())
             elif var.req == "list_details":
                 pull_all()
                 return {
-                    "profile_names": list(self.config_obj["profiles"].keys()),
+                    "profile_names": self.profile_names,
                     "profile_services": service_list,
-                    "profile_descr": description_list
+                    "profile_descr": description_list,
+                    "metagraph_name": metagraph_name,
+                    "environment_names": metagraph_env_set,
+                    "layer_list": metagraph_layer_list,
+                    "custom_values": custom_values_dict,
                 }
         if var.req == "default_profile":
-            return list(self.config_obj["profiles"].keys())[0]
+            return list(self.config_obj.keys())[0]
             
-        elif var.req == "link_profile":
-            if self.config_obj["profiles"][profile]["layer0_link"]["enable"]:
-                return {
-                    "profile": self.config_obj["profiles"][profile]["layer0_link"]["link_profile"],
-                    "port": self.config_obj["profiles"][profile]["layer0_link"]["layer0_port"],
-                    "host": self.config_obj["profiles"][profile]["layer0_link"]["layer0_host"],
-                    "key": self.config_obj["profiles"][profile]["layer0_link"]["layer0_key"],
-                }   
+        elif "link_profile" in var.req:
+            gl0_link_obj = {
+                "gl0_link_enable": self.config_obj[profile]["gl0_link_enable"],
+                "gl0_profile": self.config_obj[profile]["gl0_link_profile"],
+                "gl0_port": self.config_obj[profile]["gl0_link_port"],
+                "gl0_host": self.config_obj[profile]["gl0_link_host"],
+                "gl0_key": self.config_obj[profile]["gl0_link_key"],                
+            }
+            ml0_link_obj = {
+                    "ml0_link_enable": self.config_obj[profile]["ml0_link_enable"],
+                    "ml0_profile": self.config_obj[profile]["ml0_link_profile"],
+                    "ml0_port": self.config_obj[profile]["ml0_link_port"],
+                    "ml0_host": self.config_obj[profile]["ml0_link_host"],
+                    "ml0_key": self.config_obj[profile]["ml0_link_key"],                
+            }
+            all_link_obj = gl0_link_obj | ml0_link_obj
+            if var.req == "gl0_link_profile": return gl0_link_obj
+            if var.req == "ml0_link_profile": return ml0_link_obj
+            if var.req == "all_link_profiles": return all_link_obj
             return False 
                         
         elif var.req == "ports":
-            return self.config_obj["profiles"][profile]["ports"]
+            return {
+                "public": self.config_obj[profile]["public_port"],
+                "p2p": self.config_obj[profile]["p2p_port"],
+                "cli": self.config_obj[profile]["cli_port"],
+            }
         
         elif var.req == "exists" or var.req == "enabled":
-            try:
-                test = self.config_obj["profiles"][profile]["enable"]
-            except:
-                test = False
+            try: test = self.config_obj[profile]["profile_enable"]
+            except: test = False
                 
             if test:
-                if var.req == "enabled" and test:
-                    return True
-                elif var.req == "enabled" and not test:
-                    return False
-                else:
-                    return test
+                if var.req == "enabled" and test: return True
+                elif var.req == "enabled" and not test: return False
+                else: return test
                 
             self.error_messages.error_code_messages({
                 "error_code": "fnt-998",
@@ -1378,7 +1573,67 @@ class Functions():
             })
     
     
-    def pull_upgrade_path(self):
+    def pull_remote_profiles(self,command_obj):
+        r_and_q = command_obj.get("r_and_q","both")
+        retrieve = command_obj.get("retrieve","profile_names")
+        return_where = command_obj.get("return_where","Main")
+        predefined_envs = []
+        repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
+        repo_profiles = repo_profiles["payload"]["tree"]["items"]
+        metagraph_name, chosen_profile = None, None
+        
+        predefined_configs = {}
+        for repo_profile in repo_profiles:
+            if "predefined_configs" in repo_profile["path"] and "yaml" in repo_profile["name"]:
+                f_url = f"{self.nodectl_profiles_url_raw}/{repo_profile['name']}" 
+                details = self.get_from_api(f_url,"yaml")
+                metagraph_name = details["nodectl"]["global_elements"]["metagraph_name"] # readability
+                predefined_envs.append(metagraph_name)
+                predefined_configs = {
+                    **predefined_configs,
+                    f"{metagraph_name}": {
+                        "json": details,
+                        "yaml_url": f_url,
+                    }
+                }
+                    
+        if retrieve == "profile_names" or retrieve == "chosen_profile":    
+            chosen_profile = self.print_option_menu({
+                "options": predefined_envs,
+                "return_where": return_where,
+                "r_and_q": r_and_q,
+                "color": "green",
+                "return_value": True,
+            })
+
+        if chosen_profile == "r" or chosen_profile == "q": return chosen_profile
+        elif retrieve == "profile_names": return chosen_profile
+        elif retrieve == "config_file": return predefined_configs
+        elif retrieve == "chosen_profile": return [chosen_profile, predefined_configs[chosen_profile]]
+
+
+    def pull_upgrade_path(self,config=False):
+        def check_for_release(p_version):
+            pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
+            pre_success = True
+            for n in range(0,3):
+                try:
+                    pre_release = get(pre_release_uri).json()
+                except:
+                    sleep(1)
+                    self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
+                    pre_success = False
+                else:
+                    break
+                
+            if not pre_success:
+                self.print_paragraphs([
+                    ["Unables to determine if this release is a pre-release, continuing anyway...",1,"red"]
+                ])
+            else:
+                # self.release_details = pre_release # save for future use
+                return pre_release["prerelease"]  # this will be true or false
+            
         for n in range(0,4):
             try:
                 upgrade_path = get(self.upgrade_path_path)
@@ -1391,9 +1646,24 @@ class Functions():
                     ])
                 self.upgrade_path = False
                 return
+            else:
+                break
     
         upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
         self.upgrade_path = eval(upgrade_path)
+        if config:
+            return
+        
+        for profile in self.profile_names:
+            # non-constellation-profiles will eval to False
+            environment = self.config_obj[profile]["environment"]
+            try:
+                is_prerelease = check_for_release(self.upgrade_path[environment]["version"])
+            except:
+                is_prerelease = False
+            finally:
+                self.upgrade_path[environment]["pre_release"] = is_prerelease
+            
 
     
     # =============================
@@ -1410,8 +1680,8 @@ class Functions():
             
             if profile:
                 uri = self.set_api_url(
-                    self.config_obj["profiles"][profile]["edge_point"]["host"],
-                    self.config_obj["profiles"][profile]["edge_point"]["host_port"],
+                    self.config_obj[profile]["edge_point"],
+                    self.config_obj[profile]["edge_point_tcp_port"],
                     "/node/health",               
                     )
 
@@ -1487,45 +1757,10 @@ class Functions():
         # this method will need to be refactored as new Metagraphs
         # register with Node Garage or Constellation (depending)
         try:
-            self.network_name = self.config_obj["profiles"][self.default_profile]["environment"]             
+            self.network_name = self.config_obj[self.default_profile]["environment"]             
         except:
             if not self.network_name:
-                while True:
-                    self.print_clear_line()
-
-                    self.print_paragraphs([
-                        ["nodectl",0,"blue","bold"], ["needs to know if your Node will be running on",0],
-                        ["mainnet",0,"yellow","bold,underline"], ["or",0], ["testnet",0,"yellow","bold,underline"],
-                        [":",-1],["",2],
-                        
-                        ["OPTIONS",1,"magenta","bold"], ["-------",1,"magenta"],
-                        ["M",0,"magenta","bold"], [")",-1,"magenta"], ["ainNet",-1,"magenta"],["",1],
-                        ["I",0,"magenta","bold"], [")",-1,"magenta"], ["ntegrationNet",-1,"magenta"],["",1],
-                        ["T",0,"magenta","bold"], [")",-1,"magenta"], ["estNet",-1,"magenta"],["",1],
-                        ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2]
-                    ])
-
-                    options_dict = {"M": "mainnet", "T": "testnet", "I": "integrationnet", "Q": "Q"}
-                    option = self.get_user_keypress({
-                        "prompt": "KEY PRESS an option",
-                        "prompt_color": "cyan",
-                        "quit_option": "Q",
-                        "options": list(options_dict.keys())
-                    })
-                    
-                    self.network_name = options_dict[option.upper()]
-                    self.print_cmd_status({
-                        "text_start": "Node environment set",
-                        "status": self.network_name,
-                        "status_color": "green",
-                        "newline": True,
-                    })
-                    return
-                
-        # if self.network_name == "dev":
-            # integrationnet started from dev environment - renaming here
-            # This will be changed in future versions of Tessellation
-        #   self.network_name = "integrationnet"
+                self.network_name = self.pull_remote_profiles({"r_and_q": None})
 
             
     def check_for_help(self,argv_list,extended):
@@ -1539,7 +1774,7 @@ class Functions():
         if profile == "all":
             return
         
-        if profile not in self.config_obj["profiles"].keys():
+        if profile not in self.config_obj.keys():
             self.error_messages.error_code_messages({
                 "error_code": "fnt-603",
                 "line_code": "profile_error",
@@ -1604,7 +1839,7 @@ class Functions():
             "simple": True,
         })
         continue_states = ["Observing","Ready","WaitingForReady","WaitingForObserving"] 
-        if state not in continue_states or "active" not in self.config_obj["node_service_status"][profile]:
+        if state not in continue_states or "active" not in self.config_obj["global_elements"]["node_service_status"][profile]:
             self.print_paragraphs([
                 [" PROBLEM FOUND ",0,"grey,on_red","bold"], ["",1],
             ])
@@ -1627,8 +1862,10 @@ class Functions():
         simple = command_obj.get("simple",False)
         current_source_node = command_obj.get("current_source_node",False)
         skip_thread = command_obj.get("skip_thread",False)
+        threaded = command_obj.get("threaded", False)
         spinner = command_obj.get("spinner", False)
         spinner = False if self.auto_restart else spinner
+        api_not_ready_flag = False
         
         results = {
             "node_on_src": False,
@@ -1647,6 +1884,7 @@ class Functions():
         if not current_source_node:
             try:
                 current_source_node = self.get_info_from_edge_point({
+                    "threaded": threaded,
                     "profile": profile,
                     "spinner": spinner,
                 })
@@ -1658,6 +1896,7 @@ class Functions():
             if not isinstance(ip,dict):
                 try:
                     ip_addresses[n] = self.get_info_from_edge_point({
+                        "threaded": threaded,
                         "profile": profile,
                         "specific_ip": ip,
                         "spinner": spinner,
@@ -1678,7 +1917,10 @@ class Functions():
                       
             while True:
                 for n,ip_address in enumerate(ip_addresses):
-                    
+                    if api_not_ready_flag: 
+                        ip_address["ip"] = "127.0.0.1"
+                        ip_address["publicPort"] = self.config_obj[profile]["public_port"]
+                        
                     uri = self.set_api_url(ip_address["ip"], ip_address["publicPort"],"/node/state")
                         
                     if ip_address["ip"] is not None:
@@ -1699,12 +1941,12 @@ class Functions():
                                 results['edge_node_color'] = color
                                 
                         except:
-                            # try 5 times before passing with ApiNotReady
+                            if api_not_ready_flag: break_while = True
+                            # try 2 times before passing with ApiNotReady
                             attempt = attempt+1
-                            if attempt > 4:
-                                pass
-                                break_while = True
-                            sleep(1)
+                            if attempt > 1:
+                                api_not_ready_flag = True
+                            sleep(.5)
                             break
                         else:
                             break_while = True
@@ -1759,7 +2001,10 @@ class Functions():
             try:
                 socket.gethostbyname(hostname)
             except:
-                return False
+                try:
+                    validators.url(hostname)
+                except:
+                    return False
         return True    
     
     
@@ -1770,25 +2015,29 @@ class Functions():
         replace_line = command_obj.get("replace_line",False)
         skip_backup = command_obj.get("skip_backup",False)
         all_first_last = command_obj.get("all_first_last","all")
-        
+        skip_line_list = command_obj.get("skip_line_list",[])
+        allow_dups = command_obj.get("allow_dups",True)
         file = file_path.split("/")
         file = file[-1]
+        i_replace_line = False
         
-        def search_replace(done):
+        global search_only_found
+        search_only_found = False
+        
+        def search_replace(done,replace_line,line_position):
+            global search_only_found
             if search_line in line and not done:
+                search_only_found = True
+                line_position = line_number
+                if all_first_last != "all" and line_position not in skip_line_list:
+                    done = True
                 if replace_line:
                     temp_file.write(replace_line)
-                    if all_first_last != "all":
-                        done = True
-                else:
-                    system(f"rm {temp}")
-                    return True
-            else:
-                if replace_line:
-                    temp_file.write(line)  
-            return done  
+                    return done, line_position
+            temp_file.write(line)  
+            return done, line_position
                     
-        if replace_line:
+        if replace_line and not skip_backup:
             date = self.get_date_time({"action":"datetime"})
             try:
                 backup_dir = self.get_dirs_by_profile({
@@ -1796,7 +2045,7 @@ class Functions():
                     "specific": "backups"
                 })
             except:
-                backup_dir = "./"
+                backup_dir = "/var/tessellation/nodectl/"
         
         if not path.exists(file_path):
             return "file_not_found"
@@ -1810,23 +2059,35 @@ class Functions():
         temp = "/var/tmp/cnng_temp_file"
         
         # makes sure no left over file from esc'ed method
-        system(f"rm {temp} > /dev/null 2>&1") 
-        system(f"rm {temp}_reverse > /dev/null 2>&1")
-                       
+        def remove_temps():
+            if path.isfile(temp):
+                system(f"sudo rm {temp} > /dev/null 2>&1") 
+            if path.isfile(f"{temp}_reverse"):
+                system(f"sudo rm {temp}_reverse > /dev/null 2>&1")
+        
+        remove_temps()
+                
+        line_number, line_position = 0, 0       
         with open(temp,"w") as temp_file:
             if replace_line and not skip_backup:
                 system(f"cp {file_path} {backup_dir}{file}_{date} > /dev/null 2>&1")
             if all_first_last == "last":
                 for line in reversed(list(f)):
-                    done = search_replace(done)
+                    search_returns = search_replace(done,i_replace_line,line_position)
+                    done, line_position = search_returns
             else:
                 for line in list(f):
-                    done = search_replace(done)
+                    line_number += 1
+                    i_replace_line = replace_line
+                    if line_number in skip_line_list:
+                        i_replace_line = False
+                    search_returns = search_replace(done,i_replace_line,line_position)
+                    done, line_position = search_returns
 
             f.close()
         
         if not replace_line:
-            result = done
+            result = search_only_found
                 
         if all_first_last == "last":
             f = open(temp)
@@ -1836,19 +2097,27 @@ class Functions():
                 all_first_last = "all"
                 done = True            
                 for line in reversed(list(f)):
-                    done = search_replace(done)
+                    search_returns = search_replace(done,i_replace_line,line_position)
+                    try: done, line_position = search_returns
+                    except: done = search_returns
                     
         f.close() # make sure closed properly                
                 
         if replace_line:
             system(f"cp {temp} {file_path} > /dev/null 2>&1")
         # use statics to avoid accidental file removal
-        system(f"rm /var/tmp/cnng_temp_file > /dev/null 2>&1")
-        system(f"rm /var/tmp/cnng_temp_file_reverse > /dev/null 2>&1")
+        remove_temps()
         
+        if replace_line and not allow_dups:
+            return [result, line_position]
+        elif not allow_dups:
+            return [result, line_position] 
         return result
 
 
+    def test_for_premature_enter_press(self):
+        return select.select([stdin], [], [], 0) == ([stdin], [], [])
+    
     # =============================
     # create functions
     # =============================  
@@ -1880,8 +2149,7 @@ class Functions():
             writer = csv.writer(file, dialect='excel')
             writer.writerows(rows)
             
-            
-            
+                        
     # =============================
     # print functions
     # =============================  
@@ -2133,6 +2401,11 @@ class Functions():
         options = command_obj.get("options")
         let_or_num = command_obj.get("let_or_num","num")
         return_value = command_obj.get("return_value",False)
+        return_where = command_obj.get("return_where","Main")
+        color = command_obj.get("color","cyan")
+        # If r_and_q is set ("r","q" or "both")
+        # make sure if using "let" option, "r" and "q" do not conflict
+        r_and_q = command_obj.get("r_and_q",False)
         
         prefix_list = []
         spacing = 0
@@ -2143,11 +2416,26 @@ class Functions():
                 option = option[1::]
                 spacing = -1
             self.print_paragraphs([
-                [prefix_list[n],-1,"cyan","bold"],[")",-1],
-                [option,spacing], ["",1],
+                [prefix_list[n],-1,color,"bold"],[")",-1,color],
+                [option,spacing,color], ["",1],
             ])
 
-        print("")
+        if r_and_q:
+            if r_and_q == "both" or r_and_q == "r":
+                self.print_paragraphs([
+                    ["R",0,color,"bold"], [")",-1,color], [f"eturn to {return_where} Menu",-1,color], ["",1],
+                ])
+                prefix_list.append("R")
+                options.append("r")
+            if r_and_q == "both" or r_and_q == "q":
+                self.print_paragraphs([
+                    ["Q",-1,color,"bold"], [")",-1,color], ["uit",-1,color], ["",2],                
+                ])
+                prefix_list.append("Q")
+                options.append("q")
+        else:
+            print("")
+            
         option = self.get_user_keypress({
             "prompt": "KEY PRESS an option",
             "prompt_color": "cyan",
@@ -2158,35 +2446,81 @@ class Functions():
             return option
         for return_option in options:
             if let_or_num == "let":
-                if option == return_option[0]:
+                if option.lower() == return_option[0].lower():
                     return return_option
+        try:
             return options[int(option)-1]
+        except:
+            return option # r_and_q exception
         
+
+    def print_profile_env_menu(self,command_obj):
+        print_header = command_obj.get("print_header", True)
+        color = command_obj.get("color","magenta")
+        p_type = command_obj.get("p_type","profile")
+        p_type_list = self.profile_names if p_type == "profile" else self.environment_names
+
+        print("")
+        if print_header:
+            self.print_header_title({
+            "line1": f"Press choose required {p_type}",
+            "single_line": True,
+            "newline": True,  
+            })
         
+        print("")
+        return_value = self.print_option_menu({
+            "options": p_type_list,
+            "return_value": True,
+            "color": color,
+            "r_and_q": "q"
+        })
+        
+        if return_value == "q":
+            self.print_paragraphs([
+                ["Command operation canceled by Node Operator",2,"green"],
+            ])
+            exit(0)
+            
+        self.print_paragraphs([
+            ["",1], [f" {return_value} ",2,"yellow,on_blue","bold"],
+        ])
+        
+        return return_value
+        
+                
     def print_any_key(self,command_obj):
         quit_option = command_obj.get("quit_option",False)
         newline = command_obj.get("newline",False)
+        prompt = command_obj.get("prompt",False)
+        color = command_obj.get("color", "yellow")
+        
         key_pressed = None
         
         if newline == "top" or newline == "both":
             print("")
             
-        prompt = "Press any key to continue"
+        if not prompt: prompt = "Press any key to continue"
         options = ["any_key"]
-        if quit_option:
-            prompt = "Press any key or 'q' to quit"
+        if quit_option == "quit_only":
+            prompt = f"press 'q' to quit"
+            options = ["q"]
+        elif quit_option:
+            prompt = f"{prompt} or 'q' to quit"
             options = ["any_key","q"]
             
         key_pressed = self.get_user_keypress({
             "prompt": prompt,
-            "prompt_color": "yellow",
+            "prompt_color": color,
             "options": options,
         })
         
         if newline == "bottom" or newline == "both":
             print("")
             
-        if quit_option and quit_option == key_pressed.lower():
+        try: key_pressed = key_pressed.lower()
+        except: key_pressed = "None"
+        if quit_option and quit_option == key_pressed:
             return True
         return
         
@@ -2318,13 +2652,14 @@ class Functions():
         
         self.print_paragraphs([
             ["Total",0], [action,0,"yellow","underline"], ["time:",0],
-            [f" {round(total_time,3)} {unit} ",0,"grey,on_green","bold"],["",2],
+            [f" {round(total_time,3)} ",0,"grey,on_green","bold"],
+            [f"{unit}",2],
         ])
 
 
     def print_help(self,command_obj):
         nodectl_version_only = command_obj.get("nodectl_version_only",False)
-        hint = command_obj.get("hint",False)
+        hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
         
         if not nodectl_version_only:
@@ -2347,36 +2682,47 @@ class Functions():
             })
             
         self.help_text = f"  NODECTL INSTALLED: [{colored(self.version_obj['node_nodectl_version'],'yellow')}]"
-        
+
         if not nodectl_version_only:
-            self.help_text += f"\n  TESSELLATION INSTALLED: [{colored(self.version_obj['node_tess_version'],'yellow')}]"
+            install_profiles = self.pull_profile({"req":"one_profile_per_env"})
+            for profile in install_profiles:
+                env = self.config_obj[profile]["environment"].upper()
+                node_tess_version = self.version_obj['node_tess_version'][profile]['node_tess_version']
+                self.help_text += f"\n  {env} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
 
         self.help_text += build_help(command_obj)
         
         print(self.help_text)
-        if hint:
-             print(colored('  HINT:','yellow',attrs=['bold']),end=" ")           
-        if hint == "profile":
-            print(
-                'Did you include the',
-                colored('-p <profile_name>','yellow'),'in your command request?\n'
-            )
+                
+        if "profile" in hint:
+            self.print_paragraphs([
+                ["HINT:",0,"yellow","bold"],
+                ["Did you include the",0,"white"],["-p <profile>",0,"yellow"],
+                ["in your command request?",1,"white"],
+            ])
+        if "env" in hint:
+            self.print_paragraphs([
+                ["HINT:",0,"yellow","bold"],
+                ["Did you include the",0,"white"],["-e <environment_name>",0,"yellow"],
+                ["in your command request?",1,"white"],
+            ])
+            
         elif hint == "unknown":
             print(colored('Unknown command entered','red'),"\n")
-        elif isinstance(hint,str):
+        elif isinstance(hint,str) and hint != "None":
             cprint(f"{  hint}","cyan")
             
-        exit(1) # auto_restart not affected
+        exit(0) # auto_restart not affected
         
     
     def print_auto_restart_warning(self):
         try:
-            if self.config_obj["auto_restart"]["enable"]:
+            if self.config_obj["global_auto_restart"]["auto_restart"]:
                 self.print_paragraphs([
-                    ["",1], ["If",0,"red"], ["auto_restart",0,"yellow","bold"], ["is enabled, this is an",0,"red"], ["exception",0,"red","bold"],
+                    ["",1], ["If",0,"red"], ["global_auto_restart",0,"yellow","bold"], ["is enabled, this is an",0,"red"], ["exception",0,"red","bold"],
                     ["and auto_restart will not reengage. You will have to do this manually.",2,"red"],
                 ])      
-                if not self.config_obj["auto_restart"]["auto_upgrade"]:
+                if not self.config_obj["global_auto_restart"]["auto_upgrade"]:
                     self.print_paragraphs([
                         [" NOTE ",0, "grey,on_yellow"], ["auto_restart will continue to fail",0],
                         ["if Tessellation versions do not properly match.",2]
@@ -2398,6 +2744,49 @@ class Functions():
             return "yellow"
 
 
+    def backup_restore_files(self, file_obj):
+        files = file_obj["file_list"]
+        location = file_obj["location"]
+        action = file_obj["action"]
+        
+        self.print_cmd_status({
+            "text_start": f"{action} files",
+            "status": "running",
+            "newline": False,
+            "status_color": "yellow"
+        })
+        
+        for file in files:
+            org_path =  f"{location}/{file}"
+            backup_path = f"/var/tmp/cnng-{file}"
+            bashCommand = False
+            if action == "backup":
+                if path.exists(org_path):
+                    bashCommand = f"sudo cp {org_path} {backup_path}"
+            elif action == "restore":
+                if path.exists(backup_path):
+                    bashCommand = f"sudo mv {backup_path} {org_path}"
+            
+            if bashCommand:
+                self.process_command({
+                    "bashCommand": bashCommand,
+                    "proc_action": "run"
+                }) 
+                           
+        self.print_cmd_status({
+            "text_start": f"{action} files",
+            "status": "complete",
+            "newline": True,
+            "status_color": "green"
+        })        
+        
+        
+    def clear_global_profiles(self,profile_list_or_obj):
+        if isinstance(profile_list_or_obj,list):
+            return [x for x in profile_list_or_obj if "global" not in x]
+        return [ x for x in profile_list_or_obj.keys() if "global" not in x]
+
+    
     def cleaner(self, line, action, char=None):
         if action == "dag_count":
             cleaned_line = sub('\D', '', line)
@@ -2415,8 +2804,12 @@ class Functions():
             return sub('\n', '', line) 
         elif action == "remove_char":
             return sub(char, '', line)  
-        elif action =="service_prefix":
-            return sub("cnng-","", line)     
+        elif action == "service_prefix":
+            return sub("cnng-","", line)   
+        elif action == "trailing_backslash":
+            if line[-1] == "/":
+                return line[0:-1]
+            return line
 
 
     def confirm_action(self,command_obj):
@@ -2433,6 +2826,13 @@ class Functions():
         prompt = f"  {colored(f'{prompt}',prompt_color)} {colored('[',prompt_color)}{colored(yes_no_default,'yellow')}{colored(']: ',prompt_color)}"
         
         valid_options = ["y","n",return_on,yes_no_default]
+        
+        for _ in range(0,2):
+            # double check if there was information waiting in stdin, clearing
+            sleep(.2)
+            if self.test_for_premature_enter_press():
+                input()
+        
         if strict:
             valid_options = valid_options[2::]
             
