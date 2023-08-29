@@ -1083,7 +1083,6 @@ WantedBy=multi-user.target
 # custom_env_vars_enable: True (or False)
 # ---------------------------------------------------------
 # MANUAL ENTRY MUST PREFIX "custom_args_" to your arg
-# customer_args_collateral: 0
 # custom_args_var1: value1
 # custom_args_var2: value2
 # MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var

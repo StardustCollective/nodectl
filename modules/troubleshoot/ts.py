@@ -46,6 +46,8 @@ class Troubleshooter():
                         # the end of the current app file
                         if "CollateralNotSatisfied" in line:
                             return (profile,"Collateral Not Satisfied","join_error")
+                        if "SeedlistDoesNotMatch" in line:
+                            return (profile,"Seed List Issue","join_error")
                         if "VersionMismatch" in line:
                             return (profile,"Version Issue","upgrade_needed")
                         if "Unauthorized for request" in line:

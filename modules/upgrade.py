@@ -822,8 +822,6 @@ class Upgrader():
                 "wait": False,
                 "threaded": True,
             })
-            if self.functions.config_obj[profile]["layer"] > 0:
-                self.functions.print_timer(5,"wait for restart",1)
     
             
     def check_for_api_readytojoin(self,profile):

@@ -1990,6 +1990,8 @@ class CLI():
             "status": "complete",
         }) 
         
+        self.functions.print_timer(6,"wait for start",1)
+        
         with ThreadPoolExecutor() as executor:
             if spinner:
                 self.functions.event = True
