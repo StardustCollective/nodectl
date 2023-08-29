@@ -185,7 +185,9 @@ class Error_codes():
             extra2 = "unknown" if var.extra2 == None else var.extra2
             self.log.logger.critical(f"API timeout error detected.  url [{extra2}] nodectl terminating...")
             self.functions.print_paragraphs([
-                ["Timed Out or Error encountered while waiting for API. Are you sure the",0,"red","bold"],
+                ["Timed Out or Error encountered while waiting for API.",1,"red","bold"],
+                ["An API call returned an invalid response.",2,"red","bold"],
+                ["Possible other reasons could be service related? Are you sure the",0,"red","bold"],
                 ["Node",0,"yellow","underline"], ["service(s) are running?",2,"red","bold"],
                 ["Make sure your",0,"magenta"], ["firewall",0,"magenta","underline"], ["has the proper TCP ports opened.",2,"magenta"],
             ])

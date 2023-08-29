@@ -842,7 +842,8 @@ class Functions():
                     self.error_messages.error_code_messages({
                         "error_code": "cfr-240",
                         "line_code": "api_error",
-                        "extra2": url
+                        "extra2": url,
+                        "extra": None
                     })
             else:
                 if utype == "yaml_raw":
