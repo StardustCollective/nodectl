@@ -1513,6 +1513,52 @@ class Configurator():
             "profile": profile,
             "defaults": defaults,
         })
+        
+        
+    def manual_define_token_id(self,profile=False): 
+        default = "disable" if not profile else self.c.config_obj[profile]["token_identifier"]
+        profile = self.profile_to_edit if not profile else profile
+        defaults, questions = False, False
+        
+        self.manual_section_header(profile,"TOKEN IDENTIFIER")
+        print("")
+        
+        description = "When working within a Metagraph, you will need to define the Metagraph's ID "
+        description += "this ID will identify the Metagraph that you are connecting to via an identifier that "
+        description += "resembles a DAG wallet address; however, it is a not a wallet address. "
+        description += "You should obtain this identifier from the Metagraph administration.  It should normally be "
+        description += "supplied with a pre-defined configuration.  Constellation Network MainNet, TestNet, and IntegrationNet "
+        description += "should have this key pair value set to 'disabled'."
+        
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                [description,2,"white","bold"]
+            ])
+            
+        if self.c.functions.confirm_action({
+            "prompt": "Set token identifier to disable?",
+            "yes_no_default": "y",
+            "return_on": "y",
+            "exit_if": False
+        }):
+            defaults = {
+                "token_identifier": "disable",
+            }        
+        else:
+            questions = {
+                "token_identifier": {
+                    "question": f"  {colored(f'Enter the token identifier required for this profile {profile}','cyan')}",
+                    "description": "Metagraph ID",
+                    "default": default,
+                    "required": False,
+                },
+            }
+        
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+            "defaults": defaults,
+        })
 
   
     def manual_build_dirs(self,profile=False):   
@@ -2063,6 +2109,7 @@ class Configurator():
             ("API TCP Ports",18),
             ("Consensus Linking",19),
             ("Metagraph Type",20),
+            ("Token Identifier",21),
         ]
         section_change_names.sort()
                         
@@ -2228,8 +2275,13 @@ class Configurator():
                     self.error_hint = "link"
                                                             
                 elif option == 20:
-                    self.called_option = "metagraph identification"
+                    self.called_option = "metagraph name"
                     self.manual_define_meta(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
+                                                            
+                elif option == 21:
+                    self.called_option = "token id"
+                    self.manual_define_token_id(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
                                         
                 if do_validate: self.validate_config(profile)
