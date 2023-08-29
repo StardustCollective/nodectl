@@ -1953,30 +1953,31 @@ class CLI():
             "newline": True,
         }
         self.functions.print_cmd_status(progress)
-        check_seed_list_options = ["-p",profile,"skip_warnings"]
-        if skip_seedlist_title: check_seed_list_options.append("skip_seedlist_title")
-        found = self.check_seed_list(check_seed_list_options)
 
-        self.functions.print_cmd_status({
-            "text_start": "Node found on Seed List",
-            "status": found,
-            "status_color": "green" if found == True else "red",
-            "newline": True,
-        })
-        if not found:
-            self.functions.print_paragraphs([
-                [" WARNING ",0,"red,on_yellow"], ["nodeid was not found on the seed list.",1,"red"]
-            ])
-            if not self.functions.confirm_action({
-                "prompt": "Continue in start action?",
-                "yes_no_default": "n",
-                "return_on": "y",
-                "exit_if": False
-            }):
+        if self.config_obj[profile]["seed_path"] != "disable/disable":
+            check_seed_list_options = ["-p",profile,"skip_warnings"]
+            if skip_seedlist_title: check_seed_list_options.append("skip_seedlist_title")
+            found = self.check_seed_list(check_seed_list_options)
+            self.functions.print_cmd_status({
+                "text_start": "Node found on Seed List",
+                "status": found,
+                "status_color": "green" if found == True else "red",
+                "newline": True,
+            })
+            if not found:
                 self.functions.print_paragraphs([
-                    ["Action canceled by Operator",1,"green"]
+                    [" WARNING ",0,"red,on_yellow"], ["nodeid was not found on the seed list.",1,"red"]
                 ])
-                exit(0)
+                if not self.functions.confirm_action({
+                    "prompt": "Continue in start action?",
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "exit_if": False
+                }):
+                    self.functions.print_paragraphs([
+                        ["Action canceled by Operator",1,"green"]
+                    ])
+                    exit(0)
             
         self.node_service.change_service_state({
             "profile": profile,
@@ -2325,7 +2326,9 @@ class CLI():
                             if results:
                                 self.functions.print_paragraphs([
                                     ["",1], ["The following was identified in the logs",1],
-                                    [results[0][1],2,"yellow"],
+                                    ["Profile",0],[results[0],1,"yellow"],
+                                    ["Possible Cause:",0],[results[1],1,"yellow"],
+                                    ["Result:",0],[results[2],2,"yellow"],
                                 ])
                             self.functions.print_auto_restart_warning()
                             start_failed_list.append(profile)
