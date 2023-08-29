@@ -250,6 +250,7 @@ class Migration():
                 **rebuild_obj,
                 "nodegaragecollateral": 0,
                 "nodegaragemetatype": "ml",
+                "nodegaragetokenidentifier": "disable",
                 "nodegaragejarrepository": "default",
                 "nodegaragejarfile": "default",
                 # "nodegaragejarversion": "default",  # future?
