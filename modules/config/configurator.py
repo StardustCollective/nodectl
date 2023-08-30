@@ -39,6 +39,7 @@ class Configurator():
         self.action = False
         self.error_hint = False
         self.is_all_global = False
+        self.clean_profiles = False
         self.preserve_pass = False
         self.upgrade_needed = False
         self.restart_needed = True
