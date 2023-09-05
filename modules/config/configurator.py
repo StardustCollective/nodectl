@@ -39,6 +39,7 @@ class Configurator():
         self.action = False
         self.error_hint = False
         self.is_all_global = False
+        self.clean_profiles = False
         self.preserve_pass = False
         self.upgrade_needed = False
         self.restart_needed = True
@@ -2115,6 +2116,7 @@ class Configurator():
                         
         while True:
             do_print_title, do_validate = True, True
+            secondary_menu = False
             option = 0
             self.called_option = "profile editor"
             self.edit_enable_disable_profile(profile,"prepare")
@@ -2181,12 +2183,13 @@ class Configurator():
                 try: option =int(option)
                 except: option = -1
                 if option > 3:
+                    secondary_menu = True
                     try: option = option-3
                     except: option = -1
                     if option > len(section_change_names): option = -1
                 
             if option not in options2 and option > -1:
-                if option > 3: option = section_change_names[option-1][1]
+                if secondary_menu: option = section_change_names[option-1][1]
 
                 if option == 1:
                     self.called_option = "enable_disable"
@@ -2965,13 +2968,13 @@ class Configurator():
                 ["  - Avoid undesired Node behavior",1],
                 ["  - Free up disk",2],
             ])
-            user_confirm = self.c.functions.confirm_action({
+            self.clean_profiles = self.c.functions.confirm_action({
                 "yes_no_default": "y",
                 "return_on": "y",
                 "prompt": "Remove old profiles?",
                 "exit_if": False
             })    
-            if user_confirm:
+            if self.clean_profiles:
                 for profile in clean_up_old_list:
                     system(f"sudo rm -rf /var/tessellation/{profile} > /dev/null 2>&1")
                     self.log.logger.info(f"configuration removed abandend profile [{profile}]")      
@@ -3001,7 +3004,7 @@ class Configurator():
     def cleanup_service_files(self,delete=False):
         cleanup = False
         clean_up_old_list, remove_profiles_from_cleanup = [], []
-        self.log.logger.info("configuator is verifying old service file cleanup.")
+        self.log.logger.info("configurator is verifying old service file cleanup.")
         
         self.c.functions.print_header_title({
             "line1": "CLEAN UP OLD SERVICE FILES",
@@ -3010,6 +3013,9 @@ class Configurator():
         })
         
         if self.print_old_file_warning("profiles"): return
+        if not self.clean_profiles:
+            cprint("  profile cleanup declined, skipping...","red")
+            return
             
         for old_profile in self.old_last_cnconfig.keys():
             if old_profile not in self.config_obj.keys():

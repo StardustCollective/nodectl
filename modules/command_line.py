@@ -133,6 +133,8 @@ class CLI():
         print_title = command_obj.get("print_title",True)
         spinner = command_obj.get("spinner",True)
         threaded = command_obj.get("threaded",False)
+        command_list = command_obj.get("command_list")
+        
         all_profile_request = False
         called_profile = self.profile
         called_command = command_obj.get("called","default")
@@ -156,133 +158,162 @@ class CLI():
             if key == "-p" and value != "empty":
                 profile_list = [value]
                 called_profile = value
-    
-        for n,profile in enumerate(profile_list):
-            self.log.logger.info(f"show system status requested | {profile}")      
-            self.set_profile(profile)
-            called_profile = profile
-            
-            if called_command == "quick_status" or called_command == "_qs":
-                if n == 0:
-                    self.functions.print_paragraphs([
-                        ["Node Status Quick Results",1,"green","bold"],
-                    ])                    
-                quick_results = quick_status_pull(self.functions.config_obj[called_profile]["public_port"])
-                self.functions.print_paragraphs([
-                    [f"{called_profile}:",0,"yellow","bold"],[quick_results[0],1],
-                ])
-                continue
-            
-            quick_results = {}    
-            quick_results[profile] = quick_status_pull(self.functions.config_obj[profile]["public_port"])
-            
-            if n > 0: 
-                print_title = False 
-                if all_profile_request:
-                    spinner = False
-                print("")
-
-            self.functions.get_service_status()
-            edge_point = self.functions.pull_edge_point(profile)
-
-            self.log.logger.debug("show system status - ready to pull node sessions")
-            
-            sessions = self.functions.pull_node_sessions({
-                "edge_device": edge_point,
-                "spinner": spinner,
-                "profile": called_profile, 
-                "key": "clusterSession"
-            })
-
-            def setup_output():
-                on_network = colored("False","red")
-                cluster_session = sessions["session0"]
-                node_session = sessions["session1"]
-                join_state = sessions['state1']
-                                
-                if sessions["session0"] == 0:
-                    on_network = colored("LbNotReady","red")
-                    cluster_session = colored("SessionNotFound".ljust(20," "),"red")
-                    join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                else:
-                    if sessions["state1"] == "ReadyToJoin":
-                        join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                        on_network = colored("ReadyToJoin","yellow")
-                    if sessions["session0"] == sessions["session1"]:
-                        if sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "SessionStarted" and sessions["state1"] != "Initial":
-                            # there are other states other than Ready and Observing when on_network
-                            on_network = colored("True","green")
-                            join_state = colored(f"{sessions['state1']}".ljust(20),"green")
-                            if sessions["state1"] == "Observing" or sessions["state1"] == "WaitingForReady":
-                                join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                        elif sessions["state1"] == "Ready":
-                            join_state = colored(f"{sessions['state1']}".ljust(20),"green",attrs=['bold'])
-                            on_network = colored("True","green",attrs=["bold"])
-                        else:
-                            node_session = colored("SessionIgnored".ljust(20," "),"red")
-                            join_state = colored(f"{sessions['state1']}".ljust(20),"red")
-                    if sessions["session0"] != sessions["session1"] and sessions["state1"] == "Ready":
-                            on_network = colored("False","red")
-                            join_state = colored(f"{sessions['state1']} (off-cluster)".ljust(20),"yellow")
-                                    
-                if sessions["session1"] == 0:
-                    node_session = colored("SessionNotFound".ljust(20," "),"red")
                 
-                return {
-                    "on_network": on_network,
-                    "cluster_session": cluster_session,
-                    "node_session": node_session,
-                    "join_state": join_state
-                }
-                
-            output = setup_output()
-            self.config_obj["global_elements"]["node_profile_states"][called_profile] = output["join_state"].strip()  # to speed up restarts and upgrades
-            
-            if not self.skip_build:
-                if rebuild:
-                    if do_wait:
-                        self.functions.print_timer(20)
-                        
-                    sessions["state1"] = self.functions.test_peer_state({
-                        "threaded": threaded,
-                        "spinner": spinner,
-                        "profile": called_profile,
-                        "simple": True
-                    })
-                
-                    output = setup_output()
- 
-                if print_title:
-                    self.functions.print_states()
-                    self.functions.print_paragraphs([
-                        ["Current Session:",0,"magenta"], ["The Hypergraph cluster session",1],
-                        ["  Found Session:",0,"magenta"], ["The cluster session the Node is current connected to",2],
-                    ])
-                                
-                print_out_list = [
-                    {
-                        "SERVICE": self.functions.config_obj["global_elements"]["node_service_status"][called_profile],
-                        "JOIN STATE": output["join_state"],
-                        "PROFILE": called_profile
-                    },
-                    {
-                        "PUBLIC API TCP":self.functions.config_obj[called_profile]["public_port"],
-                        "P2P API TCP": self.functions.config_obj[called_profile]["p2p_port"],
-                        "CLI API TCP": self.functions.config_obj[called_profile]["cli_port"]
-                    },
-                    {
-                        "CURRENT SESSION": output["cluster_session"],
-                        "FOUND SESSION": output["node_session"],
-                        "ON NETWORK": output["on_network"],
-                    }
-                ]
-                
-                self.functions.event = False  # if spinner was called stop it first.
-                for header_elements in print_out_list:
-                    self.functions.print_show_output({
-                        "header_elements" : header_elements
-                    })
+        watch_enabled = True if "-w" in command_list else False
+        with ThreadPoolExecutor() as executor:
+            if watch_enabled:
+                quit_loop = executor.submit(self.functions.get_user_keypress,{
+                    "prompt": None,
+                    "prompt_color": "magenta",
+                    "options": ["Q"],
+                    "quit_option": "Q",
+                })
         
+            while True:
+                if watch_enabled:
+                    system("clear")
+                    self.functions.print_paragraphs([
+                        ["Press",0],["'q'",0,"yellow"], ['to quit',2],
+                        ["Once",0], ["'q'",0,"yellow"], 
+                        ["is pressed and the last timer is completed, the program will exit.",2],
+                    ])
+                    if quit_loop._state == "FINISHED":
+                        system("clear")
+                        exit(0)
+                    
+                for n,profile in enumerate(profile_list):
+                    self.log.logger.info(f"show system status requested | {profile}")      
+                    self.set_profile(profile)
+                    called_profile = profile
+                    
+                    if called_command == "quick_status" or called_command == "_qs":
+                        if n == 0:
+                            self.functions.print_paragraphs([
+                                ["Node Status Quick Results",1,"green","bold"],
+                            ])                    
+                        quick_results = quick_status_pull(self.functions.config_obj[called_profile]["public_port"])
+                        self.functions.print_paragraphs([
+                            [f"{called_profile}:",0,"yellow","bold"],[quick_results[0],1],
+                        ])
+                        continue
+                    
+                    quick_results = {}    
+                    quick_results[profile] = quick_status_pull(self.functions.config_obj[profile]["public_port"])
+                    
+                    if n > 0: 
+                        print_title = False 
+                        if all_profile_request:
+                            spinner = False
+                        print("")
+
+                    self.functions.get_service_status()
+                    edge_point = self.functions.pull_edge_point(profile)
+
+                    self.log.logger.debug("show system status - ready to pull node sessions")
+                    
+                    sessions = self.functions.pull_node_sessions({
+                        "edge_device": edge_point,
+                        "spinner": spinner,
+                        "profile": called_profile, 
+                        "key": "clusterSession"
+                    })
+
+                    def setup_output():
+                        on_network = colored("False","red")
+                        cluster_session = sessions["session0"]
+                        node_session = sessions["session1"]
+                        join_state = sessions['state1']
+                                        
+                        if sessions["session0"] == 0:
+                            on_network = colored("LbNotReady","red")
+                            cluster_session = colored("SessionNotFound".ljust(20," "),"red")
+                            join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+                        else:
+                            if sessions["state1"] == "ReadyToJoin":
+                                join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+                                on_network = colored("ReadyToJoin","yellow")
+                            if sessions["session0"] == sessions["session1"]:
+                                if sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "SessionStarted" and sessions["state1"] != "Initial":
+                                    # there are other states other than Ready and Observing when on_network
+                                    on_network = colored("True","green")
+                                    join_state = colored(f"{sessions['state1']}".ljust(20),"green")
+                                    if sessions["state1"] == "Observing" or sessions["state1"] == "WaitingForReady":
+                                        join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+                                elif sessions["state1"] == "Ready":
+                                    join_state = colored(f"{sessions['state1']}".ljust(20),"green",attrs=['bold'])
+                                    on_network = colored("True","green",attrs=["bold"])
+                                else:
+                                    node_session = colored("SessionIgnored".ljust(20," "),"red")
+                                    join_state = colored(f"{sessions['state1']}".ljust(20),"red")
+                            if sessions["session0"] != sessions["session1"] and sessions["state1"] == "Ready":
+                                    on_network = colored("False","red")
+                                    join_state = colored(f"{sessions['state1']} (off-cluster)".ljust(20),"yellow")
+                                            
+                        if sessions["session1"] == 0:
+                            node_session = colored("SessionNotFound".ljust(20," "),"red")
+                        
+                        return {
+                            "on_network": on_network,
+                            "cluster_session": cluster_session,
+                            "node_session": node_session,
+                            "join_state": join_state
+                        }
+                        
+                    output = setup_output()
+                    self.config_obj["global_elements"]["node_profile_states"][called_profile] = output["join_state"].strip()  # to speed up restarts and upgrades
+                    
+                    if not self.skip_build:
+                        if rebuild:
+                            if do_wait:
+                                self.functions.print_timer(20)
+                                
+                            sessions["state1"] = self.functions.test_peer_state({
+                                "threaded": threaded,
+                                "spinner": spinner,
+                                "profile": called_profile,
+                                "simple": True
+                            })
+                        
+                            output = setup_output()
+        
+                        if print_title:
+                            self.functions.print_states()
+                            self.functions.print_paragraphs([
+                                ["Current Session:",0,"magenta"], ["The Hypergraph cluster session",1],
+                                ["  Found Session:",0,"magenta"], ["The cluster session the Node is current connected to",2],
+                            ])
+                                        
+                        print_out_list = [
+                            {
+                                "SERVICE": self.functions.config_obj["global_elements"]["node_service_status"][called_profile],
+                                "JOIN STATE": output["join_state"],
+                                "PROFILE": called_profile
+                            },
+                            {
+                                "PUBLIC API TCP":self.functions.config_obj[called_profile]["public_port"],
+                                "P2P API TCP": self.functions.config_obj[called_profile]["p2p_port"],
+                                "CLI API TCP": self.functions.config_obj[called_profile]["cli_port"]
+                            },
+                            {
+                                "CURRENT SESSION": output["cluster_session"],
+                                "FOUND SESSION": output["node_session"],
+                                "ON NETWORK": output["on_network"],
+                            }
+                        ]
+                        
+                        self.functions.event = False  # if spinner was called stop it first.
+                        for header_elements in print_out_list:
+                            self.functions.print_show_output({
+                                "header_elements" : header_elements
+                            })
+                            
+                if watch_enabled:
+                    if quit_loop._state == "FINISHED":
+                        exit(0) 
+                    print("")
+                    self.functions.print_timer(6,"before updating status")
+                else: break    
+                
 
     def show_service_log(self,command_list):
         self.functions.check_for_help(command_list, "show_service_log")

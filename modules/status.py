@@ -1,6 +1,7 @@
 from os import system, popen, path
 from subprocess import Popen, check_output, PIPE
 from hurry.filesize import size, alternative
+from sys import exit
 
 from datetime import datetime
 
@@ -161,6 +162,16 @@ class Status():
         self.error_auths_count = 0
         accepted_auths_count = 0
                 
+        if not path.exists("/var/log/auth.log"):
+            self.log.logger.error("unable to read file [/var/log/auth.log] during health check.")
+            self.functions.print_paragraphs([
+                [" FILE NOT FOUND ",0,"red,on_yellow"], 
+                ["nodectl was unable to find a valid authorization log on the VPS or server that this Node was installed on?",2,"red"],
+                ["Are you sure this is a valid Debian based operation system?  Unable to to properly access files",0,"red"],
+                ["to verify security checks, exiting...",2,"red"],
+            ])
+            exit(1)
+            
         creation_time = path.getctime("/var/log/auth.log")
         dir_list = ["/var/log/auth.log"]
         if path.exists("/var/log/auth.log.1"):

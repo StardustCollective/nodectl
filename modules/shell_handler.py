@@ -133,7 +133,8 @@ class ShellHandler:
                 "wait": False,
                 "print_title": True,
                 "-p": profile,
-                "called": self.called_command
+                "called": self.called_command,
+                "command_list": self.argv
             })
             
         elif self.called_command in service_change_commands:
