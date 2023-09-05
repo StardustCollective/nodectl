@@ -928,24 +928,26 @@ class Functions():
         # options=(list) list of valid keys
         # debug=(bool) if want to test output of key for dev purposes
         
-        var = SimpleNamespace(**command_obj)
+        options = command_obj.get("options",["any_key"])
+        prompt = command_obj.get("prompt","")
+        prompt_color = command_obj.get("prompt_color","magenta")
         debug = command_obj.get("debug",False)
         quit_option = command_obj.get("quit_option",False)
         self.key_pressed = None
         
         invalid_str = f"  {colored(' Invalid ','yellow','on_red',attrs=['bold'])}: {colored('only','red')} "
-        for option in var.options:
-            invalid_str += f"{colored(option,'white',attrs=['bold'])}, " if option != var.options[-1] else f"{colored(option,'white',attrs=['bold'])}"
+        for option in options:
+            invalid_str += f"{colored(option,'white',attrs=['bold'])}, " if option != options[-1] else f"{colored(option,'white',attrs=['bold'])}"
         invalid_str = colored(invalid_str,"red")
                 
-        cprint(f"  {var.prompt}",var.prompt_color,end="\r")
+        cprint(f"  {prompt}",prompt_color,end="\r")
         print("\033[F")
         
         def press(key):
             if debug:
                 print(key)
                 return
-            if var.options[0] == "any_key" or key.upper() in var.options:
+            if options[0] == "any_key" or key.upper() in options:
                 stop_listening()
                 self.key_pressed = key
                 return
