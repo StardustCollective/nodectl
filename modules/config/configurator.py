@@ -2116,6 +2116,7 @@ class Configurator():
                         
         while True:
             do_print_title, do_validate = True, True
+            secondary_menu = False
             option = 0
             self.called_option = "profile editor"
             self.edit_enable_disable_profile(profile,"prepare")
@@ -2182,12 +2183,13 @@ class Configurator():
                 try: option =int(option)
                 except: option = -1
                 if option > 3:
+                    secondary_menu = True
                     try: option = option-3
                     except: option = -1
                     if option > len(section_change_names): option = -1
                 
             if option not in options2 and option > -1:
-                if option > 3: option = section_change_names[option-1][1]
+                if secondary_menu: option = section_change_names[option-1][1]
 
                 if option == 1:
                     self.called_option = "enable_disable"
