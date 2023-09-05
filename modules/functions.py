@@ -1840,7 +1840,7 @@ class Functions():
             "profile": profile,
             "simple": True,
         })
-        continue_states = ["Observing","Ready","WaitingForReady","WaitingForObserving"] 
+        continue_states = ["Observing","Ready","WaitingForReady","WaitingForObserving","DownloadInProgress"] 
         if state not in continue_states or "active" not in self.config_obj["global_elements"]["node_service_status"][profile]:
             self.print_paragraphs([
                 [" PROBLEM FOUND ",0,"grey,on_red","bold"], ["",1],

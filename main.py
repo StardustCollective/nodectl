@@ -5,8 +5,7 @@ from termcolor import colored
 from modules.troubleshoot.logger import Logging
 from modules.config.config import Configuration
 from modules.config.configurator import Configurator
-
-import pdb
+# import pdb
 
 global debug
 debug = False
