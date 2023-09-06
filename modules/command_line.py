@@ -133,7 +133,7 @@ class CLI():
         print_title = command_obj.get("print_title",True)
         spinner = command_obj.get("spinner",True)
         threaded = command_obj.get("threaded",False)
-        command_list = command_obj.get("command_list")
+        command_list = command_obj.get("command_list",[])
         
         all_profile_request = False
         called_profile = self.profile
