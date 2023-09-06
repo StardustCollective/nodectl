@@ -713,11 +713,9 @@ class ShellHandler:
             self.profile_names = None
             return
         
-        self.profile_names = self.functions.pull_profile({
-            "req": "list",
-            "profile": "empty",
-        })  
+        self.profile_names = self.functions.profile_names 
         self.profile = self.functions.default_profile  # default to first layer0 found
+        
         
 
     def show_version(self):
