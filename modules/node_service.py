@@ -803,7 +803,7 @@ class Node():
         headers = {
             'Content-type': 'application/json',
         }
-                
+
         found_link_types = []
         if gl0_linking_enabled or ml0_linking_enabled:
             self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")

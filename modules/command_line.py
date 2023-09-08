@@ -161,6 +161,7 @@ class CLI():
                 
         watch_enabled = True if "-w" in command_list else False
         watch_seconds = 15
+        watch_passes = 0
         watch_enabled, range_error = False, False
         if "-w" in command_list:
             try: 
@@ -186,11 +187,13 @@ class CLI():
         
             while True:
                 if watch_enabled:
+                    watch_passes += 1
                     system("clear")
                     self.functions.print_paragraphs([
                         ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
                         ["Once",0], ["'q'",0,"yellow"], 
-                        ["is pressed and the last timer is completed, the program will exit. Do not use 'ctrl-c' to exit.",2],
+                        ["is pressed and the last timer is completed, the program will exit.",1],
+                        ["Do not use",0],["Ctrl-c",2,"yellow"],
                     ])
                     if range_error:
                         self.functions.print_paragraphs([
@@ -331,6 +334,8 @@ class CLI():
                         exit(0) 
                     self.functions.print_paragraphs([
                         ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
+                        ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
+                        ["Intervals:",0,"magenta"], [f"{watch_seconds}s",1,"yellow"],
                     ])
                     self.functions.print_timer(watch_seconds,"before updating status")
                 else: break    
@@ -2873,7 +2878,6 @@ class CLI():
                 start = start+secs      
                     
         
-
     def cli_grab_id(self,command_obj):
         # method is secondary method to obtain node id
         argv_list = command_obj.get("argv_list",[None])

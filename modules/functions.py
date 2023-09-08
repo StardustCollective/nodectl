@@ -50,6 +50,12 @@ class Functions():
         if config_obj["global_elements"]["caller"] in exclude_config:
             return
         
+        # stop requests from caching results
+        self.get_headers = {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
         urllib3.disable_warnings()
         
         # used for installation 
@@ -474,7 +480,7 @@ class Functions():
         attempts = 1
         while True:
             try:
-                peers = get(f"http://{cluster_ip}:{api_port}/cluster/info",verify=False,timeout=2)
+                peers = get(f"http://{cluster_ip}:{api_port}/cluster/info",verify=False,timeout=2,headers=self.get_headers)
             except:
                 if attempts > 3:
                     return "error"
@@ -807,7 +813,7 @@ class Functions():
         result_list = []
         for n in range(0,tolerance):
             try:
-                session = get(api_url,verify=False,timeout=(2,2)).json()
+                session = get(api_url,verify=False,timeout=(2,2),headers=self.get_headers).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
                 if n == tolerance-1:
@@ -833,9 +839,9 @@ class Functions():
         for n in range(1,tolerance):
             try:
                 if utype == "json":
-                    response = get(url,timeout=2).json()
+                    response = get(url,timeout=2,headers=self.get_headers).json()
                 else:
-                    response = get(url,timeout=2)
+                    response = get(url,timeout=2,headers=self.get_headers)
             except Exception as e:
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
                 if n > 1:
@@ -877,7 +883,7 @@ class Functions():
                 
             for n in range(var.attempt_range+1):
                 try:
-                    results = get(uri,verify=False,timeout=2).json()
+                    results = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
                 except:
                     if n > var.attempt_range:
                         if not self.auto_restart:
@@ -1005,7 +1011,7 @@ class Functions():
             return_type = "dict"
         
         try:
-            results = get(uri,verify=False,timeout=2).json()
+            results = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
             results = results["data"]
         except Exception as e:
             self.log.logger.warn(f"attempt to access backend explorer failed with | [{e}]")
@@ -1253,7 +1259,7 @@ class Functions():
             self.log.logger.debug(f"pull_node_session -> url: {url}")
             
             try:
-                session = get(url,verify=False).json()
+                session = get(url,verify=False,headers=self.get_headers).json()
             except:
                 self.log.logger.error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
 
@@ -1328,7 +1334,7 @@ class Functions():
             for n in range(5):
                 try:
                     url =f"https://{self.be_mainnet}/addresses/{wallet}/balance"
-                    balance = get(url,verify=True,timeout=2).json()
+                    balance = get(url,verify=True,timeout=2,headers=self.get_headers).json()
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
@@ -1616,11 +1622,11 @@ class Functions():
 
     def pull_upgrade_path(self,config=False):
         def check_for_release(p_version):
-            pre_release_uri = f" https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
+            pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
             pre_success = True
             for n in range(0,3):
                 try:
-                    pre_release = get(pre_release_uri).json()
+                    pre_release = get(pre_release_uri,headers=self.get_headers).json()
                 except:
                     sleep(1)
                     self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
@@ -1630,7 +1636,7 @@ class Functions():
                 
             if not pre_success:
                 self.print_paragraphs([
-                    ["Unables to determine if this release is a pre-release, continuing anyway...",1,"red"]
+                    ["Unable to determine if this release is a pre-release, continuing anyway...",1,"red"]
                 ])
             else:
                 # self.release_details = pre_release # save for future use
@@ -1638,7 +1644,7 @@ class Functions():
             
         for n in range(0,4):
             try:
-                upgrade_path = get(self.upgrade_path_path)
+                upgrade_path = get(self.upgrade_path_path,headers=self.get_headers)
             except:
                 if n == 3:
                     self.log.logger.error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
@@ -1689,7 +1695,7 @@ class Functions():
 
         for n in range(0,4):
             try:
-                health = get(uri,verify=True,timeout=2)
+                health = get(uri,verify=True,timeout=2,headers=self.get_headers)
             except:
                 self.log.logger.warn(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if n > 2:
@@ -1714,7 +1720,7 @@ class Functions():
             
     def check_health_endpoint(self,api_port): 
         try:
-            r = get(f'http://127.0.0.1:{api_port}/node/health',verify=False,timeout=2)
+            r = get(f'http://127.0.0.1:{api_port}/node/health',verify=False,timeout=2,headers=self.get_headers)
         except:
             pass
         else:
@@ -1927,7 +1933,7 @@ class Functions():
                         
                     if ip_address["ip"] is not None:
                         try: 
-                            state = get(uri,verify=False,timeout=2).json()
+                            state = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
                             color = self.change_connection_color(state)
                             self.log.logger.debug(f"test_peer_state -> uri [{uri}]")
 
