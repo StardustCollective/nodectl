@@ -1787,15 +1787,19 @@ class CLI():
             
 
     def check_nodectl_upgrade_path(self,command_obj):
-        var = SimpleNamespace(**command_obj)
+        called_command = command_obj["called_command"]
+        argv_list = command_obj["argv_list"]
         
-        self.functions.check_for_help(var.argv_list,"upgrade_path")
-        var.called_command = "upgrade_path" if var.called_command == "_up" else var.called_command
+        try: environment = argv_list[argv_list.index('-e')+1]
+        except: argv_list.append("help")
+            
+        self.functions.check_for_help(argv_list,"upgrade_path")
+        called_command = "upgrade_path" if called_command == "_up" else called_command
         
         self.log.logger.debug("testing for upgrade path requirements")
         
         try:
-            self.version_obj = var.version_obj
+            self.version_obj =  command_obj["version_obj"]
         except:
             self.version_obj = self.functions.get_version({"which":"all"}) # rebuild the version object
             
@@ -1806,7 +1810,10 @@ class CLI():
             if not self.functions.upgrade_path:
                 return
         
+        # clean upgrade_path list not to include versions newer
+        # than the version excepted by the environment.
         upgrade_path = self.functions.upgrade_path["path"]
+        upgrade_path = upgrade_path[upgrade_path.index(versions.upgrade_path[environment]["version"]):]      
         next_upgrade_path = upgrade_path[0]    
         
         def print_version_path():
@@ -1851,10 +1858,10 @@ class CLI():
                     ["] which should then be followed by the path presented above, if not already the latest.",-1,"red"],["",2],
                     ["Download the latest version via a",0,"red"],["wget",0,"yellow","bold"],
                     ["command, then:",1,"red"],
-                    [f"sudo nodectl {var.called_command}",2],
+                    [f"sudo nodectl {called_command}",2],
                     ["See:",0,"red"], ["Github release notes",2,"magenta"]
                 ])
-            elif var.called_command == "upgrade_path":
+            elif called_command == "upgrade_path":
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
@@ -1863,17 +1870,17 @@ class CLI():
                 ])   
                 
         if next_upgrade_path != upgrade_path[0]:
-            if var.called_command == "upgrade_path":
+            if called_command == "upgrade_path":
                 self.functions.print_clear_line()
             
-            if var.called_command == "upgrade":
+            if called_command == "upgrade":
                 self.functions.print_paragraphs([
                     ["",1], ["Upgrade cannot continue. Exiting...",1,"red","bold"],
                 ])
                 self.functions.print_auto_restart_warning()
                 exit(1)
 
-        if var.called_command == "upgrade_path":
+        if called_command == "upgrade_path":
             self.functions.print_cmd_status({
                 "text_start": "Version found on system",
                 "status": versions.node_nodectl_version,
