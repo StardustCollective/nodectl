@@ -595,6 +595,7 @@ class ShellHandler:
         need_environment_list = [
             "refresh_binaries","_rtb",
             "update_seedlist", "_usl",
+            "upgrade_path","_up",
         ]
 
         need_profile_list = [
