@@ -1813,7 +1813,8 @@ class CLI():
         # clean upgrade_path list not to include versions newer
         # than the version excepted by the environment.
         upgrade_path = self.functions.upgrade_path["path"]
-        upgrade_path = upgrade_path[upgrade_path.index(versions.upgrade_path[environment]["version"]):]      
+        if versions.upgrade_path[environment]["version"] in upgrade_path:
+            upgrade_path = upgrade_path[upgrade_path.index(versions.upgrade_path[environment]["version"]):]      
         next_upgrade_path = upgrade_path[0]    
         
         def print_version_path():
