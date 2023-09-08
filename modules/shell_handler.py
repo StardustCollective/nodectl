@@ -713,11 +713,9 @@ class ShellHandler:
             self.profile_names = None
             return
         
-        self.profile_names = self.functions.pull_profile({
-            "req": "list",
-            "profile": "empty",
-        })  
+        self.profile_names = self.functions.profile_names 
         self.profile = self.functions.default_profile  # default to first layer0 found
+        
         
 
     def show_version(self):
@@ -933,24 +931,16 @@ class ShellHandler:
         keys = list(self.functions.config_obj.keys())
         keys.append("global_p12")
         
-        try:
-            for profile in keys:
-                if profile == "global_p12":
-                    if self.functions.config_obj[profile]["passphrase"] == "None":
-                        warning = True
-                        break
-                elif profile in self.profile_names:
-                    if self.functions.config_obj[profile]["p12_passphrase"] == "None":
-                        warning = True
-                        break
-        except:
-            self.log.logger.critical("restart handler found invalid configuration file, exiting.")
-            self.error_messages.error_code_messages({
-                "error_code": "sh-949",
-                "line_code": "config_error",
-                "extra": "format",
-                "extra2": "None"
-            })
+
+        for profile in keys:
+            if profile == "global_p12":
+                if self.functions.config_obj[profile]["passphrase"] == "None":
+                    warning = True
+                    break
+            elif profile in self.profile_names:
+                if self.functions.config_obj[profile]["p12_passphrase"] == "None":
+                    warning = True
+                    break
             
         if warning:
             self.functions.print_paragraphs([
