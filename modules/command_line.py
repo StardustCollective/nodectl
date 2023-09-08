@@ -160,7 +160,7 @@ class CLI():
                 called_profile = value
                 
         watch_enabled = True if "-w" in command_list else False
-        watch_seconds = 6
+        watch_seconds = 15
         watch_enabled, range_error = False, False
         if "-w" in command_list:
             try: 
@@ -169,7 +169,7 @@ class CLI():
             except: 
                 self.log.logger.error("invalid value for [-w] option, needs to be an integer. Using default of [6].")
                 range_error = True
-                watch_seconds = 6
+                watch_seconds = 15
             watch_enabled = True
             if watch_seconds < 6:
                 range_error = True
