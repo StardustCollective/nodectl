@@ -3516,11 +3516,11 @@ class CLI():
         })
         bg, verb = "on_red","INVALID SIGNATURE - WARNING"
         if "OK" in result:
-            bg, verb = "on_green","SUCCESS"
+            bg, verb = "on_green","SUCCESS - AUTHENTIC NODECTL"
 
         self.functions.print_paragraphs([
             ["",1],["VERIFICATION RESULT",1,"blue","bold"],
-            [f" {verb} ",2,f"yellow,{bg}","bold"],
+            [f" {verb} ",2,f"blue,{bg}","bold"],
         ])
     
                          

@@ -719,8 +719,7 @@ class ShellHandler:
         
         self.profile_names = self.functions.profile_names 
         self.profile = self.functions.default_profile  # default to first layer0 found
-        
-        
+                
 
     def show_version(self):
         self.log.logger.info(f"show version check requested")
