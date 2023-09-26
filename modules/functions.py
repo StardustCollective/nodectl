@@ -76,7 +76,8 @@ class Functions():
         
         self.nodectl_profiles_url = 'https://github.com/StardustCollective/nodectl/tree/main/predefined_configs'
         self.nodectl_profiles_url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs"
-
+        self.nodectl_path = "/var/tessellation/nodectl/"
+        
         # versioning
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
         self.node_tess_version = "v0.0.0"
@@ -2053,7 +2054,7 @@ class Functions():
                     "specific": "backups"
                 })
             except:
-                backup_dir = "/var/tessellation/nodectl/"
+                backup_dir = self.nodectl_path
         
         if not path.exists(file_path):
             return "file_not_found"

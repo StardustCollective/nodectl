@@ -131,7 +131,7 @@ class Migration():
                     break
             break
             
-        system(f"mv /var/tessellation/nodectl/cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
+        system(f"mv {self.functions.nodectl_path}cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
 
         self.functions.print_cmd_status({
             **progress,
@@ -378,9 +378,9 @@ class Migration():
         
         
     def final_yaml_write_out(self):
-        if not path.isdir("/var/tessellation/nodectl/"):
-            makedirs("/var/tessellation/nodectl/")
-        with open("/var/tessellation/nodectl/cn-config.yaml","w") as newfile:
+        if not path.isdir(self.functions.nodectl_path):
+            makedirs(self.functions.nodectl_path)
+        with open(f"{self.functions.nodectl_path}cn-config.yaml","w") as newfile:
             newfile.write(self.yaml)
         newfile.close()
             

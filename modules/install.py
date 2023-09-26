@@ -105,7 +105,7 @@ class Installer():
                 "prompt_color": "red",
                 "exit_if": True,
             })
-        if path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
+        if path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
             self.functions.print_paragraphs([
                 ["",1], [" WARNING ",0,"yellow,on_red"], ["An existing tessellation",0,"red"],
                 ["configuration",0,"yellow","bold"], ["file was found on this server.",2,"red"],
@@ -118,7 +118,7 @@ class Installer():
                 "prompt_color": "magenta",
                 "exit_if": True,
             })  
-            system("sudo rm /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
+            system(f"sudo rm {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
             self.functions.print_cmd_status({
                 "text_start": "Removing old configuration",
                 "status": "complete",
@@ -146,7 +146,7 @@ class Installer():
             
             # download specific file to Node
             try:
-                system(f'sudo wget {skeleton[self.network_name]["yaml_url"]} -O /var/tessellation/nodectl/cn-config.yaml -o /dev/null')
+                system(f'sudo wget {skeleton[self.network_name]["yaml_url"]} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
             except Exception as e:
                 self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton[self.network_name]["nodectl"]["yaml_url"]}] with error [{e}]')
                 self.error_messages.error_code_messages({
@@ -172,7 +172,7 @@ class Installer():
             
             for p12_item in p12_replace_list:
                 self.functions.test_or_replace_line_in_file({
-                    "file_path": "/var/tessellation/nodectl/cn-config.yaml",
+                    "file_path": f"{self.functions.nodectl_path}cn-config.yaml",
                     "search_line": f"    {p12_item[0]}: blank",
                     "replace_line": f"    {p12_item[0]}: {p12_item[1]}\n",
                     "skip_backup": True,
@@ -228,7 +228,7 @@ class Installer():
         
         dir_obj = {
             "tessellation": "/var/tessellation/",
-            "nodectl": "/var/tessellation/nodectl/",
+            "nodectl": self.functions.nodectl_path,
         }
         for profile in self.metagraph_list:
             dir_obj[f"{profile}_backups"] = self.config_obj[profile]["directory_backups"]

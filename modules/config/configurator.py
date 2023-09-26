@@ -2745,7 +2745,7 @@ class Configurator():
                 self.c.functions.set_default_variables({"skip_error",True})
                 backup_dir = self.c.config_obj[self.c.functions.default_profile]["directory_backups"]
             except:
-                backup_dir = "/var/tessellation/nodectl/"
+                backup_dir = self.config_path
                                 
             self.c.functions.print_cmd_status(progress)
             if path.isfile(self.config_file_path):

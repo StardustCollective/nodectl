@@ -118,6 +118,16 @@ class Error_codes():
             ])
 
             
+        elif "verification_failure" in str(var.line_code):
+            self.log.logger.critical(f"Unable to verify nodectl properly, please review and try again | {var.extra}")
+            self.functions.print_paragraphs([
+                ["HALTING ALL ACTIONS",2,"red","bold"],
+                ["A request to validate the authenticity of nodectl was interupted or failed.  This does not indicate that",0],
+                ["nodectl did not verify rather, nodectl could not obtain the proper elements to setup and",0],
+                ["perform the validation process",2],
+                ["Possible Reason:",0,"yellow"], [var.extra,2],
+            ])
+
         elif "service" in str(var.line_code):
             self.log.logger.critical("attempt to access the service file seems to have failed.")
             self.functions.print_paragraphs([
