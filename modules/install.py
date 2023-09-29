@@ -527,7 +527,7 @@ class Installer():
         }
         self.functions.print_cmd_status(progress)
         self.cli.node_service.profile_names = self.metagraph_list
-        self.cli.node_service.build_service()
+        self.cli.node_service.build_service(True) # true will build restart_service
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",

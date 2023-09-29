@@ -806,7 +806,6 @@ class ShellHandler:
        
     def auto_restart_handler(self,action,cli=False,manual=False):
         restart_request = warning = False  
-        user = self.functions.config_obj["global_auto_restart"]["nodeadmin"]
         
         if "--auto_grade" in self.argv:
             self.functions.config_obj["global_auto_restart"]["auto_upgrade"] = True
@@ -864,7 +863,7 @@ class ShellHandler:
                     "color": "yellow",
                 }
                 self.functions.print_cmd_status(progress)
-                system(f'sudo systemctl stop node_restart@"enable"."{user}" > /dev/null 2>&1')
+                system('sudo systemctl stop node_restart@"enable" > /dev/null 2>&1')
                 self.functions.print_cmd_status({
                     **progress,
                     "status": end_status,
@@ -882,7 +881,7 @@ class ShellHandler:
                     self.auto_restart_pid = False # reset 
 
                 if restart_request:
-                    system('sudo systemctl start node_restart@"enable"."{user}" > /dev/null 2>&1')
+                    system('sudo systemctl start node_restart@"enable" > /dev/null 2>&1')
                     cprint("  auto_restart restart request completed.","green",attrs=["bold"])
                     time.sleep(.5)
                     self.get_auto_restart_pid()
@@ -983,7 +982,7 @@ class ShellHandler:
             self.log.logger.warn(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
             return
             
-        system(f'sudo systemctl start node_restart@"{action}"."{user}" > /dev/null 2>&1')
+        system(f'sudo systemctl start node_restart@"{action}" > /dev/null 2>&1')
         if cli:
             print("")
             cprint("  node restart service started... ","green")

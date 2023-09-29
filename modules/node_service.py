@@ -1045,8 +1045,8 @@ StartLimitIntervalSec=0
 [Service]
 Type=Simple
 WorkingDirectory=/usr/local/bin
-ExecStart=nodectl service_restart %i &
-User=%j
+Environment="SCRIPT_ARGS=%I"
+ExecStart=nodectl service_restart $SCRIPT_ARGS &
 Restart=always
 RestartSec=15
 RuntimeMaxSec=14400

@@ -2019,7 +2019,7 @@ class Configurator():
                 if return_option == "q": self.quit_configurator()
                 elif return_option != "r": return_option = self.edit_profile_sections()
                 if return_option == "e": self.edit_profiles() # return option can change again
-            elif option == "a": self.edit_append_profile_global("None")
+            # elif option == "a": self.edit_append_profile_global("None")
             elif option == "g": self.edit_append_profile_global("p12")
             elif option == "r": self.edit_auto_restart()
             elif option == "l": 
@@ -2337,13 +2337,19 @@ class Configurator():
         auto_upgrade_desc = "nodectl has a special automated feature called 'auto_upgrade' that will monitor your Node's on-line status. "
         auto_upgrade_desc += "In the event your Node is removed from the network because of a version upgrade, this feature will attempt "
         auto_upgrade_desc += "to bring your Node back up online; by including an Tessellation upgrade, with the restart. "
-        auto_restart_desc += "'auto_restart' must be enabled in conjunction with 'auto_upgrade'."
+        auto_upgrade_desc += "'auto_restart' must be enabled in conjunction with 'auto_upgrade'."
         auto_upgrade_desc += "Please be aware that this can be a dangerous feature, as in the (unlikely) event there are bugs presented in the new "
         auto_upgrade_desc += "releases, your Node will be upgraded regardless.  It is important to pay attention to your Node even if this feature "
         auto_upgrade_desc += "is enabled.  Please issue a 'sudo nodectl auto_upgrade help' for details."
         
+        on_boot_desc = "nodectl has an automated feature called 'on_boot' that simply allow your Node to start the 'auto_restart' "
+        on_boot_desc += "feature on restart ('warm' or 'cold' boot) of your VPS (virtual private server) or bare metal (physical) server "
+        on_boot_desc += "housing your Node. If you choose to enable 'on_boot' be aware that in the event you need to disable 'auto_restart' "
+        on_boot_desc += "in the future, for whatever purpose, it will re-engage if the system is restarted by a 'warm' or 'cold' boot."
+        
         restart = "disable" if self.c.config_obj["global_auto_restart"]["auto_restart"] else "enable"
         upgrade = "disable" if self.c.config_obj["global_auto_restart"]["auto_upgrade"] else "enable"
+        on_boot = "disable" if self.c.config_obj["global_auto_restart"]["on_boot"] else "enable"
         
         questions = {
             "auto_restart": {
@@ -2358,9 +2364,16 @@ class Configurator():
                 "default": "y" if upgrade == "disable" else "n",
                 "required": False,
             },
+            "on_boot": {
+                "question": f"  {colored('Do you want to [','cyan')}{colored(on_boot,'yellow',attrs=['bold'])}{colored('] start on boot up?','cyan')}",
+                "description": on_boot_desc,
+                "default": "y" if on_boot == "disable" else "n",
+                "required": False,
+            },
             "alt_confirm_dict": {
                 f"{restart} auto_restart": "auto_restart",
                 f"{upgrade} auto_upgrade": "auto_upgrade",
+                f"{on_boot} on_boot": "on_boot",
             }
         }
         
@@ -2369,32 +2382,73 @@ class Configurator():
             enable_answers = self.ask_confirm_questions({"questions": questions})
             enable_answers["auto_restart"] = enable_answers["auto_restart"].lower()
             enable_answers["auto_upgrade"] = enable_answers["auto_upgrade"].lower()
+            enable_answers["on_boot"] = enable_answers["on_boot"].lower()
+            
+            # auto_upgrade restrictions
             if restart == "disable" and upgrade == "disable":
                 if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "n":
+                    # cannot disable auto restart if auto upgrade is enabled
                     restart_error = True
 
             if restart == "disable" and upgrade == "enable":
                 if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "y":
+                    # cannot disable auto restart if auto upgrade is being enabled
                     restart_error = True
 
             if restart == "enable" and upgrade == "enable":
                 if enable_answers["auto_restart"] == "n" and enable_answers["auto_upgrade"] == "y":
+                    # cannot disable auto restart if auto upgrade is enabled
                     restart_error = True
-                
+                    
+            # on_boot restrictions
+            if restart == "disable" and on_boot == "disable":
+                if enable_answers["auto_restart"] == "y" and enable_answers["on_boot"] == "n":
+                    # cannot enable on boot if auto_restart is disabled
+                    restart_error = True
+                    
+            if restart == "disable" and on_boot == "enable":
+                if enable_answers["auto_restart"] == "y" and enable_answers["on_boot"] == "y":
+                    # cannot disable auto restart if on_boot is being enabled
+                    restart_error = True      
+                                  
+            if restart == "enable" and on_boot == "enable":
+                if enable_answers["auto_restart"] == "n" and enable_answers["on_boot"] == "y":
+                    # cannot enable on boot if auto_restart is disabled
+                    restart_error = True
+
             if not restart_error:
                 shell = ShellHandler(self.c.config_obj,False)
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 if restart == "enable" and enable_answers["auto_restart"] == "y":
-                    self.c.functions.print_paragraphs([
-                        ["auto_restart",0,"yellow","bold"], ["will be enabled.",1],
-                    ])
-                    # shell.auto_restart_handler("enable",False,False)
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Starting auto_restart service",
+                        "status": "starting",
+                        "status_color": "yellow"
+                    })
+                    shell.auto_restart_handler("enable")
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Starting auto_restart service",
+                        "status": "started",
+                        "status_color": "green",
+                        "newline": True,
+                    })
                 elif restart == "disable" and enable_answers["auto_restart"] == "y":
+                    shell.auto_restart_handler("disable",True)
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Stopping auto_restart service",
+                        "status": "stopped",
+                        "status_color": "green",
+                        "newline": True,
+                    })
+                if on_boot == "enable" and enable_answers["on_boot"] == "y":
                     self.c.functions.print_paragraphs([
-                        ["auto_restart",0,"yellow","bold"], ["will be disabled.",1],
+                        ["auto_restart",0], ["on boot",0,"yellow","bold"], ["will be enabled.",1],
                     ])
-                    # shell.auto_restart_handler("disable",False,False)
+                elif on_boot == "disable" and enable_answers["on_boot"] == "y":
+                    self.c.functions.print_paragraphs([
+                        ["auto_restart",0], ["on boot",0,"yellow","bold"], ["will be disabled.",1],
+                    ])
                 break
             self.c.functions.print_paragraphs([
                 [" ERROR ",0,"yellow,on_red"], ["auto_upgrade cannot be enabled without auto_restart, please try again.",1,"red"]
@@ -2403,10 +2457,13 @@ class Configurator():
         self.config_obj_apply = {"global_auto_restart":{}}
         self.config_obj_apply["global_auto_restart"]["auto_restart"] = "False" if enable_answers["auto_restart"] == "y" else "True"
         self.config_obj_apply["global_auto_restart"]["auto_upgrade"] = "False" if enable_answers["auto_upgrade"] == "y" else "True"
+        self.config_obj_apply["global_auto_restart"]["on_boot"] = "False" if enable_answers["on_boot"] == "y" else "True"
         if restart == "enable":
             self.config_obj_apply["global_auto_restart"]["auto_restart"] = "True" if enable_answers["auto_restart"] == "y" else "False"
         if upgrade == "enable":
             self.config_obj_apply["global_auto_restart"]["auto_upgrade"] = "True" if enable_answers["auto_upgrade"] == "y" else "False"
+        if on_boot == "enable":
+            self.config_obj_apply["global_auto_restart"]["on_boot"] = "True" if enable_answers["on_boot"] == "y" else "False"
         
         self.apply_vars_to_config()
 
