@@ -2420,6 +2420,7 @@ class Configurator():
                 shell = ShellHandler(self.c.config_obj,False)
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
+                # auto restart
                 if restart == "enable" and enable_answers["auto_restart"] == "y":
                     self.c.functions.print_cmd_status({
                         "text_start": "Starting auto_restart service",
@@ -2441,14 +2442,34 @@ class Configurator():
                         "status_color": "green",
                         "newline": True,
                     })
+                
+                # on boot
                 if on_boot == "enable" and enable_answers["on_boot"] == "y":
-                    self.c.functions.print_paragraphs([
-                        ["auto_restart",0], ["on boot",0,"yellow","bold"], ["will be enabled.",1],
-                    ])
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Enabling auto_restart on boot",
+                        "status": "enabling",
+                        "status_color": "yellow",
+                    })
+                    system('sudo systemctl enable node_restart@"enable" > /dev/null 2>&1')
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Enabling auto_restart on boot",
+                        "status": "enabled",
+                        "status_color": "green",
+                        "newline": True,
+                    })
                 elif on_boot == "disable" and enable_answers["on_boot"] == "y":
-                    self.c.functions.print_paragraphs([
-                        ["auto_restart",0], ["on boot",0,"yellow","bold"], ["will be disabled.",1],
-                    ])
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Disabling auto_restart on boot",
+                        "status": "disabling",
+                        "status_color": "yellow",
+                    })
+                    system('sudo systemctl disable node_restart@"enable" > /dev/null 2>&1')
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Disabling auto_restart on boot",
+                        "status": "disabled",
+                        "status_color": "green",
+                        "newline": True,
+                    })
                 break
             self.c.functions.print_paragraphs([
                 [" ERROR ",0,"yellow,on_red"], ["auto_upgrade cannot be enabled without auto_restart, please try again.",1,"red"]
