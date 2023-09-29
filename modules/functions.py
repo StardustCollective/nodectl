@@ -897,9 +897,13 @@ class Functions():
                 else:
                     if "consensus" in var.api_endpoint:
                         results = results["peers"]
-                    results.append({
-                        "nodectl_found_peer_count": len(results)
-                    })
+                    try:
+                        results.append({
+                            "nodectl_found_peer_count": len(results)
+                        })
+                    except:
+                        self.log.logger.warn("network may have become unavailable during cluster_info_list verification checking.")
+                        results = [{"nodectl_found_peer_count": 0}]
                 self.event = False
                 return results 
             
