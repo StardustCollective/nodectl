@@ -30,12 +30,16 @@ class AutoRestart():
         self.debug = False # full debug - disable restart and join actions
         self.allow_upgrade = allow_upgrade # only want one thread to attempt auto_upgrade
         self.retry_tolerance = 50
-        self.observing_tolerance = 5        
+        self.observing_tolerance = 5      
         self.thread_profile = thread_profile  # initialize
         self.rapid_restart = config_obj["global_auto_restart"]["rapid_restart"] 
         self.gl0_link_profile = config_obj[self.thread_profile]["gl0_link_profile"]
         self.ml0_link_profile = config_obj[self.thread_profile]["ml0_link_profile"]
-        self.sleep_on_critical = 600 if not self.rapid_restart else 15
+
+        self.sleep_on_critical = 15 if self.rapid_restart else 600
+        self.silent_restart_timer = 5 if self.rapid_restart else 30  
+        self.join_pause_timer = 5 if self.rapid_restart else 180
+        
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
         
@@ -70,6 +74,7 @@ class AutoRestart():
         }
         self.node_service = Node(command_obj,False)   
         self.node_service.auto_restart = True 
+        self.node_service.profile_names = [self.thread_profile]
         self.log.logger.debug("auto_restart -> start_node_service completed successfully.") 
         
         self.ip_address = self.functions.get_ext_ip()
@@ -355,8 +360,8 @@ class AutoRestart():
                 "profile": self.thread_profile,
                 "install_upgrade": False,
             })
-            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [30]")
-            sleep(30)   # not truly necessary but adding more delay
+            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [{self.silent_restart_timer}]")
+            sleep(self.silent_restart_timer)   # not truly necessary but adding more delay
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart [start] initiating | profile [{self.node_service.profile}]")
             self.stop_start_handler("start")
             
@@ -508,8 +513,8 @@ class AutoRestart():
                     break
         
         
-        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler - completed join attempt | state [{state}] | sleeping [180] seconds before continuing")
-        sleep(180)
+        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler - completed join attempt | state [{state}] | sleeping [{self.join_pause_timer}] seconds before continuing")
+        sleep(self.join_pause_timer)
         self.update_profile_states()
         state = self.profile_states[self.node_service.profile]['node_state'] # readability
         self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] -  join handler - check for ready state | final state: [{state}] [127.0.0.1] port [{self.node_service.api_ports['public']}] - exiting join_handler")  
