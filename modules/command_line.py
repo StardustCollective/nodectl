@@ -2040,7 +2040,7 @@ class CLI():
                     [" WARNING ",0,"red,on_yellow"], ["nodeid was not found on the seed list.",1,"red"]
                 ])
                 if not self.functions.confirm_action({
-                    "prompt": "Continue in start action?",
+                    "prompt": "Continue with start action?",
                     "yes_no_default": "n",
                     "return_on": "y",
                     "exit_if": False
