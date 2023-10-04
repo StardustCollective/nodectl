@@ -44,7 +44,9 @@ class Functions():
             self.error_messages = Error_codes() 
         
         self.node_nodectl_version = "v2.10.0"
+        self.node_nodectl_version_brief = self.node_nodectl_version.replace(".","")
         self.node_nodectl_yaml_version = "v2.0.0"
+        
         exclude_config = ["-v","_v","version"]
         
         if config_obj["global_elements"]["caller"] in exclude_config:
@@ -69,13 +71,13 @@ class Functions():
         self.be_mainnet = "be-mainnet.constellationnetwork.io"
         
         # constellation nodectl statics
-        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/{self.node_nodectl_version_brief}/admin/upgrade_path.json"
         # dev
-        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/{self.node_nodectl_version_brief}/admin/upgrade_path.json"
         
         
-        self.nodectl_profiles_url = 'https://github.com/StardustCollective/nodectl/tree/main/predefined_configs'
-        self.nodectl_profiles_url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs"
+        self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_brief}/predefined_configs'
+        self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_brief}/predefined_configs"
         self.nodectl_path = "/var/tessellation/nodectl/"
         
         # versioning

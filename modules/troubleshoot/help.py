@@ -19,8 +19,8 @@ def build_help(command_obj):
     simple_command_list = [
       "list","whoami","show_node_states","passwd12",
       "reboot","disable_root_ssh","enable_root_ssh",
-      "clean_snapshots",      "update_seedlist", "check_source_connection","health","sec",
-      "price","markets", "upgrade_path", 
+      "clean_snapshots","update_seedlist", "check_source_connection",
+      "health","sec","price","markets", "upgrade_path", 
       "check_seedlist_participation", "check_version",
     ]
     
@@ -1233,14 +1233,15 @@ def build_help(command_obj):
   that you have a valid copy of nodectl. As also shown above ^
     
   public_key (of current version only) replace <version> with currently
-  version.
-  https://github.com/StardustCollective/nodectl/blob/main/admin/nodectl_public 
+  version not including periods:  eg) v2.10.0 = v2100
+  
+  https://github.com/StardustCollective/nodectl/blob/<version>/admin/nodectl_public 
   
   signature file (of current version only)
   https://github.com/StardustCollective/nodectl/releases/download/<version>/nodectl.sig 
       
   digital_code_sign_hash (of current version only)
-  https://github.com/StardustCollective/nodectl/blob/main/admin/nodectl_public    
+  https://github.com/StardustCollective/nodectl/blob/<version>/admin/nodectl_public    
   
   Note: public key and hash are available as part of the code base under the 
         admin folder for ease of viewing

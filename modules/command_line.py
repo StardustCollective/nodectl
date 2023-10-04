@@ -3433,10 +3433,12 @@ class CLI():
             "newline": "top",
         })   
         
+        nodectl_version_brief = self.functions.node_nodectl_version_brief
+        nodectl_version_full = self.functions.node_nodectl_version
         outputs = []
         cmds = [  # must be in this order
             [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
-            [ f'nodectl_{self.functions.node_nodectl_version.replace(".","")}_{self.arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA2-256"],
+            [ f'nodectl_{nodectl_version_brief}_{self.arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA2-256"],
             [ f"nodectl_{self.arch}.sig","fetching digital signature","none","none"],
         ]
                 
@@ -3458,9 +3460,9 @@ class CLI():
                 "text_start": cmd[1],
             })
             
-            url = f"https://raw.githubusercontent.com/StardustCollective/nodectl/main/admin/{cmd[0]}"
+            url = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{nodectl_version_brief}/admin/{cmd[0]}"
             if cmd[2] == "none":
-                url = f"https://github.com/netmet1/constellation_testnet_nodectl/releases/download/v2.9.0/{cmd[0]}"
+                url = f"https://github.com/netmet1/constellation_testnet_nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
                 verify_cmd = f"openssl dgst -sha256 -verify {self.functions.nodectl_path}nodectl_public -signature {self.functions.nodectl_path}{cmd[0]} {self.functions.nodectl_path}{cmds[1][0]}"
 
             system(f"sudo wget {url} -O {self.functions.nodectl_path}{cmd[0]} -o /dev/null")
