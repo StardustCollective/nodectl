@@ -94,6 +94,8 @@ class CLI():
             })
             self.functions.print_clear_line()
             
+        self.arch = self.functions.get_arch()
+            
             
     # ==========================================
     # set commands
@@ -3434,8 +3436,8 @@ class CLI():
         outputs = []
         cmds = [  # must be in this order
             [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
-            [ "binary_hash","fetching digital signature hash","BINARY HASH","SHA2-256"],
-            [ "nodectl.sig","fetching digital signature","none","none"],
+            [ f"binary_hash_{self.arch}","fetching digital signature hash","BINARY HASH","SHA2-256"],
+            [ f"nodectl_{self.arch}.sig","fetching digital signature","none","none"],
         ]
                 
         def send_error(extra):
@@ -3934,12 +3936,11 @@ class CLI():
                 "prompt": "Are you sure you want to continue?"
             })
             
-            arch = self.functions.get_arch()
             self.functions.print_paragraphs([
                 ["Upgrading nodectl version from",0], [f"{version_obj['node_nodectl_version']}",0,"yellow"], ["to",0],
                 [f"{version_obj['latest_nodectl_version']}",2,"yellow"],
                 
-                ["Detected architecture:",0], [arch,1,"yellow"],
+                ["Detected architecture:",0], [self.arch,1,"yellow"],
                 ["WARNING",0,"yellow,on_red"], ["nodectl will exit to upgrade.",1],
                 ["Please be",0], ["patient",0,"white,on_red","bold"], ["and allow the upgrade to",0], ["complete",0,"green"],
                 ["before continuing to work.",2],
@@ -3954,7 +3955,7 @@ class CLI():
                 "pre_release": self.version_obj["pre_release"]
             })
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",version_obj["latest_nodectl_version"])
-            upgrade_file = upgrade_file.replace("ARCH",arch)
+            upgrade_file = upgrade_file.replace("ARCH",self.arch)
             
             upgrade_bash_script = "/var/tmp/upgrade-nodectl"
             with open(upgrade_bash_script,'w') as file:

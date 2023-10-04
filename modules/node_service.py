@@ -1175,7 +1175,7 @@ nodectl:
         
         if var.file == "config_yaml_global_elements":
             cur_file = '''  global_elements:
-    metagraph_name: nodegaragemetagraphname            
+    metagraph_name: nodegaragemetagraphname         
     nodectl_yaml: nodegaragenodectlyaml
     log_level: nodegarageloglevel
 '''
