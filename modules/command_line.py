@@ -3436,7 +3436,7 @@ class CLI():
         outputs = []
         cmds = [  # must be in this order
             [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
-            [ f"binary_hash_{self.arch}","fetching digital signature hash","BINARY HASH","SHA2-256"],
+            [ f'binary_hash_{self.functions.node_nodectl_version.replace(".","")}_{self.arch}',"fetching digital signature hash","BINARY HASH","SHA2-256"],
             [ f"nodectl_{self.arch}.sig","fetching digital signature","none","none"],
         ]
                 
