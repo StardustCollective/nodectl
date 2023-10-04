@@ -19,8 +19,8 @@ def build_help(command_obj):
     simple_command_list = [
       "list","whoami","show_node_states","passwd12",
       "reboot","disable_root_ssh","enable_root_ssh",
-      "clean_snapshots",      "update_seedlist", "check_source_connection","health","sec",
-      "price","markets", "upgrade_path", 
+      "clean_snapshots","update_seedlist", "check_source_connection",
+      "health","sec","price","markets", "upgrade_path", 
       "check_seedlist_participation", "check_version",
     ]
     
@@ -37,7 +37,7 @@ def build_help(command_obj):
                          reboot, send_logs [-sl], version [-v], check_versions [-cv],
                          clean_files [-cf], clear_uploads [-cul], log, id, nodeid,
                          passwd12, configure, validate_config [-val], view_config [-vc],
-                         install, upgrade, upgrade-nodectl, upgrade_path [-up], 
+                         install, upgrade, upgrade-nodectl, upgrade_path [-up], verify_nodectl [-vn],
                          refresh_binaries [-rtb], auto_restart ], show_service_log [-ssl],
                        
         optional: --pass <passphrase>   
@@ -230,7 +230,7 @@ def build_help(command_obj):
                                             
                                             see extended help for configurable auto_restart
                                             details... sudo nodectl auto_restart help
-                                            
+    verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity                                        
                      
     health  | - show basic health elements of your Node
               - show the current 15 minute CPU load and 
@@ -1182,6 +1182,74 @@ def build_help(command_obj):
                   {colored('BitCoin','yellow')}, 
                   {colored('Ethereum','yellow')}, 
                   {colored('Quant Network','yellow')}
+  '''      
+        
+        
+    if extended == "markets":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command does not take any arguments.
+  
+  Performs a quick lookup for crypto markets via CoinGecko's public API
+  
+  The command will list the {colored('Top 10','cyan')} Crypto markets at the current moment in 
+  time and in the event that {colored('Constellation Network','green')} is not in the top ten, 
+  it will list it's current position in relation to the rest of the known 
+  markets.
+  '''      
+        
+        
+    if extended == "verify_nodectl":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command does not take any arguments.
+  
+  Since Python is a interpreted language and nodectl is open source, it
+  it is hard to incorpotate a way to prevent man-in-the-middle attacks to
+  obviate authenticity concerns; however, we will still try :-)
+  
+  nodectl is compliled into a binary and the binary is code signed using
+  an internal private key.  The code signed hash and the public key are
+  available on the github respository and downloaded via an HTTPS connection.  
+  
+  {colored(extended,'cyan')} will download [every time requested] the:
+   - public key
+   - hash of the binary
+   - signature signed by the private key
+   
+  The utility will verify the binary by decrypting the binary using the hash 
+  utilizing the public key and comparing to the signature of the
+  digital hash.  {colored(extended,'cyan')} will also offer you manual instructions 
+  on how to verify that the hash and public key match what is available on 
+  the repository. 
+
+  Be aware that if you download a version of nodectl from a nefarious source 
+  [ unkowningly ] "they" can easily provided a public key and binary hash from that
+  same source which will give you a {colored('FALSE POSITIVE','red')} sense of authenticity.
+  
+  As safe guards, nodectl will provide you with the proper link to view the
+  public key and binary hash manually, so that you can see if they match what 
+  is on your node directly, this is a manual intervention that will asure you 
+  that you have a valid copy of nodectl. As also shown above ^
+    
+  public_key (of current version only) replace <version> with currently
+  version not including periods:  eg) v2.10.0 = v2100
+  
+  https://github.com/StardustCollective/nodectl/blob/<version>/admin/nodectl_public 
+  
+  signature file (of current version only)
+  https://github.com/StardustCollective/nodectl/releases/download/<version>/nodectl.sig 
+      
+  digital_code_sign_hash (of current version only)
+  https://github.com/StardustCollective/nodectl/blob/<version>/admin/nodectl_public    
+  
+  Note: public key and hash are available as part of the code base under the 
+        admin folder for ease of viewing
+        signature file is a binary available in the version assets
+        
+  If you would like to compare public and binary hash for versions lower than
+  the current version, you can download them from the release artifacts on the
+  Github repository, tagged for that specific version.
   '''      
         
         

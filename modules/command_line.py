@@ -1,11 +1,18 @@
 import re
-import base58
-import csv
 
+import base58
+# import base64
+# import cryptography.exceptions
+# from cryptography.hazmat.backends import default_backend
+# from cryptography.hazmat.primitives import hashes
+# from cryptography.hazmat.primitives.asymmetric import padding
+# from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from hashlib import sha256
+
 from time import sleep, perf_counter
 from datetime import datetime
 from os import system, path, get_terminal_size, SEEK_END, SEEK_CUR
+from pathlib import Path
 from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
@@ -86,6 +93,8 @@ class CLI():
                 "delay": .3
             })
             self.functions.print_clear_line()
+            
+        self.arch = self.functions.get_arch()
             
             
     # ==========================================
@@ -792,7 +801,7 @@ class CLI():
                 })
             file_path = f"/var/tessellation/{profile}/logs/{name}.log"
             if name == "nodectl":
-                file_path = f"/var/tessellation/nodectl/nodectl.log"
+                file_path = f"{self.functions.nodectl_path}var/tessellation/nodectl/nodectl.log"
         else:
             self.log.logger.info(f"show log invoked")
             
@@ -818,7 +827,7 @@ class CLI():
             })
 
             option_match = {
-                "1": "/var/tessellation/nodectl/nodectl.log",
+                "1": f"{self.functions.nodectl_path}nodectl.log",
                 "2": f"/var/tessellation/{profile}/logs/app.log",
                 "3": f"/var/tessellation/{profile}/logs/http.log",
                 "4": f"/var/tessellation/{profile}/logs/gossip.log",
@@ -1055,7 +1064,6 @@ class CLI():
                 
                 print(" ") # spacer        
                     
-        
     def show_current_rewards(self,command_list):
         self.functions.check_for_help(command_list,"show_current_rewards") 
         reward_amount = dict()
@@ -2034,7 +2042,7 @@ class CLI():
                     [" WARNING ",0,"red,on_yellow"], ["nodeid was not found on the seed list.",1,"red"]
                 ])
                 if not self.functions.confirm_action({
-                    "prompt": "Continue in start action?",
+                    "prompt": "Continue with start action?",
                     "yes_no_default": "n",
                     "return_on": "y",
                     "exit_if": False
@@ -3415,7 +3423,110 @@ class CLI():
         
         return
 
-                 
+
+    def cli_digital_signature(self,command_list):
+        self.log.logger.info("Attempting to verify nodectl binary against code signed signature.")
+        self.functions.check_for_help(command_list,"verify_nodectl")
+        self.functions.print_header_title({
+            "line1": "VERIFY NODECTL",
+            "line2": "warning verify keys",
+            "newline": "top",
+        })   
+        
+        nodectl_version_brief = self.functions.node_nodectl_version_brief
+        nodectl_version_full = self.functions.node_nodectl_version
+        outputs = []
+        cmds = [  # must be in this order
+            [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
+            [ f'nodectl_{nodectl_version_brief}_{self.arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA2-256"],
+            [ f"nodectl_{self.arch}.sig","fetching digital signature","none","none"],
+        ]
+                
+        def send_error(extra):
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-3432",
+                "line_code": "verification_failure",
+                "extra": extra,
+            })     
+    
+        progress = {
+            "status": "running",
+            "status_color": "red",
+            "delay": 0.3
+        }
+        for cmd in cmds: 
+            self.functions.print_cmd_status({
+                **progress,
+                "text_start": cmd[1],
+            })
+            
+            url = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{nodectl_version_brief}/admin/{cmd[0]}"
+            if cmd[2] == "none":
+                url = f"https://github.com/netmet1/constellation_testnet_nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
+                verify_cmd = f"openssl dgst -sha256 -verify {self.functions.nodectl_path}nodectl_public -signature {self.functions.nodectl_path}{cmd[0]} {self.functions.nodectl_path}{cmds[1][0]}"
+
+            system(f"sudo wget {url} -O {self.functions.nodectl_path}{cmd[0]} -o /dev/null")
+            full_file_path = f"{self.functions.nodectl_path}{cmd[0]}"
+            
+            if cmd[2] == "none":
+                self.functions.print_cmd_status({
+                    "text_start": cmd[1],
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True
+                })  
+            else:
+                text_output = Path(full_file_path).read_text().replace(" ","").lstrip()
+                if cmd[3] not in text_output:
+                    send_error(f"invalid {cmd[2]} downloaded or unable to download")
+                outputs.append(text_output.replace("-----BEGINPUBLICKEY-----","").replace("-----ENDPUBLICKEY-----","").replace("\n",""))
+
+                self.functions.print_cmd_status({
+                    "text_start": cmd[1],
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True
+                })   
+        
+        for n, cmd in enumerate(cmds[:-1]):   
+            if cmd[2] == "PUBLIC KEY": 
+                extra1, extra2 = "-----BEGIN PUBLIC KEY-----", "-----END PUBLIC KEY----" 
+                extra1s, main = 1,1
+            else:
+                extra1, extra2 = "", "" 
+                extra1s, main = 0,-1   
+                            
+            self.functions.print_paragraphs([
+                ["",1],[cmd[2],1,"blue","bold"],
+                ["=","half","blue","bold"],
+                [extra1,extra1s,"yellow"],
+                [outputs[n],main,"yellow"],
+                [extra2,2,"yellow"],
+                ["To further secure that you have the correct binary that was authenticated with a matching",0,"magenta"],
+                [f"{cmd[2]} found in yellow [above].",0,"yellow"],["Please open the following",0,"magenta"],["url",0,"yellow"], 
+                ["in our local browser to compare to the authentic repository via",0,"magenta"], ["https",0,"green","bold"],
+                ["secure hypertext transport protocol.",2,"magenta"],
+                [url,2,"blue","bold"],
+            ])
+
+        self.functions.print_cmd_status({
+            "text_start": "verifying signature match",
+            "newline": True
+        })       
+        result = self.functions.process_command({
+            "bashCommand": verify_cmd,
+            "proc_action": "timeout"
+        })
+        bg, verb = "on_red","INVALID SIGNATURE - WARNING"
+        if "OK" in result:
+            bg, verb = "on_green","SUCCESS - AUTHENTIC NODECTL"
+
+        self.functions.print_paragraphs([
+            ["",1],["VERIFICATION RESULT",1,"blue","bold"],
+            [f" {verb} ",2,f"blue,{bg}","bold"],
+        ])
+    
+                         
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")
         self.functions.check_for_help(command_list,"passwd12")
@@ -3827,12 +3938,11 @@ class CLI():
                 "prompt": "Are you sure you want to continue?"
             })
             
-            arch = self.functions.get_arch()
             self.functions.print_paragraphs([
                 ["Upgrading nodectl version from",0], [f"{version_obj['node_nodectl_version']}",0,"yellow"], ["to",0],
                 [f"{version_obj['latest_nodectl_version']}",2,"yellow"],
                 
-                ["Detected architecture:",0], [arch,1,"yellow"],
+                ["Detected architecture:",0], [self.arch,1,"yellow"],
                 ["WARNING",0,"yellow,on_red"], ["nodectl will exit to upgrade.",1],
                 ["Please be",0], ["patient",0,"white,on_red","bold"], ["and allow the upgrade to",0], ["complete",0,"green"],
                 ["before continuing to work.",2],
@@ -3847,7 +3957,7 @@ class CLI():
                 "pre_release": self.version_obj["pre_release"]
             })
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",version_obj["latest_nodectl_version"])
-            upgrade_file = upgrade_file.replace("ARCH",arch)
+            upgrade_file = upgrade_file.replace("ARCH",self.arch)
             
             upgrade_bash_script = "/var/tmp/upgrade-nodectl"
             with open(upgrade_bash_script,'w') as file:

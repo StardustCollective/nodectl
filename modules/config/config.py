@@ -53,7 +53,7 @@ class Configuration():
         execute = command_obj["implement"]
         self.action = command_obj["action"]        
         self.skip_final_report = command_obj.get("skip_report",False)
-        self.yaml_file = '/var/tessellation/nodectl/cn-config.yaml'
+        self.yaml_file = f'{self.functions.nodectl_path}cn-config.yaml'
         
         if "view" in self.action or self.action == "-vc":
             self.view_yaml_config("normal")
@@ -124,7 +124,7 @@ class Configuration():
             with open(self.yaml_file, 'r', encoding='utf-8') as f:
                 yaml_data = f.read()
         except:
-            if path.isfile("/usr/local/bin/cn-node") and not path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
+            if path.isfile("/usr/local/bin/cn-node") and not path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
                 if self.called_command != "upgrade":
                     self.error_messages.error_code_messages({
                         "error_code": "cfg-99",
@@ -313,8 +313,8 @@ class Configuration():
         more_break = round(console_size.lines)-15
         more = False
         
-        if path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
-            with open("/var/tessellation/nodectl/cn-config.yaml","r") as file:
+        if path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
+            with open(f"{self.functions.nodectl_path}cn-config.yaml","r") as file:
                 for n,line in enumerate(file):
                     print(colored(line.strip("\n"),"blue",attrs=['bold']))
                     if do_more and n % more_break == 0 and n > 0:
@@ -641,7 +641,7 @@ class Configuration():
             if write_out:  
                 done_ip, done_key, done_port, current_profile, skip_write = False, False, False, False, False
                 self.log.logger.warn("found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
-                f = open("/var/tessellation/nodectl/cn-config.yaml")
+                f = open(f"{self.functions.nodectl_path}cn-config.yaml")
                 with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
                     for line in f:
                         skip_write = False
@@ -670,7 +670,7 @@ class Configuration():
                             newfile.write(line)
                 newfile.close()
                 f.close()
-                system("mv /var/tmp/cn-config-temp.yaml /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
+                system(f"mv /var/tmp/cn-config-temp.yaml {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
 
 
     def setup_schemas(self):   
@@ -1382,7 +1382,7 @@ class Configuration():
                 
                 
     def send_error(self,code,extra="existence",extra2=None):
-        self.log.logger.critical(f"configuration file [cn-config.yaml] error code [{code}] not reachable - should be in /var/tessellation/nodectl/")
+        self.log.logger.critical(f"configuration file [cn-config.yaml] error code [{code}] not reachable - should be in {self.functions.nodectl_path}")
         self.error_messages.error_code_messages({
             "error_code": code,
             "line_code": "config_error",

@@ -121,6 +121,7 @@ class ShellHandler:
         ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
         config_list = ["view_config","validate_config","_vc", "_val"]
         clean_files_list = ["clean_snapshots","_cs","clean_files","_cf"]
+        nodectl_verify_commands = ["verify_nodectl","_vn"]
         
         if self.called_command != "service_restart":
             self.functions.print_clear_line()
@@ -221,6 +222,8 @@ class ShellHandler:
             return_value = cli.passwd12(self.argv)
         elif self.called_command == "reboot":
             cli.cli_reboot(self.argv)
+        elif self.called_command in nodectl_verify_commands:
+            cli.cli_digital_signature(self.argv)
         elif self.called_command in node_id_commands:
             command = "dag" if self.called_command == "dag" else "nodeid"
             cli.cli_grab_id({
@@ -716,8 +719,7 @@ class ShellHandler:
         
         self.profile_names = self.functions.profile_names 
         self.profile = self.functions.default_profile  # default to first layer0 found
-        
-        
+                
 
     def show_version(self):
         self.log.logger.info(f"show version check requested")
@@ -804,6 +806,7 @@ class ShellHandler:
        
     def auto_restart_handler(self,action,cli=False,manual=False):
         restart_request = warning = False  
+        
         if "--auto_grade" in self.argv:
             self.functions.config_obj["global_auto_restart"]["auto_upgrade"] = True
             
@@ -860,7 +863,7 @@ class ShellHandler:
                     "color": "yellow",
                 }
                 self.functions.print_cmd_status(progress)
-                system(f'sudo systemctl stop node_restart@"enable" > /dev/null 2>&1')
+                system('sudo systemctl stop node_restart@"enable" > /dev/null 2>&1')
                 self.functions.print_cmd_status({
                     **progress,
                     "status": end_status,
@@ -889,10 +892,16 @@ class ShellHandler:
         if action == "check_pid" or action == "current_pid" or action =="status":
             config_restart = self.functions.config_obj["global_auto_restart"]["auto_restart"]
             config_restart = "True" if config_restart else "False"
-            config_restart_color = "green" if config_restart else "red"
+            config_restart_color = "green" if config_restart == "True" else "red"
+            
             config_upgrade = self.functions.config_obj["global_auto_restart"]["auto_upgrade"]
             config_upgrade = "True" if config_upgrade else "False"
-            config_upgrade_color = "green" if config_upgrade else "red"
+            config_upgrade_color = "green" if config_upgrade == "True" else "red"
+            
+            config_boot = self.functions.config_obj["global_auto_restart"]["on_boot"]
+            config_boot = "True" if config_boot else "False"
+            config_boot_color = "green" if config_boot  == "True" else "red"
+            
             self.functions.print_clear_line()
             self.functions.print_paragraphs([
                 ["AUTO RESTART STATUS CHECK",1,"yellow","bold"]
@@ -911,8 +920,12 @@ class ShellHandler:
             })          
             print_out_list = [
                 {
-                    "AUTO RESTART": colored(f'{config_restart: <{20}}',config_restart_color),
-                    "AUTO UPGRADE": colored(config_upgrade,config_upgrade_color),
+                    "header_elements" : {
+                        "AUTO RESTART": colored(f'{config_restart: <{14}}',config_restart_color),
+                        "AUTO UPGRADE": colored(f'{config_upgrade: <{14}}',config_upgrade_color),
+                        "ON BOOT": colored(config_boot,config_boot_color),
+                    },
+                    "spacing": 14
                 }
             ]
             self.functions.print_paragraphs([
@@ -920,7 +933,7 @@ class ShellHandler:
             ])            
             for header_elements in print_out_list:
                 self.functions.print_show_output({
-                    "header_elements" : header_elements
+                    "header_elements" : header_elements,
             })          
             
             return

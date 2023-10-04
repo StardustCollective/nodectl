@@ -348,7 +348,7 @@ class Node():
                     "which": "all",
                     "print_message": print_message
                 })
-            download_version = self.version_obj['cluster_tess_version']
+            download_version = next(iter(self.version_obj['cluster_tess_version'].values()))
             if self.version_obj == None or self.version_obj['cluster_tess_version'] == "v0.0.0":
                 try:
                     download_version = self.functions.get_version({
@@ -519,7 +519,7 @@ class Node():
                 # service_dir_file = f"/usr/local/bin/cnng-{profiles[profile]['service']}"
                 if single_profile:
                     profile_service = self.config_obj[single_profile]['service']
-                self.temp_bash_file = service_dir_file = f"/var/tessellation/nodectl/cnng-{profile_service}"
+                self.temp_bash_file = service_dir_file = f"{self.functions.nodectl_path}cnng-{profile_service}"
                 
             with open(service_dir_file,'w') as file:
                 file.write(template)
@@ -551,7 +551,7 @@ class Node():
 
     def build_environment_vars(self,command_obj):
         profile = command_obj.get("profile")
-        self.env_conf_file = f"/var/tessellation/nodectl/profile_{profile}.conf" # removed in outside method
+        self.env_conf_file = f"{self.functions.nodectl_path}profile_{profile}.conf" # removed in outside method
         
         if not self.auto_restart:
             self.functions.print_cmd_status({
@@ -1007,16 +1007,16 @@ class Node():
         cur_file2 = "" # initialize
         
         if var.file == "service_file":
-            cur_file = '''[Unit]
+            cur_file = f'''[Unit]
 Description=nodegarageservicedescription
 StartLimitBurst=50
 StartLimitIntervalSec=0
 
 [Service]
 Type=forking
-EnvironmentFile=/var/tessellation/nodectl/profile_nodegarageworkingdir.conf
+EnvironmentFile={self.functions.nodectl_path}profile_nodegarageworkingdir.conf
 WorkingDirectory=/var/tessellation/nodegarageworkingdir
-ExecStart=/var/tessellation/nodectl/nodegarageexecstartbash
+ExecStart={self.functions.nodectl_path}nodegarageexecstartbash
 
 [Install]
 WantedBy=multi-user.target
@@ -1175,7 +1175,7 @@ nodectl:
         
         if var.file == "config_yaml_global_elements":
             cur_file = '''  global_elements:
-    metagraph_name: nodegaragemetagraphname            
+    metagraph_name: nodegaragemetagraphname         
     nodectl_yaml: nodegaragenodectlyaml
     log_level: nodegarageloglevel
 '''

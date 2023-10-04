@@ -43,8 +43,10 @@ class Functions():
             self.log = Logging()
             self.error_messages = Error_codes() 
         
-        self.node_nodectl_version = "v2.9.0"
+        self.node_nodectl_version = "v2.10.0"
+        self.node_nodectl_version_brief = self.node_nodectl_version.replace(".","")
         self.node_nodectl_yaml_version = "v2.0.0"
+        
         exclude_config = ["-v","_v","version"]
         
         if config_obj["global_elements"]["caller"] in exclude_config:
@@ -69,14 +71,15 @@ class Functions():
         self.be_mainnet = "be-mainnet.constellationnetwork.io"
         
         # constellation nodectl statics
-        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/{self.node_nodectl_version_brief}/admin/upgrade_path.json"
         # dev
-        self.upgrade_path_path = "https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/{self.node_nodectl_version_brief}/admin/upgrade_path.json"
         
         
-        self.nodectl_profiles_url = 'https://github.com/StardustCollective/nodectl/tree/main/predefined_configs'
-        self.nodectl_profiles_url_raw = "https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs"
-
+        self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_brief}/predefined_configs'
+        self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_brief}/predefined_configs"
+        self.nodectl_path = "/var/tessellation/nodectl/"
+        
         # versioning
         self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
         self.node_tess_version = "v0.0.0"
@@ -896,9 +899,13 @@ class Functions():
                 else:
                     if "consensus" in var.api_endpoint:
                         results = results["peers"]
-                    results.append({
-                        "nodectl_found_peer_count": len(results)
-                    })
+                    try:
+                        results.append({
+                            "nodectl_found_peer_count": len(results)
+                        })
+                    except:
+                        self.log.logger.warn("network may have become unavailable during cluster_info_list verification checking.")
+                        results = [{"nodectl_found_peer_count": 0}]
                 self.event = False
                 return results 
             
@@ -2053,7 +2060,7 @@ class Functions():
                     "specific": "backups"
                 })
             except:
-                backup_dir = "/var/tessellation/nodectl/"
+                backup_dir = self.nodectl_path
         
         if not path.exists(file_path):
             return "file_not_found"
