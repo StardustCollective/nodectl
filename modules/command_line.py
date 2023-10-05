@@ -3480,7 +3480,8 @@ class CLI():
                     "newline": True
                 })  
             else:
-                text_output = Path(full_file_path).read_text().replace(" ","").lstrip()
+                text_output = Path(full_file_path).read_text().lstrip()
+                if n != 1: text_output = text_output.replace(" ","")
                 if cmd[3] not in text_output:
                     send_error(f"invalid {cmd[2]} downloaded or unable to download")
                 outputs.append(text_output.replace("-----BEGINPUBLICKEY-----","").replace("-----ENDPUBLICKEY-----","").replace("\n",""))
@@ -3520,22 +3521,33 @@ class CLI():
         
         self.log.logger.info("copy binary nodectl to nodectl dir for verification via rename")
         system(f"cp /usr/local/bin/nodectl /var/tessellation/nodectl/nodectl_{self.arch}")    
-        result = self.functions.process_command({
+        result_sig = self.functions.process_command({
             "bashCommand": verify_cmd,
             "proc_action": "timeout"
         })
-        bg, verb = "on_red","INVALID SIGNATURE - WARNING"
+        result_nodectl_current_hash = self.functions.process_command({
+            "bashCommand": f"openssl dgst -sha256 -hex nodectl_{self.arch}",
+            "proc_action": "timeout",
+            "working_directory": "/var/tessellation/nodectl/"
+        }).strip("\n")
+        
+        bg, verb, error_line = "on_red","INVALID SIGNATURE - WARNING", ""
         self.log.logger.info("nodectl digital signature verification requested")
-        if "OK" in result:
-            self.log.logger.info(f"digital signature verified successfully | {result}")
+        if "OK" in result_sig and result_nodectl_current_hash == outputs[1]:
+            self.log.logger.info(f"digital signature verified successfully | {result_sig}")
             bg, verb = "on_green","SUCCESS - AUTHENTIC NODECTL"
-        else: self.log.logger.critical(f"digital signature did NOT verified successfully | {result}")
+        else: 
+            error_line = "Review logs for details."
+            self.log.logger.critical(f"digital signature did NOT verified successfully | {result_sig}")
+        self.log.logger.info(f"digital signature - local file hash | {result_nodectl_current_hash}")
+        self.log.logger.info(f"digital signature - remote file hash | {outputs[1]}")
         
         self.functions.print_paragraphs([
             ["",1],["VERIFICATION RESULT",1,"blue","bold"],
-            [f" {verb} ",2,f"blue,{bg}","bold"],
+            [f" {verb} ",1,f"blue,{bg}","bold"],
+            [error_line,1,"red"]
         ])
-        
+                 
         #clean up
         self.log.logger.info("cleaning up digital signature check files.")
         for cmd in cmds[1:]:

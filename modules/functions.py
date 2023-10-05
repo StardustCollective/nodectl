@@ -2923,9 +2923,13 @@ class Functions():
         skip = command_obj.get("skip",False)
         log_error = command_obj.get("log_error",False)
         return_error = command_obj.get("return_error",False)
-        
+        working_directory = command_obj.get("working_directory",None)
         if proc_action == "timeout":
-            p = Popen(shlexsplit(bashCommand), stdout=PIPE, stderr=PIPE)
+            if working_directory == None:
+                p = Popen(shlexsplit(bashCommand), stdout=PIPE, stderr=PIPE)
+            else:
+                p = Popen(shlexsplit(bashCommand), cwd=working_directory, stdout=PIPE, stderr=PIPE)
+                
             timer = Timer(timeout, p.kill)
             try:
                 timer.start()
