@@ -348,7 +348,8 @@ class Node():
                     "which": "all",
                     "print_message": print_message
                 })
-            download_version = next(iter(self.version_obj['cluster_tess_version'].values()))
+            if isinstance(self.version_obj['cluster_tess_version'],list):
+                download_version = next(iter(self.version_obj['cluster_tess_version'].values()))
             if self.version_obj == None or self.version_obj['cluster_tess_version'] == "v0.0.0":
                 try:
                     download_version = self.functions.get_version({
