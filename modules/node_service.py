@@ -1203,6 +1203,7 @@ echo ""
 echo "  ${green}COMPLETED! nodectl upgraded to NODECTL_VERSION ${clr}"
 sleep 1
 sudo nodectl version
+sudo nodectl verify_nodectl
 echo ""
 '''
             if var.upgrade_required:

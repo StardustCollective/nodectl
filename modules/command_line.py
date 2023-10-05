@@ -1064,6 +1064,7 @@ class CLI():
                 
                 print(" ") # spacer        
                     
+                    
     def show_current_rewards(self,command_list):
         self.functions.check_for_help(command_list,"show_current_rewards") 
         reward_amount = dict()
