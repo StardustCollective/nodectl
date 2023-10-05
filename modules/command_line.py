@@ -3490,7 +3490,7 @@ class CLI():
         
         for n, cmd in enumerate(cmds[:-1]):   
             if cmd[2] == "PUBLIC KEY": 
-                extra1, extra2 = "-----BEGIN PUBLIC KEY-----", "-----END PUBLIC KEY----" 
+                extra1, extra2 = "-----BEGIN PUBLIC KEY-----", "-----END PUBLIC KEY-----" 
                 extra1s, main = 1,1
             else:
                 extra1, extra2 = "", "" 
