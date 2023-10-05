@@ -3436,7 +3436,7 @@ class CLI():
         
         nodectl_version_github = self.functions.node_nodectl_version_github
         nodectl_version_full = self.functions.node_nodectl_version
-        outputs = []
+        outputs, urls = [], []
         cmds = [  # must be in this order
             [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
             [ f'{nodectl_version_github}_{self.arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA256"],
@@ -3455,18 +3455,21 @@ class CLI():
             "status_color": "red",
             "delay": 0.3
         }
-        for cmd in cmds: 
+        for n, cmd in enumerate(cmds): 
             self.functions.print_cmd_status({
                 **progress,
                 "text_start": cmd[1],
             })
             
             url = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{nodectl_version_github}/admin/{cmd[0]}"
+            urls.append(url)
             if cmd[2] == "none":
                 url = f"https://github.com/StardustCollective/nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
                 verify_cmd = f"openssl dgst -sha256 -verify {self.functions.nodectl_path}nodectl_public -signature {self.functions.nodectl_path}{cmd[0]} {self.functions.nodectl_path}{cmds[1][0]}"
 
-            system(f"sudo wget {url} -O {self.functions.nodectl_path}{cmd[0]} -o /dev/null")
+            wget_cmd = 'sudo wget -H "Cache-Control: no-cache, no-store, must-revalidate" -H "Pragma: no-cache" -H "Expires: 0" '
+            wget_cmd += f'{url} -O {self.functions.nodectl_path}{cmd[0]} -o /dev/null'
+            system(wget_cmd)
             full_file_path = f"{self.functions.nodectl_path}{cmd[0]}"
             
             if cmd[2] == "none":
@@ -3507,7 +3510,7 @@ class CLI():
                 [f"{cmd[2]} found in yellow [above].",0,"yellow"],["Please open the following",0,"magenta"],["url",0,"yellow"], 
                 ["in our local browser to compare to the authentic repository via",0,"magenta"], ["https",0,"green","bold"],
                 ["secure hypertext transport protocol.",2,"magenta"],
-                [url,2,"blue","bold"],
+                [urls[n],2,"blue","bold"],
             ])
 
         self.functions.print_cmd_status({
