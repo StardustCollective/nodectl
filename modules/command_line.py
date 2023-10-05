@@ -11,7 +11,7 @@ from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime
-from os import system, path, get_terminal_size, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, remove, SEEK_END, SEEK_CUR
 from pathlib import Path
 from sys import exit
 from types import SimpleNamespace
@@ -3433,13 +3433,13 @@ class CLI():
             "newline": "top",
         })   
         
-        nodectl_version_brief = self.functions.node_nodectl_version_brief
+        nodectl_version_github = self.functions.node_nodectl_version_github
         nodectl_version_full = self.functions.node_nodectl_version
         outputs = []
         cmds = [  # must be in this order
             [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
-            [ f'nodectl_{nodectl_version_brief}_{self.arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA2-256"],
-            [ f"nodectl_{self.arch}.sig","fetching digital signature","none","none"],
+            [ f'{nodectl_version_github}_{self.arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA256"],
+            [ f"{nodectl_version_github}_{self.arch}.sig","fetching digital signature","none","none"],
         ]
                 
         def send_error(extra):
@@ -3460,9 +3460,9 @@ class CLI():
                 "text_start": cmd[1],
             })
             
-            url = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{nodectl_version_brief}/admin/{cmd[0]}"
+            url = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{nodectl_version_github}/admin/{cmd[0]}"
             if cmd[2] == "none":
-                url = f"https://github.com/netmet1/constellation_testnet_nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
+                url = f"https://github.com/StardustCollective/nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
                 verify_cmd = f"openssl dgst -sha256 -verify {self.functions.nodectl_path}nodectl_public -signature {self.functions.nodectl_path}{cmd[0]} {self.functions.nodectl_path}{cmds[1][0]}"
 
             system(f"sudo wget {url} -O {self.functions.nodectl_path}{cmd[0]} -o /dev/null")
@@ -3512,20 +3512,32 @@ class CLI():
         self.functions.print_cmd_status({
             "text_start": "verifying signature match",
             "newline": True
-        })       
+        })   
+        
+        self.log.logger.info("copy binary nodectl to nodectl dir for verification via rename")
+        system(f"cp /usr/local/bin/nodectl /var/tessellation/nodectl/nodectl_{self.arch}")    
         result = self.functions.process_command({
             "bashCommand": verify_cmd,
             "proc_action": "timeout"
         })
         bg, verb = "on_red","INVALID SIGNATURE - WARNING"
+        self.log.logger.info("nodectl digital signature verification requested")
         if "OK" in result:
+            self.log.logger.info(f"digital signature verified successfully | {result}")
             bg, verb = "on_green","SUCCESS - AUTHENTIC NODECTL"
-
+        else: self.log.logger.critical(f"digital signature did NOT verified successfully | {result}")
+        
         self.functions.print_paragraphs([
             ["",1],["VERIFICATION RESULT",1,"blue","bold"],
             [f" {verb} ",2,f"blue,{bg}","bold"],
         ])
-    
+        
+        #clean up
+        self.log.logger.info("cleaning up digital signature check files.")
+        for cmd in cmds[1:]:
+            remove(f'/var/tessellation/nodectl/{cmd[0]}')
+        remove(f'/var/tessellation/nodectl/nodectl_{self.arch}')
+                         
                          
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")
