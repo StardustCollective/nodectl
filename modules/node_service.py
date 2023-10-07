@@ -1043,7 +1043,7 @@ WantedBy=multi-user.target
         if var.file == "service_restart":
             cur_file = '''[Unit]
 Description=Constellation Node auto_restart service
-StartLimitBurst=5
+StartLimitBurst=50
 StartLimitIntervalSec=15
 After=multi-user.target
 
@@ -1052,7 +1052,7 @@ Type=Simple
 WorkingDirectory=/usr/local/bin
 Environment="SCRIPT_ARGS=%I"
 ExecStart=nodectl service_restart $SCRIPT_ARGS &
-Restart=always
+Restart=on-failure
 RestartSec=15
 RuntimeMaxSec=14400
 
