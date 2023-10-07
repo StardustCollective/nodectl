@@ -1,7 +1,8 @@
-
-from time import sleep
-from sys import exit
+import subprocess
 import random
+
+from sys import exit
+from time import sleep
 
 from .node_service import Node
 from .functions import Functions
@@ -18,11 +19,12 @@ class AutoRestart():
 
         config_obj = {
             **config_obj,
-            "global_elements": {"caller":"auto_restart"},
+            "global_elements": {
+                "caller":"auto_restart",
+            },
         }
         
         self.functions = Functions(config_obj)        
-        self.functions.auto_restart = True
         self.functions.set_default_variables({
             "profile": thread_profile
         })
@@ -62,18 +64,30 @@ class AutoRestart():
         self.setup_profile_states()
         self.restart_handler()
         
-      
+    
+    def on_boot_handler(self):
+        if not self.functions.config_obj["global_auto_restart"]["on_boot"]: return
+        while True:
+            uptime_seconds = self.functions.get_date_time({"action": "uptime_seconds"})
+            if 60 <= uptime_seconds <= 70:
+                self.log.logger.warn("restarting auto_restart service after 60 seconds to ensure stability")
+                raise Exception("auto_restart forced stability restart")
+            elif uptime_seconds < 60: sleep(5)  
+            else: break
+        
+                      
     # SETUP  
     def start_node_service(self):
+        self.version_obj = self.functions.get_version({"which":"all"})
         self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] - starting node services...")
         command_obj = {
             "caller": "cli",
+            "auto_restart": True,
             "config_obj": self.functions.config_obj,
             "profile": self.thread_profile,
-            "command": "auto_restart",
+            "version_obj": self.version_obj
         }
         self.node_service = Node(command_obj,False)   
-        self.node_service.auto_restart = True 
         self.node_service.profile_names = [self.thread_profile]
         self.log.logger.debug("auto_restart -> start_node_service completed successfully.") 
         
@@ -121,8 +135,6 @@ class AutoRestart():
         for merge_profile in merge_list: 
             self.profile_pairing.append(merge_profile)
             self.profile_names.append(merge_profile["profile"])
-        
-        pass
 
 
     def setup_profile_states(self):
@@ -346,6 +358,7 @@ class AutoRestart():
 
 
     def silent_restart(self,action):
+        self.on_boot_handler()
         if action != "join_only":
             self.update_profile_states()  # double check in case network issue caused a false positive
             if self.profile_states[self.node_service.profile]["action"] == "NoActionNeeded":
@@ -382,14 +395,14 @@ class AutoRestart():
         notice_warning = ""
         warning = False
         auto_upgrade_success = True
-        
+    
         while True:
             versions = self.functions.test_n_check_version("get")
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version checked | [{versions}]")
             try:
-                # 0 == on node  1 == on cluster
-                if versions[0][self.thread_profile] == versions[1][self.thread_profile]["node_tess_version"]:
-                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions matched | Hypergraph [{versions[0]}] Node [{versions[1]}]")
+                # 0 == on cluster  1 == on node
+                if versions[0][self.thread_profile] == versions[1][self.thread_profile]:
+                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions matched | Metagraph/Hypergraph [{versions[0]}] Node [{versions[1]}]")
                     if not self.auto_upgrade or auto_upgrade_success:
                         return True
                     elif self.auto_upgrade and not auto_upgrade_success:
@@ -398,12 +411,16 @@ class AutoRestart():
             except Exception as e:
                 self.log.logger.critical(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - and we received an error [{e}] - sleeping 10m")
                 sleep(self.sleep_on_critical) # ten minutes
-            self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - versions matched | Hypergraph [{versions[0]}] Node [{versions[1]}] - entering attempts looper [180] delay")
+            self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - versions matched | Metagraph/Hypergraph [{versions[0]}] Node [{versions[1]}] - auto_upgrade setting [{str(self.auto_upgrade)}]")
             if self.auto_upgrade:
                 notice_warning = "auto_upgrade to obtain "
+                # self.node_service.version_obj["cluster_tess_version"] = {
+                #     self.thread_profile: versions[0][self.thread_profile]
+                # }
                 auto_upgrade_success = self.node_service.download_constellation_binaries({
                     "print_version": False,
-                    "action": "auto_restart",
+                    "profile": self.thread_profile,
+                    "download_version": versions[0][self.thread_profile],
                     "environment": self.functions.config_obj[self.thread_profile]["environment"],
                 })
                 if not auto_upgrade_success:
@@ -509,7 +526,10 @@ class AutoRestart():
             else: # if any other state retry
                 attempts = self.attempts_looper(attempts,"silent_restart",5,5,False)
                 if attempts > 4:
-                    self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] failed, dropping back to restart handler")
+                    if "download" in state.lower() or "waiting" in state.lower() or "observing" in state.lower():
+                        self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] not ready to continue state [{state}] dropping back into restart handler.")
+                    else:
+                        self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] failed, dropping back to restart handler")
                     break
         
         

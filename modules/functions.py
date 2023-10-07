@@ -10,7 +10,7 @@ from getpass import getuser
 from re import match
 from textwrap import TextWrapper
 from requests import get
-from subprocess import Popen, PIPE, call, run
+from subprocess import Popen, PIPE, call, run, check_output
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
@@ -38,7 +38,7 @@ from .troubleshoot.logger import Logging
 class Functions():
         
     def __init__(self,config_obj):
-        self.sudo_rights = config_obj.get("sudo_rights",True)
+        self.sudo_rights = config_obj.get("sudo_rights", True)
         if self.sudo_rights:
             self.log = Logging()
             self.error_messages = Error_codes() 
@@ -59,7 +59,7 @@ class Functions():
             "Expires": "0"
         }
         urllib3.disable_warnings()
-        
+
         # used for installation 
         self.m_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
         self.t_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
@@ -92,7 +92,7 @@ class Functions():
         
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
-        self.auto_restart = False  # auto_restart will set this to True to avoid print statements
+
         
         try:
             self.network_name = config_obj["global_elements"]["network_name"]
@@ -109,13 +109,11 @@ class Functions():
         self.event = False # used for different threading events
         self.status_dots = False # used for different threading events
         
+        self.auto_restart = True if config_obj["global_elements"]["caller"] == "auto_restart" else False
         ignore_defaults = ["config","install","auto_restart","ts","debug"]
+        if config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
 
-        if config_obj["global_elements"]["caller"] not in ignore_defaults:
-            self.set_default_variables({})
-            
-        pass
- 
+
     # =============================
     # getter functions
     # =============================
@@ -233,13 +231,15 @@ class Functions():
                     "node_nodectl_version":self.node_nodectl_version,
                     "node_nodectl_yaml_version":self.node_nodectl_yaml_version
                 }
-            elif which == "current_tess":
+            elif "current_tess" in which:
                 print_msg()
                 get_running_tess_on_node() 
                 if print_message:
                     print(colored(" ".ljust(50),"magenta"),end="\r")
                 self.log.logger.info(f"node tess version: [{self.node_tess_version}]")
                 self.event = False
+                if "version" in which:
+                    return {key: value['node_tess_version'] for key, value in self.node_tess_version.items()}
                 return self.node_tess_version
             elif which == "cluster_tess":
                 print_msg()
@@ -268,6 +268,7 @@ class Functions():
                 print_msg()
                 get_running_tess_on_node() 
                 # get_cluster_tess too slow
+                if self.network_name == False: self.network_name = self.environment_names[0]
                 get_latest_nodectl(self.network_name) 
                 
                 self.event = False
@@ -666,8 +667,23 @@ class Functions():
             if hours:
                 elapsed = f"~{elapsed_time}H"
             return elapsed
+        elif action == "uptime_seconds":
+            uptime_output = check_output(["uptime"]).decode("utf-8")
+            uptime_parts = uptime_output.split()
+            uptime_string = uptime_parts[3]
+            uptime = uptime_parts[2]
+
+            if "min" in uptime_string:
+                uptime_minutes = int(uptime.split()[0])
+                uptime_seconds = uptime_minutes * 60
+            elif "sec" in uptime_string:
+                uptime_seconds = int(uptime.split()[0])
+            else:
+                uptime_hours, uptime_minutes = map(int, uptime.split(":"))
+                uptime_seconds = (uptime_hours * 60 + uptime_minutes) * 60
+            return uptime_seconds
         else:
-            # if the action is an 
+            # if the action is default 
             return_val = datetime.now()+timedelta(days=r_days)
             if backward:
                 return_val = datetime.now()-timedelta(days=r_days)
@@ -1140,7 +1156,7 @@ class Functions():
         self.environment_names = list(set(self.environment_names))
         
         self.ip_address = self.get_ext_ip()
-        self.check_config_environment()
+        if not self.auto_restart: self.check_config_environment()
                 
 
     def set_default_directories(self):
@@ -1999,7 +2015,8 @@ class Functions():
 
     def test_n_check_version(self,action="test"):
         # checks lb version against node
-        running_tess = self.get_version({"which":"current_tess"})
+        
+        running_tess = self.get_version({"which":"current_tess_version"})
         cluster_tess = self.get_version({"which":"cluster_tess"})
         if running_tess == cluster_tess and action == "test":
                 return True
@@ -2132,6 +2149,39 @@ class Functions():
 
     def test_for_premature_enter_press(self):
         return select.select([stdin], [], [], 0) == ([stdin], [], [])
+    
+    
+    def test_for_root_ml_type(self,metagraph):
+        # Review the configuration and return the lowest Metagraph
+        try: profile_names = self.profile_names
+        except:
+            profile_names = self.clear_global_profiles(self.config_obj)
+            
+        root_profile = profile_names[0]
+        layer_0_profiles = []
+        
+        if len(profile_names) == 1: return root_profile   # handle single metagraph profile
+        
+        for profile in profile_names:
+            if self.config_obj[profile]["layer"] < 1 and metagraph == self.config_obj[profile]["environment"]:
+                layer_0_profiles.append([
+                    profile,
+                    self.config_obj[profile]["environment"],
+                    self.config_obj[profile]["meta_type"],
+                    self.config_obj[profile]["gl0_link_enable"],
+                ])
+            
+        if len(layer_0_profiles) == 1: return layer_0_profiles[0][0]    
+        
+        for profile in layer_0_profiles:
+            # [3] == gl0_link_enable
+            root_profile = profile
+            if "gl" in profile: break
+            elif "ml" in profile and not profile[3]: break
+
+        return root_profile
+                    
+                 
     
     # =============================
     # create functions

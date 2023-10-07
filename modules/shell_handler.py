@@ -84,7 +84,7 @@ class ShellHandler:
         
         version_cmd = ["-v","_v","version"]
         if argv[1] in version_cmd:
-            self.functions.auto_restart = False
+            # self.functions.auto_restart = False
             self.show_version()
             exit(0)
             
@@ -293,10 +293,11 @@ class ShellHandler:
             else:
                 self.auto_restart_handler(self.argv[0],True,True)
         elif self.called_command == "service_restart":
-           if self.argv[0] != "enable":
+            if self.argv[0] == "--variable1=enable": self.argv[0] = "enable" # on-boot 
+            if self.argv[0] != "enable":
                self.log.logger.error(f"start cli --> invalid request [{self.argv[0]}]")
                exit(0)
-           self.auto_restart_handler("service_start",True)
+            self.auto_restart_handler("service_start",True)
         elif self.called_command == "log" or self.called_command == "logs":
             return_value = cli.show_logs(self.argv)
         elif self.called_command == "install":
@@ -864,6 +865,10 @@ class ShellHandler:
                 }
                 self.functions.print_cmd_status(progress)
                 system('sudo systemctl stop node_restart@"enable" > /dev/null 2>&1')
+                # test pid removal
+                self.get_auto_restart_pid()
+                
+                
                 self.functions.print_cmd_status({
                     **progress,
                     "status": end_status,

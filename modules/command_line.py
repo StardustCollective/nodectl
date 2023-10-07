@@ -2448,6 +2448,8 @@ class CLI():
         self.log.logger.info("user initiated system warm reboot.")
         self.functions.check_for_help(command_list,"reboot")
         
+        on_boot = self.config_obj["global_auto_restart"]["on_boot"]
+        
         self.functions.print_header_title({
             "line1": "REBOOT REQUEST",
             "line2": "nodectl",
@@ -2460,13 +2462,19 @@ class CLI():
             
             ["This feature will allow your Node to properly leave the Tessellation network prior to soft booting (rebooting).",0],
             ["This reboot will cause the Node Operator to lose access to the VPS or bare metal system that this Node is running on.",2],
-            
-            ["Once your VPS or bare metal host returns from the soft boot, you will need to manually join the Hypergraph network",0],
-            ["by issuing the necessary commands.",2],
-            
-            ["command:",0,"white","bold"], ["sudo nodectl restart -p all",2,"yellow"]
-            
         ])
+        
+        if on_boot:
+            self.functions.print_paragraphs([
+                ["nodectl has detected that you have",0],["on_boot",0,"yellow"], ["enabled!",0],
+                ["Once your VPS completes it startup, the Node should automatically rejoin the Metagraphs configured.",2],
+            ])
+        else:
+            self.functions.print_paragraphs([
+                ["Once your VPS or bare metal host returns from the soft boot, you will need to manually join the Metagraphs configured",0],
+                ["by issuing the necessary commands.",2],
+                ["command:",0,"white","bold"], ["sudo nodectl restart -p all",2,"yellow"]
+            ])
         
         if self.functions.confirm_action({
             "yes_no_default": "n",
@@ -2477,7 +2485,7 @@ class CLI():
             for profile in reversed(self.profile_names):
                 self.set_profile(profile)
                 self.cli_leave({
-                    "secs": 0,
+                    "secs": 45,
                     "reboot_flag": True,
                     "skip_msg": True
                 })

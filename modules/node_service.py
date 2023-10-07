@@ -15,23 +15,21 @@ class Node():
         
     def __init__(self,command_obj,debug):
         self.log = Logging()
+        self.debug = debug  
         self.error_messages = Error_codes() 
         
         self.config_obj = command_obj["config_obj"]
         
         self.functions = Functions(self.config_obj)
-        if command_obj.get("command",False) == "auto_restart":
-            self.functions.auto_restart = True
-            
         self.troubleshooter = Troubleshooter({
             "config_obj": self.config_obj,
         })
         
-        self.debug = debug  
-        
         self.profile = command_obj.get("profile",None)
         self.version_obj = command_obj.get("version_obj",None)
         self.profile_names = command_obj.get("profile_names",None)
+        
+        self.auto_restart = command_obj.get("auto_restart",False)
         
         # Node replacement variables
         # during installation and upgrade
@@ -47,10 +45,7 @@ class Node():
         # until after the p12 is created causing the install
         # to create the cnng bash files and then write over it.
         self.nodeid = "nodegaragenodeid" 
-        
-        self.auto_restart = False
 
-            
         self.source_node_choice = None  # initialize source
 
         self.node_service_status = {
@@ -99,13 +94,15 @@ class Node():
         download_version = command_obj.get("download_version","default")
         print_version = command_obj.get("print_version",True)
         action = command_obj.get("action","normal")
+        requested_profile = command_obj.get("profile",False)
         environment = command_obj.get("environment",False)
-        
         argv_list = command_obj.get("argv_list",[])
         backup = command_obj.get("backup", True)
         
         if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
-
+        
+        if self.auto_restart: profile_names = [requested_profile]
+        else: profile_names = self.functions.profile_names
         
         def screen_print_download_results(file,first=False):
             backup = ""
@@ -155,7 +152,7 @@ class Node():
                 uri = f"https://{uri}"
                 
             if download_version == "default":
-                # retreived from the edge point
+                # retrieved from the edge point
                 download_version = self.version_obj["cluster_tess_version"][profile]
             uri = self.set_github_repository(uri,profile,download_version)
 
@@ -209,12 +206,19 @@ class Node():
                 "action": action
             })
         
+        file_pos = 3
         file_obj = {
-            "cl-keytool.jar": { "state": "fetching", "pos": 1, "location": "default", "version": "default"},
-            "cl-wallet.jar":  { "state": "fetching", "pos": 2, "location": "default", "version": "default"},
+            "cl-keytool.jar": { "state": "fetching", "pos": 1, "location": "default", "version": download_version},
+            "cl-wallet.jar":  { "state": "fetching", "pos": 2, "location": "default", "version": download_version},
         }
+        
+        if self.auto_restart:
+            # avoid race condition if same file is downloaded at the same time only
+            # download tool jars if root profile.
+            root_profile = self.functions.test_for_root_ml_type(environment)
+            if requested_profile != root_profile: file_obj, file_pos = {}, 0
 
-        for n, profile in enumerate(self.functions.profile_names):
+        for n, profile in enumerate(profile_names):
             version = download_version
             if action == "upgrade": version = download_version[profile]["download_version"]
                 
@@ -222,7 +226,7 @@ class Node():
                 first_profile = profile if n < 1 else first_profile
                 file_obj[self.config_obj[profile]["jar_file"]] = {
                     "state": "fetching",
-                    "pos": n+3,
+                    "pos": n+file_pos,
                     "location": self.config_obj[profile]["jar_repository"],
                     "version": version,
                     "profile": profile
@@ -290,7 +294,7 @@ class Node():
                 break
             
         # if action != "install":
-        for profile in self.functions.profile_names:
+        for profile in profile_names:
             command_obj = {
                 **command_obj,
                 "profile": profile,
@@ -1040,8 +1044,9 @@ WantedBy=multi-user.target
         if var.file == "service_restart":
             cur_file = '''[Unit]
 Description=Constellation Node auto_restart service
-StartLimitBurst=50
-StartLimitIntervalSec=0
+StartLimitBurst=5
+StartLimitIntervalSec=15
+After=multi-user.target
 
 [Service]
 Type=Simple
