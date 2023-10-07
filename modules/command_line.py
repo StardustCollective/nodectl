@@ -1319,6 +1319,13 @@ class CLI():
                     "line_code": "profile_error",
                     "extra": profile
                 })
+                
+        if self.skip_warning_messages:
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-1325",
+                "line_code": "input_error",
+                "extra": "skip_warning_messages is invalid for this command."
+            })
             
         self.check_for_new_versions({
             "profile": profile if profile != None else "default",
@@ -1330,7 +1337,9 @@ class CLI():
         match_false = colored("False","red",attrs=["bold"])
                 
         for profile in self.profile_names:
-    
+            if self.functions.upgrade_path[self.config_obj[profile]["environment"]]["version"] != self.version_obj["node_nodectl_version"]:
+                nodectl_match = False   
+                     
             print_out_list = [
                 {
                     "header_elements" : {
@@ -1359,7 +1368,7 @@ class CLI():
                     "header_elements" : {
                         # 38
                         "TESS VERSION MATCH": f"{match_true: <38}" if self.version_obj["node_tess_version"][profile]["tess_uptodate"] else f"{match_false: <38}",
-                        "NODECTL VERSION MATCH": f"{match_true}" if self.version_obj["node_tess_version"][profile]["tess_uptodate"] else match_false
+                        "NODECTL VERSION MATCH": f"{match_true}" if nodectl_match else match_false
                     },
                     "spacing": 25
                 },
