@@ -245,7 +245,7 @@ class Node():
                 "action": "backup"
             })
         
-        if action == "auto_restart":
+        if self.auto_restart:
             result = True
             for file in files:
                 if file != "cur_pos": 
@@ -253,8 +253,7 @@ class Node():
                     if not single_result: 
                         result = False # once set to false, don't update again
             return result
-        
-        if not self.auto_restart:
+        else:
             for file in files:
                 screen_print_download_results(file,True)
             

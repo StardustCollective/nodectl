@@ -2814,12 +2814,13 @@ class Functions():
         location = file_obj["location"]
         action = file_obj["action"]
         
-        self.print_cmd_status({
-            "text_start": f"{action} files",
-            "status": "running",
-            "newline": False,
-            "status_color": "yellow"
-        })
+        if not self.auto_restart:
+            self.print_cmd_status({
+                "text_start": f"{action} files",
+                "status": "running",
+                "newline": False,
+                "status_color": "yellow"
+            })
         
         for file in files:
             org_path =  f"{location}/{file}"
@@ -2837,13 +2838,14 @@ class Functions():
                     "bashCommand": bashCommand,
                     "proc_action": "run"
                 }) 
-                           
-        self.print_cmd_status({
-            "text_start": f"{action} files",
-            "status": "complete",
-            "newline": True,
-            "status_color": "green"
-        })        
+                
+        if not self.auto_restart:           
+            self.print_cmd_status({
+                "text_start": f"{action} files",
+                "status": "complete",
+                "newline": True,
+                "status_color": "green"
+            })        
         
         
     def clear_global_profiles(self,profile_list_or_obj):
