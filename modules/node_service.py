@@ -950,7 +950,7 @@ class Node():
                         "status_color": "red",
                         "newline": True
                     })
-                self.functions.print_timer(8,"pausing")
+                    self.functions.print_timer(8,"pausing")
             
             if exception_found and action == "auto_join":
                 # needs to be first

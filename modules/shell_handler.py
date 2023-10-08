@@ -84,7 +84,7 @@ class ShellHandler:
         
         version_cmd = ["-v","_v","version"]
         if argv[1] in version_cmd:
-            # self.functions.auto_restart = False
+            self.functions.auto_restart = False
             self.show_version()
             exit(0)
             
@@ -842,9 +842,11 @@ class ShellHandler:
                             allow_upgrade,
                         )
                     )
+                    
                 thread_wait(thread_list,timeout=None,return_when=concurrent.futures.FIRST_EXCEPTION)
-                self.log.logger.critical("shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
+                self.log.logger.critical(f"shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
                 self.log.logger.warn("shell handler auto restart handler service periodic restart may have been triggered")
+
                 
         if action == "disable":
             if cli:
