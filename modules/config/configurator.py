@@ -2803,6 +2803,24 @@ class Configurator():
                 "defaults": defaults,
                 "profile": profile,
             })
+            
+            if self.c.config_obj["global_auto_restart"]["auto_restart"] == True:
+                shell = ShellHandler(self.c.config_obj,False)
+                shell.argv = []
+                shell.profile_names = self.metagraph_list
+                self.c.functions.print_cmd_status({
+                    "text_start": "Restarting auto_restart service",
+                    "status": "restarting",
+                    "status_color": "yellow"
+                })
+                shell.auto_restart_handler("restart",True)
+                self.c.functions.print_cmd_status({
+                    "text_start": "Restarting auto_restart service",
+                    "status": "restarted",
+                    "status_color": "green",
+                    "newline": True,
+                })
+                self.c.functions.print_any_key({})
         
     # =====================================================
     # OTHER

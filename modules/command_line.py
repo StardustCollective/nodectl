@@ -1115,6 +1115,7 @@ class CLI():
             else: latest = get_ordinal(ord_string,"SnapshotOrdinal")
             
         if "-s" in command_list:
+            self.log.logger.info(f"show status ordinal/snapshot lookup found | target download [{end}] current [{current}] latest [{latest}] ")
             if end == "Not Found": end = latest
             if current == "Not Found": current = latest
             return [str(end),str(current),str(latest)]
