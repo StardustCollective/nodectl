@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
+from re import findall
 
 from modules.p12 import P12Class
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
@@ -148,6 +149,7 @@ class CLI():
         called_profile = self.profile
         called_command = command_obj.get("called","default")
         profile_list = self.profile_names
+        ordinal_list = []
         
         def quick_status_pull(port):
             quick_results = self.functions.get_api_node_info({
@@ -168,6 +170,7 @@ class CLI():
                 profile_list = [value]
                 called_profile = value
                 
+        
         watch_enabled = True if "-w" in command_list else False
         watch_seconds = 15
         watch_passes = 0
@@ -211,11 +214,15 @@ class CLI():
                     if quit_loop._state == "FINISHED":
                         system("clear")
                         exit(0)
-                    
+                
+                ordinal_list.append(str(self.functions.get_snapshot({"history": 1})[1]))
                 for n,profile in enumerate(profile_list):
                     self.log.logger.info(f"show system status requested | {profile}")      
                     self.set_profile(profile)
                     called_profile = profile
+                    
+                    ordinal_list = ordinal_list[:1]
+                    ordinal_list += self.show_ordinal_status(["-p",profile,"-s"])
                     
                     if called_command == "quick_status" or called_command == "_qs":
                         if n == 0:
@@ -316,14 +323,19 @@ class CLI():
                                         
                         print_out_list = [
                             {
+                                "PROFILE": called_profile,
                                 "SERVICE": self.functions.config_obj["global_elements"]["node_service_status"][called_profile],
                                 "JOIN STATE": output["join_state"],
-                                "PROFILE": called_profile
                             },
                             {
                                 "PUBLIC API TCP":self.functions.config_obj[called_profile]["public_port"],
                                 "P2P API TCP": self.functions.config_obj[called_profile]["p2p_port"],
                                 "CLI API TCP": self.functions.config_obj[called_profile]["cli_port"]
+                            },
+                            {
+                                "LATEST ORDINAL":ordinal_list[2],
+                                "NODE CURRENT ORDINAL": ordinal_list[1],
+                                "LATEST SNAPSHOT": ordinal_list[0],
                             },
                             {
                                 "CURRENT SESSION": output["cluster_session"],
@@ -1064,7 +1076,111 @@ class CLI():
                 
                 print(" ") # spacer        
                     
-                    
+        
+    def show_ordinal_status(self,command_list):
+        if "-p" in command_list:
+            profile = command_list[command_list.index("-p")+1]
+        else: command_list.append("help")
+            
+        self.functions.check_for_help(command_list,"show_download_in_progress")
+
+        current, end, latest = "Not Found","Not Found","Not Found"
+        bashCommands = []
+        
+        lookup_values = ["startingPoint","Downloading snapshot hash","State updated ConsensusState"]
+        split_value = " "
+        if self.config_obj[profile]["layer"] == 1:
+            lookup_values[2] = "Snapshot processing result"
+            split_value = ","
+        for value in lookup_values:
+            cmd = f"tac /var/tessellation/{profile}/logs/app.log | awk '/{value}/"
+            cmd += " {p=2; print; next} p && p>0 {print; p--; if (p == 0) exit}'"
+            bashCommands.append(cmd)
+        
+        def get_ordinal(ord_string,find):
+            ord_string = ord_string.split(split_value)
+            for line in ord_string:
+                if find in line:
+                    line = findall(r'\d+', line)
+                    return int(line[0])
+
+        for n, bashCommand in enumerate(bashCommands):
+            ord_string = self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "subprocess", 
+            })
+            if ord_string == '': pass
+            elif n == 0: end = get_ordinal(ord_string,"startingPoint")
+            elif n == 1: current = get_ordinal(ord_string,"SnapshotOrdinal")
+            else: latest = get_ordinal(ord_string,"SnapshotOrdinal")
+            
+        if "-s" in command_list:
+            if end == "Not Found": end = latest
+            if current == "Not Found": current = latest
+            return [str(end),str(current),str(latest)]
+
+        self.functions.print_header_title({
+            "line1": "DOWNLOAD IN PROGRESS STATUS",
+            "single_line": True,
+            "show_titles": False,
+            "newline": "both"
+        })
+            
+        state = self.functions.test_peer_state({
+            "profile": profile,
+            "simple": True
+        })
+        if state != "DownloadInProgress":
+            if state == "WaitingForDownload":
+                self.functions.print_cmd_status({
+                    "start_text":"Node Ordinal:",
+                    "brackets": current,
+                    "end_text": f"need to reach {end}",
+                    "status": state,
+                    "status_color": "yellow",
+                    "newline": True,
+                })
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["Request to watch the progress of",0,"red"],
+                ["the state: DownloadInProgress was requested, however",0,"red"],
+                ["this Node does not seem to be in this state.",1,"red"],
+                ["Please try again later.",2,"yellow"],
+                ["State Found:",0,],[state,1,"blue","bold"],
+                ["Ordinal value goal:",0], [end,1,"blue","bold"],
+                ["Last found ordinal:",0], [str(latest),2,"blue","bold"]
+            ])
+            exit(0)
+        
+        start = current
+        marks_last = -1
+        spacing = 0
+        ending = "\r"
+        
+        while current > end:
+            percentage = int((start - current) / (start - end) * 100)+1
+            if percentage == 99: 
+                percentage = 100
+                current = -1
+                ending = "\n"
+                            
+            hash_marks = "#"*(percentage // 2)
+            if len(hash_marks) > marks_last: 
+                spacing = (100 - percentage) // 2
+                marks_last = len(hash_marks)     
+              
+            print(
+                colored(" [","cyan"),
+                colored(hash_marks,"yellow"),
+                colored(f"{']': >{spacing}}","cyan"),
+                colored(f"{percentage}","green"),
+                colored(f"{'%': <3}","green"),
+                end=ending
+            )
+            
+            get_ordinal(bashCommand_snap,"SnapshotOrdinal")
+            sleep(.01)         
+            
+                       
     def show_current_rewards(self,command_list):
         self.functions.check_for_help(command_list,"show_current_rewards") 
         reward_amount = dict()

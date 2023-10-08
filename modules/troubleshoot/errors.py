@@ -371,7 +371,15 @@ class Error_codes():
                     ["option or hint: ",0], [var.extra,2,"yellow"]
                 ])       
             
-            
+        
+        elif var.line_code == "invalid_search":
+            self.log.logger.warn(f"invalid search attempted could not continue.")
+            self.functions.print_paragraphs([
+                ["System has attempted to access a file to perform a search that returned an empty value.",0,"red"],
+                ["or",0,"yellow","bold"], ["the search request was unable to properly find the item or log entry requested.",1,"red"],
+                ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
+            ]) 
+                        
         elif var.line_code == "file_not_found":
             self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program.")
             self.functions.print_paragraphs([

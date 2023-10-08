@@ -5,9 +5,12 @@ import urllib3
 import csv
 import yaml
 import select
+import subprocess
+import socket
+import validators
 
 from getpass import getuser
-from re import match
+from re import match, sub, compile
 from textwrap import TextWrapper
 from requests import get
 from subprocess import Popen, PIPE, call, run, check_output
@@ -20,7 +23,7 @@ from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
 from platform import platform
-from re import sub, compile
+
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir
 from sys import exit, stdout, stdin
 from pathlib import Path
@@ -29,8 +32,6 @@ from packaging import version
 from datetime import datetime
 from .troubleshoot.help import build_help
 from pycoingecko import CoinGeckoAPI
-import socket
-import validators
 
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
@@ -2049,6 +2050,8 @@ class Functions():
         all_first_last = command_obj.get("all_first_last","all")
         skip_line_list = command_obj.get("skip_line_list",[])
         allow_dups = command_obj.get("allow_dups",True)
+        return_value = command_obj.get("return_value", False)
+        
         file = file_path.split("/")
         file = file[-1]
         i_replace_line = False
@@ -2061,6 +2064,7 @@ class Functions():
             if search_line in line and not done:
                 search_only_found = True
                 line_position = line_number
+                if return_value: line_position = line
                 if all_first_last != "all" and line_position not in skip_line_list:
                     done = True
                 if replace_line:
@@ -2976,6 +2980,7 @@ class Functions():
         log_error = command_obj.get("log_error",False)
         return_error = command_obj.get("return_error",False)
         working_directory = command_obj.get("working_directory",None)
+        
         if proc_action == "timeout":
             if working_directory == None:
                 p = Popen(shlexsplit(bashCommand), stdout=PIPE, stderr=PIPE)
@@ -2991,6 +2996,10 @@ class Functions():
             finally:
                 timer.cancel()
         
+        if proc_action == "subprocess":
+            output = subprocess.check_output(bashCommand, shell=True, text=True)
+            return output
+            
         if autoSplit:
             bashCommand = bashCommand.split()
             

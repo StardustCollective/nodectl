@@ -278,6 +278,8 @@ class ShellHandler:
             cli.prepare_and_send_logs(self.argv)
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
             cli.show_seedlist_participation(self.argv)
+        elif self.called_command == "show_dip":
+            cli.show_ordinal_status(self.argv)
         elif self.called_command in cv_commands:
             cli.check_versions(self.argv)
         elif "auto_" in self.called_command:
@@ -611,7 +613,7 @@ class ShellHandler:
             "send_logs","_sl",
             "nodeid","id","dag","export_private_key",
             "check_seedlist","_csl","update_seedlist","_usl",
-            "show_service_log","_ssl",
+            "show_service_log","_ssl","show_dip",
         ]                
 
         if "-p" in self.argv:
