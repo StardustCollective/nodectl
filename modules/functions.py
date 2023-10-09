@@ -69,7 +69,14 @@ class Functions():
         self.hardcode_api_port = 443
         
         # constellation specific statics
-        self.be_mainnet = "be-mainnet.constellationnetwork.io"
+        self.be_urls = {
+            "mainnet": "be-testnet.constellationnetwork.io",
+            "testnet": "be-mainnet.constellationnetwork.io",
+            "integrationnet": "be-integrationnet.constellationnetwork.io",
+        }
+        # self.be_testnet = "be-testnet.constellationnetwork.io"
+        # self.be_mainnet = "be-mainnet.constellationnetwork.io"
+        # self.be_integrationnet = "be-integrationnet.constellationnetwork.io"
         
         # constellation nodectl statics
         self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
@@ -1016,11 +1023,13 @@ class Functions():
         action = command_obj.get("action","latest")
         ordinal = command_obj.get("ordinal",False)
         history = command_obj.get("history",50)
+        environment = command_obj.get("environment","mainnet")
+        
         return_type = "list"
         return_data = []
         error_secs = 2
         
-        be_uri = f"https://{self.be_mainnet}/"
+        be_uri = f"https://{self.be_urls[environment]}/"
         if action == "latest":
             uri = f"{be_uri}global-snapshots/latest"
             return_values = ["timestamp","ordinal"]
@@ -1339,7 +1348,11 @@ class Functions():
                 })       
     
     
-    def pull_node_balance(self,ip_address,wallet):
+    def pull_node_balance(self, command_obj, ip_address,wallet):
+        ip_address = command_obj["ip_address"]
+        wallet = command_obj["wallet"]
+        environment = command_obj["environment"]
+        
         balance = 0
         return_obj = {
             "balance_dag": "unavailable",
@@ -1357,14 +1370,14 @@ class Functions():
 
             for n in range(5):
                 try:
-                    url =f"https://{self.be_mainnet}/addresses/{wallet}/balance"
+                    url =f"https://{self.be_urls['environment']}/addresses/{wallet}/balance"
                     balance = get(url,verify=True,timeout=2,headers=self.get_headers).json()
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
                     self.log.logger.error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
                     if n == 9:
-                        self.log.logger(f"pull pull_node_balance session - returning [{balance}] because could not reach requested address")
+                        self.log.logger(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
                 break   
