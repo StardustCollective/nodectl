@@ -30,7 +30,7 @@ def build_help(command_obj):
   usage:  sudo nodectl [ help [-h], status [-s], start, stop, leave, join,
                          health, sec, price, show_node_states [-sns], show_current_rewards [-scr],
                          find, peers, whoami, list, check_seedlist, update_seedlist [-usl],
-                         export_private_key, change_ssh_port <port>, 
+                         export_private_key, change_ssh_port <port>, download_status, [-ds],
                          restart, restart_only, slow_restart [-sr], check_seedlist_participation [-clsp],
                          disable_root_ssh, enable_root_ssh, clean_snapshots,
                          check_connection [-cc], check_source_connection [-csc], 
@@ -192,7 +192,10 @@ def build_help(command_obj):
                              
     check_seedlist_participation | - show access-list verse network comparison
                                      (pre-PRO score temporary feature)
-                                                            
+      
+    download_status  -p <profile> | - show a progress indicator following the 
+                                      progress of your DownloadInProgress None State
+                                                                                             
     show_node_states  | - show a list of known Node states                    
     
     show_service_log -p <profile> | - show the distribution service logs 
@@ -498,7 +501,72 @@ def build_help(command_obj):
      or
   # {colored('sudo nodectl -sl -p <profile_name>','cyan')}  
       '''
+  
+    if extended == "download_status":
+      help_text += title("Send Logs")
+      help_text += f'''
+  The {colored('download_status','cyan')} command can be used to 
+  monitor the progress of your Node's {colored('DownloadInProgress','yellow')} state.
     
+  During a Node's {colored('join','yellow')} process, to become part of the cluster 
+  for the profile(s) configured, the Node undergoes a series of essential 
+  initialization tasks to ensure it integrates and functions properly
+  as a peer on the cluster.
+
+  Once your Node completes the initial phases of authentication and 
+  becomes a peer on the cluster, it must synchronize and gain knowledge 
+  about the known blockchain before actively participating in consensus 
+  and earning rewards.  
+  
+  Constellation Network employs an {colored('incremental snapshot','yellow')} strategy 
+  to minimize the ingress "cost" for downloading blockchain snapshots. When a new 
+  Node joins the cluster, it will undergo a {colored('one time','red')} extended period
+  of learning about the entire blockchain. For an existing Node rejoining the cluster, 
+  it is required to calculate the differences between its previous state and the 
+  current blockchain state.
+    
+  Following authentication, your Node may temporarily remain in the 
+  {colored('WaitingForDownload','yellow')} state, which is a relatively inactive phase 
+  with no notable progress.  Due to this, when you execute the 
+  {colored('download_status','cyan')} command, it will monitor your Node's status, via
+  a timer [verses a progress indicator], continually checking until the 
+  Node transitions to {colored('DownloadInProgress','yellow')}.
+  
+  When in {colored('DownloadInProgress','yellow')} state, nodectl will actively oversee your Node's activities, 
+  presenting a progress indicator on the screen that provides an estimate 
+  of the completion percentage for this process.  
+  
+  Part 1: {colored('Downloading snapshots','cyan')}: Above the progress indicator, you'll find 
+          the snapshots being downloaded to your Node, displayed by their 
+          corresponding ordinal. This will be represented as a decreasing 
+          counter.
+
+  Part 2: {colored('BlockAcceptanceManager','cyan')}: The progress indicator will be
+          modified. You will see the "height" of the last snapshot block and 
+          the current "height" reached. This will be displayed as an increasing 
+          counter.
+  
+  To the right of the counters, you will see a differential counter to help ease the 
+  calculation of what is left to be processed from either part 1 or part 2.
+
+  required:
+  {colored('-p <profile_name>','green')}
+  
+  alternative shorthand option:
+  {colored('-ds','green')}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl download_status help','cyan')}
+     or
+  # {colored('sudo nodectl -ds help','cyan')}
+  
+  execute a log preparation for upload
+  # {colored('sudo nodectl download_status -p <profile_name>','cyan')}  
+     or
+  # {colored('sudo nodectl -ds -p <profile_name>','cyan')}  
+      '''
     
     if extended == "peers":
       help_text += title(extended)

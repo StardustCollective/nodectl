@@ -1093,7 +1093,7 @@ class CLI():
             self.profile = command_list[command_list.index("-p")+1]
         else: command_list.append("help")
             
-        self.functions.check_for_help(command_list,"show_download_in_progress")
+        self.functions.check_for_help(command_list,"download_status")
 
         cmds, bashCommands = [],{}
         log_file = f"/var/tessellation/{self.profile}/logs/app.log"
