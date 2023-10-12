@@ -1,5 +1,4 @@
 import re
-
 import base58
 # import base64
 # import cryptography.exceptions
@@ -217,7 +216,7 @@ class CLI():
                 
                 ordinal_list.append(str(self.functions.get_snapshot({
                     "history": 1, 
-                    "environment": self.config_obj[profile]["environment"],
+                    "environment": self.config_obj[called_profile]["environment"],
                 })[1]))
                 
                 for n,profile in enumerate(profile_list):
@@ -328,7 +327,7 @@ class CLI():
                                 ["  Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",2],
                             ])
                         
-                        if self.config_obj[profile]["environment"] not in ["mainnet","integrationnet"]:
+                        if self.config_obj[profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
                              ordinal_list[0] = "N/A"
                                         
                         print_out_list = [
@@ -1089,140 +1088,229 @@ class CLI():
                 print(" ") # spacer        
                     
         
-    def show_ordinal_status(self,command_list):
+    def show_ordinal_status(self,command_list,dip_pass=1):
         if "-p" in command_list:
-            profile = command_list[command_list.index("-p")+1]
+            self.profile = command_list[command_list.index("-p")+1]
         else: command_list.append("help")
             
         self.functions.check_for_help(command_list,"show_download_in_progress")
 
-        current, end, latest = "Not Found","Not Found","Not Found"
-        bashCommands = {}
-        block_accept_manager = True
-        log_file = f"/var/tessellation/{profile}/logs/app.log"
+        cmds, bashCommands = [],{}
+        log_file = f"/var/tessellation/{self.profile}/logs/app.log"
         
-        lookup_keys = ["end",          "current",                  "latest"]
-        lookup_values = ["startingPoint","Downloading snapshot hash","State updated ConsensusState"]
-        
-        split_value = " "
-        if self.config_obj[profile]["layer"] == 1:
-            lookup_values[2] = "Snapshot processing result"
-            split_value = ","
-        for n, value in enumerate(lookup_values):
-            cmd = f"tac {log_file} | awk '/{value}/"
-            cmd += " {p=2; print; next} p && p>0 {print; p--; if (p == 0) exit}'"
-            bashCommands = {
-                **bashCommands,
-                f"{lookup_keys[n]}": cmd,
-            }
-            
+        # Grab the startingPoint ordinal start value
+        # grep 'Download for startingPoint' /var/tessellation/dag-l0/logs/app.log | tail -n 1 | sed -n 's/.*SnapshotOrdinal(\([0-9]\+\)).*/\1/p'
+        cmd = f"grep 'Download for startingPoint' {log_file} | tail -n 1 | sed -n 's/.*SnapshotOrdinal(\([0-9]\+\)).*/\\1/p'"
+        cmds.append(cmd)
+        # Grab the startingPoint ordinal end value
+        cmd = f"grep 'Download for startingPoint' {log_file} | tail -n 1 | awk -F'value=' "
+        cmd += "'{print $2}' | awk -F'}' '{print $1}'"
+        cmds.append(cmd)
+        # Grab last Download snapshot hash value
+        cmd = "grep 'Downloading snapshot' "
+        cmd += f"{log_file} | tail -n 1 | awk -F 'value=' "
+        cmd += "'{print $2}' | cut -d ',' -f 1 | sed 's/}//'"
+        cmds.append(cmd)
+        # Grab last ConsensusStateUpdater Ordinal
+        cmd = f"grep -A1 'ConsensusStateUpdater' {log_file} | grep 'key=SnapshotOrdinal"
+        cmd += "{value=' | tail -n 1 | awk -F'value=' '{print $2}' | awk -F'}' '{print $1}'"
+        cmds.append(cmd)
         # BlockAcceptanceManager exception
-        cmd = "awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/ {last=$0} END {print last; print ""; found=1} found {print}' "
-        cmd += f"{log_file}"
-        bashCommands = {
-            **bashCommands,
-            "accept": cmd,
-        }
-        
-        def get_ordinal(ord_string,find):
-            ord_string = ord_string.split(split_value)
-            for line in ord_string:
-                if find in line:
-                    line = findall(r'\d+', line)
-                    ord_value = int(line[0])
-                    if ord_value == None or ord_value == "": ord_value = "Not Found"
-                    return int(line[0])
+        # grep 'Accepted block: BlockReference' /var/tessellation/dag-l0/logs/app.log | tail -n 1 | awk -F 'height=' '{split($2,a,","); print a[1]}'
+        # Execute the commands in a pipeline
+        # grep_process = subprocess.Popen(grep_cmd, stdout=subprocess.PIPE)
+        # tail_process = subprocess.Popen(tail_cmd, stdin=grep_process.stdout, stdout=subprocess.PIPE)
+        # awk_process = subprocess.Popen(awk_cmd, stdin=tail_process.stdout, stdout=subprocess.PIPE)
+        # output, _ = awk_process.communicate()
+        # print(output.decode('utf-8').strip())
+        grep_cmd = ["grep", "Accepted block: BlockReference", log_file]
+        tail_cmd = ["tail", "-n", "1"]
+        awk_cmd = ["awk", "-F", "height=", '{split($2,a,","); gsub("[^0-9]", "", a[1]); print a[1]}']
+        cmd = [grep_cmd,tail_cmd,awk_cmd]  # to avoid escape sequences in the command
+        cmds.append(cmd)
 
-        def pull_ordinal_string(key,bashCommand):
-            ord_string = self.functions.process_command({
-                "bashCommand": bashCommand,
-                "proc_action": "subprocess", 
-            })
-            if ord_string == '' or ord_string == None: return "Not Found"
-            elif key == "start": return get_ordinal(ord_string,"startingPoint")
-            elif key == "accept":
-                ord_string = get_ordinal(ord_string,"BlockAcceptanceManager")
-                if ord_string == '' or ord_string == None: return False
-                return True
-            else: return get_ordinal(ord_string,"SnapshotOrdinal")
+
+        def pull_ordinal(bashCommand):
+            ord_value = self.functions.process_command({
+                "bashCommand": bashCommand[1],
+                "proc_action": bashCommand[0], 
+            }).strip("\n")
+            if ord_value == '' or ord_value == None: ord_value = "Not Found"
+            try: return int(ord_value)
+            except: return ord_value
+            
             
         def pull_ordinal_values(bashCommands):
             dip_status = {}
-            for key, bashCommand in bashCommands.items():
-                dip_status[key] = pull_ordinal_string(key, bashCommand)
-            return dip_status
-        
-        dip_status = pull_ordinal_values(bashCommands)
+            metrics = self.functions.get_api_node_info({
+                "api_host": self.functions.be_urls[self.config_obj[self.profile]["environment"]],
+                "api_port": 443,
+                "api_endpoint": "/global-snapshots/latest",
+                "info_list": ["height","subHeight"],   
+            })
             
+            try: dip_status["height"] = metrics[0]
+            except: dip_status["height"] = 0
+            try: dip_status["subHeight"] = metrics[1]
+            except : dip_status["subHeight"] = 0
+            
+            for key, bashCommand in bashCommands.items():
+                dip_status[key] = pull_ordinal(bashCommand)
+            return dip_status
+
+        lookup_keys = ["start","end","current","latest","current_height"]
+        process_command_type = ["subprocess_co","subprocess_co","subprocess_co","subprocess_co","pipeline"]
+        for n, cmd in enumerate(cmds):
+            bashCommands = {
+                **bashCommands,
+                f"{lookup_keys[n]}": [process_command_type[n],cmd],
+                
+            }        
+        dip_status = pull_ordinal_values(bashCommands)    
+                
         if "-s" in command_list:
             self.log.logger.info(f'show status ordinal/snapshot lookup found | target download [{dip_status["end"]}] current [{dip_status["current"]}] latest [{dip_status["latest"]}] ')
-            if dip_status["end"] == "Not Found": dip_status["end"] = latest
-            if dip_status["current"] == "Not Found": dip_status["current"] = latest
+            if dip_status["end"] == "Not Found": dip_status["end"] = dip_status["latest"]
+            if dip_status["current"] == "Not Found": dip_status["current"] = dip_status["latest"]
             return list(dip_status.values())
 
-        self.functions.print_header_title({
-            "line1": "DOWNLOAD IN PROGRESS STATUS",
-            "single_line": True,
-            "show_titles": False,
-            "newline": "both"
-        })
-            
+        if dip_pass < 2:
+            self.functions.print_header_title({
+                "line1": "DOWNLOAD IN PROGRESS STATUS",
+                "single_line": True,
+                "show_titles": False,
+                "newline": "both"
+            })
+
         state = self.functions.test_peer_state({
-            "profile": profile,
+            "profile": self.profile,
             "simple": True
         })
         if state != "DownloadInProgress":
             if state == "WaitingForDownload":
+                self.functions.print_paragraphs([
+                    ["WaitingForDownload",0,"yellow"], ["state pauses the Node operation, nothing to report.",1],
+                ])
                 self.functions.print_cmd_status({
-                    "text_start":"Node Ordinal:",
-                    "brackets": str(current),
-                    "text_end": f"need to reach {str(end)}",
+                    "text_start":"Node Ordinal goal:",
+                    "brackets": str(dip_status['end']),
                     "status": state,
                     "status_color": "yellow",
                     "newline": True,
                 })
-                self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt": "Would you like continue to wait?",
-                    "prompt_color": "magenta",
-                    "exit_if": True,                
-                })
-                self.functions.print_timer(30,"before checking again")
-                self.show_ordinal_status(self,command_list)
+                if not "-ni" in command_list:
+                    self.functions.print_paragraphs([
+                        ["adding",0,"magenta"],["-ni",0,"yellow"]
+                    ])
+                    self.functions.confirm_action({
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "prompt": "Would you like continue to wait?",
+                        "prompt_color": "magenta",
+                        "exit_if": True,                
+                    })
+                while True:
+                    state = self.functions.test_peer_state({
+                        "profile": self.profile,
+                        "simple": True
+                    })                    
+                    self.functions.print_timer(30,"before checking again")
+                    if state != "WaitingForDownload": break
+                    self.functions.print_paragraphs([
+                        ["Found State:",0],[state,1,"yellow"],
+                    ])
+                    print(f'\x1b[1A', end='')
+                    sleep(.8)
+            else:
+                self.functions.print_clear_line(4)
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"], ["Request to watch the progress of",0,"red"],
+                    ["the state: DownloadInProgress was requested, however",0,"red"],
+                    ["this Node does not seem to be in this state.",1,"red"],
+                    ["Nothing to report on...",2,"yellow"],
+                    
+                    ["ON NODE VALUES",1,"magenta"],
+                    ["State Found:",0,],[state,1,"blue","bold"],
+                    ["Ordinal value goal:",0], [str(dip_status['end']),1,"blue","bold"],
+                    ["Last found ordinal:",0], [str(dip_status['latest']),1,"blue","bold"],
+                ])
+                try: 
+                    differential = dip_status['latest']-dip_status['end']
+                    differential = str(f"+{differential}") if differential > -1 else str(differential)
+                except: differential = "N/A"
+
+                self.functions.print_paragraphs([
+                    ["Differential:",0], [differential,2,"blue","bold"]
+                ])
                 exit(0)
-                
-            self.functions.print_paragraphs([
-                [" WARNING ",0,"red,on_yellow"], ["Request to watch the progress of",0,"red"],
-                ["the state: DownloadInProgress was requested, however",0,"red"],
-                ["this Node does not seem to be in this state.",1,"red"],
-                ["Nothing to report on...",2,"yellow"],
-                ["State Found:",0,],[state,1,"blue","bold"],
-                ["Ordinal value goal:",0], [str(end),1,"blue","bold"],
-                ["Last found ordinal:",0], [str(latest),2,"blue","bold"]
-            ])
-            exit(0)
         
-        start = dip_status["current"]
-        end = dip_status["end"]
+        dip_status = pull_ordinal_values(bashCommands)
+        start = dip_status["start"]
+        start_height = dip_status["current_height"]
         marks_last = -1
         spacing = 0
+        use_height = False
+        ordinal_nochange = -1
+        last_found, last_left = 0, 0
+        percentage1, percentage2 = 0, 0
+        percent_weight1, percent_weight2 = 50, 100
+        use_current = dip_status["current"]
+        use_end = dip_status["end"]
+        calc_rate = True    
+        rate_calc_start = perf_counter()
         
-        while dip_status["current"] < dip_status["end"]:
-            percentage = int((start - dip_status["current"]) / (start - dip_status["end"]) * 100)+1
-            if percentage == 99: 
-                percentage = 100
-                            
+        while use_current < use_end:
+            if not use_height:
+                goal = dip_status["start"]
+                verb = "  SnapShot Ordinal:"
+                percentage1 = self.functions.get_percentage_complete(start, dip_status["end"], dip_status["current"],True)
+                use_current = dip_status["current"]
+                if last_found == use_current:
+                    ordinal_nochange += 1
+                    if ordinal_nochange > 2: 
+                        use_height = True
+                        use_end = dip_status["height"]
+                        use_current = dip_status["current_height"]
+                last_found = use_current
+            else:
+                percentage2 = self.functions.get_percentage_complete(start_height, dip_status["height"], dip_status["current_height"])
+                use_current = dip_status["current_height"]
+                verb = "  Block Height:"
+                goal = use_end
+                                    
+            percentage = int((percent_weight1 / 100.0) * percentage1 + (percent_weight2 / 100.0) * percentage2)
+            if percentage < 1: percentage = 1
+            
             hash_marks = "#"*(percentage // 2)
             if len(hash_marks) > marks_last: 
                 spacing = (100 - percentage) // 2
                 marks_last = len(hash_marks)     
              
+            print(colored(f"  STATUS CHECK PASS #{dip_pass}","green"))
+            
+            if use_end < use_current: use_end = use_current
+            left = use_current - goal
+            if use_height: 
+                self.functions.print_clear_line()
+                left = use_end - use_current
+
+            if calc_rate: 
+                rate_calc_stop = perf_counter()
+                elapsed_time = rate_calc_stop - rate_calc_start
+                if elapsed_time > 30:
+                    rate = last_left - left
+                    estimated_time = (use_end - use_current) / rate
+                    calc_rate = False
+                pass
+            # print out status progress indicator
             print(
-                colored(f"  Ordinal:","magenta"), 
-                colored(f'{str(dip_status["current"])}',"blue",attrs=["bold"]), 
+                colored(verb,"magenta"), 
+                colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
                 colored("of","magenta"), 
-                colored(str(dip_status["end"]),"blue",attrs=["bold"]), 
+                colored(str(goal),"blue",attrs=["bold"]), 
+                colored("[","magenta"),
+                colored(str(left),"cyan"),
+                colored("]","magenta"),
             ) 
             print(
                 colored("  [","cyan"),
@@ -1232,14 +1320,16 @@ class CLI():
                 colored(f"{'%': <3}","green"),
             )
             if percentage < 100:
-                print((f'\x1b[{n}A'))
-                print((f'\x1b[{n}A'))
+                print(f'\x1b[3A', end='')
 
+            sleep(.03)
             dip_status = pull_ordinal_values(bashCommands)
-            sleep(.05) 
-            
+            last_left = left
+
         # double check recursively
-        self.show_ordinal_status(command_list)
+        dip_pass += 1
+        sleep(3)
+        self.show_ordinal_status(command_list, dip_pass)
             
                        
     def show_current_rewards(self,command_list):

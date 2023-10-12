@@ -62,16 +62,16 @@ class Functions():
         urllib3.disable_warnings()
 
         # used for installation 
-        self.m_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
-        self.t_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
-        self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
+        self.mainnet_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
+        self.testnet_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
+        self.integrationnet_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
 
         self.hardcode_api_port = 443
         
         # constellation specific statics
         self.be_urls = {
-            "mainnet": "be-testnet.constellationnetwork.io",
-            "testnet": "be-mainnet.constellationnetwork.io",
+            "testnet": "be-testnet.constellationnetwork.io",
+            "mainnet": "be-mainnet.constellationnetwork.io",
             "integrationnet": "be-integrationnet.constellationnetwork.io",
         }
         # self.be_testnet = "be-testnet.constellationnetwork.io"
@@ -201,15 +201,15 @@ class Functions():
                 elif action == "install":
                     if network == "mainnet":
                         # use the hardcoded version because no configuration to start installation
-                        api_host = self.m_hardcode_api_host
+                        api_host = self.mainnet_hardcode_api_host
                         api_port = self.hardcode_api_port
                     elif network == "testnet":
                         # use the hardcoded version
-                        api_host = self.t_hardcode_api_host
+                        api_host = self.testnet_hardcode_api_host
                         api_port = self.hardcode_api_port
                     elif network == "integrationnet":
                         # use the hardcoded version
-                        api_host = self.i_hardcode_api_host
+                        api_host = self.integrationnet_hardcode_api_host
                         api_port = self.hardcode_api_port
                     version = self.get_api_node_info({
                         "api_host": api_host,
@@ -707,7 +707,19 @@ class Functions():
             arch = "arm64"
         return arch       
     
+
+    def get_percentage_complete(self, start, end, current, invert=False):
+        if current < start:
+            return 0
+        elif current >= end:
+            return 100
+        total_range = end - start
+        current_range = current - start
+        percentage = (current_range / total_range) * 100
+        if invert: percentage = 100 - percentage
+        return int(percentage) 
     
+       
     def get_size(self,start_path = '.',single=False):
         if single:
             return path.getsize(start_path)
@@ -811,6 +823,7 @@ class Functions():
         # api_host=(str), api_port=(int), info_list=(list)
         api_host = command_obj.get("api_host")
         api_port = command_obj.get("api_port")
+        api_endpoint = command_obj.get("api_endpoint","/node/info")
         info_list = command_obj.get("info_list","all")
         tolerance = command_obj.get("tolerance",2)
         
@@ -832,7 +845,7 @@ class Functions():
         #         "id":"70e149abe4cc8eee53ba53d393152751496289f541452bd6d2b1d312dd37bb3c57692bad33069f5e7f521617992b87e1b388873c9672c01f71a0a16483fc27e5" #PeerId
         #     }
         
-        api_url = self.set_api_url(api_host, api_port,"/node/info")
+        api_url = self.set_api_url(api_host, api_port, api_endpoint)
         
         if info_list[0] == "all":
             info_list = ["state","session","clusterSession","host","version","publicPort","p2pPort","id"]
@@ -850,6 +863,9 @@ class Functions():
             else:
                 break
 
+        if len(session) < 2 and "data" in session.keys():
+            session = session["data"]
+            
         self.log.logger.info(f"session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
         try:
             for info in info_list:
@@ -871,9 +887,9 @@ class Functions():
                     response = get(url,timeout=2,headers=self.get_headers)
             except Exception as e:
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
-                if n > 1:
+                if n > tolerance-1:
                     self.error_messages.error_code_messages({
-                        "error_code": "cfr-240",
+                        "error_code": "fun-876",
                         "line_code": "api_error",
                         "extra2": url,
                         "extra": None
@@ -2236,8 +2252,10 @@ class Functions():
     # print functions
     # =============================  
 
-    def print_clear_line(self):
+    def print_clear_line(self,lines=1):
         console_size = get_terminal_size()
+        for _ in range(1,lines-1):
+            print(f"{' ': >{console_size.columns-2}}")
         print(f"{' ': >{console_size.columns-2}}",end="\r")
         
         
@@ -3009,8 +3027,30 @@ class Functions():
             finally:
                 timer.cancel()
         
-        if proc_action == "subprocess":
+        if proc_action == "pipeline":
+            # bashCommand for this should be a list of lists
+            # example)
+            #     grep_cmd = ["grep","some_string","/var/log/some_file"]
+            #     tail_cmd = ["tail","-n","1"]
+            #     awk_cmd = ["awk","...","..."]
+            
+            results = []
+            for n, cmd in enumerate(bashCommand):
+                if n == 0:
+                    results.append(subprocess.Popen(cmd, stdout=subprocess.PIPE))
+                    continue
+                results.append(subprocess.Popen(bashCommand[n],stdin=results[n-1].stdout, stdout=subprocess.PIPE))
+                
+            output, _ = results[-1].communicate()
+            return output.decode()
+    
+            
+        if proc_action == "subprocess_co":
             output = subprocess.check_output(bashCommand, shell=True, text=True)
+            return output
+        
+        if proc_action == "subprocess_run":
+            output = subprocess.run(shlexsplit(bashCommand), shell=True, text=True)
             return output
             
         if autoSplit:
