@@ -1,14 +1,14 @@
-import subprocess
 import random
 
 from sys import exit
-from time import sleep
+from time import sleep, time
 
 from .node_service import Node
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .node_service import Node
+from .command_line import CLI
 
 class AutoRestart():
 
@@ -45,6 +45,9 @@ class AutoRestart():
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
         
+        self.fork_check_time = 0
+        self.fork_timer = 300 # 5 minutes
+        
         if self.rapid_restart: self.random_times = [5]; self.timer = 5; self.sleep_on_critical = 15
         else:
             self.random_times = []
@@ -60,7 +63,7 @@ class AutoRestart():
         self.log.logger.info(f"\n==================\nAUTO RESTART - {self.thread_profile} Thread - Initiated\n==================")
         
         self.clean_up_thread_profiles()
-        self.start_node_service()   
+        self.build_class_objs()   
         self.setup_profile_states()
         self.restart_handler()
         
@@ -77,7 +80,8 @@ class AutoRestart():
         
                       
     # SETUP  
-    def start_node_service(self):
+    def build_class_objs(self):
+        self.log.logger.info("auto_restart -> build node services class obj")
         self.version_obj = self.functions.get_version({"which":"all"})
         self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] - starting node services...")
         command_obj = {
@@ -93,7 +97,20 @@ class AutoRestart():
         
         self.ip_address = self.functions.get_ext_ip()
         
-        
+        self.log.logger.info("auto_restart -> build command_line class obj")
+        command_obj = {
+            "auto_restart": True,
+            "command": "None",
+            "profile": self.thread_profile,  
+            "command_list": [],
+            "ip_address": self.ip_address,
+            "skip_services": True,
+            "version_obj": self.version_obj,
+            "profile_names": self.profile_names,
+            "config_obj": self.functions.config_obj
+        }   
+        self.cli = CLI(command_obj)
+                            
     def set_ep(self):  
          # ep: def: edge_point
          self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  setup ep - pulling ep details | profile [{self.node_service.profile}]")
@@ -189,6 +206,24 @@ class AutoRestart():
         self.node_service.set_profile(self.thread_profile)  ## return the node_service profile to the appropriate profile
         
         
+    def handle_minority_fork(self,action):
+        if self.fork_check_time == 0: self.fork_check_time = time()
+        if action == "prepare":
+            fork_elapsed_time = time()
+            min_fork_check = False
+            if (self.fork_timer - self.fork_check_time) >= fork_elapsed_time:
+                self.fork_check_time = time()
+                min_fork_check = True
+                while True: # utilize looper until success
+                    try:
+                        node_ordinals = self.cli.show_download_status(["-s"])
+                    except:
+                        pass
+                    else:
+                        return min_fork_check
+             
+                        
+                             
     def set_session_and_state(self):
         self.log.logger.info(f"auto restart - get session and state - updating profile [{self.node_service.profile}] state and session object with edge device [{self.edge_device}]") 
         
@@ -201,6 +236,7 @@ class AutoRestart():
         }  
 
         attempts = 0
+        # session fetch
         while True: # utilize looper until success
             try:
                 self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] edge [{self.edge_device}]")
@@ -216,12 +252,16 @@ class AutoRestart():
             else:
                 break
         
+        # ordinal hash fetch
+        self.handle_minority_fork("prepare")
+            
         self.log.logger.debug(f"auto_restart - set sessions - profile [{self.thread_profile}] | session_list | {session_list}")
         
         # default everything
         self.profile_states[self.node_service.profile]["match"] = True
         self.profile_states[self.node_service.profile]["ep_ready"] = True
         self.profile_states[self.node_service.profile]["action"] = None
+        self.profile_states[self.node_service.profile]["minority_fork"] = False
         self.profile_states[self.node_service.profile]["remote_session"] = session_list["session0"]
         self.profile_states[self.node_service.profile]["local_session"] = session_list["session1"]
         self.profile_states[self.node_service.profile]["remote_node"] = session_list["node0"]
@@ -257,6 +297,23 @@ class AutoRestart():
                     self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
                     continue_checking = False
         
+        if continue_checking: # and min_fork_check: # check every 5 minutes
+            global_ordinals = []
+            fork_obj = {
+                "history": 1,
+                "environment": self.functions.config_obj[self.thread_profile]["environment"],
+                "return_values": ["ordinal","lastSnapshotHash"],
+            }
+            
+            for n in range(0,2):
+                if n == 1: 
+                    fork_obj["lookup_uri"] = f'http://127.0.0.1:{self.functions.config_obj[self.thread_profile]["public_port"]}/'
+                    fork_obj["header"] = {'Accept': 'application/json'}
+                    fork_obj["get_results"] = "value"
+                global_ordinals.append(self.functions.get_snapshot(fork_obj))
+
+                    
+            
         if continue_checking:    
             if session_list["session0"] > session_list["session1"] and session_list['session1'] > 0:
                 self.profile_states[self.node_service.profile]["match"] = False

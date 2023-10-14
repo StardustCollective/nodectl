@@ -41,7 +41,8 @@ class CLI():
         self.command_list = command_obj.get("command_list",[])
         self.profile_names = command_obj.get("profile_names",None)
         self.skip_services = command_obj.get("skip_services",False)
-
+        self.auto_restart =  command_obj.get("auto_restart",False)
+               
         self.config_obj = command_obj["config_obj"]
         self.ip_address = command_obj["ip_address"]
         self.primary_command = self.command_obj["command"]
@@ -52,6 +53,7 @@ class CLI():
         self.skip_build = False
         self.check_versions_called = False
         self.invalid_version = False
+        
         
         self.current_try = 0
         self.max_try = 2
@@ -85,7 +87,7 @@ class CLI():
                 "text_start": "Acquiring Node details"
             })
             self.node_service = Node(command_obj,False)
-        else:
+        elif not self.auto_restart:
             self.functions.print_clear_line()
             self.functions.print_cmd_status({
                 "text_start": "Preparing Node details",
@@ -148,7 +150,7 @@ class CLI():
         called_profile = self.profile
         called_command = command_obj.get("called","default")
         profile_list = self.profile_names
-        ordinal_list = []
+        ordinal_dict = {}
         
         def quick_status_pull(port):
             quick_results = self.functions.get_api_node_info({
@@ -214,18 +216,22 @@ class CLI():
                         system("clear")
                         exit(0)
                 
-                ordinal_list.append(str(self.functions.get_snapshot({
+                ordinal_dict["backend"] = str(self.functions.get_snapshot({
                     "history": 1, 
                     "environment": self.config_obj[called_profile]["environment"],
-                })[1]))
+                })[1])
                 
                 for n,profile in enumerate(profile_list):
                     self.log.logger.info(f"show system status requested | {profile}")      
                     self.set_profile(profile)
                     called_profile = profile
-                    
-                    ordinal_list = ordinal_list[:1]
-                    ordinal_list += self.show_ordinal_status(["-p",profile,"-s"])
+                                        
+                    ordinal_dict = {
+                        **ordinal_dict,
+                        **self.show_download_status(["-p",profile,"-s"])
+                    }
+                    for key, value in ordinal_dict.items():
+                        if isinstance(value, int): ordinal_dict[key] = str(value)
                     
                     if called_command == "quick_status" or called_command == "_qs":
                         if n == 0:
@@ -328,7 +334,7 @@ class CLI():
                             ])
                         
                         if self.config_obj[profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
-                             ordinal_list[0] = "N/A"
+                             ordinal_dict["backend"] = "N/A"
                                         
                         print_out_list = [
                             {
@@ -342,9 +348,9 @@ class CLI():
                                 "CLI API TCP": self.functions.config_obj[called_profile]["cli_port"]
                             },
                             {
-                                "LATEST ORDINAL":ordinal_list[2],
-                                "LAST DLed": ordinal_list[1],
-                                "BLK EXP ORDINAL": ordinal_list[0],
+                                "LATEST ORDINAL":ordinal_dict["latest"],
+                                "LAST DLed": ordinal_dict["current"],
+                                "BLK EXP ORDINAL": ordinal_dict["backend"],
                             },
                             {
                                 "CURRENT SESSION": output["cluster_session"],
@@ -1088,12 +1094,62 @@ class CLI():
                 print(" ") # spacer        
                     
         
-    def show_ordinal_status(self,command_list,dip_pass=1):
+    def show_current_snapshot_proofs(self,command_list):
         if "-p" in command_list:
             self.profile = command_list[command_list.index("-p")+1]
         else: command_list.append("help")
-            
-        self.functions.check_for_help(command_list,"download_status")
+        if not self.auto_restart: self.functions.check_for_help(command_list,"current_global_snapshot")
+        
+        more_break = 1
+        print_title = False
+        do_more = False if "-np" in command_list else True
+        if do_more:
+            console_size = get_terminal_size()
+            more_break = round((console_size.lines-20)/6)
+                    
+        snap_obj = {
+            "lookup_uri": f'http://127.0.0.1:{self.config_obj[self.profile]["public_port"]}/',
+            "header": {'Accept': 'application/json' },
+            "get_results": "proofs", 
+            "return_type": "raw"      
+        }
+        results = self.functions.get_snapshot(snap_obj)
+        for n, result in enumerate(results):
+            if do_more and n % more_break == 0 and n > 0:
+                more = self.functions.print_any_key({
+                    "quit_option": "q",
+                    "newline": "both",
+                })
+                print_title = True
+                if more:
+                    break     
+            if result == results[0] or print_title:           
+                self.functions.print_paragraphs([
+                    ["SNAPSHOT SIGNATURES IN CURRENT GLOBAL SNAPSHOT BEING PROCESSED ON NODE",2,"green"]
+                ])
+                print_title = False
+            self.functions.print_paragraphs([
+                ["SnapShot Transaction Id:",1,"blue","bold"], [result["id"],1,"yellow"],
+                ["SnapShot Transaction Sig:",1,"blue","bold"], [result["signature"],2,"yellow"],
+            ])
+        
+        self.functions.print_paragraphs([
+            ["Transactions Found:",0],[str(len(results)),1,"green","bold"],
+        ])
+        
+        
+        
+        
+        
+        
+    def show_download_status(self,command_list,dip_pass=1):
+        # show DownloadInProgress Status
+        
+        if "-p" in command_list:
+            self.profile = command_list[command_list.index("-p")+1]
+        else: command_list.append("help")
+        
+        
 
         cmds, bashCommands = [],{}
         log_file = f"/var/tessellation/{self.profile}/logs/app.log"
@@ -1172,7 +1228,7 @@ class CLI():
             self.log.logger.info(f'show status ordinal/snapshot lookup found | target download [{dip_status["end"]}] current [{dip_status["current"]}] latest [{dip_status["latest"]}] ')
             if dip_status["end"] == "Not Found": dip_status["end"] = dip_status["latest"]
             if dip_status["current"] == "Not Found": dip_status["current"] = dip_status["latest"]
-            return list(dip_status.values())
+            return dip_status
 
         if dip_pass < 2:
             self.functions.print_header_title({
@@ -1214,7 +1270,7 @@ class CLI():
                         "profile": self.profile,
                         "simple": True
                     })                    
-                    self.functions.print_timer(30,"before checking again")
+                    self.functions.print_timer(5,"before checking again")
                     if state != "WaitingForDownload": break
                     self.functions.print_paragraphs([
                         ["Found State:",0],[state,1,"yellow"],
@@ -1329,7 +1385,7 @@ class CLI():
         # double check recursively
         dip_pass += 1
         sleep(3)
-        self.show_ordinal_status(command_list, dip_pass)
+        self.show_download_status(command_list, dip_pass)
             
                        
     def show_current_rewards(self,command_list):

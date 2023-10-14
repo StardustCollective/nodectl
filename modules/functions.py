@@ -37,7 +37,7 @@ from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 
 class Functions():
-        
+
     def __init__(self,config_obj):
         self.sudo_rights = config_obj.get("sudo_rights", True)
         if self.sudo_rights:
@@ -1040,28 +1040,31 @@ class Functions():
         ordinal = command_obj.get("ordinal",False)
         history = command_obj.get("history",50)
         environment = command_obj.get("environment","mainnet")
+        return_values = command_obj.get("return_values",False)
+        lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
+        header = command_obj.get("header",self.get_headers)
+        get_results = command_obj.get("get_results","data")
+        return_type =  command_obj.get("return_type","list")
         
-        return_type = "list"
         return_data = []
         error_secs = 2
         
-        be_uri = f"https://{self.be_urls[environment]}/"
         if action == "latest":
-            uri = f"{be_uri}global-snapshots/latest"
-            return_values = ["timestamp","ordinal"]
+            uri = f"{lookup_uri}global-snapshots/latest"
+            if not return_values: return_values = ["timestamp","ordinal"]
         elif action == "history":
-            uri = f"{be_uri}global-snapshots?limit={history}"
+            uri = f"{lookup_uri}global-snapshots?limit={history}"
             return_type = "raw"
         elif action == "ordinal":
-            uri = f"{be_uri}global-snapshots/{ordinal}"
+            uri = f"{lookup_uri}global-snapshots/{ordinal}"
         elif action == "rewards":
-            uri = f"{be_uri}global-snapshots/{ordinal}/rewards"
-            return_values = ["destination"]
+            uri = f"{lookup_uri}global-snapshots/{ordinal}/rewards"
+            if not return_values: return_values = ["destination"]
             return_type = "dict"
         
         try:
-            results = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
-            results = results["data"]
+            results = get(uri,verify=False,timeout=2,headers=header).json()
+            results = results[get_results]
         except Exception as e:
             self.log.logger.warn(f"attempt to access backend explorer failed with | [{e}]")
             sleep(error_secs)

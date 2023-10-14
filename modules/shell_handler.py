@@ -272,6 +272,8 @@ class ShellHandler:
             cli.export_private_key(self.argv)
         elif self.called_command == "check_source_connection" or self.called_command == "_csc":
             return_value = cli.check_source_connection(self.argv)
+        elif self.called_command == "show_node_proofs" or self.called_command == "_snp":
+            return_value = cli.show_current_snapshot_proofs(self.argv)
         elif self.called_command == "check_connection" or self.called_command == "_cc":
             cli.check_connection(self.argv)
         elif self.called_command == "send_logs" or self.called_command == "_sl":
@@ -279,7 +281,7 @@ class ShellHandler:
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
             cli.show_seedlist_participation(self.argv)
         elif self.called_command == "download_status" or self.called_command == "_ds":
-            cli.show_ordinal_status(self.argv)
+            cli.show_download_status(self.argv)
         elif self.called_command in cv_commands:
             cli.check_versions(self.argv)
         elif "auto_" in self.called_command:
@@ -610,10 +612,11 @@ class ShellHandler:
             "slow_restart","_sr","restart_only",
             "peers","check_source_connection","_csc",
             "check_connection","_cc",
-            "send_logs","_sl",
+            "send_logs","_sl","show_node_proofs","_snp",
             "nodeid","id","dag","export_private_key",
             "check_seedlist","_csl","update_seedlist","_usl",
             "show_service_log","_ssl","download_status","_ds",
+            
         ]                
 
         if "-p" in self.argv:
