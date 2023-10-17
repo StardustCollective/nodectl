@@ -1138,10 +1138,6 @@ class CLI():
         ])
         
         
-        
-        
-        
-        
     def show_download_status(self,command_list,dip_pass=1):
         # show DownloadInProgress Status
         

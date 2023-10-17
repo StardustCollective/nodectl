@@ -44,9 +44,10 @@ class AutoRestart():
         
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
+        self.environment = self.functions.config_obj[self.thread_profile]["environment"]
         
-        self.fork_check_time = 0
-        self.fork_timer = 300 # 5 minutes
+        self.fork_check_time = -1
+        self.fork_timer = 60*5 # 5 minutes
         
         if self.rapid_restart: self.random_times = [5]; self.timer = 5; self.sleep_on_critical = 15
         else:
@@ -206,22 +207,56 @@ class AutoRestart():
         self.node_service.set_profile(self.thread_profile)  ## return the node_service profile to the appropriate profile
         
         
-    def handle_minority_fork(self,action):
-        if self.fork_check_time == 0: self.fork_check_time = time()
-        if action == "prepare":
-            fork_elapsed_time = time()
-            min_fork_check = False
+    def handle_minority_fork(self):
+        self.log.logger.info(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}]")
+        
+        if self.fork_check_time > -1: 
+            fork_elapsed_time = self.fork_check_time + time()
             if (self.fork_timer - self.fork_check_time) >= fork_elapsed_time:
-                self.fork_check_time = time()
-                min_fork_check = True
-                while True: # utilize looper until success
-                    try:
-                        node_ordinals = self.cli.show_download_status(["-s"])
-                    except:
-                        pass
-                    else:
-                        return min_fork_check
-             
+                self.log.logger.debug(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}] - minority check timer not met, skipping.")
+                self.fork_check_time += fork_elapsed_time
+                return False
+                
+        self.fork_check_time = 0
+
+        self.log.logger.debug(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}] checking for minority fork.")
+        global_ordinals ={}
+        fork_obj = {
+            "history": 1,
+            "environment": self.environment,
+            "return_values": ["ordinal","lastSnapshotHash"],
+            "header": self.functions.get_headers,
+        }
+
+        for n in range(0,2):
+            if n == 0: 
+                self.log.logger.debug(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}] | fork_obj remote: [{self.functions.be_urls[self.environment]}].")
+                global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
+            else:
+                fork_obj = {
+                    **fork_obj,
+                    "lookup_uri": f'http://127.0.0.1:{self.functions.config_obj[self.thread_profile]["public_port"]}/',
+                    "header": {**fork_obj["header"], 'Accept': 'application/json'},
+                    "get_results": "value",
+                    "ordinal": global_ordinals["backend"]["ordinal"],
+                    "action": "ordinal",
+                }
+                self.log.logger.debug(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
+                global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
+
+                
+        self.log.logger.debug(f'auto_restart - handle_minority_fork - localhost ordinal [{global_ordinals["local"]["ordinal"]}]')
+        self.log.logger.debug(f'auto_restart - handle_minority_fork -        BE ordinal [{global_ordinals["backend"]["ordinal"]}]')
+        self.log.logger.debug(f'auto_restart - handle_minority_fork - localhost hash [{global_ordinals["local"]["lastSnapshotHash"]}]')
+        self.log.logger.debug(f'auto_restart - handle_minority_fork -        BE hash [{global_ordinals["backend"]["lastSnapshotHash"]}]')
+        
+        if global_ordinals["local"]["lastSnapshotHash"] == global_ordinals["backend"]["lastSnapshotHash"]: 
+            self.log.logger.debug(f'auto_restart - handle_minority_fork - fork not detected - valid match found')
+            return False
+        
+        # restart needed
+        self.log.logger.warn(f"auto_restart - handle_minority_fork -thread [{self.thread_profile}] detected minority fork.")
+        return True
                         
                              
     def set_session_and_state(self):
@@ -298,21 +333,10 @@ class AutoRestart():
                     continue_checking = False
         
         if continue_checking: # and min_fork_check: # check every 5 minutes
-            global_ordinals = []
-            fork_obj = {
-                "history": 1,
-                "environment": self.functions.config_obj[self.thread_profile]["environment"],
-                "return_values": ["ordinal","lastSnapshotHash"],
-            }
-            
-            for n in range(0,2):
-                if n == 1: 
-                    fork_obj["lookup_uri"] = f'http://127.0.0.1:{self.functions.config_obj[self.thread_profile]["public_port"]}/'
-                    fork_obj["header"] = {'Accept': 'application/json'}
-                    fork_obj["get_results"] = "value"
-                global_ordinals.append(self.functions.get_snapshot(fork_obj))
-
-                    
+            if self.handle_minority_fork():
+                self.profile_states[self.node_service.profile]["action"] = "restart_full"
+                self.profile_states[self.node_service.profile]["minority_fork"] = True
+                continue_checking = False
             
         if continue_checking:    
             if session_list["session0"] > session_list["session1"] and session_list['session1'] > 0:
@@ -478,7 +502,7 @@ class AutoRestart():
                     "print_version": False,
                     "profile": self.thread_profile,
                     "download_version": versions[0][self.thread_profile],
-                    "environment": self.functions.config_obj[self.thread_profile]["environment"],
+                    "environment": self.environment,
                 })
                 if not auto_upgrade_success:
                     warning = True
