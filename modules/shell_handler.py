@@ -116,11 +116,11 @@ class ShellHandler:
         deprecated_clear_file_cmds = [
             "clear_uploads","_cul","_cls","clear_logs",
             "clear_snapshots","clear_backups",
-            "reset_cache","_rc",
+            "reset_cache","_rc","clean_snapshots","_cs",
         ]
         ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
         config_list = ["view_config","validate_config","_vc", "_val"]
-        clean_files_list = ["clean_snapshots","_cs","clean_files","_cf"]
+        clean_files_list = ["clean_files","_cf"]
         nodectl_verify_commands = ["verify_nodectl","_vn"]
         
         if self.called_command != "service_restart":
@@ -252,16 +252,13 @@ class ShellHandler:
                 })
         elif self.called_command in clean_files_list:
             command_obj = {"argv_list": self.argv, "action": "normal"}
-            if self.called_command == "clean_snapshots" or self.called_command == "_cs":
-                command_obj["action"] = "snapshots"
             cli.clean_files(command_obj)
             
         elif self.called_command in deprecated_clear_file_cmds:
-            new_cmd = "clean_snapshots" if self.called_command == "reset_cache" or self.called_command == "_rc" else "clean_files"
             return_value = cli.print_deprecated({
                 "command": self.called_command,
                 "version": "v2.0.0",
-                "new_command": new_cmd
+                "new_command": "n/a"
             })
             
         elif self.called_command == "check_seedlist" or self.called_command == "_csl":
