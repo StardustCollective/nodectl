@@ -205,58 +205,6 @@ class AutoRestart():
            self.log.logger.debug("=====================================================================================")
            
         self.node_service.set_profile(self.thread_profile)  ## return the node_service profile to the appropriate profile
-        
-        
-    def handle_minority_fork(self):
-        self.log.logger.info(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}]")
-        
-        if self.fork_check_time > -1: 
-            fork_elapsed_time = self.fork_check_time + time()
-            if (self.fork_timer - self.fork_check_time) >= fork_elapsed_time:
-                self.log.logger.debug(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}] - minority check timer not met, skipping.")
-                self.fork_check_time += fork_elapsed_time
-                return False
-                
-        self.fork_check_time = 0
-
-        self.log.logger.debug(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}] checking for minority fork.")
-        global_ordinals ={}
-        fork_obj = {
-            "history": 1,
-            "environment": self.environment,
-            "return_values": ["ordinal","lastSnapshotHash"],
-            "header": self.functions.get_headers,
-        }
-
-        for n in range(0,2):
-            if n == 0: 
-                self.log.logger.debug(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}] | fork_obj remote: [{self.functions.be_urls[self.environment]}].")
-                global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
-            else:
-                fork_obj = {
-                    **fork_obj,
-                    "lookup_uri": f'http://127.0.0.1:{self.functions.config_obj[self.thread_profile]["public_port"]}/',
-                    "header": {**fork_obj["header"], 'Accept': 'application/json'},
-                    "get_results": "value",
-                    "ordinal": global_ordinals["backend"]["ordinal"],
-                    "action": "ordinal",
-                }
-                self.log.logger.debug(f"auto_restart - handle_minority_fork - thread [{self.thread_profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
-                global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
-
-                
-        self.log.logger.debug(f'auto_restart - handle_minority_fork - localhost ordinal [{global_ordinals["local"]["ordinal"]}]')
-        self.log.logger.debug(f'auto_restart - handle_minority_fork -        BE ordinal [{global_ordinals["backend"]["ordinal"]}]')
-        self.log.logger.debug(f'auto_restart - handle_minority_fork - localhost hash [{global_ordinals["local"]["lastSnapshotHash"]}]')
-        self.log.logger.debug(f'auto_restart - handle_minority_fork -        BE hash [{global_ordinals["backend"]["lastSnapshotHash"]}]')
-        
-        if global_ordinals["local"]["lastSnapshotHash"] == global_ordinals["backend"]["lastSnapshotHash"]: 
-            self.log.logger.debug(f'auto_restart - handle_minority_fork - fork not detected - valid match found')
-            return False
-        
-        # restart needed
-        self.log.logger.warn(f"auto_restart - handle_minority_fork -thread [{self.thread_profile}] detected minority fork.")
-        return True
                         
                              
     def set_session_and_state(self):
@@ -286,9 +234,6 @@ class AutoRestart():
                 attempts = self.attempts_looper(attempts,"session retrieval",20,3,False)
             else:
                 break
-        
-        # ordinal hash fetch
-        self.handle_minority_fork("prepare")
             
         self.log.logger.debug(f"auto_restart - set sessions - profile [{self.thread_profile}] | session_list | {session_list}")
         
@@ -333,7 +278,7 @@ class AutoRestart():
                     continue_checking = False
         
         if continue_checking: # and min_fork_check: # check every 5 minutes
-            if self.handle_minority_fork():
+            if self.minority_fork_handler():
                 self.profile_states[self.node_service.profile]["action"] = "restart_full"
                 self.profile_states[self.node_service.profile]["minority_fork"] = True
                 continue_checking = False
@@ -469,6 +414,65 @@ class AutoRestart():
             
                 
     # HANDLERS
+    def minority_fork_handler(self):
+        self.log.logger.info(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}]")
+        
+        if self.fork_check_time > -1: 
+            et = time() - self.fork_check_time
+            if  self.fork_timer >= (time() - self.fork_check_time):
+                self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - minority check timer not met, skipping.")
+                return False
+            
+        # if self.fork_check_time > -1: 
+        #     fork_elapsed_time = self.fork_check_time + time()
+        #     if (self.fork_timer - self.fork_check_time) >= fork_elapsed_time:
+        #         self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - minority check timer not met, skipping.")
+        #         self.fork_check_time += fork_elapsed_time
+        #         return False
+                
+        self.fork_check_time = time()
+
+        self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] checking for minority fork.")
+        global_ordinals ={}
+        fork_obj = {
+            "history": 1,
+            "environment": self.environment,
+            "return_values": ["ordinal","lastSnapshotHash"],
+            "header": self.functions.get_headers,
+            "return_type": "dict"
+        }
+
+        for n in range(0,2):
+            if n == 0: 
+                self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] | fork_obj remote: [{self.functions.be_urls[self.environment]}].")
+                global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
+            else:
+                fork_obj = {
+                    **fork_obj,
+                    "lookup_uri": f'http://127.0.0.1:{self.functions.config_obj[self.thread_profile]["public_port"]}/',
+                    "header": {**fork_obj["header"], 'Accept': 'application/json'},
+                    "get_results": "value",
+                    "ordinal": global_ordinals["backend"]["ordinal"],
+                    "action": "ordinal",
+                }
+                self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
+                global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
+
+                
+        self.log.logger.debug(f'auto_restart - minority_fork_handler - localhost ordinal [{global_ordinals["local"]["ordinal"]}]')
+        self.log.logger.debug(f'auto_restart - minority_fork_handler -   Backend ordinal [{global_ordinals["backend"]["ordinal"]}]')
+        self.log.logger.debug(f'auto_restart - minority_fork_handler - localhost hash [{global_ordinals["local"]["lastSnapshotHash"]}]')
+        self.log.logger.debug(f'auto_restart - minority_fork_handler -   Backend hash [{global_ordinals["backend"]["lastSnapshotHash"]}]')
+        
+        if global_ordinals["local"]["lastSnapshotHash"] == global_ordinals["backend"]["lastSnapshotHash"]: 
+            self.log.logger.debug(f'auto_restart - minority_fork_handler - fork not detected - valid match found')
+            return False
+        
+        # restart needed
+        self.log.logger.warn(f"auto_restart - minority_fork_handler -thread [{self.thread_profile}] detected minority fork.")
+        return True
+    
+    
     def version_check_handler(self):
         # do not do anything until the versions match
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - initiated - profile [{self.node_service.profile}] ")
@@ -643,6 +647,7 @@ class AutoRestart():
                 action = self.profile_states[self.node_service.profile]["action"]
                 match = self.profile_states[self.node_service.profile]["match"]
                 state = self.profile_states[self.node_service.profile]["node_state"]
+                minority_fork = self.profile_states[self.node_service.profile]["minority_fork"]
                 extra_wait_time = random.choice(self.random_times)
                 
                 if action == "ep_wait":
@@ -671,6 +676,11 @@ class AutoRestart():
                         warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
                         warn_msg += "=========================================================================="                        
                         self.log.logger.warn(warn_msg)
+                    elif minority_fork:
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED MINORITY FORK detected | profile [{self.thread_profile}] state [{state}]\n"
+                        warn_msg += "=========================================================================="      
+                        self.log.logger.warn(warn_msg)
                     elif action == "restart_full":
                         warn_msg = "\n==========================================================================\n"
                         warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED but SESSION MATCH | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
@@ -685,4 +695,4 @@ class AutoRestart():
 
 
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")        
+    print("This class module is not designed to be run independently, please refer to the documentation")

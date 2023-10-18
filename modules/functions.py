@@ -1076,9 +1076,10 @@ class Functions():
                     if return_type == "list":
                         return_data.append(results[value])
                     elif return_type == "dict":
+                        return_data = {}
                         for v in results:
-                            return_data.append(v[value])
-
+                            if not return_values or v in return_values:
+                                return_data[v] = results[v]
             return return_data
 
 
