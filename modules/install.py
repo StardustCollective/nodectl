@@ -9,33 +9,20 @@ from .p12 import P12Class
 from .command_line import CLI
 from .user import UserClass
 from .troubleshoot.logger import Logging
-
-from .config.migration import Migration
 from .config.config import Configuration
 
 class Installer():
 
-    def __init__(self,command_obj, debug=False):
-        # ip_address=(str)
-        # network_name=(str)
-        # version_obj=(dict)
-        # debug=(bool) False
-        self.debug = debug
+    def __init__(self,command_obj):
         self.step = 1
         self.status = "" #empty
         self.ip_address = command_obj["ip_address"]
         self.network_name = command_obj["network_name"]
         self.existing_p12 = command_obj["existing_p12"]
+        self.functions = command_obj["functions"]
         self.command_obj = command_obj
         
-        self.error_messages = Error_codes() 
-        self.fun_obj = {
-            "global_elements": {
-                "caller": "install",
-                "network_name": self.network_name    
-            },
-        }
-        self.functions = Functions(self.fun_obj)
+        self.error_messages = Error_codes(self.functions) 
         self.log = Logging()
         
 
@@ -62,8 +49,7 @@ class Installer():
             "profile": "empty",
             "command": "install",
             "command_list": [],
-            "version_obj": self.command_obj["version_obj"],
-            "config_obj": self.config_obj,
+            "functions": self.functions,
             "ip_address": self.command_obj["ip_address"],
             "skip_services": False
         }
@@ -429,7 +415,7 @@ class Installer():
             "app_env": self.network_name,
             "user_obj": self.user,
             "cli_obj": self.cli,
-            "config_obj": self.fun_obj,
+            "functions": self.functions,
             "existing_p12": self.existing_p12
         }
         self.p12_session = P12Class(action_obj)

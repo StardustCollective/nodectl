@@ -42,17 +42,20 @@ class Functions():
         self.sudo_rights = config_obj.get("sudo_rights", True)
         if self.sudo_rights:
             self.log = Logging()
-            self.error_messages = Error_codes() 
+        # set self.version_obj before calling set_statics
+        self.config_obj = config_obj
+        self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
+        self.version_obj = False
         
-        self.node_nodectl_version = "v2.10.0"
-        self.node_nodectl_version_github = f'nodectl_{self.node_nodectl_version.replace(".","")}'
-        self.node_nodectl_yaml_version = "v2.0.0"
         
-        exclude_config = ["-v","_v","version"]
-        
-        if config_obj["global_elements"]["caller"] in exclude_config:
-            return
-        
+    def set_statics(self):
+        self.error_messages = Error_codes(self.config_obj)         
+        # versioning
+        self.node_nodectl_version = self.version_obj["node_nodectl_version"]
+        self.node_nodectl_version_github = self.version_obj["nodectl_github_version"]
+        self.node_nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
+        self.upgrade_path = False
+
         # stop requests from caching results
         self.get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -62,11 +65,11 @@ class Functions():
         urllib3.disable_warnings()
 
         # used for installation 
-        self.mainnet_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
-        self.testnet_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
-        self.integrationnet_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
-
-        self.hardcode_api_port = 443
+        self.lb_urls = {
+            "testnet": ["l0-lb-testnet.constellationnetwork.io",443],
+            "mainnet": ["l0-lb-mainnet.constellationnetwork.io",443],
+            "integrationnet": ["l0-lb-integrationnet.constellationnetwork.io",443],
+        }
         
         # constellation specific statics
         self.be_urls = {
@@ -74,40 +77,22 @@ class Functions():
             "mainnet": "be-mainnet.constellationnetwork.io",
             "integrationnet": "be-integrationnet.constellationnetwork.io",
         }
-        # self.be_testnet = "be-testnet.constellationnetwork.io"
-        # self.be_mainnet = "be-mainnet.constellationnetwork.io"
-        # self.be_integrationnet = "be-integrationnet.constellationnetwork.io"
         
         # constellation nodectl statics
         self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
-        # dev
-        # self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/{self.node_nodectl_version_github}/admin/upgrade_path.json"
-        
-        
         self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
         self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_github}/predefined_configs"
-        self.nodectl_path = "/var/tessellation/nodectl/"
-        
-        # versioning
-        self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
-        self.node_tess_version = "v0.0.0"
-        self.latest_nodectl_version = "v0.0.0"
-        self.upgrade_path = False
-        self.version_obj = {}
         
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
-        
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
 
         
         try:
-            self.network_name = config_obj["global_elements"]["network_name"]
+            self.network_name = self.config_obj["global_elements"]["metagraph_name"]
         except:
             self.network_name = False
-            
-        self.config_obj = config_obj
             
         self.default_profile = None
         self.default_edge_point = {}
@@ -117,186 +102,14 @@ class Functions():
         self.event = False # used for different threading events
         self.status_dots = False # used for different threading events
         
-        self.auto_restart = True if config_obj["global_elements"]["caller"] == "auto_restart" else False
+        self.auto_restart = True if self.config_obj["global_elements"]["caller"] == "auto_restart" else False
         ignore_defaults = ["config","install","auto_restart","ts","debug"]
-        if config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
+        if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
 
 
     # =============================
     # getter functions
     # =============================
-        
-    def get_version(self,command_obj):
-        #which=(str), print_message=(bool)
-        print_message = command_obj.get("print_message",True)
-        action = command_obj.get("action","normal")
-        which = command_obj["which"]
-
-        # handle auto_restart
-        print_message = False if self.auto_restart else print_message
-        self.pre_release = False
-        
-        with ThreadPoolExecutor() as executor:                            
-            def print_msg():
-                if print_message:
-                    self.print_clear_line()
-                    self.event = True
-                    _ = executor.submit(self.print_spinner,{
-                        "msg": "Gathering Tessellation version info",
-                        "color": "magenta",
-                    })  
-            
-            
-            def get_running_tess_on_node():
-                def thread_or_not():
-                    node_tess_version = self.process_command({
-                        "bashCommand": bashCommand,
-                        "proc_action": "wait"
-                    })
-                    try:
-                        node_tess_version = node_tess_version.strip("\n")
-                    except:
-                        node_tess_version = "X.X.X"
-                    if self.node_tess_version == "":
-                        node_tess_version = "X.X.X"
-                    if not "v" in node_tess_version and not "V" in node_tess_version:
-                        node_tess_version = f"v{node_tess_version}"
-                    node_tess_version_obj[profile] = {
-                        "node_tess_version": node_tess_version,
-                        "node_tess_jar": jar,
-                    } 
-                                        
-                node_tess_version_obj = {}
-                for profile in self.profile_names:
-                    jar = self.config_obj[profile]["jar_file"]
-                    bashCommand = f"/usr/bin/java -jar /var/tessellation/{jar} --version"
-                    if print_message: # not auto_restart
-                        with ThreadPoolExecutor() as executor:
-                            _ = executor.submit(thread_or_not)
-                    else:
-                        thread_or_not()
-
-                self.node_tess_version = node_tess_version_obj
-                    
-                    
-            def get_cluster_tess(action,network):
-                def thread_or_not():
-                    version = self.get_api_node_info({
-                        "api_host": self.config_obj[profile]["edge_point"],
-                        "api_port": self.config_obj[profile]["edge_point_tcp_port"],
-                        "info_list": ["version"],
-                        "tolerance": 2,
-                    })
-                    # version = ["1.11.3"]  # debugging
-                    cluster_tess_version_obj[profile] = f"v{version[0]}" 
-                                       
-                cluster_tess_version_obj = {}
-                if action == "normal":
-                    for profile in self.profile_names:
-                        if print_message: # not auto_restart
-                            with ThreadPoolExecutor() as executor:
-                                _ = executor.submit(thread_or_not)
-                        else:
-                            thread_or_not()
-                elif action == "install":
-                    if network == "mainnet":
-                        # use the hardcoded version because no configuration to start installation
-                        api_host = self.mainnet_hardcode_api_host
-                        api_port = self.hardcode_api_port
-                    elif network == "testnet":
-                        # use the hardcoded version
-                        api_host = self.testnet_hardcode_api_host
-                        api_port = self.hardcode_api_port
-                    elif network == "integrationnet":
-                        # use the hardcoded version
-                        api_host = self.integrationnet_hardcode_api_host
-                        api_port = self.hardcode_api_port
-                    version = self.get_api_node_info({
-                        "api_host": api_host,
-                        "api_port": api_port,
-                        "info_list": ["version"],
-                        "tolerance": 2,
-                    })
-                    # version = ["1.11.3"]  # debugging
-                    for profile in self.profile_names:
-                        cluster_tess_version_obj[profile] = f"v{version[0]}"
-                self.cluster_tess_version = cluster_tess_version_obj
-                    
-                    
-            def get_latest_nodectl(network):
-                self.pull_upgrade_path()
-                self.latest_nodectl_version = self.upgrade_path[network]["version"]
-
-            profile = None if action == "normal" else "skip"
-            if command_obj["which"] != "nodectl":
-                self.set_default_variables({
-                    "profile": profile,
-                })
-                
-            if which == "nodectl":
-                self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}] nodectl_yaml_version [{self.node_nodectl_yaml_version}]")
-                return {
-                    "node_nodectl_version":self.node_nodectl_version,
-                    "node_nodectl_yaml_version":self.node_nodectl_yaml_version
-                }
-            elif "current_tess" in which:
-                print_msg()
-                get_running_tess_on_node() 
-                if print_message:
-                    print(colored(" ".ljust(50),"magenta"),end="\r")
-                self.log.logger.info(f"node tess version: [{self.node_tess_version}]")
-                self.event = False
-                if "version" in which:
-                    return {key: value['node_tess_version'] for key, value in self.node_tess_version.items()}
-                return self.node_tess_version
-            elif which == "cluster_tess":
-                print_msg()
-                get_cluster_tess(action,self.network_name) 
-                if print_message:
-                    print(colored(" ".ljust(50),"magenta"),end="\r")
-                self.log.logger.info(f"cluster tess version: [{self.cluster_tess_version}]")
-                self.event = False
-                return self.cluster_tess_version
-            elif which == "latest_nodectl":
-                get_latest_nodectl(self.network_name) 
-                if print_message:
-                    print(colored(" ".ljust(50),"magenta"),end="\r")
-                self.log.logger.info(f"repository nodectl version: [{self.latest_nodectl_version}]")
-                self.event = False
-                return self.latest_nodectl_version
-            elif which == "nodectl_all":
-                get_latest_nodectl(self.network_name)
-                self.event = False
-                return {
-                    "node_nodectl_version":self.node_nodectl_version,
-                    "latest_nodectl_version": self.latest_nodectl_version,
-                    "pre_release": self.pre_release
-                }
-            else:
-                print_msg()
-                get_running_tess_on_node() 
-                # get_cluster_tess too slow
-                if self.network_name == False: self.network_name = self.environment_names[0]
-                get_latest_nodectl(self.network_name) 
-                
-                self.event = False
-                if which == "all":
-                    return {
-                        "node_nodectl_version":self.node_nodectl_version,
-                        "node_tess_version": self.node_tess_version,
-                        "cluster_tess_version": self.cluster_tess_version,
-                        "upgrade_path": self.upgrade_path,
-                        "pre_release": self.pre_release
-                    }
-                else:
-                    return {
-                        "node_nodectl_version":self.node_nodectl_version,
-                        "node_tess_version": self.node_tess_version,
-                        "upgrade_path": self.upgrade_path,
-                        "pre_release": self.pre_release
-                    }
-
-
     def get_crypto_price(self):
         pricing_list = ["N/A","N/A","N/A","N/A","N/A","N/A"]  
         # The last element is used for balance calculations
@@ -659,22 +472,36 @@ class Functions():
         backward = command_obj.get("backward",True) 
         r_days = command_obj.get("days",False) # requested days
         elapsed = command_obj.get("elapsed",False)
+        old_time = command_obj.get("old_time",False)
         
         if action == "date":
             return datetime.now().strftime("%Y-%m-%d")
         elif action == "datetime":
             return datetime.now().strftime("%Y-%m-%d-%H:%M:%SZ")
+        elif action == "get_elapsed":
+            old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            return datetime.now() - old_time
+        elif action == "future_datetime":
+            new_time = datetime.now()
+            new_time += timedelta(seconds=elapsed)
+            return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
         elif action == "estimate_elapsed":
-            hours = False
-            elapsed_time = elapsed.seconds/60
-            if elapsed_time > 60:
-                elapsed_time = elapsed_time/60
-                hours = True   
-            elapsed_time = round(elapsed_time,2) 
-            elapsed = f"~{elapsed_time}M"
-            if hours:
-                elapsed = f"~{elapsed_time}H"
-            return elapsed
+            minutes, seconds = divmod(elapsed.seconds, 60)
+            hours, minutes = divmod(minutes, 60)
+            days, hours = divmod(hours, 24)
+            result = "~"
+            if days > 0:
+                result += f"{days}D "
+            if hours > 0:
+                result += f"{hours}H "
+            if minutes > 0:
+                result += f"{minutes}M "
+            result += f"{seconds}S"
+            return result
+        elif action == "session_to_date":
+            elapsed = elapsed/1000
+            elapsed = datetime.fromtimestamp(elapsed)
+            return elapsed.strftime("%Y-%m-%d-%H:%M:%SZ")
         elif action == "uptime_seconds":
             uptime_output = check_output(["uptime"]).decode("utf-8")
             uptime_parts = uptime_output.split()
@@ -718,20 +545,6 @@ class Functions():
         percentage = (current_range / total_range) * 100
         if invert: percentage = 100 - percentage
         return int(percentage) 
-    
-       
-    def get_size(self,start_path = '.',single=False):
-        if single:
-            return path.getsize(start_path)
-        total_size = 0
-        for dirpath, dirnames, filenames in walk(start_path):
-            for f in filenames:
-                fp = path.join(dirpath, f)
-                # skip if it is symbolic link
-                if not path.islink(fp):
-                    total_size += path.getsize(fp)
-        
-        return total_size    
     
 
     def get_info_from_edge_point(self,command_obj):
@@ -889,7 +702,7 @@ class Functions():
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
                 if n > tolerance-1:
                     self.error_messages.error_code_messages({
-                        "error_code": "fun-876",
+                        "error_code": "fnt-876",
                         "line_code": "api_error",
                         "extra2": url,
                         "extra": None
@@ -1023,6 +836,20 @@ class Functions():
         return self.key_pressed.lower()
 
 
+    def get_size(self,start_path = '.',single=False):
+        if single:
+            return path.getsize(start_path)
+        total_size = 0
+        for dirpath, dirnames, filenames in walk(start_path):
+            for f in filenames:
+                fp = path.join(dirpath, f)
+                # skip if it is symbolic link
+                if not path.islink(fp):
+                    total_size += path.getsize(fp)
+        
+        return total_size  
+    
+    
     def get_dir_size(self, r_path="."):
         total = 0
         if path.exists(r_path):
@@ -1140,7 +967,7 @@ class Functions():
         profile = command_obj.get("profile",None)
         skip_error = command_obj.get("skip_error",False)
         self.default_profile = False
-        
+
         if profile != "skip":
             try:
                 for layer in range(0,3):
@@ -1643,6 +1470,7 @@ class Functions():
         retrieve = command_obj.get("retrieve","profile_names")
         return_where = command_obj.get("return_where","Main")
         predefined_envs = []
+        
         repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
         repo_profiles = repo_profiles["payload"]["tree"]["items"]
         metagraph_name, chosen_profile = None, None
@@ -1858,7 +1686,7 @@ class Functions():
         elif version.parse(current) > version.parse(remote):
             return "current_greater"
         else:
-            return "current_less_than"
+            return "current_less"
     
     
     def is_version_valid(self,check_version):
@@ -2047,19 +1875,6 @@ class Functions():
             })
 
 
-    def test_n_check_version(self,action="test"):
-        # checks lb version against node
-        
-        running_tess = self.get_version({"which":"current_tess_version"})
-        cluster_tess = self.get_version({"which":"cluster_tess"})
-        if running_tess == cluster_tess and action == "test":
-                return True
-        if action == "get":
-            return [cluster_tess,running_tess]
-        else:
-            return False
-
-
     def test_hostname_or_ip(self, hostname):
         try:
             socket.gethostbyaddr(hostname)
@@ -2218,7 +2033,11 @@ class Functions():
 
         return root_profile
                     
-                 
+    
+    def test_valid_functions_obj(self):
+        # simple method that just returns True
+        # to test if this method is available
+        return True         
     
     # =============================
     # create functions
@@ -2502,7 +2321,8 @@ class Functions():
         
     
     def print_option_menu(self,command_obj):
-        options = command_obj.get("options")
+        options_org = command_obj.get("options")
+        options = copy(options_org) # options relative to self.profile_names
         let_or_num = command_obj.get("let_or_num","num")
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")
@@ -2766,13 +2586,6 @@ class Functions():
         hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
         
-        if not nodectl_version_only:
-            keys = ["node_nodectl_version","node_tess_version"]
-            if self.version_obj.keys() not in keys:
-                self.version_obj = self.get_version({"which":"all"})
-        else:
-            self.version_obj["node_nodectl_version"] = self.node_nodectl_version
-        
         print(" ".ljust(80),end="\r") # clear any messages on the first line
         
         self.log.logger.info(f"Help file print out")
@@ -2789,10 +2602,13 @@ class Functions():
 
         if not nodectl_version_only:
             install_profiles = self.pull_profile({"req":"one_profile_per_env"})
+            old_env = None
             for profile in install_profiles:
-                env = self.config_obj[profile]["environment"].upper()
-                node_tess_version = self.version_obj['node_tess_version'][profile]['node_tess_version']
-                self.help_text += f"\n  {env} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
+                env = self.config_obj[profile]["environment"]
+                node_tess_version = self.version_obj[env][profile]['node_tess_version']
+                if old_env != env:
+                    self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
+                old_env = env
 
         self.help_text += build_help(command_obj)
         

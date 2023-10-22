@@ -5,18 +5,17 @@ from types import SimpleNamespace
 
 from .logger import Logging
 
-
 class Error_codes():
     
-    def __init__(self,debug=False):
+    def __init__(self,functions,debug=False):
         self.log = Logging()
-        from ..functions import Functions
-        self.functions = Functions({
-            "global_elements": {"caller": "config"},
-            "sudo_rights": False
-        })
         self.debug = debug
-        
+        self.functions = functions
+        try: self.functions.test_valid_functions_obj()
+        except:
+            # exception for config_obj send instead of functions obj
+            from ..functions import Functions
+            self.functions = Functions(self.functions)
 
     def error_code_messages(self,command_obj):
         # error_code,line_code=None, extra=None, extra2=None:
@@ -408,6 +407,17 @@ class Error_codes():
                 ["nodectl configuration via:",0,"red","bold"],["sudo nodectl configure",2],
                 [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
+            ])            
+            
+            
+        elif var.line_code == "invalid_file_format":
+            self.log.logger.warn(f"invalid file format for file [{var.extra}], exited program. file could not be processed")
+            self.functions.print_paragraphs([
+                ["System detected an attempt import data from a file or a file.",0,"red","bold"],
+                ["nodectl is setup to access a file that may have been altered manually or is corrupted.",0,"red","bold"],
+                ["Please contact a System Administrator for assistance:",0,"red","bold"],["sudo nodectl configure",2],
+                [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
+                ["In some cases you can attempt to remove the file and have nodectl recreate it for you.",2,"magenta"],
             ])            
             
             

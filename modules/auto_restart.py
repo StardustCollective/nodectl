@@ -9,34 +9,29 @@ from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .node_service import Node
 from .command_line import CLI
+from .config.versioning import Versioning
 
 class AutoRestart():
 
     def __init__(self,thread_profile,config_obj,allow_upgrade):
         # THIS SERVICE IS THREADED TO RUN ALL PROFILES SEPARATELY
-        self.error_messages = Error_codes() 
         self.log = Logging()
 
-        config_obj = {
+        self.config_obj = {
             **config_obj,
             "global_elements": {
                 "caller":"auto_restart",
             },
         }
-        
-        self.functions = Functions(config_obj)        
-        self.functions.set_default_variables({
-            "profile": thread_profile
-        })
 
         self.debug = False # full debug - disable restart and join actions
         self.allow_upgrade = allow_upgrade # only want one thread to attempt auto_upgrade
         self.retry_tolerance = 50
         self.observing_tolerance = 5      
         self.thread_profile = thread_profile  # initialize
-        self.rapid_restart = config_obj["global_auto_restart"]["rapid_restart"] 
-        self.gl0_link_profile = config_obj[self.thread_profile]["gl0_link_profile"]
-        self.ml0_link_profile = config_obj[self.thread_profile]["ml0_link_profile"]
+        self.rapid_restart = self.config_obj["global_auto_restart"]["rapid_restart"] 
+        self.gl0_link_profile = self.config_obj[self.thread_profile]["gl0_link_profile"]
+        self.ml0_link_profile = self.config_obj[self.thread_profile]["ml0_link_profile"]
 
         self.sleep_on_critical = 15 if self.rapid_restart else 600
         self.silent_restart_timer = 5 if self.rapid_restart else 30  
@@ -44,7 +39,6 @@ class AutoRestart():
         
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
-        self.environment = self.functions.config_obj[self.thread_profile]["environment"]
         
         self.fork_check_time = -1
         self.fork_timer = 60*5 # 5 minutes
@@ -83,19 +77,34 @@ class AutoRestart():
     # SETUP  
     def build_class_objs(self):
         self.log.logger.info("auto_restart -> build node services class obj")
-        self.version_obj = self.functions.get_version({"which":"all"})
+
+        # versioning update is handled by nodectl's versioning service
+        # which checks for updates every 2 minutes
+        self.log.logger.info("auto_restart -> build version class obj")  
+        versioning = Versioning({
+            "config_obj": self.functions.config_obj,
+            "called_cmd": "auto_restart",
+        })
+        self.version_obj = versioning.get_version_obj() 
+
+        self.functions = Functions(self.config_obj) 
+        self.error_messages = Error_codes(self.functions)        
+        self.functions.set_default_variables({
+            "profile": self.thread_profile,
+        })
+        
+        self.environment = self.functions.config_obj[self.thread_profile]["environment"]
+        
         self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] - starting node services...")
         command_obj = {
             "caller": "cli",
             "auto_restart": True,
             "config_obj": self.functions.config_obj,
             "profile": self.thread_profile,
-            "version_obj": self.version_obj
         }
         self.node_service = Node(command_obj,False)   
         self.node_service.profile_names = [self.thread_profile]
         self.log.logger.debug("auto_restart -> start_node_service completed successfully.") 
-        
         self.ip_address = self.functions.get_ext_ip()
         
         self.log.logger.info("auto_restart -> build command_line class obj")
@@ -106,9 +115,8 @@ class AutoRestart():
             "command_list": [],
             "ip_address": self.ip_address,
             "skip_services": True,
-            "version_obj": self.version_obj,
             "profile_names": self.profile_names,
-            "config_obj": self.functions.config_obj
+            "functions": self.functions
         }   
         self.cli = CLI(command_obj)
                             
@@ -418,17 +426,10 @@ class AutoRestart():
         self.log.logger.info(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}]")
         
         if self.fork_check_time > -1: 
-            et = time() - self.fork_check_time
+            # et = time() - self.fork_check_time
             if  self.fork_timer >= (time() - self.fork_check_time):
                 self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - minority check timer not met, skipping.")
                 return False
-            
-        # if self.fork_check_time > -1: 
-        #     fork_elapsed_time = self.fork_check_time + time()
-        #     if (self.fork_timer - self.fork_check_time) >= fork_elapsed_time:
-        #         self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - minority check timer not met, skipping.")
-        #         self.fork_check_time += fork_elapsed_time
-        #         return False
                 
         self.fork_check_time = time()
 
@@ -481,13 +482,15 @@ class AutoRestart():
         warning = False
         auto_upgrade_success = True
     
+        versions = [
+            self.version_obj[self.environment][self.thread_profile]["cluster_tess_version"],
+            self.version_obj[self.environment][self.thread_profile]["node_tess_version"]
+        ]
         while True:
-            versions = self.functions.test_n_check_version("get")
-            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version checked | [{versions}]")
+            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version check")
             try:
-                # 0 == on cluster  1 == on node
-                if versions[0][self.thread_profile] == versions[1][self.thread_profile]:
-                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions matched | Metagraph/Hypergraph [{versions[0]}] Node [{versions[1]}]")
+                if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"]:
+                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.thread_profile}] - versions matched | Metagraph/Hypergraph [{versions[0]}] Node [{versions[1]}]")
                     if not self.auto_upgrade or auto_upgrade_success:
                         return True
                     elif self.auto_upgrade and not auto_upgrade_success:
@@ -499,9 +502,6 @@ class AutoRestart():
             self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - versions matched | Metagraph/Hypergraph [{versions[0]}] Node [{versions[1]}] - auto_upgrade setting [{str(self.auto_upgrade)}]")
             if self.auto_upgrade:
                 notice_warning = "auto_upgrade to obtain "
-                # self.node_service.version_obj["cluster_tess_version"] = {
-                #     self.thread_profile: versions[0][self.thread_profile]
-                # }
                 auto_upgrade_success = self.node_service.download_constellation_binaries({
                     "print_version": False,
                     "profile": self.thread_profile,

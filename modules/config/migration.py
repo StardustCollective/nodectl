@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from os import system, path, makedirs
 from copy import deepcopy
 
+from .versioning import Versioning
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
@@ -12,13 +13,15 @@ from ..functions import Functions
 class Migration():
     
     def __init__(self,command_obj):
-        self.config_obj = command_obj["config_obj"]
+        self.functions = command_obj["functions"]
+        self.config_obj = self.functions.config_obj
+        self.version_obj = self.functions.version_obj
+        
         self.log = Logging()
         self.log.logger.debug("migration process started...")
-        self.errors = Error_codes()
+        self.errors = Error_codes(self.functions)
         self.caller = command_obj.get("caller","default")
         self.ingest = False 
-        self.functions = Functions(self.config_obj)
         self.yaml = "" # initialize 
     
     
@@ -305,7 +308,7 @@ class Migration():
                     "caller":"config"
                 },
             },
-        },False)  
+        })  
 
         rebuild_obj = {
             "action": "skip",

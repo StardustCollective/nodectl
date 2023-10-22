@@ -8,14 +8,15 @@ from datetime import datetime
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
+from .config.versioning import Versioning
 
 class Status():
     
-    def __init__(self,config_obj):
+    def __init__(self,functions):
         self.date_stamp = datetime.now().strftime("%Y-%m-%d")
-        self.error_codes = Error_codes()
-        self.functions = Functions(config_obj)
-        self.log = Logging()
+        
+        self.version_obj = functions.version_obj
+        self.functions = functions
                 
         self.node_state = ""
         self.hd_space = ""
@@ -34,7 +35,10 @@ class Status():
         self.log_found_flag = False
         self.uptime = 30
         self.load = .7
-                
+
+        self.error_codes = Error_codes(self.functions)
+        self.log = Logging()
+                        
         self.ip_address = self.functions.get_ext_ip()
         self.profile_names = self.functions.pull_profile({
             "req": "list",

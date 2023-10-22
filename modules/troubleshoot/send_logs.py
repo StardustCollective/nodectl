@@ -7,13 +7,22 @@ from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 
 from ..functions import Functions
 from .logger import Logging
+from ..config.versioning import Versioning
 
 class Send():
     
     def __init__(self,command_obj):
         
         self.log = Logging()
-        self.functions = Functions(command_obj["config_obj"])
+    
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "seconds": 15*60,
+            "called_cmd": "send_obj"
+        })
+        self.version_obj = versioning.get_version_obj()
+        
+        self.functions = Functions(command_obj["config_obj"],self.version_obj)
         self.command_list = command_obj.get("command_list")
         self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj.get("ip_address")

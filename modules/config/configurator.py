@@ -18,16 +18,14 @@ from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
 from ..shell_handler import ShellHandler
 from ..troubleshoot.errors import Error_codes
+from .versioning import Versioning
 
 class Configurator():
     
     def __init__(self,argv_list):
         self.log = Logging()
-        self.error_messages = Error_codes()
         self.log.logger.info("configurator request initialized")
 
-        self.debug = False
-                        
         self.config_path = "/var/tessellation/nodectl/"
         self.config_file = "cn-config.yaml"
         self.config_file_path = "/var/tessellation/nodectl/cn-config.yaml"
@@ -35,6 +33,8 @@ class Configurator():
         self.profile_to_edit = None
         self.config_obj = {}
         self.detailed = False if "-a" in argv_list else "init"
+        self.edit_error_msg = ""
+        
         self.keep_pass_visible = True
         self.action = False
         self.error_hint = False
@@ -47,7 +47,8 @@ class Configurator():
         self.skip_prepare = False
         self.is_file_backedup = False
         self.backup_file_found = False
-        self.edit_error_msg = ""
+        self.node_service = False
+        self.skip_clean_profiles_manual = False
         
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
@@ -66,13 +67,22 @@ class Configurator():
             self.action = "new"
 
         self.prepare_configuration("new_config")
+        self.error_messages = Error_codes(self.c.functions)
         self.setup()
         
 
+    def prepare_node_service_obj(self):
+        self.node_service = Node({"functions": self.c.functions}) 
+        self.node_service.functions.log = self.log
+        self.node_service.functions.version_obj = self.c.functions.version_obj
+        self.node_service.functions.set_statics()
+        self.node_service.functions.pull_profile({"req":"profile_names"})
+                
+                
     def prepare_configuration(self,action,implement=False):
         if action == "migrator":
             self.migrate = Migration({
-            "config_obj": self.c.functions.config_obj,
+            "functions": self.c.functions,
             "caller": "configurator"
             })
             return
@@ -88,13 +98,17 @@ class Configurator():
             "skip_report": True,
             "argv_list": [action],
         })
+
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "print_messages": False,
+            "called_cmd": "show_version",
+        })
         
         self.c.config_obj["global_elements"] = {"caller":"config"}
-        self.node_service = Node({
-            "config_obj": self.c.config_obj
-        },False) 
-
-        self.node_service.functions.pull_profile({"req":"profile_names"})
+        self.c.functions.log = self.log
+        self.c.functions.version_obj = versioning.version_obj
+        self.c.functions.set_statics()
         self.c.functions.pull_profile({"req":"profile_names"})
                 
         self.wrapper = self.c.functions.print_paragraphs("wrapper_only")
@@ -151,13 +165,12 @@ class Configurator():
                     self.c.functions.print_paragraphs(paragraphs)
                     
                     adv_mode = False
-                    if not self.debug:
-                        adv_mode = self.c.functions.confirm_action({
-                            "prompt": "Switch to advanced mode?",
-                            "yes_no_default": "n",
-                            "return_on": "y",
-                            "exit_if": False
-                        })
+                    adv_mode = self.c.functions.confirm_action({
+                        "prompt": "Switch to advanced mode?",
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "exit_if": False
+                    })
                     self.detailed = False if adv_mode == True else True
                     top_newline = "both"
             except:
@@ -741,6 +754,7 @@ class Configurator():
                 "brackets": profile,
             })
         
+        if not self.node_service: self.prepare_node_service_obj()
         self.node_service.config_obj = deepcopy(self.config_obj if len(self.config_obj)>0 else self.c.config_obj)
         self.node_service.profile_names = profile_list
         self.node_service.create_service_bash_file({
@@ -3031,7 +3045,7 @@ class Configurator():
     def cleanup_old_profiles(self):
         cleanup = False
         clean_up_old_list = []
-        self.log.logger.info("configuator is verifying old profile cleanup.")
+        self.log.logger.info("configurator is verifying old profile cleanup.")
         
         self.c.functions.print_header_title({
             "line1": "CLEAN UP OLD PROFILES",
@@ -3069,11 +3083,12 @@ class Configurator():
                 "return_on": "y",
                 "prompt": "Remove old profiles?",
                 "exit_if": False
-            })    
+            })   
+            if not self.clean_profiles: self.skip_clean_profiles_manual = True 
             if self.clean_profiles:
                 for profile in clean_up_old_list:
                     system(f"sudo rm -rf /var/tessellation/{profile} > /dev/null 2>&1")
-                    self.log.logger.info(f"configuration removed abandend profile [{profile}]")      
+                    self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
                         "brackets": profile,
@@ -3110,7 +3125,10 @@ class Configurator():
         
         if self.print_old_file_warning("profiles"): return
         if not self.clean_profiles:
-            cprint("  profile cleanup declined, skipping...","red")
+            verb, color = "not necessary", "green"
+            if self.skip_clean_profiles_manual:
+                verb, color = "declined", "red"
+            cprint(f"  service cleanup {verb}, skipping...",color,attrs=["bold"])
             return
             
         for old_profile in self.old_last_cnconfig.keys():
@@ -3170,7 +3188,7 @@ class Configurator():
                     
                         
     def cleanup_create_snapshot_dirs(self):
-        self.log.logger.info("configuator is verifying snapshot data directory existance and contents.")
+        self.log.logger.info("configurator is verifying snapshot data directory existence and contents.")
                     
         # this will look at the new configuration and if it sees that a config
         # with the same name (or the same config) has data snapshots, it will
@@ -3182,12 +3200,10 @@ class Configurator():
             "newline": "both"
         })        
         
-        for profile in self.metagraph_list:
+        old_metagraph_list = self.c.functions.clear_global_profiles(self.old_last_cnconfig)
+        for profile in old_metagraph_list:
             found_snap = False
-            if self.config_obj[profile]["layer"] == "1":
-                if not path.isdir(f"/var/tessellation/{profile}/"):
-                    makedirs(f"/var/tessellation/{profile}/")
-            elif self.config_obj[profile]["layer"] < 1:
+            if self.old_last_cnconfig[profile]["layer"] < 1:
                 found_snap_list = [
                     f"/var/tessellation/{profile}/data/snapshot",
                     f"/var/tessellation/{profile}/data/incremental_snapshot",
@@ -3198,13 +3214,11 @@ class Configurator():
                     if path.isdir(lookup_path) and listdir(lookup_path):
                         self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
                         found_snap = True
-                    elif not path.isdir(lookup_path):
-                        makedirs(lookup_path)
                 
                     if found_snap:
                         found_snap = False
                         lookup_path_abbrv = lookup_path.split("/")[-1]
-                        self.log.logger.info("configuartor cleaning up old snapshots")
+                        self.log.logger.info("configurator cleaning up old snapshots")
                         self.c.functions.print_paragraphs([
                             ["",1], ["An existing",0], ["snapshot",0,"cyan","bold"],
                             ["directory structure exists",1], 
@@ -3231,8 +3245,6 @@ class Configurator():
                             })
                             system(f"sudo rm -rf {lookup_path} > /dev/null 2>&1")
                             sleep(1)
-                            if not path.isdir(lookup_path):
-                                makedirs(lookup_path)
                             self.c.functions.print_cmd_status({
                                 **progress,
                                 "status": "complete",
@@ -3241,9 +3253,29 @@ class Configurator():
                             })  
                             sleep(1.5) # allow Node Operator to see results
                         else:
-                            self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.")                  
+                            self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.") 
+
+
+        for profile in self.metagraph_list:
+            progress = {
+                "text_start": "Building new profile directories",
+                "brackets": profile,
+                "status": "running",
+                "status_color": "yellow",
+            }         
+            self.c.functions.print_cmd_status(progress)
+            status, color = "exists", "yellow"
+            if not path.isdir(f"/var/tessellation/{profile}/"):
+                status, color = "complete","green"
+                makedirs(f"/var/tessellation/{profile}/")        
+            self.c.functions.print_cmd_status({
+                **progress,
+                "status": status,
+                "status_color": color,
+                "newline": True,
+            })  
         
-        
+                
     def tcp_change_preparation(self,profile):
         if self.detailed:
             self.c.functions.print_paragraphs([

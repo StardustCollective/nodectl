@@ -13,6 +13,7 @@ from .install import Installer
 from .command_line import CLI
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
+from .config.versioning import Versioning
 
 class ShellHandler:
 
@@ -26,8 +27,11 @@ class ShellHandler:
             print(colored("nodectl may not be installed?","red"),colored("hint:","cyan"),"use sudo")
             exit(1)
 
-        self.error_messages = Error_codes()
         self.functions = Functions(config_obj)
+        self.error_messages = Error_codes(self.functions)
+        self.error_messages.functions = self.functions
+
+        self.config_obj = config_obj
         
         self.install_flag = False
         self.restart_flag = False
@@ -40,7 +44,6 @@ class ShellHandler:
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.node_service = "" #empty
         self.packages = {}
-        self.version_obj = {}
         
         self.get_auto_restart_pid()
         self.userid = geteuid()
@@ -61,9 +64,8 @@ class ShellHandler:
                 "command_list": self.argv,
                 "ip_address": self.ip_address,
                 "skip_services": self.skip_services,
-                "version_obj": self.version_obj,
                 "profile_names": self.profile_names,
-                "config_obj": self.functions.config_obj
+                "functions": self.functions
             }   
             cli = CLI(command_obj)
             cli.check_for_new_versions({
@@ -87,7 +89,23 @@ class ShellHandler:
             self.functions.auto_restart = False
             self.show_version()
             exit(0)
-            
+
+        if self.called_command == "update_version_object" or self.called_command == "uvos":
+            print_messages, show_spinner = True, True
+            if self.called_command == "uvos":
+                print_messages, show_spinner = False, False
+
+            force = True if "-f" in self.argv else False
+            _ = Versioning({
+                "config_obj": self.config_obj,
+                "print_messages": print_messages,
+                "show_spinner": show_spinner,
+                "force": force,
+                "called_cmd": self.called_command,
+            })  
+            exit(0)
+                      
+        self.handle_versioning()
         self.setup_profiles()
         self.check_auto_restart()
         self.check_skip_services()
@@ -110,7 +128,7 @@ class ShellHandler:
             
         restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
         service_change_commands = ["start","stop","leave"]
-        status_commands = ["status","_s","quick_status","_qs"]
+        status_commands = ["status","_s","quick_status","_qs","uptime"]
         node_id_commands = ["id","dag","nodeid"]
         cv_commands = ["check_versions","_cv"]
         deprecated_clear_file_cmds = [
@@ -358,9 +376,12 @@ class ShellHandler:
             self.called_command = "help"
             return
 
-        if "help" in self.argv:
-            self.help_requested = True
-        
+        if "main_error" in self.argv: 
+            self.called_command = "help"
+            return
+                    
+        if "help" in self.argv: self.help_requested = True  
+              
         max = len(self.argv) if len(self.argv) > 7 else 8
         for n in range(2,max):  # make sure at least 8 entries
             try:
@@ -399,7 +420,7 @@ class ShellHandler:
     def check_skip_services(self):
         # do we want to skip loading the node service obj?
         dont_skip_service_list = [
-            "status","_s","quick_status","_qs","reboot",
+            "status","_s","quick_status","_qs","reboot","uptime",
             "start","stop","restart","slow_restart","_sr",
             "restart_only","auto_restart","service_restart", # not meant to be started from cli
             "join","id", "nodeid", "dag", "passwd12","export_private_key",
@@ -424,7 +445,8 @@ class ShellHandler:
 
     def check_non_cli_command(self):
         non_cli_commands = [
-            "upgrade","install","auto_restart","service_restart"
+            "upgrade","install","auto_restart",
+            "service_restart","uvos",
         ]
         if self.called_command in non_cli_commands:
             return False
@@ -512,10 +534,14 @@ class ShellHandler:
                 else:
                     environment = list(environments["environment_names"])[0]
                                 
-            current = self.version_obj["node_nodectl_version"]
-            remote = self.version_obj["upgrade_path"][environment]["version"]
+            current = self.functions.version_obj["node_nodectl_version"]
             
-            if self.functions.is_new_version(current,remote):
+            show_warning = False
+            if self.functions.version_obj["nodectl_uptodate"]:
+                if not isinstance(self.functions.version_obj["nodectl_uptodate"],bool):
+                    show_warning = True
+                    
+            if show_warning:
                 err_warn = "warning"
                 err_warn_color = "yellow"
                 if self.install_upgrade == "installation":
@@ -663,7 +689,19 @@ class ShellHandler:
            if "-p" in self.argv: self.profile = called_profile
      
     # =============  
-    
+
+    def handle_versioning(self):
+        if self.called_command in ["version","_v"]: return
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "print_messages": False,
+            "called_cmd": "shell_obj",
+        })
+        self.version_obj = versioning.get_version_obj()  
+        self.functions.version_obj = self.version_obj
+        self.functions.set_statics()
+          
+          
     def print_ext_ip(self):
         self.functions.print_cmd_status({
             "text_start": "Obtaining External IP",
@@ -711,11 +749,11 @@ class ShellHandler:
     def setup_profiles(self):
         self.log.logger.debug(f"setup profiles [{self.called_command}]")
 
-        help_only_list = [
+        skip_list = [
             "main_error","validate_config","install",
-            "view_config","_vc","_val"
+            "view_config","_vc","_val","help",
         ]
-        if self.called_command in help_only_list:
+        if self.called_command in skip_list:
             self.profile = None
             self.profile_names = None
             return
@@ -726,15 +764,20 @@ class ShellHandler:
 
     def show_version(self):
         self.log.logger.info(f"show version check requested")
-        nodectl_version = self.functions.get_version({"which":"nodectl"})
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "print_messages": False,
+            "called_cmd": "show_version",
+        })
+        version_obj = versioning.version_obj
         self.functions.print_clear_line()
-        parts = self.functions.cleaner(nodectl_version["node_nodectl_version"],"remove_char","v")
+        parts = self.functions.cleaner(version_obj["node_nodectl_version"],"remove_char","v")
         parts = parts.split(".")
         
         print_out_list = [
             {
                 "header_elements" : {
-                    "VERSION": nodectl_version["node_nodectl_version"],
+                    "VERSION": version_obj["node_nodectl_version"],
                     "MAJOR": parts[0],
                     "MINOR": parts[1],
                     "PATCH": parts[2],
@@ -751,10 +794,6 @@ class ShellHandler:
                     
     def install_upgrade_common(self,command_obj):
         # on "install" get_version will request request environment if not found.
-        self.version_obj = self.functions.get_version({
-            "which": "all",
-            "action": command_obj["action"],
-        })
         self.functions.print_clear_line()
         self.verify_env_and_versioning(command_obj)
         self.print_ext_ip()        
@@ -1033,8 +1072,7 @@ class ShellHandler:
         self.install_upgrade_common(command_obj)
         self.upgrader = Upgrader({
             "ip_address": self.ip_address,
-            "config_obj": self.functions.config_obj,
-            "version_obj": self.version_obj,
+            "functions": self.functions,
             "called_command": self.called_command,
             "environment": self.environment_requested,
             "argv_list": argv_list,
@@ -1159,7 +1197,7 @@ class ShellHandler:
             "ip_address": self.ip_address,
             "existing_p12": self.has_existing_p12,
             "network_name": self.environment_requested,
-            "version_obj": self.version_obj
+            "functions": self.functions,
         },self.debug)
         
         self.installer.install_process()

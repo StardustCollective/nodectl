@@ -3,17 +3,14 @@ from os import system, path, makedirs, remove, environ
 from time import sleep
 from termcolor import colored, cprint
 from re import match
-from types import SimpleNamespace
 from hurry.filesize import size, alternative
 from copy import deepcopy
 
-from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .p12 import P12Class
 from .command_line import CLI
 from .troubleshoot.logger import Logging
 from .config.config import Configuration
-from .install import Installer
 
 class Upgrader():
 
@@ -21,9 +18,10 @@ class Upgrader():
         self.log = Logging()
         self.log.logger.info("System Upgrade called, initializing upgrade.")
         
-        self.config_obj = command_obj.get("config_obj")
+        self.functions = command_obj.get("functions")
+        self.config_obj = self.functions.config_obj
+        self.version_obj = self.functions.version_obj
         self.ip_address = command_obj.get("ip_address")
-        self.version_obj = command_obj.get("version_obj")
         self.called_command = command_obj.get("called_command")
         self.environment = command_obj.get("environment")
         self.argv_list = command_obj.get("argv_list")
@@ -36,13 +34,12 @@ class Upgrader():
         self.status = "" #empty
         self.node_id = ""
         self.safe_to_upgrade = True
+        self.watch = False
         self.final_upgrade_status_list = []
         self.api_ready_list = {}
         self.profile_progress = {}     
         
-        self.error_messages = Error_codes() 
-        self.functions = Functions(self.config_obj) # all refs to config_obj should be from functions
-
+        self.error_messages = Error_codes(self.functions) 
         self.link_types = ["gl0","ml0"]
                 
         self.command_obj = {
@@ -60,7 +57,7 @@ class Upgrader():
             "caller": "upgrader",
             "action": "upgrade",
             "operation": "upgrade",
-            "config_obj": self.functions.config_obj,
+            "functions": self.functions,
             "cli_obj": self.cli,
         }
         self.p12 = P12Class(p12_obj)   
@@ -69,7 +66,7 @@ class Upgrader():
     def build_cli_obj(self):
         command_obj = {
             **self.command_obj,
-            "config_obj": self.functions.config_obj,
+            "functions": self.functions,
             "profile_names": self.functions.profile_names,
             "caller": "upgrader",
             "command": "upgrade",
@@ -139,7 +136,6 @@ class Upgrader():
                             f"download_version": False,
                         }
                     }
-                
         self.profile_items = profile_items
         
         
@@ -154,7 +150,6 @@ class Upgrader():
         self.functions.print_cmd_status(progress)
         self.cli.check_nodectl_upgrade_path({
             "called_command": "upgrade",
-            "version_obj": self.version_obj,
             "argv_list": ["-e",self.environment]
         })
         self.functions.print_cmd_status({
@@ -185,9 +180,11 @@ class Upgrader():
                 verify.config_obj["global_p12"]["passphrase"] = self.cli_global_pass
         pass_vault["global"] = verify.config_obj["global_p12"]["passphrase"]
         verify.config_obj["global_p12"]["passphrase"] = "None"
+        verify.functions.config_obj["global_elements"]["metagraph_name"] = self.environment
         verify.metagraph_list = self.profiles_by_env
+        verify.functions.version_obj = self.version_obj
         
-            
+        verify.functions.set_statics()
         verify.prepare_p12()
         verify.setup_passwd()
         
@@ -277,12 +274,12 @@ class Upgrader():
         
                 
     def request_version(self):
-        self.version_obj["cluster_tess_version"] = self.functions.get_version({"which": "cluster_tess"})
         ml_version_found = False
 
         # all profiles with the ml type should be the same version
         for profile in self.profile_order:
             do_continue = False
+            env = self.config_obj[profile]["environment"]
             if self.profile_progress[profile]["download_version"]:
                 download_version = self.profile_progress[profile]["download_version"]
             elif ml_version_found and self.config_copy[profile]["meta_type"] == "ml": 
@@ -301,8 +298,8 @@ class Upgrader():
                 continue
             
             try:
-                found_tess_version = self.version_obj['cluster_tess_version'][profile]
-                running_tess_version = self.version_obj["node_tess_version"][profile]["node_tess_version"]
+                found_tess_version = self.version_obj[env][profile]['cluster_tess_version']
+                running_tess_version = self.version_obj[env][profile]["node_tess_version"]
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "upg-298",
@@ -320,7 +317,7 @@ class Upgrader():
             })
             
             if running_tess_version.lower() == "v":
-                self.version_obj['node_tess_version'] = "unavailable" 
+                self.version_obj[env][profile]['node_tess_version'] = "unavailable" 
                 
             self.functions.print_cmd_status({
                 "status": running_tess_version,
@@ -454,7 +451,8 @@ class Upgrader():
                                 ["unable to fine [",0,"red"], [item['service'],-1,"yellow","bold"],
                                 ["] on this Node.",-1,"red"],["",1],
                             ])
-
+            self.functions.print_clear_line()
+            
  
     def upgrade_log_archive(self):
         self.log.logger.info(f"logging and archiving prior to update.")
@@ -780,14 +778,15 @@ class Upgrader():
             
     def update_dependencies(self):
         self.functions.print_cmd_status({
-            "text_start": "Download",
-            "text_end": "Constellation Network Tessellation Binaries",
+            "text_start": "Download Tessellation Binaries",
             "status": "running",
             "bold": True,
             "text_color": "blue",
             "newline": True
         })
 
+        # profiles = list(self.profile_progress.keys())
+        # download_version = self.profile_progress[profiles[0]]["download_version"]
         self.cli.node_service.download_constellation_binaries({
             "download_version": self.profile_progress,
             "environment": self.environment,
@@ -822,6 +821,24 @@ class Upgrader():
             "newline": True
         })
         
+        # version 2.10.0 requirement
+        self.log.logger.info("starting systemctl versioning service")
+        progress = {
+            "text_start": "Starting versioning updater",
+            "status": "running",
+        }
+        self.functions.print_cmd_status(progress)
+
+        system("sudo systemctl enable node_version_updater.service > /dev/null 2>&1")
+        sleep(.3)
+        system("sudo systemctl restart node_version_updater.service > /dev/null 2>&1")
+        sleep(1)
+        self.functions.print_cmd_status({
+            **progress,
+            "status": "complete",
+            "newline": True
+        })
+        
         
     def start_node_service(self,profile):
         if not self.get_update_core_statuses("get","start_complete",profile):
@@ -831,6 +848,7 @@ class Upgrader():
                 "argv_list": [],
                 "wait": False,
                 "threaded": True,
+                "node_id": self.node_id,
             })
     
             
@@ -905,11 +923,13 @@ class Upgrader():
                             ["gl0 or ml0",0,"cyan"], ["linked profile changes to",0], ["Ready",0,"green","bold"], ["state, this could take up to a",0],
                             ["few",0,"cyan",], ["minutes.",1]
                         ])
+                    
                     self.cli.cli_join({
                         "skip_msg": False,
                         "wait": False,
                         "upgrade": True,
                         "single_profile": False,
+                        "watch": self.watch,
                         "interactive": False if self.non_interactive else True,
                         "argv_list": ["-p",profile]
                     })
@@ -990,6 +1010,8 @@ class Upgrader():
         input_error = False
         if "-f" in self.argv_list:
             self.forced = True  
+        if "-w" in self.argv_list:
+            self.watch = True
         if "-v" in self.argv_list:
             if self.argv_list.count("-v") > 1:
                 extra = "all -v <version> must be preceded by accompanying -p <profile>"
