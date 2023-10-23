@@ -50,7 +50,6 @@ class ShellHandler:
         self.groupid = getgid()
 
         self.ip_address = self.functions.get_ext_ip()
-        self.log.logger.info(f"obtain ip address: {self.ip_address}")
         
 
     def build_cli_obj(self,skip_check=False):
@@ -78,12 +77,15 @@ class ShellHandler:
          
     def start_cli(self,argv):
         self.argv = argv
-        self.check_error_argv()
+        self.check_error_argv(argv)
         
         self.skip_services = True
         show_help = False
         return_value = 0
-        
+
+
+        self.log.logger.info(f"obtain ip address: {self.ip_address}")
+                
         version_cmd = ["-v","_v","version"]
         if argv[1] in version_cmd:
             self.functions.auto_restart = False
@@ -365,11 +367,17 @@ class ShellHandler:
     # CHECK METHODS
     # =============  
           
-    def check_error_argv(self):
+    def check_error_argv(self, argv):
         # error check first
         self.called_cmds = []
         self.help_requested = False
-                
+            
+        if "uvos" in argv: 
+            # do not log if versioning service initialized Configuration
+            for handler in self.log.logger.handlers[:]:
+                self.log.logger.removeHandler(handler)
+            self.argv[1] = "uvos"
+            
         try:
             self.called_command = self.argv[1]
         except:

@@ -22,9 +22,12 @@ class Configuration():
         self.log.logger.info("configuration setup initialized")
         
         self.argv_list = command_obj["argv_list"]
-        
-        if "help" in self.argv_list[0]:
-            return
+        if "uvos" in self.argv_list: 
+            # do not log if versioning service initialized Configuration
+            for handler in self.log.logger.handlers[:]:
+                self.log.logger.removeHandler(handler)
+                
+        if "help" in self.argv_list[0]: return
 
         self.config_obj = {}
         self.error_list = []

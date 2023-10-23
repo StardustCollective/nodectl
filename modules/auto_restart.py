@@ -27,7 +27,6 @@ class AutoRestart():
         self.debug = False # full debug - disable restart and join actions
         self.allow_upgrade = allow_upgrade # only want one thread to attempt auto_upgrade
         self.retry_tolerance = 50
-        self.observing_tolerance = 5      
         self.thread_profile = thread_profile  # initialize
         self.rapid_restart = self.config_obj["global_auto_restart"]["rapid_restart"] 
         self.gl0_link_profile = self.config_obj[self.thread_profile]["gl0_link_profile"]
@@ -39,6 +38,13 @@ class AutoRestart():
         
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
+        
+        self.stuck_timers = {
+            "Observing_tolerance": 6*60, 
+            "Observing_state_enabled": False,
+            "WaitingForDownload_tolerance": 6*60,
+            "WaitingForDownload_enabled": False,    
+        }
         
         self.fork_check_time = -1
         self.fork_timer = 60*5 # 5 minutes
@@ -57,7 +63,6 @@ class AutoRestart():
         
         self.log.logger.info(f"\n==================\nAUTO RESTART - {self.thread_profile} Thread - Initiated\n==================")
         
-        self.clean_up_thread_profiles()
         self.build_class_objs()   
         self.setup_profile_states()
         self.restart_handler()
@@ -81,13 +86,18 @@ class AutoRestart():
         # versioning update is handled by nodectl's versioning service
         # which checks for updates every 2 minutes
         self.log.logger.info("auto_restart -> build version class obj")  
+        # first run make sure the full version is pulled in order
+        # for other setup procedures to 
         versioning = Versioning({
-            "config_obj": self.functions.config_obj,
+            "config_obj": self.config_obj,
             "called_cmd": "auto_restart",
         })
-        self.version_obj = versioning.get_version_obj() 
+        self.version_obj = versioning.get_cached_version_obj()
 
         self.functions = Functions(self.config_obj) 
+        self.functions.auto_restart = True
+        self.functions.version_obj = self.version_obj
+        self.functions.set_statics()
         self.error_messages = Error_codes(self.functions)        
         self.functions.set_default_variables({
             "profile": self.thread_profile,
@@ -99,13 +109,15 @@ class AutoRestart():
         command_obj = {
             "caller": "cli",
             "auto_restart": True,
-            "config_obj": self.functions.config_obj,
+            "functions": self.functions,
             "profile": self.thread_profile,
         }
-        self.node_service = Node(command_obj,False)   
+        self.node_service = Node(command_obj)   
         self.node_service.profile_names = [self.thread_profile]
         self.log.logger.debug("auto_restart -> start_node_service completed successfully.") 
         self.ip_address = self.functions.get_ext_ip()
+        
+        self.clean_up_thread_profiles()
         
         self.log.logger.info("auto_restart -> build command_line class obj")
         command_obj = {
@@ -119,6 +131,7 @@ class AutoRestart():
             "functions": self.functions
         }   
         self.cli = CLI(command_obj)
+                
                             
     def set_ep(self):  
          # ep: def: edge_point
@@ -296,12 +309,12 @@ class AutoRestart():
                 self.profile_states[self.node_service.profile]["match"] = False
                 self.profile_states[self.node_service.profile]["action"] = "restart_full"  
                 
-            elif session_list["state1"] == "Observing" or session_list["state1"] == "WaitingForReady":
-                # local service is Observing -- Check for stuck Observing Session
+            elif session_list["state1"] == "Observing" or session_list["state1"] == "WaitingForDownload":
+                # local service is Observing or WaitingForDownload -- Check for stuck Session
+                state = session_list["state1"]
                 self.profile_states[self.node_service.profile]["match"] = True
-                self.profile_states[self.node_service.profile]["observing_timer"] = self.profile_states[self.node_service.profile]["observing_timer"]+1
-                self.profile_states[self.node_service.profile]["action"] = "NoActionNeeded"   
-                if self.observing_tolerance < self.profile_states[self.node_service.profile]["observing_timer"]:
+                self.profile_states[self.node_service.profile]["action"] = "NoActionNeeded"  
+                if self.stuck_in_state_handler(state):
                     self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  set session detected profile [{self.node_service.profile}] - stuck in [{session_list['state1']}] - forcing restart.")
                     self.profile_states[self.node_service.profile]["action"] = "restart_full"  
                                     
@@ -317,8 +330,9 @@ class AutoRestart():
                 self.profile_states[self.node_service.profile]["action"] = "restart_full"
             
         if self.profile_states[self.thread_profile]["layer"] == 0 and self.node_service.profile == self.thread_profile and self.profile_states[self.node_service.profile]["action"] == "restart_full":
-            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  set session detected profile [{self.node_service.profile}] - resetting observing timer.")
-            self.profile_states[self.node_service.profile]["observing_timer"] = 0
+            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  set session detected profile [{self.node_service.profile}] - resetting tolerance counters.")
+            self.profile_states[self.node_service.profile]["Observing_enabled"] = False
+            self.profile_states[self.node_service.profile]["WaitingForDownload_enabled"] = False
     
     
     # LOOPERS
@@ -422,8 +436,29 @@ class AutoRestart():
             
                 
     # HANDLERS
+    def stuck_in_state_handler(self,state):
+        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - testing timing for state [{state}]")
+        current_time = time()
+        
+        if not self.stuck_timers[f"{state}_enabled"]:
+            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - enabling timer for state [{state}]")
+            self.stuck_timers[f"{state}_enabled"] = True
+            self.profile_states[self.node_service.profile][f"{state}_time"] = time()
+
+        elapsed_seconds = current_time - self.profile_states[self.node_service.profile][f"{state}_time"]
+        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - timer for state [{state}] reached [{elapsed_seconds}] (will be negative for first run)")
+        if elapsed_seconds > self.stuck_timers[f"{state}_tolerance"]:
+            return True
+        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - does not meet tolerance level for state [{state}] continuing...")
+        return False
+    
+    
     def minority_fork_handler(self):
         self.log.logger.info(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}]")
+        
+        if self.profile_states[self.thread_profile]["node_state"] != "Ready": 
+            self.log.logger.warn(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] | Node state: [{self.profile_states[self.thread_profile]['node_state']}] will not check for fork, skipping.")
+            return
         
         if self.fork_check_time > -1: 
             # et = time() - self.fork_check_time
@@ -450,7 +485,7 @@ class AutoRestart():
             else:
                 fork_obj = {
                     **fork_obj,
-                    "lookup_uri": f'http://127.0.0.1:{self.functions.config_obj[self.thread_profile]["public_port"]}/',
+                    "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[self.thread_profile]["public_port"]}/',
                     "header": {**fork_obj["header"], 'Accept': 'application/json'},
                     "get_results": "value",
                     "ordinal": global_ordinals["backend"]["ordinal"],

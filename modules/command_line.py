@@ -1288,6 +1288,7 @@ class CLI():
                 dip_status[key] = pull_ordinal(bashCommand)
             return dip_status
 
+
         lookup_keys = ["start","end","current","latest","current_height"]
         process_command_type = ["subprocess_co","subprocess_co","subprocess_co","subprocess_co","pipeline"]
         for n, cmd in enumerate(cmds):
@@ -1332,6 +1333,7 @@ class CLI():
                     self.functions.print_paragraphs([
                         ["adding",0,"magenta"],["-ni",0,"yellow"]
                     ])
+                    self.functions.print_clear_line()
                     self.functions.confirm_action({
                         "yes_no_default": "n",
                         "return_on": "y",
@@ -1380,6 +1382,8 @@ class CLI():
         marks_last = -1
         spacing = 0
         use_height = False
+        use_height_old = 0
+        use_height_step = 0
         ordinal_nochange = -1
         last_found, last_left = 0, 0
         percentage1, percentage2 = 0, 0
@@ -1397,7 +1401,7 @@ class CLI():
                 use_current = dip_status["current"]
                 if last_found == use_current:
                     ordinal_nochange += 1
-                    if ordinal_nochange > 2: 
+                    if ordinal_nochange > 10: 
                         use_height = True
                         use_end = dip_status["height"]
                         use_current = dip_status["current_height"]
@@ -1415,10 +1419,13 @@ class CLI():
                    
             if percentage < 1: percentage = 1
             
-            hash_marks = "#"*(percentage // 2)
-            if len(hash_marks) > marks_last: 
-                spacing = (100 - percentage) // 2
-                marks_last = len(hash_marks)     
+            try:
+                hash_marks = "#"*(percentage // 2)
+                if len(hash_marks) > marks_last: 
+                    spacing = (100 - percentage) // 2
+                    marks_last = len(hash_marks)     
+            except ZeroDivisionError:
+                self.log.logger.error(f"show download status - attempting to derive hash progress indicator resulted in [ZeroDivisionError] as [{e}]")
              
             print(colored(f"  STATUS CHECK PASS #{dip_pass}","green"))
             
@@ -1427,6 +1434,11 @@ class CLI():
             if use_height: 
                 self.functions.print_clear_line()
                 left = use_end - use_current
+                if left == use_height_old:
+                    use_height_step += 1
+                use_height_old = left
+                if use_height_step > 20:
+                    break
 
             if calc_rate: 
                 rate_calc_stop = perf_counter()

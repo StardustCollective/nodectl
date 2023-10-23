@@ -893,7 +893,7 @@ class Functions():
             results = get(uri,verify=False,timeout=2,headers=header).json()
             results = results[get_results]
         except Exception as e:
-            self.log.logger.warn(f"attempt to access backend explorer failed with | [{e}]")
+            self.log.logger.warn(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
             sleep(error_secs)
         else:
             if return_type == "raw":
