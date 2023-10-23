@@ -4,7 +4,7 @@ import psutil
 from hashlib import sha256
 
 from time import sleep, perf_counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from os import system, path, get_terminal_size, remove, SEEK_END, SEEK_CUR
 from pathlib import Path
 from sys import exit
@@ -353,14 +353,17 @@ class CLI():
                         
                             output = setup_output()
         
-
-                        restart_time, uptime, node_id = convert_time_node_id(quick_results)
-                        cluster_results = [None, None, output["cluster_session"]]
+                        restart_time, uptime, node_id = convert_time_node_id(quick_results)  # localhost
+                        cluster_results = [None, None, output["cluster_session"]]  # cluster
                         cluster_restart_time, cluster_uptime, _ = convert_time_node_id(cluster_results)
-                        
-                        system_uptime = int(system("sudo cat /proc/uptime | awk '{print $1}' > /dev/null 2>&1"))
-                        _, system_uptime, _ = convert_time_node_id([None,None,system_uptime])
+                                                
                         system_boot = psutil.boot_time()
+                        system_uptime = datetime.now().timestamp() - system_boot
+                        system_uptime = timedelta(seconds=system_uptime)
+                        system_uptime = self.functions.get_date_time({
+                            "action":"estimate_elapsed",
+                            "elapsed": system_uptime,
+                        })
                         system_boot = datetime.fromtimestamp(system_boot)
                         system_boot = system_boot.strftime("%Y-%m-%d %H:%M:%S")
                         
@@ -1334,13 +1337,14 @@ class CLI():
                         ["adding",0,"magenta"],["-ni",0,"yellow"]
                     ])
                     self.functions.print_clear_line()
-                    self.functions.confirm_action({
+                    wfd_confirm = {
                         "yes_no_default": "n",
                         "return_on": "y",
                         "prompt": "Would you like continue to wait?",
                         "prompt_color": "magenta",
-                        "exit_if": True,                
-                    })
+                        "exit_if": True,                            
+                    }
+                    self.functions.confirm_action(wfd_confirm)
                 while True:
                     state = self.functions.test_peer_state({
                         "profile": self.profile,
@@ -1348,11 +1352,21 @@ class CLI():
                     })                    
                     self.functions.print_timer(5,"before checking again")
                     if state != "WaitingForDownload": break
+                    try: wfd_attempts += 1 
+                    except: wfd_attempts = 1
                     self.functions.print_paragraphs([
                         ["Found State:",0],[state,1,"yellow"],
+                        ["Attempts",0], [str(wfd_attempts),0,"yellow"], ["of",0], ["10",1,"yellow"],
                     ])
-                    print(f'\x1b[1A', end='')
-                    sleep(.8)
+                    if wfd_attempts > 9: 
+                        self.functions.confirm_action(wfd_confirm)
+                        print(f'\x1b[4A', end='')
+                        self.functions.print_clear_line(5)
+                        print(f'\x1b[1A', end='')
+                        wfd_attempts = 1
+                    print(f'\x1b[2A', end='')
+                    sleep(1)
+                    
             else:
                 self.functions.print_clear_line(4)
                 self.functions.print_paragraphs([
@@ -1390,7 +1404,8 @@ class CLI():
         percent_weight1, percent_weight2 = 50, 100
         use_current = dip_status["current"]
         use_end = dip_status["end"]
-        calc_rate = True    
+        calc_rate = True  
+        freeze_display = False  
         rate_calc_start = perf_counter()
         
         while use_current < use_end:
@@ -1400,15 +1415,19 @@ class CLI():
                 percentage1 = self.functions.get_percentage_complete(start, dip_status["end"], dip_status["current"],True)
                 use_current = dip_status["current"]
                 if last_found == use_current:
+                    sleep(.5)
                     ordinal_nochange += 1
-                    if ordinal_nochange > 10: 
+                    if ordinal_nochange > 20: 
                         use_height = True
                         use_end = dip_status["height"]
                         use_current = dip_status["current_height"]
                 last_found = use_current
             else:
+                if start_height == "Not Found": 
+                    break
                 percentage2 = self.functions.get_percentage_complete(start_height, dip_status["height"], dip_status["current_height"])
                 use_current = dip_status["current_height"]
+                ordinal_nochange = 0
                 verb = "  Block Height:"
                 goal = use_end
                         
@@ -1429,7 +1448,9 @@ class CLI():
              
             print(colored(f"  STATUS CHECK PASS #{dip_pass}","green"))
             
-            if int(use_end) < int(use_current): use_end = int(use_current)
+            if use_current == "Not Found": 
+                break
+            elif int(use_end) < int(use_current): use_end = int(use_current)
             left = use_current - goal
             if use_height: 
                 self.functions.print_clear_line()
@@ -1437,47 +1458,54 @@ class CLI():
                 if left == use_height_old:
                     use_height_step += 1
                 use_height_old = left
-                if use_height_step > 20:
-                    break
+                if use_height_step > 10:
+                    use_height = False
+                    use_height_step = 0
+                    freeze_display = True
 
-            if calc_rate: 
-                rate_calc_stop = perf_counter()
-                elapsed_time = rate_calc_stop - rate_calc_start
-                if elapsed_time > 30:
-                    rate = last_left - left
-                    try:
-                        estimated_time = (use_end - use_current) / rate
-                    except ZeroDivisionError as e:
-                        self.log.logger.error(f"show download status - attempting to derive new estimated time - resulted in [ZeroDivisionError] as [{e}]")
-                    calc_rate = False
-                pass
+            # future dev place holder
+            # if calc_rate: 
+            #     rate_calc_stop = perf_counter()
+            #     elapsed_time = rate_calc_stop - rate_calc_start
+            #     if elapsed_time > 30:
+            #         rate = last_left - left
+            #         try:
+            #             estimated_time = (use_end - use_current) / rate
+            #         except ZeroDivisionError as e:
+            #             self.log.logger.error(f"show download status - attempting to derive new estimated time - resulted in [ZeroDivisionError] as [{e}]")
+            #         calc_rate = False
+
             # print out status progress indicator
-            print(
-                colored(verb,"magenta"), 
-                colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
-                colored("of","magenta"), 
-                colored(str(goal),"blue",attrs=["bold"]), 
-                colored("[","magenta"),
-                colored(str(left),"cyan"),
-                colored("]","magenta"),
-            ) 
-            print(
-                colored("  [","cyan"),
-                colored(hash_marks,"yellow"),
-                colored(f"{']': >{spacing}}","cyan"),
-                colored(f"{percentage}","green"),
-                colored(f"{'%': <3}","green"),
-            )
-            if percentage < 100:
-                print(f'\x1b[3A', end='')
+            if not freeze_display:
+                print(
+                    colored(verb,"magenta"), 
+                    colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
+                    colored("of","magenta"), 
+                    colored(str(goal),"blue",attrs=["bold"]), 
+                    colored("[","magenta"),
+                    colored(str(left),"cyan"),
+                    colored("]","magenta"),
+                ) 
+                print(
+                    colored("  [","cyan"),
+                    colored(hash_marks,"yellow"),
+                    colored(f"{']': >{spacing}}","cyan"),
+                    colored(f"{percentage}","green"),
+                    colored(f"{'%': <3}","green"),
+                )
+                if percentage < 100:
+                    print(f'\x1b[3A', end='')
+            else: 
+                self.functions.print_clear_line(3)
+                print(f'\x1b[2A', end='')
+                freeze_display = False                
+            sleep(.3)
 
-            sleep(.03)
             dip_status = pull_ordinal_values(bashCommands)
-            last_left = left
 
         # double check recursively
         dip_pass += 1
-        sleep(3)
+        sleep(.5)
         self.show_download_status(command_list, dip_pass)
             
                        

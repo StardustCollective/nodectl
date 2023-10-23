@@ -21,9 +21,11 @@ class Configuration():
         self.log = Logging()
         self.log.logger.info("configuration setup initialized")
         
+        self.versioning_service = False
         self.argv_list = command_obj["argv_list"]
         if "uvos" in self.argv_list: 
             # do not log if versioning service initialized Configuration
+            self.versioning_service = True
             for handler in self.log.logger.handlers[:]:
                 self.log.logger.removeHandler(handler)
                 
@@ -618,7 +620,7 @@ class Configuration():
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
         profile_obj = self.config_obj; self.profile_obj = profile_obj
         
-        if not self.auto_restart:
+        if not self.auto_restart and not self.versioning_service:
             self.functions.print_clear_line()
         
         for profile in self.metagraph_list:

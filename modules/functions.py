@@ -486,9 +486,10 @@ class Functions():
             new_time += timedelta(seconds=elapsed)
             return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
         elif action == "estimate_elapsed":
-            minutes, seconds = divmod(elapsed.seconds, 60)
-            hours, minutes = divmod(minutes, 60)
-            days, hours = divmod(hours, 24)
+            total_seconds = int(elapsed.total_seconds())
+            days, seconds = divmod(total_seconds, 86400) 
+            hours, seconds = divmod(seconds, 3600)  
+            minutes, seconds = divmod(seconds, 60)
             result = "~"
             if days > 0:
                 result += f"{days}D "
@@ -1753,6 +1754,7 @@ class Functions():
         test_address = command_obj.get("test_address","127.0.0.1")
         profile = command_obj.get("profile")
         simple = command_obj.get("simple",False)
+        print_output = command_obj.get("print_output",True)
         current_source_node = command_obj.get("current_source_node",False)
         skip_thread = command_obj.get("skip_thread",False)
         threaded = command_obj.get("threaded", False)
@@ -1801,7 +1803,7 @@ class Functions():
             do_thread = False
             if not self.auto_restart:
                 if not self.event and not skip_thread:
-                    self.print_clear_line()
+                    if print_output: self.print_clear_line()
                     self.event, do_thread = True, True
                     _ = executor.submit(self.print_spinner,{
                         "msg": f"API making call outbound, please wait",
