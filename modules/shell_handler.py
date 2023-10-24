@@ -1136,13 +1136,17 @@ class ShellHandler:
         
         self.functions.print_paragraphs([
             ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
-            ["on various Metagraph configurations.",2,"green"],
-            ["If the Metagraph you are building this Node for is not part of this list, it is advised to",0],
-            ["choose",0], ["mainnet",0,"white,on_yellow"], ["to complete the installation.",2],
+            ["on various Metagraph pre-defined configurations.",2,"green"],
+            
+            ["If the Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
+            ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
+            ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
+            ["required components, to ensure successful implementation of this utility.",0],
+            
             ["If a pre-defined Metagraph listed above is not the ultimate role of this future Node,",0],
-            ["as next steps following a successful installation, you can refer to the Metagraph Administrators",0],
-            ["of the Metagraph you are expected to finally connect to, in order to download their",0,],
-            ["required configuration file.",2],
+            ["following a successful installation, the next steps should be for you to refer to the Metagraph",0],
+            ["Administrators of the Metagraph you are expected to finally connect with. The Administrator",0,],
+            ["will offer instructions on how to obtain the required configuration file for said Metagraph.",2],
             ["Please key press number of a Metagraph configuration below:",2,"blue","bold"],
         ])
         

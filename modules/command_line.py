@@ -1415,7 +1415,7 @@ class CLI():
                 percentage1 = self.functions.get_percentage_complete(start, dip_status["end"], dip_status["current"],True)
                 use_current = dip_status["current"]
                 if last_found == use_current:
-                    sleep(.5)
+                    sleep(1)
                     ordinal_nochange += 1
                     if ordinal_nochange > 20: 
                         use_height = True
