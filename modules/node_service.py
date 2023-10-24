@@ -354,6 +354,8 @@ class Node():
             elif environment_name == "integrationnet":
                 bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
             elif environment_name == "mainnet":
+                if download_version == "default":
+                    download_version = self.version_obj[environment_name][self.functions.default_profile]["cluster_tess_version"]
                 bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
         else:
             # makes ability to not include https or http

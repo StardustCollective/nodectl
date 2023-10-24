@@ -2330,7 +2330,7 @@ class CLI():
                     ["",1], ["Upgrade cannot continue. Exiting...",1,"red","bold"],
                 ])
                 self.functions.print_auto_restart_warning()
-                exit(1)
+                exit("auto restart enabled error")
 
         if called_command == "upgrade_path":
             self.functions.print_cmd_status({
@@ -3087,7 +3087,7 @@ class CLI():
                                     [f"{error_msg[1]}",1],
                                 ])
                             self.functions.print_auto_restart_warning()
-                            exit(1)
+                            exit("auto restart enabled error")
                         increase_check += 1
                     if state == "WaitingForDownload":
                         if wfd_count > wfd_max:

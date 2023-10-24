@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
-from os import geteuid, getgid, environ, system
+from os import geteuid, getgid, environ, system, walk
 
 from .auto_restart import AutoRestart
 from .functions import Functions
@@ -25,7 +25,7 @@ class ShellHandler:
             print(colored("Are you sure your are running with 'sudo'","red",attrs=["bold"]))
             print(colored("nodectl unrecoverable error","red",attrs=["bold"]))
             print(colored("nodectl may not be installed?","red"),colored("hint:","cyan"),"use sudo")
-            exit(1)
+            exit("sudo rights error")
 
         self.functions = Functions(config_obj)
         self.error_messages = Error_codes(self.functions)
@@ -371,7 +371,27 @@ class ShellHandler:
         # error check first
         self.called_cmds = []
         self.help_requested = False
+        invalid = False
+        
+        if "main_error" in self.argv: 
+            try:
+                subdirectories = next(walk("/var/tessellation"))[1]
+                if len(subdirectories) < 2 and "nodectl" in subdirectories:
+                    invalid = True
+            except StopIteration:
+                invalid = True
             
+            if invalid:
+                self.functions.print_paragraphs([
+                    [" NODECTL ERROR ",0,"grey,on_red"], ["unable to find valid installation",0,"red"],
+                    ["on this server.",1,"red"],
+                    ["install command:",0], ["sudo nodectl install",1,"yellow","bold"]
+                ])
+                exit("invalid nodectl installation")
+                
+            self.called_command = "help"
+            return
+                    
         if "uvos" in argv: 
             # do not log if versioning service initialized Configuration
             for handler in self.log.logger.handlers[:]:
@@ -381,10 +401,6 @@ class ShellHandler:
         try:
             self.called_command = self.argv[1]
         except:
-            self.called_command = "help"
-            return
-
-        if "main_error" in self.argv: 
             self.called_command = "help"
             return
                     
@@ -416,7 +432,7 @@ class ShellHandler:
             "nodectl_upgrade","upgrade_nodectl_testnet",
         ]
             
-        if self.called_command != "install":    
+        if self.called_command not in ["help","install"]:    
             if self.functions.config_obj["global_auto_restart"]["auto_restart"]:
                 self.auto_restart_enabled = True
             
@@ -588,7 +604,23 @@ class ShellHandler:
                     })
                 self.log.logger.warn(f"{self.install_upgrade} was continued with an older version of nodectl [{current}]") 
         else:
-            environment = self.functions.network_name
+            request_environment = False
+            try:
+                environment = self.functions.environment_name
+            except AttributeError:
+                request_environment = True
+            if not self.functions.environment_name: request_environment = True
+            
+            if action == "install": 
+                print("") # create newline
+                title = "PLEASE CHOOSE METAGRAPH TO INSTALL"
+                
+            if request_environment:
+                environment = self.functions.print_profile_env_menu({
+                    "p_type": "environment",
+                    "title": title,
+                })
+                
             self.functions.print_cmd_status({
                 "text_start": "Using environment",
                 "status": environment,
@@ -601,7 +633,7 @@ class ShellHandler:
             "status": "complete",
             "newline": True
         })
-        
+
         self.environment_requested = environment
         
         
@@ -634,7 +666,7 @@ class ShellHandler:
         need_environment_list = [
             "refresh_binaries","_rtb",
             "update_seedlist", "_usl",
-            "upgrade_path","_up",
+            "upgrade_path","_up","install"
         ]
 
         need_profile_list = [
@@ -687,8 +719,18 @@ class ShellHandler:
             self.argv.extend(["-p",self.profile])
             need_profile = False
         elif env_hint and not either_or_hint:
-            self.environment_requested = self.functions.environment_names[0]
-            if len(self.functions.environment_names) > 1:
+            try:
+                self.environment_requested = self.functions.environment_names[0]
+            except:
+                if self.called_command == "install":
+                    self.functions.pull_remote_profiles({
+                        "retrieve": "config_file",
+                        "set_in_functions": True,
+                    })
+                    return
+                else: self.environment_requested = []
+                
+            if len(self.functions.environment_names) > 1 or len(self.functions.environment_names) < 1:
                 self.environment_requested = self.functions.print_profile_env_menu({"p_type": "environment"})
             self.argv.extend(["-e",self.environment_requested])
             need_profile = False  
@@ -699,11 +741,14 @@ class ShellHandler:
     # =============  
 
     def handle_versioning(self):
-        if self.called_command in ["version","_v"]: return
+        if self.called_command == "install": called_cmd = "show_version"
+        elif self.called_command in ["version","_v"]: return
+        else: called_cmd = "shell_obj"
+        
         versioning = Versioning({
             "config_obj": self.config_obj,
             "print_messages": False,
-            "called_cmd": "shell_obj",
+            "called_cmd": called_cmd,
         })
         self.version_obj = versioning.get_version_obj()  
         self.functions.version_obj = self.version_obj
@@ -801,7 +846,6 @@ class ShellHandler:
             
                     
     def install_upgrade_common(self,command_obj):
-        # on "install" get_version will request request environment if not found.
         self.functions.print_clear_line()
         self.verify_env_and_versioning(command_obj)
         self.print_ext_ip()        
@@ -1019,7 +1063,7 @@ class ShellHandler:
                 ["nodectl",0,"blue","bold"],["will not have the ability to authenticate to the HyperGraph in an automated fashion.",2,"red"],
                 ["Action cancelled",1,"yellow"],
             ])
-            exit(1)
+            exit("auto restart passphrase error")
                         
         if self.auto_restart_pid != "disabled":
             if self.auto_restart_enabled:
@@ -1208,9 +1252,9 @@ class ShellHandler:
         self.installer = Installer({
             "ip_address": self.ip_address,
             "existing_p12": self.has_existing_p12,
-            "network_name": self.environment_requested,
+            "environment_name": self.environment_requested,
             "functions": self.functions,
-        },self.debug)
+        })
         
         self.installer.install_process()
         self.functions.print_perftime(performance_start,"installation")

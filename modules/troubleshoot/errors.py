@@ -502,7 +502,7 @@ class Error_codes():
             ["TERMINATING",0,"yellow,on_red","bold"], ["nodectl",0,"yellow","bold"]                           
         ])
 
-        exit(1)  
+        exit("nodectl critical error detected")  
 
         
 if __name__ == "__main__":

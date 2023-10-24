@@ -90,9 +90,9 @@ class Functions():
 
         
         try:
-            self.network_name = self.config_obj["global_elements"]["metagraph_name"]
+            self.environment_name = self.config_obj["global_elements"]["metagraph_name"]
         except:
-            self.network_name = False
+            self.environment_name = False
             
         self.default_profile = None
         self.default_edge_point = {}
@@ -1470,6 +1470,7 @@ class Functions():
         r_and_q = command_obj.get("r_and_q","both")
         retrieve = command_obj.get("retrieve","profile_names")
         return_where = command_obj.get("return_where","Main")
+        set_in_functions = command_obj.get("set_in_functions",False)
         predefined_envs = []
         
         repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
@@ -1500,6 +1501,10 @@ class Functions():
                 "return_value": True,
             })
 
+        if set_in_functions: 
+            self.environment_names = list(predefined_configs.keys())
+            return
+        
         if chosen_profile == "r" or chosen_profile == "q": return chosen_profile
         elif retrieve == "profile_names": return chosen_profile
         elif retrieve == "config_file": return predefined_configs
@@ -1642,7 +1647,7 @@ class Functions():
                     ["nodectl",0, "blue","bold"], ["is unable to continue.",1,"red"],
                     ["Are you sure your have sudo permissions?",2,"red"]
                 ])
-                exit(1) # auto_restart not affected  
+                exit("sudo permissions error") # auto_restart not affected  
             
 
     def check_config_environment(self):
@@ -1651,10 +1656,10 @@ class Functions():
         # this method will need to be refactored as new Metagraphs
         # register with Node Garage or Constellation (depending)
         try:
-            self.network_name = self.config_obj[self.default_profile]["environment"]             
+            self.environment_name = self.config_obj[self.default_profile]["environment"]             
         except:
-            if not self.network_name:
-                self.network_name = self.pull_remote_profiles({"r_and_q": None})
+            if not self.environment_name:
+                self.environment_name = self.pull_remote_profiles({"r_and_q": None})
 
             
     def check_for_help(self,argv_list,extended):
@@ -1746,7 +1751,7 @@ class Functions():
                 "newline": True,
             })
             self.print_auto_restart_warning()
-            exit(1)
+            exit("Tessellation Validator Node State Error")
             
             
     def test_peer_state(self,command_obj):
@@ -2384,12 +2389,16 @@ class Functions():
         print_header = command_obj.get("print_header", True)
         color = command_obj.get("color","magenta")
         p_type = command_obj.get("p_type","profile")
+        title = command_obj.get("title",False)
+        
         p_type_list = self.profile_names if p_type == "profile" else self.environment_names
+        if not title:
+            title = f"Press choose required {p_type}"
 
         print("")
         if print_header:
             self.print_header_title({
-            "line1": f"Press choose required {p_type}",
+            "line1": title,
             "single_line": True,
             "newline": True,  
             })

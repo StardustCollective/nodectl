@@ -3332,7 +3332,7 @@ class Configurator():
             self.c.functions.print_any_key({"prompt":"Press any key to return and try again"})
             self.edit_profile_sections("RETRY")
         else:
-            exit(1)
+            exit("invalid input detected")
         
 
     def print_quit_option(self):

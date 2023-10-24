@@ -71,10 +71,15 @@ class P12Class():
         try:
             self.p12_file_location = self.config_obj["global_p12"]["key_store"]
         except:
-            if not self.existing_p12:
-                self.p12_file_location = f"/home/{self.user.username}/tessellation/"
+            self.existing_p12 = False
+            
+        if not self.existing_p12:
+            self.p12_file_location = f"/home/{self.user.username}/tessellation/"
             # path will be created if it doesn't exist at p12 generation (generate method)
-            print(colored("\n  Default location for your p12 file storage created","cyan").ljust(40,"."))
+            self.functions.print_clear_line()
+            self.functions.print_paragraphs([
+                ["",1], ["Default location for your p12 file storage created.",1],
+            ])
 
         self.functions.print_paragraphs([
             ["location",0], [self.p12_file_location,2,"yellow"],

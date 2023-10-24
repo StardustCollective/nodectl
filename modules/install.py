@@ -10,6 +10,7 @@ from .command_line import CLI
 from .user import UserClass
 from .troubleshoot.logger import Logging
 from .config.config import Configuration
+from .config.versioning import Versioning
 
 class Installer():
 
@@ -17,13 +18,20 @@ class Installer():
         self.step = 1
         self.status = "" #empty
         self.ip_address = command_obj["ip_address"]
-        self.network_name = command_obj["network_name"]
+        self.environment_name = command_obj["environment_name"]
         self.existing_p12 = command_obj["existing_p12"]
         self.functions = command_obj["functions"]
+        
+
         self.command_obj = command_obj
         
         self.error_messages = Error_codes(self.functions) 
         self.log = Logging()
+        versioning = Versioning({
+            "called_cmd": "show_version",
+        })
+        self.functions.version_obj = versioning.get_version_obj()
+        self.functions.set_statics()  
         
 
     def install_process(self):
@@ -54,6 +62,7 @@ class Installer():
             "skip_services": False
         }
         self.cli = CLI(cli_obj)
+        self.cli.functions.set_statics()
         self.user = UserClass(self.cli,True)
         
         self.setup_config = Configuration({
@@ -83,33 +92,27 @@ class Installer():
             self.functions.print_paragraphs([
                 ["",2], [" WARNING ",0,"yellow,on_red"], ["An existing Tessellation installation may be present on this server.  Preforming a fresh installation on top of an existing installation can produce",0,"red"],
                 ["unexpected",0,"red","bold,underline"], ["results.",2,"red"],
-            ])
-            self.functions.confirm_action({
-                "yes_no_default": "n",
-                "return_on": "y",
-                "prompt": "Would you like to continue?",
-                "prompt_color": "red",
-                "exit_if": True,
-            })
-        if path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
-            self.functions.print_paragraphs([
-                ["",1], [" WARNING ",0,"yellow,on_red"], ["An existing tessellation",0,"red"],
-                ["configuration",0,"yellow","bold"], ["file was found on this server.",2,"red"],
+                
+                ["",1], [" IMPORTANT ",0,"yellow,on_red"], ["Any existing tessellation",0,"red"],
+                ["configuration",0,"yellow","bold"], ["files will be removed from this server.",2,"red"],
                 ["This installation cannot continue unless the old configuration file is removed.",2]
             ])
             self.functions.confirm_action({
                 "yes_no_default": "n",
                 "return_on": "y",
-                "prompt": "Would you like remove existing config?",
-                "prompt_color": "magenta",
+                "prompt": "Would you like to remove and continue?",
+                "prompt_color": "red",
                 "exit_if": True,
-            })  
-            system(f"sudo rm {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
-            self.functions.print_cmd_status({
-                "text_start": "Removing old configuration",
-                "status": "complete",
-                "status_color": "green"
-            })        
+            })
+
+        system(f"sudo rm {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
+        system(f"sudo rm {self.functions.nodectl_path}version_obj.json > /dev/null 2>&1")
+        self.functions.print_cmd_status({
+            "text_start": "Removing old configuration files",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })        
             
 
     def setup_user(self):
@@ -119,22 +122,21 @@ class Installer():
                   
     def build_config_file(self,action):
         skeleton = None
-        
         if action == "skeleton":
             skeleton = self.functions.pull_remote_profiles({
                 "retrieve": "config_file"
             })
-            self.config_obj = skeleton[self.network_name]["json"]["nodectl"]
+            self.config_obj = skeleton[self.environment_name]["json"]["nodectl"]
             self.config_obj["global_elements"] = {
                 "caller": "installer",
-                "network_name": self.network_name,
+                "environment_name": self.environment_name,
             }
             
             # download specific file to Node
             try:
-                system(f'sudo wget {skeleton[self.network_name]["yaml_url"]} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
+                system(f'sudo wget {skeleton[self.environment_name]["yaml_url"]} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
             except Exception as e:
-                self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton[self.network_name]["nodectl"]["yaml_url"]}] with error [{e}]')
+                self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton[self.environment_name]["nodectl"]["yaml_url"]}] with error [{e}]')
                 self.error_messages.error_code_messages({
                     "error_code": "int-149",
                     "line_code": "download_yaml",
@@ -146,6 +148,20 @@ class Installer():
             self.setup_config.metagraph_list = self.metagraph_list
             self.config_obj = self.setup_config.setup_config_vars()
             self.functions.config_obj = self.config_obj
+            self.cli.node_service.config_obj = self.config_obj
+            self.functions.set_statics()
+            self.cli.functions.set_statics()
+            self.cli.node_service.functions.set_statics()
+            versioning = Versioning({
+                "called_cmd": "install",
+                "request": "install",
+                "config_obj": self.config_obj
+            })
+            self.version_obj = versioning.get_version_obj()
+            self.cli.version_obj = self.version_obj
+            self.cli.node_service.version_obj = self.version_obj
+            self.cli.node_service.functions.version_obj = self.version_obj
+            self.cli.version_obj = self.version_obj
 
         elif action == "p12":
             p12_replace_list = [
@@ -179,7 +195,7 @@ class Installer():
             ["with default",0,"magenta"],
             ["Metagraph Network Variables",2,"blue","bold,underline"],
             
-            ["Metagraph:",0], [self.config_obj['global_elements']['network_name'],2,"yellow"],
+            ["Metagraph:",0], [self.config_obj['global_elements']['environment_name'],2,"yellow"],
             
             ["After installation is complete, the Node Operator may alter the",0,"magenta"], ["nodectl",0,"blue","bold"],
             ["configuration to allow connection to the",0,"magenta"], ["Metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
@@ -308,7 +324,7 @@ class Installer():
     def download_binaries(self):            
         self.cli.node_service.download_constellation_binaries({
             "action": "install",
-            "environment": self.network_name
+            "environment": self.environment_name
         })
         
         self.functions.print_cmd_status({
@@ -412,7 +428,7 @@ class Installer():
         action_obj = {
             "action": "generate",
             "process": "install",
-            "app_env": self.network_name,
+            "app_env": self.environment_name,
             "user_obj": self.user,
             "cli_obj": self.cli,
             "functions": self.functions,
@@ -504,6 +520,9 @@ class Installer():
         # replace cli and node service config object with newly created obj
         self.cli.functions.config_obj = self.setup_config.config_obj
         self.cli.node_service.config_obj = self.setup_config.config_obj
+        # replace cli and fucntions object with newly created obj
+        self.cli.node_service.functions = self.cli.functions
+        self.cli.node_service.functions.set_statics()
 
 
     def populate_node_service(self):                
@@ -559,7 +578,7 @@ class Installer():
                     self.cli.check_seed_list(["-p",profile,"-id",self.cli.nodeid])
 
         self.functions.print_paragraphs([
-            ["",1], [f"Please review the next Steps in order to gain access to the {self.network_name} environment.",0],
+            ["",1], [f"Please review the next Steps in order to gain access to the {self.environment_name} environment.",0],
             ["If your Node is found as",0], ["False",0,"red","bold"], ["on the",0],
             ["check seed list(s)",0,"blue","bold"], ["output above, you will need to submit your NodeID for acceptance.",2],
             ["Please follow the instructions below, as indicated.",2],
