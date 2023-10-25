@@ -1304,7 +1304,7 @@ class CLI():
                 f"{lookup_keys[n]}": [process_command_type[n],cmd],
                 
             }  
-        system("clear")      
+            
         dip_status = pull_ordinal_values(bashCommands)    
                 
         if "-s" in command_list:
@@ -1312,7 +1312,9 @@ class CLI():
             if dip_status["end"] == "Not Found": dip_status["end"] = dip_status["latest"]
             if dip_status["current"] == "Not Found": dip_status["current"] = dip_status["latest"]
             return dip_status
-
+        
+        system("clear") 
+         
         if dip_pass < 2:
             self.functions.print_header_title({
                 "line1": "DOWNLOAD IN PROGRESS STATUS",

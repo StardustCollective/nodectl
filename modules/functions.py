@@ -2607,8 +2607,7 @@ class Functions():
         hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
         
-        print(" ".ljust(80),end="\r") # clear any messages on the first line
-        
+        self.print_clear_line()
         self.log.logger.info(f"Help file print out")
         self.help_text = "" 
         if title:
