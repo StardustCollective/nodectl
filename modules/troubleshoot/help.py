@@ -21,7 +21,7 @@ def build_help(command_obj):
       "reboot","disable_root_ssh","enable_root_ssh",
       "clean_snapshots","update_seedlist", "check_source_connection",
       "health","sec","price","markets", "upgrade_path", 
-      "check_seedlist_participation", "check_version",
+      "check_seedlist_participation", "check_version", "uptime",
     ]
     
     help_text = f'''
@@ -32,7 +32,7 @@ def build_help(command_obj):
                          find, peers, whoami, list, check_seedlist, update_seedlist [-usl],
                          export_private_key, change_ssh_port <port>, download_status, [-ds],
                          restart, restart_only, slow_restart [-sr], check_seedlist_participation [-clsp],
-                         disable_root_ssh, enable_root_ssh, clean_snapshots,
+                         disable_root_ssh, enable_root_ssh, clean_snapshots, uptime,
                          check_connection [-cc], check_source_connection [-csc], 
                          reboot, send_logs [-sl], version [-v], check_versions [-cv],
                          clean_files [-cf], clear_uploads [-cul], log, id, nodeid,
@@ -164,7 +164,9 @@ def build_help(command_obj):
                              your nodeid is present on the seed list
     
     update_seedlist -e <environment_name> | - update the local copy of the seed list 
-                             
+      
+    uptime       | - check system, cluster, and Node uptime.
+                           
     slow_restart | - restart the node with a 600 second delay to
                          make sure it is fully off the network in the
                          event you are seeing connection issues or other
@@ -689,10 +691,7 @@ def build_help(command_obj):
   {colored('  - restart','green')}
   {colored('  - status','green')}
   {colored('  - check_pid','green')}
-  
-  optional option:
-  {colored('--auto_upgrade','green')} 
-  
+
   {colored('IMPORTANT','red',attrs=['bold'])} 
   {colored('Do not rely on auto_restart completely as it is not "fool proof".','red')}
   
@@ -769,10 +768,6 @@ def build_help(command_obj):
   
   {colored('Auto upgrade','cyan')} can only be enabled with auto restart enabled.
   
-  Optionally if you are not using the configuration, you can enable auto_upgrade
-  by issuing the optional {colored('--auto_upgrade','cyan')} option when enabling
-  auto_restart from the command line.
-  
   During a Tessellation upgrade, the session will change.  This will trigger
   an auto restart.  During the restart, nodectl will identify the version of 
   Tessellation on the Node verses what is running on the cluster. If it does not
@@ -804,9 +799,6 @@ def build_help(command_obj):
   
   manual enable auto_restart services
   # {colored('sudo nodectl auto_restart enable','cyan')}
-  
-  manual enable auto_restart services with auto_upgrade
-  # {colored('sudo nodectl auto_restart enable --auto_upgrade','cyan')}
 
   manual disable auto_restart services
   # {colored('sudo nodectl auto_restart disable','cyan')}
@@ -869,6 +861,13 @@ def build_help(command_obj):
        
   optional option alias:
   {colored('-rtb','green')} 
+       
+  optional:
+  {colored('-v <version_string>','cyan')} 
+  
+  If {colored('-v <version_string>','cyan')} not added the latest known version will be downloaded. The
+  {colored('-v <version_string>','cyan')} should only be used in the event of a downgrade request or 
+  other unique scenarios that may warrant a older (or newer) release.
   
     Example Usage
   -------------
@@ -877,6 +876,10 @@ def build_help(command_obj):
   
   execute the {extended} command
   # {colored(f'sudo nodectl {extended} -e <environment_name>','cyan')}
+  
+  execute the {extended} command for mainnet with static 
+  version of example v1.11.4
+  # {colored(f'sudo nodectl {extended} -e mainnet -v v1.11.4 ','cyan')}
   '''      
         
         
@@ -951,9 +954,9 @@ def build_help(command_obj):
         help_text += title(extended)
         help_text += f'''
   
-  nodectl will go out and review the latest versions of both
-  Constellation Network Tessellation and nodectl. nodectl will review the
-  current github repo and compare it to the versions running
+  This command will request nodectl will go out and review the latest versions 
+  of both Constellation Network Tessellation and nodectl. nodectl will review 
+  the current github repo and compare it to the versions running
   on the Node.  
   
   It will report back {colored('True','green')} or {colored('False','red')}
@@ -964,6 +967,23 @@ def build_help(command_obj):
      
   optional option:
   {colored('-cv','green')} 
+  
+  optional parameters:
+  {colored('-p <profile_name>','cyan')} 
+  '''      
+  
+    if extended == "uptime":
+        help_text += title(extended)
+        help_text += f'''
+  
+  This command nodectl will go out and pull the uptime for the cluster
+  the Node itself and the system supporting the node.
+
+  - Cluster:  How long has the cluster been up
+  - Node:     How long has the Node been up
+  - System:   How long has the system whether
+              a Bare Metal or virtualize server
+              been up
   
   optional parameters:
   {colored('-p <profile_name>','cyan')} 
@@ -2008,7 +2028,7 @@ def build_help(command_obj):
     if extended == "join_all":
         help_text += title("join -p all")
         help_text += f'''
-  {colored("This command has been deprecated after v1.12.0 of nodectl.","red")}
+  {colored("This command has been removed after v1.12.0 of nodectl.","red")}
   
   {colored("REASON","yellow")}
   {colored("------","yellow")}

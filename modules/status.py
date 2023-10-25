@@ -53,7 +53,7 @@ class Status():
 
 
     def find_log_file(self):
-        # deprecated due to version update
+        # removed due to version update
         # however may need to use this function repurposed
         # in future releases to navigate through rolled/archieved
         # logs

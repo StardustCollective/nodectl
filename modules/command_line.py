@@ -147,6 +147,8 @@ class CLI():
         called_command = command_obj.get("called","default")
         if called_command == "uptime": print_title = False
         
+        self.functions.check_for_help(command_list,called_command)
+        
         profile_list = self.profile_names
         ordinal_dict = {}
         
@@ -663,12 +665,14 @@ class CLI():
         if "-t" in command_list:
             sip = self.functions.get_info_from_edge_point({
                 "profile": self.profile,
+                "caller": "show_peers",
                 "specific_ip": command_list[command_list.index("-t")+1],
             })
             count_args.extend(["-t",sip])
         else:
             sip = self.functions.get_info_from_edge_point({
                 "profile": profile,
+                "caller": "show_peers",
             })
                     
         if "-c" in command_list:
@@ -901,7 +905,7 @@ class CLI():
                 })
             file_path = f"/var/tessellation/{profile}/logs/{name}.log"
             if name == "nodectl":
-                file_path = f"{self.functions.nodectl_path}var/tessellation/nodectl/nodectl.log"
+                file_path = f"{self.functions.nodectl_path}nodectl.log"
         else:
             self.log.logger.info(f"show log invoked")
             
@@ -1299,7 +1303,8 @@ class CLI():
                 **bashCommands,
                 f"{lookup_keys[n]}": [process_command_type[n],cmd],
                 
-            }        
+            }  
+        system("clear")      
         dip_status = pull_ordinal_values(bashCommands)    
                 
         if "-s" in command_list:
@@ -1477,6 +1482,7 @@ class CLI():
 
             # print out status progress indicator
             if not freeze_display:
+                self.functions.print_clear_line()
                 print(
                     colored(verb,"magenta"), 
                     colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
@@ -1486,6 +1492,7 @@ class CLI():
                     colored(str(left),"cyan"),
                     colored("]","magenta"),
                 ) 
+                self.functions.print_clear_line()
                 print(
                     colored("  [","cyan"),
                     colored(hash_marks,"yellow"),
@@ -2034,6 +2041,7 @@ class CLI():
             self.log.logger.debug(f"checking count and testing peer on {node}")
             node_obj = self.functions.get_info_from_edge_point({
                 "profile": self.profile,
+                "caller": "check_connection",
                 "specific_ip": node
             })
             flip_flop.append(node_obj)
@@ -3045,6 +3053,7 @@ class CLI():
             })
         
         join_result = self.node_service.join_cluster({
+            "caller": "cli_join",
             "action":"cli",
             "interactive": True if watch_peer_counts or interactive else False, 
         })
@@ -3386,6 +3395,7 @@ class CLI():
             if target:
                 t_ip = self.functions.get_info_from_edge_point({
                     "profile": self.profile,
+                    "caller": "cli_grab_id",
                     "specific_ip": ip_address,
                 })
                 api_port = t_ip["publicPort"]
@@ -3749,6 +3759,7 @@ class CLI():
             
         if source_obj == "empty":
             source_obj = self.functions.get_info_from_edge_point({
+                "caller": "cli_find",
                 "profile": self.profile,
             })
 
@@ -4335,9 +4346,14 @@ class CLI():
             "prompt": "Are you sure you want to overwrite Tessellation binaries?",
             "exit_if": True,
         })
-        self.node_service.download_constellation_binaries({
-            "environment": command_list[command_list.index("-e")+1],
-        })
+        
+        download_obj = {
+            "environment": command_list[command_list.index("-e")+1]
+        }
+        if "-v" in command_list:
+            download_obj["download_version"] = command_list[command_list.index("-v")+1]
+            
+        self.node_service.download_constellation_binaries(download_obj)
 
     # ==========================================
     # upgrade command
@@ -4557,7 +4573,7 @@ class CLI():
         })
         
 
-    def print_deprecated(self,command_obj):
+    def print_removed(self,command_obj):
         # command=(str), version={str), new_command=(str), done_exit=(bool), is_new_command=(bool)
         var = SimpleNamespace(**command_obj)
         is_new = command_obj.get("is_new_command",True) # is there a new command to replace?
@@ -4567,9 +4583,9 @@ class CLI():
         
         if var.command[0] == "_":
             var.command = var.command.replace("_","-",1)
-        self.log.logger.error(f"[{var.command}] requested --> deprecated for [{new_command}]")
+        self.log.logger.error(f"[{var.command}] requested --> removed for [{new_command}]")
         self.functions.print_paragraphs([
-            [var.command,0,"white","bold"], ["command has been",0,"red"], ["deprecated",1,"red","bold"],
+            [var.command,0,"white","bold"], ["command has been",0,"red"], ["removed",1,"red","bold"],
             ["As of version:",0,"white","bold"], [var.version,1,"yellow"]
         ])
         if is_new:

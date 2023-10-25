@@ -133,7 +133,7 @@ class ShellHandler:
         status_commands = ["status","_s","quick_status","_qs","uptime"]
         node_id_commands = ["id","dag","nodeid"]
         cv_commands = ["check_versions","_cv"]
-        deprecated_clear_file_cmds = [
+        removed_clear_file_cmds = [
             "clear_uploads","_cul","_cls","clear_logs",
             "clear_snapshots","clear_backups",
             "reset_cache","_rc","clean_snapshots","_cs",
@@ -196,7 +196,7 @@ class ShellHandler:
                 secs = 600
             if self.called_command == "join":
                 if "all" in self.argv:
-                    return_value = cli.print_deprecated({
+                    return_value = cli.print_removed({
                         "command": "-p all on join",
                         "is_new_command": False,
                         "version": "v2.0.0",
@@ -251,7 +251,7 @@ class ShellHandler:
                 "argv_list": self.argv
             })
         elif self.called_command == "upgrade_nodectl_testnet":
-            cli.print_deprecated({
+            cli.print_removed({
                 "command": self.called_command,
                 "version": "v2.8.0",
                 "new_command": "upgrade_nodectl"
@@ -274,8 +274,8 @@ class ShellHandler:
             command_obj = {"argv_list": self.argv, "action": "normal"}
             cli.clean_files(command_obj)
             
-        elif self.called_command in deprecated_clear_file_cmds:
-            return_value = cli.print_deprecated({
+        elif self.called_command in removed_clear_file_cmds:
+            return_value = cli.print_removed({
                 "command": self.called_command,
                 "version": "v2.0.0",
                 "new_command": "n/a"
@@ -900,10 +900,6 @@ class ShellHandler:
        
     def auto_restart_handler(self,action,cli=False,manual=False):
         restart_request = warning = False  
-        
-        if "--auto_grade" in self.argv:
-            self.functions.config_obj["global_auto_restart"]["auto_upgrade"] = True
-            
         pid_color = "green"
         end_status = "enabled"
         if not self.auto_restart_pid:
@@ -1081,7 +1077,7 @@ class ShellHandler:
                 ])
             self.log.logger.warn(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
             return
-            
+        
         system(f'sudo systemctl start node_restart@"{action}" > /dev/null 2>&1')
         if cli:
             print("")

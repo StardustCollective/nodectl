@@ -21,8 +21,6 @@ class Installer():
         self.environment_name = command_obj["environment_name"]
         self.existing_p12 = command_obj["existing_p12"]
         self.functions = command_obj["functions"]
-        
-
         self.command_obj = command_obj
         
         self.error_messages = Error_codes(self.functions) 

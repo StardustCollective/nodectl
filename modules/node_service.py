@@ -306,11 +306,11 @@ class Node():
     def download_update_seedlist(self,command_obj):
         # ===============================
         # NOTE
-        # Since seed lists will be deprecated for PRO score in
+        # Since seed lists will be removed for PRO score in
         # the future releases of Tessellation, nodectl will use
         # hardcoded seed-list download locations.
         # 
-        # This method can be either deprecated or refactored
+        # This method can be either removed or refactored
         # after new Metagraph Channel requirements are identified
         # ===============================
         
@@ -775,6 +775,7 @@ class Node():
     def join_cluster(self,command_obj):
         # action(str)
         action = command_obj["action"]
+        caller = command_obj.get("caller",False) # for troubleshooting and logging
         interactive = command_obj.get("interactive",True)
         final = False  # only allow 2 non_interactive attempts
         
@@ -797,6 +798,8 @@ class Node():
             'Content-type': 'application/json',
         }
 
+        if caller: self.log.logger.debug(f"join_cluster called from [{caller}]")
+        
         found_link_types = []
         if gl0_linking_enabled or ml0_linking_enabled:
             self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
@@ -818,6 +821,7 @@ class Node():
                             elif link_type == "ml0": ml0_linking_enabled = False
 
         self.source_node_choice = self.functions.get_info_from_edge_point({
+            "caller": f"{caller} -> join_cluster",
             "profile": self.profile,
             "desired_key": "state",
             "desired_value": "Ready",
@@ -831,6 +835,7 @@ class Node():
                 "ip": self.source_node_choice["ip"], 
                 "p2pPort": self.source_node_choice["p2pPort"] 
         }
+        self.log.logger.info(f"join cluster -> joining via [{data}]")
 
         join_session = Session()  # this is a requests Session external library
                 

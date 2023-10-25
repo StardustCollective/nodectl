@@ -1720,7 +1720,7 @@ class Configurator():
                 description1 += "attempting to connect to. "
             if file_repo_type == "jar":
                 description1 = f"The {verb} version is currently disabled in nodectl's configuration and will serve as a placeholder "
-                description1 += "to be deprecated from the utility in future releases if deemed unnecessary.  nodectl will request "
+                description1 += "to be removed from the utility in future releases if deemed unnecessary.  nodectl will request "
                 description1 += "versioning during the upgrade process or by options from the command line when using the refresh "
                 description1 += "binaries feature.  Thank you for your patience and understanding. "
                 description1 += "Please leave as 'default' here. "
@@ -1767,7 +1767,7 @@ class Configurator():
                 },
             }
         
-            if one_off2 == "version":  questions.pop(f"{file_repo_type}_{one_off}")  # version will be deprecated.
+            if one_off2 == "version":  questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
             
         self.manual_append_build_apply({
             "questions": questions, 

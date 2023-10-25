@@ -17,7 +17,7 @@ from subprocess import Popen, PIPE, call, run, check_output
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
-from copy import copy
+from copy import copy, deepcopy
 from time import sleep, perf_counter
 from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
@@ -250,6 +250,7 @@ class Functions():
                     api_port = peer_obj["publicPort"]
                 except:
                     api_port = self.get_info_from_edge_point({
+                        "caller": "get_peer_count",
                         "profile": profile,
                         "desired_key": "publicPort",
                         "specific_ip": ip_address,
@@ -297,6 +298,7 @@ class Functions():
                 api_port = edge_obj["publicPort"]
             except:
                 api_port = self.get_info_from_edge_point({
+                    "caller": "get_peer_count",
                     "profile": profile,
                     "desired_key": "publicPort",
                     "specific_ip": edge_obj["ip"],
@@ -552,6 +554,7 @@ class Functions():
         # api_endpoint_type=(str) [consensus, info]
         # specific_ip=(ip_address) # will set range to 0 and not do a random
         profile = command_obj.get("profile")
+        caller = command_obj.get("caller",False) # for logging and troubleshooting
         api_endpoint_type = command_obj.get("api_endpoint_type","info")
         desired_key = command_obj.get("desired_key","all")
         desired_value = command_obj.get("desired_value","cnng_current")
@@ -562,6 +565,7 @@ class Functions():
         threaded = command_obj.get("threaded", False)
         cluster_info = []
         
+        if caller: self.log.logger.debug(f"get_info_from_edge_point called from [{caller}]")
             
         api_str = "/cluster/info"
         if api_endpoint_type == "consensus":
@@ -591,7 +595,9 @@ class Functions():
                 self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                 pass
             
-            cluster_info_tmp = cluster_info
+            cluster_info_tmp = deepcopy(cluster_info)
+            self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{len(cluster_info)}]")
+            
             try:
                 cluster_info_tmp.pop()
             except:
@@ -612,6 +618,8 @@ class Functions():
                         if specific_ip == i_node["ip"]:
                             node = i_node
                             break
+                
+                self.log.logger.debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked: [{node}]")
                 
                 node["specific_ip_found"] = False
                 if specific_ip:
@@ -680,7 +688,7 @@ class Functions():
         if len(session) < 2 and "data" in session.keys():
             session = session["data"]
             
-        self.log.logger.info(f"session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
+        self.log.logger.debug(f"get_api_node_info --> session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
         try:
             for info in info_list:
                 result_list.append(session[info])
@@ -1784,6 +1792,7 @@ class Functions():
         if not current_source_node:
             try:
                 current_source_node = self.get_info_from_edge_point({
+                    "caller": "test_peer_state",
                     "threaded": threaded,
                     "profile": profile,
                     "spinner": spinner,
@@ -1796,6 +1805,7 @@ class Functions():
             if not isinstance(ip,dict):
                 try:
                     ip_addresses[n] = self.get_info_from_edge_point({
+                        "caller": "test_peer_state",
                         "threaded": threaded,
                         "profile": profile,
                         "specific_ip": ip,

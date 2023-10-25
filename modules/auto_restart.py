@@ -1,7 +1,8 @@
 import random
-
+import psutil
 from sys import exit
 from time import sleep, time
+from datetime import datetime, timedelta
 
 from .node_service import Node
 from .functions import Functions
@@ -38,6 +39,7 @@ class AutoRestart():
         
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
+        self.on_boot_handler_check = True
         
         self.stuck_timers = {
             "Observing_tolerance": 6*60, 
@@ -69,33 +71,41 @@ class AutoRestart():
         
     
     def on_boot_handler(self):
-        if not self.functions.config_obj["global_auto_restart"]["on_boot"]: return
+        if not self.on_boot_handler_check: return
         while True:
-            uptime_seconds = self.functions.get_date_time({"action": "uptime_seconds"})
+            uptime_seconds = psutil.boot_time()
+            uptime_seconds = datetime.now().timestamp() - uptime_seconds
+            uptime_seconds = timedelta(seconds=uptime_seconds)
+            uptime_seconds = int(uptime_seconds.total_seconds())
             if 60 <= uptime_seconds <= 70:
-                self.log.logger.warn("restarting auto_restart service after 60 seconds to ensure stability")
+                self.log.logger.warn(f"auto_restart - on_boot_handler - thread [{self.thread_profile}] - restarting auto_restart service after 60 seconds to ensure stability")
                 raise Exception("auto_restart forced stability restart")
-            elif uptime_seconds < 60: sleep(5)  
-            else: break
+            elif uptime_seconds < 60: sleep(10)  
+            else: 
+                self.on_boot_handler_check = False
+                break
+        self.log.logger.debug(f"auto_restart - on_boot_handler - thread [{self.thread_profile}] - uptime in seconds [{uptime_seconds}]")
         
                       
     # SETUP  
     def build_class_objs(self):
-        self.log.logger.info("auto_restart -> build node services class obj")
+        self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] -> build node services class obj")
 
+        self.functions = Functions(self.config_obj) 
+        self.functions.auto_restart = True
+        
         # versioning update is handled by nodectl's versioning service
         # which checks for updates every 2 minutes
         self.log.logger.info("auto_restart -> build version class obj")  
         # first run make sure the full version is pulled in order
         # for other setup procedures to 
-        versioning = Versioning({
+        self.versioning = Versioning({
             "config_obj": self.config_obj,
             "called_cmd": "auto_restart",
         })
-        self.version_obj = versioning.get_cached_version_obj()
+        self.version_obj = self.versioning.execute_versioning()
+        self.version_obj = self.versioning.get_cached_version_obj()
 
-        self.functions = Functions(self.config_obj) 
-        self.functions.auto_restart = True
         self.functions.version_obj = self.version_obj
         self.functions.set_statics()
         self.error_messages = Error_codes(self.functions)        
@@ -131,6 +141,9 @@ class AutoRestart():
             "functions": self.functions
         }   
         self.cli = CLI(command_obj)
+        
+        if not self.functions.config_obj["global_auto_restart"]["on_boot"]: 
+            self.on_boot_handler_check = False
                 
                             
     def set_ep(self):  
@@ -180,7 +193,7 @@ class AutoRestart():
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  setup profiles - initializing known profile sessions and state | all profile [{self.profile_names}]")
         self.profile_states = {}
         
-        self.auto_upgrade = self.passphrase_warning = False
+        self.auto_upgrade, self.passphrase_warning = False, False
         if self.functions.config_obj["global_auto_restart"]["auto_upgrade"] and self.allow_upgrade:
             self.auto_upgrade = True
         if self.functions.config_obj["global_p12"]["passphrase"] == "None":
@@ -262,7 +275,6 @@ class AutoRestart():
         self.profile_states[self.node_service.profile]["match"] = True
         self.profile_states[self.node_service.profile]["ep_ready"] = True
         self.profile_states[self.node_service.profile]["action"] = None
-        self.profile_states[self.node_service.profile]["minority_fork"] = False
         self.profile_states[self.node_service.profile]["remote_session"] = session_list["session0"]
         self.profile_states[self.node_service.profile]["local_session"] = session_list["session1"]
         self.profile_states[self.node_service.profile]["remote_node"] = session_list["node0"]
@@ -272,7 +284,7 @@ class AutoRestart():
         
         gl0_dependent_link = self.profile_states[self.node_service.profile]["gl0_link_profile"]
         ml0_dependent_link = self.profile_states[self.node_service.profile]["ml0_link_profile"]
-        
+    
         # check if LB is up first
         if session_list["session0"] == 0:
             self.profile_states[self.node_service.profile]["match"] = False
@@ -299,6 +311,7 @@ class AutoRestart():
                     continue_checking = False
         
         if continue_checking: # and min_fork_check: # check every 5 minutes
+            self.profile_states[self.node_service.profile]["minority_fork"] = False
             if self.minority_fork_handler():
                 self.profile_states[self.node_service.profile]["action"] = "restart_full"
                 self.profile_states[self.node_service.profile]["minority_fork"] = True
@@ -317,7 +330,8 @@ class AutoRestart():
                 if self.stuck_in_state_handler(state):
                     self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  set session detected profile [{self.node_service.profile}] - stuck in [{session_list['state1']}] - forcing restart.")
                     self.profile_states[self.node_service.profile]["action"] = "restart_full"  
-                                    
+                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  set session detected profile [{self.node_service.profile}] - resetting tolerance counter.")
+                    self.profile_states[self.node_service.profile][f"{session_list['state1']}_enabled"] = False                
             elif session_list["state1"] == "ReadyToJoin":
                 # local service is ready to join doesn't need a restart
                 self.profile_states[self.node_service.profile]["match"] = True
@@ -327,13 +341,7 @@ class AutoRestart():
                 # local service is not started 
                 if session_list["session1"] == 0:
                     self.profile_states[self.node_service.profile]["match"] = False
-                self.profile_states[self.node_service.profile]["action"] = "restart_full"
-            
-        if self.profile_states[self.thread_profile]["layer"] == 0 and self.node_service.profile == self.thread_profile and self.profile_states[self.node_service.profile]["action"] == "restart_full":
-            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  set session detected profile [{self.node_service.profile}] - resetting tolerance counters.")
-            self.profile_states[self.node_service.profile]["Observing_enabled"] = False
-            self.profile_states[self.node_service.profile]["WaitingForDownload_enabled"] = False
-    
+                self.profile_states[self.node_service.profile]["action"] = "restart_full"    
     
     # LOOPERS
     def attempts_looper(self,attempts,action,sec,max_attempts,critical_sleep):
@@ -445,11 +453,11 @@ class AutoRestart():
             self.stuck_timers[f"{state}_enabled"] = True
             self.profile_states[self.node_service.profile][f"{state}_time"] = time()
 
-        elapsed_seconds = current_time - self.profile_states[self.node_service.profile][f"{state}_time"]
+        elapsed_seconds = int(current_time - self.profile_states[self.node_service.profile][f"{state}_time"])
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - timer for state [{state}] reached [{elapsed_seconds}] (will be negative for first run)")
         if elapsed_seconds > self.stuck_timers[f"{state}_tolerance"]:
             return True
-        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - does not meet tolerance level for state [{state}] continuing...")
+        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - does not meet tolerance level for state [{state}] continuing... tolerance [{elapsed_seconds}] of [{self.stuck_timers[f'{state}_tolerance']}]")
         return False
     
     
@@ -517,14 +525,29 @@ class AutoRestart():
         warning = False
         auto_upgrade_success = True
     
-        versions = [
-            self.version_obj[self.environment][self.thread_profile]["cluster_tess_version"],
-            self.version_obj[self.environment][self.thread_profile]["node_tess_version"]
-        ]
+        # update version_obj
+        def update_version_cache():
+            self.version_obj = self.versioning.get_cached_version_obj()
+
+            if isinstance(self.version_obj[self.environment][self.thread_profile]["tess_uptodate"],bool):
+                self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "false"
+                self.profile_states[self.node_service.profile]["version_uptodate"] = False
+                if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"]:
+                    self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "true"
+                    self.profile_states[self.node_service.profile]["version_uptodate"] = True
+                    
+            versions = [
+                self.version_obj[self.environment][self.thread_profile]["cluster_tess_version"],
+                self.version_obj[self.environment][self.thread_profile]["node_tess_version"]
+            ]
+            
+            return versions
+        
         while True:
+            versions = update_version_cache()
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version check")
             try:
-                if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"]:
+                if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] == "true": 
                     self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.thread_profile}] - versions matched | Metagraph/Hypergraph [{versions[0]}] Node [{versions[1]}]")
                     if not self.auto_upgrade or auto_upgrade_success:
                         return True
@@ -540,14 +563,17 @@ class AutoRestart():
                 auto_upgrade_success = self.node_service.download_constellation_binaries({
                     "print_version": False,
                     "profile": self.thread_profile,
-                    "download_version": versions[0][self.thread_profile],
+                    "download_version": versions[0],
                     "environment": self.environment,
                 })
-                if not auto_upgrade_success:
-                    warning = True
+                if auto_upgrade_success: 
+                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - versions upgrade successful")
+                    break
+                else: warning = True
             else:
                 self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] - auto_upgrade disabled.")
                 notice_warning = "node operator to obtain "
+                warning = True
             if warning:
                 attempts = self.attempts_looper(attempts,f"pausing for {notice_warning}new version",30,10,True)
             warning = False
@@ -620,6 +646,7 @@ class AutoRestart():
         
         if not self.debug:
             self.node_service.join_cluster({
+                "caller": "auto_restart",
                 "action": "auto_join",
                 "interactive": False,
             })
