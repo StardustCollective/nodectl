@@ -1720,7 +1720,36 @@ class CLI():
                 ["location:",0,], [self.config_obj[profile]['directory_uploads'],1,"yellow","bold"]
             ])  
         
-        
+
+    def show_dip_error(self,command_list):
+        profile = command_list[command_list.index("-p")+1]
+        self.log.logger.info(f"show_dip_error -> initiated - profile [{profile}]")
+        bashCommand = f"grep -B 15 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
+        bashCommand = f"grep -B 50 -A 20 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
+        results = self.functions.process_command({
+            "bashCommand": bashCommand,
+            "proc_action": "subprocess_co",
+        })
+        if not results or results == "":
+            self.functions.print_paragraphs([
+                ["nodectl was not able to locate any",0], ["DownloadInProgress",0,"yellow"],
+                ["errors.",1],                           
+            ])
+        else:
+            results = results.split("\n")
+            self.functions.print_paragraphs([
+                [" RESULTS ",1,"red,on_yellow"],
+            ])
+
+            for line in results:
+                color = "cyan"
+                if "Unexpected failure" in line: color = "red"
+                if "CannotFetchSnapshot" in line: color = "yellow"
+                self.functions.print_paragraphs([
+                    ["=","half","bold","blue"],
+                    [str(line),1,color],
+                ])
+                
     # ==========================================
     # update commands
     # ==========================================

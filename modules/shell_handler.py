@@ -342,6 +342,8 @@ class ShellHandler:
             cli.show_prices(self.argv)
         elif self.called_command == "market" or self.called_command == "markets":
             return_value = cli.show_markets(self.argv)
+        elif self.called_command == "show_dip_error" or self.called_command == "_sde":
+            cli.show_dip_error(self.argv)
         elif self.called_command in config_list:
             self.functions.print_help({
                 "usage_only": True,
@@ -679,6 +681,7 @@ class ShellHandler:
             "nodeid","id","dag","export_private_key",
             "check_seedlist","_csl","update_seedlist","_usl",
             "show_service_log","_ssl","download_status","_ds",
+            "show_dip_error","_sde",
             
         ]                
 
