@@ -161,6 +161,7 @@ class CLI():
             })
             if quick_results == None:
                 quick_results = ["ApiNotReady"]
+            
             return quick_results
                 
         for key,value in command_obj.items():
@@ -279,6 +280,16 @@ class CLI():
                     
                     quick_results = quick_status_pull(self.functions.config_obj[profile]["public_port"])
                     
+                    try_known_id = False
+                    try:
+                        if quick_results[1] == "unknown": try_known_id = True
+                    except: 
+                        try_known_id = True
+                    
+                    if try_known_id:
+                        try: quick_results[1] = self.nodeid
+                        except: pass
+                        
                     if n > 0: 
                         print_title = False 
                         if all_profile_request:
@@ -2450,7 +2461,6 @@ class CLI():
         threaded = command_obj.get("threaded", False)
         skip_seedlist_title = command_obj.get("skip_seedlist_title",False)
         existing_node_id = command_obj.get("node_id",False)
-        
         self.functions.check_for_help(argv_list,"start")
 
         self.log.logger.info(f"Start service request initiated.")
@@ -2517,14 +2527,22 @@ class CLI():
         
             self.functions.event = False
             sleep(.8)
-            self.show_system_status({
+            
+            show_status_obj = {
                 "spinner": False,
                 "rebuild": True,
                 "wait": False,
                 "print_title": False,
                 "threaded": threaded,
-                "-p": profile
-            })
+                "-p": profile                
+            }
+            
+            try:
+                if self.command_obj["command"] == "start":
+                    show_status_obj["called"] = "start"
+            except: pass
+        
+            self.show_system_status(show_status_obj)
         
 
     def cli_stop(self,command_obj):
