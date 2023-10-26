@@ -4033,8 +4033,14 @@ class CLI():
         }).strip("\n")
         
         bg, verb, error_line = "on_red","INVALID SIGNATURE - WARNING", ""
+        
+        # handle openssl version incompatiblities
+        output_mod = outputs[1].replace("SHA2-256","")
+        output_mod = outputs[1].replace("SHA256","")
+        result_nodectl_current_hash_mod = result_nodectl_current_hash.replace("SHA256","")
+        
         self.log.logger.info("nodectl digital signature verification requested")
-        if "OK" in result_sig and result_nodectl_current_hash == outputs[1]:
+        if "OK" in result_sig and result_nodectl_current_hash_mod ==output_mod:
             self.log.logger.info(f"digital signature verified successfully | {result_sig}")
             bg, verb = "on_green","SUCCESS - AUTHENTIC NODECTL"
         else: 
