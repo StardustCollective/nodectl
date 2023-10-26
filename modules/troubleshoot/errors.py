@@ -488,7 +488,6 @@ class Error_codes():
            
                       
     def print_error(self,when="end"):
-        #system("clear")
         if when == "start":
             self.functions.print_paragraphs([
                 ["",1], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 

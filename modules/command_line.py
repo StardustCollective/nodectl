@@ -2265,7 +2265,7 @@ class CLI():
         called_command = command_obj["called_command"]
         argv_list = command_obj["argv_list"]
         
-        try: environment = argv_list[argv_list.index('-e')+1]
+        try: _ = argv_list[argv_list.index('-e')+1]
         except: argv_list.append("help")
             
         self.functions.check_for_help(argv_list,"upgrade_path")
@@ -2281,6 +2281,7 @@ class CLI():
         
         # clean upgrade_path list not to include versions newer
         # than the version excepted by the environment.
+        
         upgrade_path = self.functions.upgrade_path["path"]
         if versions.node_nodectl_version in upgrade_path:
             upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]      
@@ -2309,7 +2310,6 @@ class CLI():
                                 
         if versions.node_nodectl_version != next_upgrade_path:
             if next_upgrade_path != upgrade_path[0]:
-                test = "current_needs_multiple_upgrades"
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
@@ -2354,7 +2354,7 @@ class CLI():
                     ["You are",0,"green"], ["up-to-date",0,"green","bold"], ["or can upgrade",0,"green"], 
                     ["directly",0,"green","bold"], ["to the newest version.",1,"green"]
                 ])
-            elif test == "current_greater":  
+            elif versions.nodectl_uptodate == "current_greater":  
                 self.functions.print_paragraphs([
                     ["",1],["Use this version of nodectl with caution because it may produce undesired affects.",0,"yellow"],
                     ["If the",0,"yellow"], ["sudo nodectl upgrade",0], ["command was used against this version, you may run",0,"yellow"],
@@ -3625,7 +3625,7 @@ class CLI():
                                     
                 if not "-b" in argv_list:
                     total_rewards = 0
-                    data = self.get_and_verify_snapshots(375,profile)
+                    data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"])
                     elapsed = data["elapsed_time"]
                     data = data["data"]
                     show_title = True

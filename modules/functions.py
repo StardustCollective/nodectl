@@ -1204,7 +1204,7 @@ class Functions():
                 })       
     
     
-    def pull_node_balance(self, command_obj, ip_address,wallet):
+    def pull_node_balance(self, command_obj):
         ip_address = command_obj["ip_address"]
         wallet = command_obj["wallet"]
         environment = command_obj["environment"]
@@ -1215,8 +1215,21 @@ class Functions():
             "balance_usd": "unavailable",
             "dag_price": "unavailable"
         }
-        print(colored("  Pulling DAG details from APIs...".ljust(50),"cyan"),end="\r")
+        
+        self.print_cmd_status({
+            "text_start": "Pulling DAG details from APIs",
+            "brackets": environment,
+            "status": "running",
+            "newline": True,
+        })
 
+        if environment != "mainnet":
+            self.print_paragraphs([
+                [" NOTICE ",0,"red,on_yellow"], 
+                [f"Wallet balances on {environment} are fictitious",0],["$DAG",0,"green"], 
+                ["and will not be redeemable or spendable.",2],
+            ])
+            
         with ThreadPoolExecutor() as executor:
             self.event = True
             _ = executor.submit(self.print_spinner,{
@@ -1226,7 +1239,7 @@ class Functions():
 
             for n in range(5):
                 try:
-                    url =f"https://{self.be_urls['environment']}/addresses/{wallet}/balance"
+                    url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
                     balance = get(url,verify=True,timeout=2,headers=self.get_headers).json()
                     balance = balance["data"]
                     balance = balance["balance"]

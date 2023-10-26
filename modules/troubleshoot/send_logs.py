@@ -14,7 +14,9 @@ class Send():
     def __init__(self,command_obj):
         
         self.log = Logging()
-    
+        self.command_list = command_obj["command_list"]
+        self.config_obj = command_obj["config_obj"]
+        
         versioning = Versioning({
             "config_obj": self.config_obj,
             "seconds": 15*60,
@@ -22,10 +24,9 @@ class Send():
         })
         self.version_obj = versioning.get_version_obj()
         
-        self.functions = Functions(command_obj["config_obj"],self.version_obj)
-        self.command_list = command_obj.get("command_list")
+        self.functions = Functions(self.config_obj)
         self.profile = self.command_list[self.command_list.index("-p")+1]
-        self.ip_address = command_obj.get("ip_address")
+        self.ip_address = command_obj["ip_address"]
         self.prepare_and_send_logs()
         
         
