@@ -39,6 +39,7 @@ def build_help(command_obj):
                          passwd12, configure, validate_config [-val], view_config [-vc],
                          install, upgrade, upgrade-nodectl, upgrade_path [-up], verify_nodectl [-vn],
                          refresh_binaries [-rtb], auto_restart ], show_service_log [-ssl],
+                         show_dip_error [-sde],
                        
         optional: --pass <passphrase>   
           - Note: --pass will override the configuration's passphrase entry
@@ -202,7 +203,10 @@ def build_help(command_obj):
     
     show_service_log -p <profile> | - show the distribution service logs 
                                        associated with profile 
-                                       
+                                
+    show_dip_error -p <profile>  | - show any occurances of a DownloadInProgress error
+                                     located in the logs.
+                                            
     refresh_binaries -e <env> | - download latest binaries
                                   for latest release of Tessellation
                               
@@ -903,6 +907,32 @@ def build_help(command_obj):
        
   optional option alias:
   {colored('-ssl','green')} 
+  
+    Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}
+  
+  execute the {extended} command
+  # {colored(f'sudo nodectl {extended} -p <profile>','cyan')}
+  '''      
+        
+        
+    if extended == "show_dip_error":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command takes one argument.
+  
+  This command will search the Tessellation log files for a 
+  given configured profile on the Node and output any 
+  occurrences of an error associated with the {colored('DownloadInProgress','yellow')}
+  which may result in the Node's state changing to {colored('WaitingForDownload','yellow')}.
+  
+  required:
+  {colored('-p <profile_name>','green')}
+       
+  optional option alias:
+  {colored('-sde','green')} 
   
     Example Usage
   -------------

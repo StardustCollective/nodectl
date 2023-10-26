@@ -1722,14 +1722,17 @@ class CLI():
         
 
     def show_dip_error(self,command_list):
+        self.functions.check_for_help(command_list,"show_dip_error")
         profile = command_list[command_list.index("-p")+1]
         self.log.logger.info(f"show_dip_error -> initiated - profile [{profile}]")
+        
         bashCommand = f"grep -B 15 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
-        bashCommand = f"grep -B 50 -A 20 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
+    
         results = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "subprocess_co",
         })
+        
         if not results or results == "":
             self.functions.print_paragraphs([
                 ["nodectl was not able to locate any",0], ["DownloadInProgress",0,"yellow"],
