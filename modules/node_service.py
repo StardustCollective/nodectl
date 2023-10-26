@@ -1061,11 +1061,12 @@ Description=Constellation Node version update service
 After=multi-user.target
 
 [Service]
-Type=oneshot
+Type=simple
 WorkingDirectory=/usr/local/bin
 ExecStart=nodectl uvos
-Restart=on-failure
+Restart=always
 RestartSec=2m
+ExecStop=/bin/true
 
 [Install]
 WantedBy=multi-user.target
