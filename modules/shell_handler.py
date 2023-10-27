@@ -298,7 +298,7 @@ class ShellHandler:
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
             cli.show_seedlist_participation(self.argv)
         elif self.called_command == "download_status" or self.called_command == "_ds":
-            cli.show_download_status(self.argv)
+            cli.show_download_status({"command_list": self.argv})
         elif self.called_command in cv_commands:
             cli.check_versions(self.argv)
         elif "auto_" in self.called_command:
@@ -1103,7 +1103,7 @@ class ShellHandler:
         })
         
         self.install_upgrade = "upgrade"
-        if "-ni" not in argv_list:
+        if "-ni" not in argv_list and "--ni" in argv_list:
             self.confirm_int_upg()
 
         self.functions.print_header_title({

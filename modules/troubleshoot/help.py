@@ -1412,8 +1412,8 @@ def build_help(command_obj):
   to {colored('upgrade','green',attrs=['bold'])} the local Constellation Node!
   
   optional:
-  {colored('-ni','green')} - {colored('non-interactive','cyan')}
-        If the {colored('-ni','cyan')} option is given at the command entry point, the upgrade 
+  {colored('--ni','green')} - {colored('non-interactive','cyan')}
+        If the {colored('--ni','cyan')} option is given at the command entry point, the upgrade 
         will not ask for interaction and will choose all default values 
         including:
           - picking the latest found {colored('version','yellow')} (unless {colored('-v','cyan')} is specified as well)
@@ -1433,7 +1433,7 @@ def build_help(command_obj):
         example) {colored('v2.0.0','cyan')}
   {colored('-f','green')} - {colored('force','cyan')}
         If specified at the command line, nodectl will not check version 
-        specifications when accompanied by the {colored('-ni','cyan')} or {colored('-v','cyan')} parameter.  
+        specifications when accompanied by the {colored('--ni','cyan')} or {colored('-v','cyan')} parameter.  
         This will by-pass warning messages if you are attempting
         to install versions of nodectl or Tessellation that are not current, 
         custom, or that do not meet the current standard versioning 

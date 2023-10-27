@@ -881,7 +881,7 @@ class Node():
                                 layer_zero_ready = False
                                 join_failure = True
                                 break
-                            
+
                             if action == "cli":
                                 self.functions.print_clear_line()
                                 self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)

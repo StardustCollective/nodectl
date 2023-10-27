@@ -35,6 +35,7 @@ class Upgrader():
         self.node_id = ""
         self.safe_to_upgrade = True
         self.watch = False
+        self.show_download_status = False
         self.final_upgrade_status_list = []
         self.api_ready_list = {}
         self.profile_progress = {}     
@@ -475,7 +476,7 @@ class Upgrader():
             }
             self.functions.print_cmd_status(progress)
 
-            argv_list = ["-ni","-t", item, "-d", days] if self.non_interactive else ["-t", item, "-d", days]
+            argv_list = ["--ni","-t", item, "-d", days] if self.non_interactive else ["-t", item, "-d", days]
                 
             # in the event Node Op attempts to upgrade over existing
             # v2.0.0 need to verify clean_files dirs
@@ -928,8 +929,10 @@ class Upgrader():
                         "skip_msg": False,
                         "wait": False,
                         "upgrade": True,
+                        "caller": "upgrade",
                         "single_profile": False,
                         "watch": self.watch,
+                        "dip": self.show_download_status,
                         "interactive": False if self.non_interactive else True,
                         "argv_list": ["-p",profile]
                     })
@@ -1012,6 +1015,8 @@ class Upgrader():
             self.forced = True  
         if "-w" in self.argv_list:
             self.watch = True
+        if "--dip" in self.argv_list:
+            self.show_download_status = True
         if "-v" in self.argv_list:
             if self.argv_list.count("-v") > 1:
                 extra = "all -v <version> must be preceded by accompanying -p <profile>"
@@ -1052,7 +1057,7 @@ class Upgrader():
                 "extra": extra
             })
             
-        if "-ni" in self.argv_list:
+        if "-ni" in self.argv_list or "--ni" in self.argv_list:
             self.non_interactive = True      
         if "--pass" in self.argv_list:
            self.cli_global_pass = self.argv_list[self.argv_list.index("--pass")+1]            

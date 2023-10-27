@@ -257,7 +257,10 @@ class CLI():
                                         
                     ordinal_dict = {
                         **ordinal_dict,
-                        **self.show_download_status(["-p",profile,"-s"])
+                        **self.show_download_status({
+                            "command_list": ["-p",profile],
+                            "caller": "status",
+                        })
                     }
                     for key, value in ordinal_dict.items():
                         if isinstance(value, int): ordinal_dict[key] = str(value)
@@ -1240,8 +1243,11 @@ class CLI():
         ])
         
         
-    def show_download_status(self,command_list,dip_pass=1):
+    def show_download_status(self,command_obj,dip_pass=1):
         # show DownloadInProgress Status
+        command_list = command_obj.get("command_list")
+        dip_pass = command_obj.get("dip_pass",1)
+        caller = command_obj.get("caller","show_download_status")
         
         if "-p" in command_list:
             self.profile = command_list[command_list.index("-p")+1]
@@ -1276,6 +1282,11 @@ class CLI():
         awk_cmd = ["awk", "-F", "height=", '{split($2,a,","); gsub("[^0-9]", "", a[1]); print a[1]}']
         cmd = [grep_cmd,tail_cmd,awk_cmd]  # to avoid escape sequences in the command
         cmds.append(cmd)
+        # Grab the time from the logs
+        # tail -n 1 /var/tessellation/nodectl/nodectl.log | awk '{print $1, $2, $3}'
+        cmd = f"tail -n 1 {log_file} | awk "
+        cmd += "'{print $1, $2}'"
+        cmds.append(cmd)
 
 
         def pull_ordinal(bashCommand):
@@ -1307,8 +1318,8 @@ class CLI():
             return dip_status
 
 
-        lookup_keys = ["start","end","current","latest","current_height"]
-        process_command_type = ["subprocess_co","subprocess_co","subprocess_co","subprocess_co","pipeline"]
+        lookup_keys = ["start","end","current","latest","current_height","timestamp"]
+        process_command_type = ["subprocess_co","subprocess_co","subprocess_co","subprocess_co","pipeline","subprocess_co"]
         for n, cmd in enumerate(cmds):
             bashCommands = {
                 **bashCommands,
@@ -1318,15 +1329,18 @@ class CLI():
             
         dip_status = pull_ordinal_values(bashCommands)    
                 
-        if "-s" in command_list:
+        if caller == "status":
             self.log.logger.info(f'show status ordinal/snapshot lookup found | target download [{dip_status["end"]}] current [{dip_status["current"]}] latest [{dip_status["latest"]}] ')
             if dip_status["end"] == "Not Found": dip_status["end"] = dip_status["latest"]
             if dip_status["current"] == "Not Found": dip_status["current"] = dip_status["latest"]
             return dip_status
         
-        system("clear") 
+        if caller == "upgrade" or caller == "cli_restart": 
+            self.functions.print_clear_line()
+            print("")
+        else: system("clear") 
          
-        if dip_pass < 2:
+        if dip_pass < 2 and caller == "show_download_status":
             self.functions.print_header_title({
                 "line1": "DOWNLOAD IN PROGRESS STATUS",
                 "single_line": True,
@@ -1350,9 +1364,10 @@ class CLI():
                     "status_color": "yellow",
                     "newline": True,
                 })
-                if not "-ni" in command_list:
+                
+                if not "-ni" in command_list and not "--ni" in command_list:
                     self.functions.print_paragraphs([
-                        ["adding",0,"magenta"],["-ni",0,"yellow"]
+                        ["adding",0,"magenta"],["--ni",0,"yellow"]
                     ])
                     self.functions.print_clear_line()
                     wfd_confirm = {
@@ -1406,7 +1421,8 @@ class CLI():
                 self.functions.print_paragraphs([
                     ["Differential:",0], [differential,2,"blue","bold"]
                 ])
-                exit(0)
+                if caller != "upgrade" and caller != "cli_restart": exit(0)
+                return
         
         dip_status = pull_ordinal_values(bashCommands)
         start = dip_status["start"]
@@ -1422,9 +1438,9 @@ class CLI():
         percent_weight1, percent_weight2 = 50, 100
         use_current = dip_status["current"]
         use_end = dip_status["end"]
-        calc_rate = True  
         freeze_display = False  
-        rate_calc_start = perf_counter()
+        # calc_rate = True  
+        # rate_calc_start = perf_counter()
         
         while use_current < use_end:
             if not use_height:
@@ -1435,7 +1451,7 @@ class CLI():
                 if last_found == use_current:
                     sleep(1)
                     ordinal_nochange += 1
-                    if ordinal_nochange > 20: 
+                    if ordinal_nochange > 10: 
                         use_height = True
                         use_end = dip_status["height"]
                         use_current = dip_status["current_height"]
@@ -1497,6 +1513,11 @@ class CLI():
             if not freeze_display:
                 self.functions.print_clear_line()
                 print(
+                    colored("  ctrl-c to quit |","blue"),
+                    colored(dip_status["timestamp"].split(",")[0],"yellow")
+                )
+                self.functions.print_clear_line()
+                print(
                     colored(verb,"magenta"), 
                     colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
                     colored("of","magenta"), 
@@ -1514,10 +1535,10 @@ class CLI():
                     colored(f"{'%': <3}","green"),
                 )
                 if percentage < 100:
-                    print(f'\x1b[3A', end='')
+                    print(f'\x1b[4A', end='')
             else: 
                 self.functions.print_clear_line(3)
-                print(f'\x1b[2A', end='')
+                print(f'\x1b[3A', end='')
                 freeze_display = False                
             sleep(.3)
 
@@ -1526,7 +1547,11 @@ class CLI():
         # double check recursively
         dip_pass += 1
         sleep(.5)
-        self.show_download_status(command_list, dip_pass)
+        self.show_download_status({
+            "command_list": command_list,
+            "caller": caller, 
+            "dip_pass": dip_pass,
+        })
             
                        
     def show_current_rewards(self,command_list):
@@ -2690,6 +2715,8 @@ class CLI():
         called_profile = argv_list[argv_list.index("-p")+1]
         watch = True if "-w" in argv_list else False
         interactive = True if "-i" in argv_list else False
+        non_interactive = True if "-ni" in argv_list or "--ni" in argv_list else False
+        dip = True if "--dip" in argv_list else False
         
         link_types = ["gl0","ml0"] 
         
@@ -2911,10 +2938,13 @@ class CLI():
                     if profile not in start_failed_list:
                         self.cli_join({
                             "skip_msg": False,
+                            "caller": "cli_restart",
                             "skip_title": True,
                             "wait": False,
                             "watch": watch,
+                            "dip": dip,
                             "interactive": interactive,
+                            "non_interactive": non_interactive,
                             "single_profile": single_profile,
                             "argv_list": ["-p",profile]
                         })
@@ -3007,6 +3037,9 @@ class CLI():
         single_profile = command_obj.get("single_profile",True)
         upgrade = command_obj.get("upgrade",False)
         interactive = command_obj.get("interactive",False)
+        non_interactive = command_obj.get("non_interactive",False)
+        dip_status = command_obj.get("dip",False)
+        caller = command_obj.get("caller",False)
         
         called_profile = argv_list[argv_list.index("-p")+1]
         self.set_profile(called_profile)
@@ -3158,7 +3191,34 @@ class CLI():
                             break
                         wfd_count += 1
                     if state == "DownloadInProgress":
-                        if dip_count > dip_max:
+                        if dip_status:
+                            self.functions.print_paragraphs([
+                                ["",2],[" IMPORTANT ",0,"red,on_yellow"], ["the",0], ["--dip",0,"yellow"],
+                                ["option was identified.  This will cause nodectl to execute the",0],
+                                ["download_status",0,"yellow"], ["command.",2],
+                                ["In order to cancel a this potentially long process, you will need to issue a",0],
+                                ["ctrl-c",0,"blue","bold"],
+                                ["which will exit the entire upgrade or restart processes.",0], 
+                                ["This will not harm the process, just exit the visual aspects of it",0,"green"],
+                                ["Another option is to skip this option and issue:",0], ["sudo nodectl download_status",0,"yellow"],
+                                ["when the upgrade or restart process completes.",2],
+                            ])
+                            if non_interactive: continue_dip = True
+                            else:  
+                                continue_dip = self.functions.confirm_action({
+                                "yes_no_default": "n",
+                                "return_on": "y",
+                                "prompt_color": "magenta",
+                                "prompt": "Watch DownloadInProgress status?",
+                                "exit_if": True
+                                })
+                            if continue_dip:
+                                self.show_download_status({
+                                    "caller": caller,
+                                    "command_list": ["-p", called_profile],
+                                })
+                                break
+                        elif dip_count > dip_max:
                             snapshot_issues = "dip_break"
                             result = False
                             tolerance_result = False # force last error to print
