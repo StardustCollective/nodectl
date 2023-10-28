@@ -3196,7 +3196,7 @@ class CLI():
                                 ["",2],[" IMPORTANT ",0,"red,on_yellow"], ["the",0], ["--dip",0,"yellow"],
                                 ["option was identified.  This will cause nodectl to execute the",0],
                                 ["download_status",0,"yellow"], ["command.",2],
-                                ["In order to cancel a this potentially long process, you will need to issue a",0],
+                                ["In order to cancel this potentially long process, you will need to issue a",0],
                                 ["ctrl-c",0,"blue","bold"],
                                 ["which will exit the entire upgrade or restart processes.",0], 
                                 ["This will not harm the process, just exit the visual aspects of it",0,"green"],
