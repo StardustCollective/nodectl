@@ -4523,7 +4523,7 @@ class CLI():
         def print_prerelease():
             if version_obj["pre_release"]:
                 self.functions.print_paragraphs([
-                    [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer adds or bugs.",1,"red","bold"],
+                    [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
                 
         if self.version_obj["nodectl_uptodate"] and self.version_obj["nodectl_uptodate"] != "current_less":
@@ -4557,6 +4557,12 @@ class CLI():
                         "show_titles": False,
                         "newline": "both",
                     })
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"red,on_yellow"], ["downgrading to a previous version of nodectl may cause",0,"red"],
+                        ["undesirable effects.",0,"red"], ["It is recommended to upgrade to a newer known version or to",0],
+                        ["reinstall a fresh copy at a lower version that suits your needs.",2]
+                    ])
+                    
                     option = self.functions.print_option_menu({
                         "options": [
                             self.functions.upgrade_path["path"][0],
