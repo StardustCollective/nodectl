@@ -692,10 +692,11 @@ class CLI():
         if "-c" in command_list:
             self.cli_find(count_args)
             return
-
-        if sip["ip"] == "self":
-            sip["ip"] ="127.0.0.1"
-
+        
+        try:
+            if sip["ip"] == "self": sip["ip"] = self.functions.get_ext_ip()
+        except: sip["ip"] = self.functions.get_ext_ip()
+    
         peer_results = self.node_service.functions.get_peer_count({
             "peer_obj": sip, 
             "profile": profile, 
