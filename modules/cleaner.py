@@ -6,18 +6,20 @@ from hurry.filesize import size, alternative
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
+from .config.versioning import Versioning
 
 class Cleaner():
     
     def __init__(self,command_obj):
-        self.config_obj = command_obj["config_obj"]
-        del command_obj["config_obj"] 
+        self.functions = command_obj["functions"]
+        self.config_obj = self.functions.config_obj
+        del command_obj["functions"]
         self.argv_list = command_obj["argv_list"]
         self.snapshot_called = False
-                
+        self.version_obj = self.functions.version_obj
+        
         self.log = Logging()
-        self.functions = Functions(self.config_obj)
-        self.error_messages = Error_codes()    
+        self.error_messages = Error_codes(self.functions)    
         
         if command_obj["action"] == "snapshots":
             self.clean_snapshots()
@@ -87,7 +89,7 @@ class Cleaner():
         # action=(str)[install, config_change, upgrade, snapshot, normal], 
         # argv_list=(list) 
         #    -t, dir_type=(str) [uploads, backups, logs]
-        #    -ni (non-interactive)
+        #    --ni (non-interactive)
         # ignore_list(list) list of list in order of directories list,
         
         action = command_obj.get("action")
@@ -95,7 +97,7 @@ class Cleaner():
         ignore_list = command_obj.get("ignore_list",[])        
 
         non_interactive = False
-        if "-ni" in argv_list:
+        if "-ni" in argv_list or "--ni" in argv_list:
             non_interactive = True
             
         self.total_file_count = 0

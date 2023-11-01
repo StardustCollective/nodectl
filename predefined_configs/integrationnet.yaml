@@ -152,4 +152,4 @@ nodectl:
   global_elements:
     metagraph_name: integrationnet
     nodectl_yaml: v2.0.0
-    log_level: DEBUG
+    log_level: INFO

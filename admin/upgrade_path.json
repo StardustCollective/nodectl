@@ -3,8 +3,8 @@
     "v2.8.1","v2.8.0","v2.7.1","v1.12.0","v1.11.7","v1.8.1","v0.14.1","v0.1.0"
   ],
   "testnet": {
-    "version": "v2.9.0",
-    "upgrade": "True"
+    "version": "v2.8.1",
+    "upgrade": "False"
   },
   "mainnet": {
     "version": "v2.8.1",
@@ -14,5 +14,5 @@
     "version": "v2.8.1",
     "upgrade": "False"
   },
-  "nodectl_config":  "v1.0.0"
+  "nodectl_config": "v2.0.0"
 }

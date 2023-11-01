@@ -8,12 +8,12 @@ from termcolor import colored, cprint
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
+from .config.versioning import Versioning
 
 class P12Class():
         
     def __init__(self,command_obj,debug=False):
-        
-        self.error_messages = Error_codes() 
+
         self.log = Logging()
         
         self.id_file_name = "id_ecdsa.hex"
@@ -27,18 +27,20 @@ class P12Class():
         self.user = command_obj.get("user_obj",None)
         self.cli = command_obj.get("cli_obj",None)
         process = command_obj.get("process",None)
-        self.config_obj = command_obj["config_obj"]
-        
-        self.functions = Functions(self.config_obj)
- 
+        self.functions = command_obj["functions"]
+        self.version_obj = self.functions.version_obj
+        self.config_obj = self.functions.config_obj 
         self.profile = self.functions.default_profile
+        
+        self.error_messages = Error_codes(self.functions) 
+        
         if "profile" in command_obj:
             self.profile = command_obj["profile"]
                            
         try:
-            self.app_env = self.functions.config_obj[self.profile]["environment"]
+            self.app_env = self.config_obj[self.profile]["environment"]
         except:
-            self.app_env = command_obj["config_obj"]["global_elements"]["network_name"]
+            self.app_env = self.config_obj["global_elements"]["metagraph_name"]
             
         self.solo = False # part of install or solo request to create p12?
         if process == "install":
@@ -67,12 +69,17 @@ class P12Class():
     
     def ask_for_location(self):
         try:
-            self.p12_file_location = self.functions.config_obj["global_p12"]["key_store"]
+            self.p12_file_location = self.config_obj["global_p12"]["key_store"]
         except:
-            if not self.existing_p12:
-                self.p12_file_location = f"/home/{self.user.username}/tessellation/"
+            self.existing_p12 = False
+            
+        if not self.existing_p12:
+            self.p12_file_location = f"/home/{self.user.username}/tessellation/"
             # path will be created if it doesn't exist at p12 generation (generate method)
-            print(colored("\n  Default location for your p12 file storage created","cyan").ljust(40,"."))
+            self.functions.print_clear_line()
+            self.functions.print_paragraphs([
+                ["",1], ["Default location for your p12 file storage created.",1],
+            ])
 
         self.functions.print_paragraphs([
             ["location",0], [self.p12_file_location,2,"yellow"],
@@ -220,7 +227,7 @@ class P12Class():
                 self.set_variables(False,profile)   
             
             try:
-                if profile == "global" and passwd == False and self.functions.config_obj["upgrader"] == False:
+                if profile == "global" and passwd == False and self.config_obj["upgrader"] == False:
                     cprint("  Global profile passphrase not found.","yellow")
             except:
                 self.error_messages.error_code_messages({
@@ -244,14 +251,14 @@ class P12Class():
             valid = self.unlock()
             if valid:
                 if operation == "config_file" and manual == True:
-                    self.functions.config_obj["p12_cli_pass_global"] = True
+                    self.config_obj["p12_cli_pass_global"] = True
                     if profile == "global":
-                        self.functions.config_obj["global_p12"]["passphrase"] = passwd
-                        if self.functions.config_obj["all_global"]:
-                            for pass_profile in self.functions.config_obj.keys():
-                                self.functions.config_obj[pass_profile]["p12_passphrase"] = passwd
+                        self.config_obj["global_p12"]["passphrase"] = passwd
+                        if self.config_obj["all_global"]:
+                            for pass_profile in self.config_obj.keys():
+                                self.config_obj[pass_profile]["p12_passphrase"] = passwd
                     else:
-                        self.functions.config_obj[profile]["p12_passphrase"] = passwd
+                        self.config_obj[profile]["p12_passphrase"] = passwd
                 break
 
             self.log.logger.warn(f"invalid keyphrase entered [{attempts}] of 3")
@@ -323,11 +330,11 @@ class P12Class():
         # version >= 1.11.0
         self.log.logger.info("p12 file importing variables.")
         if is_global:
-            self.path_to_p12 = self.functions.config_obj["global_p12"]["key_location"]
-            self.p12_file = self.functions.config_obj["global_p12"]["key_name"]
+            self.path_to_p12 = self.config_obj["global_p12"]["key_location"]
+            self.p12_file = self.config_obj["global_p12"]["key_name"]
         else:
-            self.path_to_p12 = self.functions.config_obj[profile]["p12_key_location"]
-            self.p12_file = self.functions.config_obj[profile]["p12_key_name"]
+            self.path_to_p12 = self.config_obj[profile]["p12_key_location"]
+            self.p12_file = self.config_obj[profile]["p12_key_name"]
         
         
     def export_private_key_from_p12(self):
@@ -401,19 +408,19 @@ class P12Class():
             return
         
         if is_global:
-            passphrase = self.functions.config_obj["global_p12"]["passphrase"]
-            nodeadmin = self.functions.config_obj["global_p12"]["nodeadmin"]
-            key_location = self.functions.config_obj["global_p12"]["key_location"]
-            p12_key_name = self.functions.config_obj["global_p12"]["key_name"]
-            key_alias = self.functions.config_obj["global_p12"]["key_alias"]
-            key_store = self.functions.config_obj["global_p12"]["key_store"]
+            passphrase = self.config_obj["global_p12"]["passphrase"]
+            nodeadmin = self.config_obj["global_p12"]["nodeadmin"]
+            key_location = self.config_obj["global_p12"]["key_location"]
+            p12_key_name = self.config_obj["global_p12"]["key_name"]
+            key_alias = self.config_obj["global_p12"]["key_alias"]
+            key_store = self.config_obj["global_p12"]["key_store"]
         else:
-            passphrase =self.functions.config_obj[profile]["p12_passphrase"]
-            nodeadmin =self.functions.config_obj[profile]["p12_nodeadmin"]
-            key_location =self.functions.config_obj[profile]["p12_key_location"]
-            p12_key_name =self.functions.config_obj[profile]["p12_key_name"]
-            key_alias =self.functions.config_obj[profile]["p12_key_alias"]            
-            key_store =self.functions.config_obj[profile]["p12_key_store"]
+            passphrase =self.config_obj[profile]["p12_passphrase"]
+            nodeadmin =self.config_obj[profile]["p12_nodeadmin"]
+            key_location =self.config_obj[profile]["p12_key_location"]
+            p12_key_name =self.config_obj[profile]["p12_key_name"]
+            key_alias =self.config_obj[profile]["p12_key_alias"]            
+            key_store =self.config_obj[profile]["p12_key_store"]
 
         self.log.logger.info("p12 file exporting p12 details into env variables.")
             
@@ -512,7 +519,7 @@ class P12Class():
         profile = self.functions.pull_profile({
             "req": "default_profile"
         })
-        backup_dir = self.functions.config_obj[profile]["directory_backups"]
+        backup_dir = self.config_obj[profile]["directory_backups"]
         p12_key_name_bk = p12_key_name.replace(".p12","_")
         if path.exists(p12_location):
             system(f"cp {p12_location} {backup_dir}{p12_key_name_bk}{datetime}.p12.bak > /dev/null 2>&1")

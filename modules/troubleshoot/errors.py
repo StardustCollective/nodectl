@@ -5,18 +5,17 @@ from types import SimpleNamespace
 
 from .logger import Logging
 
-
 class Error_codes():
     
-    def __init__(self,debug=False):
+    def __init__(self,functions,debug=False):
         self.log = Logging()
-        from ..functions import Functions
-        self.functions = Functions({
-            "global_elements": {"caller": "config"},
-            "sudo_rights": False
-        })
         self.debug = debug
-        
+        self.functions = functions
+        try: self.functions.test_valid_functions_obj()
+        except:
+            # exception for config_obj send instead of functions obj
+            from ..functions import Functions
+            self.functions = Functions(self.functions)
 
     def error_code_messages(self,command_obj):
         # error_code,line_code=None, extra=None, extra2=None:
@@ -118,6 +117,16 @@ class Error_codes():
             ])
 
             
+        elif "verification_failure" in str(var.line_code):
+            self.log.logger.critical(f"Unable to verify nodectl properly, please review and try again | {var.extra}")
+            self.functions.print_paragraphs([
+                ["HALTING ALL ACTIONS",2,"red","bold"],
+                ["A request to validate the authenticity of nodectl was interupted or failed.  This does not indicate that",0],
+                ["nodectl did not verify rather, nodectl could not obtain the proper elements to setup and",0],
+                ["perform the validation process",2],
+                ["Possible Reason:",0,"yellow"], [var.extra,2],
+            ])
+
         elif "service" in str(var.line_code):
             self.log.logger.critical("attempt to access the service file seems to have failed.")
             self.functions.print_paragraphs([
@@ -361,7 +370,15 @@ class Error_codes():
                     ["option or hint: ",0], [var.extra,2,"yellow"]
                 ])       
             
-            
+        
+        elif var.line_code == "invalid_search":
+            self.log.logger.warn(f"invalid search attempted could not continue.")
+            self.functions.print_paragraphs([
+                ["System has attempted to access a file to perform a search that returned an empty value.",0,"red"],
+                ["or",0,"yellow","bold"], ["the search request was unable to properly find the item or log entry requested.",1,"red"],
+                ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
+            ]) 
+                        
         elif var.line_code == "file_not_found":
             self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program.")
             self.functions.print_paragraphs([
@@ -390,6 +407,17 @@ class Error_codes():
                 ["nodectl configuration via:",0,"red","bold"],["sudo nodectl configure",2],
                 [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
+            ])            
+            
+            
+        elif var.line_code == "invalid_file_format":
+            self.log.logger.warn(f"invalid file format for file [{var.extra}], exited program. file could not be processed")
+            self.functions.print_paragraphs([
+                ["System detected an attempt import data from a file or a file.",0,"red","bold"],
+                ["nodectl is setup to access a file that may have been altered manually or is corrupted.",0,"red","bold"],
+                ["Please contact a System Administrator for assistance:",0,"red","bold"],["sudo nodectl configure",2],
+                [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
+                ["In some cases you can attempt to remove the file and have nodectl recreate it for you.",2,"magenta"],
             ])            
             
             
@@ -460,7 +488,6 @@ class Error_codes():
            
                       
     def print_error(self,when="end"):
-        #system("clear")
         if when == "start":
             self.functions.print_paragraphs([
                 ["",1], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
@@ -474,7 +501,7 @@ class Error_codes():
             ["TERMINATING",0,"yellow,on_red","bold"], ["nodectl",0,"yellow","bold"]                           
         ])
 
-        exit(1)  
+        exit("nodectl critical error detected")  
 
         
 if __name__ == "__main__":

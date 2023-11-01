@@ -3,35 +3,33 @@ import json
 
 from termcolor import colored
 from time import sleep
-from copy import deepcopy
 from re import match
 from os import system, path, get_terminal_size
 from sys import exit
-from secrets import compare_digest
 
 from .migration import Migration
-from ..troubleshoot.errors import Error_codes
 from ..functions import Functions
 from ..p12 import P12Class
+from ..troubleshoot.errors import Error_codes
 from ..troubleshoot.logger import Logging
+from .versioning import Versioning
 
 class Configuration():
     
     def __init__(self,command_obj):
-        
-        self.functions = Functions({
-            "global_elements": {"caller":"config"},
-            "sudo_rights": False
-        })
-        self.functions.check_sudo()
-        
+
         self.log = Logging()
         self.log.logger.info("configuration setup initialized")
         
+        self.versioning_service = False
         self.argv_list = command_obj["argv_list"]
-        
-        if "help" in self.argv_list[0]:
-            return
+        if "uvos" in self.argv_list: 
+            # do not log if versioning service initialized Configuration
+            self.versioning_service = True
+            for handler in self.log.logger.handlers[:]:
+                self.log.logger.removeHandler(handler)
+                
+        if "help" in self.argv_list[0]: return
 
         self.config_obj = {}
         self.error_list = []
@@ -42,18 +40,10 @@ class Configuration():
             self.called_command = self.argv_list[1]
         except:
             self.called_command = "exit"
-            
-        # rebuild functions with errors and logging
-        self.functions = Functions({
-            "global_elements": {"caller": "config"},
-        })
-
-        self.error_messages = Error_codes() 
         
         execute = command_obj["implement"]
         self.action = command_obj["action"]        
         self.skip_final_report = command_obj.get("skip_report",False)
-        self.yaml_file = '/var/tessellation/nodectl/cn-config.yaml'
         
         if "view" in self.action or self.action == "-vc":
             self.view_yaml_config("normal")
@@ -71,16 +61,34 @@ class Configuration():
             "profile": None,
             "enabled": True
         }
-        
+        self.build_function_obj(False)
         if execute or self.do_validation:
             self.implement_config()
         
 
+    def build_function_obj(self,config_obj):
+        check_sudo = False
+        if not config_obj:
+            config_obj = {
+                "global_elements": {"caller":"config"},
+                "sudo_rights": False,
+            }
+            check_sudo = True
+        else:
+            config_obj["global_elements"] = {
+                **config_obj["global_elements"],
+                "caller": "config"
+            }
+        self.functions = Functions(config_obj)
+        self.error_messages = Error_codes(self.functions)
+        if check_sudo: self.functions.check_sudo()
+        
+                
     def implement_config(self):
         continue_list = ["normal","edit_config","edit_on_error"]
         
         self.setup_schemas()
-        self.build_yaml_dict()
+        self.build_yaml_dict(True)
         self.check_for_migration()
         self.finalize_config_tests()
         self.validate_yaml_keys()
@@ -119,12 +127,14 @@ class Configuration():
             return
         
         
-    def build_yaml_dict(self,return_dict=False):
+    def build_yaml_dict(self,nodectl_only=False):
+        # nodectl_only refers to version fetch type
+        self.yaml_file = f'{self.functions.nodectl_path}cn-config.yaml'
         try:
             with open(self.yaml_file, 'r', encoding='utf-8') as f:
                 yaml_data = f.read()
         except:
-            if path.isfile("/usr/local/bin/cn-node") and not path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
+            if path.isfile("/usr/local/bin/cn-node") and not path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
                 if self.called_command != "upgrade":
                     self.error_messages.error_code_messages({
                         "error_code": "cfg-99",
@@ -170,15 +180,21 @@ class Configuration():
             **self.yaml_dict[self.nodectl_config_simple_format_check[0]],
         }
         
-        if return_dict:
-            return self.config_obj
+        self.build_function_obj(self.config_obj) # rebuild function obj
+        called_cmd = "show_version" if nodectl_only else "config_obj"
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "print_messages": False,
+            "called_cmd": called_cmd,
+        })
+        self.functions.version_obj = versioning.get_version_obj()
+        self.functions.set_statics()
         
         
     def check_for_migration(self):
         self.functions.pull_upgrade_path(True)
-        self.version_obj = self.functions.get_version({"which":"nodectl"})
-        nodectl_version = self.version_obj["node_nodectl_version"]
-        nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
+        nodectl_version = self.functions.version_obj["node_nodectl_version"]
+        nodectl_yaml_version = self.functions.version_obj["node_nodectl_yaml_version"]
         
         validate = True
         if len(self.nodectl_config_simple_format_check) > 1 or "nodectl" not in self.nodectl_config_simple_format_check[0]:
@@ -198,7 +214,7 @@ class Configuration():
             found_yaml_version = False
             
         if not found_yaml_version or found_yaml_version != nodectl_yaml_version:
-            self.log.logger.info(f"configuaration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
+            self.log.logger.info(f"configuration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
             if self.called_command != "upgrade":
                 self.error_messages.error_code_messages({
                     "error_code": "cfg-199",
@@ -208,7 +224,7 @@ class Configuration():
             self.config_obj = {}  # reset
             self.build_yaml_dict() # rebuild new configuration format
         else:
-            self.log.logger.debug(f"configuaration validator did not find a migration need for current configuration format - nodectl version [{nodectl_version}]")    
+            self.log.logger.debug(f"configuration validator did not find a migration need for current configuration format - nodectl version [{nodectl_version}]")    
             
             
     def finalize_config_tests(self):
@@ -282,17 +298,24 @@ class Configuration():
         
         
     def migration(self):
+        self.functions.config_obj = {
+            **self.config_obj,
+            **self.functions.config_obj,            
+        }
         self.migrate = Migration({
-            "config_obj": {
-                **self.config_obj,
-                **self.functions.config_obj,
-            }
+            "functions": self.functions,
         })
         if self.migrate.migrate():
             self.view_yaml_config("migrate")
         
 
     def view_yaml_config(self,action):
+        if self.called_command == "view_config":
+            self.build_function_obj({
+                "global_elements": {"caller":"config"},
+                "sudo_rights": False,
+            })
+        
         self.functions.print_header_title({
             "line1": "YAML CONFIGURATION",
             "line2": "cn-config.yaml review",
@@ -306,15 +329,15 @@ class Configuration():
             self.implement_config()
             self.functions.print_clear_line()
             print(colored(json.dumps(self.config_obj,indent=3),"cyan",attrs=['bold']))
-            exit(1)
+            exit("view config yaml in json format")
             
         do_more = False if "-np" in self.argv_list else True
         console_size = get_terminal_size()
         more_break = round(console_size.lines)-15
         more = False
         
-        if path.isfile("/var/tessellation/nodectl/cn-config.yaml"):
-            with open("/var/tessellation/nodectl/cn-config.yaml","r") as file:
+        if path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
+            with open(f"{self.functions.nodectl_path}cn-config.yaml","r") as file:
                 for n,line in enumerate(file):
                     print(colored(line.strip("\n"),"blue",attrs=['bold']))
                     if do_more and n % more_break == 0 and n > 0:
@@ -498,9 +521,10 @@ class Configuration():
             "caller": "config",
             "action": "normal_ops",
             "process": "normal_ops",
-            "config_obj": self.config_obj,
+            "functions": self.functions,
         }
         self.p12 = P12Class(p12_obj)
+        self.p12.functions = self.functions
                     
     
     def remove_disabled_profiles(self):
@@ -602,7 +626,7 @@ class Configuration():
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
         profile_obj = self.config_obj; self.profile_obj = profile_obj
         
-        if not self.auto_restart:
+        if not self.auto_restart and not self.versioning_service:
             self.functions.print_clear_line()
         
         for profile in self.metagraph_list:
@@ -641,7 +665,7 @@ class Configuration():
             if write_out:  
                 done_ip, done_key, done_port, current_profile, skip_write = False, False, False, False, False
                 self.log.logger.warn("found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
-                f = open("/var/tessellation/nodectl/cn-config.yaml")
+                f = open(f"{self.functions.nodectl_path}cn-config.yaml")
                 with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
                     for line in f:
                         skip_write = False
@@ -670,7 +694,7 @@ class Configuration():
                             newfile.write(line)
                 newfile.close()
                 f.close()
-                system("mv /var/tmp/cn-config-temp.yaml /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
+                system(f"mv /var/tmp/cn-config-temp.yaml {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
 
 
     def setup_schemas(self):   
@@ -1372,7 +1396,7 @@ class Configuration():
                 ["sudo nodectl configure",2,"green","bold"],
             ])
             self.functions.print_auto_restart_warning()
-            exit(1)
+            exit("configuration error")
         
         if self.action != "normal":
             self.functions.print_paragraphs([ 
@@ -1382,7 +1406,7 @@ class Configuration():
                 
                 
     def send_error(self,code,extra="existence",extra2=None):
-        self.log.logger.critical(f"configuration file [cn-config.yaml] error code [{code}] not reachable - should be in /var/tessellation/nodectl/")
+        self.log.logger.critical(f"configuration file [cn-config.yaml] error code [{code}] not reachable - should be in {self.functions.nodectl_path}")
         self.error_messages.error_code_messages({
             "error_code": code,
             "line_code": "config_error",

@@ -18,16 +18,14 @@ from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
 from ..shell_handler import ShellHandler
 from ..troubleshoot.errors import Error_codes
+from .versioning import Versioning
 
 class Configurator():
     
     def __init__(self,argv_list):
         self.log = Logging()
-        self.error_messages = Error_codes()
         self.log.logger.info("configurator request initialized")
 
-        self.debug = False
-                        
         self.config_path = "/var/tessellation/nodectl/"
         self.config_file = "cn-config.yaml"
         self.config_file_path = "/var/tessellation/nodectl/cn-config.yaml"
@@ -35,6 +33,8 @@ class Configurator():
         self.profile_to_edit = None
         self.config_obj = {}
         self.detailed = False if "-a" in argv_list else "init"
+        self.edit_error_msg = ""
+        
         self.keep_pass_visible = True
         self.action = False
         self.error_hint = False
@@ -47,7 +47,8 @@ class Configurator():
         self.skip_prepare = False
         self.is_file_backedup = False
         self.backup_file_found = False
-        self.edit_error_msg = ""
+        self.node_service = False
+        self.skip_clean_profiles_manual = False
         
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
@@ -66,13 +67,22 @@ class Configurator():
             self.action = "new"
 
         self.prepare_configuration("new_config")
+        self.error_messages = Error_codes(self.c.functions)
         self.setup()
         
 
+    def prepare_node_service_obj(self):
+        self.node_service = Node({"functions": self.c.functions}) 
+        self.node_service.functions.log = self.log
+        self.node_service.functions.version_obj = self.c.functions.version_obj
+        self.node_service.functions.set_statics()
+        self.node_service.functions.pull_profile({"req":"profile_names"})
+                
+                
     def prepare_configuration(self,action,implement=False):
         if action == "migrator":
             self.migrate = Migration({
-            "config_obj": self.c.functions.config_obj,
+            "functions": self.c.functions,
             "caller": "configurator"
             })
             return
@@ -88,13 +98,17 @@ class Configurator():
             "skip_report": True,
             "argv_list": [action],
         })
+
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "print_messages": False,
+            "called_cmd": "show_version",
+        })
         
         self.c.config_obj["global_elements"] = {"caller":"config"}
-        self.node_service = Node({
-            "config_obj": self.c.config_obj
-        },False) 
-
-        self.node_service.functions.pull_profile({"req":"profile_names"})
+        self.c.functions.log = self.log
+        self.c.functions.version_obj = versioning.version_obj
+        self.c.functions.set_statics()
         self.c.functions.pull_profile({"req":"profile_names"})
                 
         self.wrapper = self.c.functions.print_paragraphs("wrapper_only")
@@ -151,13 +165,12 @@ class Configurator():
                     self.c.functions.print_paragraphs(paragraphs)
                     
                     adv_mode = False
-                    if not self.debug:
-                        adv_mode = self.c.functions.confirm_action({
-                            "prompt": "Switch to advanced mode?",
-                            "yes_no_default": "n",
-                            "return_on": "y",
-                            "exit_if": False
-                        })
+                    adv_mode = self.c.functions.confirm_action({
+                        "prompt": "Switch to advanced mode?",
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "exit_if": False
+                    })
                     self.detailed = False if adv_mode == True else True
                     top_newline = "both"
             except:
@@ -741,6 +754,7 @@ class Configurator():
                 "brackets": profile,
             })
         
+        if not self.node_service: self.prepare_node_service_obj()
         self.node_service.config_obj = deepcopy(self.config_obj if len(self.config_obj)>0 else self.c.config_obj)
         self.node_service.profile_names = profile_list
         self.node_service.create_service_bash_file({
@@ -1706,7 +1720,7 @@ class Configurator():
                 description1 += "attempting to connect to. "
             if file_repo_type == "jar":
                 description1 = f"The {verb} version is currently disabled in nodectl's configuration and will serve as a placeholder "
-                description1 += "to be deprecated from the utility in future releases if deemed unnecessary.  nodectl will request "
+                description1 += "to be removed from the utility in future releases if deemed unnecessary.  nodectl will request "
                 description1 += "versioning during the upgrade process or by options from the command line when using the refresh "
                 description1 += "binaries feature.  Thank you for your patience and understanding. "
                 description1 += "Please leave as 'default' here. "
@@ -1753,7 +1767,7 @@ class Configurator():
                 },
             }
         
-            if one_off2 == "version":  questions.pop(f"{file_repo_type}_{one_off}")  # version will be deprecated.
+            if one_off2 == "version":  questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
             
         self.manual_append_build_apply({
             "questions": questions, 
@@ -2019,7 +2033,7 @@ class Configurator():
                 if return_option == "q": self.quit_configurator()
                 elif return_option != "r": return_option = self.edit_profile_sections()
                 if return_option == "e": self.edit_profiles() # return option can change again
-            elif option == "a": self.edit_append_profile_global("None")
+            # elif option == "a": self.edit_append_profile_global("None")
             elif option == "g": self.edit_append_profile_global("p12")
             elif option == "r": self.edit_auto_restart()
             elif option == "l": 
@@ -2337,13 +2351,19 @@ class Configurator():
         auto_upgrade_desc = "nodectl has a special automated feature called 'auto_upgrade' that will monitor your Node's on-line status. "
         auto_upgrade_desc += "In the event your Node is removed from the network because of a version upgrade, this feature will attempt "
         auto_upgrade_desc += "to bring your Node back up online; by including an Tessellation upgrade, with the restart. "
-        auto_restart_desc += "'auto_restart' must be enabled in conjunction with 'auto_upgrade'."
+        auto_upgrade_desc += "'auto_restart' must be enabled in conjunction with 'auto_upgrade'."
         auto_upgrade_desc += "Please be aware that this can be a dangerous feature, as in the (unlikely) event there are bugs presented in the new "
         auto_upgrade_desc += "releases, your Node will be upgraded regardless.  It is important to pay attention to your Node even if this feature "
         auto_upgrade_desc += "is enabled.  Please issue a 'sudo nodectl auto_upgrade help' for details."
         
+        on_boot_desc = "nodectl has an automated feature called 'on_boot' that simply allow your Node to start the 'auto_restart' "
+        on_boot_desc += "feature on restart ('warm' or 'cold' boot) of your VPS (virtual private server) or bare metal (physical) server "
+        on_boot_desc += "housing your Node. If you choose to enable 'on_boot' be aware that in the event you need to disable 'auto_restart' "
+        on_boot_desc += "in the future, for whatever purpose, it will re-engage if the system is restarted by a 'warm' or 'cold' boot."
+        
         restart = "disable" if self.c.config_obj["global_auto_restart"]["auto_restart"] else "enable"
         upgrade = "disable" if self.c.config_obj["global_auto_restart"]["auto_upgrade"] else "enable"
+        on_boot = "disable" if self.c.config_obj["global_auto_restart"]["on_boot"] else "enable"
         
         questions = {
             "auto_restart": {
@@ -2358,9 +2378,16 @@ class Configurator():
                 "default": "y" if upgrade == "disable" else "n",
                 "required": False,
             },
+            "on_boot": {
+                "question": f"  {colored('Do you want to [','cyan')}{colored(on_boot,'yellow',attrs=['bold'])}{colored('] start on boot up?','cyan')}",
+                "description": on_boot_desc,
+                "default": "y" if on_boot == "disable" else "n",
+                "required": False,
+            },
             "alt_confirm_dict": {
                 f"{restart} auto_restart": "auto_restart",
                 f"{upgrade} auto_upgrade": "auto_upgrade",
+                f"{on_boot} on_boot": "on_boot",
             }
         }
         
@@ -2369,32 +2396,94 @@ class Configurator():
             enable_answers = self.ask_confirm_questions({"questions": questions})
             enable_answers["auto_restart"] = enable_answers["auto_restart"].lower()
             enable_answers["auto_upgrade"] = enable_answers["auto_upgrade"].lower()
+            enable_answers["on_boot"] = enable_answers["on_boot"].lower()
+            
+            # auto_upgrade restrictions
             if restart == "disable" and upgrade == "disable":
                 if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "n":
+                    # cannot disable auto restart if auto upgrade is enabled
                     restart_error = True
 
             if restart == "disable" and upgrade == "enable":
                 if enable_answers["auto_restart"] == "y" and enable_answers["auto_upgrade"] == "y":
+                    # cannot disable auto restart if auto upgrade is being enabled
                     restart_error = True
 
             if restart == "enable" and upgrade == "enable":
                 if enable_answers["auto_restart"] == "n" and enable_answers["auto_upgrade"] == "y":
+                    # cannot disable auto restart if auto upgrade is enabled
                     restart_error = True
-                
+                    
+            # on_boot restrictions
+            if restart == "disable" and on_boot == "disable":
+                if enable_answers["auto_restart"] == "y" and enable_answers["on_boot"] == "n":
+                    # cannot enable on boot if auto_restart is disabled
+                    restart_error = True
+                    
+            if restart == "disable" and on_boot == "enable":
+                if enable_answers["auto_restart"] == "y" and enable_answers["on_boot"] == "y":
+                    # cannot disable auto restart if on_boot is being enabled
+                    restart_error = True      
+                                  
+            if restart == "enable" and on_boot == "enable":
+                if enable_answers["auto_restart"] == "n" and enable_answers["on_boot"] == "y":
+                    # cannot enable on boot if auto_restart is disabled
+                    restart_error = True
+
             if not restart_error:
                 shell = ShellHandler(self.c.config_obj,False)
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
+                # auto restart
                 if restart == "enable" and enable_answers["auto_restart"] == "y":
-                    self.c.functions.print_paragraphs([
-                        ["auto_restart",0,"yellow","bold"], ["will be enabled.",1],
-                    ])
-                    # shell.auto_restart_handler("enable",False,False)
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Starting auto_restart service",
+                        "status": "starting",
+                        "status_color": "yellow"
+                    })
+                    shell.auto_restart_handler("enable")
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Starting auto_restart service",
+                        "status": "started",
+                        "status_color": "green",
+                        "newline": True,
+                    })
                 elif restart == "disable" and enable_answers["auto_restart"] == "y":
-                    self.c.functions.print_paragraphs([
-                        ["auto_restart",0,"yellow","bold"], ["will be disabled.",1],
-                    ])
-                    # shell.auto_restart_handler("disable",False,False)
+                    shell.auto_restart_handler("disable",True)
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Stopping auto_restart service",
+                        "status": "stopped",
+                        "status_color": "green",
+                        "newline": True,
+                    })
+                
+                # on boot
+                if on_boot == "enable" and enable_answers["on_boot"] == "y":
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Enabling auto_restart on boot",
+                        "status": "enabling",
+                        "status_color": "yellow",
+                    })
+                    system('sudo systemctl enable node_restart@"enable" > /dev/null 2>&1')
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Enabling auto_restart on boot",
+                        "status": "enabled",
+                        "status_color": "green",
+                        "newline": True,
+                    })
+                elif on_boot == "disable" and enable_answers["on_boot"] == "y":
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Disabling auto_restart on boot",
+                        "status": "disabling",
+                        "status_color": "yellow",
+                    })
+                    system('sudo systemctl disable node_restart@"enable" > /dev/null 2>&1')
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Disabling auto_restart on boot",
+                        "status": "disabled",
+                        "status_color": "green",
+                        "newline": True,
+                    })
                 break
             self.c.functions.print_paragraphs([
                 [" ERROR ",0,"yellow,on_red"], ["auto_upgrade cannot be enabled without auto_restart, please try again.",1,"red"]
@@ -2403,10 +2492,13 @@ class Configurator():
         self.config_obj_apply = {"global_auto_restart":{}}
         self.config_obj_apply["global_auto_restart"]["auto_restart"] = "False" if enable_answers["auto_restart"] == "y" else "True"
         self.config_obj_apply["global_auto_restart"]["auto_upgrade"] = "False" if enable_answers["auto_upgrade"] == "y" else "True"
+        self.config_obj_apply["global_auto_restart"]["on_boot"] = "False" if enable_answers["on_boot"] == "y" else "True"
         if restart == "enable":
             self.config_obj_apply["global_auto_restart"]["auto_restart"] = "True" if enable_answers["auto_restart"] == "y" else "False"
         if upgrade == "enable":
             self.config_obj_apply["global_auto_restart"]["auto_upgrade"] = "True" if enable_answers["auto_upgrade"] == "y" else "False"
+        if on_boot == "enable":
+            self.config_obj_apply["global_auto_restart"]["on_boot"] = "True" if enable_answers["on_boot"] == "y" else "False"
         
         self.apply_vars_to_config()
 
@@ -2725,6 +2817,24 @@ class Configurator():
                 "defaults": defaults,
                 "profile": profile,
             })
+            
+            if self.c.config_obj["global_auto_restart"]["auto_restart"] == True:
+                shell = ShellHandler(self.c.config_obj,False)
+                shell.argv = []
+                shell.profile_names = self.metagraph_list
+                self.c.functions.print_cmd_status({
+                    "text_start": "Restarting auto_restart service",
+                    "status": "restarting",
+                    "status_color": "yellow"
+                })
+                shell.auto_restart_handler("restart",True)
+                self.c.functions.print_cmd_status({
+                    "text_start": "Restarting auto_restart service",
+                    "status": "restarted",
+                    "status_color": "green",
+                    "newline": True,
+                })
+                self.c.functions.print_any_key({})
         
     # =====================================================
     # OTHER
@@ -2745,7 +2855,7 @@ class Configurator():
                 self.c.functions.set_default_variables({"skip_error",True})
                 backup_dir = self.c.config_obj[self.c.functions.default_profile]["directory_backups"]
             except:
-                backup_dir = "/var/tessellation/nodectl/"
+                backup_dir = self.config_path
                                 
             self.c.functions.print_cmd_status(progress)
             if path.isfile(self.config_file_path):
@@ -2935,7 +3045,7 @@ class Configurator():
     def cleanup_old_profiles(self):
         cleanup = False
         clean_up_old_list = []
-        self.log.logger.info("configuator is verifying old profile cleanup.")
+        self.log.logger.info("configurator is verifying old profile cleanup.")
         
         self.c.functions.print_header_title({
             "line1": "CLEAN UP OLD PROFILES",
@@ -2973,11 +3083,12 @@ class Configurator():
                 "return_on": "y",
                 "prompt": "Remove old profiles?",
                 "exit_if": False
-            })    
+            })   
+            if not self.clean_profiles: self.skip_clean_profiles_manual = True 
             if self.clean_profiles:
                 for profile in clean_up_old_list:
                     system(f"sudo rm -rf /var/tessellation/{profile} > /dev/null 2>&1")
-                    self.log.logger.info(f"configuration removed abandend profile [{profile}]")      
+                    self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
                         "brackets": profile,
@@ -3014,7 +3125,10 @@ class Configurator():
         
         if self.print_old_file_warning("profiles"): return
         if not self.clean_profiles:
-            cprint("  profile cleanup declined, skipping...","red")
+            verb, color = "not necessary", "green"
+            if self.skip_clean_profiles_manual:
+                verb, color = "declined", "red"
+            cprint(f"  service cleanup {verb}, skipping...",color,attrs=["bold"])
             return
             
         for old_profile in self.old_last_cnconfig.keys():
@@ -3074,7 +3188,7 @@ class Configurator():
                     
                         
     def cleanup_create_snapshot_dirs(self):
-        self.log.logger.info("configuator is verifying snapshot data directory existance and contents.")
+        self.log.logger.info("configurator is verifying snapshot data directory existence and contents.")
                     
         # this will look at the new configuration and if it sees that a config
         # with the same name (or the same config) has data snapshots, it will
@@ -3086,12 +3200,10 @@ class Configurator():
             "newline": "both"
         })        
         
-        for profile in self.metagraph_list:
+        old_metagraph_list = self.c.functions.clear_global_profiles(self.old_last_cnconfig)
+        for profile in old_metagraph_list:
             found_snap = False
-            if self.config_obj[profile]["layer"] == "1":
-                if not path.isdir(f"/var/tessellation/{profile}/"):
-                    makedirs(f"/var/tessellation/{profile}/")
-            elif self.config_obj[profile]["layer"] < 1:
+            if self.old_last_cnconfig[profile]["layer"] < 1:
                 found_snap_list = [
                     f"/var/tessellation/{profile}/data/snapshot",
                     f"/var/tessellation/{profile}/data/incremental_snapshot",
@@ -3102,13 +3214,11 @@ class Configurator():
                     if path.isdir(lookup_path) and listdir(lookup_path):
                         self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
                         found_snap = True
-                    elif not path.isdir(lookup_path):
-                        makedirs(lookup_path)
                 
                     if found_snap:
                         found_snap = False
                         lookup_path_abbrv = lookup_path.split("/")[-1]
-                        self.log.logger.info("configuartor cleaning up old snapshots")
+                        self.log.logger.info("configurator cleaning up old snapshots")
                         self.c.functions.print_paragraphs([
                             ["",1], ["An existing",0], ["snapshot",0,"cyan","bold"],
                             ["directory structure exists",1], 
@@ -3135,8 +3245,6 @@ class Configurator():
                             })
                             system(f"sudo rm -rf {lookup_path} > /dev/null 2>&1")
                             sleep(1)
-                            if not path.isdir(lookup_path):
-                                makedirs(lookup_path)
                             self.c.functions.print_cmd_status({
                                 **progress,
                                 "status": "complete",
@@ -3145,9 +3253,29 @@ class Configurator():
                             })  
                             sleep(1.5) # allow Node Operator to see results
                         else:
-                            self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.")                  
+                            self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.") 
+
+
+        for profile in self.metagraph_list:
+            progress = {
+                "text_start": "Building new profile directories",
+                "brackets": profile,
+                "status": "running",
+                "status_color": "yellow",
+            }         
+            self.c.functions.print_cmd_status(progress)
+            status, color = "exists", "yellow"
+            if not path.isdir(f"/var/tessellation/{profile}/"):
+                status, color = "complete","green"
+                makedirs(f"/var/tessellation/{profile}/")        
+            self.c.functions.print_cmd_status({
+                **progress,
+                "status": status,
+                "status_color": color,
+                "newline": True,
+            })  
         
-        
+                
     def tcp_change_preparation(self,profile):
         if self.detailed:
             self.c.functions.print_paragraphs([
@@ -3204,7 +3332,7 @@ class Configurator():
             self.c.functions.print_any_key({"prompt":"Press any key to return and try again"})
             self.edit_profile_sections("RETRY")
         else:
-            exit(1)
+            exit("invalid input detected")
         
 
     def print_quit_option(self):

@@ -1,4 +1,3 @@
-#!/bin/env python
 from sys import argv, exit
 from modules.shell_handler import ShellHandler
 from termcolor import colored
@@ -9,7 +8,6 @@ from modules.config.configurator import Configurator
 
 global debug
 debug = False
-
 
 def cli_commands(argv_list):
     current_shell = False
