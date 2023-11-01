@@ -21,7 +21,7 @@ def build_help(command_obj):
       "reboot","disable_root_ssh","enable_root_ssh",
       "clean_snapshots","update_seedlist", "check_source_connection",
       "health","sec","price","markets", "upgrade_path", 
-      "check_seedlist_participation", "check_version",
+      "check_seedlist_participation", "check_version", "uptime",
     ]
     
     help_text = f'''
@@ -30,15 +30,16 @@ def build_help(command_obj):
   usage:  sudo nodectl [ help [-h], status [-s], start, stop, leave, join,
                          health, sec, price, show_node_states [-sns], show_current_rewards [-scr],
                          find, peers, whoami, list, check_seedlist, update_seedlist [-usl],
-                         export_private_key, change_ssh_port <port>, 
+                         export_private_key, change_ssh_port <port>, download_status, [-ds],
                          restart, restart_only, slow_restart [-sr], check_seedlist_participation [-clsp],
-                         disable_root_ssh, enable_root_ssh, clean_snapshots,
+                         disable_root_ssh, enable_root_ssh, clean_snapshots, uptime,
                          check_connection [-cc], check_source_connection [-csc], 
                          reboot, send_logs [-sl], version [-v], check_versions [-cv],
                          clean_files [-cf], clear_uploads [-cul], log, id, nodeid,
                          passwd12, configure, validate_config [-val], view_config [-vc],
                          install, upgrade, upgrade-nodectl, upgrade_path [-up], verify_nodectl [-vn],
                          refresh_binaries [-rtb], auto_restart ], show_service_log [-ssl],
+                         show_dip_error [-sde],
                        
         optional: --pass <passphrase>   
           - Note: --pass will override the configuration's passphrase entry
@@ -164,7 +165,9 @@ def build_help(command_obj):
                              your nodeid is present on the seed list
     
     update_seedlist -e <environment_name> | - update the local copy of the seed list 
-                             
+      
+    uptime       | - check system, cluster, and Node uptime.
+                           
     slow_restart | - restart the node with a 600 second delay to
                          make sure it is fully off the network in the
                          event you are seeing connection issues or other
@@ -192,12 +195,18 @@ def build_help(command_obj):
                              
     check_seedlist_participation | - show access-list verse network comparison
                                      (pre-PRO score temporary feature)
-                                                            
+      
+    download_status  -p <profile> | - show a progress indicator following the 
+                                      progress of your DownloadInProgress None State
+                                                                                             
     show_node_states  | - show a list of known Node states                    
     
     show_service_log -p <profile> | - show the distribution service logs 
                                        associated with profile 
-                                       
+                                
+    show_dip_error -p <profile>  | - show any occurances of a DownloadInProgress error
+                                     located in the logs.
+                                            
     refresh_binaries -e <env> | - download latest binaries
                                   for latest release of Tessellation
                               
@@ -498,7 +507,72 @@ def build_help(command_obj):
      or
   # {colored('sudo nodectl -sl -p <profile_name>','cyan')}  
       '''
+  
+    if extended == "download_status":
+      help_text += title("Send Logs")
+      help_text += f'''
+  The {colored('download_status','cyan')} command can be used to 
+  monitor the progress of your Node's {colored('DownloadInProgress','yellow')} state.
     
+  During a Node's {colored('join','yellow')} process, to become part of the cluster 
+  for the profile(s) configured, the Node undergoes a series of essential 
+  initialization tasks to ensure it integrates and functions properly
+  as a peer on the cluster.
+
+  Once your Node completes the initial phases of authentication and 
+  becomes a peer on the cluster, it must synchronize and gain knowledge 
+  about the known blockchain before actively participating in consensus 
+  and earning rewards.  
+  
+  Constellation Network employs an {colored('incremental snapshot','yellow')} strategy 
+  to minimize the ingress "cost" for downloading blockchain snapshots. When a new 
+  Node joins the cluster, it will undergo a {colored('one time','red')} extended period
+  of learning about the entire blockchain. For an existing Node rejoining the cluster, 
+  it is required to calculate the differences between its previous state and the 
+  current blockchain state.
+    
+  Following authentication, your Node may temporarily remain in the 
+  {colored('WaitingForDownload','yellow')} state, which is a relatively inactive phase 
+  with no notable progress.  Due to this, when you execute the 
+  {colored('download_status','cyan')} command, it will monitor your Node's status, via
+  a timer [verses a progress indicator], continually checking until the 
+  Node transitions to {colored('DownloadInProgress','yellow')}.
+  
+  When in {colored('DownloadInProgress','yellow')} state, nodectl will actively oversee your Node's activities, 
+  presenting a progress indicator on the screen that provides an estimate 
+  of the completion percentage for this process.  
+  
+  Part 1: {colored('Downloading snapshots','cyan')}: Above the progress indicator, you'll find 
+          the snapshots being downloaded to your Node, displayed by their 
+          corresponding ordinal. This will be represented as a decreasing 
+          counter.
+
+  Part 2: {colored('BlockAcceptanceManager','cyan')}: The progress indicator will be
+          modified. You will see the "height" of the last snapshot block and 
+          the current "height" reached. This will be displayed as an increasing 
+          counter.
+  
+  To the right of the counters, you will see a differential counter to help ease the 
+  calculation of what is left to be processed from either part 1 or part 2.
+
+  required:
+  {colored('-p <profile_name>','green')}
+  
+  alternative shorthand option:
+  {colored('-ds','green')}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl download_status help','cyan')}
+     or
+  # {colored('sudo nodectl -ds help','cyan')}
+  
+  execute a log preparation for upload
+  # {colored('sudo nodectl download_status -p <profile_name>','cyan')}  
+     or
+  # {colored('sudo nodectl -ds -p <profile_name>','cyan')}  
+      '''
     
     if extended == "peers":
       help_text += title(extended)
@@ -621,10 +695,7 @@ def build_help(command_obj):
   {colored('  - restart','green')}
   {colored('  - status','green')}
   {colored('  - check_pid','green')}
-  
-  optional option:
-  {colored('--auto_upgrade','green')} 
-  
+
   {colored('IMPORTANT','red',attrs=['bold'])} 
   {colored('Do not rely on auto_restart completely as it is not "fool proof".','red')}
   
@@ -701,10 +772,6 @@ def build_help(command_obj):
   
   {colored('Auto upgrade','cyan')} can only be enabled with auto restart enabled.
   
-  Optionally if you are not using the configuration, you can enable auto_upgrade
-  by issuing the optional {colored('--auto_upgrade','cyan')} option when enabling
-  auto_restart from the command line.
-  
   During a Tessellation upgrade, the session will change.  This will trigger
   an auto restart.  During the restart, nodectl will identify the version of 
   Tessellation on the Node verses what is running on the cluster. If it does not
@@ -736,9 +803,6 @@ def build_help(command_obj):
   
   manual enable auto_restart services
   # {colored('sudo nodectl auto_restart enable','cyan')}
-  
-  manual enable auto_restart services with auto_upgrade
-  # {colored('sudo nodectl auto_restart enable --auto_upgrade','cyan')}
 
   manual disable auto_restart services
   # {colored('sudo nodectl auto_restart disable','cyan')}
@@ -801,6 +865,13 @@ def build_help(command_obj):
        
   optional option alias:
   {colored('-rtb','green')} 
+       
+  optional:
+  {colored('-v <version_string>','cyan')} 
+  
+  If {colored('-v <version_string>','cyan')} not added the latest known version will be downloaded. The
+  {colored('-v <version_string>','cyan')} should only be used in the event of a downgrade request or 
+  other unique scenarios that may warrant a older (or newer) release.
   
     Example Usage
   -------------
@@ -809,6 +880,10 @@ def build_help(command_obj):
   
   execute the {extended} command
   # {colored(f'sudo nodectl {extended} -e <environment_name>','cyan')}
+  
+  execute the {extended} command for mainnet with static 
+  version of example v1.11.4
+  # {colored(f'sudo nodectl {extended} -e mainnet -v v1.11.4 ','cyan')}
   '''      
         
         
@@ -832,6 +907,32 @@ def build_help(command_obj):
        
   optional option alias:
   {colored('-ssl','green')} 
+  
+    Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}
+  
+  execute the {extended} command
+  # {colored(f'sudo nodectl {extended} -p <profile>','cyan')}
+  '''      
+        
+        
+    if extended == "show_dip_error":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command takes one argument.
+  
+  This command will search the Tessellation log files for a 
+  given configured profile on the Node and output any 
+  occurrences of an error associated with the {colored('DownloadInProgress','yellow')}
+  which may result in the Node's state changing to {colored('WaitingForDownload','yellow')}.
+  
+  required:
+  {colored('-p <profile_name>','green')}
+       
+  optional option alias:
+  {colored('-sde','green')} 
   
     Example Usage
   -------------
@@ -883,9 +984,9 @@ def build_help(command_obj):
         help_text += title(extended)
         help_text += f'''
   
-  nodectl will go out and review the latest versions of both
-  Constellation Network Tessellation and nodectl. nodectl will review the
-  current github repo and compare it to the versions running
+  This command will request nodectl will go out and review the latest versions 
+  of both Constellation Network Tessellation and nodectl. nodectl will review 
+  the current github repo and compare it to the versions running
   on the Node.  
   
   It will report back {colored('True','green')} or {colored('False','red')}
@@ -896,6 +997,23 @@ def build_help(command_obj):
      
   optional option:
   {colored('-cv','green')} 
+  
+  optional parameters:
+  {colored('-p <profile_name>','cyan')} 
+  '''      
+  
+    if extended == "uptime":
+        help_text += title(extended)
+        help_text += f'''
+  
+  This command nodectl will go out and pull the uptime for the cluster
+  the Node itself and the system supporting the node.
+
+  - Cluster:  How long has the cluster been up
+  - Node:     How long has the Node been up
+  - System:   How long has the system whether
+              a Bare Metal or virtualize server
+              been up
   
   optional parameters:
   {colored('-p <profile_name>','cyan')} 
@@ -1294,8 +1412,8 @@ def build_help(command_obj):
   to {colored('upgrade','green',attrs=['bold'])} the local Constellation Node!
   
   optional:
-  {colored('-ni','green')} - {colored('non-interactive','cyan')}
-        If the {colored('-ni','cyan')} option is given at the command entry point, the upgrade 
+  {colored('--ni','green')} - {colored('non-interactive','cyan')}
+        If the {colored('--ni','cyan')} option is given at the command entry point, the upgrade 
         will not ask for interaction and will choose all default values 
         including:
           - picking the latest found {colored('version','yellow')} (unless {colored('-v','cyan')} is specified as well)
@@ -1315,7 +1433,7 @@ def build_help(command_obj):
         example) {colored('v2.0.0','cyan')}
   {colored('-f','green')} - {colored('force','cyan')}
         If specified at the command line, nodectl will not check version 
-        specifications when accompanied by the {colored('-ni','cyan')} or {colored('-v','cyan')} parameter.  
+        specifications when accompanied by the {colored('--ni','cyan')} or {colored('-v','cyan')} parameter.  
         This will by-pass warning messages if you are attempting
         to install versions of nodectl or Tessellation that are not current, 
         custom, or that do not meet the current standard versioning 
@@ -1940,7 +2058,7 @@ def build_help(command_obj):
     if extended == "join_all":
         help_text += title("join -p all")
         help_text += f'''
-  {colored("This command has been deprecated after v1.12.0 of nodectl.","red")}
+  {colored("This command has been removed after v1.12.0 of nodectl.","red")}
   
   {colored("REASON","yellow")}
   {colored("------","yellow")}

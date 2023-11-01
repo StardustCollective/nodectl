@@ -5,22 +5,25 @@ import urllib3
 import csv
 import yaml
 import select
+import subprocess
+import socket
+import validators
 
 from getpass import getuser
-from re import match
+from re import match, sub, compile
 from textwrap import TextWrapper
 from requests import get
-from subprocess import Popen, PIPE, call, run
+from subprocess import Popen, PIPE, call, run, check_output
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
-from copy import copy
+from copy import copy, deepcopy
 from time import sleep, perf_counter
 from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
 from platform import platform
-from re import sub, compile
+
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir
 from sys import exit, stdout, stdin
 from pathlib import Path
@@ -29,29 +32,30 @@ from packaging import version
 from datetime import datetime
 from .troubleshoot.help import build_help
 from pycoingecko import CoinGeckoAPI
-import socket
-import validators
 
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 
 class Functions():
-        
+
     def __init__(self,config_obj):
-        self.sudo_rights = config_obj.get("sudo_rights",True)
+        self.sudo_rights = config_obj.get("sudo_rights", True)
         if self.sudo_rights:
             self.log = Logging()
-            self.error_messages = Error_codes() 
+        # set self.version_obj before calling set_statics
+        self.config_obj = config_obj
+        self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
+        self.version_obj = False
+
         
-        self.node_nodectl_version = "v2.10.0"
-        self.node_nodectl_version_brief = self.node_nodectl_version.replace(".","")
-        self.node_nodectl_yaml_version = "v2.0.0"
-        
-        exclude_config = ["-v","_v","version"]
-        
-        if config_obj["global_elements"]["caller"] in exclude_config:
-            return
-        
+    def set_statics(self):
+        self.error_messages = Error_codes(self.config_obj)         
+        # versioning
+        self.node_nodectl_version = self.version_obj["node_nodectl_version"]
+        self.node_nodectl_version_github = self.version_obj["nodectl_github_version"]
+        self.node_nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
+        self.upgrade_path = False
+
         # stop requests from caching results
         self.get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -59,47 +63,36 @@ class Functions():
             "Expires": "0"
         }
         urllib3.disable_warnings()
-        
-        # used for installation 
-        self.m_hardcode_api_host = "l0-lb-mainnet.constellationnetwork.io"
-        self.t_hardcode_api_host = "l0-lb-testnet.constellationnetwork.io"
-        self.i_hardcode_api_host = "l0-lb-integrationnet.constellationnetwork.io"
 
-        self.hardcode_api_port = 443
+        # used for installation 
+        self.lb_urls = {
+            "testnet": ["l0-lb-testnet.constellationnetwork.io",443],
+            "mainnet": ["l0-lb-mainnet.constellationnetwork.io",443],
+            "integrationnet": ["l0-lb-integrationnet.constellationnetwork.io",443],
+        }
         
         # constellation specific statics
-        self.be_mainnet = "be-mainnet.constellationnetwork.io"
+        self.be_urls = {
+            "testnet": "be-testnet.constellationnetwork.io",
+            "mainnet": "be-mainnet.constellationnetwork.io",
+            "integrationnet": "be-integrationnet.constellationnetwork.io",
+        }
         
         # constellation nodectl statics
-        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/{self.node_nodectl_version_brief}/admin/upgrade_path.json"
-        # dev
-        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/{self.node_nodectl_version_brief}/admin/upgrade_path.json"
-        
-        
-        self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_brief}/predefined_configs'
-        self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_brief}/predefined_configs"
-        self.nodectl_path = "/var/tessellation/nodectl/"
-        
-        # versioning
-        self.cluster_tess_version = "v0.0.0"  # if unable to return will force version checking to fail gracefully
-        self.node_tess_version = "v0.0.0"
-        self.latest_nodectl_version = "v0.0.0"
-        self.upgrade_path = False
-        self.version_obj = {}
+        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
+        self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
+        self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_github}/predefined_configs"
         
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
-        
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
-        self.auto_restart = False  # auto_restart will set this to True to avoid print statements
+
         
         try:
-            self.network_name = config_obj["global_elements"]["network_name"]
+            self.environment_name = self.config_obj["global_elements"]["metagraph_name"]
         except:
-            self.network_name = False
-            
-        self.config_obj = config_obj
+            self.environment_name = False
             
         self.default_profile = None
         self.default_edge_point = {}
@@ -109,185 +102,14 @@ class Functions():
         self.event = False # used for different threading events
         self.status_dots = False # used for different threading events
         
+        self.auto_restart = True if self.config_obj["global_elements"]["caller"] == "auto_restart" else False
         ignore_defaults = ["config","install","auto_restart","ts","debug"]
+        if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
 
-        if config_obj["global_elements"]["caller"] not in ignore_defaults:
-            self.set_default_variables({})
-            
-        pass
- 
+
     # =============================
     # getter functions
     # =============================
-        
-    def get_version(self,command_obj):
-        #which=(str), print_message=(bool)
-        print_message = command_obj.get("print_message",True)
-        action = command_obj.get("action","normal")
-        which = command_obj["which"]
-
-        # handle auto_restart
-        print_message = False if self.auto_restart else print_message
-        self.pre_release = False
-        
-        with ThreadPoolExecutor() as executor:                            
-            def print_msg():
-                if print_message:
-                    self.print_clear_line()
-                    self.event = True
-                    _ = executor.submit(self.print_spinner,{
-                        "msg": "Gathering Tessellation version info",
-                        "color": "magenta",
-                    })  
-            
-            
-            def get_running_tess_on_node():
-                def thread_or_not():
-                    node_tess_version = self.process_command({
-                        "bashCommand": bashCommand,
-                        "proc_action": "wait"
-                    })
-                    try:
-                        node_tess_version = node_tess_version.strip("\n")
-                    except:
-                        node_tess_version = "X.X.X"
-                    if self.node_tess_version == "":
-                        node_tess_version = "X.X.X"
-                    if not "v" in node_tess_version and not "V" in node_tess_version:
-                        node_tess_version = f"v{node_tess_version}"
-                    node_tess_version_obj[profile] = {
-                        "node_tess_version": node_tess_version,
-                        "node_tess_jar": jar,
-                    } 
-                                        
-                node_tess_version_obj = {}
-                for profile in self.profile_names:
-                    jar = self.config_obj[profile]["jar_file"]
-                    bashCommand = f"/usr/bin/java -jar /var/tessellation/{jar} --version"
-                    if print_message: # not auto_restart
-                        with ThreadPoolExecutor() as executor:
-                            _ = executor.submit(thread_or_not)
-                    else:
-                        thread_or_not()
-
-                self.node_tess_version = node_tess_version_obj
-                    
-                    
-            def get_cluster_tess(action,network):
-                def thread_or_not():
-                    version = self.get_api_node_info({
-                        "api_host": self.config_obj[profile]["edge_point"],
-                        "api_port": self.config_obj[profile]["edge_point_tcp_port"],
-                        "info_list": ["version"],
-                        "tolerance": 2,
-                    })
-                    # version = ["1.11.3"]  # debugging
-                    cluster_tess_version_obj[profile] = f"v{version[0]}" 
-                                       
-                cluster_tess_version_obj = {}
-                if action == "normal":
-                    for profile in self.profile_names:
-                        if print_message: # not auto_restart
-                            with ThreadPoolExecutor() as executor:
-                                _ = executor.submit(thread_or_not)
-                        else:
-                            thread_or_not()
-                elif action == "install":
-                    if network == "mainnet":
-                        # use the hardcoded version because no configuration to start installation
-                        api_host = self.m_hardcode_api_host
-                        api_port = self.hardcode_api_port
-                    elif network == "testnet":
-                        # use the hardcoded version
-                        api_host = self.t_hardcode_api_host
-                        api_port = self.hardcode_api_port
-                    elif network == "integrationnet":
-                        # use the hardcoded version
-                        api_host = self.i_hardcode_api_host
-                        api_port = self.hardcode_api_port
-                    version = self.get_api_node_info({
-                        "api_host": api_host,
-                        "api_port": api_port,
-                        "info_list": ["version"],
-                        "tolerance": 2,
-                    })
-                    # version = ["1.11.3"]  # debugging
-                    for profile in self.profile_names:
-                        cluster_tess_version_obj[profile] = f"v{version[0]}"
-                self.cluster_tess_version = cluster_tess_version_obj
-                    
-                    
-            def get_latest_nodectl(network):
-                self.pull_upgrade_path()
-                self.latest_nodectl_version = self.upgrade_path[network]["version"]
-
-            profile = None if action == "normal" else "skip"
-            if command_obj["which"] != "nodectl":
-                self.set_default_variables({
-                    "profile": profile,
-                })
-                
-            if which == "nodectl":
-                self.log.logger.info(f"node nodectl version: [{self.node_nodectl_version}] nodectl_yaml_version [{self.node_nodectl_yaml_version}]")
-                return {
-                    "node_nodectl_version":self.node_nodectl_version,
-                    "node_nodectl_yaml_version":self.node_nodectl_yaml_version
-                }
-            elif which == "current_tess":
-                print_msg()
-                get_running_tess_on_node() 
-                if print_message:
-                    print(colored(" ".ljust(50),"magenta"),end="\r")
-                self.log.logger.info(f"node tess version: [{self.node_tess_version}]")
-                self.event = False
-                return self.node_tess_version
-            elif which == "cluster_tess":
-                print_msg()
-                get_cluster_tess(action,self.network_name) 
-                if print_message:
-                    print(colored(" ".ljust(50),"magenta"),end="\r")
-                self.log.logger.info(f"cluster tess version: [{self.cluster_tess_version}]")
-                self.event = False
-                return self.cluster_tess_version
-            elif which == "latest_nodectl":
-                get_latest_nodectl(self.network_name) 
-                if print_message:
-                    print(colored(" ".ljust(50),"magenta"),end="\r")
-                self.log.logger.info(f"repository nodectl version: [{self.latest_nodectl_version}]")
-                self.event = False
-                return self.latest_nodectl_version
-            elif which == "nodectl_all":
-                get_latest_nodectl(self.network_name)
-                self.event = False
-                return {
-                    "node_nodectl_version":self.node_nodectl_version,
-                    "latest_nodectl_version": self.latest_nodectl_version,
-                    "pre_release": self.pre_release
-                }
-            else:
-                print_msg()
-                get_running_tess_on_node() 
-                # get_cluster_tess too slow
-                get_latest_nodectl(self.network_name) 
-                
-                self.event = False
-                if which == "all":
-                    return {
-                        "node_nodectl_version":self.node_nodectl_version,
-                        "node_tess_version": self.node_tess_version,
-                        "cluster_tess_version": self.cluster_tess_version,
-                        "upgrade_path": self.upgrade_path,
-                        "pre_release": self.pre_release
-                    }
-                else:
-                    return {
-                        "node_nodectl_version":self.node_nodectl_version,
-                        "node_tess_version": self.node_tess_version,
-                        "upgrade_path": self.upgrade_path,
-                        "pre_release": self.pre_release
-                    }
-
-
     def get_crypto_price(self):
         pricing_list = ["N/A","N/A","N/A","N/A","N/A","N/A"]  
         # The last element is used for balance calculations
@@ -428,6 +250,7 @@ class Functions():
                     api_port = peer_obj["publicPort"]
                 except:
                     api_port = self.get_info_from_edge_point({
+                        "caller": "get_peer_count",
                         "profile": profile,
                         "desired_key": "publicPort",
                         "specific_ip": ip_address,
@@ -475,6 +298,7 @@ class Functions():
                 api_port = edge_obj["publicPort"]
             except:
                 api_port = self.get_info_from_edge_point({
+                    "caller": "get_peer_count",
                     "profile": profile,
                     "desired_key": "publicPort",
                     "specific_ip": edge_obj["ip"],
@@ -650,24 +474,54 @@ class Functions():
         backward = command_obj.get("backward",True) 
         r_days = command_obj.get("days",False) # requested days
         elapsed = command_obj.get("elapsed",False)
+        old_time = command_obj.get("old_time",False)
         
         if action == "date":
             return datetime.now().strftime("%Y-%m-%d")
         elif action == "datetime":
             return datetime.now().strftime("%Y-%m-%d-%H:%M:%SZ")
+        elif action == "get_elapsed":
+            old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            return datetime.now() - old_time
+        elif action == "future_datetime":
+            new_time = datetime.now()
+            new_time += timedelta(seconds=elapsed)
+            return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
         elif action == "estimate_elapsed":
-            hours = False
-            elapsed_time = elapsed.seconds/60
-            if elapsed_time > 60:
-                elapsed_time = elapsed_time/60
-                hours = True   
-            elapsed_time = round(elapsed_time,2) 
-            elapsed = f"~{elapsed_time}M"
-            if hours:
-                elapsed = f"~{elapsed_time}H"
-            return elapsed
+            total_seconds = int(elapsed.total_seconds())
+            days, seconds = divmod(total_seconds, 86400) 
+            hours, seconds = divmod(seconds, 3600)  
+            minutes, seconds = divmod(seconds, 60)
+            result = "~"
+            if days > 0:
+                result += f"{days}D "
+            if hours > 0:
+                result += f"{hours}H "
+            if minutes > 0:
+                result += f"{minutes}M "
+            result += f"{seconds}S"
+            return result
+        elif action == "session_to_date":
+            elapsed = elapsed/1000
+            elapsed = datetime.fromtimestamp(elapsed)
+            return elapsed.strftime("%Y-%m-%d-%H:%M:%SZ")
+        elif action == "uptime_seconds":
+            uptime_output = check_output(["uptime"]).decode("utf-8")
+            uptime_parts = uptime_output.split()
+            uptime_string = uptime_parts[3]
+            uptime = uptime_parts[2]
+
+            if "min" in uptime_string:
+                uptime_minutes = int(uptime.split()[0])
+                uptime_seconds = uptime_minutes * 60
+            elif "sec" in uptime_string:
+                uptime_seconds = int(uptime.split()[0])
+            else:
+                uptime_hours, uptime_minutes = map(int, uptime.split(":"))
+                uptime_seconds = (uptime_hours * 60 + uptime_minutes) * 60
+            return uptime_seconds
         else:
-            # if the action is an 
+            # if the action is default 
             return_val = datetime.now()+timedelta(days=r_days)
             if backward:
                 return_val = datetime.now()-timedelta(days=r_days)
@@ -683,25 +537,24 @@ class Functions():
             arch = "arm64"
         return arch       
     
-    
-    def get_size(self,start_path = '.',single=False):
-        if single:
-            return path.getsize(start_path)
-        total_size = 0
-        for dirpath, dirnames, filenames in walk(start_path):
-            for f in filenames:
-                fp = path.join(dirpath, f)
-                # skip if it is symbolic link
-                if not path.islink(fp):
-                    total_size += path.getsize(fp)
-        
-        return total_size    
+
+    def get_percentage_complete(self, start, end, current, invert=False):
+        if current < start:
+            return 0
+        elif current >= end:
+            return 100
+        total_range = end - start
+        current_range = current - start
+        percentage = (current_range / total_range) * 100
+        if invert: percentage = 100 - percentage
+        return int(percentage) 
     
 
     def get_info_from_edge_point(self,command_obj):
         # api_endpoint_type=(str) [consensus, info]
         # specific_ip=(ip_address) # will set range to 0 and not do a random
         profile = command_obj.get("profile")
+        caller = command_obj.get("caller",False) # for logging and troubleshooting
         api_endpoint_type = command_obj.get("api_endpoint_type","info")
         desired_key = command_obj.get("desired_key","all")
         desired_value = command_obj.get("desired_value","cnng_current")
@@ -712,6 +565,7 @@ class Functions():
         threaded = command_obj.get("threaded", False)
         cluster_info = []
         
+        if caller: self.log.logger.debug(f"get_info_from_edge_point called from [{caller}]")
             
         api_str = "/cluster/info"
         if api_endpoint_type == "consensus":
@@ -741,7 +595,9 @@ class Functions():
                 self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                 pass
             
-            cluster_info_tmp = cluster_info
+            cluster_info_tmp = deepcopy(cluster_info)
+            self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{len(cluster_info)}]")
+            
             try:
                 cluster_info_tmp.pop()
             except:
@@ -762,6 +618,8 @@ class Functions():
                         if specific_ip == i_node["ip"]:
                             node = i_node
                             break
+                
+                self.log.logger.debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked: [{node}]")
                 
                 node["specific_ip_found"] = False
                 if specific_ip:
@@ -787,6 +645,7 @@ class Functions():
         # api_host=(str), api_port=(int), info_list=(list)
         api_host = command_obj.get("api_host")
         api_port = command_obj.get("api_port")
+        api_endpoint = command_obj.get("api_endpoint","/node/info")
         info_list = command_obj.get("info_list","all")
         tolerance = command_obj.get("tolerance",2)
         
@@ -808,7 +667,7 @@ class Functions():
         #         "id":"70e149abe4cc8eee53ba53d393152751496289f541452bd6d2b1d312dd37bb3c57692bad33069f5e7f521617992b87e1b388873c9672c01f71a0a16483fc27e5" #PeerId
         #     }
         
-        api_url = self.set_api_url(api_host, api_port,"/node/info")
+        api_url = self.set_api_url(api_host, api_port, api_endpoint)
         
         if info_list[0] == "all":
             info_list = ["state","session","clusterSession","host","version","publicPort","p2pPort","id"]
@@ -826,7 +685,10 @@ class Functions():
             else:
                 break
 
-        self.log.logger.info(f"session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
+        if len(session) < 2 and "data" in session.keys():
+            session = session["data"]
+            
+        self.log.logger.debug(f"get_api_node_info --> session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
         try:
             for info in info_list:
                 result_list.append(session[info])
@@ -847,9 +709,9 @@ class Functions():
                     response = get(url,timeout=2,headers=self.get_headers)
             except Exception as e:
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
-                if n > 1:
+                if n > tolerance-1:
                     self.error_messages.error_code_messages({
-                        "error_code": "cfr-240",
+                        "error_code": "fnt-876",
                         "line_code": "api_error",
                         "extra2": url,
                         "extra": None
@@ -983,6 +845,20 @@ class Functions():
         return self.key_pressed.lower()
 
 
+    def get_size(self,start_path = '.',single=False):
+        if single:
+            return path.getsize(start_path)
+        total_size = 0
+        for dirpath, dirnames, filenames in walk(start_path):
+            for f in filenames:
+                fp = path.join(dirpath, f)
+                # skip if it is symbolic link
+                if not path.islink(fp):
+                    total_size += path.getsize(fp)
+        
+        return total_size  
+    
+    
     def get_dir_size(self, r_path="."):
         total = 0
         if path.exists(r_path):
@@ -999,29 +875,34 @@ class Functions():
         action = command_obj.get("action","latest")
         ordinal = command_obj.get("ordinal",False)
         history = command_obj.get("history",50)
-        return_type = "list"
+        environment = command_obj.get("environment","mainnet")
+        return_values = command_obj.get("return_values",False)
+        lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
+        header = command_obj.get("header",self.get_headers)
+        get_results = command_obj.get("get_results","data")
+        return_type =  command_obj.get("return_type","list")
+        
         return_data = []
         error_secs = 2
         
-        be_uri = f"https://{self.be_mainnet}/"
         if action == "latest":
-            uri = f"{be_uri}global-snapshots/latest"
-            return_values = ["timestamp","ordinal"]
+            uri = f"{lookup_uri}global-snapshots/latest"
+            if not return_values: return_values = ["timestamp","ordinal"]
         elif action == "history":
-            uri = f"{be_uri}global-snapshots?limit={history}"
+            uri = f"{lookup_uri}global-snapshots?limit={history}"
             return_type = "raw"
         elif action == "ordinal":
-            uri = f"{be_uri}global-snapshots/{ordinal}"
+            uri = f"{lookup_uri}global-snapshots/{ordinal}"
         elif action == "rewards":
-            uri = f"{be_uri}global-snapshots/{ordinal}/rewards"
-            return_values = ["destination"]
+            uri = f"{lookup_uri}global-snapshots/{ordinal}/rewards"
+            if not return_values: return_values = ["destination"]
             return_type = "dict"
         
         try:
-            results = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
-            results = results["data"]
+            results = get(uri,verify=False,timeout=2,headers=header).json()
+            results = results[get_results]
         except Exception as e:
-            self.log.logger.warn(f"attempt to access backend explorer failed with | [{e}]")
+            self.log.logger.warn(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
             sleep(error_secs)
         else:
             if return_type == "raw":
@@ -1031,9 +912,10 @@ class Functions():
                     if return_type == "list":
                         return_data.append(results[value])
                     elif return_type == "dict":
+                        return_data = {}
                         for v in results:
-                            return_data.append(v[value])
-
+                            if not return_values or v in return_values:
+                                return_data[v] = results[v]
             return return_data
 
 
@@ -1094,7 +976,7 @@ class Functions():
         profile = command_obj.get("profile",None)
         skip_error = command_obj.get("skip_error",False)
         self.default_profile = False
-        
+
         if profile != "skip":
             try:
                 for layer in range(0,3):
@@ -1140,7 +1022,7 @@ class Functions():
         self.environment_names = list(set(self.environment_names))
         
         self.ip_address = self.get_ext_ip()
-        self.check_config_environment()
+        if not self.auto_restart: self.check_config_environment()
                 
 
     def set_default_directories(self):
@@ -1322,15 +1204,32 @@ class Functions():
                 })       
     
     
-    def pull_node_balance(self,ip_address,wallet):
+    def pull_node_balance(self, command_obj):
+        ip_address = command_obj["ip_address"]
+        wallet = command_obj["wallet"]
+        environment = command_obj["environment"]
+        
         balance = 0
         return_obj = {
             "balance_dag": "unavailable",
             "balance_usd": "unavailable",
             "dag_price": "unavailable"
         }
-        print(colored("  Pulling DAG details from APIs...".ljust(50),"cyan"),end="\r")
+        
+        self.print_cmd_status({
+            "text_start": "Pulling DAG details from APIs",
+            "brackets": environment,
+            "status": "running",
+            "newline": True,
+        })
 
+        if environment != "mainnet":
+            self.print_paragraphs([
+                [" NOTICE ",0,"red,on_yellow"], 
+                [f"Wallet balances on {environment} are fictitious",0],["$DAG",0,"green"], 
+                ["and will not be redeemable or spendable.",2],
+            ])
+            
         with ThreadPoolExecutor() as executor:
             self.event = True
             _ = executor.submit(self.print_spinner,{
@@ -1340,14 +1239,14 @@ class Functions():
 
             for n in range(5):
                 try:
-                    url =f"https://{self.be_mainnet}/addresses/{wallet}/balance"
+                    url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
                     balance = get(url,verify=True,timeout=2,headers=self.get_headers).json()
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
                     self.log.logger.error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
                     if n == 9:
-                        self.log.logger(f"pull pull_node_balance session - returning [{balance}] because could not reach requested address")
+                        self.log.logger(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
                 break   
@@ -1592,7 +1491,9 @@ class Functions():
         r_and_q = command_obj.get("r_and_q","both")
         retrieve = command_obj.get("retrieve","profile_names")
         return_where = command_obj.get("return_where","Main")
+        set_in_functions = command_obj.get("set_in_functions",False)
         predefined_envs = []
+        
         repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
         repo_profiles = repo_profiles["payload"]["tree"]["items"]
         metagraph_name, chosen_profile = None, None
@@ -1621,6 +1522,10 @@ class Functions():
                 "return_value": True,
             })
 
+        if set_in_functions: 
+            self.environment_names = list(predefined_configs.keys())
+            return
+        
         if chosen_profile == "r" or chosen_profile == "q": return chosen_profile
         elif retrieve == "profile_names": return chosen_profile
         elif retrieve == "config_file": return predefined_configs
@@ -1763,7 +1668,7 @@ class Functions():
                     ["nodectl",0, "blue","bold"], ["is unable to continue.",1,"red"],
                     ["Are you sure your have sudo permissions?",2,"red"]
                 ])
-                exit(1) # auto_restart not affected  
+                exit("sudo permissions error") # auto_restart not affected  
             
 
     def check_config_environment(self):
@@ -1772,10 +1677,10 @@ class Functions():
         # this method will need to be refactored as new Metagraphs
         # register with Node Garage or Constellation (depending)
         try:
-            self.network_name = self.config_obj[self.default_profile]["environment"]             
+            self.environment_name = self.config_obj[self.default_profile]["environment"]             
         except:
-            if not self.network_name:
-                self.network_name = self.pull_remote_profiles({"r_and_q": None})
+            if not self.environment_name:
+                self.environment_name = self.pull_remote_profiles({"r_and_q": None})
 
             
     def check_for_help(self,argv_list,extended):
@@ -1808,7 +1713,7 @@ class Functions():
         elif version.parse(current) > version.parse(remote):
             return "current_greater"
         else:
-            return "current_less_than"
+            return "current_less"
     
     
     def is_version_valid(self,check_version):
@@ -1867,7 +1772,7 @@ class Functions():
                 "newline": True,
             })
             self.print_auto_restart_warning()
-            exit(1)
+            exit("Tessellation Validator Node State Error")
             
             
     def test_peer_state(self,command_obj):
@@ -1875,6 +1780,7 @@ class Functions():
         test_address = command_obj.get("test_address","127.0.0.1")
         profile = command_obj.get("profile")
         simple = command_obj.get("simple",False)
+        print_output = command_obj.get("print_output",True)
         current_source_node = command_obj.get("current_source_node",False)
         skip_thread = command_obj.get("skip_thread",False)
         threaded = command_obj.get("threaded", False)
@@ -1899,6 +1805,7 @@ class Functions():
         if not current_source_node:
             try:
                 current_source_node = self.get_info_from_edge_point({
+                    "caller": "test_peer_state",
                     "threaded": threaded,
                     "profile": profile,
                     "spinner": spinner,
@@ -1911,6 +1818,7 @@ class Functions():
             if not isinstance(ip,dict):
                 try:
                     ip_addresses[n] = self.get_info_from_edge_point({
+                        "caller": "test_peer_state",
                         "threaded": threaded,
                         "profile": profile,
                         "specific_ip": ip,
@@ -1923,7 +1831,7 @@ class Functions():
             do_thread = False
             if not self.auto_restart:
                 if not self.event and not skip_thread:
-                    self.print_clear_line()
+                    if print_output: self.print_clear_line()
                     self.event, do_thread = True, True
                     _ = executor.submit(self.print_spinner,{
                         "msg": f"API making call outbound, please wait",
@@ -1997,18 +1905,6 @@ class Functions():
             })
 
 
-    def test_n_check_version(self,action="test"):
-        # checks lb version against node
-        running_tess = self.get_version({"which":"current_tess"})
-        cluster_tess = self.get_version({"which":"cluster_tess"})
-        if running_tess == cluster_tess and action == "test":
-                return True
-        if action == "get":
-            return [cluster_tess,running_tess]
-        else:
-            return False
-
-
     def test_hostname_or_ip(self, hostname):
         try:
             socket.gethostbyaddr(hostname)
@@ -2032,6 +1928,8 @@ class Functions():
         all_first_last = command_obj.get("all_first_last","all")
         skip_line_list = command_obj.get("skip_line_list",[])
         allow_dups = command_obj.get("allow_dups",True)
+        return_value = command_obj.get("return_value", False)
+        
         file = file_path.split("/")
         file = file[-1]
         i_replace_line = False
@@ -2044,6 +1942,7 @@ class Functions():
             if search_line in line and not done:
                 search_only_found = True
                 line_position = line_number
+                if return_value: line_position = line
                 if all_first_last != "all" and line_position not in skip_line_list:
                     done = True
                 if replace_line:
@@ -2133,6 +2032,43 @@ class Functions():
     def test_for_premature_enter_press(self):
         return select.select([stdin], [], [], 0) == ([stdin], [], [])
     
+    
+    def test_for_root_ml_type(self,metagraph):
+        # Review the configuration and return the lowest Metagraph
+        try: profile_names = self.profile_names
+        except:
+            profile_names = self.clear_global_profiles(self.config_obj)
+            
+        root_profile = profile_names[0]
+        layer_0_profiles = []
+        
+        if len(profile_names) == 1: return root_profile   # handle single metagraph profile
+        
+        for profile in profile_names:
+            if self.config_obj[profile]["layer"] < 1 and metagraph == self.config_obj[profile]["environment"]:
+                layer_0_profiles.append([
+                    profile,
+                    self.config_obj[profile]["environment"],
+                    self.config_obj[profile]["meta_type"],
+                    self.config_obj[profile]["gl0_link_enable"],
+                ])
+            
+        if len(layer_0_profiles) == 1: return layer_0_profiles[0][0]    
+        
+        for profile in layer_0_profiles:
+            # [3] == gl0_link_enable
+            root_profile = profile
+            if "gl" in profile: break
+            elif "ml" in profile and not profile[3]: break
+
+        return root_profile
+                    
+    
+    def test_valid_functions_obj(self):
+        # simple method that just returns True
+        # to test if this method is available
+        return True         
+    
     # =============================
     # create functions
     # =============================  
@@ -2169,8 +2105,10 @@ class Functions():
     # print functions
     # =============================  
 
-    def print_clear_line(self):
+    def print_clear_line(self,lines=1):
         console_size = get_terminal_size()
+        for _ in range(1,lines-1):
+            print(f"{' ': >{console_size.columns-2}}")
         print(f"{' ': >{console_size.columns-2}}",end="\r")
         
         
@@ -2413,7 +2351,8 @@ class Functions():
         
     
     def print_option_menu(self,command_obj):
-        options = command_obj.get("options")
+        options_org = command_obj.get("options")
+        options = copy(options_org) # options relative to self.profile_names
         let_or_num = command_obj.get("let_or_num","num")
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")
@@ -2473,12 +2412,16 @@ class Functions():
         print_header = command_obj.get("print_header", True)
         color = command_obj.get("color","magenta")
         p_type = command_obj.get("p_type","profile")
+        title = command_obj.get("title",False)
+        
         p_type_list = self.profile_names if p_type == "profile" else self.environment_names
+        if not title:
+            title = f"Press choose required {p_type}"
 
         print("")
         if print_header:
             self.print_header_title({
-            "line1": f"Press choose required {p_type}",
+            "line1": title,
             "single_line": True,
             "newline": True,  
             })
@@ -2677,15 +2620,7 @@ class Functions():
         hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
         
-        if not nodectl_version_only:
-            keys = ["node_nodectl_version","node_tess_version"]
-            if self.version_obj.keys() not in keys:
-                self.version_obj = self.get_version({"which":"all"})
-        else:
-            self.version_obj["node_nodectl_version"] = self.node_nodectl_version
-        
-        print(" ".ljust(80),end="\r") # clear any messages on the first line
-        
+        self.print_clear_line()
         self.log.logger.info(f"Help file print out")
         self.help_text = "" 
         if title:
@@ -2700,10 +2635,13 @@ class Functions():
 
         if not nodectl_version_only:
             install_profiles = self.pull_profile({"req":"one_profile_per_env"})
+            old_env = None
             for profile in install_profiles:
-                env = self.config_obj[profile]["environment"].upper()
-                node_tess_version = self.version_obj['node_tess_version'][profile]['node_tess_version']
-                self.help_text += f"\n  {env} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
+                env = self.config_obj[profile]["environment"]
+                node_tess_version = self.version_obj[env][profile]['node_tess_version']
+                if old_env != env:
+                    self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
+                old_env = env
 
         self.help_text += build_help(command_obj)
         
@@ -2764,12 +2702,13 @@ class Functions():
         location = file_obj["location"]
         action = file_obj["action"]
         
-        self.print_cmd_status({
-            "text_start": f"{action} files",
-            "status": "running",
-            "newline": False,
-            "status_color": "yellow"
-        })
+        if not self.auto_restart:
+            self.print_cmd_status({
+                "text_start": f"{action} files",
+                "status": "running",
+                "newline": False,
+                "status_color": "yellow"
+            })
         
         for file in files:
             org_path =  f"{location}/{file}"
@@ -2787,13 +2726,14 @@ class Functions():
                     "bashCommand": bashCommand,
                     "proc_action": "run"
                 }) 
-                           
-        self.print_cmd_status({
-            "text_start": f"{action} files",
-            "status": "complete",
-            "newline": True,
-            "status_color": "green"
-        })        
+                
+        if not self.auto_restart:           
+            self.print_cmd_status({
+                "text_start": f"{action} files",
+                "status": "complete",
+                "newline": True,
+                "status_color": "green"
+            })        
         
         
     def clear_global_profiles(self,profile_list_or_obj):
@@ -2923,9 +2863,14 @@ class Functions():
         skip = command_obj.get("skip",False)
         log_error = command_obj.get("log_error",False)
         return_error = command_obj.get("return_error",False)
+        working_directory = command_obj.get("working_directory",None)
         
         if proc_action == "timeout":
-            p = Popen(shlexsplit(bashCommand), stdout=PIPE, stderr=PIPE)
+            if working_directory == None:
+                p = Popen(shlexsplit(bashCommand), stdout=PIPE, stderr=PIPE)
+            else:
+                p = Popen(shlexsplit(bashCommand), cwd=working_directory, stdout=PIPE, stderr=PIPE)
+                
             timer = Timer(timeout, p.kill)
             try:
                 timer.start()
@@ -2935,6 +2880,32 @@ class Functions():
             finally:
                 timer.cancel()
         
+        if proc_action == "pipeline":
+            # bashCommand for this should be a list of lists
+            # example)
+            #     grep_cmd = ["grep","some_string","/var/log/some_file"]
+            #     tail_cmd = ["tail","-n","1"]
+            #     awk_cmd = ["awk","...","..."]
+            
+            results = []
+            for n, cmd in enumerate(bashCommand):
+                if n == 0:
+                    results.append(subprocess.Popen(cmd, stdout=subprocess.PIPE))
+                    continue
+                results.append(subprocess.Popen(bashCommand[n],stdin=results[n-1].stdout, stdout=subprocess.PIPE))
+                
+            output, _ = results[-1].communicate()
+            return output.decode()
+    
+            
+        if proc_action == "subprocess_co":
+            output = subprocess.check_output(bashCommand, shell=True, text=True)
+            return output
+        
+        if proc_action == "subprocess_run":
+            output = subprocess.run(shlexsplit(bashCommand), shell=True, text=True)
+            return output
+            
         if autoSplit:
             bashCommand = bashCommand.split()
             

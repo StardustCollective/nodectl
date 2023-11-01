@@ -8,14 +8,15 @@ from datetime import datetime
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
+from .config.versioning import Versioning
 
 class Status():
     
-    def __init__(self,config_obj):
+    def __init__(self,functions):
         self.date_stamp = datetime.now().strftime("%Y-%m-%d")
-        self.error_codes = Error_codes()
-        self.functions = Functions(config_obj)
-        self.log = Logging()
+        
+        self.version_obj = functions.version_obj
+        self.functions = functions
                 
         self.node_state = ""
         self.hd_space = ""
@@ -34,7 +35,10 @@ class Status():
         self.log_found_flag = False
         self.uptime = 30
         self.load = .7
-                
+
+        self.error_codes = Error_codes(self.functions)
+        self.log = Logging()
+                        
         self.ip_address = self.functions.get_ext_ip()
         self.profile_names = self.functions.pull_profile({
             "req": "list",
@@ -49,7 +53,7 @@ class Status():
 
 
     def find_log_file(self):
-        # deprecated due to version update
+        # removed due to version update
         # however may need to use this function repurposed
         # in future releases to navigate through rolled/archieved
         # logs
@@ -170,7 +174,7 @@ class Status():
                 ["Are you sure this is a valid Debian based operation system?  Unable to to properly access files",0,"red"],
                 ["to verify security checks, exiting...",2,"red"],
             ])
-            exit(1)
+            exit("Linux distribution file access error")
             
         creation_time = path.getctime("/var/log/auth.log")
         dir_list = ["/var/log/auth.log"]

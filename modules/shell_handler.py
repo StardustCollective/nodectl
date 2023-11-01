@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
-from os import geteuid, getgid, environ, system
+from os import geteuid, getgid, environ, system, walk
 
 from .auto_restart import AutoRestart
 from .functions import Functions
@@ -13,6 +13,7 @@ from .install import Installer
 from .command_line import CLI
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
+from .config.versioning import Versioning
 
 class ShellHandler:
 
@@ -24,10 +25,13 @@ class ShellHandler:
             print(colored("Are you sure your are running with 'sudo'","red",attrs=["bold"]))
             print(colored("nodectl unrecoverable error","red",attrs=["bold"]))
             print(colored("nodectl may not be installed?","red"),colored("hint:","cyan"),"use sudo")
-            exit(1)
+            exit("sudo rights error")
 
-        self.error_messages = Error_codes()
         self.functions = Functions(config_obj)
+        self.error_messages = Error_codes(self.functions)
+        self.error_messages.functions = self.functions
+
+        self.config_obj = config_obj
         
         self.install_flag = False
         self.restart_flag = False
@@ -40,14 +44,12 @@ class ShellHandler:
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.node_service = "" #empty
         self.packages = {}
-        self.version_obj = {}
         
         self.get_auto_restart_pid()
         self.userid = geteuid()
         self.groupid = getgid()
 
         self.ip_address = self.functions.get_ext_ip()
-        self.log.logger.info(f"obtain ip address: {self.ip_address}")
         
 
     def build_cli_obj(self,skip_check=False):
@@ -61,9 +63,8 @@ class ShellHandler:
                 "command_list": self.argv,
                 "ip_address": self.ip_address,
                 "skip_services": self.skip_services,
-                "version_obj": self.version_obj,
                 "profile_names": self.profile_names,
-                "config_obj": self.functions.config_obj
+                "functions": self.functions
             }   
             cli = CLI(command_obj)
             cli.check_for_new_versions({
@@ -76,18 +77,37 @@ class ShellHandler:
          
     def start_cli(self,argv):
         self.argv = argv
-        self.check_error_argv()
+        self.check_error_argv(argv)
         
         self.skip_services = True
         show_help = False
         return_value = 0
-        
+
+
+        self.log.logger.info(f"obtain ip address: {self.ip_address}")
+                
         version_cmd = ["-v","_v","version"]
         if argv[1] in version_cmd:
             self.functions.auto_restart = False
             self.show_version()
             exit(0)
-            
+
+        if self.called_command == "update_version_object" or self.called_command == "uvos":
+            print_messages, show_spinner = True, True
+            if self.called_command == "uvos":
+                print_messages, show_spinner = False, False
+
+            force = True if "-f" in self.argv else False
+            _ = Versioning({
+                "config_obj": self.config_obj,
+                "print_messages": print_messages,
+                "show_spinner": show_spinner,
+                "force": force,
+                "called_cmd": self.called_command,
+            })  
+            exit(0)
+                      
+        self.handle_versioning()
         self.setup_profiles()
         self.check_auto_restart()
         self.check_skip_services()
@@ -110,17 +130,17 @@ class ShellHandler:
             
         restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
         service_change_commands = ["start","stop","leave"]
-        status_commands = ["status","_s","quick_status","_qs"]
+        status_commands = ["status","_s","quick_status","_qs","uptime"]
         node_id_commands = ["id","dag","nodeid"]
         cv_commands = ["check_versions","_cv"]
-        deprecated_clear_file_cmds = [
+        removed_clear_file_cmds = [
             "clear_uploads","_cul","_cls","clear_logs",
             "clear_snapshots","clear_backups",
-            "reset_cache","_rc",
+            "reset_cache","_rc","clean_snapshots","_cs",
         ]
         ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
         config_list = ["view_config","validate_config","_vc", "_val"]
-        clean_files_list = ["clean_snapshots","_cs","clean_files","_cf"]
+        clean_files_list = ["clean_files","_cf"]
         nodectl_verify_commands = ["verify_nodectl","_vn"]
         
         if self.called_command != "service_restart":
@@ -176,7 +196,7 @@ class ShellHandler:
                 secs = 600
             if self.called_command == "join":
                 if "all" in self.argv:
-                    return_value = cli.print_deprecated({
+                    return_value = cli.print_removed({
                         "command": "-p all on join",
                         "is_new_command": False,
                         "version": "v2.0.0",
@@ -231,7 +251,7 @@ class ShellHandler:
                 "argv_list": self.argv
             })
         elif self.called_command == "upgrade_nodectl_testnet":
-            cli.print_deprecated({
+            cli.print_removed({
                 "command": self.called_command,
                 "version": "v2.8.0",
                 "new_command": "upgrade_nodectl"
@@ -252,16 +272,13 @@ class ShellHandler:
                 })
         elif self.called_command in clean_files_list:
             command_obj = {"argv_list": self.argv, "action": "normal"}
-            if self.called_command == "clean_snapshots" or self.called_command == "_cs":
-                command_obj["action"] = "snapshots"
             cli.clean_files(command_obj)
             
-        elif self.called_command in deprecated_clear_file_cmds:
-            new_cmd = "clean_snapshots" if self.called_command == "reset_cache" or self.called_command == "_rc" else "clean_files"
-            return_value = cli.print_deprecated({
+        elif self.called_command in removed_clear_file_cmds:
+            return_value = cli.print_removed({
                 "command": self.called_command,
                 "version": "v2.0.0",
-                "new_command": new_cmd
+                "new_command": "n/a"
             })
             
         elif self.called_command == "check_seedlist" or self.called_command == "_csl":
@@ -272,12 +289,16 @@ class ShellHandler:
             cli.export_private_key(self.argv)
         elif self.called_command == "check_source_connection" or self.called_command == "_csc":
             return_value = cli.check_source_connection(self.argv)
+        elif self.called_command == "show_node_proofs" or self.called_command == "_snp":
+            return_value = cli.show_current_snapshot_proofs(self.argv)
         elif self.called_command == "check_connection" or self.called_command == "_cc":
             cli.check_connection(self.argv)
         elif self.called_command == "send_logs" or self.called_command == "_sl":
             cli.prepare_and_send_logs(self.argv)
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
             cli.show_seedlist_participation(self.argv)
+        elif self.called_command == "download_status" or self.called_command == "_ds":
+            cli.show_download_status({"command_list": self.argv})
         elif self.called_command in cv_commands:
             cli.check_versions(self.argv)
         elif "auto_" in self.called_command:
@@ -293,10 +314,11 @@ class ShellHandler:
             else:
                 self.auto_restart_handler(self.argv[0],True,True)
         elif self.called_command == "service_restart":
-           if self.argv[0] != "enable":
+            if self.argv[0] == "--variable1=enable": self.argv[0] = "enable" # on-boot 
+            if self.argv[0] != "enable":
                self.log.logger.error(f"start cli --> invalid request [{self.argv[0]}]")
                exit(0)
-           self.auto_restart_handler("service_start",True)
+            self.auto_restart_handler("service_start",True)
         elif self.called_command == "log" or self.called_command == "logs":
             return_value = cli.show_logs(self.argv)
         elif self.called_command == "install":
@@ -320,6 +342,8 @@ class ShellHandler:
             cli.show_prices(self.argv)
         elif self.called_command == "market" or self.called_command == "markets":
             return_value = cli.show_markets(self.argv)
+        elif self.called_command == "show_dip_error" or self.called_command == "_sde":
+            cli.show_dip_error(self.argv)
         elif self.called_command in config_list:
             self.functions.print_help({
                 "usage_only": True,
@@ -345,20 +369,45 @@ class ShellHandler:
     # CHECK METHODS
     # =============  
           
-    def check_error_argv(self):
+    def check_error_argv(self, argv):
         # error check first
         self.called_cmds = []
         self.help_requested = False
+        invalid = False
+        
+        if "main_error" in self.argv: 
+            try:
+                subdirectories = next(walk("/var/tessellation"))[1]
+                if len(subdirectories) < 2 and "nodectl" in subdirectories:
+                    invalid = True
+            except StopIteration:
+                invalid = True
+            
+            if invalid:
+                self.functions.print_paragraphs([
+                    [" NODECTL ERROR ",0,"grey,on_red"], ["unable to find valid installation",0,"red"],
+                    ["on this server.",1,"red"],
+                    ["install command:",0], ["sudo nodectl install",1,"yellow","bold"]
+                ])
+                exit("invalid nodectl installation")
                 
+            self.called_command = "help"
+            return
+                    
+        if "uvos" in argv: 
+            # do not log if versioning service initialized Configuration
+            for handler in self.log.logger.handlers[:]:
+                self.log.logger.removeHandler(handler)
+            self.argv[1] = "uvos"
+            
         try:
             self.called_command = self.argv[1]
         except:
             self.called_command = "help"
             return
-
-        if "help" in self.argv:
-            self.help_requested = True
-        
+                    
+        if "help" in self.argv: self.help_requested = True  
+              
         max = len(self.argv) if len(self.argv) > 7 else 8
         for n in range(2,max):  # make sure at least 8 entries
             try:
@@ -385,7 +434,7 @@ class ShellHandler:
             "nodectl_upgrade","upgrade_nodectl_testnet",
         ]
             
-        if self.called_command != "install":    
+        if self.called_command not in ["help","install"]:    
             if self.functions.config_obj["global_auto_restart"]["auto_restart"]:
                 self.auto_restart_enabled = True
             
@@ -397,7 +446,7 @@ class ShellHandler:
     def check_skip_services(self):
         # do we want to skip loading the node service obj?
         dont_skip_service_list = [
-            "status","_s","quick_status","_qs","reboot",
+            "status","_s","quick_status","_qs","reboot","uptime",
             "start","stop","restart","slow_restart","_sr",
             "restart_only","auto_restart","service_restart", # not meant to be started from cli
             "join","id", "nodeid", "dag", "passwd12","export_private_key",
@@ -422,7 +471,8 @@ class ShellHandler:
 
     def check_non_cli_command(self):
         non_cli_commands = [
-            "upgrade","install","auto_restart","service_restart"
+            "upgrade","install","auto_restart",
+            "service_restart","uvos",
         ]
         if self.called_command in non_cli_commands:
             return False
@@ -510,10 +560,14 @@ class ShellHandler:
                 else:
                     environment = list(environments["environment_names"])[0]
                                 
-            current = self.version_obj["node_nodectl_version"]
-            remote = self.version_obj["upgrade_path"][environment]["version"]
+            current = self.functions.version_obj["node_nodectl_version"]
             
-            if self.functions.is_new_version(current,remote):
+            show_warning = False
+            if self.functions.version_obj["nodectl_uptodate"]:
+                if not isinstance(self.functions.version_obj["nodectl_uptodate"],bool):
+                    show_warning = True
+                    
+            if show_warning:
                 err_warn = "warning"
                 err_warn_color = "yellow"
                 if self.install_upgrade == "installation":
@@ -540,7 +594,7 @@ class ShellHandler:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
                         [f"this {self.install_upgrade}",0],["It will continue at the Node Operator's",0,"yellow"],
-                        ["own risk and decision.",2,"yellow","underline"]
+                        ["own risk and decision.",2,"yellow","bold"]
                     ])
                 else:
                     self.log.logger.warn(f"an attempt to {self.install_upgrade} with an older nodectl detected {current}")  
@@ -552,7 +606,23 @@ class ShellHandler:
                     })
                 self.log.logger.warn(f"{self.install_upgrade} was continued with an older version of nodectl [{current}]") 
         else:
-            environment = self.functions.network_name
+            request_environment = False
+            try:
+                environment = self.functions.environment_name
+            except AttributeError:
+                request_environment = True
+            if not self.functions.environment_name: request_environment = True
+            
+            if action == "install": 
+                print("") # create newline
+                title = "PLEASE CHOOSE METAGRAPH TO INSTALL"
+                
+            if request_environment:
+                environment = self.functions.print_profile_env_menu({
+                    "p_type": "environment",
+                    "title": title,
+                })
+                
             self.functions.print_cmd_status({
                 "text_start": "Using environment",
                 "status": environment,
@@ -565,7 +635,7 @@ class ShellHandler:
             "status": "complete",
             "newline": True
         })
-        
+
         self.environment_requested = environment
         
         
@@ -598,7 +668,7 @@ class ShellHandler:
         need_environment_list = [
             "refresh_binaries","_rtb",
             "update_seedlist", "_usl",
-            "upgrade_path","_up",
+            "upgrade_path","_up","install"
         ]
 
         need_profile_list = [
@@ -607,10 +677,12 @@ class ShellHandler:
             "slow_restart","_sr","restart_only",
             "peers","check_source_connection","_csc",
             "check_connection","_cc",
-            "send_logs","_sl",
+            "send_logs","_sl","show_node_proofs","_snp",
             "nodeid","id","dag","export_private_key",
             "check_seedlist","_csl","update_seedlist","_usl",
-            "show_service_log","_ssl",
+            "show_service_log","_ssl","download_status","_ds",
+            "show_dip_error","_sde",
+            
         ]                
 
         if "-p" in self.argv:
@@ -650,8 +722,18 @@ class ShellHandler:
             self.argv.extend(["-p",self.profile])
             need_profile = False
         elif env_hint and not either_or_hint:
-            self.environment_requested = self.functions.environment_names[0]
-            if len(self.functions.environment_names) > 1:
+            try:
+                self.environment_requested = self.functions.environment_names[0]
+            except:
+                if self.called_command == "install":
+                    self.functions.pull_remote_profiles({
+                        "retrieve": "config_file",
+                        "set_in_functions": True,
+                    })
+                    return
+                else: self.environment_requested = []
+                
+            if len(self.functions.environment_names) > 1 or len(self.functions.environment_names) < 1:
                 self.environment_requested = self.functions.print_profile_env_menu({"p_type": "environment"})
             self.argv.extend(["-e",self.environment_requested])
             need_profile = False  
@@ -660,7 +742,22 @@ class ShellHandler:
            if "-p" in self.argv: self.profile = called_profile
      
     # =============  
-    
+
+    def handle_versioning(self):
+        if self.called_command == "install": called_cmd = "show_version"
+        elif self.called_command in ["version","_v"]: return
+        else: called_cmd = "shell_obj"
+        
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "print_messages": False,
+            "called_cmd": called_cmd,
+        })
+        self.version_obj = versioning.get_version_obj()  
+        self.functions.version_obj = self.version_obj
+        self.functions.set_statics()
+          
+          
     def print_ext_ip(self):
         self.functions.print_cmd_status({
             "text_start": "Obtaining External IP",
@@ -708,11 +805,11 @@ class ShellHandler:
     def setup_profiles(self):
         self.log.logger.debug(f"setup profiles [{self.called_command}]")
 
-        help_only_list = [
+        skip_list = [
             "main_error","validate_config","install",
-            "view_config","_vc","_val"
+            "view_config","_vc","_val","help",
         ]
-        if self.called_command in help_only_list:
+        if self.called_command in skip_list:
             self.profile = None
             self.profile_names = None
             return
@@ -723,15 +820,20 @@ class ShellHandler:
 
     def show_version(self):
         self.log.logger.info(f"show version check requested")
-        nodectl_version = self.functions.get_version({"which":"nodectl"})
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "print_messages": False,
+            "called_cmd": "show_version",
+        })
+        version_obj = versioning.version_obj
         self.functions.print_clear_line()
-        parts = self.functions.cleaner(nodectl_version["node_nodectl_version"],"remove_char","v")
+        parts = self.functions.cleaner(version_obj["node_nodectl_version"],"remove_char","v")
         parts = parts.split(".")
         
         print_out_list = [
             {
                 "header_elements" : {
-                    "VERSION": nodectl_version["node_nodectl_version"],
+                    "VERSION": version_obj["node_nodectl_version"],
                     "MAJOR": parts[0],
                     "MINOR": parts[1],
                     "PATCH": parts[2],
@@ -747,11 +849,6 @@ class ShellHandler:
             
                     
     def install_upgrade_common(self,command_obj):
-        # on "install" get_version will request request environment if not found.
-        self.version_obj = self.functions.get_version({
-            "which": "all",
-            "action": command_obj["action"],
-        })
         self.functions.print_clear_line()
         self.verify_env_and_versioning(command_obj)
         self.print_ext_ip()        
@@ -806,10 +903,6 @@ class ShellHandler:
        
     def auto_restart_handler(self,action,cli=False,manual=False):
         restart_request = warning = False  
-        
-        if "--auto_grade" in self.argv:
-            self.functions.config_obj["global_auto_restart"]["auto_upgrade"] = True
-            
         pid_color = "green"
         end_status = "enabled"
         if not self.auto_restart_pid:
@@ -839,9 +932,11 @@ class ShellHandler:
                             allow_upgrade,
                         )
                     )
+                    
                 thread_wait(thread_list,timeout=None,return_when=concurrent.futures.FIRST_EXCEPTION)
-                self.log.logger.critical("shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
+                self.log.logger.critical(f"shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
                 self.log.logger.warn("shell handler auto restart handler service periodic restart may have been triggered")
+
                 
         if action == "disable":
             if cli:
@@ -864,6 +959,10 @@ class ShellHandler:
                 }
                 self.functions.print_cmd_status(progress)
                 system('sudo systemctl stop node_restart@"enable" > /dev/null 2>&1')
+                # test pid removal
+                self.get_auto_restart_pid()
+                
+
                 self.functions.print_cmd_status({
                     **progress,
                     "status": end_status,
@@ -963,7 +1062,7 @@ class ShellHandler:
                 ["nodectl",0,"blue","bold"],["will not have the ability to authenticate to the HyperGraph in an automated fashion.",2,"red"],
                 ["Action cancelled",1,"yellow"],
             ])
-            exit(1)
+            exit("auto restart passphrase error")
                         
         if self.auto_restart_pid != "disabled":
             if self.auto_restart_enabled:
@@ -981,7 +1080,7 @@ class ShellHandler:
                 ])
             self.log.logger.warn(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
             return
-            
+        
         system(f'sudo systemctl start node_restart@"{action}" > /dev/null 2>&1')
         if cli:
             print("")
@@ -1004,7 +1103,7 @@ class ShellHandler:
         })
         
         self.install_upgrade = "upgrade"
-        if "-ni" not in argv_list:
+        if "-ni" not in argv_list and "--ni" in argv_list:
             self.confirm_int_upg()
 
         self.functions.print_header_title({
@@ -1024,8 +1123,7 @@ class ShellHandler:
         self.install_upgrade_common(command_obj)
         self.upgrader = Upgrader({
             "ip_address": self.ip_address,
-            "config_obj": self.functions.config_obj,
-            "version_obj": self.version_obj,
+            "functions": self.functions,
             "called_command": self.called_command,
             "environment": self.environment_requested,
             "argv_list": argv_list,
@@ -1081,13 +1179,17 @@ class ShellHandler:
         
         self.functions.print_paragraphs([
             ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
-            ["on various Metagraph configurations.",2,"green"],
-            ["If the Metagraph you are building this Node for is not part of this list, it is advised to",0],
-            ["choose",0], ["mainnet",0,"white,on_yellow"], ["to complete the installation.",2],
+            ["on various Metagraph pre-defined configurations.",2,"green"],
+            
+            ["If the Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
+            ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
+            ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
+            ["required components, to ensure successful implementation of this utility.",0],
+            
             ["If a pre-defined Metagraph listed above is not the ultimate role of this future Node,",0],
-            ["as next steps following a successful installation, you can refer to the Metagraph Administrators",0],
-            ["of the Metagraph you are expected to finally connect to, in order to download their",0,],
-            ["required configuration file.",2],
+            ["following a successful installation, the next steps should be for you to refer to the Metagraph",0],
+            ["Administrators of the Metagraph you are expected to finally connect with. The Administrator",0,],
+            ["will offer instructions on how to obtain the required configuration file for said Metagraph.",2],
             ["Please key press number of a Metagraph configuration below:",2,"blue","bold"],
         ])
         
@@ -1149,9 +1251,9 @@ class ShellHandler:
         self.installer = Installer({
             "ip_address": self.ip_address,
             "existing_p12": self.has_existing_p12,
-            "network_name": self.environment_requested,
-            "version_obj": self.version_obj
-        },self.debug)
+            "environment_name": self.environment_requested,
+            "functions": self.functions,
+        })
         
         self.installer.install_process()
         self.functions.print_perftime(performance_start,"installation")

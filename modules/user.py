@@ -8,7 +8,7 @@ from secrets import compare_digest
 
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
-
+from .config.versioning import Versioning
 
 class UserClass:
     
@@ -17,8 +17,9 @@ class UserClass:
         self.username = ""
         self.password = ""
         
-        self.error_messages = Error_codes() 
-        self.functions = Functions({"global_elements": {"caller":"install"}})
+        self.functions = cli_obj.functions
+        self.error_messages = Error_codes(self.functions) 
+        self.version_obj = self.functions.version_obj
         self.cli_obj = cli_obj
         
         self.aws = False
