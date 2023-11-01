@@ -905,6 +905,7 @@ class ShellHandler:
         restart_request = warning = False  
         pid_color = "green"
         end_status = "enabled"
+        
         if not self.auto_restart_pid:
             self.auto_restart_pid = "disabled"
             end_status = "not running"
@@ -913,31 +914,31 @@ class ShellHandler:
         if action == "restart":
             action = "disable"
             restart_request = True
-            
+                            
         if action == "service_start":
             self.log.logger.info("auto_restart - restart session threader - invoked.")
 
-            with ThreadPoolExecutor() as executor:
+            with ThreadPoolExecutor(max_workers=4) as executor:
                 thread_list = []
                 # self.profile_names = ["dag-l0"]  # used for debugging purposes
                 for n, profile in enumerate(self.profile_names):
                     self.log.logger.info(f"auto_restart - restart threader -  invoked session threads for [{profile}]")
                     allow_upgrade = True if n < 1 else False
                     time.sleep(2)
-                    thread_list.append(
-                        executor.submit(
-                            AutoRestart,
-                            profile,
-                            self.functions.config_obj,
-                            allow_upgrade,
-                        )
+                    future = executor.submit(
+                        AutoRestart,
+                        profile,
+                        self.functions.config_obj,
+                        allow_upgrade,
                     )
-                    
-                thread_wait(thread_list,timeout=None,return_when=concurrent.futures.FIRST_EXCEPTION)
-                self.log.logger.critical(f"shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
-                self.log.logger.warn("shell handler auto restart handler service periodic restart may have been triggered")
+                    thread_list.append(future)
 
-                
+                # thread_wait is an alias to wait, and will only execute the next line of this
+                # code before the exception kills the entire process therefor it is not logged
+                thread_wait(thread_list,return_when=concurrent.futures.FIRST_EXCEPTION)
+                system(f'sudo systemctl restart node_restart@"enable" > /dev/null 2>&1')  
+
+            
         if action == "disable":
             if cli:
                 end_status = "not running"

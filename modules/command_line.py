@@ -1446,7 +1446,6 @@ class CLI():
         while use_current < use_end:
             if not use_height:
                 goal = dip_status["start"]
-                verb = "  SnapShot Ordinal:"
                 percentage1 = self.functions.get_percentage_complete(start, dip_status["end"], dip_status["current"],True)
                 use_current = dip_status["current"]
                 if last_found == use_current:
@@ -1463,7 +1462,6 @@ class CLI():
                 percentage2 = self.functions.get_percentage_complete(start_height, dip_status["height"], dip_status["current_height"])
                 use_current = dip_status["current_height"]
                 ordinal_nochange = 0
-                verb = "  Block Height:"
                 goal = use_end
                         
             try:
@@ -1517,16 +1515,46 @@ class CLI():
                     colored("  ctrl-c to quit |","blue"),
                     colored(dip_status["timestamp"].split(",")[0],"yellow")
                 )
+                
                 self.functions.print_clear_line()
-                print(
-                    colored(verb,"magenta"), 
-                    colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
-                    colored("of","magenta"), 
-                    colored(str(goal),"blue",attrs=["bold"]), 
-                    colored("[","magenta"),
-                    colored(str(left),"cyan"),
-                    colored("]","magenta"),
-                ) 
+                
+                # make sure no invalid values get created
+                try: _ = str(use_current)
+                except: use_current = ""
+                
+                try: _ = str(goal)
+                except: goal = ""
+                
+                try: _ = str(left)
+                except: left = ""
+                
+                try: _ = str(percentage)
+                except: percentage = ""
+                
+                if use_height:
+                    print(
+                        colored("  Block Height:","magenta"), 
+                        colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
+                        colored("of","magenta"), 
+                        colored(str(goal),"blue",attrs=["bold"]), 
+                        colored("[","magenta"),
+                        colored(str(left),"cyan"),
+                        colored("]","magenta"),
+                    ) 
+                else:
+                    if left > 1000: d_color = "red"
+                    elif left > 500: d_color = "magenta"
+                    elif left > 300: d_color = "yellow"
+                    else: d_color = "green"
+                    print(
+                        colored("  Ordinals: Last","magenta"), 
+                        colored(str(goal),"blue",attrs=["bold"]),
+                        colored("| Downloading","magenta"),
+                        colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
+                        colored("| Left","magenta"),
+                        colored(str(left),d_color,attrs=["bold"]), 
+                    ) 
+                    
                 self.functions.print_clear_line()
                 print(
                     colored("  [","cyan"),
@@ -2471,11 +2499,12 @@ class CLI():
                         ["You are running a version of nodectl that is claiming to be newer than what was found on the",0],
                         ["official Constellation Network StardustCollective repository, please proceed",0],
                         ["carefully, as this version may either be:",2],
-                        ["- experimental",1,"magenta"],
+                        ["- experimental (pre-release)",1,"magenta"],
                         ["- malware",1,"magenta"],
                         ["- not an official supported version",2,"magenta"],
                         ["current stable version:",0],[self.functions.upgrade_path['path'][0],1,"yellow","bold"],
                         ["version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
+                        ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
                         ["Type \"YES\" exactly to continue",1,"magenta"],
                     ])
                     self.invalid_version = True
