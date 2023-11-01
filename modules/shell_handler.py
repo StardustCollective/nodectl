@@ -923,13 +923,13 @@ class ShellHandler:
                 # self.profile_names = ["dag-l0"]  # used for debugging purposes
                 for n, profile in enumerate(self.profile_names):
                     self.log.logger.info(f"auto_restart - restart threader -  invoked session threads for [{profile}]")
-                    allow_upgrade = True if n < 1 else False
+                    first_thread = True if n < 1 else False
                     time.sleep(2)
                     future = executor.submit(
                         AutoRestart,
                         profile,
                         self.functions.config_obj,
-                        allow_upgrade,
+                        first_thread,
                     )
                     thread_list.append(future)
 
