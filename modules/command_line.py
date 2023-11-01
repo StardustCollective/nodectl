@@ -4554,7 +4554,7 @@ class CLI():
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
-                
+        
         if self.version_obj["nodectl_uptodate"] and self.version_obj["nodectl_uptodate"] != "current_less":
             self.log.logger.error(f"Upgrade nodectl to new version request not needed {self.version_obj['node_nodectl_version']}.")
             up_to_date = "is already up to date..."

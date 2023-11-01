@@ -257,6 +257,7 @@ class ShellHandler:
                 "new_command": "upgrade_nodectl"
             })
         elif self.called_command == "upgrade_nodectl":
+            self.handle_versioning(True)  # force a versioning update.
             return_value = cli.upgrade_nodectl({
                 "argv_list": self.argv,
                 "help": self.argv[0]
@@ -743,7 +744,7 @@ class ShellHandler:
      
     # =============  
 
-    def handle_versioning(self):
+    def handle_versioning(self,force=False):
         if self.called_command == "install": called_cmd = "show_version"
         elif self.called_command in ["version","_v"]: return
         else: called_cmd = "shell_obj"
@@ -752,6 +753,7 @@ class ShellHandler:
             "config_obj": self.config_obj,
             "print_messages": False,
             "called_cmd": called_cmd,
+            "force": force
         })
         self.version_obj = versioning.get_version_obj()  
         self.functions.version_obj = self.version_obj
