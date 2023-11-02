@@ -2371,7 +2371,7 @@ class CLI():
         called_command = command_obj["called_command"]
         argv_list = command_obj["argv_list"]
         
-        try: _ = argv_list[argv_list.index('-e')+1]
+        try: env = argv_list[argv_list.index('-e')+1]
         except: argv_list.append("help")
             
         self.functions.check_for_help(argv_list,"upgrade_path")
@@ -2380,19 +2380,20 @@ class CLI():
         self.log.logger.debug("testing for upgrade path requirements")
         versions = SimpleNamespace(**self.version_obj)
         
-        if not self.functions.upgrade_path:
-            self.functions.pull_upgrade_path()
-            if not self.functions.upgrade_path:
-                return
+        nodectl_uptodate = getattr(versions,env)
+        nodectl_uptodate = nodectl_uptodate["nodectl_uptodate"]
         
-        # clean upgrade_path list not to include versions newer
-        # than the version excepted by the environment.
-        
-        upgrade_path = self.functions.upgrade_path["path"]
+        upgrade_path = versions.upgrade_path
         if versions.node_nodectl_version in upgrade_path:
             upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]      
             next_upgrade_path = upgrade_path_this_version[0] 
         else: next_upgrade_path = upgrade_path[0]   
+        
+        for test_version in reversed(upgrade_path):
+            test = self.functions.is_new_version(versions.node_nodectl_version,test_version)
+            if test == "current_less":
+                next_upgrade_path = test_version
+                break
         
         def print_version_path():
             self.functions.print_header_title({
@@ -2426,6 +2427,7 @@ class CLI():
                     ["] which should then be followed by the path presented above, if not already the latest.",-1,"red"],["",2],
                     ["Download the latest version via a",0,"red"],["wget",0,"yellow","bold"],
                     ["command, then:",1,"red"],
+                    [f"sudo nodectl upgrade",1],
                     [f"sudo nodectl {called_command}",2],
                     ["See:",0,"red"], ["Github release notes",2,"magenta"]
                 ])
@@ -2434,7 +2436,7 @@ class CLI():
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
                     ["nodectl",0,"blue","bold"], ["may",0,"red"], ["not",0,"red","underline,bold"],
-                    ["be running on the latest version.",2,"red"],
+                    ["be running on the latest stable version.",2,"red"],
                 ])   
                 
         if next_upgrade_path != upgrade_path[0]:
@@ -2455,17 +2457,17 @@ class CLI():
                 "status_color": "yellow",
                 "newline": True,
             })
-            if next_upgrade_path == versions.node_nodectl_version:
-                self.functions.print_paragraphs([
-                    ["You are",0,"green"], ["up-to-date",0,"green","bold"], ["or can upgrade",0,"green"], 
-                    ["directly",0,"green","bold"], ["to the newest version.",1,"green"]
-                ])
-            elif versions.nodectl_uptodate == "current_greater":  
+            if nodectl_uptodate == "current_greater":  
                 self.functions.print_paragraphs([
                     ["",1],["Use this version of nodectl with caution because it may produce undesired affects.",0,"yellow"],
                     ["If the",0,"yellow"], ["sudo nodectl upgrade",0], ["command was used against this version, you may run",0,"yellow"],
-                    ["into undesired results if you attempt to downgrade to a previous version.",2,"yellow"]
+                    ["into undesired results if you attempt to downgrade to a previous version.  A new installation of nodectl would be",0,"yellow"],
+                    ["a better option to resume on a stable release.",2,"yellow"],
                 ])   
+            elif nodectl_uptodate and nodectl_uptodate != "current_less":
+                self.functions.print_paragraphs([
+                    ["You are",0,"green"], ["up-to-date",0,"green","bold"], ["nothing to do",1,"green"], 
+                ])
             else:
                 self.functions.print_cmd_status({
                     "text_start": "nodectl can be",
@@ -2524,7 +2526,7 @@ class CLI():
                     "text_start": "A new version of",
                     "brackets": "nodectl",
                     "text_end": "was detected",
-                    "status": self.version_obj[env][profile_names[0]]['nodectl']['latest_nodectl_version'],
+                    "status": self.version_obj[env]['nodectl']['latest_nodectl_version'],
                     "status_color": "yellow",
                     "newline": True,
                 })

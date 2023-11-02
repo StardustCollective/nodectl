@@ -736,7 +736,8 @@ class ShellHandler:
         need_forced_update = [
             "check_versions","_cv",
             "uvos","update_version_object",
-            "nodectl_upgrade", "upgrade"
+            "nodectl_upgrade", "upgrade",
+            "upgrade_path","_up"
         ]
         
         print_messages, show_spinner, force = True, True, False   
@@ -760,43 +761,6 @@ class ShellHandler:
         self.version_obj = versioning.get_version_obj()  
         self.functions.version_obj = self.version_obj
         self.functions.set_statics()
-
-
-    # def handle_versioning(self):
-    #     if self.called_command == "install": called_cmd = "show_version"
-    #     elif self.called_command in ["version","_v","upgrade"]: return
-        
-    #     need_forced_update = [
-    #         "check_versions","_cv",
-    #         "nodectl_upgrade", "upgrade"
-    #     ]
-        
-    #     if self.called_command == "update_version_object" or self.called_command == "uvos":
-    #         print_messages, show_spinner = True, True
-    #         if self.called_command == "uvos":
-    #             print_messages, show_spinner = False, False
-
-    #         force = True if "-f" in self.argv else False
-    #         _ = Versioning({
-    #             "config_obj": self.config_obj,
-    #             "print_messages": print_messages,
-    #             "show_spinner": show_spinner,
-    #             "force": force,
-    #             "called_cmd": self.called_command,
-    #         })  
-    #         exit(0)     
-               
-    #     force = True if self.called_command in need_forced_update else False
-            
-    #     versioning = Versioning({
-    #         "config_obj": self.config_obj,
-    #         "print_messages": False,
-    #         "called_cmd": called_cmd,
-    #         "force": force
-    #     })
-    #     self.version_obj = versioning.get_version_obj()  
-    #     self.functions.version_obj = self.version_obj
-    #     self.functions.set_statics()
           
           
     def print_ext_ip(self):
