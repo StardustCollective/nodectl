@@ -54,7 +54,6 @@ class Functions():
         self.node_nodectl_version = self.version_obj["node_nodectl_version"]
         self.node_nodectl_version_github = self.version_obj["nodectl_github_version"]
         self.node_nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
-        self.upgrade_path = False
 
         # stop requests from caching results
         self.get_headers = {

@@ -4557,8 +4557,7 @@ class CLI():
 
         self.log.logger.info(f"Upgrade request for nodectl for [{environment_name}] using first profile [{profile}].")
 
-        self.functions.pull_upgrade_path()
-        version_obj = self.version_obj[environment_name][profile] # readability
+        version_obj = self.version_obj[environment_name] # readability
         self.functions.print_clear_line()
 
         def print_prerelease():
@@ -4582,13 +4581,13 @@ class CLI():
                 [" WARNING ",0,"yellow,on_red"], ["You are about to upgrade nodectl.",1,"green","bold"],
                 ["You are currently on:",0], [environment_name.upper(),1,"yellow"],
                 ["  current version:",0], [self.version_obj['node_nodectl_version'],1,"yellow"],
-                ["available version:",0], [version_obj["latest_nodectl_version"],1,"yellow"],
-                ["   latest release:",0], [self.functions.upgrade_path["path"][0],1,"yellow"],
+                ["available version:",0], [version_obj["nodectl"]["latest_nodectl_version"],1,"yellow"],
+                ["   latest release:",0], [self.version_obj["upgrade_path"][0],1,"yellow"],
             ])
-            if version_obj["latest_nodectl_version"] != self.functions.upgrade_path["path"][0]:
+            if version_obj["nodectl"]["latest_nodectl_version"] != self.version_obj["upgrade_path"][0]:
                 upgrade_chosen = False
-                if self.version_obj['node_nodectl_version'] == self.functions.upgrade_path["path"][0]:
-                    upgrade_chosen = version_obj["latest_nodectl_version"]
+                if self.version_obj['node_nodectl_version'] == self.version_obj["upgrade_path"][0]:
+                    upgrade_chosen = version_obj["nodectl"]["latest_nodectl_version"]
                     print("")
                     
                 if not upgrade_chosen:
@@ -4606,13 +4605,13 @@ class CLI():
                     
                     option = self.functions.print_option_menu({
                         "options": [
-                            self.functions.upgrade_path["path"][0],
+                            self.version_obj["upgrade_path"][0],
                             version_obj["latest_nodectl_version"]
                         ],
                         "r_and_q": "q",
                         "color": "magenta",
                     })
-                    upgrade_chosen = self.functions.upgrade_path["path"][0]
+                    upgrade_chosen = self.version_obj["upgrade_path"][0] # default 
                     if option == "q": 
                         self.functions.print_paragraphs([
                             ["Aborting nodectl upgrade procedure at user's request.",1,"magenta"],
@@ -4640,8 +4639,8 @@ class CLI():
             upgrade_file = self.node_service.create_files({
                 "file": "upgrade",
                 "environment_name": environment_name,
-                "upgrade_required": True if self.functions.upgrade_path[environment_name]["upgrade"] == "True" else False,
-                "pre_release": version_obj["pre_release"],
+                "upgrade_required": True if version_obj["nodectl"]["upgrade"] == "True" else False,
+                "pre_release": version_obj["nodectl"]["nodectl_prerelease"],
             })
 
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
