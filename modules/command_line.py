@@ -1872,10 +1872,10 @@ class CLI():
                 "extra": "skip_warning_messages is invalid for this command."
             })
             
-        self.check_for_new_versions({
-            "profile": profile if profile != None else "default",
-            "current_tess_check": True,
-        })
+        # self.check_for_new_versions({
+        #     "profile": profile if profile != None else "default",
+        #     "current_tess_check": True,
+        # })
 
         spacing = 25
         match_true= colored("True","green",attrs=["bold"])
@@ -1889,10 +1889,19 @@ class CLI():
                     "error_code": "cmd-848",
                     "line_code": "profile_error",
                     "extra": profile
-                })            
-            if not self.version_obj["nodectl_uptodate"] or "current" in self.version_obj["nodectl_uptodate"]:
-                nodectl_match = False   
+                })   
+                
+            nodectl_match = True       
+            if not isinstance(self.version_obj[environment]["nodectl_uptodate"],bool):
+                if "current" in self.version_obj[environment]["nodectl_uptodate"]:
+                    nodectl_match = False   
                      
+            prerelease = "False"
+            if self.version_obj[environment]["nodectl"]["nodectl_prerelease"]:
+                prerelease = "True"
+            if self.version_obj[environment]["nodectl"]["nodectl_prerelease"] == "Unknown":
+                prerelease = "Unknown"
+            
             print_out_list = [
                 {
                     "header_elements" : {
@@ -1912,8 +1921,8 @@ class CLI():
                 {
                     "header_elements" : {
                     "TESS LATEST": self.version_obj[environment][profile]["cluster_tess_version"],
-                    "NODECTL LATEST": self.version_obj[environment][profile]["latest_nodectl_version"],
-                    "NODECTL PRE_RELEASE": self.version_obj[environment][profile]["pre_release"],
+                    "NODECTL LATEST": self.version_obj[environment]["nodectl"]["latest_nodectl_version"],
+                    "NODECTL PRE_RELEASE": prerelease,
                     },
                     "spacing": spacing
                 },
@@ -2487,11 +2496,11 @@ class CLI():
             profile_names = [profile]
             
         environments = self.functions.pull_profile({"req": "environments"})
-        self.functions.pull_upgrade_path()
+
         # pull_profiles now has environments added as option
         # switch this check to by environment not profile!
         for env in environments["environment_names"]:
-            nodectl_version_check = self.version_obj["nodectl_uptodate"]
+            nodectl_version_check = self.version_obj[env]["nodectl_uptodate"]
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
                 if nodectl_version_check == "current_greater":
                     self.functions.print_paragraphs([
@@ -2502,8 +2511,9 @@ class CLI():
                         ["- experimental (pre-release)",1,"magenta"],
                         ["- malware",1,"magenta"],
                         ["- not an official supported version",2,"magenta"],
-                        ["current stable version:",0],[self.functions.upgrade_path['path'][0],1,"yellow","bold"],
-                        ["version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
+                        ["   environment checked:",0],[env,1,"yellow","bold"],
+                        ["current stable version:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
+                        [" version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
                         ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
                         ["Type \"YES\" exactly to continue",1,"magenta"],
                     ])
@@ -2514,7 +2524,7 @@ class CLI():
                     "text_start": "A new version of",
                     "brackets": "nodectl",
                     "text_end": "was detected",
-                    "status": self.version_obj[env][profile_names[0]]['latest_nodectl_version'],
+                    "status": self.version_obj[env][profile_names[0]]['nodectl']['latest_nodectl_version'],
                     "status_color": "yellow",
                     "newline": True,
                 })
@@ -2524,7 +2534,7 @@ class CLI():
 
         for i_profile in profile_names:
             tess_version_check = self.version_obj[env][profile_names[0]]["tess_uptodate"]
-            if tess_version_check and not self.check_versions_called:
+            if tess_version_check == "current_less" and not self.check_versions_called:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
                         [f" {i_profile} ",0,"green,on_blue"],["A",0], ["new",0,"green"], ["version of",0], ["Tessellation",0,"cyan"], ["was detected:",0],

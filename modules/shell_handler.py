@@ -92,21 +92,6 @@ class ShellHandler:
             self.show_version()
             exit(0)
 
-        if self.called_command == "update_version_object" or self.called_command == "uvos":
-            print_messages, show_spinner = True, True
-            if self.called_command == "uvos":
-                print_messages, show_spinner = False, False
-
-            force = True if "-f" in self.argv else False
-            _ = Versioning({
-                "config_obj": self.config_obj,
-                "print_messages": print_messages,
-                "show_spinner": show_spinner,
-                "force": force,
-                "called_cmd": self.called_command,
-            })  
-            exit(0)
-                      
         self.handle_versioning()
         self.setup_profiles()
         self.check_auto_restart()
@@ -257,7 +242,6 @@ class ShellHandler:
                 "new_command": "upgrade_nodectl"
             })
         elif self.called_command == "upgrade_nodectl":
-            self.handle_versioning(True)  # force a versioning update.
             return_value = cli.upgrade_nodectl({
                 "argv_list": self.argv,
                 "help": self.argv[0]
@@ -744,20 +728,75 @@ class ShellHandler:
      
     # =============  
 
-    def handle_versioning(self,force=False):
+    def handle_versioning(self):
         if self.called_command == "install": called_cmd = "show_version"
-        elif self.called_command in ["version","_v"]: return
-        else: called_cmd = "shell_obj"
+        elif self.called_command in ["version","_v","upgrade"]: return
+        else: called_cmd = self.called_command
         
+        need_forced_update = [
+            "check_versions","_cv",
+            "uvos","update_version_object",
+            "nodectl_upgrade", "upgrade"
+        ]
+        
+        print_messages, show_spinner, force = True, True, False   
+        if called_cmd in need_forced_update: force = True
+        if "--force" in self.argv: force = True
+
+        if called_cmd == "uvos":
+            print_messages, show_spinner = False, False
+            
         versioning = Versioning({
             "config_obj": self.config_obj,
-            "print_messages": False,
+            "show_spinner": show_spinner,
+            "print_messages": print_messages,
             "called_cmd": called_cmd,
             "force": force
         })
+        
+        if called_cmd == "update_version_object" or called_cmd == "uvos":
+            exit(0)
+            
         self.version_obj = versioning.get_version_obj()  
         self.functions.version_obj = self.version_obj
         self.functions.set_statics()
+
+
+    # def handle_versioning(self):
+    #     if self.called_command == "install": called_cmd = "show_version"
+    #     elif self.called_command in ["version","_v","upgrade"]: return
+        
+    #     need_forced_update = [
+    #         "check_versions","_cv",
+    #         "nodectl_upgrade", "upgrade"
+    #     ]
+        
+    #     if self.called_command == "update_version_object" or self.called_command == "uvos":
+    #         print_messages, show_spinner = True, True
+    #         if self.called_command == "uvos":
+    #             print_messages, show_spinner = False, False
+
+    #         force = True if "-f" in self.argv else False
+    #         _ = Versioning({
+    #             "config_obj": self.config_obj,
+    #             "print_messages": print_messages,
+    #             "show_spinner": show_spinner,
+    #             "force": force,
+    #             "called_cmd": self.called_command,
+    #         })  
+    #         exit(0)     
+               
+    #     force = True if self.called_command in need_forced_update else False
+            
+    #     versioning = Versioning({
+    #         "config_obj": self.config_obj,
+    #         "print_messages": False,
+    #         "called_cmd": called_cmd,
+    #         "force": force
+    #     })
+    #     self.version_obj = versioning.get_version_obj()  
+    #     self.functions.version_obj = self.version_obj
+    #     self.functions.set_statics()
           
           
     def print_ext_ip(self):

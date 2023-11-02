@@ -79,7 +79,6 @@ class Functions():
         }
         
         # constellation nodectl statics
-        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
         self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
         self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_github}/predefined_configs"
         
@@ -475,16 +474,19 @@ class Functions():
         r_days = command_obj.get("days",False) # requested days
         elapsed = command_obj.get("elapsed",False)
         old_time = command_obj.get("old_time",False)
+        new_time = command_obj.get("new_time",False)
+        time_part = command_obj.get("time_part",False)
+        
+        if not new_time: new_time = datetime.now()
         
         if action == "date":
-            return datetime.now().strftime("%Y-%m-%d")
+            return new_time.strftime("%Y-%m-%d")
         elif action == "datetime":
-            return datetime.now().strftime("%Y-%m-%d-%H:%M:%SZ")
+            return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
         elif action == "get_elapsed":
             old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
-            return datetime.now() - old_time
+            return new_time - old_time
         elif action == "future_datetime":
-            new_time = datetime.now()
             new_time += timedelta(seconds=elapsed)
             return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
         elif action == "estimate_elapsed":
@@ -520,11 +522,17 @@ class Functions():
                 uptime_hours, uptime_minutes = map(int, uptime.split(":"))
                 uptime_seconds = (uptime_hours * 60 + uptime_minutes) * 60
             return uptime_seconds
+        elif action == "difference":
+            test1 = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            test2 = datetime.strptime(new_time, "%Y-%m-%d-%H:%M:%SZ")
+            if getattr(test1, time_part) != getattr(test2, time_part):
+                return True  # There is a difference            
+            return False
         else:
             # if the action is default 
-            return_val = datetime.now()+timedelta(days=r_days)
+            return_val = new_time+timedelta(days=r_days)
             if backward:
-                return_val = datetime.now()-timedelta(days=r_days)
+                return_val = new_time-timedelta(days=r_days)
         
         return return_val.strftime("%Y-%m-%d")
         
@@ -1532,60 +1540,6 @@ class Functions():
         elif retrieve == "chosen_profile": return [chosen_profile, predefined_configs[chosen_profile]]
 
 
-    def pull_upgrade_path(self,config=False):
-        def check_for_release(p_version):
-            pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
-            pre_success = True
-            for n in range(0,3):
-                try:
-                    pre_release = get(pre_release_uri,headers=self.get_headers).json()
-                except:
-                    sleep(1)
-                    self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
-                    pre_success = False
-                else:
-                    break
-                
-            if not pre_success:
-                self.print_paragraphs([
-                    ["Unable to determine if this release is a pre-release, continuing anyway...",1,"red"]
-                ])
-            else:
-                # self.release_details = pre_release # save for future use
-                return pre_release["prerelease"]  # this will be true or false
-            
-        for n in range(0,4):
-            try:
-                upgrade_path = get(self.upgrade_path_path,headers=self.get_headers)
-            except:
-                if n == 3:
-                    self.log.logger.error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
-                    self.print_paragraphs([
-                        ["",1], ["Unable to determine upgrade path.  Please make sure you adhere to the proper upgrade path before",0,"red"],
-                        ["continuing this upgrade; otherwise, you may experience unexpected results.",2,"red"],
-                    ])
-                self.upgrade_path = False
-                return
-            else:
-                break
-    
-        upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
-        self.upgrade_path = eval(upgrade_path)
-        if config:
-            return
-        
-        for profile in self.profile_names:
-            # non-constellation-profiles will eval to False
-            environment = self.config_obj[profile]["environment"]
-            try:
-                is_prerelease = check_for_release(self.upgrade_path[environment]["version"])
-            except:
-                is_prerelease = False
-            finally:
-                self.upgrade_path[environment]["pre_release"] = is_prerelease
-            
-
-    
     # =============================
     # check functions
     # =============================    

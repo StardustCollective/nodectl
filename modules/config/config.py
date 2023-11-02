@@ -192,7 +192,7 @@ class Configuration():
         
         
     def check_for_migration(self):
-        self.functions.pull_upgrade_path(True)
+        # self.functions.pull_upgrade_path(True)
         nodectl_version = self.functions.version_obj["node_nodectl_version"]
         nodectl_yaml_version = self.functions.version_obj["node_nodectl_yaml_version"]
         
