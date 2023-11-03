@@ -740,10 +740,13 @@ class ShellHandler:
             "upgrade_path","_up"
         ]
         
-        print_messages, show_spinner, force = True, True, False   
+        print_messages, show_spinner, verify_only, force = True, True, False, False   
         if called_cmd in need_forced_update: force = True
         if "--force" in self.argv: force = True
 
+        if called_cmd == "update_version_object" and "-v" in self.argv:
+            verify_only = True
+            
         if called_cmd == "uvos":
             print_messages, show_spinner = False, False
             
@@ -752,6 +755,7 @@ class ShellHandler:
             "show_spinner": show_spinner,
             "print_messages": print_messages,
             "called_cmd": called_cmd,
+            "verify_only": verify_only,
             "force": force
         })
         

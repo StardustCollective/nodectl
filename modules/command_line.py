@@ -4561,33 +4561,36 @@ class CLI():
         self.functions.print_clear_line()
 
         def print_prerelease():
-            if version_obj["pre_release"]:
+            if version_obj["nodectl"]["nodectl_prerelease"]:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
+                
+        nodectl_uptodate = self.version_obj[environment_name]["nodectl"]["nodectl_uptodate"]
+        latest_nodectl = version_obj["nodectl"]["latest_nodectl_version"]
+        node_nodectl_version = self.version_obj['node_nodectl_version']
         
-        if self.version_obj["nodectl_uptodate"] and self.version_obj["nodectl_uptodate"] != "current_less":
-            self.log.logger.error(f"Upgrade nodectl to new version request not needed {self.version_obj['node_nodectl_version']}.")
+        if nodectl_uptodate and nodectl_uptodate != "current_less":
+            self.log.logger.error(f"Upgrade nodectl to new version request not needed {node_nodectl_version}.")
             up_to_date = "is already up to date..."
-            if self.version_obj["nodectl_uptodate"] == "current_greater":
-                up_to_date = "is a version higher than the official release"
-                self.functions.print_paragraphs([
-                    ["Current version of nodectl:",0], [self.version_obj['node_nodectl_version'],0,"yellow"],
-                    [up_to_date,1], ["nothing to do",2,"red"]
-                ])
-                print_prerelease()
+            if nodectl_uptodate == "current_greater": up_to_date = "is a version higher than the official release"
+            self.functions.print_paragraphs([
+                ["Current version of nodectl:",0], [node_nodectl_version,0,"yellow"],
+                [up_to_date,1], ["nothing to do",2,"red"]
+            ])
+            print_prerelease()
         else:
             self.functions.print_paragraphs([
                 [" WARNING ",0,"yellow,on_red"], ["You are about to upgrade nodectl.",1,"green","bold"],
                 ["You are currently on:",0], [environment_name.upper(),1,"yellow"],
-                ["  current version:",0], [self.version_obj['node_nodectl_version'],1,"yellow"],
-                ["available version:",0], [version_obj["nodectl"]["latest_nodectl_version"],1,"yellow"],
+                ["  current version:",0], [node_nodectl_version,1,"yellow"],
+                ["available version:",0], [latest_nodectl,1,"yellow"],
                 ["   latest release:",0], [self.version_obj["upgrade_path"][0],1,"yellow"],
             ])
-            if version_obj["nodectl"]["latest_nodectl_version"] != self.version_obj["upgrade_path"][0]:
+            if latest_nodectl != self.version_obj["upgrade_path"][0]:
                 upgrade_chosen = False
-                if self.version_obj['node_nodectl_version'] == self.version_obj["upgrade_path"][0]:
-                    upgrade_chosen = version_obj["nodectl"]["latest_nodectl_version"]
+                if node_nodectl_version == self.version_obj["upgrade_path"][0]:
+                    upgrade_chosen = latest_nodectl
                     print("")
                     
                 if not upgrade_chosen:
@@ -4606,7 +4609,7 @@ class CLI():
                     option = self.functions.print_option_menu({
                         "options": [
                             self.version_obj["upgrade_path"][0],
-                            version_obj["latest_nodectl_version"]
+                            latest_nodectl
                         ],
                         "r_and_q": "q",
                         "color": "magenta",
@@ -4618,7 +4621,7 @@ class CLI():
                         ])
                         return 0
                     elif int(option) == 2:
-                        upgrade_chosen = version_obj["latest_nodectl_version"]
+                        upgrade_chosen = latest_nodectl
                 
             self.functions.confirm_action({
                 "yes_no_default": "n",
@@ -4627,7 +4630,7 @@ class CLI():
             })
             
             self.functions.print_paragraphs([
-                ["Upgrading nodectl version from",0], [f"{self.version_obj['node_nodectl_version']}",0,"yellow"], ["to",0],
+                ["Upgrading nodectl version from",0], [f"{node_nodectl_version}",0,"yellow"], ["to",0],
                 [f"{upgrade_chosen}",2,"yellow"],
                 
                 ["Detected architecture:",0], [self.arch,1,"yellow"],
@@ -4644,7 +4647,7 @@ class CLI():
             })
 
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
-            upgrade_file = upgrade_file.replace("NODECTL_OLD",self.version_obj['node_nodectl_version'])
+            upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
             upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
             upgrade_file = upgrade_file.replace("ARCH",self.arch)
             
@@ -4663,14 +4666,14 @@ class CLI():
             if self.functions.get_size("/usr/local/bin/nodectl",True) < 1:
                 self.functions.print_paragraphs([
                     ["The original backed up version of nodectl will be restored",1,"yellow"],
-                    ["file version:",0],[self.version_obj['node_nodectl_version'],2,"blue","bold"],
+                    ["file version:",0],[node_nodectl_version,2,"blue","bold"],
                 ])
-                self.log.logger.warn(f"nodectl upgrader is restoring [{backup_location}nodectl_{self.version_obj['node_nodectl_version']}] to [/usr/local/bin/nodectl]")
+                self.log.logger.warn(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
                 try:
-                    system(f"mv {backup_location}nodectl_{self.version_obj['node_nodectl_version']} /usr/local/bin/nodectl > /dev/null 2>&1")
+                    system(f"mv {backup_location}nodectl_{node_nodectl_version} /usr/local/bin/nodectl > /dev/null 2>&1")
                 except: pass
                 if self.functions.get_size("/usr/local/bin/nodectl",True) < 1:
-                    self.log.logger.critical(f"nodectl upgrader unable to restore [{backup_location}nodectl_{self.version_obj['node_nodectl_version']}] to [/usr/local/bin/nodectl]")
+                    self.log.logger.critical(f"nodectl upgrader unable to restore [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], ["unable to restore original nodectl, please manually download via",0,"red"],
                         ["the known",0,"red"], ["wget",0,"yellow"], ["command. See Constellation Network documentation hub for further details.",1,"red"]
