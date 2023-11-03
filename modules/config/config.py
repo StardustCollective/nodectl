@@ -329,7 +329,7 @@ class Configuration():
             self.implement_config()
             self.functions.print_clear_line()
             print(colored(json.dumps(self.config_obj,indent=3),"cyan",attrs=['bold']))
-            exit("view config yaml in json format")
+            exit("  view config yaml in json format")
             
         do_more = False if "-np" in self.argv_list else True
         console_size = get_terminal_size()
@@ -1396,7 +1396,7 @@ class Configuration():
                 ["sudo nodectl configure",2,"green","bold"],
             ])
             self.functions.print_auto_restart_warning()
-            exit("configuration error")
+            exit("  configuration error")
         
         if self.action != "normal":
             self.functions.print_paragraphs([ 

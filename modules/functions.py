@@ -46,6 +46,7 @@ class Functions():
         self.config_obj = config_obj
         self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
         self.version_obj = False
+        self.valid_commands = []
         
         
     def set_statics(self):
@@ -1621,7 +1622,7 @@ class Functions():
                     ["nodectl",0, "blue","bold"], ["is unable to continue.",1,"red"],
                     ["Are you sure your have sudo permissions?",2,"red"]
                 ])
-                exit("sudo permissions error") # auto_restart not affected  
+                exit("  sudo permissions error") # auto_restart not affected  
             
 
     def check_config_environment(self):
@@ -1725,7 +1726,7 @@ class Functions():
                 "newline": True,
             })
             self.print_auto_restart_warning()
-            exit("Tessellation Validator Node State Error")
+            exit("  Tessellation Validator Node State Error")
             
             
     def test_peer_state(self,command_obj):
@@ -2573,6 +2574,10 @@ class Functions():
         hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
         
+        command_obj = {
+            **command_obj,
+            "valid_commands": self.valid_commands
+        }
         self.print_clear_line()
         self.log.logger.info(f"Help file print out")
         self.help_text = "" 
@@ -2596,7 +2601,7 @@ class Functions():
                     self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
                 old_env = env
 
-        self.help_text += build_help(command_obj)
+        self.help_text += build_help(self,command_obj)
         
         print(self.help_text)
                 
@@ -2614,7 +2619,7 @@ class Functions():
             ])
             
         elif hint == "unknown":
-            print(colored('Unknown command entered','red'),"\n")
+            print(colored('  Unknown command entered','red'),"\n")
         elif isinstance(hint,str) and hint != "None":
             cprint(f"{  hint}","cyan")
             

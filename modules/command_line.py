@@ -2448,7 +2448,7 @@ class CLI():
                     ["",1], ["Upgrade cannot continue. Exiting...",1,"red","bold"],
                 ])
                 self.functions.print_auto_restart_warning()
-                exit("auto restart enabled error")
+                exit("  auto restart enabled error")
 
         if called_command == "upgrade_path":
             self.functions.print_cmd_status({
@@ -2502,7 +2502,7 @@ class CLI():
         # pull_profiles now has environments added as option
         # switch this check to by environment not profile!
         for env in environments["environment_names"]:
-            nodectl_version_check = self.version_obj[env]["nodectl_uptodate"]
+            nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
                 if nodectl_version_check == "current_greater":
                     self.functions.print_paragraphs([
@@ -3223,7 +3223,7 @@ class CLI():
                                     [f"{error_msg[1]}",1],
                                 ])
                             self.functions.print_auto_restart_warning()
-                            exit("auto restart enabled error")
+                            exit("  auto restart enabled error")
                         increase_check += 1
                     if state == "WaitingForDownload":
                         if wfd_count > wfd_max:
