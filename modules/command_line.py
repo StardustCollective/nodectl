@@ -16,7 +16,6 @@ from secrets import compare_digest
 from modules.p12 import P12Class
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 from .status import Status
-from .functions import Functions
 from .node_service import Node
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
@@ -1446,7 +1445,10 @@ class CLI():
         while use_current < use_end:
             if not use_height:
                 goal = dip_status["start"]
-                percentage1 = self.functions.get_percentage_complete(start, dip_status["end"], dip_status["current"],True)
+                try:
+                    percentage1 = self.functions.get_percentage_complete(start, dip_status["end"], dip_status["current"],True)
+                except:
+                    percentage1 = 1
                 use_current = dip_status["current"]
                 if last_found == use_current:
                     sleep(1)
@@ -1459,7 +1461,10 @@ class CLI():
             else:
                 if start_height == "Not Found": 
                     break
-                percentage2 = self.functions.get_percentage_complete(start_height, dip_status["height"], dip_status["current_height"])
+                try:
+                    percentage2 = self.functions.get_percentage_complete(start_height, dip_status["height"], dip_status["current_height"])
+                except:
+                    percentage2 = 1
                 use_current = dip_status["current_height"]
                 ordinal_nochange = 0
                 goal = use_end
@@ -1520,16 +1525,16 @@ class CLI():
                 
                 # make sure no invalid values get created
                 try: _ = str(use_current)
-                except: use_current = ""
+                except: use_current = 0
                 
                 try: _ = str(goal)
-                except: goal = ""
+                except: goal = 0
                 
                 try: _ = str(left)
-                except: left = ""
+                except: left = 0
                 
                 try: _ = str(percentage)
-                except: percentage = ""
+                except: percentage = 0
                 
                 if use_height:
                     print(
@@ -1542,7 +1547,8 @@ class CLI():
                         colored("]","magenta"),
                     ) 
                 else:
-                    if left > 1000: d_color = "red"
+                    if left < 1: d_color = "cyan"
+                    elif left > 1000: d_color = "red"
                     elif left > 500: d_color = "magenta"
                     elif left > 300: d_color = "yellow"
                     else: d_color = "green"
@@ -3876,6 +3882,7 @@ class CLI():
                         self.functions.print_paragraphs([
                             ["",1],["Elapsed Time:",0], [elapsed,1,"green"]
                         ])  
+            
             
             if create_csv:
                 self.functions.print_paragraphs([
