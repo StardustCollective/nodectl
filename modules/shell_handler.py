@@ -14,6 +14,7 @@ from .command_line import CLI
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .config.versioning import Versioning
+from .config.valid_commands import pull_valid_command
 
 class ShellHandler:
 
@@ -475,43 +476,16 @@ class ShellHandler:
     
 
     def check_valid_command(self):
-        self.valid_commands = [
-            "restart","slow_restart","restart_only","join",
-            "start","stop","leave",
-            "status","quick_status","uptime",
-            "id","nodeid","dag","check_versions",
-            "disable_root_ssh","enable_root_ssh","change_ssh_port",
-            "view_config","validate_config",
-            "clean_files","verify_nodectl",
-            "service_restart",
-            "list","show_current_rewards","find",
-            "peers","whoami","nodeid2dag","show_node_states",
-            "passwd12","reboot","upgrade_nodectl","help",
-            "check_seedlist","check_source_connection",
-            "show_node_proofs","check_connection",
-            "send_logs","check_seedlist_participation",
-            "download_status","auto_restart",
-            "install","upgrade","upgrade_path",
-            "refresh_binaries","show_service_logs",
-            "health","price","markets","show_dip_error",
-        ]
+        cmds = pull_valid_command()
+        self.valid_commands = cmds[0]
+        valid_short_cuts = cmds[1]
+        service_cmds = cmds[3]
+        removed_cmds = cmds[3]
 
         self.log.logger.debug(f"nodectl feature count [{len(self.valid_commands)}]")
         self.functions.valid_commands = self.valid_commands 
-        valid_short_cuts = [
-            "_sr","_s","_qs","_cv","_vc","_val","_cf",
-            "_vn","_scr","_sns","_h","_csl","_csc","_snp",
-            "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
-            "_sde",
-        ]
-        removed_clear_file_cmds = [
-            "clear_uploads","_cul","_cls","clear_logs",
-            "clear_snapshots","clear_backups",
-            "reset_cache","_rc","clean_snapshots","_cs",
-            "upgrade_nodectl_testnet",
-        ]
         
-        all_command_check = self.valid_commands+valid_short_cuts+removed_clear_file_cmds
+        all_command_check = self.valid_commands+valid_short_cuts+service_cmds+removed_cmds
         if self.called_command not in all_command_check:
             self.called_command = "main_error"
         

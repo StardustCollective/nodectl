@@ -1451,7 +1451,7 @@ class CLI():
                     percentage1 = 1
                 use_current = dip_status["current"]
                 if last_found == use_current:
-                    sleep(1)
+                    sleep(2)
                     ordinal_nochange += 1
                     if ordinal_nochange > 10: 
                         use_height = True
@@ -1898,8 +1898,8 @@ class CLI():
                 })   
                 
             nodectl_match = True       
-            if not isinstance(self.version_obj[environment]["nodectl_uptodate"],bool):
-                if "current" in self.version_obj[environment]["nodectl_uptodate"]:
+            if not isinstance(self.version_obj[environment]["nodectl"]["nodectl_uptodate"],bool):
+                if "current" in self.version_obj[environment]["nodectl"]["nodectl_uptodate"]:
                     nodectl_match = False   
                      
             prerelease = "False"
