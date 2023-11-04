@@ -44,11 +44,15 @@ def pull_valid_command():
         "upgrade",
         "upgrade_path",
         "refresh_binaries",
-        "show_service_logs",
+        "show_service_log",
         "health",
         "price",
-        "markets",
+        "sec",
+        "market",
         "show_dip_error",
+        "update_seedlist",
+        "export_private_key",
+        "logs",
     ]
 
     service_cmds = [
@@ -59,7 +63,8 @@ def pull_valid_command():
         "_sr","_s","_qs","_cv","_vc","_val","_cf",
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
-        "_sde",
+        "_sde","_usl",
+        "log","prices","markets"
     ]
     
     removed_cmds = [

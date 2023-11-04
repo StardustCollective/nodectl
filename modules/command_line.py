@@ -7,7 +7,7 @@ from time import sleep, perf_counter
 from datetime import datetime, timedelta
 from os import system, path, get_terminal_size, remove, SEEK_END, SEEK_CUR
 from pathlib import Path
-from sys import exit
+from sys import exit, stdout, stdin
 from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
@@ -1424,6 +1424,9 @@ class CLI():
                 if caller != "upgrade" and caller != "cli_restart": exit(0)
                 return
         
+        dotted = ["   ",".  ",".. ","..."]
+        dot = dotted[0]
+        
         dip_status = pull_ordinal_values(bashCommands)
         start = dip_status["start"]
         start_height = dip_status["current_height"]
@@ -1439,8 +1442,6 @@ class CLI():
         use_current = dip_status["current"]
         use_end = dip_status["end"]
         freeze_display = False  
-        # calc_rate = True  
-        # rate_calc_start = perf_counter()
         
         while use_current < use_end:
             if not use_height:
@@ -1450,14 +1451,22 @@ class CLI():
                 except:
                     percentage1 = 1
                 use_current = dip_status["current"]
+                                
                 if last_found == use_current:
-                    sleep(2)
+                    for _ in range(0,4):
+                        sleep(1)
+                        dip_status = pull_ordinal_values(bashCommands)
+                        use_current = dip_status["current"]
+                        if last_found != use_current: break
+                if last_found == use_current:
+                    sleep(1)
                     ordinal_nochange += 1
                     if ordinal_nochange > 10: 
                         use_height = True
                         use_end = dip_status["height"]
                         use_current = dip_status["current_height"]
                 last_found = use_current
+                
             else:
                 if start_height == "Not Found": 
                     break
@@ -1473,7 +1482,7 @@ class CLI():
                 percentage = int((percent_weight1 / 100.0) * percentage1 + (percent_weight2 / 100.0) * percentage2)
             except ZeroDivisionError as e:
                 self.log.logger.error(f"show download status - attempting to derive percenter resulted in [ZeroDivisionError] as [{e}]")
-                   
+                
             if percentage < 1: percentage = 1
             
             try:
@@ -1483,9 +1492,7 @@ class CLI():
                     marks_last = len(hash_marks)     
             except ZeroDivisionError:
                 self.log.logger.error(f"show download status - attempting to derive hash progress indicator resulted in [ZeroDivisionError] as [{e}]")
-             
-            print(colored(f"  STATUS CHECK PASS #{dip_pass}","green"))
-            
+
             if use_current == "Not Found": 
                 break
             elif int(use_end) < int(use_current): use_end = int(use_current)
@@ -1501,28 +1508,19 @@ class CLI():
                     use_height_step = 0
                     freeze_display = True
 
-            # future dev place holder
-            # if calc_rate: 
-            #     rate_calc_stop = perf_counter()
-            #     elapsed_time = rate_calc_stop - rate_calc_start
-            #     if elapsed_time > 30:
-            #         rate = last_left - left
-            #         try:
-            #             estimated_time = (use_end - use_current) / rate
-            #         except ZeroDivisionError as e:
-            #             self.log.logger.error(f"show download status - attempting to derive new estimated time - resulted in [ZeroDivisionError] as [{e}]")
-            #         calc_rate = False
-
-            # print out status progress indicator
             if not freeze_display:
+                try:
+                    dot = dotted[dotted.index(dot)+1]
+                except: dot = dotted[0]
+                self.functions.print_paragraphs([
+                    [f"STATUS CHECK PASS #{dip_pass} {dot}",1,"green"]
+                ])
                 self.functions.print_clear_line()
                 print(
                     colored("  ctrl-c to quit |","blue"),
                     colored(dip_status["timestamp"].split(",")[0],"yellow")
                 )
-                
-                self.functions.print_clear_line()
-                
+
                 # make sure no invalid values get created
                 try: _ = str(use_current)
                 except: use_current = 0
@@ -1536,6 +1534,7 @@ class CLI():
                 try: _ = str(percentage)
                 except: percentage = 0
                 
+                self.functions.print_clear_line()
                 if use_height:
                     print(
                         colored("  Block Height:","magenta"), 
@@ -1574,9 +1573,9 @@ class CLI():
             else: 
                 self.functions.print_clear_line(3)
                 print(f'\x1b[3A', end='')
-                freeze_display = False                
-            sleep(.3)
-
+                freeze_display = False     
+                            
+            sleep(.5)
             dip_status = pull_ordinal_values(bashCommands)
 
         # double check recursively
@@ -1587,6 +1586,7 @@ class CLI():
             "caller": caller, 
             "dip_pass": dip_pass,
         })
+        self.functions.event = False
             
                        
     def show_current_rewards(self,command_list):
@@ -2387,7 +2387,7 @@ class CLI():
         versions = SimpleNamespace(**self.version_obj)
         
         nodectl_uptodate = getattr(versions,env)
-        nodectl_uptodate = nodectl_uptodate["nodectl_uptodate"]
+        nodectl_uptodate = nodectl_uptodate["nodectl"]["nodectl_uptodate"]
         
         upgrade_path = versions.upgrade_path
         if versions.node_nodectl_version in upgrade_path:
@@ -2523,7 +2523,6 @@ class CLI():
                         ["current stable version:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
                         [" version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
                         ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
-                        ["Type \"YES\" exactly to continue",1,"magenta"],
                     ])
                     self.invalid_version = True
                     return
@@ -3593,7 +3592,8 @@ class CLI():
                             if n > 2:
                                 self.error_messages.error_code_messages({
                                     "error_code": "cmd-2484",
-                                    "line_code": "node_id_issue"
+                                    "line_code": "node_id_issue",
+                                    "extra": "external" if outside_node_request else None,
                                 })
                             sleep(1)
                         else:
@@ -3909,7 +3909,7 @@ class CLI():
         self.profile = argv_list[argv_list.index("-p")+1]
         source_obj = "empty"
         if "-s"  in argv_list:
-            source_obj =  {"ip": "127.0.0.1"} if argv_list[argv_list.index("-s")+1] == "self" else {"ip": argv_list[argv_list.index("-s")+1]}
+            source_obj = {"ip": "127.0.0.1"} if argv_list[argv_list.index("-s")+1] == "self" else {"ip": argv_list[argv_list.index("-s")+1]}
 
         target_obj = {"ip":"127.0.0.1"}
         if "-t" in argv_list:
@@ -3930,7 +3930,7 @@ class CLI():
             "profile": self.profile,
         })
 
-        if peer_results == "error":
+        if peer_results == "error" or peer_results == None:
             self.log.logger.error(f"show count | attempt to access peer count function failed")
             self.error_messages.error_code_messages({
                 "error_code": "cmd-217",
@@ -3947,21 +3947,29 @@ class CLI():
 
         if len(target_ip) > 127:
             target_ip = f"{target_ip[:8]}...{target_ip[-8:]}"
-            
+
         spacing = 21            
         print_out_list = [
             {
                 "header_elements" : {
-                    "NETWORK PEERS FOUND": peer_results["peer_count"],
-                    "READY NODES": peer_results["ready_count"],
+                    "CLUSTER PEERS": peer_results["peer_count"],
+                    "READY": peer_results["ready_count"],
                     "PROFILE": self.profile,
                 },
                 "spacing": spacing
             },
             {
                 "header_elements" : {
-                    "OBSERVING NODES": peer_results["observing_count"],
-                    "WAITING FOR READY NODES": peer_results["waitingforready_count"],
+                    "Observing": peer_results["observing_count"],
+                    "WaitingForObserving": peer_results["waitingforobserving_count"],
+                    "WaitingForReady": peer_results["waitingforready_count"],
+                },
+                "spacing": spacing
+            },
+            {
+                "header_elements" : {
+                    "DownloadInProgress": peer_results["downloadinprogress_count"],
+                    "WaitingForDownload": peer_results["waitingfordownload_count"],
                 },
                 "spacing": spacing
             },

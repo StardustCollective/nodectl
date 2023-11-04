@@ -275,14 +275,32 @@ class Functions():
         
         peer_list = list()
         state_list = list()
-        peers_observing = list()
-        peers_waitingforready = list()
-        peers_ready = list()
         peers_publicport = list()
 
+        peers_ready = list()        
+        peers_observing = list()
+        peers_waitingforready = list()
+        peers_waitingforobserving = list()
+        peers_downloadinprogress = list()
+        peers_waitingfordownload = list()
+        
         node_online = False
         node_states = self.get_node_states()
         
+        def pull_states(line):
+            if line["state"] == "Observing":
+                peers_observing.append(line['ip'])  # count observing nodes
+            elif line["state"] == "Ready":
+                peers_ready.append(line['ip'])  # count ready nodes
+            elif line["state"] == "WaitingForReady":
+                peers_waitingforready.append(line['ip'])
+            elif line["state"] == "WaitingForObserving":
+                peers_waitingforobserving.append(line['ip'])
+            elif line["state"] == "DownloadInProgress":
+                peers_downloadinprogress.append(line['ip'])
+            elif line["state"] == "WaitingForDownload":
+                peers_waitingfordownload.append(line['ip'])            
+                
         if compare:
             cluster_ip = ip_address
         elif not edge_obj:
@@ -329,19 +347,13 @@ class Functions():
                         node_online = True
                         peer_list.append(line['ip'])
                         peers_publicport.append(line['publicPort'])
-                        if line["state"] == "Ready":
-                            peers_ready.append(line['ip'])  # count ready nodes
+                        pull_states(line)
                         state_list.append("*")
                     else:
                         # append state abbreviations
                         for state in node_states:
                             if state[0] in line["state"]:
-                                if line["state"] == "Observing":
-                                    peers_observing.append(line['ip'])  # count observing nodes
-                                elif line["state"] == "Ready":
-                                    peers_ready.append(line['ip'])  # count ready nodes
-                                elif line["state"] == "WaitingForReady":
-                                    peers_waitingforready.append(line['ip'])
+                                pull_states(line)
                                 peer_list.append(line['ip'])
                                 peers_publicport.append(line['publicPort'])
                                 state_list.append(state[1])
@@ -355,10 +367,16 @@ class Functions():
                 "state_list": state_list,
                 "observing": peers_observing,
                 "waitingforready": peers_waitingforready,
+                "waitingforobserving": peers_waitingforobserving,
+                "waitingfordownload": peers_waitingfordownload,
+                "downloadinprogress": peers_downloadinprogress,
                 "ready": peers_ready,
                 "peer_count": len(peer_list),
                 "observing_count": len(peers_observing),
                 "waitingforready_count": len(peers_waitingforready),
+                "waitingforobserving_count": len(peers_waitingforobserving),
+                "waitingfordownload_count": len(peers_waitingfordownload),
+                "downloadinprogress_count": len(peers_downloadinprogress),
                 "ready_count": len(peers_ready),
                 "node_online": node_online
             }
@@ -604,7 +622,7 @@ class Functions():
                 pass
             
             cluster_info_tmp = deepcopy(cluster_info)
-            self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{len(cluster_info)}]")
+            self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
             
             try:
                 cluster_info_tmp.pop()
@@ -619,10 +637,10 @@ class Functions():
                     })
             
             for n in range(0,max_range):
-                node = random.choice(cluster_info)
+                node = random.choice(cluster_info_tmp)
                 if specific_ip:
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
-                    for i_node in cluster_info:
+                    for i_node in cluster_info_tmp:
                         if specific_ip == i_node["ip"]:
                             node = i_node
                             break
@@ -957,8 +975,8 @@ class Functions():
                                 possible_found.pop(key)
                 
         return possible_found
-
-
+    
+    
     # =============================
     # setter functions
     # =============================
@@ -2524,22 +2542,30 @@ class Functions():
         msg = command_obj.get("msg")
         color = command_obj.get("color","cyan")
         newline = command_obj.get("newline",False)
+        clearline = command_obj.get("clearline",True)
+        spinner_type = command_obj.get("spinner_type","spinner")
         
-        self.print_clear_line()
+        if clearline: self.print_clear_line()
         
         if newline == "top" or newline == "both":
             print("")
-            
-        def spinning_cursor():
-            while True:
-                for cursor in '|/-\\':
-                    yield cursor
+        
+        def spinning_cursor(stype):
+            if stype == "dotted":
+                dots = ["   ",".  ",".. ","..."]
+                while True:
+                    for dot in dots: 
+                        yield dot
+            else:
+                while True:
+                    for cursor in '|/-\\':
+                        yield cursor
 
-        spinner = spinning_cursor()
+        spinner = spinning_cursor(spinner_type)
         while self.event:
             cursor = next(spinner)
             print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
-            sleep(0.2)
+            sleep(0.3)
             if not self.event:
                 self.print_clear_line()
 

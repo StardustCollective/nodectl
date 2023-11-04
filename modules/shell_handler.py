@@ -98,6 +98,7 @@ class ShellHandler:
         self.check_valid_command()
 
         if self.called_command == "main_error":
+            self.log.logger.error(f"invalid command called [{self.called_command}] sending to help file.")
             self.functions.print_help({
                 "usage_only": True,
                 "nodectl_version_only": True,
@@ -479,13 +480,14 @@ class ShellHandler:
         cmds = pull_valid_command()
         self.valid_commands = cmds[0]
         valid_short_cuts = cmds[1]
-        service_cmds = cmds[3]
+        service_cmds = cmds[2]
         removed_cmds = cmds[3]
 
         self.log.logger.debug(f"nodectl feature count [{len(self.valid_commands)}]")
         self.functions.valid_commands = self.valid_commands 
         
         all_command_check = self.valid_commands+valid_short_cuts+service_cmds+removed_cmds
+
         if self.called_command not in all_command_check:
             self.called_command = "main_error"
         
@@ -1080,7 +1082,6 @@ class ShellHandler:
         keys = list(self.functions.config_obj.keys())
         keys.append("global_p12")
         
-
         for profile in keys:
             if profile == "global_p12":
                 if self.functions.config_obj[profile]["passphrase"] == "None":
