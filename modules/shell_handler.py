@@ -300,7 +300,10 @@ class ShellHandler:
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
             cli.show_seedlist_participation(self.argv)
         elif self.called_command == "download_status" or self.called_command == "_ds":
-            cli.show_download_status({"command_list": self.argv})
+            cli.show_download_status({
+                "caller": "download_status",
+                "command_list": self.argv
+            })
         elif self.called_command in cv_commands:
             cli.check_versions(self.argv)
         elif "auto_" in self.called_command:
@@ -576,8 +579,8 @@ class ShellHandler:
             current = self.functions.version_obj["node_nodectl_version"]
             
             show_warning = False
-            if self.functions.version_obj["nodectl_uptodate"]:
-                if not isinstance(self.functions.version_obj["nodectl_uptodate"],bool):
+            if self.functions.version_obj[environment]["nodectl"]["nodectl_uptodate"]:
+                if not isinstance(self.functions.version_obj[environment]["nodectl"]["nodectl_uptodate"],bool):
                     show_warning = True
                     
             if show_warning:
@@ -758,7 +761,7 @@ class ShellHandler:
 
     def handle_versioning(self):
         if self.called_command == "install": called_cmd = "show_version"
-        elif self.called_command in ["version","_v","upgrade"]: return
+        elif self.called_command in ["version","_v"]: return
         else: called_cmd = self.called_command
         
         need_forced_update = [

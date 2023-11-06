@@ -494,19 +494,25 @@ class Functions():
         old_time = command_obj.get("old_time",False)
         new_time = command_obj.get("new_time",False)
         time_part = command_obj.get("time_part",False)
+        format = command_obj.get("format", "%Y-%m-%d-%H:%M:%SZ")
+        return_format = command_obj.get("return_format","string")
         
         if not new_time: new_time = datetime.now()
-        
+        if not old_time: old_time = datetime.now()
+
         if action == "date":
             return new_time.strftime("%Y-%m-%d")
         elif action == "datetime":
             return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
         elif action == "get_elapsed":
-            old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            try: old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            except: pass # already in proper format
             return new_time - old_time
         elif action == "future_datetime":
             new_time += timedelta(seconds=elapsed)
-            return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
+            if return_format == "string":
+                return new_time.strftime(format)
+            return new_time
         elif action == "estimate_elapsed":
             total_seconds = int(elapsed.total_seconds())
             days, seconds = divmod(total_seconds, 86400) 
@@ -2830,12 +2836,17 @@ class Functions():
                 }
                 self.print_cmd_status(progress)
                 self.print_timer(seconds,"to allow network to recover",start=1)
+                print(f'\x1b[1A', end='')
+                self.print_clear_line()
                 self.print_cmd_status({
                     **progress,
                     "status": "retry",
                     "status_color": "green",
+                    "delay": .6,
                 }) 
-
+                print(f'\x1b[1A', end='')
+                self.print_clear_line()
+                
 
     def process_command(self,command_obj):
         # bashCommand, proc_action, autoSplit=True,timeout=180,skip=False,log_error=False,return_error=False
