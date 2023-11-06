@@ -333,11 +333,16 @@ class DownloadStatus():
             self.build_percent_hashes()
             self.handle_time_estimate(start_time)
             
-            if int(self.dip_vals.use_end) < int(self.dip_vals.use_current): 
-                self.dip_vals.use_end = int(self.dip_vals.use_current)
+            try:
+                if int(self.dip_vals.use_end) < int(self.dip_vals.use_current): 
+                    self.dip_vals.use_end = int(self.dip_vals.use_current)
+                    
+                self.dip_vals.left = self.dip_vals.use_current - self.dip_vals.goal
+                if self.dip_vals.use_height: self.dip_vals.left *= -1
+            except:
+                # "not found" literal
+                self.dip_vals.freeze_display = True
                 
-            self.dip_vals.left = self.dip_vals.use_current - self.dip_vals.goal
-            if self.dip_vals.use_height: self.dip_vals.left *= -1
             
             if not self.dip_vals.freeze_display:
                 self.print_output(dip_pass)
