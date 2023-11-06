@@ -367,6 +367,7 @@ class Versioning():
          
     def verify_version_object(self):
         error_found = False
+        if self.new_creation: return # nothing to verify
         
         root_keys = [
             "node_nodectl_version","node_nodectl_yaml_version","nodectl_github_version",

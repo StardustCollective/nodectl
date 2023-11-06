@@ -447,7 +447,12 @@ class DownloadStatus():
                 self.estimated_finished = f"calculating..."
                 self.est_countdown = f"{start_cal_timer-int(elapsed):3}"
                 return
-            
+
+            if (int(start_time) - int(elapsed)) % 5 != 0 and not self.initialize_timing:
+                return       
+
+            self.initialize_timing = False      
+                       
             if self.dip_vals.use_height:
                 try:
                     processed = self.dip_vals.goal - self.dip_vals.use_current
