@@ -364,7 +364,7 @@ class DownloadStatus():
         except: self.dot = dotted[0]
         
         self.functions.print_paragraphs([
-            [f"STATUS CHECK PASS #{dip_pass} {self.dot}",1,"green"]
+            [f"ORDINAL STATUS CHECK PASS #{dip_pass} {self.dot}",1,"green"]
         ])
         
         self.functions.print_clear_line()
@@ -414,12 +414,14 @@ class DownloadStatus():
             ) 
         else:
             print(
-                colored("  Ordinals: Goal","magenta"), 
+                colored("  Start","magenta"), 
+                colored(f'{str(self.dip_status["end"])}',"blue",attrs=["bold"]),
+                colored("| Goal","magenta"),
                 colored(str(self.dip_vals.goal),"blue",attrs=["bold"]),
                 colored("| Downloading","magenta"),
                 colored(f'{str(self.dip_vals.use_current)}',"blue",attrs=["bold"]), 
                 colored("| Left","magenta"),
-                colored(str(self.dip_vals.left),d_color,attrs=["bold"]), 
+                colored(f'{str(self.dip_vals.left)}',d_color,attrs=["bold"]), 
             ) 
             
         self.functions.print_clear_line()
