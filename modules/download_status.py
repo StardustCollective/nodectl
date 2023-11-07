@@ -19,12 +19,14 @@ class DownloadStatus():
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
         self.error_messages = Error_codes(self.config_obj) 
-         
+        self.valid_output_received = False
+        
         self.log = self.parent.log
         self.log.logger.info("DownloadStatus module initiated")
         
         self.estimated_finished = "calculating..."
         self.remaining_time = -1
+        self.back_and_forth = 0
         self.initialize_timing = True
         
         self.create_scrap_commands()
@@ -161,13 +163,23 @@ class DownloadStatus():
                 
                 
     def handle_end_of_dip(self,state):
-            self.functions.print_clear_line(4)
+            self.functions.print_clear_line(6)
+            print(f'\x1b[3A', end='')
+            
+            if self.valid_output_received:
+                self.functions.print_paragraphs([
+                    [" COMPLETED ",0,"grey,on_green","bold"], 
+                    ["This Node is no longer in",0],["DownloadInProgress",0,"yellow"],["state.",1],
+                    ["Cancelling progress indicators.",2],
+                ])
+            else:
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"], ["Request to watch the progress of",0,"red"],
+                    ["the state: DownloadInProgress was requested, however",0,"red"],
+                    ["this Node does not seem to be in this state.",1,"red"],
+                    ["Nothing to report on...",2,"yellow"],
+                ])
             self.functions.print_paragraphs([
-                [" WARNING ",0,"red,on_yellow"], ["Request to watch the progress of",0,"red"],
-                ["the state: DownloadInProgress was requested, however",0,"red"],
-                ["this Node does not seem to be in this state.",1,"red"],
-                ["Nothing to report on...",2,"yellow"],
-                
                 ["ON NODE VALUES",1,"magenta"],
                 ["State Found:",0,],[state,1,"blue","bold"],
                 ["Ordinal value goal:",0], [str(self.dip_status['end']),1,"blue","bold"],
@@ -216,11 +228,15 @@ class DownloadStatus():
         if self.dip_vals.last_found == self.dip_vals.use_current:
             for _ in range(0,5):
                 backup = True
+                
                 warning = "  snapshot download paused, standby..."
                 if self.dip_vals.use_height: warning = "  block acceptance paused, standby..."
+                if self.back_and_forth > 2: warning = "  Node is pausing to wait for valid peers"
+
                 sleep(1)
                 self.pull_ordinal_values()
                 self.dip_vals.use_current = self.dip_status["current"]
+                
                 if self.dip_vals.use_height:
                     self.dip_vals.use_current = self.dip_status["current_height"]
                     
@@ -231,6 +247,7 @@ class DownloadStatus():
         if backup: self.functions.print_clear_line()
             
         if self.dip_vals.last_found == self.dip_vals.use_current:
+            self.back_and_forth += 1
             sleep(1)
             self.dip_vals.use_height = False if self.dip_vals.use_height else True
             self.dip_vals.use_end = self.dip_status["end"]
@@ -240,6 +257,7 @@ class DownloadStatus():
                 self.dip_vals.use_current = self.dip_status["current_height"]
         else:
             self.dip_vals.last_found = self.dip_vals.use_current
+            self.back_and_forth = 0 # reset
         
     
     def build_percent_hashes(self):
@@ -265,7 +283,7 @@ class DownloadStatus():
             self.log.logger.error(f"download_status - attempting to derive percenter resulted in [ZeroDivisionError] as [{e}]")
             
         if self.dip_vals.percentage < 1: self.dip_vals.percentage = 1
-        if self.dip_vals.percentage > 99: self.dip_vals.percentage = 100      
+        if self.dip_vals.percentage > 99: self.dip_vals.percentage = 99
         
                         
     def download_status(self,dip_pass=1):
@@ -370,6 +388,7 @@ class DownloadStatus():
         
 
     def print_output(self,dip_pass):
+        self.valid_output_received = True
         dotted = ["    ",".   ","..  ","... ","...."]    
         try:
             self.dot = dotted[dotted.index(self.dot)+1]
@@ -445,7 +464,7 @@ class DownloadStatus():
             colored(f"{'%': <3}","green"),
         )
         if self.dip_vals.percentage < 100:
-            print(f'\x1b[5A', end='')
+                print(f'\x1b[5A', end='')
             
     
     def test_dip_state(self):

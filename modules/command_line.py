@@ -239,7 +239,7 @@ class CLI():
                     ])
                     if range_error:
                         self.functions.print_paragraphs([
-                            [" RANGE ERROR ",0,"red,on_yellow"],["using [6] second default.",2]
+                            [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
                         ]) 
                     if quit_loop._state == "FINISHED":
                         system("clear")
