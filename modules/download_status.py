@@ -1,10 +1,11 @@
 from time import sleep, perf_counter
 from sys import exit
-from os import system
+from os import system, path
 from termcolor import colored
 from re import sub
 from types import SimpleNamespace
 
+from .troubleshoot.errors import Error_codes
 
 class DownloadStatus():
     
@@ -17,7 +18,8 @@ class DownloadStatus():
         
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
-     
+        self.error_messages = Error_codes(self.config_obj) 
+         
         self.log = self.parent.log
         self.log.logger.info("DownloadStatus module initiated")
         
@@ -30,8 +32,15 @@ class DownloadStatus():
 
     def create_scrap_commands(self):
         cmds, self.bashCommands = [],{}
-        log_file = f"/var/tessellation/{self.parent.profile}/logs/app.log"
+        log_file = self.log_file = f"/var/tessellation/{self.parent.profile}/logs/app.log"
         
+        if self.config_obj[self.parent.profile]["layer"] > 0 and self.caller != "status":
+            self.error_messages.error_code_messages({
+                "error_code": "ds-39",
+                "line_code": "invalid_layer",
+                "extra": f"{self.parent.profile} not supported by download_status feature"
+            })
+            
         # Grab the startingPoint ordinal start value
         # grep 'Download for startingPoint' /var/tessellation/dag-l0/logs/app.log | tail -n 1 | sed -n 's/.*SnapshotOrdinal(\([0-9]\+\)).*/\1/p'
         cmd = f"grep 'Download for startingPoint' {log_file} | tail -n 1 | sed -n 's/.*SnapshotOrdinal(\([0-9]\+\)).*/\\1/p'"
@@ -69,7 +78,6 @@ class DownloadStatus():
             self.bashCommands = {
                 **self.bashCommands,
                 f"{lookup_keys[n]}": [process_command_type[n],cmd],
-                
             }
 
 
@@ -270,7 +278,14 @@ class DownloadStatus():
         
         self.functions.check_for_help(self.command_list,"download_status")
         
-        self.pull_ordinal_values()    
+        if self.caller == "status" and not path.exists(self.log_file):
+                self.dip_status = {
+                    "end": "Not Found",
+                    "current": "Not Found",
+                    "latest": "Not Found",
+                }
+        else:
+            self.pull_ordinal_values()    
                 
         if self.caller == "status":
             self.log.logger.info(f'download_status - ordinal/snapshot lookup found | target download [{self.dip_status["end"]}] current [{self.dip_status["current"]}] latest [{self.dip_status["latest"]}] ')
@@ -312,17 +327,8 @@ class DownloadStatus():
         } 
         self.dip_vals = SimpleNamespace(**dip_current_values)       
 
-        while self.dip_vals.use_current < self.dip_vals.use_end:
-            state = self.functions.test_peer_state({
-                "profile": self.profile,
-                "simple": True,
-                "print_output": False,
-                "skip_thread": True,
-            })
-            
-            if state != "DownloadInProgress": 
-                if state != "WaitingForDownload": self.handle_end_of_dip(state)
-                else: self.handle_wfd_state(state)  
+        while self.dip_vals.use_current <= self.dip_vals.use_end:
+            self.test_dip_state()
                 
             self.handle_snapshot()
             self.handle_height()
@@ -356,6 +362,7 @@ class DownloadStatus():
             self.pull_ordinal_values()
 
         # double check recursively
+        self.test_dip_state()
         dip_pass += 1
         sleep(.5)
         self.download_status(dip_pass)
@@ -440,7 +447,20 @@ class DownloadStatus():
         if self.dip_vals.percentage < 100:
             print(f'\x1b[5A', end='')
             
+    
+    def test_dip_state(self):
+        state = self.functions.test_peer_state({
+            "profile": self.profile,
+            "simple": True,
+            "print_output": False,
+            "skip_thread": True,
+        })
+        
+        if state != "DownloadInProgress": 
+            if state != "WaitingForDownload": self.handle_end_of_dip(state)
+            else: self.handle_wfd_state(state)  
             
+                        
     def handle_time_estimate(self,start_time):
         current_time = perf_counter()
         elapsed = current_time - start_time
@@ -469,7 +489,7 @@ class DownloadStatus():
                     remaining_time = -1
             else:
                 try:
-                    processed = self.dip_vals.left - self.dip_vals.use_current
+                    processed = self.dip_vals.left - (self.dip_vals.start - self.dip_vals.use_current)
                     self.dip_vals.processed += processed
                     processed = self.dip_vals.processed
                     percent_complete = processed / self.dip_status["end"]
