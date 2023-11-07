@@ -28,6 +28,7 @@ class DownloadStatus():
         self.remaining_time = -1
         self.back_and_forth = 0
         self.initialize_timing = True
+        self.dip_process_complete = False
         
         self.create_scrap_commands()
 
@@ -194,7 +195,7 @@ class DownloadStatus():
                 ["Differential:",0], [differential,2,"blue","bold"]
             ])
             if self.caller != "upgrade" and self.caller != "cli_restart": exit(0)
-            return
+            self.dip_process_complete = True
         
 
     def handle_snapshot(self):
@@ -346,6 +347,8 @@ class DownloadStatus():
         self.dip_vals = SimpleNamespace(**dip_current_values)       
 
         while self.dip_vals.use_current <= self.dip_vals.use_end:
+            if self.dip_process_complete: return
+            
             self.test_dip_state()
                 
             self.handle_snapshot()
@@ -476,7 +479,8 @@ class DownloadStatus():
         })
         
         if state != "DownloadInProgress": 
-            if state != "WaitingForDownload": self.handle_end_of_dip(state)
+            if state != "WaitingForDownload": 
+                self.handle_end_of_dip(state)
             else: self.handle_wfd_state(state)  
             
                         
@@ -485,6 +489,11 @@ class DownloadStatus():
         elapsed = current_time - start_time
         start_cal_timer = 10
         remaining_time = -1
+        
+        if self.back_and_forth > 2:
+            self.estimated_finished = f"unable to derive | attempt"
+            self.est_countdown = self.back_and_forth
+            return
         
         try:
             if start_cal_timer - int(elapsed) > 0:
