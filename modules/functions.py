@@ -46,7 +46,8 @@ class Functions():
         self.config_obj = config_obj
         self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
         self.version_obj = False
-
+        self.valid_commands = []
+        
         
     def set_statics(self):
         self.error_messages = Error_codes(self.config_obj)         
@@ -54,7 +55,6 @@ class Functions():
         self.node_nodectl_version = self.version_obj["node_nodectl_version"]
         self.node_nodectl_version_github = self.version_obj["nodectl_github_version"]
         self.node_nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
-        self.upgrade_path = False
 
         # stop requests from caching results
         self.get_headers = {
@@ -79,7 +79,6 @@ class Functions():
         }
         
         # constellation nodectl statics
-        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/upgrade_path.json"
         self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
         self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_github}/predefined_configs"
         
@@ -276,14 +275,32 @@ class Functions():
         
         peer_list = list()
         state_list = list()
-        peers_observing = list()
-        peers_waitingforready = list()
-        peers_ready = list()
         peers_publicport = list()
 
+        peers_ready = list()        
+        peers_observing = list()
+        peers_waitingforready = list()
+        peers_waitingforobserving = list()
+        peers_downloadinprogress = list()
+        peers_waitingfordownload = list()
+        
         node_online = False
         node_states = self.get_node_states()
         
+        def pull_states(line):
+            if line["state"] == "Observing":
+                peers_observing.append(line['ip'])  # count observing nodes
+            elif line["state"] == "Ready":
+                peers_ready.append(line['ip'])  # count ready nodes
+            elif line["state"] == "WaitingForReady":
+                peers_waitingforready.append(line['ip'])
+            elif line["state"] == "WaitingForObserving":
+                peers_waitingforobserving.append(line['ip'])
+            elif line["state"] == "DownloadInProgress":
+                peers_downloadinprogress.append(line['ip'])
+            elif line["state"] == "WaitingForDownload":
+                peers_waitingfordownload.append(line['ip'])            
+                
         if compare:
             cluster_ip = ip_address
         elif not edge_obj:
@@ -330,19 +347,13 @@ class Functions():
                         node_online = True
                         peer_list.append(line['ip'])
                         peers_publicport.append(line['publicPort'])
-                        if line["state"] == "Ready":
-                            peers_ready.append(line['ip'])  # count ready nodes
+                        pull_states(line)
                         state_list.append("*")
                     else:
                         # append state abbreviations
                         for state in node_states:
                             if state[0] in line["state"]:
-                                if line["state"] == "Observing":
-                                    peers_observing.append(line['ip'])  # count observing nodes
-                                elif line["state"] == "Ready":
-                                    peers_ready.append(line['ip'])  # count ready nodes
-                                elif line["state"] == "WaitingForReady":
-                                    peers_waitingforready.append(line['ip'])
+                                pull_states(line)
                                 peer_list.append(line['ip'])
                                 peers_publicport.append(line['publicPort'])
                                 state_list.append(state[1])
@@ -356,10 +367,16 @@ class Functions():
                 "state_list": state_list,
                 "observing": peers_observing,
                 "waitingforready": peers_waitingforready,
+                "waitingforobserving": peers_waitingforobserving,
+                "waitingfordownload": peers_waitingfordownload,
+                "downloadinprogress": peers_downloadinprogress,
                 "ready": peers_ready,
                 "peer_count": len(peer_list),
                 "observing_count": len(peers_observing),
                 "waitingforready_count": len(peers_waitingforready),
+                "waitingforobserving_count": len(peers_waitingforobserving),
+                "waitingfordownload_count": len(peers_waitingfordownload),
+                "downloadinprogress_count": len(peers_downloadinprogress),
                 "ready_count": len(peers_ready),
                 "node_online": node_online
             }
@@ -475,18 +492,27 @@ class Functions():
         r_days = command_obj.get("days",False) # requested days
         elapsed = command_obj.get("elapsed",False)
         old_time = command_obj.get("old_time",False)
+        new_time = command_obj.get("new_time",False)
+        time_part = command_obj.get("time_part",False)
+        format = command_obj.get("format", "%Y-%m-%d-%H:%M:%SZ")
+        return_format = command_obj.get("return_format","string")
         
+        if not new_time: new_time = datetime.now()
+        if not old_time: old_time = datetime.now()
+
         if action == "date":
-            return datetime.now().strftime("%Y-%m-%d")
+            return new_time.strftime("%Y-%m-%d")
         elif action == "datetime":
-            return datetime.now().strftime("%Y-%m-%d-%H:%M:%SZ")
-        elif action == "get_elapsed":
-            old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
-            return datetime.now() - old_time
-        elif action == "future_datetime":
-            new_time = datetime.now()
-            new_time += timedelta(seconds=elapsed)
             return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
+        elif action == "get_elapsed":
+            try: old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            except: pass # already in proper format
+            return new_time - old_time
+        elif action == "future_datetime":
+            new_time += timedelta(seconds=elapsed)
+            if return_format == "string":
+                return new_time.strftime(format)
+            return new_time
         elif action == "estimate_elapsed":
             total_seconds = int(elapsed.total_seconds())
             days, seconds = divmod(total_seconds, 86400) 
@@ -520,11 +546,17 @@ class Functions():
                 uptime_hours, uptime_minutes = map(int, uptime.split(":"))
                 uptime_seconds = (uptime_hours * 60 + uptime_minutes) * 60
             return uptime_seconds
+        elif action == "difference":
+            test1 = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            test2 = datetime.strptime(new_time, "%Y-%m-%d-%H:%M:%SZ")
+            if getattr(test1, time_part) != getattr(test2, time_part):
+                return True  # There is a difference            
+            return False
         else:
             # if the action is default 
-            return_val = datetime.now()+timedelta(days=r_days)
+            return_val = new_time+timedelta(days=r_days)
             if backward:
-                return_val = datetime.now()-timedelta(days=r_days)
+                return_val = new_time-timedelta(days=r_days)
         
         return return_val.strftime("%Y-%m-%d")
         
@@ -538,13 +570,22 @@ class Functions():
         return arch       
     
 
-    def get_percentage_complete(self, start, end, current, invert=False):
-        if current < start:
-            return 0
+    def get_percentage_complete(self, command_obj):
+        start = command_obj["start"]
+        end = command_obj["end"]
+        current = command_obj["current"]
+        invert = command_obj.get("invert",False)
+        absolute = command_obj.get("absolute",False)
+        
+        if not absolute: 
+            if current < start:
+                return 0
+        
         elif current >= end:
             return 100
+        
         total_range = end - start
-        current_range = current - start
+        current_range = abs(current - start)
         percentage = (current_range / total_range) * 100
         if invert: percentage = 100 - percentage
         return int(percentage) 
@@ -596,7 +637,7 @@ class Functions():
                 pass
             
             cluster_info_tmp = deepcopy(cluster_info)
-            self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{len(cluster_info)}]")
+            self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
             
             try:
                 cluster_info_tmp.pop()
@@ -611,10 +652,10 @@ class Functions():
                     })
             
             for n in range(0,max_range):
-                node = random.choice(cluster_info)
+                node = random.choice(cluster_info_tmp)
                 if specific_ip:
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
-                    for i_node in cluster_info:
+                    for i_node in cluster_info_tmp:
                         if specific_ip == i_node["ip"]:
                             node = i_node
                             break
@@ -949,8 +990,8 @@ class Functions():
                                 possible_found.pop(key)
                 
         return possible_found
-
-
+    
+    
     # =============================
     # setter functions
     # =============================
@@ -1532,60 +1573,6 @@ class Functions():
         elif retrieve == "chosen_profile": return [chosen_profile, predefined_configs[chosen_profile]]
 
 
-    def pull_upgrade_path(self,config=False):
-        def check_for_release(p_version):
-            pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
-            pre_success = True
-            for n in range(0,3):
-                try:
-                    pre_release = get(pre_release_uri,headers=self.get_headers).json()
-                except:
-                    sleep(1)
-                    self.log.logger.warn(f"unable to rearch api to check for pre-release uri [{pre_release_uri}] attempts [{n}] or [2]")
-                    pre_success = False
-                else:
-                    break
-                
-            if not pre_success:
-                self.print_paragraphs([
-                    ["Unable to determine if this release is a pre-release, continuing anyway...",1,"red"]
-                ])
-            else:
-                # self.release_details = pre_release # save for future use
-                return pre_release["prerelease"]  # this will be true or false
-            
-        for n in range(0,4):
-            try:
-                upgrade_path = get(self.upgrade_path_path,headers=self.get_headers)
-            except:
-                if n == 3:
-                    self.log.logger.error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
-                    self.print_paragraphs([
-                        ["",1], ["Unable to determine upgrade path.  Please make sure you adhere to the proper upgrade path before",0,"red"],
-                        ["continuing this upgrade; otherwise, you may experience unexpected results.",2,"red"],
-                    ])
-                self.upgrade_path = False
-                return
-            else:
-                break
-    
-        upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
-        self.upgrade_path = eval(upgrade_path)
-        if config:
-            return
-        
-        for profile in self.profile_names:
-            # non-constellation-profiles will eval to False
-            environment = self.config_obj[profile]["environment"]
-            try:
-                is_prerelease = check_for_release(self.upgrade_path[environment]["version"])
-            except:
-                is_prerelease = False
-            finally:
-                self.upgrade_path[environment]["pre_release"] = is_prerelease
-            
-
-    
     # =============================
     # check functions
     # =============================    
@@ -1668,7 +1655,7 @@ class Functions():
                     ["nodectl",0, "blue","bold"], ["is unable to continue.",1,"red"],
                     ["Are you sure your have sudo permissions?",2,"red"]
                 ])
-                exit("sudo permissions error") # auto_restart not affected  
+                exit("  sudo permissions error") # auto_restart not affected  
             
 
     def check_config_environment(self):
@@ -1772,7 +1759,7 @@ class Functions():
                 "newline": True,
             })
             self.print_auto_restart_warning()
-            exit("Tessellation Validator Node State Error")
+            exit("  Tessellation Validator Node State Error")
             
             
     def test_peer_state(self,command_obj):
@@ -2570,22 +2557,30 @@ class Functions():
         msg = command_obj.get("msg")
         color = command_obj.get("color","cyan")
         newline = command_obj.get("newline",False)
+        clearline = command_obj.get("clearline",True)
+        spinner_type = command_obj.get("spinner_type","spinner")
         
-        self.print_clear_line()
+        if clearline: self.print_clear_line()
         
         if newline == "top" or newline == "both":
             print("")
-            
-        def spinning_cursor():
-            while True:
-                for cursor in '|/-\\':
-                    yield cursor
+        
+        def spinning_cursor(stype):
+            if stype == "dotted":
+                dots = ["   ",".  ",".. ","..."]
+                while True:
+                    for dot in dots: 
+                        yield dot
+            else:
+                while True:
+                    for cursor in '|/-\\':
+                        yield cursor
 
-        spinner = spinning_cursor()
+        spinner = spinning_cursor(spinner_type)
         while self.event:
             cursor = next(spinner)
             print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
-            sleep(0.2)
+            sleep(0.3)
             if not self.event:
                 self.print_clear_line()
 
@@ -2620,6 +2615,10 @@ class Functions():
         hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
         
+        command_obj = {
+            **command_obj,
+            "valid_commands": self.valid_commands
+        }
         self.print_clear_line()
         self.log.logger.info(f"Help file print out")
         self.help_text = "" 
@@ -2643,7 +2642,7 @@ class Functions():
                     self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
                 old_env = env
 
-        self.help_text += build_help(command_obj)
+        self.help_text += build_help(self,command_obj)
         
         print(self.help_text)
                 
@@ -2661,7 +2660,7 @@ class Functions():
             ])
             
         elif hint == "unknown":
-            print(colored('Unknown command entered','red'),"\n")
+            print(colored('  Unknown command entered','red'),"\n")
         elif isinstance(hint,str) and hint != "None":
             cprint(f"{  hint}","cyan")
             
@@ -2846,12 +2845,17 @@ class Functions():
                 }
                 self.print_cmd_status(progress)
                 self.print_timer(seconds,"to allow network to recover",start=1)
+                print(f'\x1b[1A', end='')
+                self.print_clear_line()
                 self.print_cmd_status({
                     **progress,
                     "status": "retry",
                     "status_color": "green",
+                    "delay": .6,
                 }) 
-
+                print(f'\x1b[1A', end='')
+                self.print_clear_line()
+                
 
     def process_command(self,command_obj):
         # bashCommand, proc_action, autoSplit=True,timeout=180,skip=False,log_error=False,return_error=False

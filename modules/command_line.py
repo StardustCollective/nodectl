@@ -1,27 +1,13 @@
 import re
 import base58
-# import base64
-# import cryptography.exceptions
-# from cryptography.hazmat.backends import default_backend
-# from cryptography.hazmat.primitives import hashes
-# from cryptography.hazmat.primitives.asymmetric import padding
-# from cryptography.hazmat.primitives.serialization import load_pem_public_key
-from hashlib import sha256
-
-from time import sleep, perf_counter
-from datetime import datetime
-from os import system, path, get_terminal_size, SEEK_END, SEEK_CUR
-=======
-import base58
 import psutil
 from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
 from os import system, path, get_terminal_size, remove, SEEK_END, SEEK_CUR
->>>>>>> 43cb4e6614ed6762f6ebaa4e0d15ead80cf6635c
 from pathlib import Path
-from sys import exit
+from sys import exit, stdout, stdin
 from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
@@ -29,8 +15,8 @@ from secrets import compare_digest
 
 from modules.p12 import P12Class
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
+from .download_status import DownloadStatus
 from .status import Status
-from .functions import Functions
 from .node_service import Node
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
@@ -253,7 +239,7 @@ class CLI():
                     ])
                     if range_error:
                         self.functions.print_paragraphs([
-                            [" RANGE ERROR ",0,"red,on_yellow"],["using [6] second default.",2]
+                            [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
                         ]) 
                     if quit_loop._state == "FINISHED":
                         system("clear")
@@ -1258,317 +1244,16 @@ class CLI():
         ])
         
         
-    def show_download_status(self,command_obj,dip_pass=1):
-        # show DownloadInProgress Status
-        command_list = command_obj.get("command_list")
-        dip_pass = command_obj.get("dip_pass",1)
-        caller = command_obj.get("caller","show_download_status")
-        
-        if "-p" in command_list:
-            self.profile = command_list[command_list.index("-p")+1]
-            self.log.logger.info(f"show_download_status called and using profile [{self.profile}]")
-        else: command_list.append("help")
-        
-        cmds, bashCommands = [],{}
-        log_file = f"/var/tessellation/{self.profile}/logs/app.log"
-        
-        # Grab the startingPoint ordinal start value
-        # grep 'Download for startingPoint' /var/tessellation/dag-l0/logs/app.log | tail -n 1 | sed -n 's/.*SnapshotOrdinal(\([0-9]\+\)).*/\1/p'
-        cmd = f"grep 'Download for startingPoint' {log_file} | tail -n 1 | sed -n 's/.*SnapshotOrdinal(\([0-9]\+\)).*/\\1/p'"
-        cmds.append(cmd)
-        # Grab the startingPoint ordinal end value
-        cmd = f"grep 'Download for startingPoint' {log_file} | tail -n 1 | awk -F'value=' "
-        cmd += "'{print $2}' | awk -F'}' '{print $1}'"
-        cmds.append(cmd)
-        # Grab last Download snapshot hash value
-        cmd = "grep 'Downloading snapshot' "
-        cmd += f"{log_file} | tail -n 1 | awk -F 'value=' "
-        cmd += "'{print $2}' | cut -d ',' -f 1 | sed 's/}//'"
-        cmds.append(cmd)
-        # Grab last ConsensusStateUpdater Ordinal
-        cmd = f"grep -A1 'ConsensusStateUpdater' {log_file} | grep 'key=SnapshotOrdinal"
-        cmd += "{value=' | tail -n 1 | awk -F'value=' '{print $2}' | awk -F'}' '{print $1}'"
-        cmds.append(cmd)
-        # BlockAcceptanceManager exception
-        # grep 'Accepted block: BlockReference' /var/tessellation/dag-l0/logs/app.log | tail -n 1 | awk -F 'height=' '{split($2,a,","); print a[1]}'
-        # Execute the commands in a pipeline
-        grep_cmd = ["grep", "Accepted block: BlockReference", log_file]
-        tail_cmd = ["tail", "-n", "1"]
-        awk_cmd = ["awk", "-F", "height=", '{split($2,a,","); gsub("[^0-9]", "", a[1]); print a[1]}']
-        cmd = [grep_cmd,tail_cmd,awk_cmd]  # to avoid escape sequences in the command
-        cmds.append(cmd)
-        # Grab the time from the logs
-        # tail -n 1 /var/tessellation/nodectl/nodectl.log | awk '{print $1, $2, $3}'
-        cmd = f"tail -n 1 {log_file} | awk "
-        cmd += "'{print $1, $2}'"
-        cmds.append(cmd)
-
-
-        def pull_ordinal(bashCommand):
-            ord_value = self.functions.process_command({
-                "bashCommand": bashCommand[1],
-                "proc_action": bashCommand[0], 
-            }).strip("\n")
-            if ord_value == '' or ord_value == None: ord_value = "Not Found"
-            try: return int(ord_value)
-            except: return ord_value
-            
-            
-        def pull_ordinal_values(bashCommands):
-            dip_status = {}
-            metrics = self.functions.get_api_node_info({
-                "api_host": self.functions.be_urls[self.config_obj[self.profile]["environment"]],
-                "api_port": 443,
-                "api_endpoint": "/global-snapshots/latest",
-                "info_list": ["height","subHeight"],   
-            })
-            
-            try: dip_status["height"] = metrics[0]
-            except: dip_status["height"] = 0
-            try: dip_status["subHeight"] = metrics[1]
-            except : dip_status["subHeight"] = 0
-            
-            for key, bashCommand in bashCommands.items():
-                dip_status[key] = pull_ordinal(bashCommand)
-            return dip_status
-
-
-        lookup_keys = ["start","end","current","latest","current_height","timestamp"]
-        process_command_type = ["subprocess_co","subprocess_co","subprocess_co","subprocess_co","pipeline","subprocess_co"]
-        for n, cmd in enumerate(cmds):
-            bashCommands = {
-                **bashCommands,
-                f"{lookup_keys[n]}": [process_command_type[n],cmd],
-                
-            }  
-            
-        dip_status = pull_ordinal_values(bashCommands)    
-                
-        if caller == "status":
-            self.log.logger.info(f'show status ordinal/snapshot lookup found | target download [{dip_status["end"]}] current [{dip_status["current"]}] latest [{dip_status["latest"]}] ')
-            if dip_status["end"] == "Not Found": dip_status["end"] = dip_status["latest"]
-            if dip_status["current"] == "Not Found": dip_status["current"] = dip_status["latest"]
-            return dip_status
-        
-        if caller == "upgrade" or caller == "cli_restart": 
-            self.functions.print_clear_line()
-            print("")
-        else: system("clear") 
-         
-        if dip_pass < 2 and caller == "show_download_status":
-            self.functions.print_header_title({
-                "line1": "DOWNLOAD IN PROGRESS STATUS",
-                "single_line": True,
-                "show_titles": False,
-                "newline": "both"
-            })
-
-        state = self.functions.test_peer_state({
-            "profile": self.profile,
-            "simple": True
+    def show_download_status(self,command_obj):
+        download_status = DownloadStatus({
+            "parent": self,
+            "command_obj": command_obj,
         })
-        if state != "DownloadInProgress":
-            if state == "WaitingForDownload":
-                self.functions.print_paragraphs([
-                    ["WaitingForDownload",0,"yellow"], ["state pauses the Node operation, nothing to report.",1],
-                ])
-                self.functions.print_cmd_status({
-                    "text_start":"Node Ordinal goal:",
-                    "brackets": str(dip_status['end']),
-                    "status": state,
-                    "status_color": "yellow",
-                    "newline": True,
-                })
-                
-                if not "-ni" in command_list and not "--ni" in command_list:
-                    self.functions.print_paragraphs([
-                        ["adding",0,"magenta"],["--ni",0,"yellow"]
-                    ])
-                    self.functions.print_clear_line()
-                    wfd_confirm = {
-                        "yes_no_default": "n",
-                        "return_on": "y",
-                        "prompt": "Would you like continue to wait?",
-                        "prompt_color": "magenta",
-                        "exit_if": True,                            
-                    }
-                    self.functions.confirm_action(wfd_confirm)
-                while True:
-                    state = self.functions.test_peer_state({
-                        "profile": self.profile,
-                        "simple": True
-                    })                    
-                    self.functions.print_timer(5,"before checking again")
-                    if state != "WaitingForDownload": break
-                    try: wfd_attempts += 1 
-                    except: wfd_attempts = 1
-                    self.functions.print_paragraphs([
-                        ["Found State:",0],[state,1,"yellow"],
-                        ["Attempts",0], [str(wfd_attempts),0,"yellow"], ["of",0], ["10",1,"yellow"],
-                    ])
-                    if wfd_attempts > 9: 
-                        self.functions.confirm_action(wfd_confirm)
-                        print(f'\x1b[4A', end='')
-                        self.functions.print_clear_line(5)
-                        print(f'\x1b[1A', end='')
-                        wfd_attempts = 1
-                    print(f'\x1b[2A', end='')
-                    sleep(1)
-                    
-            else:
-                self.functions.print_clear_line(4)
-                self.functions.print_paragraphs([
-                    [" WARNING ",0,"red,on_yellow"], ["Request to watch the progress of",0,"red"],
-                    ["the state: DownloadInProgress was requested, however",0,"red"],
-                    ["this Node does not seem to be in this state.",1,"red"],
-                    ["Nothing to report on...",2,"yellow"],
-                    
-                    ["ON NODE VALUES",1,"magenta"],
-                    ["State Found:",0,],[state,1,"blue","bold"],
-                    ["Ordinal value goal:",0], [str(dip_status['end']),1,"blue","bold"],
-                    ["Last found ordinal:",0], [str(dip_status['latest']),1,"blue","bold"],
-                ])
-                try: 
-                    differential = dip_status['latest']-dip_status['end']
-                    differential = str(f"+{differential}") if differential > -1 else str(differential)
-                except: differential = "N/A"
-
-                self.functions.print_paragraphs([
-                    ["Differential:",0], [differential,2,"blue","bold"]
-                ])
-                if caller != "upgrade" and caller != "cli_restart": exit(0)
-                return
-        
-        dip_status = pull_ordinal_values(bashCommands)
-        start = dip_status["start"]
-        start_height = dip_status["current_height"]
-        marks_last = -1
-        spacing = 0
-        use_height = False
-        use_height_old = 0
-        use_height_step = 0
-        ordinal_nochange = -1
-        last_found, last_left = 0, 0
-        percentage1, percentage2 = 0, 0
-        percent_weight1, percent_weight2 = 50, 100
-        use_current = dip_status["current"]
-        use_end = dip_status["end"]
-        freeze_display = False  
-        # calc_rate = True  
-        # rate_calc_start = perf_counter()
-        
-        while use_current < use_end:
-            if not use_height:
-                goal = dip_status["start"]
-                verb = "  SnapShot Ordinal:"
-                percentage1 = self.functions.get_percentage_complete(start, dip_status["end"], dip_status["current"],True)
-                use_current = dip_status["current"]
-                if last_found == use_current:
-                    sleep(1)
-                    ordinal_nochange += 1
-                    if ordinal_nochange > 10: 
-                        use_height = True
-                        use_end = dip_status["height"]
-                        use_current = dip_status["current_height"]
-                last_found = use_current
-            else:
-                if start_height == "Not Found": 
-                    break
-                percentage2 = self.functions.get_percentage_complete(start_height, dip_status["height"], dip_status["current_height"])
-                use_current = dip_status["current_height"]
-                ordinal_nochange = 0
-                verb = "  Block Height:"
-                goal = use_end
-                        
-            try:
-                percentage = int((percent_weight1 / 100.0) * percentage1 + (percent_weight2 / 100.0) * percentage2)
-            except ZeroDivisionError as e:
-                self.log.logger.error(f"show download status - attempting to derive percenter resulted in [ZeroDivisionError] as [{e}]")
-                   
-            if percentage < 1: percentage = 1
+        if command_obj["caller"] == "status":
+            return download_status.download_status()
+        download_status.download_status()
             
-            try:
-                hash_marks = "#"*(percentage // 2)
-                if len(hash_marks) > marks_last: 
-                    spacing = (100 - percentage) // 2
-                    marks_last = len(hash_marks)     
-            except ZeroDivisionError:
-                self.log.logger.error(f"show download status - attempting to derive hash progress indicator resulted in [ZeroDivisionError] as [{e}]")
-             
-            print(colored(f"  STATUS CHECK PASS #{dip_pass}","green"))
-            
-            if use_current == "Not Found": 
-                break
-            elif int(use_end) < int(use_current): use_end = int(use_current)
-            left = use_current - goal
-            if use_height: 
-                self.functions.print_clear_line()
-                left = use_end - use_current
-                if left == use_height_old:
-                    use_height_step += 1
-                use_height_old = left
-                if use_height_step > 10:
-                    use_height = False
-                    use_height_step = 0
-                    freeze_display = True
-
-            # future dev place holder
-            # if calc_rate: 
-            #     rate_calc_stop = perf_counter()
-            #     elapsed_time = rate_calc_stop - rate_calc_start
-            #     if elapsed_time > 30:
-            #         rate = last_left - left
-            #         try:
-            #             estimated_time = (use_end - use_current) / rate
-            #         except ZeroDivisionError as e:
-            #             self.log.logger.error(f"show download status - attempting to derive new estimated time - resulted in [ZeroDivisionError] as [{e}]")
-            #         calc_rate = False
-
-            # print out status progress indicator
-            if not freeze_display:
-                self.functions.print_clear_line()
-                print(
-                    colored("  ctrl-c to quit |","blue"),
-                    colored(dip_status["timestamp"].split(",")[0],"yellow")
-                )
-                self.functions.print_clear_line()
-                print(
-                    colored(verb,"magenta"), 
-                    colored(f'{str(use_current)}',"blue",attrs=["bold"]), 
-                    colored("of","magenta"), 
-                    colored(str(goal),"blue",attrs=["bold"]), 
-                    colored("[","magenta"),
-                    colored(str(left),"cyan"),
-                    colored("]","magenta"),
-                ) 
-                self.functions.print_clear_line()
-                print(
-                    colored("  [","cyan"),
-                    colored(hash_marks,"yellow"),
-                    colored(f"{']': >{spacing}}","cyan"),
-                    colored(f"{percentage}","green"),
-                    colored(f"{'%': <3}","green"),
-                )
-                if percentage < 100:
-                    print(f'\x1b[4A', end='')
-            else: 
-                self.functions.print_clear_line(3)
-                print(f'\x1b[3A', end='')
-                freeze_display = False                
-            sleep(.3)
-
-            dip_status = pull_ordinal_values(bashCommands)
-
-        # double check recursively
-        dip_pass += 1
-        sleep(.5)
-        self.show_download_status({
-            "command_list": command_list,
-            "caller": caller, 
-            "dip_pass": dip_pass,
-        })
-            
-
+                       
     def show_current_rewards(self,command_list):
         self.functions.check_for_help(command_list,"show_current_rewards") 
         reward_amount = dict()
@@ -1858,10 +1543,10 @@ class CLI():
                 "extra": "skip_warning_messages is invalid for this command."
             })
             
-        self.check_for_new_versions({
-            "profile": profile if profile != None else "default",
-            "current_tess_check": True,
-        })
+        # self.check_for_new_versions({
+        #     "profile": profile if profile != None else "default",
+        #     "current_tess_check": True,
+        # })
 
         spacing = 25
         match_true= colored("True","green",attrs=["bold"])
@@ -1875,10 +1560,19 @@ class CLI():
                     "error_code": "cmd-848",
                     "line_code": "profile_error",
                     "extra": profile
-                })            
-            if not self.version_obj["nodectl_uptodate"] or "current" in self.version_obj["nodectl_uptodate"]:
-                nodectl_match = False   
+                })   
+                
+            nodectl_match = True       
+            if not isinstance(self.version_obj[environment]["nodectl"]["nodectl_uptodate"],bool):
+                if "current" in self.version_obj[environment]["nodectl"]["nodectl_uptodate"]:
+                    nodectl_match = False   
                      
+            prerelease = "False"
+            if self.version_obj[environment]["nodectl"]["nodectl_prerelease"]:
+                prerelease = "True"
+            if self.version_obj[environment]["nodectl"]["nodectl_prerelease"] == "Unknown":
+                prerelease = "Unknown"
+            
             print_out_list = [
                 {
                     "header_elements" : {
@@ -1898,15 +1592,15 @@ class CLI():
                 {
                     "header_elements" : {
                     "TESS LATEST": self.version_obj[environment][profile]["cluster_tess_version"],
-                    "NODECTL LATEST": self.version_obj[environment][profile]["latest_nodectl_version"],
-                    "NODECTL PRE_RELEASE": self.version_obj[environment][profile]["pre_release"],
+                    "NODECTL LATEST": self.version_obj[environment]["nodectl"]["latest_nodectl_version"],
+                    "NODECTL PRE_RELEASE": prerelease,
                     },
                     "spacing": spacing
                 },
                 {
                     "header_elements" : {
                         # 38
-                        "TESS VERSION MATCH": f"{match_true: <38}" if self.version_obj[environment][profile] else f"{match_false: <38}",
+                        "TESS VERSION MATCH": f"{match_true: <38}" if self.version_obj[environment][profile]["tess_uptodate"] else f"{match_false: <38}",
                         "NODECTL VERSION MATCH": f"{match_true}" if nodectl_match else match_false
                     },
                     "spacing": 25
@@ -2348,7 +2042,7 @@ class CLI():
         called_command = command_obj["called_command"]
         argv_list = command_obj["argv_list"]
         
-        try: _ = argv_list[argv_list.index('-e')+1]
+        try: env = argv_list[argv_list.index('-e')+1]
         except: argv_list.append("help")
             
         self.functions.check_for_help(argv_list,"upgrade_path")
@@ -2357,19 +2051,20 @@ class CLI():
         self.log.logger.debug("testing for upgrade path requirements")
         versions = SimpleNamespace(**self.version_obj)
         
-        if not self.functions.upgrade_path:
-            self.functions.pull_upgrade_path()
-            if not self.functions.upgrade_path:
-                return
+        nodectl_uptodate = getattr(versions,env)
+        nodectl_uptodate = nodectl_uptodate["nodectl"]["nodectl_uptodate"]
         
-        # clean upgrade_path list not to include versions newer
-        # than the version excepted by the environment.
-        
-        upgrade_path = self.functions.upgrade_path["path"]
+        upgrade_path = versions.upgrade_path
         if versions.node_nodectl_version in upgrade_path:
             upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]      
             next_upgrade_path = upgrade_path_this_version[0] 
         else: next_upgrade_path = upgrade_path[0]   
+        
+        for test_version in reversed(upgrade_path):
+            test = self.functions.is_new_version(versions.node_nodectl_version,test_version)
+            if test == "current_less":
+                next_upgrade_path = test_version
+                break
         
         def print_version_path():
             self.functions.print_header_title({
@@ -2403,6 +2098,7 @@ class CLI():
                     ["] which should then be followed by the path presented above, if not already the latest.",-1,"red"],["",2],
                     ["Download the latest version via a",0,"red"],["wget",0,"yellow","bold"],
                     ["command, then:",1,"red"],
+                    [f"sudo nodectl upgrade",1],
                     [f"sudo nodectl {called_command}",2],
                     ["See:",0,"red"], ["Github release notes",2,"magenta"]
                 ])
@@ -2411,7 +2107,7 @@ class CLI():
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
                     ["nodectl",0,"blue","bold"], ["may",0,"red"], ["not",0,"red","underline,bold"],
-                    ["be running on the latest version.",2,"red"],
+                    ["be running on the latest stable version.",2,"red"],
                 ])   
                 
         if next_upgrade_path != upgrade_path[0]:
@@ -2423,7 +2119,7 @@ class CLI():
                     ["",1], ["Upgrade cannot continue. Exiting...",1,"red","bold"],
                 ])
                 self.functions.print_auto_restart_warning()
-                exit("auto restart enabled error")
+                exit("  auto restart enabled error")
 
         if called_command == "upgrade_path":
             self.functions.print_cmd_status({
@@ -2432,17 +2128,17 @@ class CLI():
                 "status_color": "yellow",
                 "newline": True,
             })
-            if next_upgrade_path == versions.node_nodectl_version:
-                self.functions.print_paragraphs([
-                    ["You are",0,"green"], ["up-to-date",0,"green","bold"], ["or can upgrade",0,"green"], 
-                    ["directly",0,"green","bold"], ["to the newest version.",1,"green"]
-                ])
-            elif versions.nodectl_uptodate == "current_greater":  
+            if nodectl_uptodate == "current_greater":  
                 self.functions.print_paragraphs([
                     ["",1],["Use this version of nodectl with caution because it may produce undesired affects.",0,"yellow"],
                     ["If the",0,"yellow"], ["sudo nodectl upgrade",0], ["command was used against this version, you may run",0,"yellow"],
-                    ["into undesired results if you attempt to downgrade to a previous version.",2,"yellow"]
+                    ["into undesired results if you attempt to downgrade to a previous version.  A new installation of nodectl would be",0,"yellow"],
+                    ["a better option to resume on a stable release.",2,"yellow"],
                 ])   
+            elif nodectl_uptodate and nodectl_uptodate != "current_less":
+                self.functions.print_paragraphs([
+                    ["You are",0,"green"], ["up-to-date",0,"green","bold"], ["nothing to do",1,"green"], 
+                ])
             else:
                 self.functions.print_cmd_status({
                     "text_start": "nodectl can be",
@@ -2473,11 +2169,11 @@ class CLI():
             profile_names = [profile]
             
         environments = self.functions.pull_profile({"req": "environments"})
-        self.functions.pull_upgrade_path()
+
         # pull_profiles now has environments added as option
         # switch this check to by environment not profile!
         for env in environments["environment_names"]:
-            nodectl_version_check = self.version_obj["nodectl_uptodate"]
+            nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
                 if nodectl_version_check == "current_greater":
                     self.functions.print_paragraphs([
@@ -2485,12 +2181,13 @@ class CLI():
                         ["You are running a version of nodectl that is claiming to be newer than what was found on the",0],
                         ["official Constellation Network StardustCollective repository, please proceed",0],
                         ["carefully, as this version may either be:",2],
-                        ["- experimental",1,"magenta"],
+                        ["- experimental (pre-release)",1,"magenta"],
                         ["- malware",1,"magenta"],
                         ["- not an official supported version",2,"magenta"],
-                        ["current stable version:",0],[self.functions.upgrade_path['path'][0],1,"yellow","bold"],
-                        ["version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
-                        ["Type \"YES\" exactly to continue",1,"magenta"],
+                        ["   environment checked:",0],[env,1,"yellow","bold"],
+                        ["current stable version:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
+                        [" version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
+                        ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
                     ])
                     self.invalid_version = True
                     return
@@ -2499,7 +2196,7 @@ class CLI():
                     "text_start": "A new version of",
                     "brackets": "nodectl",
                     "text_end": "was detected",
-                    "status": self.version_obj[env][profile_names[0]]['latest_nodectl_version'],
+                    "status": self.version_obj[env]['nodectl']['latest_nodectl_version'],
                     "status_color": "yellow",
                     "newline": True,
                 })
@@ -2509,7 +2206,7 @@ class CLI():
 
         for i_profile in profile_names:
             tess_version_check = self.version_obj[env][profile_names[0]]["tess_uptodate"]
-            if tess_version_check and not self.check_versions_called:
+            if tess_version_check == "current_less" and not self.check_versions_called:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
                         [f" {i_profile} ",0,"green,on_blue"],["A",0], ["new",0,"green"], ["version of",0], ["Tessellation",0,"cyan"], ["was detected:",0],
@@ -2644,7 +2341,7 @@ class CLI():
                 "spinner": spinner,
                 "simple": True
             })     
-            if state == "Ready":
+            if state == "Ready" or state == "DownloadInProgress":
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"white,on_red"], ["This profile [",0],
                     [profile,-1,"yellow","bold"], ["] is in [",-1], [state,-1,"yellow","bold"],
@@ -3196,7 +2893,7 @@ class CLI():
                                     [f"{error_msg[1]}",1],
                                 ])
                             self.functions.print_auto_restart_warning()
-                            exit("auto restart enabled error")
+                            exit("  possible error during join")
                         increase_check += 1
                     if state == "WaitingForDownload":
                         if wfd_count > wfd_max:
@@ -3560,7 +3257,8 @@ class CLI():
                             if n > 2:
                                 self.error_messages.error_code_messages({
                                     "error_code": "cmd-2484",
-                                    "line_code": "node_id_issue"
+                                    "line_code": "node_id_issue",
+                                    "extra": "external" if outside_node_request else None,
                                 })
                             sleep(1)
                         else:
@@ -3850,6 +3548,7 @@ class CLI():
                             ["",1],["Elapsed Time:",0], [elapsed,1,"green"]
                         ])  
             
+            
             if create_csv:
                 self.functions.print_paragraphs([
                     ["CSV created successfully",1,"green","bold"],
@@ -3875,7 +3574,7 @@ class CLI():
         self.profile = argv_list[argv_list.index("-p")+1]
         source_obj = "empty"
         if "-s"  in argv_list:
-            source_obj =  {"ip": "127.0.0.1"} if argv_list[argv_list.index("-s")+1] == "self" else {"ip": argv_list[argv_list.index("-s")+1]}
+            source_obj = {"ip": "127.0.0.1"} if argv_list[argv_list.index("-s")+1] == "self" else {"ip": argv_list[argv_list.index("-s")+1]}
 
         target_obj = {"ip":"127.0.0.1"}
         if "-t" in argv_list:
@@ -3896,7 +3595,7 @@ class CLI():
             "profile": self.profile,
         })
 
-        if peer_results == "error":
+        if peer_results == "error" or peer_results == None:
             self.log.logger.error(f"show count | attempt to access peer count function failed")
             self.error_messages.error_code_messages({
                 "error_code": "cmd-217",
@@ -3913,21 +3612,29 @@ class CLI():
 
         if len(target_ip) > 127:
             target_ip = f"{target_ip[:8]}...{target_ip[-8:]}"
-            
+
         spacing = 21            
         print_out_list = [
             {
                 "header_elements" : {
-                    "NETWORK PEERS FOUND": peer_results["peer_count"],
-                    "READY NODES": peer_results["ready_count"],
+                    "CLUSTER PEERS": peer_results["peer_count"],
+                    "READY": peer_results["ready_count"],
                     "PROFILE": self.profile,
                 },
                 "spacing": spacing
             },
             {
                 "header_elements" : {
-                    "OBSERVING NODES": peer_results["observing_count"],
-                    "WAITING FOR READY NODES": peer_results["waitingforready_count"],
+                    "Observing": peer_results["observing_count"],
+                    "WaitingForObserving": peer_results["waitingforobserving_count"],
+                    "WaitingForReady": peer_results["waitingforready_count"],
+                },
+                "spacing": spacing
+            },
+            {
+                "header_elements" : {
+                    "DownloadInProgress": peer_results["downloadinprogress_count"],
+                    "WaitingForDownload": peer_results["waitingfordownload_count"],
                 },
                 "spacing": spacing
             },
@@ -4087,7 +3794,6 @@ class CLI():
                 [f"{cmd[2]} found in yellow [above].",0,"yellow"],["Please open the following",0,"magenta"],["url",0,"yellow"], 
                 ["in our local browser to compare to the authentic repository via",0,"magenta"], ["https",0,"green","bold"],
                 ["secure hypertext transport protocol.",2,"magenta"],
-
                 [urls[n],2,"blue","bold"],
             ])
 
@@ -4135,7 +3841,7 @@ class CLI():
         for cmd in cmds[1:]:
             remove(f'/var/tessellation/nodectl/{cmd[0]}')
         remove(f'/var/tessellation/nodectl/nodectl_{self.arch}')
-
+                         
                          
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")
@@ -4493,12 +4199,26 @@ class CLI():
     # ==========================================
 
     def upgrade_nodectl(self,command_obj):
-        if command_obj["help"] == "help":
+        argv_list = command_obj["argv_list"]
+        
+        if command_obj["help"] == "help" or "help" in argv_list:
             self.functions.print_help({
                 "extended": "upgrade_nodectl"
             })
          
+        custom_version = False
         env_set = set()
+        if "-v" in argv_list: 
+            custom_version = argv_list[argv_list.index("-v")+1]
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["This will skip verification checks and",0],
+                ["attempt",0,"red","bold"], ["to upgrade/downgrade your Node's nodectl version to:",0], [custom_version,2,"yellow","bold"],
+                ["If you decide to downgrade to a version that meets or falls below the upgrade path requirements",0,"red"],
+                ["for nodectl, you might encounter unexpected consequences that could make your Node unmanageable. In these",0,"red"],
+                ["situations, it is advisable to re-create the Node and perform a clean installation.",2,"red"],
+                ["hint:",0],["sudo nodectl upgrade_path",2,"yellow"],
+                ["Are you sure you want to continue?",1,"magenta"],
+            ])
 
         try:
             for i_profile in self.profile_names:
@@ -4531,38 +4251,44 @@ class CLI():
 
         self.log.logger.info(f"Upgrade request for nodectl for [{environment_name}] using first profile [{profile}].")
 
-        self.functions.pull_upgrade_path()
-        version_obj = self.version_obj[environment_name][profile] # readability
+        version_obj = self.version_obj[environment_name] # readability
         self.functions.print_clear_line()
 
         def print_prerelease():
-            if version_obj["pre_release"]:
+            if version_obj["nodectl"]["nodectl_prerelease"]:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
                 
-        if self.version_obj["nodectl_uptodate"] and self.version_obj["nodectl_uptodate"] != "current_less":
-            self.log.logger.error(f"Upgrade nodectl to new version request not needed {self.version_obj['node_nodectl_version']}.")
+        nodectl_uptodate = self.version_obj[environment_name]["nodectl"]["nodectl_uptodate"]
+        latest_nodectl = version_obj["nodectl"]["latest_nodectl_version"]
+        node_nodectl_version = self.version_obj['node_nodectl_version']
+        
+        if nodectl_uptodate and nodectl_uptodate != "current_less" and not custom_version:
+            self.log.logger.error(f"Upgrade nodectl to new version request not needed {node_nodectl_version}.")
             up_to_date = "is already up to date..."
-            if self.version_obj["nodectl_uptodate"] == "current_greater":
-                up_to_date = "is a version higher than the official release"
-                self.functions.print_paragraphs([
-                    ["Current version of nodectl:",0], [self.version_obj['node_nodectl_version'],0,"yellow"],
-                    [up_to_date,1], ["nothing to do",2,"red"]
-                ])
-                print_prerelease()
+            if nodectl_uptodate == "current_greater": up_to_date = "is a version higher than the official release"
+            self.functions.print_paragraphs([
+                ["Current version of nodectl:",0], [node_nodectl_version,0,"yellow"],
+                [up_to_date,1], ["nothing to do",2,"red"]
+            ])
+            print_prerelease()
+            return
+        
+        if custom_version:
+            upgrade_chosen = custom_version
         else:
             self.functions.print_paragraphs([
                 [" WARNING ",0,"yellow,on_red"], ["You are about to upgrade nodectl.",1,"green","bold"],
                 ["You are currently on:",0], [environment_name.upper(),1,"yellow"],
-                ["  current version:",0], [self.version_obj['node_nodectl_version'],1,"yellow"],
-                ["available version:",0], [version_obj["latest_nodectl_version"],1,"yellow"],
-                ["   latest release:",0], [self.functions.upgrade_path["path"][0],1,"yellow"],
+                ["  current version:",0], [node_nodectl_version,1,"yellow"],
+                ["available version:",0], [latest_nodectl,1,"yellow"],
+                ["   latest release:",0], [self.version_obj["upgrade_path"][0],1,"yellow"],
             ])
-            if version_obj["latest_nodectl_version"] != self.functions.upgrade_path["path"][0]:
+            if latest_nodectl != self.version_obj["upgrade_path"][0]:
                 upgrade_chosen = False
-                if self.version_obj['node_nodectl_version'] == self.functions.upgrade_path["path"][0]:
-                    upgrade_chosen = version_obj["latest_nodectl_version"]
+                if node_nodectl_version == self.version_obj["upgrade_path"][0]:
+                    upgrade_chosen = latest_nodectl
                     print("")
                     
                 if not upgrade_chosen:
@@ -4580,85 +4306,86 @@ class CLI():
                     
                     option = self.functions.print_option_menu({
                         "options": [
-                            self.functions.upgrade_path["path"][0],
-                            version_obj["latest_nodectl_version"]
+                            self.version_obj["upgrade_path"][0],
+                            latest_nodectl
                         ],
                         "r_and_q": "q",
                         "color": "magenta",
                     })
-                    upgrade_chosen = self.functions.upgrade_path["path"][0]
+                    upgrade_chosen = self.version_obj["upgrade_path"][0] # default 
                     if option == "q": 
                         self.functions.print_paragraphs([
                             ["Aborting nodectl upgrade procedure at user's request.",1,"magenta"],
                         ])
                         return 0
                     elif int(option) == 2:
-                        upgrade_chosen = version_obj["latest_nodectl_version"]
+                        upgrade_chosen = latest_nodectl
                 
-            self.functions.confirm_action({
-                "yes_no_default": "n",
-                "return_on": "y",
-                "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')}?"
-            })
+        self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')}?"
+        })
+        
+        self.functions.print_paragraphs([
+            ["Upgrading nodectl version from",0], [f"{node_nodectl_version}",0,"yellow"], ["to",0],
+            [f"{upgrade_chosen}",2,"yellow"],
             
-            self.functions.print_paragraphs([
-                ["Upgrading nodectl version from",0], [f"{self.version_obj['node_nodectl_version']}",0,"yellow"], ["to",0],
-                [f"{upgrade_chosen}",2,"yellow"],
-                
-                ["Detected architecture:",0], [self.arch,1,"yellow"],
-                ["WARNING",0,"yellow,on_red"], ["nodectl will exit to upgrade.",1],
-                ["Please be",0], ["patient",0,"white,on_red","bold"], ["and allow the upgrade to",0], ["complete",0,"green"],
-                ["before continuing to work.",2],
-            ])
+            ["Detected architecture:",0], [self.arch,1,"yellow"],
+            ["WARNING",0,"yellow,on_red"], ["nodectl will exit to upgrade.",1],
+            ["Please be",0], ["patient",0,"white,on_red","bold"], ["and allow the upgrade to",0], ["complete",0,"green"],
+            ["before continuing to work.",2],
+        ])
 
-            upgrade_file = self.node_service.create_files({
-                "file": "upgrade",
-                "environment_name": environment_name,
-                "upgrade_required": True if self.functions.upgrade_path[environment_name]["upgrade"] == "True" else False,
-                "pre_release": version_obj["pre_release"],
-            })
-            upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
-            upgrade_file = upgrade_file.replace("NODECTL_OLD",self.version_obj['node_nodectl_version'])
-            upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
-            upgrade_file = upgrade_file.replace("ARCH",self.arch)
-            
-            upgrade_bash_script = "/var/tmp/upgrade-nodectl"
-            with open(upgrade_bash_script,'w') as file:
-                file.write(upgrade_file)
-            file.close
-            sleep(1)  
-            self.functions.process_command({
-                "bashCommand": "chmod +x /var/tmp/upgrade-nodectl",
-                "proc_action": "wait"
-            })  
-            
-            system("sudo /var/tmp/upgrade-nodectl")
-            
+        upgrade_file = self.node_service.create_files({
+            "file": "upgrade",
+            "environment_name": environment_name,
+            "upgrade_required": True if version_obj["nodectl"]["upgrade"] == "True" else False,
+            "pre_release": version_obj["nodectl"]["nodectl_prerelease"],
+        })
+
+        upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
+        upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
+        upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
+        upgrade_file = upgrade_file.replace("ARCH",self.arch)
+        
+        upgrade_bash_script = "/var/tmp/upgrade-nodectl"
+        with open(upgrade_bash_script,'w') as file:
+            file.write(upgrade_file)
+        file.close
+        sleep(1)  
+        self.functions.process_command({
+            "bashCommand": "chmod +x /var/tmp/upgrade-nodectl",
+            "proc_action": "wait"
+        })  
+        
+        system("sudo /var/tmp/upgrade-nodectl")
+        
+        if self.functions.get_size("/usr/local/bin/nodectl",True) < 1:
+            self.functions.print_paragraphs([
+                ["The original backed up version of nodectl will be restored",1,"yellow"],
+                ["file version:",0],[node_nodectl_version,2,"blue","bold"],
+            ])
+            self.log.logger.warn(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
+            try:
+                system(f"mv {backup_location}nodectl_{node_nodectl_version} /usr/local/bin/nodectl > /dev/null 2>&1")
+            except: pass
             if self.functions.get_size("/usr/local/bin/nodectl",True) < 1:
+                self.log.logger.critical(f"nodectl upgrader unable to restore [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
                 self.functions.print_paragraphs([
-                    ["The original backed up version of nodectl will be restored",1,"yellow"],
-                    ["file version:",0],[self.version_obj['node_nodectl_version'],2,"blue","bold"],
+                    [" WARNING ",0,"red,on_yellow"], ["unable to restore original nodectl, please manually download via",0,"red"],
+                    ["the known",0,"red"], ["wget",0,"yellow"], ["command. See Constellation Network documentation hub for further details.",1,"red"]
                 ])
-                self.log.logger.warn(f"nodectl upgrader is restoring [{backup_location}nodectl_{self.version_obj['node_nodectl_version']}] to [/usr/local/bin/nodectl]")
-                try:
-                    system(f"mv {backup_location}nodectl_{self.version_obj['node_nodectl_version']} /usr/local/bin/nodectl > /dev/null 2>&1")
-                except: pass
-                if self.functions.get_size("/usr/local/bin/nodectl",True) < 1:
-                    self.log.logger.critical(f"nodectl upgrader unable to restore [{backup_location}nodectl_{self.version_obj['node_nodectl_version']}] to [/usr/local/bin/nodectl]")
-                    self.functions.print_paragraphs([
-                        [" WARNING ",0,"red,on_yellow"], ["unable to restore original nodectl, please manually download via",0,"red"],
-                        ["the known",0,"red"], ["wget",0,"yellow"], ["command. See Constellation Network documentation hub for further details.",1,"red"]
-                    ])
-            else:
-                self.log.logger.info(f"Upgrade of nodectl to new version successfully completed")
+        else:
+            self.log.logger.info(f"Upgrade of nodectl to new version successfully completed")
+        
+        try: 
+            remove("/var/tmp/upgrade-nodectl")
+            self.log.logger.info("upgrade_nodectl files cleaned up successfully.")
+        except OSError as e:
+            self.log.logger.error(f"upgrade_nodectl nodectl method unable to clean up files : error [{e}]")
             
-            try: 
-                remove("/var/tmp/upgrade-nodectl")
-                self.log.logger.info("upgrade_nodectl files cleaned up successfully.")
-            except OSError as e:
-                self.log.logger.error(f"upgrade_nodectl nodectl method unable to clean up files : error [{e}]")
-                
-            return 0 
+        return 0 
 
     # ==========================================
     # reusable methods

@@ -121,7 +121,7 @@ class Error_codes():
             self.log.logger.critical(f"Unable to verify nodectl properly, please review and try again | {var.extra}")
             self.functions.print_paragraphs([
                 ["HALTING ALL ACTIONS",2,"red","bold"],
-                ["A request to validate the authenticity of nodectl was interupted or failed.  This does not indicate that",0],
+                ["A request to validate the authenticity of nodectl was interrupted or failed.  This does not indicate that",0],
                 ["nodectl did not verify rather, nodectl could not obtain the proper elements to setup and",0],
                 ["perform the validation process",2],
                 ["Possible Reason:",0,"yellow"], [var.extra,2],
@@ -136,6 +136,8 @@ class Error_codes():
                 ["Please review the logs for more detailed information.",1,"red","bold"],
                 ["  - app.log",1],
                 ["  - nodectl.log",2],
+                ["If this was a request against an external Node.",1,"red","bold"],
+                ["  - Is the Node online?",2],
             ])
             if var.error_code == "service_join":
                 self.functions.print_paragraphs([
@@ -326,6 +328,11 @@ class Error_codes():
                     ["Hints:",1,"yellow","bold"],
                     ["  - node id must be 128 byte public key hex encoded value",2],
                 ])   
+            if var.extra == "external":
+                self.functions.print_paragraphs([                
+                    ["Hint:",0,"yellow","bold"],
+                    ["This node may not be online at the moment.",2],
+                ])                  
             else:         
                 self.functions.print_paragraphs([                
                     ["Hints:",1,"yellow","bold"],
@@ -501,7 +508,7 @@ class Error_codes():
             ["TERMINATING",0,"yellow,on_red","bold"], ["nodectl",0,"yellow","bold"]                           
         ])
 
-        exit("nodectl critical error detected")  
+        exit("  nodectl critical error detected")  
 
         
 if __name__ == "__main__":
