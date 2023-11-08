@@ -4204,13 +4204,14 @@ class CLI():
 
     def upgrade_nodectl(self,command_obj):
         argv_list = command_obj["argv_list"]
+        custom_version, upgrade_chosen = False, False
         
         if command_obj["help"] == "help" or "help" in argv_list:
             self.functions.print_help({
                 "extended": "upgrade_nodectl"
             })
          
-        custom_version = False
+
         env_set = set()
         if "-v" in argv_list: 
             custom_version = argv_list[argv_list.index("-v")+1]
