@@ -162,6 +162,8 @@ class Installer():
             self.cli.version_obj = self.version_obj
 
         elif action == "p12":
+            if self.existing_p12:
+                self.p12_session.p12_file_location = self.existing_p12.rsplit('/', 1)[0]
             p12_replace_list = [
                 ("passphrase", f'"{self.p12_session.p12_password}"'),
                 ("key_location",self.p12_session.p12_file_location),
