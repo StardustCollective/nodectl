@@ -1566,6 +1566,10 @@ class CLI():
             if not isinstance(self.version_obj[environment]["nodectl"]["nodectl_uptodate"],bool):
                 if "current" in self.version_obj[environment]["nodectl"]["nodectl_uptodate"]:
                     nodectl_match = False   
+            tess_match = True       
+            if not isinstance(self.version_obj[environment][profile]["tess_uptodate"],bool):
+                if "current" in self.version_obj[environment][profile]["tess_uptodate"]:
+                    tess_match = False   
                      
             prerelease = "False"
             if self.version_obj[environment]["nodectl"]["nodectl_prerelease"]:
@@ -1600,7 +1604,7 @@ class CLI():
                 {
                     "header_elements" : {
                         # 38
-                        "TESS VERSION MATCH": f"{match_true: <38}" if self.version_obj[environment][profile]["tess_uptodate"] else f"{match_false: <38}",
+                        "TESS VERSION MATCH": f"{match_true: <38}" if tess_match else f"{match_false: <38}",
                         "NODECTL VERSION MATCH": f"{match_true}" if nodectl_match else match_false
                     },
                     "spacing": 25
