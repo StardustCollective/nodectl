@@ -162,6 +162,8 @@ class Installer():
             self.cli.version_obj = self.version_obj
 
         elif action == "p12":
+            if self.existing_p12:
+                self.p12_session.p12_file_location = self.existing_p12.rsplit('/', 1)[0]
             p12_replace_list = [
                 ("passphrase", f'"{self.p12_session.p12_password}"'),
                 ("key_location",self.p12_session.p12_file_location),
@@ -531,6 +533,12 @@ class Installer():
         self.functions.print_cmd_status(progress)
         self.cli.node_service.profile_names = self.metagraph_list
         self.cli.node_service.build_service(True) # true will build restart_service
+        
+        # handle version_service enablement 
+        system("sudo systemctl enable node_version_updater.service > /dev/null 2>&1")
+        sleep(.3)
+        system("sudo systemctl restart node_version_updater.service > /dev/null 2>&1")
+        
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",

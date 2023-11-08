@@ -14,7 +14,7 @@ from .config.versioning import Versioning
 
 class AutoRestart():
 
-    def __init__(self,thread_profile,config_obj,allow_upgrade):
+    def __init__(self,thread_profile,config_obj,first_thread):
         # THIS SERVICE IS THREADED TO RUN ALL PROFILES SEPARATELY
         self.log = Logging()
 
@@ -26,12 +26,13 @@ class AutoRestart():
         }
 
         self.debug = False # full debug - disable restart and join actions
-        self.allow_upgrade = allow_upgrade # only want one thread to attempt auto_upgrade
+        self.first_thread = first_thread # only want one thread to attempt auto_upgrade
         self.retry_tolerance = 50
         self.thread_profile = thread_profile  # initialize
         self.rapid_restart = self.config_obj["global_auto_restart"]["rapid_restart"] 
         self.gl0_link_profile = self.config_obj[self.thread_profile]["gl0_link_profile"]
         self.ml0_link_profile = self.config_obj[self.thread_profile]["ml0_link_profile"]
+        self.thread_layer = self.config_obj[self.thread_profile]["layer"]
 
         self.sleep_on_critical = 15 if self.rapid_restart else 600
         self.silent_restart_timer = 5 if self.rapid_restart else 30  
@@ -72,6 +73,8 @@ class AutoRestart():
     
     def on_boot_handler(self):
         if not self.on_boot_handler_check: return
+        if not self.first_thread: return
+        
         while True:
             uptime_seconds = psutil.boot_time()
             uptime_seconds = datetime.now().timestamp() - uptime_seconds
@@ -80,10 +83,14 @@ class AutoRestart():
             if 60 <= uptime_seconds <= 70:
                 self.log.logger.warn(f"auto_restart - on_boot_handler - thread [{self.thread_profile}] - restarting auto_restart service after 60 seconds to ensure stability")
                 raise Exception("auto_restart forced stability restart")
-            elif uptime_seconds < 60: sleep(10)  
+            elif uptime_seconds < 60: 
+                for n in range(0,10):
+                    self.log.logger.debug(f"auto_restart - on_boot_handler - thread [{self.thread_profile}] - sleeping [{n}] of 10 seconds before next on_boot check")
+                    sleep(1)  
             else: 
                 self.on_boot_handler_check = False
                 break
+            
         self.log.logger.debug(f"auto_restart - on_boot_handler - thread [{self.thread_profile}] - uptime in seconds [{uptime_seconds}]")
         
                       
@@ -194,7 +201,7 @@ class AutoRestart():
         self.profile_states = {}
         
         self.auto_upgrade, self.passphrase_warning = False, False
-        if self.functions.config_obj["global_auto_restart"]["auto_upgrade"] and self.allow_upgrade:
+        if self.functions.config_obj["global_auto_restart"]["auto_upgrade"]: 
             self.auto_upgrade = True
         if self.functions.config_obj["global_p12"]["passphrase"] == "None":
             self.passphrase_warning = True
@@ -280,6 +287,7 @@ class AutoRestart():
         self.profile_states[self.node_service.profile]["remote_node"] = session_list["node0"]
         self.profile_states[self.node_service.profile]["local_node"] = session_list["node1"]
         self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
+        self.profile_states[self.node_service.profile]["minority_fork"] = False if self.first_thread else "functionality disabled"
         self.profile_states[self.node_service.profile]["action"] = "NoActionNeeded"
         
         gl0_dependent_link = self.profile_states[self.node_service.profile]["gl0_link_profile"]
@@ -311,7 +319,6 @@ class AutoRestart():
                     continue_checking = False
         
         if continue_checking: # and min_fork_check: # check every 5 minutes
-            self.profile_states[self.node_service.profile]["minority_fork"] = False
             if self.minority_fork_handler():
                 self.profile_states[self.node_service.profile]["action"] = "restart_full"
                 self.profile_states[self.node_service.profile]["minority_fork"] = True
@@ -463,13 +470,15 @@ class AutoRestart():
     
     def minority_fork_handler(self):
         self.log.logger.info(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}]")
+        if self.thread_layer > 0:
+            self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - layer [{self.thread_layer}] - skipping minority fork detection")
+            return
         
         if self.profile_states[self.thread_profile]["node_state"] != "Ready": 
             self.log.logger.warn(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] | Node state: [{self.profile_states[self.thread_profile]['node_state']}] will not check for fork, skipping.")
             return
         
         if self.fork_check_time > -1: 
-            # et = time() - self.fork_check_time
             if  self.fork_timer >= (time() - self.fork_check_time):
                 self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - minority check timer not met, skipping.")
                 return False
@@ -502,7 +511,13 @@ class AutoRestart():
                 self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
                 global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
 
-                
+        skip = False
+        for key, value in global_ordinals.items():
+            if value == None:  
+                skip = True
+                self.log.logger.warn(f'auto_restart - minority_fork_handler - requesting ordinal resulted in no results - ordinal key/value [{key}/{value}]')
+        if skip: return False # skipping restart
+        
         self.log.logger.debug(f'auto_restart - minority_fork_handler - localhost ordinal [{global_ordinals["local"]["ordinal"]}]')
         self.log.logger.debug(f'auto_restart - minority_fork_handler -   Backend ordinal [{global_ordinals["backend"]["ordinal"]}]')
         self.log.logger.debug(f'auto_restart - minority_fork_handler - localhost hash [{global_ordinals["local"]["lastSnapshotHash"]}]')

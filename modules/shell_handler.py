@@ -14,6 +14,7 @@ from .command_line import CLI
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .config.versioning import Versioning
+from .config.valid_commands import pull_valid_command
 
 class ShellHandler:
 
@@ -25,7 +26,7 @@ class ShellHandler:
             print(colored("Are you sure your are running with 'sudo'","red",attrs=["bold"]))
             print(colored("nodectl unrecoverable error","red",attrs=["bold"]))
             print(colored("nodectl may not be installed?","red"),colored("hint:","cyan"),"use sudo")
-            exit("sudo rights error")
+            exit("  sudo rights error")
 
         self.functions = Functions(config_obj)
         self.error_messages = Error_codes(self.functions)
@@ -64,7 +65,8 @@ class ShellHandler:
                 "ip_address": self.ip_address,
                 "skip_services": self.skip_services,
                 "profile_names": self.profile_names,
-                "functions": self.functions
+                "functions": self.functions,
+                "valid_commands": self.valid_commands
             }   
             cli = CLI(command_obj)
             cli.check_for_new_versions({
@@ -92,22 +94,17 @@ class ShellHandler:
             self.show_version()
             exit(0)
 
-        if self.called_command == "update_version_object" or self.called_command == "uvos":
-            print_messages, show_spinner = True, True
-            if self.called_command == "uvos":
-                print_messages, show_spinner = False, False
-
-            force = True if "-f" in self.argv else False
-            _ = Versioning({
-                "config_obj": self.config_obj,
-                "print_messages": print_messages,
-                "show_spinner": show_spinner,
-                "force": force,
-                "called_cmd": self.called_command,
-            })  
-            exit(0)
-                      
         self.handle_versioning()
+        self.check_valid_command()
+
+        if self.called_command == "main_error":
+            self.log.logger.error(f"invalid command called [{self.called_command}] sending to help file.")
+            self.functions.print_help({
+                "usage_only": True,
+                "nodectl_version_only": True,
+                "hint": "unknown",
+            })
+        
         self.setup_profiles()
         self.check_auto_restart()
         self.check_skip_services()
@@ -159,8 +156,14 @@ class ShellHandler:
             })
             
         elif self.called_command in service_change_commands:
-            cli.set_profile(self.argv[self.argv.index("-p")+1])
-            if not show_help:            
+            if not self.help_requested:
+                try: cli.set_profile(self.argv[self.argv.index("-p")+1])
+                except: 
+                    self.error_messages.error_code_messages({
+                        "error_code": "sh-161",
+                        "line_code": "profile_error",
+                    })
+            if not self.help_requested:            
                 if self.called_command == "start":
                     cli.cli_start({
                         "argv_list": self.argv,
@@ -182,8 +185,7 @@ class ShellHandler:
                     })
             else:  
                 self.functions.print_help({
-                    "usage_only": True,
-                    "hint": "profile"
+                    "extended": self.called_command,
                 })     
           
         elif self.called_command in restart_commands:
@@ -298,7 +300,10 @@ class ShellHandler:
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
             cli.show_seedlist_participation(self.argv)
         elif self.called_command == "download_status" or self.called_command == "_ds":
-            cli.show_download_status({"command_list": self.argv})
+            cli.show_download_status({
+                "caller": "download_status",
+                "command_list": self.argv
+            })
         elif self.called_command in cv_commands:
             cli.check_versions(self.argv)
         elif "auto_" in self.called_command:
@@ -309,7 +314,8 @@ class ShellHandler:
             if "help" in self.argv:
                 self.functions.print_help({
                     "usage_only": True,
-                    "extended": "auto_restart"
+                    "nodectl_version_only": True,
+                    "extended": "auto_restart",
                 })
             else:
                 self.auto_restart_handler(self.argv[0],True,True)
@@ -340,7 +346,7 @@ class ShellHandler:
             cli.show_security(self.argv)
         elif self.called_command == "price" or self.called_command == "prices":
             cli.show_prices(self.argv)
-        elif self.called_command == "market" or self.called_command == "markets":
+        elif "market" in self.called_command:
             return_value = cli.show_markets(self.argv)
         elif self.called_command == "show_dip_error" or self.called_command == "_sde":
             cli.show_dip_error(self.argv)
@@ -350,17 +356,11 @@ class ShellHandler:
                 "nodectl_version_only": True,
                 "extended": self.called_command,
             })
-        else:
-            skip = True if self.called_command == "main_error" else False
-            self.functions.print_help({
-                "usage_only": True,
-                "nodectl_version_only": skip,
-                "hint": "unknown"
-            })
+
         if show_help:
             self.functions.print_help({
                 "usage_only": True,
-                "hint": False
+                "hint": False,
             })
             
         self.handle_exit(return_value)
@@ -389,7 +389,7 @@ class ShellHandler:
                     ["on this server.",1,"red"],
                     ["install command:",0], ["sudo nodectl install",1,"yellow","bold"]
                 ])
-                exit("invalid nodectl installation")
+                exit("  invalid nodectl installation")
                 
             self.called_command = "help"
             return
@@ -472,13 +472,29 @@ class ShellHandler:
     def check_non_cli_command(self):
         non_cli_commands = [
             "upgrade","install","auto_restart",
-            "service_restart","uvos",
+            "service_restart","uvos","help",
         ]
         if self.called_command in non_cli_commands:
             return False
         return True
     
 
+    def check_valid_command(self):
+        cmds = pull_valid_command()
+        self.valid_commands = cmds[0]
+        valid_short_cuts = cmds[1]
+        service_cmds = cmds[2]
+        removed_cmds = cmds[3]
+
+        self.log.logger.debug(f"nodectl feature count [{len(self.valid_commands)}]")
+        self.functions.valid_commands = self.valid_commands 
+        
+        all_command_check = self.valid_commands+valid_short_cuts+service_cmds+removed_cmds
+
+        if self.called_command not in all_command_check:
+            self.called_command = "main_error"
+        
+        
     def verify_env_and_versioning(self,command_obj):
         force = command_obj.get("force",False)
         show_list = command_obj.get("show_list",False)
@@ -563,8 +579,8 @@ class ShellHandler:
             current = self.functions.version_obj["node_nodectl_version"]
             
             show_warning = False
-            if self.functions.version_obj["nodectl_uptodate"]:
-                if not isinstance(self.functions.version_obj["nodectl_uptodate"],bool):
+            if self.functions.version_obj[environment]["nodectl"]["nodectl_uptodate"]:
+                if not isinstance(self.functions.version_obj[environment]["nodectl"]["nodectl_uptodate"],bool):
                     show_warning = True
                     
             if show_warning:
@@ -659,7 +675,7 @@ class ShellHandler:
         def send_to_help_method(hint):
             self.functions.print_help({
                 "usage_only": True,
-                "hint": hint
+                "hint": hint,
             }) 
                                
         if self.help_requested:
@@ -746,13 +762,37 @@ class ShellHandler:
     def handle_versioning(self):
         if self.called_command == "install": called_cmd = "show_version"
         elif self.called_command in ["version","_v"]: return
-        else: called_cmd = "shell_obj"
+        else: called_cmd = self.called_command
         
+        need_forced_update = [
+            "check_versions","_cv",
+            "uvos","update_version_object",
+            "nodectl_upgrade", "upgrade",
+            "upgrade_path","_up"
+        ]
+        
+        print_messages, show_spinner, verify_only, force = True, True, False, False   
+        if called_cmd in need_forced_update: force = True
+        if "--force" in self.argv: force = True
+
+        if called_cmd == "update_version_object" and "-v" in self.argv:
+            verify_only = True
+            
+        if called_cmd == "uvos":
+            print_messages, show_spinner = False, False
+            
         versioning = Versioning({
             "config_obj": self.config_obj,
-            "print_messages": False,
+            "show_spinner": show_spinner,
+            "print_messages": print_messages,
             "called_cmd": called_cmd,
+            "verify_only": verify_only,
+            "force": force
         })
+        
+        if called_cmd == "update_version_object" or called_cmd == "uvos":
+            exit(0)
+            
         self.version_obj = versioning.get_version_obj()  
         self.functions.version_obj = self.version_obj
         self.functions.set_statics()
@@ -905,6 +945,7 @@ class ShellHandler:
         restart_request = warning = False  
         pid_color = "green"
         end_status = "enabled"
+        
         if not self.auto_restart_pid:
             self.auto_restart_pid = "disabled"
             end_status = "not running"
@@ -913,31 +954,31 @@ class ShellHandler:
         if action == "restart":
             action = "disable"
             restart_request = True
-            
+                            
         if action == "service_start":
             self.log.logger.info("auto_restart - restart session threader - invoked.")
 
-            with ThreadPoolExecutor() as executor:
+            with ThreadPoolExecutor(max_workers=4) as executor:
                 thread_list = []
                 # self.profile_names = ["dag-l0"]  # used for debugging purposes
                 for n, profile in enumerate(self.profile_names):
                     self.log.logger.info(f"auto_restart - restart threader -  invoked session threads for [{profile}]")
-                    allow_upgrade = True if n < 1 else False
+                    first_thread = True if n < 1 else False
                     time.sleep(2)
-                    thread_list.append(
-                        executor.submit(
-                            AutoRestart,
-                            profile,
-                            self.functions.config_obj,
-                            allow_upgrade,
-                        )
+                    future = executor.submit(
+                        AutoRestart,
+                        profile,
+                        self.functions.config_obj,
+                        first_thread,
                     )
-                    
-                thread_wait(thread_list,timeout=None,return_when=concurrent.futures.FIRST_EXCEPTION)
-                self.log.logger.critical(f"shell auto restart handler --> thread creation returned with exception - service will be restarted immediately")
-                self.log.logger.warn("shell handler auto restart handler service periodic restart may have been triggered")
+                    thread_list.append(future)
 
-                
+                # thread_wait is an alias to wait, and will only execute the next line of this
+                # code before the exception kills the entire process therefor it is not logged
+                thread_wait(thread_list,return_when=concurrent.futures.FIRST_EXCEPTION)
+                system(f'sudo systemctl restart node_restart@"enable" > /dev/null 2>&1')  
+
+            
         if action == "disable":
             if cli:
                 end_status = "not running"
@@ -962,7 +1003,7 @@ class ShellHandler:
                 # test pid removal
                 self.get_auto_restart_pid()
                 
-
+                
                 self.functions.print_cmd_status({
                     **progress,
                     "status": end_status,
@@ -1044,7 +1085,6 @@ class ShellHandler:
         keys = list(self.functions.config_obj.keys())
         keys.append("global_p12")
         
-
         for profile in keys:
             if profile == "global_p12":
                 if self.functions.config_obj[profile]["passphrase"] == "None":
@@ -1062,7 +1102,7 @@ class ShellHandler:
                 ["nodectl",0,"blue","bold"],["will not have the ability to authenticate to the HyperGraph in an automated fashion.",2,"red"],
                 ["Action cancelled",1,"yellow"],
             ])
-            exit("auto restart passphrase error")
+            exit("  auto restart passphrase error")
                         
         if self.auto_restart_pid != "disabled":
             if self.auto_restart_enabled:
@@ -1090,7 +1130,7 @@ class ShellHandler:
     def upgrade_node(self,argv_list):
         if "help" in argv_list:
             self.functions.print_help({
-                "extended": self.called_command
+                "extended": self.called_command,
             })
 
         self.log.logger.debug(f"{self.called_command} request started") 
@@ -1137,7 +1177,8 @@ class ShellHandler:
     def install(self,argv_list):
         if "help" in argv_list:
             self.functions.print_help({
-                "extended": "install"
+                "nodectl_version_only": True,
+                "extended": "install",
             })
         self.log.logger.debug("installation request started")
         

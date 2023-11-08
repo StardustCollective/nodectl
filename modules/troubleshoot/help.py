@@ -2,16 +2,17 @@ from termcolor import colored
 
 
 def title(command):
-  title_header1 = colored(f"  {command.upper()} COMMAND- extended help","green")
+  title_header1 = colored(f"\n  {command.upper()} COMMAND- extended help","green")
   title_header2 = "\n  "
   title_header2 += colored("=".ljust(len(title_header1)-11,"="),"green")
   return "\n"+title_header1+title_header2+"\n"
 
 
-def build_help(command_obj):
+def build_help(functions,command_obj):
       
     extended = command_obj.get("extended",False)
     extended_option = None
+    help_text = "" # initialize
     
     usage_only = command_obj.get("usage_only",False)
     nodectl_version_only = command_obj.get("nodectl_version_only",False)
@@ -24,43 +25,36 @@ def build_help(command_obj):
       "check_seedlist_participation", "check_version", "uptime",
     ]
     
-    help_text = f'''
-  @netmet72
-  {colored("----------------------","cyan")}
-  usage:  sudo nodectl [ help [-h], status [-s], start, stop, leave, join,
-                         health, sec, price, show_node_states [-sns], show_current_rewards [-scr],
-                         find, peers, whoami, list, check_seedlist, update_seedlist [-usl],
-                         export_private_key, change_ssh_port <port>, download_status, [-ds],
-                         restart, restart_only, slow_restart [-sr], check_seedlist_participation [-clsp],
-                         disable_root_ssh, enable_root_ssh, clean_snapshots, uptime,
-                         check_connection [-cc], check_source_connection [-csc], 
-                         reboot, send_logs [-sl], version [-v], check_versions [-cv],
-                         clean_files [-cf], clear_uploads [-cul], log, id, nodeid,
-                         passwd12, configure, validate_config [-val], view_config [-vc],
-                         install, upgrade, upgrade-nodectl, upgrade_path [-up], verify_nodectl [-vn],
-                         refresh_binaries [-rtb], auto_restart ], show_service_log [-ssl],
-                         show_dip_error [-sde],
-                       
-        optional: --pass <passphrase>   
-          - Note: --pass will override the configuration's passphrase entry
-          
-        See extended help for more details (sudo nodectl <command> help)
-                      
-        sudo nodectl status -p <profile_name>
-        sudo nodectl start -p <profile_name>
-        sudo nodectl stop -p <profile_name>
-        sudo nodectl leave -p <profile_name>
-        sudo nodectl restart -p <profile_name> -i
-        sudo nodectl peers -p <profile_name> [-t <target_ip>] [-c]
-        sudo nodectl find -p <profile_name> [self | -s <source>] [ -d <destination>] 
-        sudo nodectl check_source_connection -p <profile_name> | help
-        sudo nodectl check_connection -p <profile_name> [source] [destination]
-        sudo nodectl clean_files -t ["logs","backups","uploads"]
-'''
+    functions.print_paragraphs([
+      ["@netmet72",1]
+    ])
+    
+    command_str = "usage: sudo nodectl ["
+    command_str_start = command_str
+    for command_name in sorted(command_obj["valid_commands"]):
+      command_str += f", {command_name}"
+    command_str += " ]"
+    command_str = command_str.replace(",","",1)
+    spacing = len(command_str_start)+3
+    functions.print_paragraphs([
+      [command_str,1]
+    ],{
+      "indent": "  ",
+      "sub_indent": f"{' ' * spacing}",
+    })
+
+    functions.print_paragraphs([
+      ["optional:",0],["--pass",0,"yellow"],["<passphrase>",1],
+      ["    note:",0],["--pass will override the configuration's passphrase entry",2,"magenta"],
+      ["See extended help for more details including",0],["required",0,"blue","bold"], 
+      ["parameters per command.",2],
+      ["command: ",0], ["sudo nodectl <command> help",2,"yellow","bold"],
+    ])
+    
+
     if not extended and not usage_only and not nodectl_version_only:
         help_text += '''
   Options:
-
 
     CLI options - please see extended help for short-cut options and
                   various options for each command (sudo nodectl <command> help)
@@ -1248,31 +1242,17 @@ def build_help(command_obj):
     if extended == "upgrade_nodectl":
         help_text += title(extended)
         help_text += f'''
-  UPGRADE_NODECTL COMMAND
-  =======================
-  
   The {colored('upgrade_nodectl','cyan')} command will launch the process requirements
   to upgrade the nodectl binary on your Node.
-  
-  The {colored('upgrade_nodectl_testnet','cyan')} command will launch the process requirements
-  to upgrade the nodectl binary on your Node specifically for testnet.
-  
-  {colored("WARNING:","red",attrs=['bold'])} {colored("Currently this feature only works with the $DAG Global","red")}
-  {colored("         Layer0 and $DAG Layer1 Metagraphs","red")}
   
   usage
   -------------
   show this help screen
   # {colored('sudo nodectl upgrade_nodectl help','cyan')}
-      or
-  # {colored('sudo nodectl upgrade_nodectl_testnet help','cyan')}
   
   execute an upgrade of nodectl on mainnet
   # {colored('sudo nodectl upgrade_nodectl','cyan')}
-  
-  execute an upgrade of nodectl on testnet
-  # {colored('sudo nodectl upgrade_nodectl_testnet','cyan')}
-    
+      
   '''      
         
         

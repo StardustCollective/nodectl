@@ -97,7 +97,7 @@ class Migration():
         self.printer_config_header()
 
         self.functions.print_paragraphs([
-            ["During program initialization, an outdated and/or improperly formatted",0,"blue","bold"], ["configuration",0,"yellow","bold,underline"],["file was found",0,"blue","bold"], 
+            ["During program initialization, an outdated and/or improperly formatted",0,"blue","bold"], ["configuration",0,"yellow","bold"],["file was found",0,"blue","bold"], 
             ["on this server/Node.",2,"blue","bold"],
             
             ["nodectl will backup your original configruation file and attempt to migrate to the new",0,"blue","bold"],
@@ -147,10 +147,10 @@ class Migration():
         self.log.logger.warn("backing up cn-config.yaml file to default backup directory from original configuration, this file should be removed at a later date.")
         
         self.functions.print_paragraphs([
-            ["",1], [" DANGER ",0,"yellow,on_red"], ["THE",0,"red","bold"], ["cn-config.yaml",0, "yellow","underline"], 
+            ["",1], [" DANGER ",0,"yellow,on_red"], ["THE",0,"red","bold"], ["cn-config.yaml",0, "yellow","bold"], 
             ["FILE MAY CONTAIN A P12 PASSPHRASE, FOR SECURITY PURPOSES, PLEASE REMOVE AS NECESSARY!",2,"red","bold"],
             
-            [" CAUTION ",0,"red,on_yellow"],["After the",0,"yellow"], ["migration",0,"cyan","underline"], ["is complete, the",0,"yellow"], 
+            [" CAUTION ",0,"red,on_yellow"],["After the",0,"yellow"], ["migration",0,"cyan","bold"], ["is complete, the",0,"yellow"], 
             ["upgrader",0,"magenta","bold"], ["will continue and will prompt you to remove the contents of the backup directory",0,"yellow"],
             ["where the original",0,"yellow"], ["cn-config.yaml",0,"white,on_blue"], ["has been backed up within.",2,"yellow"], 
             
@@ -308,7 +308,9 @@ class Migration():
                     "caller":"config"
                 },
             },
+            "functions": self.functions,
         })  
+        
 
         rebuild_obj = {
             "action": "skip",

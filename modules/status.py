@@ -174,7 +174,7 @@ class Status():
                 ["Are you sure this is a valid Debian based operation system?  Unable to to properly access files",0,"red"],
                 ["to verify security checks, exiting...",2,"red"],
             ])
-            exit("Linux distribution file access error")
+            exit("  Linux distribution file access error")
             
         creation_time = path.getctime("/var/log/auth.log")
         dir_list = ["/var/log/auth.log"]
