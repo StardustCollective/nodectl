@@ -531,6 +531,12 @@ class Installer():
         self.functions.print_cmd_status(progress)
         self.cli.node_service.profile_names = self.metagraph_list
         self.cli.node_service.build_service(True) # true will build restart_service
+        
+        # handle version_service enablement 
+        system("sudo systemctl enable node_version_updater.service > /dev/null 2>&1")
+        sleep(.3)
+        system("sudo systemctl restart node_version_updater.service > /dev/null 2>&1")
+        
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
