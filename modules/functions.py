@@ -570,13 +570,22 @@ class Functions():
         return arch       
     
 
-    def get_percentage_complete(self, start, end, current, invert=False):
-        if current < start:
-            return 0
+    def get_percentage_complete(self, command_obj):
+        start = command_obj["start"]
+        end = command_obj["end"]
+        current = command_obj["current"]
+        invert = command_obj.get("invert",False)
+        absolute = command_obj.get("absolute",False)
+        
+        if not absolute: 
+            if current < start:
+                return 0
+        
         elif current >= end:
             return 100
+        
         total_range = end - start
-        current_range = current - start
+        current_range = abs(current - start)
         percentage = (current_range / total_range) * 100
         if invert: percentage = 100 - percentage
         return int(percentage) 

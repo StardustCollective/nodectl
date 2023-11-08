@@ -1,4 +1,5 @@
 
+import json
 from copy import deepcopy
 from .logger import Logging
 
@@ -18,8 +19,8 @@ class Troubleshooter():
         for profile in profile_names:
             if "global" not in profile:
                 self.log_dict[profile] = {}
-                self.log_dict[profile]["app"] = f"/var/tessellation/{profile}/logs/app.log"
-                self.log_dict[profile]["http"] = f"/var/tessellation/{profile}/logs/http.log"
+                self.log_dict[profile]["app"] = f"/var/tessellation/{profile}/logs/json_logs/app.json.log"
+                self.log_dict[profile]["http"] = f"/var/tessellation/{profile}/logs/json_logs/http.json.log"
 
 
     def test_for_connect_error(self):
@@ -30,30 +31,52 @@ class Troubleshooter():
             
             try:
                 with open(log["app"]) as file:
-                    # pull all errors and the next line in the file
-                    for line in reversed(list(file)):
-                        if two_lines:
-                            if not line.startswith("20"):
-                                ERROR_list.append(line)
-                            two_lines = False
-                        elif "ERROR" in line:
-                            two_lines = True
-                            ERROR_list.append(line)
 
-                    for line in (ERROR_list):            
-                        # only going to search the last lines
-                        # because a service start error will be at
-                        # the end of the current app file
-                        if "CollateralNotSatisfied" in line:
-                            return (profile,"Collateral Not Satisfied","join_error")
-                        if "SeedlistDoesNotMatch" in line:
-                            return (profile,"Seed List Issue","join_error")
-                        if "VersionMismatch" in line:
-                            return (profile,"Version Issue","upgrade_needed")
-                        if "Unauthorized for request" in line:
-                            return (profile,"Access Permission - Unauthorized","join_error")
-                        if "Joining to peer P2PContext" in line:
-                            return (profile,"Peer to Peer port issue","join_error")
+                    test_messages = [
+                        {
+                            "find":"CollateralNotSatisfied",
+                            "user_msg": "Collateral Not Satisfied",
+                            "error_msg": "join_error",
+                        },
+                        {
+                            "find":"SeedlistDoesNotMatch",
+                            "user_msg": "Seed List Issue",
+                            "error_msg": "join_error",
+                        },
+                        {
+                            "find":"VersionMismatch",
+                            "user_msg": "Incorrect Tessellation Version",
+                            "error_msg": "upgrade_needed",
+                        },
+                        {
+                            "find":"Unauthorized for request",
+                            "user_msg": "Access Permission - Unauthorized",
+                            "error_msg": "join_error",
+                        },
+                        {
+                            "find":"Joining to peer P2PContext",
+                            "user_msg": "Peer to Peer port issue",
+                            "error_msg": "join_error",
+                        }
+                    ]
+                    for n, line in enumerate(reversed(list(file))):
+                        if "ERROR" in line:
+                            try:
+                                ERROR_list.append(json.loads(line))
+                            except json.JSONDecodeError as e:
+                                self.log.logger.warn(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
+                            if n > 49: break
+                                                   
+                    # search for more significant errors first verses
+                    # last found error.
+                    for message_test in test_messages:
+                        for line in ERROR_list:            
+                            # only going to search the last lines
+                            # because a service start error will be at
+                            # the end of the current app file
+                            if message_test["find"] in line["message"] or message_test["find"] in line["stack_trace"]:
+                                return (profile,message_test["user_msg"],message_test["error_msg"])
+
             except Exception as e:
                 try:
                     self.log.logger.error(f"error attempting to open log file | file [{file}] | error [{e}]")

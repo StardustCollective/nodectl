@@ -75,6 +75,11 @@ class Configuration():
             }
             check_sudo = True
         else:
+            try:
+                _ = config_obj["global_elements"]
+            except:
+                config_obj["global_elements"] = {"caller":"config"}
+                
             config_obj["global_elements"] = {
                 **config_obj["global_elements"],
                 "caller": "config"

@@ -2893,7 +2893,7 @@ class CLI():
                                     [f"{error_msg[1]}",1],
                                 ])
                             self.functions.print_auto_restart_warning()
-                            exit("  auto restart enabled error")
+                            exit("  possible error during join")
                         increase_check += 1
                     if state == "WaitingForDownload":
                         if wfd_count > wfd_max:
