@@ -2060,9 +2060,12 @@ class CLI():
         
         upgrade_path = versions.upgrade_path
         if versions.node_nodectl_version in upgrade_path:
-            upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]      
-            next_upgrade_path = upgrade_path_this_version[0] 
-        else: next_upgrade_path = upgrade_path[0]   
+            if versions.node_nodectl_version == upgrade_path[0]:
+                next_upgrade_path = "latest available" 
+            else:
+                upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]      
+                next_upgrade_path = upgrade_path_this_version[0] 
+        else: next_upgrade_path = upgrade_path[-1]   
         
         for test_version in reversed(upgrade_path):
             test = self.functions.is_new_version(versions.node_nodectl_version,test_version)
@@ -2091,15 +2094,16 @@ class CLI():
             ])                                
                                 
         if versions.node_nodectl_version != next_upgrade_path:
-            if next_upgrade_path != upgrade_path[0]:
+            if next_upgrade_path != upgrade_path[-1]:
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
                     ["nodectl",0,"blue","bold"], ["may",0,"red"], ["not",0,"red","underline,bold"], ["be at the correct version.",2,"red"],
-                    ["Version [",0,"red"], [versions.node_nodectl_version,-1,"yellow"], 
-                    ["] was detected. The next required upgrade is to",-1,"red"],
-                    ["Version [",0,"red"], [next_upgrade_path,-1,"yellow"], 
-                    ["] which should then be followed by the path presented above, if not already the latest.",-1,"red"],["",2],
+                    ["Version [",0,"red"], [versions.node_nodectl_version,0,"yellow"], 
+                    ["] was detected. The next required upgrade is to",0,"red"],
+                    ["Version [",0,"red"], [next_upgrade_path,0,"yellow"], 
+                    ["] which should then be followed by the path presented below,",0,"red"],
+                    ["if not already the latest.",0,"green"],["",2],
                     ["Download the latest version via a",0,"red"],["wget",0,"yellow","bold"],
                     ["command, then:",1,"red"],
                     [f"sudo nodectl upgrade",1],
@@ -2114,7 +2118,7 @@ class CLI():
                     ["be running on the latest stable version.",2,"red"],
                 ])   
                 
-        if next_upgrade_path != upgrade_path[0]:
+        if next_upgrade_path != upgrade_path[-1]:
             if called_command == "upgrade_path":
                 self.functions.print_clear_line()
             
