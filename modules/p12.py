@@ -227,7 +227,7 @@ class P12Class():
                 self.set_variables(False,profile)   
             
             try:
-                if profile == "global" and passwd == False and self.config_obj["upgrader"] == False:
+                if profile == "global" and passwd == False and self.config_obj["global_elements"]["global_upgrader"] == False:
                     cprint("  Global profile passphrase not found.","yellow")
             except:
                 self.error_messages.error_code_messages({
@@ -251,12 +251,13 @@ class P12Class():
             valid = self.unlock()
             if valid:
                 if operation == "config_file" and manual == True:
-                    self.config_obj["p12_cli_pass_global"] = True
+                    self.config_obj["global_elements"]["p12_cli_pass_global"] = True
                     if profile == "global":
                         self.config_obj["global_p12"]["passphrase"] = passwd
-                        if self.config_obj["all_global"]:
+                        if self.config_obj["global_elements"]["all_global"]:
                             for pass_profile in self.config_obj.keys():
-                                self.config_obj[pass_profile]["p12_passphrase"] = passwd
+                                if "global" not in pass_profile:
+                                    self.config_obj[pass_profile]["p12_passphrase"] = passwd
                     else:
                         self.config_obj[profile]["p12_passphrase"] = passwd
                 break

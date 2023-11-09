@@ -806,12 +806,20 @@ class Configuration():
             if path_value[-1] != "/": 
                 self.config_obj[profile][s_type] = f"{path_value}/" 
                            
-        for section, section_types in self.schema.items():
-            if "global" not in profile and "global" not in section:
-                for s_type, st_val in section_types:
-                    if "path" not in s_type and "path" in st_val:
-                        path_value = self.config_obj[profile][s_type]
-                        check_slash(st_val,path_value)
+        try:
+            for section, section_types in self.schema.items():
+                if "global" not in profile and "global" not in section:
+                    for s_type, st_val in section_types:
+                        if "path" not in s_type and "path" in st_val:
+                            path_value = self.config_obj[profile][s_type]
+                            check_slash(st_val,path_value)
+        except Exception as e:
+            self.log.logger.error(f"setup_path_formats -> p12 issue found - may have a configuration file error - check for trailing slash in p12 path file.")
+            self.error_messages.error_code_messages({
+                "error_code": "cfg-819",
+                "line_code": "config_error",
+                "extra": "format",
+            })
                         
         if profile == "global_p12":
             path_value = self.config_obj[profile]["key_location"]
