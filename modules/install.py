@@ -163,7 +163,7 @@ class Installer():
 
         elif action == "p12":
             if self.existing_p12:
-                self.p12_session.p12_file_location = self.existing_p12.rsplit('/', 1)[0]
+                self.p12_session.p12_file_location = self.existing_p12.rsplit('/', 1)[0]+"/"
             p12_replace_list = [
                 ("passphrase", f'"{self.p12_session.p12_password}"'),
                 ("key_location",self.p12_session.p12_file_location),
@@ -496,6 +496,8 @@ class Installer():
         
         system(f"sudo mv {location} /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
         system(f"sudo chmod 600 /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
+        system(f"sudo chown {self.user.username}:{self.user.username} /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
+        
         self.functions.print_cmd_status({
             "text_start": "migrate p12",
             "brackets": p12name,
