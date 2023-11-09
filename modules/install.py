@@ -496,7 +496,7 @@ class Installer():
         
         system(f"sudo mv {location} /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
         system(f"sudo chmod 600 /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
-        system(f"sudo chown {self.user.username}:{self.user.username} /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
+        system(f"sudo chown root:root /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
         
         self.functions.print_cmd_status({
             "text_start": "migrate p12",
