@@ -4329,13 +4329,14 @@ class CLI():
                         return 0
                     elif int(option) == 2:
                         upgrade_chosen = latest_nodectl
-                
+        
+        print("")
         self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
             "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')}?"
         })
-        
+                
         self.functions.print_paragraphs([
             ["Upgrading nodectl version from",0], [f"{node_nodectl_version}",0,"yellow"], ["to",0],
             [f"{upgrade_chosen}",2,"yellow"],
@@ -4363,6 +4364,7 @@ class CLI():
             file.write(upgrade_file)
         file.close
         sleep(1)  
+        
         self.functions.process_command({
             "bashCommand": "chmod +x /var/tmp/upgrade-nodectl",
             "proc_action": "wait"

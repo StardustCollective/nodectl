@@ -1209,6 +1209,9 @@ yellow='\033[1;33m'
 clr='\033[0m'
 '''
             cur_file += f'''
+echo "Preparing to upgrade..."
+sudo nodectl auto_restart disable
+sleep 1
 sudo mv /usr/local/bin/nodectl NODECTL_BACKUPnodectl_NODECTL_OLD
 sleep 2
 sudo wget {url} -P /usr/local/bin -O /usr/local/bin/nodectl -o /dev/null
