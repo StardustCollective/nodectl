@@ -481,7 +481,7 @@ class Configuration():
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
-                        if tdir == "seed_file": self.config_obj[profile][tdir] = f'{profile}-seedlist' # exception
+                        if tdir == "seed_file": self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist' # exception
                         elif isinstance(def_value,list):
                             if tdir == "edge_point": 
                                 for n, edge in enumerate(def_value): 

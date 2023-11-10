@@ -440,7 +440,8 @@ class Installer():
 
     def migrate_existing_p12(self):
         current_user = "root" if not self.user.installing_user else self.user.installing_user
-
+        location = False
+        
         possible_found = self.functions.get_list_of_files({
             "paths": ["root","home","/var/tessellation/"],
             "files": ["*.p12"],
@@ -462,22 +463,29 @@ class Installer():
                 [f"{verb}:",0,"magenta","bold"], [possible_found[0],2]
             ])
         else:
-            for option, value in possible_found.items():
+            try:
+                for option, value in possible_found.items():
+                    self.functions.print_paragraphs([
+                        [f"{option}",0,"magenta","bold"], [")",-1,"magenta"], [value,1,"green"]
+                    ])
                 self.functions.print_paragraphs([
-                    [f"{option}",0,"magenta","bold"], [")",-1,"magenta"], [value,1,"green"]
+                    [f"{len(possible_found)+1}",0,"magenta","bold"], [")",-1,"magenta"], ["input manual entry",2,"green"]
                 ])
-            self.functions.print_paragraphs([
-                [f"{len(possible_found)+1}",0,"magenta","bold"], [")",-1,"magenta"], ["input manual entry",2,"green"]
-            ])
-            possible_found[f"{len(possible_found)+1}"] = "custom"
-            
-            location = self.functions.get_user_keypress({
-                "prompt": "KEY PRESS an option",
-                "prompt_color": "magenta",
-                "options": list(possible_found.keys())
-            })  
-            location = possible_found[location]
-
+                possible_found[f"{len(possible_found)+1}"] = "custom"
+                
+                location = self.functions.get_user_keypress({
+                    "prompt": "KEY PRESS an option",
+                    "prompt_color": "magenta",
+                    "options": list(possible_found.keys())
+                })  
+                location = possible_found[location]
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "int-484",
+                    "line_code": "invalid_search",
+                    "extra": "Did you properly upload a p12 file?"
+                })
+                
         if verb == "example" or location == "custom": 
             exist_location_str = colored("  Please enter full path including p12 file key: ","cyan")
             while True:
