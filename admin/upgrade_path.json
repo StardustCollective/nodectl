@@ -7,8 +7,8 @@
     "upgrade": "False"
   },
   "mainnet": {
-    "version": "v2.8.1",
-    "upgrade": "False"
+    "version": "v2.11.2",
+    "upgrade": "True"
   },
   "integrationnet": {
     "version": "v2.11.2",
