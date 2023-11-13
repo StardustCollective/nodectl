@@ -116,6 +116,7 @@ class AutoRestart():
         self.functions.version_obj = self.version_obj
         self.functions.set_statics()
         self.error_messages = Error_codes(self.functions)        
+        
         self.functions.set_default_variables({
             "profile": self.thread_profile,
         })

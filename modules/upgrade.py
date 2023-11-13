@@ -581,7 +581,7 @@ class Upgrader():
                 "status_color": "yellow",
             })
                     
-            bashCommand = f"apt-get install -y tree"
+            bashCommand = f"sudo apt -y install tree"
             self.functions.process_command({
                 "bashCommand": bashCommand,
                 "proc_action": "timeout",

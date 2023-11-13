@@ -265,6 +265,13 @@ class Error_codes():
                 ["was detected?",0,"red"],
             ])            
             
+        elif var.line_code == "invalid_passphrase_pass":
+            self.log.logger.critical("password validation check failed.")
+            self.functions.print_paragraphs([
+                ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
+                ["was detected?",0,"red"],
+            ])            
+            
             
         elif var.line_code == "invalid_address":
             self.log.logger.critical(f"attempt to use an invalid {var.extra} address detected [{var.extra2}]")
@@ -383,9 +390,14 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["System has attempted to access a file to perform a search that returned an empty value.",0,"red"],
                 ["or",0,"yellow","bold"], ["the search request was unable to properly find the item or log entry requested.",1,"red"],
-                ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
+                ["Operation cancelled to avoid unexpected errors | Please try again later.",1,"magenta"],
             ]) 
-                        
+            if var.extra:
+                self.functions.print_paragraphs([
+                    ["hint: ",0], [var.extra,2,"yellow"]
+                ])   
+                
+                                     
         elif var.line_code == "file_not_found":
             self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program.")
             self.functions.print_paragraphs([

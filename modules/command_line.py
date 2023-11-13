@@ -245,10 +245,23 @@ class CLI():
                         system("clear")
                         exit(0)
                 
-                ordinal_dict["backend"] = str(self.functions.get_snapshot({
-                    "history": 1, 
-                    "environment": self.config_obj[called_profile]["environment"],
-                })[1])
+                try:
+                    ordinal_dict["backend"] = str(self.functions.get_snapshot({
+                        "history": 1, 
+                        "environment": self.config_obj[called_profile]["environment"],
+                    })[1])
+                except Exception as e:
+                    if isinstance(ordinal_dict,dict):
+                        ordinal_dict = {
+                            **ordinal_dict,
+                            "backend": "n/a"
+                        }
+                    else:
+                        self.error_messages.error_code({
+                            "error_code": "cmd-261",
+                            "line_code": "api_error",
+                            "extra2": e,
+                        })
                 
                 for n,profile in enumerate(profile_list):
                     self.log.logger.info(f"show system status requested | {profile}")      

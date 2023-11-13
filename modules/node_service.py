@@ -317,11 +317,13 @@ class Node():
         self.log.logger.debug("node service - download seed list initiated...")
         profile = command_obj.get("profile",self.profile)
         install_upgrade = command_obj.get("install_upgrade",True)
-        download_version = command_obj.get("download_version",None)
+        download_version = command_obj.get("download_version","default")
         environment_name = self.functions.config_obj[profile]["environment"]
         seed_path = self.functions.config_obj[profile]["seed_path"]    
         seed_file = self.config_obj[profile]['seed_file']
         seed_repo = self.config_obj[profile]['seed_repository']
+        
+        if download_version == None: download_version = "default"
         print_message = True
         
         if self.auto_restart or install_upgrade:
@@ -347,16 +349,17 @@ class Node():
         # includes seed-list access-list  
         if download_version == "default":
             self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
+            download_version = self.version_obj[environment_name][profile]['cluster_tess_version']
 
         if self.config_obj[profile]["seed_repository"] == "default":
             if environment_name == "testnet":
-                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
+                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{environment_name}-seedlist -O {seed_path} -o /dev/null"
             elif environment_name == "integrationnet":
-                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
+                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{environment_name}-seedlist -O {seed_path} -o /dev/null"
             elif environment_name == "mainnet":
                 if download_version == "default":
                     download_version = self.version_obj[environment_name][self.functions.default_profile]["cluster_tess_version"]
-                bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
+                bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/{environment_name}-seedlist -O {seed_path} -o /dev/null"
         else:
             # makes ability to not include https or http
             if "http://" not in seed_repo and "https://" not in seed_repo:
