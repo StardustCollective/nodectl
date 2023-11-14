@@ -502,6 +502,14 @@ class Error_codes():
                     ["Alternatively, it is advised to attempt to correct issues via nodectl's configure option or use nodectl to build a new configuration.",1,"magenta"],
                     ["Use command:",0,"yellow"], ["sudo nodectl configure",2],
                 ])
+            if var.extra == "configurator":
+                self.log.logger.error(f"configurator error found [{extra2}]")
+                self.functions.print_paragraphs([
+                    ["During an attempt to clean up old directory structure elements",1,"red"],
+                    ["an unrecoverable issue was encountered by nodectl.",2,"red"],
+                    ["It is suggested that you join the appropriate Discord channel and",0,"magenta"],
+                    ["and contact a Constellation Administrator.",2,"magenta"],
+                ])
            
         self.print_error()
            

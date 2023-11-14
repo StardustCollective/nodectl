@@ -1983,7 +1983,7 @@ class CLI():
         else:
             self.functions.print_paragraphs([
                 ["",1], [" CONGRATULATIONS ",0,"grey,on_green"], ["No issues were found!",1,"green"],
-                ["This Node looks",0,"green"], ["healthy!",2,"green","bold,underline"],
+                ["This Node looks",0,"green"], ["healthy!",2,"green","bold"],
             ])
             
     

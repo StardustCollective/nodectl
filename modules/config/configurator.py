@@ -1135,7 +1135,7 @@ class Configurator():
                         self.log.logger.debug(f"Did not find custom variable in config, skipping [{item}]")
                     else:
                         self.error_messages.error_code_messages({
-                            "error_code": "cfg-1046",
+                            "error_code": "cfr-1046",
                             "line_code": "config_error",
                             "extra": "format"
                         })
@@ -1309,6 +1309,14 @@ class Configurator():
             "questions": questions, 
             "profile": profile
         })
+        
+        self.c.functions.print_paragraphs([
+            ["",1],[" WARNING ",0,"red,on_yellow"], ["You must now update your firewall settings to allow",0],
+            ["ports",0], 
+            [f"{self.c.profile_obj[profile]['public_port']}, {self.c.profile_obj[profile]['p2p_port']}",0,"yellow"], 
+            ["through inbound via the ingress rules.",2],
+        ])
+        self.c.functions.print_any_key({"prompt":"Press any key to return to the main menu"})
         
         
     def manual_build_service(self,profile=False):
@@ -3208,7 +3216,16 @@ class Configurator():
             "newline": "both"
         })        
         
-        old_metagraph_list = self.c.functions.clear_global_profiles(self.old_last_cnconfig)
+        try:
+            old_metagraph_list = self.c.functions.clear_global_profiles(self.old_last_cnconfig)
+        except Exception as e:
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-3215",
+                "line_code": "config_error",
+                "extra": "configurator",
+                "extra2": e,
+            })
+            
         for profile in old_metagraph_list:
             found_snap = False
             if self.old_last_cnconfig[profile]["layer"] < 1:
@@ -3365,7 +3382,9 @@ class Configurator():
         # to return to the network instead of doing it here.  This will ensure
         # all updates are enabled/activated/updated.
         
-        self.c.functions.config_obj = self.node_service.config_obj
+        if not self.node_service: self.prepare_node_service_obj()
+        self.node_service.config_obj = deepcopy(self.config_obj if len(self.config_obj)>0 else self.c.config_obj)
+
         self.c.functions.profile_names = self.metagraph_list
         self.c.functions.get_service_status()
         service = self.c.config_obj[profile]["service"]
@@ -3373,7 +3392,7 @@ class Configurator():
         
         actions = ["leave","stop"]
         for s_action in actions:
-            if self.node_service.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
+            if self.c.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
                 break
             self.c.functions.print_cmd_status({            
                 "text_start": "Updating Service",

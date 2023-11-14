@@ -1199,7 +1199,7 @@ class Functions():
             except Exception as e:
                 try:
                     self.log.logger.warn(f"Load Balancer did not return a token | reason [{session['reason']} error [{e}]]")
-                    session_obj[f"session{i}"] = f"LB_NotReady{i}"
+                    session_obj[f"session{i}"] = f"{i}"
                 except:
                     self.error_messages.error_code_messages({
                         "error_code": "fnt-958",
