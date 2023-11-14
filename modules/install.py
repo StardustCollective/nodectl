@@ -497,10 +497,18 @@ class Installer():
         if not path.exists(f"/home/{self.user.username}/tessellation/"):
             makedirs(f"/home/{self.user.username}/tessellation/")
             
-        p12name = location.split("/")
-        p12name_only = p12name[-1]
-        p12name = p12name_only.split(".")
-        p12name = p12name[0]
+        try:
+            p12name = location.split("/")
+            p12name_only = p12name[-1]
+            p12name = p12name_only.split(".")
+            p12name = p12name[0]
+        except Exception as e:
+            self.error_messages.error_code_messages({
+                "error_code": "int-507",
+                "line_code": "file_not_found",
+                "extra": location,
+                "extra2": "Are you sure your uploaded the proper p12 file?"
+            })
         
         system(f"sudo mv {location} /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
         system(f"sudo chmod 600 /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")

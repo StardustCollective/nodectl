@@ -404,7 +404,11 @@ class Error_codes():
                 ["System has attempted to access a file that does not exist.",2,"red","bold"],
                 [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
-            ])            
+            ])     
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    [" Hint: ",0,"blue","bold"], [var.extra2,2,"yellow"],
+                ])                         
                         
             
         elif var.line_code == "dependency":
