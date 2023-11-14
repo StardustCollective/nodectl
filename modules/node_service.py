@@ -316,7 +316,7 @@ class Node():
         
         self.log.logger.debug("node service - download seed list initiated...")
         profile = command_obj.get("profile",self.profile)
-        install_upgrade = command_obj.get("install_upgrade",True)
+        # install_upgrade = command_obj.get("install_upgrade",True)
         download_version = command_obj.get("download_version","default")
         environment_name = self.functions.config_obj[profile]["environment"]
         seed_path = self.functions.config_obj[profile]["seed_path"]    
@@ -324,10 +324,6 @@ class Node():
         seed_repo = self.config_obj[profile]['seed_repository']
         
         if download_version == None: download_version = "default"
-        print_message = True
-        
-        if self.auto_restart or install_upgrade:
-            print_message = False    
         
         if not self.auto_restart:
             progress = {

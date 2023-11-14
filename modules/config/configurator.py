@@ -3113,7 +3113,7 @@ class Configurator():
         
         
     def cleanup_service_files(self,delete=False):
-        cleanup = False
+        cleanup, print_abandoned = False, False
         clean_up_old_list, remove_profiles_from_cleanup = [], []
         self.log.logger.info("configurator is verifying old service file cleanup.")
         
@@ -3142,9 +3142,15 @@ class Configurator():
         clean_up_old_list2 = copy(clean_up_old_list)
 
         for old_profile in clean_up_old_list2:
-            if self.c.config_obj[old_profile]["service"] == self.old_last_cnconfig[old_profile]["service"] and not delete:
-                clean_up_old_list.pop(clean_up_old_list.index(old_profile))
-            else:
+            try: # new config will fall into exception
+                if self.c.config_obj[old_profile]["service"] == self.old_last_cnconfig[old_profile]["service"] and not delete:
+                    clean_up_old_list.pop(clean_up_old_list.index(old_profile))
+                else: print_abandoned = True
+            except Exception as e:
+                self.log.logger.error(f"configurator --> cleaning up services found new configuration - skipping [{e}]")
+                print_abandoned = True
+                
+            if print_abandoned:
                 self.c.functions.print_cmd_status({
                     "text_start": "Abandoned",
                     "brackets": self.old_last_cnconfig[old_profile]["service"],
@@ -3153,6 +3159,8 @@ class Configurator():
                     "color": "red",
                     "newline": True,
                 })
+            
+            print_abandoned = False
                     
         if cleanup and len(clean_up_old_list) > 0:
             self.c.functions.print_paragraphs([
