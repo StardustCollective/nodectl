@@ -618,9 +618,13 @@ class Upgrader():
             "status_color": "yellow",
         }
         self.functions.print_cmd_status(progress)
+        
         if path.exists("/var/tessellation/seed-list"):
             remove("/var/tessellation/seed-list")
-            
+        for seed_file in ["dag-l0","dag-l1","intnet-l0","intnet-l1"]:
+            if path.exists(f"/var/tessellation/{seed_file}-seedlist"):
+                remove(f"/var/tessellation/{seed_file}-seedlist")
+                
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
