@@ -1379,12 +1379,16 @@ def build_help(functions,command_obj):
   to {colored('upgrade','green',attrs=['bold'])} the local Constellation Node!
   
   optional:
-  {colored('--ni','green')} - {colored('non-interactive','cyan')}
+  {colored('--nodectl_only','green')}
+        If added, nodectl will only upgrade the necessary components that nodectl
+        may require to function properly.  It will avoid the need of installing and
+        restarting the Node's Tessellation services. 
+  {colored('--ni','green')} - ({colored('non-interactive','cyan')})
         If the {colored('--ni','cyan')} option is given at the command entry point, the upgrade 
         will not ask for interaction and will choose all default values 
         including:
           - picking the latest found {colored('version','yellow')} (unless {colored('-v','cyan')} is specified as well)
-          - choosing {colored('yes','yellow')} to clearing the snapshots and logs with the default
+          - choosing {colored('yes','yellow')} to clearing the backups, uploads and logs with the default
             values of 7 days (logs) and 30 days (snapshots)
           - {colored('Note:','yellow',attrs=['bold'])} You will still be prompted for a valid passphrase
             unless the {colored('--pass','green')} option is passed as well.
