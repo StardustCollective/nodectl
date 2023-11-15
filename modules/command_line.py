@@ -145,8 +145,10 @@ class CLI():
         all_profile_request = False
         called_profile = self.profile
         called_command = command_obj.get("called","default")
-        if called_command == "uptime": print_title = False
         
+        if called_command == "uptime": print_title = False
+        if called_command == "_s": called_command = "status"
+        if called_command == "_qs": called_command = "quick_status"
         self.functions.check_for_help(command_list,called_command)
         
         profile_list = self.profile_names

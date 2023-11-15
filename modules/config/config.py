@@ -315,7 +315,7 @@ class Configuration():
         
 
     def view_yaml_config(self,action):
-        if self.called_command == "view_config":
+        if self.called_command == "view_config" or self.called_command == "-vc":
             self.build_function_obj({
                 "global_elements": {"caller":"config"},
                 "sudo_rights": False,

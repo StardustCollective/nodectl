@@ -79,22 +79,9 @@ def build_help(functions,command_obj):
                          and whether they match
                             
     status  | - show the state of the Node's service
-              - show if the node has properly joined 
-                the Constellation Tessellation TestNet
-              - show the current TestNet Tessellation 
-                version running on your system
-              - show latest version of Tessellation
-                detected on the network.
-              - show the current nodectl version
-              - show the current cluster session verses node session
-              - if the sessions do not match, the node is not connected
-                properly.  Even if the Node is in Ready State, this does
-                NOT mean the Node is connected to the network.
-                
-              States: Initial, ReadyToJoin, StartingSession,SessionStarted,
-                      ReadyToDownload,WaitingForDownload,DownloadInProgress,
-                      Observing,WaitingForReady,Ready,Leaving,Offline,ApiNotReady
-                      
+    quick_status | - show an abbreviated version of the status command
+                     that looks at the local API only
+                                       
     -p | - required parameter for several commands
            issue the -p with the name of the profile
            following the -p flag
@@ -2091,6 +2078,67 @@ def build_help(functions,command_obj):
   
   {extended} the cluster on a configured profile_name
   # {colored(f'sudo nodectl {extended} -p <profile_name>','cyan')}  
+        ''' 
+        
+        
+    if extended == "status" or extended == "quick_status":
+        help_text += title("status")
+        help_text += f'''
+  The command takes a few options.
+  
+  required:
+  {colored('-p <profile_name> | all','green')}  
+  
+  optional:
+  {colored('-w <seconds>','green')} 
+  
+  The {colored('-w','cyan')} will engage the {colored('watch','cyan')} option. The watch option will continuously watch
+  your Node's profile status for the default of 15 seconds. If the watch option is 
+  followed by an integer above 5 seconds, the watch feature will refresh the 
+  status for the Node Operator entered amount of seconds. If a number of 5 or 
+  less is entered, a {colored('RANGE ERROR','red')} message will show on the CLI output and will 
+  automatically be defaulted back to 15 seconds.  
+    
+  Status Command will:
+    - show if the node has properly joined 
+      the Constellation Tessellation TestNet
+    - show the current TestNet Tessellation 
+      version running on your system
+    - show latest version of Tessellation
+      detected on the network.
+    - show the current nodectl version
+    - show the current cluster session verses node session
+    - if the sessions do not match, the node is not connected
+      properly.  Even if the Node is in Ready State, this does
+      NOT mean the Node is connected to the network.
+    
+  States: Initial, ReadyToJoin, StartingSession,SessionStarted,
+          ReadyToDownload,WaitingForDownload,DownloadInProgress,
+          Observing,WaitingForReady,Ready,Leaving,Offline,ApiNotReady
+  
+  Quick Status:
+  
+  This command will show an abbreviated version of the status command that
+  reviews the status of your Node based on the local API on the Node.
+  Local API calls can produce false information if the Node is
+  forked.  This produces a quick response because it does not
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}  
+  
+  show {extended} on the cluster for all profiles
+  # {colored(f'sudo nodectl {extended}','cyan')}  
+  
+  show {extended} on the cluster for a configured profile_name
+  # {colored(f'sudo nodectl {extended} -p <profile_name>','cyan')}  
+  
+  show {extended} and watch for the default 15 seconds
+  # {colored(f'sudo nodectl {extended} -p <profile_name> -w','cyan')}  
+  
+  show {extended} and watch for the 30 seconds
+  # {colored(f'sudo nodectl {extended} -p <profile_name> -w 30','cyan')}  
         ''' 
     
         
