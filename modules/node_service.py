@@ -1243,7 +1243,7 @@ read -e -p "  ${pink}Press ${yellow}Y ${pink}then ${yellow}[ENTER] ${pink}to upg
 
 if [[ ("$CHOICE" == "y" || "$CHOICE" == "Y") ]]; then
     echo "${clr}"
-    sudo nodectl upgrade
+    sudo nodectl upgrade --nodectl_only
 fi
 exit 0
 
