@@ -3693,7 +3693,8 @@ class CLI():
             self.error_messages.error_code_messages({
                 "error_code": "cmd-2735",
                 "line_code": "node_id_issue",
-                "extra": "invalid"
+                "extra": "invalid",
+                "extra2": "nodeid2dag"
             })
 
         nodeid = sha256( bytes.fromhex(nodeid)).hexdigest()

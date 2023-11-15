@@ -339,7 +339,14 @@ class Error_codes():
                 self.functions.print_paragraphs([                
                     ["Hint:",0,"yellow","bold"],
                     ["This node may not be online at the moment.",2],
-                ])                  
+                ])   
+                
+            if var.extra2 == "nodeid2dag":
+                self.functions.print_paragraphs([
+                    ["This command requires that a valid",0,"red"], ["nodeid",0,"blue","bold"],
+                    ["be entered, even if it is the local nodeid on this Node.",1,"red"],
+                    ["command:",0], ["sudo nodectl nodeid -p <profile>",2,"white"],
+                ])               
             else:         
                 self.functions.print_paragraphs([                
                     ["Hints:",1,"yellow","bold"],
