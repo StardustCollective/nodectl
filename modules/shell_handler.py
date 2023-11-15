@@ -598,7 +598,7 @@ class ShellHandler:
                 })
                 
                 self.functions.print_paragraphs([
-                    ["This is not a current version of nodectl.",1,"red","bold"],
+                    ["This is not a current stable version of nodectl.",1,"red","bold"],
                     ["Recommended to:",1],
                     ["  - Cancel this upgrade of Tessellation.",1,"magenta"],
                     ["  - Issue:",0,"magenta"], ["sudo nodectl upgrade_nodectl",1,"green"],

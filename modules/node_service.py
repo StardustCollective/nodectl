@@ -782,7 +782,7 @@ class Node():
         
         self.log.logger.info(f"joining cluster profile [{self.profile}]")
         layer_zero_ready = False
-        join_failure = False
+        join_breakout = False
         exception_found = False
         state = None
         
@@ -878,7 +878,7 @@ class Node():
                                 break
                             if state != "Observing" and state != "WaitingForReady":
                                 layer_zero_ready = False
-                                join_failure = True
+                                join_breakout = True
                                 break
 
                             if action == "cli":
@@ -886,7 +886,7 @@ class Node():
                                 self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
                             else:
                                 self.functions.print_timer(12,"Sleeping prior to retry")
-                        if layer_zero_ready or join_failure:
+                        if layer_zero_ready or join_breakout:
                             break
 
                         if not self.auto_restart and not layer_zero_ready:
