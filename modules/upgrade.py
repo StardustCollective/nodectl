@@ -1000,6 +1000,13 @@ class Upgrader():
                                 [item["profile"],0,"yellow","bold"], ["upgrade process completed!",1,"green","bold"],
                             ])
         
+        self.log.logger.info("upgrade -> force update of versioning object after upgrade.")
+        from .shell_handler import ShellHandler
+        shell = ShellHandler(self.config_obj,False)
+        shell.argv = []
+        shell.called_command = "upgrade"
+        shell.handle_versioning()
+        
         self.log.logger.info("Upgrade completed!")
         cprint("  Upgrade has completed\n","green",attrs=["bold"])
         

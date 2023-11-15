@@ -1557,11 +1557,6 @@ class CLI():
                 "line_code": "input_error",
                 "extra": "skip_warning_messages is invalid for this command."
             })
-            
-        # self.check_for_new_versions({
-        #     "profile": profile if profile != None else "default",
-        #     "current_tess_check": True,
-        # })
 
         spacing = 25
         match_true= colored("True","green",attrs=["bold"])
