@@ -71,7 +71,10 @@ class UserClass:
         
         user_type = "non-commonly known"
         if current_user == "root" or current_user == "ubuntu" or current_user == "admin":
-            print(colored(f"\n  This {colored(current_user,'cyan',attrs=['bold'])} {colored('user is dangerous.','cyan')}","cyan"))
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"yellow,on_red"], ["User:",0,"red"], [current_user,0,"yellow","bold"],
+                ["is a dangerous user to use on a day-to-day basis.",2,"red"],
+            ])
         
         if current_user == "root":
             user_type = "non-root"
@@ -128,8 +131,22 @@ class UserClass:
 
     def test_if_user_exists(self):
         u_exists = system(f"id {self.username}")
-        
-        
+        self.keep_user = False
+        if u_exists:
+            self.functions.print_paragraphs([
+                [" NOTICE ",0,"white,on_blue"], ["The user that you requested to add",0],
+                ["already exists on this Debian based VPS or Server instance.",2],
+            ])
+            prompt_str = f"Update password for {self.username}"
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "n",
+                "prompt": prompt_str,
+                "exit_if": False
+            })
+            if confirm:
+                self.keep_user = True
+
         
     def ask_for_password(self):
         if self.keep_user: return
