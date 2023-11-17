@@ -448,7 +448,34 @@ class UserClass:
         
         if disable_root_user:
             self.disable_root_user()
-
+            
+        # since we said "yes" to SSH verse password
+        self.functions.print_paragraphs([
+            ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen instead of via",0],
+            ["authentication via",0], ["username/password",2,"red"],
+            
+            ["Do you want to [",0],["recommended",0,"green","bold"], 
+            ["] disable username/password based authentication on this Node?",1],
+        ])
+        
+        verb = "unchanged"
+        if self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt": "Confirm:",
+            "exit_if": False
+        }):
+            self.cli_obj.ssh_configure({
+                "command": "disable_user_auth",
+                "argv_list": ["install"]
+            })
+            verb = "disabled"
+            
+        self.functions.print_cmd_status({
+            "text_start": "Username/Password authentication",
+            "status": verb,
+            "status_color": "green" if verb == "disabled" else "red"
+        })
 
     def disable_root_user(self):
         # check for non-root users

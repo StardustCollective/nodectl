@@ -4086,6 +4086,7 @@ class CLI():
         action = "port" if var.command == "change_ssh_port" else action
         port_no = None
         install = True if "install" in var.argv_list else False
+        one_off = False
         
         if "help" in var.argv_list:
             show_help = True
@@ -4178,24 +4179,54 @@ class CLI():
                                 else:
                                     self.log.logger.critical("could not find a backup authorized_key file to recover")
                             if action == "disable":
+                                verb = "no"
                                 if path.isfile("/root/.ssh/authorized_keys"):
                                     system(f"sudo mv /root/.ssh/authorized_keys /root/.ssh/backup_authorized_keys > /dev/null 2>&1")
                                     self.log.logger.warn("found and renamed authorized_keys file")
                                 else:
                                     self.log.logger.critical("could not find an authorized_key file to update")
-                                verb = "no"
                             newfile.write(f"PermitRootLogin {verb}\n")
                         else:
                             newfile.write(f"{line}")
                         action_print = f"{action} root user"
+                        
+                    elif action == "disable_user_auth":
+                        if "PasswordAuthentication" in line:
+                            verb = "yes"
+                            if action == "disable_user_auth":
+                                verb = "no"
+                            newfile.write(f"PasswordAuthentication {verb}\n")
+                        else:
+                            newfile.write(f"{line}")
+                        action_print = f"password authentication set to {verb}"
+                        
                     elif action == "port":
                         action_print = action
                         if not "GatewayPorts" in line and "Port" in line:
                             newfile.write(f"Port {port_no}\n")
                         else:
                             newfile.write(f"{line}")
+            
             newfile.close()
             config_file.close()
+
+            # one off check
+            if action == "disable_user_auth":
+                if path.exists("/etc/ssh/sshd_config.d/50-cloud-init.conf"):
+                    one_off = True
+                    config_file = open("/etc/ssh/sshd_config.d/50-cloud-init.conf")
+                    f = config_file.readlines()
+                    with open("/tmp/sshd_config-new2","w") as newfile:
+                        for line in f:
+                            if "PasswordAuthentication" in line:
+                                verb = "yes"
+                                if action == "disable_user_auth":
+                                    verb = "no"
+                                newfile.write(f"PasswordAuthentication {verb}\n")
+                            else:
+                                newfile.write(f"{line}")
+                    newfile.close()
+                    config_file.close()
             
             progress = {
                 "text_start": "Reloading",
@@ -4206,10 +4237,16 @@ class CLI():
             self.functions.print_cmd_status(progress)
 
             system("mv /tmp/sshd_config-new /etc/ssh/sshd_config > /dev/null 2>&1")
+            if one_off:
+                system("mv /tmp/sshd_config-new2 /etc/ssh/sshd_config.d/50-cloud-init.conf > /dev/null 2>&1")
+                
             sleep(1)
             system("service sshd restart > /dev/null 2>&1")
             
             self.log.logger.info(f"SSH port configuration change successfully implemented [{action_print}]")
+            if one_off:
+                self.log.logger.info(f"SSH configuration for an include file [one off] has been updated with password authentication [{verb}]")
+                
             self.functions.print_cmd_status({
                 **progress,
                 "status": "complete",
