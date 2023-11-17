@@ -3082,6 +3082,7 @@ class CLI():
         reboot_flag = command_obj.get("reboot_flag", False)
         skip_msg = command_obj.get("skip_msg", False)
         threaded = command_obj.get("threaded", False)
+        leave_obj, backup_line = False, False
         
         sleep(command_obj.get("delay",0))
 
@@ -3113,10 +3114,9 @@ class CLI():
                 })
                 if state == "Ready": continue
                 return state
-                
-                
 
         call_leave_cluster()
+
         if not skip_msg:
             start = 1
             while True:
@@ -3155,7 +3155,9 @@ class CLI():
                         "newline": True
                     })
                     break
+                elif leave_obj: break
                 elif start > 1:
+                    if backup_line: print(f'\x1b[1A', end='')
                     self.functions.print_cmd_status({
                         "text_start": f"{profile} not out of cluster",
                         "text_color": "red",
@@ -3175,10 +3177,48 @@ class CLI():
                         })
                     break
                 if print_timer:
-                    leave_str = "to allow Node to gracefully leave"
-                    self.functions.print_timer(secs,leave_str,start)
+                    skip_log_lookup = False
+                    self.prepare_and_send_logs(["-p",profile,"scrap"])
+                    for _ in range(0,3): # 3 tries
+                        leave_obj = self.send.scrap_log({
+                            "profile": profile,
+                            "msg": "Wait for Node to go offline",
+                            "value": "Node state changed to=Leaving",
+                            "key": "message",
+                            "thread": False,
+                            "timeout": 60,
+                        })
+                        try: timestamp = leave_obj["@timestamp"]
+                        except:
+                            leave_str = "to allow Node to gracefully leave"
+                            skip_log_lookup = True
+                            sleep(.5)
+                        else: 
+                            skip_log_lookup = False
+                            break
+                    if skip_log_lookup:
+                        self.functions.print_timer(secs,leave_str,start)
+                    else:
+                        leave_obj = False
+                        sleep(2) # wait 2 seconds
+                        for _ in range(0,3): # 3 minutes
+                            leave_obj = self.send.scrap_log({
+                                "profile": profile,
+                                "msg": "Wait for Node to go offline",
+                                "value": "Node state changed to=Offline",
+                                "key": "message",
+                                "timeout": 60,
+                                "timestamp": timestamp,
+                            })   
+                            if leave_obj: 
+                                skip_log_lookup = False 
+                                break   
+                            sleep(.1) 
+                            skip_log_lookup = True      
+                            backup_line = True           
                 else:
                     sleep(secs) # silent sleep 
+                    
                 self.functions.print_clear_line()
                 start = start - 1 if secs > 1 else start
                 start = start+secs      
@@ -4180,12 +4220,15 @@ class CLI():
 
     def prepare_and_send_logs(self, command_list):
         self.functions.check_for_help(command_list,"send_logs")    
-        Send({
+        send = Send({
             "config_obj": self.functions.config_obj,
             "command_list": command_list,
             "ip_address": self.ip_address,
         })             
-        
+        if "scrap" in command_list: self.send = send
+        else:
+            send.prepare_and_send_logs()
+            
         
     def download_tess_binaries(self,command_list):
         if "-e" not in command_list:

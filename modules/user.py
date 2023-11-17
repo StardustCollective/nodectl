@@ -70,10 +70,12 @@ class UserClass:
         })
         
         user_type = "non-commonly known"
-        if current_user == "root" or current_user == "ubuntu":
+        if current_user == "root" or current_user == "ubuntu" or current_user == "admin":
             print(colored(f"\n  This {colored(current_user,'cyan',attrs=['bold'])} {colored('user is dangerous.','cyan')}","cyan"))
+        
         if current_user == "root":
             user_type = "non-root"
+        
         if current_user == "nodeadmin":
             self.functions.print_paragraphs([
                 ["",1],[" DETECTED NODEADMIN ",0,"white,on_blue"], 
@@ -121,11 +123,16 @@ class UserClass:
                     break
                 
         self.username = user
+        self.test_if_user_exists()
 
 
+    def test_if_user_exists(self):
+        u_exists = system(f"id {self.username}")
+        
+        
+        
     def ask_for_password(self):
-        if self.keep_user:
-            return
+        if self.keep_user: return
         
         print(""); cprint(f"  We need to create a password for {self.username} user","cyan")
         self.print_password_descriptions(10,"password")

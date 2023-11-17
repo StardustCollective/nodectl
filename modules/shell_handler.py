@@ -181,7 +181,8 @@ class ShellHandler:
                         "secs": 30,
                         "reboot_flag": False,
                         "skip_msg": False,
-                        "argv_list": self.argv
+                        "argv_list": self.argv,
+                        "threaded": True,
                     })
             else:  
                 self.functions.print_help({

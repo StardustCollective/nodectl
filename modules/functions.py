@@ -503,10 +503,12 @@ class Functions():
         if action == "date":
             return new_time.strftime("%Y-%m-%d")
         elif action == "datetime":
-            return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
+            return new_time.strftime(format)
         elif action == "get_elapsed":
-            try: old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            try: old_time = datetime.strptime(old_time, format)
             except: pass # already in proper format
+            if isinstance(new_time,str):
+                new_time = datetime.strptime(new_time, format)
             return new_time - old_time
         elif action == "future_datetime":
             new_time += timedelta(seconds=elapsed)
@@ -530,7 +532,7 @@ class Functions():
         elif action == "session_to_date":
             elapsed = elapsed/1000
             elapsed = datetime.fromtimestamp(elapsed)
-            return elapsed.strftime("%Y-%m-%d-%H:%M:%SZ")
+            return elapsed.strftime(format)
         elif action == "uptime_seconds":
             uptime_output = check_output(["uptime"]).decode("utf-8")
             uptime_parts = uptime_output.split()
@@ -547,8 +549,8 @@ class Functions():
                 uptime_seconds = (uptime_hours * 60 + uptime_minutes) * 60
             return uptime_seconds
         elif action == "difference":
-            test1 = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
-            test2 = datetime.strptime(new_time, "%Y-%m-%d-%H:%M:%SZ")
+            test1 = datetime.strptime(old_time, format)
+            test2 = datetime.strptime(new_time, format)
             if getattr(test1, time_part) != getattr(test2, time_part):
                 return True  # There is a difference            
             return False

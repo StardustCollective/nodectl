@@ -1,9 +1,13 @@
+import json
+import itertools
 from re import match
-from os import system, path, mkdir, listdir, SEEK_END, SEEK_CUR
+from os import system, path, mkdir, listdir, SEEK_END, SEEK_CUR, SEEK_SET
 from sys import exit
 from termcolor import colored, cprint
 from hurry.filesize import size, alternative
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
+
+from time import time, sleep
 
 from ..functions import Functions
 from .logger import Logging
@@ -17,17 +21,16 @@ class Send():
         self.command_list = command_obj["command_list"]
         self.config_obj = command_obj["config_obj"]
         
-        versioning = Versioning({
-            "config_obj": self.config_obj,
-            "seconds": 15*60,
-            "called_cmd": "send_obj"
-        })
-        self.version_obj = versioning.get_version_obj()
+        # versioning = Versioning({
+        #     "config_obj": self.config_obj,
+        #     "seconds": 15*60,
+        #     "called_cmd": "send_obj"
+        # })
+        # self.version_obj = versioning.get_version_obj()
         
         self.functions = Functions(self.config_obj)
         self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj["ip_address"]
-        self.prepare_and_send_logs()
         
         
     def prepare_and_send_logs(self):
@@ -328,6 +331,68 @@ class Send():
                     
                 cprint("  invalid option","red")
                 
+
+    def scrap_log(self, command_obj):
+        # scraps backwards (newest to oldest)
+        profile = command_obj["profile"]
+        msg = command_obj["msg"]
+        key = command_obj["key"]
+        value = command_obj["value"]
+        timeout = command_obj["timeout"]
+        timestamp = command_obj.get("timestamp",False)
+        thread = command_obj.get("thread", True)
+        start_time = time()
+        go = 0
+        
+        self.log_file = self.log_file = f"/var/tessellation/{profile}/logs/json_logs/app.json.log"        
+        
+        try:
+            with ThreadPoolExecutor() as executor:
+                if thread:
+                    self.functions.event = True
+                    sleep(1) # slow it down
+                    _ = executor.submit(self.functions.print_spinner,{
+                        "msg": msg,
+                        "color": "cyan",
+                        "spinner_type": "dotted",
+                    }) 
                 
+                while go < timeout:
+                    with open(self.log_file, 'r') as file:        
+                        for n, line in enumerate(reversed(file.readlines())):
+                            try:
+                                log_entry = json.loads(line)
+                                found_value = log_entry.get(key)
+                                if value in found_value:
+                                    if timestamp:
+                                        c_log_stamp = log_entry["@timestamp"]
+                                        elapsed = self.functions.get_date_time({
+                                            "action": "get_elapsed",
+                                            "old_time": timestamp,
+                                            "new_time": c_log_stamp,
+                                            "format": "%Y-%m-%dT%H:%M:%S.%fZ",
+                                        })
+                                    if thread: self.functions.event = False
+                                    if timestamp:
+                                        if elapsed.days < 0:  # avoid ref before assignment
+                                            continue
+                                    return log_entry
+                            except json.JSONDecodeError as e:
+                                self.log.logger.debug(f"send_log -> scrapping log found [{e}] retry [{time() - start_time}] of [{timeout}]")
+
+                            if time() - start_time > timeout: break
+                            if timestamp and n > 5000: break
+                            
+                    go = time() - start_time
+                        
+                if thread: self.functions.event = False
+                return False
+                          
+        except Exception as e:
+            self.log.logger.warn(f"send_logs -> Unable to open JSON from log -> error: [{e}]")  
+            if thread: self.functions.event = False  
+            return False     
+        
+                        
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")                      

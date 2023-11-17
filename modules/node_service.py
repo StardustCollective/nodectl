@@ -1047,7 +1047,7 @@ Environment="SCRIPT_ARGS=%I"
 ExecStart=nodectl service_restart $SCRIPT_ARGS
 Restart=always
 RestartSec=15
-RuntimeMaxSec=14400
+RuntimeMaxSec=3600
 ExecStop=/bin/true
 
 [Install]
