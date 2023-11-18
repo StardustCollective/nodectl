@@ -3352,6 +3352,8 @@ class CLI():
                         
                     if not nodeid_to_ip:
                         ip_address = colored("not found?","red")
+                    elif command == "dag":
+                        pass
                     elif "-l" not in argv_list: nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
 
                 elif not nodeid:
@@ -3425,6 +3427,12 @@ class CLI():
             # this creates a print /r status during retrieval so placed here to not affect output
             if wallet_only:
                 self.functions.is_valid_address("dag",False,nodeid)
+                
+            consensus = self.cli_check_consensus({
+                "caller": "dag",
+                "ip_address": ip_address,
+                "profile": profile,
+            })
                     
             wallet_balance = self.functions.pull_node_balance({
                 "ip_address": ip_address,
@@ -3518,6 +3526,7 @@ class CLI():
                             "$DAG BALANCE": f"{wallet_balance.balance_dag: <20}",
                             "$USD VALUE": f"{wallet_balance.balance_usd}",
                             "$DAG PRICE": f"{wallet_balance.dag_price}",
+                            "IN CONSENSUS": consensus,
                         }
                     ]
                 
