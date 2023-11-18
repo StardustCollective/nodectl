@@ -1723,6 +1723,8 @@ class Functions():
         reg_expression = "^[D][A][G][a-zA-Z0-9]{37}$"
         if v_type == "nodeid":
             reg_expression = "^[a-f0-9]{128}$"
+        if v_type == "ip_address":
+            reg_expression = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
             
         if match(reg_expression,address):
             valid = True

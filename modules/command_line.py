@@ -2675,6 +2675,18 @@ class CLI():
                             "argv_list": []
                         }
                 
+                static_peer = False
+                if "all" in argv_list and "--peer" in argv_list:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"red,on_yellow"], ["an attempt to join with a static",0,"red"],
+                        ["--peer",0,"yellow"], ["option was identified with the special option variable",0,"red"],
+                        ["all",0,"yellow"], ["and will be ignored",1,"red"],
+                    ])
+                elif "--peer" in argv_list:
+                    # validation takes place on join
+                    static_peer = argv_list[argv_list.index("--peer")+1]
+                    self.functions.is_valid_address("ip_address",False,static_peer)
+                    
                 if cli_join_cmd or restart_type != "restart_only":
                     environment = self.config_obj[profile]["environment"]
                     self.print_title(f"Joining [{environment}] [{profile}]")   
@@ -2688,6 +2700,7 @@ class CLI():
                             "watch": watch,
                             "dip": dip,
                             "interactive": interactive,
+                            "static_peer": static_peer,
                             "non_interactive": non_interactive,
                             "single_profile": single_profile,
                             "argv_list": ["-p",profile]
@@ -2778,6 +2791,7 @@ class CLI():
         skip_msg = command_obj.get("skip_msg",False)
         skip_title = command_obj.get("skip_title",False)
         watch_peer_counts = command_obj.get("watch",False)
+        static_peer = command_obj.get("static_peer",False)
         single_profile = command_obj.get("single_profile",True)
         upgrade = command_obj.get("upgrade",False)
         interactive = command_obj.get("interactive",False)
@@ -2788,6 +2802,11 @@ class CLI():
         called_profile = argv_list[argv_list.index("-p")+1]
         self.set_profile(called_profile)
         
+        if "--peer" in argv_list:
+            static_peer = argv_list[argv_list.index("--peer")+1]
+        if static_peer:
+            self.functions.is_valid_address("ip_address",False,static_peer)
+            
         result, snapshot_issues, tolerance_result = False, False, False
         first_attempt = True
         wfd_count, wfd_max = 0, 3  # WaitingForDownload
@@ -2805,8 +2824,7 @@ class CLI():
 
         states = list(zip(*self.functions.get_node_states("on_network")))[0]
         break_states = list(zip(*self.functions.get_node_states("past_observing")))[0]
-        
-        
+                
         def print_update():
             nonlocal first_attempt
             if first_attempt:
@@ -2886,6 +2904,7 @@ class CLI():
         join_result = self.node_service.join_cluster({
             "caller": "cli_join",
             "action":"cli",
+            "static_peer": static_peer,
             "interactive": True if watch_peer_counts or interactive else False, 
         })
       

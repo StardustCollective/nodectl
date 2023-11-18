@@ -776,6 +776,8 @@ class Node():
         action = command_obj["action"]
         caller = command_obj.get("caller",False) # for troubleshooting and logging
         interactive = command_obj.get("interactive",True)
+        static_peer = command_obj.get("static_peer",False)
+        
         final = False  # only allow 2 non_interactive attempts
         
         self.set_profile_api_ports()
@@ -819,15 +821,30 @@ class Node():
                             if link_type == "gl0": gl0_linking_enabled = False
                             elif link_type == "ml0": ml0_linking_enabled = False
 
-        self.source_node_choice = self.functions.get_info_from_edge_point({
-            "caller": f"{caller} -> join_cluster",
-            "profile": self.profile,
-            "desired_key": "state",
-            "desired_value": "Ready",
-            "return_value": "all",
-            "api_endpoint_type": "consensus",
-        })
+        get_info_obj = {
+                "caller": f"{caller} -> join_cluster",
+                "profile": self.profile,
+                "desired_key": "state",
+                "desired_value": "Ready",
+                "return_value": "all",
+                "api_endpoint_type": "consensus",            
+        }
+        if static_peer: get_info_obj["specific_ip"] = static_peer
+        self.source_node_choice = self.functions.get_info_from_edge_point(get_info_obj)
         
+        if static_peer:
+            if self.source_node_choice["specific_ip_found"][0] != self.source_node_choice["specific_ip_found"][1]:
+                self.functions.print_paragraphs([
+                    [" ERROR ",0,"red,on_yellow"], ["--peer",0,"red"], [static_peer,0,"yellow"], 
+                    ["was specifically requests as the peer to join against; however, this peer was not found on the cluster!",1,"red"],
+                ])
+                self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": "Would you nodectl to pick a peer and continue?",
+                    "exit_if": True,
+                })
+                
         # join header header data
         data = { 
                 "id": self.source_node_choice["id"], 
@@ -836,6 +853,15 @@ class Node():
         }
         self.log.logger.info(f"join cluster -> joining via [{data}]")
 
+        if not self.auto_restart:
+            self.functions.print_cmd_status({
+                "text_start": "Joining with peer",
+                "status": self.source_node_choice["ip"],
+                "brackets": f'{self.source_node_choice["id"][0:8]}...{self.source_node_choice["id"][-8:]}',
+                "status_color": "yellow",
+                "newline": True,
+            })
+        
         join_session = Session()  # this is a requests Session external library
                 
         if gl0_linking_enabled or ml0_linking_enabled:
@@ -847,6 +873,9 @@ class Node():
                             "profile": eval(f"{link_type}_link_profile")
                         })  
                     except:
+                        self.log.logger.error(f"node_service -> join link to profile error for profile [{self.profile}] link type [{link_type}]")
+                        if self.auto_restart:
+                            exit(1)
                         self.error_messages.error_code_messages({
                             "error_code": "ser-357",
                             "line_code": "link_to_profile",
