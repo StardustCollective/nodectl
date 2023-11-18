@@ -186,8 +186,10 @@ class CLI():
                 watch_seconds = command_list[command_list.index("-w")+1]
                 watch_seconds = int(watch_seconds)
             except: 
-                self.log.logger.error("invalid value for [-w] option, needs to be an integer. Using default of [6].")
-                range_error = True
+                if watch_seconds != "--skip_warning_messages" and watch_seconds != "-p": 
+                    # watch requested with valid next option, skipping error message and using default
+                    self.log.logger.error("invalid value for [-w] option, needs to be an integer. Using default of [6].")
+                    range_error = True
                 watch_seconds = 15
             watch_enabled = True
             if watch_seconds < 6:
