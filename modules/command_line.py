@@ -328,15 +328,19 @@ class CLI():
                         "key": "clusterSession"
                     })
 
-                    consensus = self.functions.get_info_from_edge_point({
+                    consensus_match = self.cli_check_consensus({
                         "profile": self.profile,
                         "caller": "status",
-                        "api_endpoint_type": "consensus",
-                        "specific_ip": self.ip_address,
                     })
-                    consensus_match = colored("False","red")
-                    if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
-                        consensus_match = colored("True","green")
+                    # consensus = self.functions.get_info_from_edge_point({
+                    #     "profile": self.profile,
+                    #     "caller": "status",
+                    #     "api_endpoint_type": "consensus",
+                    #     "specific_ip": self.ip_address,
+                    # })
+                    # consensus_match = colored("False","red")
+                    # if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
+                    #     consensus_match = colored("True","green")
                     
                     def setup_output():
                         on_network = colored("False","red")
@@ -3919,7 +3923,44 @@ class CLI():
             remove(f'/var/tessellation/nodectl/{cmd[0]}')
         remove(f'/var/tessellation/nodectl/nodectl_{self.arch}')
                          
-                         
+    
+    def cli_check_consensus(self,command_obj):
+        profile = command_obj.get("profile",False) 
+        caller = command_obj.get("caller","check_consensus")
+        argv_list = command_obj.get("argv_list",[])   
+        ip_address = command_obj.get("ip_address",self.ip_address)   
+        
+        if "-s" in argv_list:
+            ip_address = argv_list[argv_list.index("-s")+1]
+        if "-p" in argv_list:
+            profile = argv_list[argv_list.index("-p")+1]
+        
+        consensus = self.functions.get_info_from_edge_point({
+            "profile": profile,
+            "caller": "status",
+            "api_endpoint_type": "consensus",
+            "specific_ip": ip_address,
+        })
+        consensus_match = colored("False","red")
+        if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
+            consensus_match = colored("True","green")    
+            
+        if caller != "check_consensus": 
+            return consensus_match
+        
+        print_out_list = [
+            {
+                "PROFILE": profile,
+                "IP ADDRESS": ip_address,
+                "CONSENSUS": consensus_match,
+            },
+        ] 
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })         
+                  
+                             
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")
         self.functions.check_for_help(command_list,"passwd12")

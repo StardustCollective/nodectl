@@ -286,6 +286,8 @@ class ShellHandler:
             
         elif self.called_command == "check_seedlist" or self.called_command == "_csl":
             return_value = cli.check_seed_list(self.argv)
+        elif self.called_command == "check_consensus" or self.called_command == "_con":
+            cli.cli_check_consensus({"argv_list":self.argv})
         elif self.called_command == "update_seedlist" or self.called_command == "_usl":
             return_value = cli.update_seedlist(self.argv)
         elif self.called_command == "export_private_key": 
@@ -698,7 +700,7 @@ class ShellHandler:
             "nodeid","id","dag","export_private_key",
             "check_seedlist","_csl","update_seedlist","_usl",
             "show_service_log","_ssl","download_status","_ds",
-            "show_dip_error","_sde",
+            "show_dip_error","_sde","check_consensus","_con"
             
         ]                
 

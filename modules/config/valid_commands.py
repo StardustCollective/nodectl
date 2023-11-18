@@ -45,6 +45,7 @@ def pull_valid_command():
         "upgrade_path",
         "refresh_binaries",
         "show_service_log",
+        "check_consensus",
         "health",
         "price",
         "sec",
@@ -63,7 +64,7 @@ def pull_valid_command():
         "_sr","_s","_qs","_cv","_vc","_val","_cf",
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
-        "_sde","_usl",
+        "_sde","_usl","_con",
         "log","prices","markets"
     ]
     
