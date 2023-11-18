@@ -223,7 +223,7 @@ class CLI():
                     uptime = "n/a"
                 
                 try:
-                    node_id = f"{elements[1][:9]}...{elements[1][-9:]}"
+                    node_id = f"{elements[1][:8]}...{elements[1][-8:]}"
                 except:
                     node_id = "unknown"
                 
@@ -326,6 +326,16 @@ class CLI():
                         "key": "clusterSession"
                     })
 
+                    consensus = self.functions.get_info_from_edge_point({
+                        "profile": self.profile,
+                        "caller": "status",
+                        "api_endpoint_type": "consensus",
+                        "specific_ip": self.ip_address,
+                    })
+                    consensus_match = colored("False","red")
+                    if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
+                        consensus_match = colored("True","green")
+                    
                     def setup_output():
                         on_network = colored("False","red")
                         cluster_session = sessions["session0"]
@@ -406,6 +416,7 @@ class CLI():
                                 ["  Latest Ordinal:",0,"magenta"], [" Node consensus ordinal",1],
                                 ["  Last DLed:",0,"magenta"], ["      Last found ordinal downloaded by Node",1],
                                 ["  Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
+                                ["  Consensus:",0,"magenta"], ["Is this Node participating in consensus rounds",1],
                                 ["  Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
                                 ["  Uptime:",0,"magenta"], ["About of time Node or Cluster has been online",2],
                             ])
@@ -452,6 +463,7 @@ class CLI():
                         print_out_list3 = [
                             {
                                 "NODE ID": node_id,
+                                "CONSENSUS": consensus_match,
                             }
                         ]
                         
