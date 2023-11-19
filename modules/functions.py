@@ -48,6 +48,9 @@ class Functions():
         self.version_obj = False
         self.valid_commands = []
         
+        class TerminateProgramException(Exception): pass
+        self.exception = TerminateProgramException()
+        
         
     def set_statics(self):
         self.error_messages = Error_codes(self.config_obj)         
@@ -841,16 +844,13 @@ class Functions():
     
         
     def get_user_keypress(self,command_obj):
-        # prompt=(str)
-        # prompt_color=(str)
-        # options=(list) list of valid keys
-        # debug=(bool) if want to test output of key for dev purposes
-        
         options = command_obj.get("options",["any_key"])
         prompt = command_obj.get("prompt","")
         prompt_color = command_obj.get("prompt_color","magenta")
         debug = command_obj.get("debug",False)
         quit_option = command_obj.get("quit_option",False)
+        quit_with_exception = command_obj.get("quit_with_exception",False)
+        
         self.key_pressed = None
         
         invalid_str = f"  {colored(' Invalid ','yellow','on_red',attrs=['bold'])}: {colored('only','red')} "
@@ -881,6 +881,8 @@ class Functions():
         print("")
         if quit_option and (self.key_pressed.upper() == quit_option.upper()):
             cprint("  Action cancelled by User","yellow")
+            if quit_with_exception:
+                raise self.exception
             exit(0)
             
         try: _ = self.key_pressed.lower()  # avoid NoneType error

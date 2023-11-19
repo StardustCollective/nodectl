@@ -4025,21 +4025,14 @@ class CLI():
             fork_result = colored("False","green",attrs=["bold"])
             
         self.functions.print_paragraphs([
-            [" MINORITY FORK DETECTION ",2,"green,on_blue","bold"],
+            ["",1],[" MINORITY FORK DETECTION ",2,"green,on_blue","bold"],
         ])
-        
-        self.functions.print_cmd_status({
-            "text_start": "Environment",
-            "status": environment,
-            "status_color": "cyan",
-            "newline": True,
-        })
         
         print_out_list = [
             {
                 "PROFILE": profile,
-                "IP ADDRESS": self.ip_address,
                 "ENVIRONMENT": environment,
+                "IP ADDRESS": self.ip_address,
             },
             {
                 "LOCAL ORDINAL": global_ordinals["local"]["ordinal"],
