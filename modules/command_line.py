@@ -3951,6 +3951,113 @@ class CLI():
             remove(f'/var/tessellation/nodectl/{cmd[0]}')
         remove(f'/var/tessellation/nodectl/nodectl_{self.arch}')
                          
+
+    def cli_minority_fork_detection(self,command_obj):
+        caller = command_obj.get("caller","cli")
+        argv_list = command_obj.get("argv_list",[])
+        profile = command_obj.get("profile",False)
+        
+        if "-e" in argv_list:
+            environment = argv_list[argv_list.index("-e")+1]
+            profile = self.functions.pull_profile({"req":"one_profile_per_env"})
+            profile = profile[0]
+
+        if not profile:
+            profile = argv_list[argv_list.index("-p")+1]
+            environment = self.config_obj[profile]["environment"]
+            
+        global_ordinals ={}
+        fork_obj = {
+            "history": 1,
+            "environment": environment,
+            "return_values": ["ordinal","lastSnapshotHash"],
+            "header": self.functions.get_headers,
+            "return_type": "dict"
+        }
+        
+        if caller != "auto_restart":
+            adj = "STATE"
+            print_error = False
+            if self.config_obj[profile]["layer"] > 0:
+                adj = "BLOCKCHAIN LAYER"
+                print_error = True
+            else:
+                state = self.functions.test_peer_state({
+                    "profile": profile,
+                    "simple": True,
+                })
+                if state != "Ready": 
+                    print_error = True    
+            
+            if print_error:
+                self.functions.print_paragraphs([
+                    [f" INVALID PROFILE {adj} ",1,"red,on_yellow"],
+                    ["Unable to process minority fork detection request",1,"red"],
+                ])
+                if adj == "STATE":
+                    self.functions.print_paragraphs([
+                        ["    Profile:",0], [profile,1,"yellow"],
+                        ["Environment:",0], [environment,1,"yellow"],
+                        ["      State:",0], [state,1,"yellow"]
+                    ])
+                exit(0)
+                
+        for n in range(0,2):
+            if n == 0: 
+                self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | fork_obj remote: [{self.functions.be_urls[environment]}].")
+                global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
+            else:
+                fork_obj = {
+                    **fork_obj,
+                    "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[profile]["public_port"]}/',
+                    "header": {**fork_obj["header"], 'Accept': 'application/json'},
+                    "get_results": "value",
+                    "ordinal": global_ordinals["backend"]["ordinal"],
+                    "action": "ordinal",
+                }
+                self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
+                global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
+
+        if caller != "cli": return global_ordinals
+        
+        fork_result = colored("True","red",attrs=["bold"])
+        if global_ordinals["local"]["lastSnapshotHash"] == global_ordinals["backend"]["lastSnapshotHash"]:
+            fork_result = colored("False","green",attrs=["bold"])
+            
+        self.functions.print_paragraphs([
+            [" MINORITY FORK DETECTION ",2,"green,on_blue","bold"],
+        ])
+        
+        self.functions.print_cmd_status({
+            "text_start": "Environment",
+            "status": environment,
+            "status_color": "cyan",
+            "newline": True,
+        })
+        
+        print_out_list = [
+            {
+                "PROFILE": profile,
+                "IP ADDRESS": self.ip_address,
+                "ENVIRONMENT": environment,
+            },
+            {
+                "LOCAL ORDINAL": global_ordinals["local"]["ordinal"],
+                "LOCAL HASH": global_ordinals["local"]["lastSnapshotHash"],
+            },
+            {
+                "REMOTE ORDINAL": global_ordinals["backend"]["ordinal"],
+                "REMOTE HASH": global_ordinals["backend"]["lastSnapshotHash"],
+            },
+            {
+                "MINORITY FORK": fork_result,
+            },
+        ] 
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })          
+        
     
     def cli_check_consensus(self,command_obj):
         profile = command_obj.get("profile",False) 
