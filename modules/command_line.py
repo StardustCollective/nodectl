@@ -469,7 +469,7 @@ class CLI():
                         print_out_list3 = [
                             {
                                 "NODE ID": node_id,
-                                "CONSENSUS": consensus_match,
+                                "IN CONSENSUS": consensus_match,
                             }
                         ]
                         
@@ -4080,7 +4080,7 @@ class CLI():
             {
                 "PROFILE": profile,
                 "IP ADDRESS": ip_address,
-                "CONSENSUS": consensus_match,
+                "IN CONSENSUS": consensus_match,
             },
         ] 
         for header_elements in print_out_list:

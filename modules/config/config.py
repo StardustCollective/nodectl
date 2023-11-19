@@ -201,6 +201,11 @@ class Configuration():
         nodectl_version = self.functions.version_obj["node_nodectl_version"]
         nodectl_yaml_version = self.functions.version_obj["node_nodectl_yaml_version"]
         
+        self.error_messages.error_code_messages({
+            "error_code": "mig-108",
+            "line_code": "upgrade_path_needed",
+        })   
+                 
         validate = True
         if len(self.nodectl_config_simple_format_check) > 1 or "nodectl" not in self.nodectl_config_simple_format_check[0]:
             validate = False

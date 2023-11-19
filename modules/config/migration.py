@@ -94,13 +94,30 @@ class Migration():
         # used to upgrade from v1.12.0 (upgrade path)
         # v0.1.0 -> v0.14.1 -> v1.8.1 -> v1.12.0 -> v2.0.0
         # This should be removed in the next minor version update or patch.
+        
+        # test and error out if necessary
+        upgrade_error = True
+        try:
+            if self.config_obj["global_elements"]["nodectl_yaml"] == "v2.0.0":
+                upgrade_error = False
+            elif self.config_obj["global_elements"]["nodectl_yaml"] == "v2.1.0": # placeholder
+                upgrade_error = False
+        except:
+            pass
+            
+        if upgrade_error:
+            self.errors.error_code_messages({
+                "error_code": "mig-108",
+                "line_code": "upgrade_path_needed",
+            })
+
         self.printer_config_header()
 
         self.functions.print_paragraphs([
             ["During program initialization, an outdated and/or improperly formatted",0,"blue","bold"], ["configuration",0,"yellow","bold"],["file was found",0,"blue","bold"], 
             ["on this server/Node.",2,"blue","bold"],
             
-            ["nodectl will backup your original configruation file and attempt to migrate to the new",0,"blue","bold"],
+            ["nodectl will backup your original configuration file and attempt to migrate to the new",0,"blue","bold"],
             ["required",0,"yellow,on_red","bold"], ["format.",2,"blue","bold"],
         ])
 

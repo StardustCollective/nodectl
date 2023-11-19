@@ -68,12 +68,32 @@ class Error_codes():
         elif "upgrade_path_needed" in str(var.line_code):
             self.log.logger.error(f"missing components to the VPS running nodectl. The necessary upgrade path may not have been followed? This may not be a valid configuration? | error code: [{var.line_code}]")
             self.functions.print_paragraphs([
-                ["Possible Upgrade Required!",0,"red"], ["This must be done by following the necessary upgrade path",1,"red","bold"],
+                
+                ["This version of nodectl has detected that you may be attempting to upgrade from an older incompatible version of nodectl.",0,"red","bold"],
+                ["It is not possible to directly upgraded to this version.",2,"red","bold"],
+                
+                ["The upgrade must be done by following the necessary upgrade path.",1,"red","bold"],
                 ["Necessary configuration components may be missing.",2,"red"],
+                
                 ["Please issue the following command to attempt to rectify the issue:",1,"magenta"],
-                ["sudo nodectl upgrade_path",2,"cyan","bold"],
-                ["Once the necessary path is found, please use the",0,"yellow"], ["wget",0,"cyan","bold"], ["followed by an",0,"yellow"],
-                ["sudo nodectl upgrade",0,"cyan","bold"], ["to follow the necessary version path upgrades.",2],
+                ["sudo nodectl upgrade_path",2,"yellow","bold"],
+                
+                ["Once the necessary path is found, please use:",1,"magenta"],
+                ["sudo nodectl upgrade_nodectl -v <version_number>",2,"yellow"],
+                 
+                ["Once you obtain the next version in the upgrade path, issue:",1,"magenta"],
+                ["sudo nodectl upgrade",2,"yellow"],
+                
+                ["Repeat the process until you reach the desired version of nodectl.",2],
+                
+                [" NOTE ",0,"blue,on_yellow"], ["You may also upgrade directory to this version by perform an fresh install on a new VPS or server.",0],
+                ["During the installation, utilize the p12 migration feature, that can be done by following the prompts.",0],
+                ["If you take this route, please make sure you have covered the following check list before commencing the new installation.",2,"red","bold"],
+                
+                ["Check List",1,"cyan","bold,underline"],
+                ["- Verify a validated backup of your p12 file is safely created.",1],
+                ["- Obtain your p12 private key store passphrase",1],
+                ["- Obtain your p12 private key store alias",2],
             ])            
 
 
