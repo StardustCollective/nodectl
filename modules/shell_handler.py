@@ -5,6 +5,7 @@ from datetime import datetime
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 from os import geteuid, getgid, environ, system, walk
+from types import SimpleNamespace
 
 from .auto_restart import AutoRestart
 from .functions import Functions
@@ -75,7 +76,14 @@ class ShellHandler:
             if cli.skip_warning_messages:
                 cli.invalid_version = False
             return cli 
-        return None
+
+        if self.config_obj["global_elements"]["developer_mode"] or "--skip_warning_messages" in self.argv:
+            cli = {
+                "skip_warning_messages": True,
+                "invalid_version": False,
+            }
+            cli = SimpleNamespace(**cli)
+        return cli
     
          
     def start_cli(self,argv):
@@ -614,7 +622,8 @@ class ShellHandler:
                     self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
-                        [f"this {self.install_upgrade}",0],["It will continue at the Node Operator's",0,"yellow"],
+                        [f"this {self.install_upgrade}",1],
+                        ["It will continue at the Node Operator's",0,"yellow"],
                         ["own risk and decision.",2,"yellow","bold"]
                     ])
                 else:

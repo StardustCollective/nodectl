@@ -1154,7 +1154,7 @@ class Configuration():
 
                         elif "path" in req_type:
                             # global paths replaced already
-                            if "path" in req_type: validated = True # dynamic value skip validation
+                            if "path" in key: validated = True # dynamic value skip validation
                             if "path_def" in req_type and test_value == "default": validated = True
                             elif req_type == "path_def_dis" and test_value == "disable": validated = True
                             elif path.isdir(test_value): validated = True
