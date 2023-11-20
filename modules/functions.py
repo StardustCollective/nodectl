@@ -2769,7 +2769,9 @@ class Functions():
         elif action == "remove_char":
             return sub(char, '', line)  
         elif action == "service_prefix":
-            return sub("cnng-","", line)   
+            return sub("cnng-","", line)  
+        elif action == "double_spaces":
+            return sub(r'\s+', ' ', line) 
         elif action == "trailing_backslash":
             if line[-1] == "/":
                 return line[0:-1]

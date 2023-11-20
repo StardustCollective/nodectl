@@ -424,13 +424,24 @@ class Node():
                     profile
                 ) 
                 
-                if self.config_obj[profile]["seed_path"] == "disable/disable":
+                if self.config_obj[profile]["seed_path"] == "disable":
                     template = template.replace("--seedlist nodegarageseedlistv","")
                     template = template.rstrip()
                 else:
                     template = template.replace(
                         "nodegarageseedlistv",
-                        self.config_obj[profile]["seed_location"]+"/"+self.config_obj[profile]["seed_file"]
+                        self.config_obj[profile]["seed_path"]
+                    )
+                    template = template.replace("//","/") # avoid double //
+                    template = template.rstrip()
+                
+                if self.config_obj[profile]["pro_rating_path"] == "disable":
+                    template = template.replace("--ratings nodegarageratingv","")
+                    template = template.rstrip()
+                else:
+                    template = template.replace(
+                        "nodegarageratingv",
+                        self.config_obj[profile]["pro_rating_path"]
                     )
                     template = template.replace("//","/") # avoid double //
                     template = template.rstrip()
@@ -483,6 +494,7 @@ class Node():
             substring = "/usr/bin/java"
             index = template.find(substring)
             pre_template = template[:index]; post_template = self.functions.cleaner(template[index:],"new_line")
+            post_template = self.functions.cleaner(post_template,"double_spaces")
             template = f"{pre_template}{post_template}"
             
             # append background switch to command
@@ -1059,7 +1071,7 @@ WantedBy=multi-user.target
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
 '''
         
         if var.file == "service_restart":
