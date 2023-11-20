@@ -497,10 +497,15 @@ class Configuration():
                 self.config_obj[profile]["jar_github"] = True 
                 
             try:
-                self.config_obj[profile]["seed_path"] = self.create_path_variable(
-                    self.config_obj[profile]["seed_location"],
-                    self.config_obj[profile]["seed_file"]
-                )
+                if self.config_obj[profile]["seed_location"] == "disable":
+                    self.config_obj[profile]["seed_path"] = "disable"
+                elif self.config_obj[profile]["seed_location"] == "default":
+                    self.config_obj[profile]["seed_path"] = "default"
+                else:
+                    self.config_obj[profile]["seed_path"] = self.create_path_variable(
+                        self.config_obj[profile]["seed_location"],
+                        self.config_obj[profile]["seed_file"]
+                    )
             except KeyError:
                 self.error_list.append({
                     "title": "section_missing",
@@ -508,7 +513,28 @@ class Configuration():
                     "profile": profile,
                     "type": "section",
                     "key": "multiple",
-                    "value": "p12",
+                    "value": "seed list access",
+                    "special_case": None
+                })
+                
+            try:
+                if self.config_obj[profile]["pro_rating_location"] == "disable":  
+                    self.config_obj[profile]["pro_rating_path"] = "disable"
+                elif self.config_obj[profile]["pro_rating_location"] == "default":
+                    self.config_obj[profile]["pro_rating_path"] = "default"
+                else:
+                    self.config_obj[profile]["pro_rating_path"] = self.create_path_variable(
+                        self.config_obj[profile]["pro_rating_location"],
+                        self.config_obj[profile]["pro_rating_file"]
+                    )
+            except KeyError:
+                self.error_list.append({
+                    "title": "section_missing",
+                    "section": "pro",
+                    "profile": profile,
+                    "type": "section",
+                    "key": "multiple",
+                    "value": "location or filename",
                     "special_case": None
                 })
         
@@ -753,6 +779,9 @@ class Configuration():
                 ["seed_repository","host_def_dis"],
                 ["seed_file","str"],             
                 ["seed_path","path_def_dis"], # automated value [not part of yaml]
+                ["pro_rating_location","path_def_dis"],
+                ["pro_rating_file","str"], 
+                ["pro_rating_path","path_def_dis"], # automated value [not part of yaml]     
                 ["priority_source_location","path_def_dis"],
                 ["priority_source_repository","host_def_dis"],
                 ["priority_source_file","str"],             
@@ -838,7 +867,7 @@ class Configuration():
                 # key_test_list = list(config_value.keys())
                 # schema_test_list = [item[0] for item in self.schema["metagraphs"]]
                 missing =  [item[0] for item in self.schema["metagraphs"]] - config_value.keys()
-                missing = [x for x in missing if x not in ["seed_path","gl0_link_is_self","ml0_link_is_self","p12_key_store","jar_github"]]
+                missing = [x for x in missing if x not in ["seed_path","pro_rating_path","gl0_link_is_self","ml0_link_is_self","p12_key_store","jar_github"]]
                 for item in missing:
                     missing_list.append([config_key, item])
             if "global" in config_key:
@@ -1195,9 +1224,6 @@ class Configuration():
 
     def validate_seedlist_duplicates(self):
         seeds = []; duplicates = []
-        # for profile in self.metagraph_list: 
-        #     if self.config_obj[profile]["seed_path"] != "disable":
-        #         seeds.append(self.config_obj[profile]["seed_path"])
         seeds = [self.config_obj[profile]["seed_path"] for profile in self.metagraph_list if "disable" not in self.config_obj[profile]["seed_path"]]
         seeds_set = set(seeds)
         if len(seeds_set) != len(seeds):

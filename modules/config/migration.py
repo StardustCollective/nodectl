@@ -287,8 +287,8 @@ class Migration():
                 "nodegarageprioritysourcefile": self.config_obj[profile]["priority_source_file"],
                 "nodegaragecustomargsenable": self.config_obj[profile]["custom_args_enable"],
                 "nodegaragecustomenvvarsenable": self.config_obj[profile]["custom_env_vars_enable"], 
-                "nodegarageratingfile": "disabled", # new in v2.12.0
-                "nodegarageratinglocation": "disabled", # new in v2.12.0
+                "nodegarageratingfile": "disable", # new in v2.12.0
+                "nodegarageratinglocation": "disable", # new in v2.12.0
                 "create_file": "config_yaml_profile",
             }
             self.yaml += self.build_yaml(rebuild_obj)

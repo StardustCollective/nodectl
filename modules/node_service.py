@@ -1194,8 +1194,8 @@ nodectl:
     seed_location: nodegarageseedlocation
     seed_repository: nodegarageseedrepository
     seed_file: nodegarageseedfile
-    rating_file_location: nodegarageratinglocation
-    rating_file: nodegarageratingfile
+    pro_rating_location: nodegarageratinglocation
+    pro_rating_file: nodegarageratingfile
     priority_source_location: nodegarageprioritysourcelocation
     priority_source_repository: nodegarageprioritysourcerepository
     priority_source_file: nodegarageprioritysourcefile

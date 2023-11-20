@@ -1115,6 +1115,10 @@ class Functions():
                     self.config_obj[profile]["seed_location"] = "/var/tessellation/"
                 if self.config_obj[profile]["seed_file"] == "default": # otherwise already set
                     self.config_obj[profile]["seed_file"] = "seed-list"
+                if self.config_obj[profile]["rating_location"] == "default": # otherwise already set
+                    self.config_obj[profile]["rating_location"] = "/var/tessellation/"
+                if self.config_obj[profile]["rating_file"] == "default": # otherwise already set
+                    self.config_obj[profile]["rating_file"] = "ratings"
                  
             # currently not configurable
             self.config_obj[profile]["directory_logs"] = f"/var/tessellation/{profile}/logs/"   
