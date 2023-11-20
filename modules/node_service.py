@@ -1194,6 +1194,8 @@ nodectl:
     seed_location: nodegarageseedlocation
     seed_repository: nodegarageseedrepository
     seed_file: nodegarageseedfile
+    rating_file_location: nodegarageratinglocation
+    rating_file: nodegarageratingfile
     priority_source_location: nodegarageprioritysourcelocation
     priority_source_repository: nodegarageprioritysourcerepository
     priority_source_file: nodegarageprioritysourcefile
@@ -1222,6 +1224,7 @@ nodectl:
             cur_file = '''  global_elements:
     metagraph_name: nodegaragemetagraphname         
     nodectl_yaml: nodegaragenodectlyaml
+    developer_mode: nodegaragedevelopermode
     log_level: nodegarageloglevel
 '''
 

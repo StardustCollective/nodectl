@@ -176,10 +176,9 @@ class Configuration():
                     "line_code": "config_error",
                     "extra": "format",
                     "extra2": None
-                })      
-
+                })   
+                   
         self.nodectl_config_simple_format_check = list(self.yaml_dict.keys())
-        
         self.config_obj = {
             **self.config_obj,
             **self.yaml_dict[self.nodectl_config_simple_format_check[0]],
@@ -196,15 +195,10 @@ class Configuration():
         self.functions.set_statics()
         
         
-    def check_for_migration(self):
+    def check_for_migration(self,check_only=False):
         # self.functions.pull_upgrade_path(True)
         nodectl_version = self.functions.version_obj["node_nodectl_version"]
         nodectl_yaml_version = self.functions.version_obj["node_nodectl_yaml_version"]
-        
-        self.error_messages.error_code_messages({
-            "error_code": "mig-108",
-            "line_code": "upgrade_path_needed",
-        })   
                  
         validate = True
         if len(self.nodectl_config_simple_format_check) > 1 or "nodectl" not in self.nodectl_config_simple_format_check[0]:
@@ -832,29 +826,9 @@ class Configuration():
                 
 
     def validate_yaml_keys(self):
-        # self.common_test_dict = {
-        #     "auto_restart": ["enable","auto_upgrade","rapid_restart"],
-        #     "global_p12": ["nodeadmin","key_location","key_name","key_alias","passphrase"],
-        #     "cnng_dynamic_profiles": [
-        #         "enable","metagraph_name","description","node_type","meta_type","layer","service",
-        #         "environment","edge_point","edge_point_tcp_port",
-        #         "public_port","p2p_port","cli_port",
-        #         "gl0_link_enable","gl0_link_key","gl0_link_host","gl0_link_port","gl0_link_profile",
-        #         "ml0_link_enable","ml0_link_key","ml0_link_host","ml0_link_port","ml0_link_profile",
-        #         "directory_backups","directory_uploads",
-        #         "java_xms","java_xmx",
-        #         "java_xss","jar_repository",
-        #         "p12_nodeadmin","p12_key_location","p12_key_name","p12_key_alias","p12_passphrase",
-        #         "seed_location","seed_file",
-        #         "custom_args_enable","custom_env_vars_enable",
-        #     ],
-        # }
-        # profile_value_list = self.common_test_dict["cnng_dynamic_profiles"]
         missing_list = []
         
-        # ====================================
         # placeholder for source priority path
-        # ====================================
         for profile in self.metagraph_list:
             self.config_obj[profile]["priority_source_path"] = "/var/tessellation/"
             

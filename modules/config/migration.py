@@ -1,14 +1,8 @@
-from termcolor import colored, cprint
-from types import SimpleNamespace
 from os import system, path, makedirs
-from copy import deepcopy
 
-from .versioning import Versioning
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
-from ..functions import Functions
-
 
 class Migration():
     
@@ -18,6 +12,7 @@ class Migration():
         self.version_obj = self.functions.version_obj
         
         self.log = Logging()
+        self.functions.log = self.log
         self.log.logger.debug("migration process started...")
         self.errors = Error_codes(self.functions)
         self.caller = command_obj.get("caller","default")
@@ -27,56 +22,68 @@ class Migration():
     
     def migrate(self):
         self.start_migration()
-        self.handle_old_profiles()
-        if not self.verify_config_type():
-            return
+        if not self.verify_config_type(): return
         self.backup_config()
         self.create_n_write_yaml()
+        self.final_yaml_write_out()
         return self.confirm_config()
         
 
-    def printer_config_header(self):
+    def print_config_header(self):
         self.functions.print_header_title({
             "line1": "VERSION 2.0",
             "line2": "Configuration Migration",
             "clear": True,
         })
-                
-    
-    def handle_old_profiles(self):
-        self.config_keys = self.config_obj.keys()
-        self.profile_keys = self.config_obj["profiles"].keys()
-        self.old_config_keys = ["profiles","auto_restart","global_p12","global_elements"]
-        self.old_profile_subsections = [
-            "edge_point","ports","layer0_link",
-            "dirs","java","p12","pro"]
-        self.old_profile_keys = self.old_profile_subsections + [
-            "enable","layer","environment","service",
-            "node_type","description"]
-        self.old_dir_keys = ["uploads","backups"]
-        self.old_p12_keys = ["nodeadmin","key_location","p12_name","wallet_alias","passphrase"]
-                
+            
                 
     def verify_config_type(self):
+        upgrade_error = False
         try:
-            config_yaml_version = self.config_obj["global_elements"]["nodectl_yaml"]
+            self.profiles = self.functions.clear_global_profiles(list(self.config_obj.keys()))
         except:
-            pass
-        else:
-            if config_yaml_version == self.functions.node_nodectl_yaml_version:
-                return False
-
-        valid = True
+            self.log.logger.error("migration module unable to pull profiles from the configuration")
+            upgrade_error = True
         
-        for key in self.config_keys:
-            if key not in self.old_config_keys:
+        try:
+            if self.config_obj["global_elements"]["nodectl_yaml"] != "v2.0.0":
+                self.log.logger.error(f'migration module determined incorrect nodectl yaml version | [{self.config_obj["global_elements"]["nodectl_yaml"]}]')
+                upgrade_error = True
+        except:
+            upgrade_error = True
+            
+        if upgrade_error:
+            self.errors.error_code_messages({
+                "error_code": "mig-108",
+                "line_code": "upgrade_path_needed",
+            })
+            
+        # simple verification only
+        valid = True
+        requirements = {
+            "global_count": 3,
+            "global_p12_count": 5,
+            "global_elements_count": 3,
+            "global_auto_restart_count": 4, 
+            "profile_count": 44*len(self.profiles),          
+        }
+
+        for key in self.config_obj.keys():
+            if "global" in key:
+                requirements["global_count"] -= 1
+                for i_key in self.config_obj[key].keys():
+                    if i_key == "caller": continue
+                    if "auto" in key: requirements["global_auto_restart_count"] -= 1
+                    elif "p12" in key: requirements["global_p12_count"] -= 1
+                    elif "element" in key: requirements["global_elements_count"] -= 1
+            else:
+                for _ in self.config_obj[key].keys():
+                    requirements["profile_count"] -= 1
+                    
+        for requirement in requirements.values():
+            if requirement > 0:
+                self.log.logger.error(f'migration module determined possible nodectl configuration yaml error, unable to continue') 
                 valid = False
-                
-        if valid:
-            for profile in self.profile_keys:
-                for i_key in self.config_obj["profiles"][profile].keys():
-                    if i_key not in self.old_profile_keys:
-                        valid = False
                 
         if not valid:
             self.errors.error_code_messages({
@@ -86,6 +93,7 @@ class Migration():
                 "extra2": None
             })
         
+        self.log.logger.info(f'migration module quick verification of previous configuration is valid, continuing migration')
         return True
         
 
@@ -94,24 +102,7 @@ class Migration():
         # used to upgrade from v1.12.0 (upgrade path)
         # v0.1.0 -> v0.14.1 -> v1.8.1 -> v1.12.0 -> v2.0.0
         # This should be removed in the next minor version update or patch.
-        
-        # test and error out if necessary
-        upgrade_error = True
-        try:
-            if self.config_obj["global_elements"]["nodectl_yaml"] == "v2.0.0":
-                upgrade_error = False
-            elif self.config_obj["global_elements"]["nodectl_yaml"] == "v2.1.0": # placeholder
-                upgrade_error = False
-        except:
-            pass
-            
-        if upgrade_error:
-            self.errors.error_code_messages({
-                "error_code": "mig-108",
-                "line_code": "upgrade_path_needed",
-            })
-
-        self.printer_config_header()
+        self.print_config_header()
 
         self.functions.print_paragraphs([
             ["During program initialization, an outdated and/or improperly formatted",0,"blue","bold"], ["configuration",0,"yellow","bold"],["file was found",0,"blue","bold"], 
@@ -142,15 +133,11 @@ class Migration():
                         
         backup_dir = "/var/tessellation/backups"
         datetime = self.functions.get_date_time({"action":"datetime"})
-        for profile in self.config_obj["profiles"].keys():
-            for section, value in self.config_obj["profiles"][profile].items():
-                if section == "dirs":
-                    backup_dir = value
-                    if backup_dir == "default":
-                        backup_dir = "/var/tessellation/backups"
-                    break
-            break
-            
+        backup_dir = self.config_obj[self.profiles[0]]["directory_backups"]
+        if backup_dir == "default":
+            backup_dir = "/var/tessellation/backups"
+
+        self.log.logger.debug(f'migration module backing up the configuration to [/var/tessellation/backups/cn-config.{datetime}backup.yaml]')
         system(f"mv {self.functions.nodectl_path}cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
 
         self.functions.print_cmd_status({
@@ -164,15 +151,15 @@ class Migration():
         self.log.logger.warn("backing up cn-config.yaml file to default backup directory from original configuration, this file should be removed at a later date.")
         
         self.functions.print_paragraphs([
-            ["",1], [" DANGER ",0,"yellow,on_red"], ["THE",0,"red","bold"], ["cn-config.yaml",0, "yellow","bold"], 
-            ["FILE MAY CONTAIN A P12 PASSPHRASE, FOR SECURITY PURPOSES, PLEASE REMOVE AS NECESSARY!",2,"red","bold"],
+            ["",1], [" DANGER ",0,"yellow,on_red"], ["The backup configuration YAML file",0,"red","bold"], 
+            ["MAY CONTAIN A P12 PASSPHRASE, FOR SECURITY PURPOSES, PLEASE REMOVE AS NECESSARY!",2,"red","bold"],
             
             [" CAUTION ",0,"red,on_yellow"],["After the",0,"yellow"], ["migration",0,"cyan","bold"], ["is complete, the",0,"yellow"], 
-            ["upgrader",0,"magenta","bold"], ["will continue and will prompt you to remove the contents of the backup directory",0,"yellow"],
-            ["where the original",0,"yellow"], ["cn-config.yaml",0,"white,on_blue"], ["has been backed up within.",2,"yellow"], 
+            ["upgrader",0,"cyan","bold"], ["will continue and will prompt you to remove the contents of the backup directory",0,"yellow"],
+            ["where the original",0,"yellow"], ["configuration YAML file",0,"white,on_blue"], ["has been backed up within.",2,"yellow"], 
             
             ["If you choose to empty the contents",0,"yellow"],
-            ["of this directory, you will remove the backup",0,"yellow"], ["cn-config.yaml",0,"cyan"], ["file.",2,"yellow"],
+            ["of this directory, you will remove the backup",0,"yellow"], ["configuration YAML file",0,"cyan"], ["file.",2,"yellow"],
             
             ["backup filename:",0], [f"cn-config.{datetime}backup.yaml",1,"magenta"],
             ["backup location:",0], ["/var/tessellation/backups/",1,"magenta"],
@@ -183,110 +170,6 @@ class Migration():
     # build methods
     # =======================================================
 
-
-    def migrate_profiles(self):
-        # =======================================================
-        # create profile sections
-        # =======================================================
-        rebuild_obj = {}
-        self.found_environment = "NA"
-        
-        port_keys = ["nodegaragepublic","nodegaragep2p","nodegaragecli"]
-        layer0_ports = [9000,9001,9002]; layer1_ports = [9010,9011,9012]
-        rebuild_defaults = {
-            "nodegaragehost": [
-                "l0-lb-mainnet.constellationnetwork.io",
-                "l1-lb-mainnet.constellationnetwork.io",
-                "l0-lb-testnet.constellationnetwork.io",
-                "l1-lb-testnet.constellationnetwork.io",
-                "l0-lb-integrationnet.constellationnetwork.io",
-                "l1-lb-integrationnet.constellationnetwork.io",
-            ],
-            "nodegaragehostport": "80",
-            "nodegaragedirectorybackups": "/var/tessellation/backups",
-            "nodegaragedirectoryuploads": "/var/tessellation/uploads",
-            "nodegaragexms": "1024M",
-            "nodegaragexmx": ["7G","3G"],
-            "nodegaragexss": "256K",
-            "nodegarageseedlocation": "/var/tessellation",
-            "nodegarageseedfile": "seed-list",
-        }
-        
-        for profile in self.config_obj["profiles"].keys():
-            rebuild_obj["nodegarageprofile"] = profile
-            self.found_environment = self.config_obj["profiles"][profile]["environment"] # will set final found env to value
-            for section, value in self.config_obj["profiles"][profile].items():
-                link_section = "ml0link" if section == "layer0_link" else "" # enable dup key value
-                if section in self.old_profile_subsections:
-                    for i_section, value in self.config_obj["profiles"][profile][section].items():
-                        if link_section == "ml0link": # exception
-                            i_section = i_section.replace("layer0","")
-                            i_section = i_section.replace("link","")
-                        elif i_section in self.old_dir_keys:
-                            i_section = f"directory{i_section}"
-                        elif i_section in self.old_p12_keys:
-                            i_section = f"p12{i_section}"
-                            i_section = "p12keyalias" if i_section == "p12wallet_alias" else i_section
-                            i_section = "p12keyname" if i_section == "p12p12_name" else i_section
-                        rebuild_obj[f"nodegarage{link_section}{i_section.replace('_','')}"] = value
-                        if link_section == "ml0link":
-                            value =  False if "enable" in i_section else "None"
-                            rebuild_obj[f"nodegaragegl0link{i_section.replace('_','')}"] = value
-                else:
-                    section = "blocklayer" if section == "layer" else section # exception
-                    rebuild_obj[f"nodegarage{section.replace('_','')}"] = value
-                        
-            # replace default values
-            rebuild_obj_copy = deepcopy(rebuild_obj)
-            for key, value in rebuild_obj_copy.items():
-                layer = self.config_obj["profiles"][profile]["layer"]
-                if key in port_keys:
-                    index = port_keys.index(key)
-                    if layer < 1:
-                        value = "default" if value == layer0_ports[index] and key == port_keys[index] else value
-                        rebuild_obj[key] = value
-                    elif layer > 0:
-                        value = "default" if value == layer1_ports[index] and key == port_keys[index] else value
-                        rebuild_obj[key] = value
-                if key in rebuild_defaults.keys():
-                    if "port" in key and rebuild_obj[key] == value:
-                        rebuild_obj["nodegarageedgepointtcpport"] = "default"
-                    elif "host" in key and value in rebuild_obj[key]:
-                        if str(layer) in value[0:2]:
-                            rebuild_obj["nodegarageedgepointhost"] = "default"
-                    elif ("backups" in key or "uploads" in key) and value[:-1] in rebuild_defaults[key]:
-                        rebuild_obj[key] = "default"
-                    elif ("xms" in key or "xss" in key) and value == rebuild_defaults[key]:
-                        rebuild_obj[key] = "default"
-                    elif "xmx" in key and value == rebuild_defaults[key][layer]:
-                        rebuild_obj[key] = "default"    
-                    elif "seedlocation" in key and value[:-1] in rebuild_defaults[key]:                        
-                        rebuild_obj[key] = "default"    
-                    elif "seedfile" in key and value == rebuild_defaults[key]:                        
-                        rebuild_obj[key] = "default"    
-
-            # new key pair >= v2.9.0
-            rebuild_obj = {
-                **rebuild_obj,
-                "nodegaragecollateral": 0,
-                "nodegaragemetatype": "ml",
-                "nodegaragetokenidentifier": "disable",
-                "nodegaragejarrepository": "default",
-                "nodegaragejarfile": "default",
-                # "nodegaragejarversion": "default",  # future?
-                "nodegarageprioritysourcelocation": "default",
-                "nodegarageprioritysourcerepository": "default",
-                "nodegarageprioritysourcefile": "default",
-                "nodegaragecustomargsenable": False,
-                "nodegaragecustomenvvarsenable": False,
-                "nodegarageseedrepository": "default",
-            }
-
-            rebuild_obj["create_file"] = "config_yaml_profile"
-            rebuild_obj["show_status"] = False
-            self.yaml += self.build_yaml(rebuild_obj) 
-    
-           
     def build_yaml(self,rebuild_obj): 
 
         create_file = rebuild_obj.pop("create_file")
@@ -348,22 +231,77 @@ class Migration():
         self.yaml = self.build_yaml(rebuild_obj)
         
         if self.caller != "configurator":
-            self.full_v1_migrate()
+            self.preform_migration()
         
         
-    def full_v1_migrate(self):
-        # migration of cn-node verses config update
-        self.migrate_profiles()
+    def preform_migration(self):
+
+        # =======================================================
+        # build yaml profile section
+        # =======================================================
+        self.log.logger.debug('migration module building new configuration skelton')
+        for profile in self.profiles:
+            rebuild_obj = {
+                "nodegarageprofile": profile,
+                "nodegarageenable": self.config_obj[profile]["profile_enable"],
+                "nodegarageenvironment": self.config_obj[profile]["environment"],
+                "nodegaragedescription": self.config_obj[profile]["description"],
+                "nodegaragenodetype": self.config_obj[profile]["node_type"],
+                "nodegaragemetatype": self.config_obj[profile]["meta_type"],
+                "nodegarageblocklayer": self.config_obj[profile]["layer"],
+                "nodegaragecollateral": self.config_obj[profile]["collateral"],
+                "nodegarageservice": self.config_obj[profile]["service"],
+                "nodegarageedgepointhost": self.config_obj[profile]["edge_point"],
+                "nodegarageedgepointtcpport": self.config_obj[profile]["edge_point_tcp_port"],
+                "nodegaragepublic": self.config_obj[profile]["public_port"],
+                "nodegaragep2p": self.config_obj[profile]["p2p_port"],
+                "nodegaragecli": self.config_obj[profile]["cli_port"],
+                "nodegaragegl0linkenable": self.config_obj[profile]["gl0_link_enable"],
+                "nodegaragegl0linkkey": self.config_obj[profile]["gl0_link_key"],
+                "nodegaragegl0linkhost": self.config_obj[profile]["gl0_link_host"],
+                "nodegaragegl0linkport": self.config_obj[profile]["gl0_link_port"],
+                "nodegaragegl0linkprofile": self.config_obj[profile]["gl0_link_profile"],
+                "nodegarageml0linkenable": self.config_obj[profile]["ml0_link_enable"],
+                "nodegarageml0linkkey": self.config_obj[profile]["ml0_link_key"],
+                "nodegarageml0linkhost": self.config_obj[profile]["ml0_link_host"],
+                "nodegarageml0linkport": self.config_obj[profile]["ml0_link_port"],
+                "nodegarageml0linkprofile": self.config_obj[profile]["ml0_link_profile"],
+                "nodegaragetokenidentifier": self.config_obj[profile]["token_identifier"],
+                "nodegaragedirectorybackups": self.config_obj[profile]["directory_backups"],
+                "nodegaragedirectoryuploads": self.config_obj[profile]["directory_uploads"],
+                "nodegaragexms": self.config_obj[profile]["java_xms"],
+                "nodegaragexmx": self.config_obj[profile]["java_xmx"],
+                "nodegaragexss": self.config_obj[profile]["java_xss"],
+                "nodegaragejarrepository": self.config_obj[profile]["jar_repository"],
+                "nodegaragejarfile": self.config_obj[profile]["jar_file"],
+                "nodegaragep12nodeadmin": self.config_obj[profile]["p12_nodeadmin"],
+                "nodegaragep12keylocation": self.config_obj[profile]["p12_key_location"],
+                "nodegaragep12keyname": self.config_obj[profile]["p12_key_name"],
+                "nodegaragep12keyalias": self.config_obj[profile]["p12_key_alias"],
+                "nodegaragep12passphrase": self.config_obj[profile]["p12_passphrase"],
+                "nodegarageseedlocation": self.config_obj[profile]["seed_location"],
+                "nodegarageseedrepository": self.config_obj[profile]["seed_repository"],
+                "nodegarageseedfile": self.config_obj[profile]["seed_file"],
+                "nodegarageprioritysourcelocation": self.config_obj[profile]["priority_source_location"],
+                "nodegarageprioritysourcerepository": self.config_obj[profile]["priority_source_repository"],
+                "nodegarageprioritysourcefile": self.config_obj[profile]["priority_source_file"],
+                "nodegaragecustomargsenable": self.config_obj[profile]["custom_args_enable"],
+                "nodegaragecustomenvvarsenable": self.config_obj[profile]["custom_env_vars_enable"], 
+                "nodegarageratingfile": "disabled", # new in v2.12.0
+                "nodegarageratinglocation": "disabled", # new in v2.12.0
+                "create_file": "config_yaml_profile",
+            }
+            self.yaml += self.build_yaml(rebuild_obj)
         
         # =======================================================
         # build yaml auto_restart section
         # =======================================================
         
         rebuild_obj = {
-            "nodegarageeautoenable": "False",
-            "nodegarageautoupgrade": "False",
-            "nodegarageonboot": "False",
-            "nodegaragerapidrestart": "False",
+            "nodegarageeautoenable": self.config_obj["global_auto_restart"]["auto_restart"],
+            "nodegarageautoupgrade": self.config_obj["global_auto_restart"]["auto_upgrade"],
+            "nodegarageonboot": self.config_obj["global_auto_restart"]["on_boot"],
+            "nodegaragerapidrestart": self.config_obj["global_auto_restart"]["rapid_restart"],
             "create_file": "config_yaml_autorestart",
         }
         self.yaml += self.build_yaml(rebuild_obj)
@@ -375,8 +313,8 @@ class Migration():
         rebuild_obj = {
             "nodegaragep12nodeadmin": self.config_obj["global_p12"]["nodeadmin"],
             "nodegaragep12keylocation": self.config_obj["global_p12"]["key_location"],
-            "nodegaragep12keyname": self.config_obj["global_p12"]["p12_name"],
-            "nodegaragep12keyalias": self.config_obj["global_p12"]["wallet_alias"],
+            "nodegaragep12keyname": self.config_obj["global_p12"]["key_name"],
+            "nodegaragep12keyalias": self.config_obj["global_p12"]["key_alias"],
             "nodegaragep12passphrase": f'"{self.config_obj["global_p12"]["passphrase"]}"',
             "create_file": "config_yaml_p12",
         }
@@ -386,20 +324,19 @@ class Migration():
         # build yaml global elements section
         # =======================================================        
         rebuild_obj = {
-            "nodegaragemetagraphname": self.found_environment,
-            "nodegaragenodectlyaml": self.functions.node_nodectl_yaml_version,
-            "nodegarageloglevel": "INFO",
+            "nodegaragemetagraphname": self.config_obj["global_elements"]["metagraph_name"],
+            "nodegaragenodectlyaml": "v2.1.0", # replacement
+            "nodegarageloglevel": self.config_obj["global_elements"]["log_level"],
+            "nodegaragedevelopermode": "False", # new in v2.12.0
             "create_file": "config_yaml_global_elements",
         }
         self.yaml += self.build_yaml(rebuild_obj)
 
+
+    def final_yaml_write_out(self):
         # =======================================================
         # write final yaml out to file and offer review
         # =======================================================
-        self.final_yaml_write_out()
-        
-        
-    def final_yaml_write_out(self):
         if not path.isdir(self.functions.nodectl_path):
             makedirs(self.functions.nodectl_path)
         with open(f"{self.functions.nodectl_path}cn-config.yaml","w") as newfile:
@@ -419,9 +356,11 @@ class Migration():
         
         
     def confirm_config(self):
+        self.log.logger.info('migration module completed configuration build')
         self.functions.print_clear_line()
         self.functions.print_paragraphs([
-            ["",1],["cn-config",0,"yellow","bold"], ["MIGRATION COMPLETED SUCCESSFULLY!!",1,"green","bold"],
+            ["",1],["cn-config.yaml upgraded",1,"green"], 
+            ["MIGRATION COMPLETED SUCCESSFULLY!!",1,"green","bold"],
             ["Ready to continue with upgrade",2,"blue","bold"],
         ])
         
