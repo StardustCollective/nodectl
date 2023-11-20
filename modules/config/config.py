@@ -815,6 +815,7 @@ class Configuration():
             "global_elements": [
                 ["metagraph_name","str"],
                 ["nodectl_yaml","str"],
+                ["developer_mode","bool"],
                 ["log_level","log_level"],
             ]
         }
