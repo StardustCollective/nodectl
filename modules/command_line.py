@@ -60,8 +60,10 @@ class CLI():
 
         if self.profile_names != None:
             self.profile_names = self.functions.clear_global_profiles(self.profile_names)
-            
-        self.skip_warning_messages = True if "--skip_warning_messages" in self.command_list else False
+
+        self.skip_warning_messages = False
+        if "--skip_warning_messages" in self.command_list or self.config_obj["global_elements"]["developer_mode"]:
+            self.skip_warning_messages = True 
         
         if not self.skip_services:
             # try:

@@ -72,7 +72,8 @@ class ShellHandler:
             cli.check_for_new_versions({
                 "caller": self.called_command
             })
-            self.invalid_version = cli.invalid_version
+            if cli.skip_warning_messages:
+                cli.invalid_version = False
             return cli 
         return None
     
@@ -113,9 +114,9 @@ class ShellHandler:
         if "all" in self.argv:
             self.check_all_profile()     
 
-        cli = self.build_cli_obj()
+        self.cli = self.build_cli_obj()
         
-        if self.invalid_version:
+        if self.cli != None and self.cli.invalid_version:
             self.functions.confirm_action({
                 "yes_no_default": "NO",
                 "return_on": "YES",
@@ -146,7 +147,7 @@ class ShellHandler:
         if self.called_command in status_commands:
             try: profile = self.argv[self.argv.index("-p")+1]
             except: profile = "empty"
-            cli.show_system_status({
+            self.cli.show_system_status({
                 "rebuild": False,
                 "wait": False,
                 "print_title": True,
@@ -157,7 +158,7 @@ class ShellHandler:
             
         elif self.called_command in service_change_commands:
             if not self.help_requested:
-                try: cli.set_profile(self.argv[self.argv.index("-p")+1])
+                try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
                 except: 
                     self.error_messages.error_code_messages({
                         "error_code": "sh-161",
@@ -165,11 +166,11 @@ class ShellHandler:
                     })
             if not self.help_requested:            
                 if self.called_command == "start":
-                    cli.cli_start({
+                    self.cli.cli_start({
                         "argv_list": self.argv,
                     })
                 elif self.called_command == "stop":
-                    cli.cli_stop({
+                    self.cli.cli_stop({
                         "show_timer": False,
                         "spinner": True,
                         "upgrade_install": False,
@@ -177,7 +178,7 @@ class ShellHandler:
                         "check_for_leave": True,
                     })
                 elif self.called_command == "leave":
-                    cli.cli_leave({
+                    self.cli.cli_leave({
                         "secs": 30,
                         "reboot_flag": False,
                         "skip_msg": False,
@@ -199,7 +200,7 @@ class ShellHandler:
                 secs = 600
             if self.called_command == "join":
                 if "all" in self.argv:
-                    return_value = cli.print_removed({
+                    return_value = self.cli.print_removed({
                         "command": "-p all on join",
                         "is_new_command": False,
                         "version": "v2.0.0",
@@ -210,7 +211,7 @@ class ShellHandler:
                         "extended": "join_all",
                     })
                 else:
-                    cli.cli_join({
+                    self.cli.cli_join({
                         "skip_msg": False,
                         "wait": True,
                         "argv_list": self.argv
@@ -218,7 +219,7 @@ class ShellHandler:
                     restart = False
 
             if restart:
-                cli.cli_restart({
+                self.cli.cli_restart({
                     "secs": secs,
                     "restart_type": self.called_command,
                     "slow_flag": slow_flag,
@@ -228,44 +229,44 @@ class ShellHandler:
                 })
 
         elif self.called_command == "list":
-            cli.show_list(self.argv)  
+            self.cli.show_list(self.argv)  
         elif self.called_command == "show_current_rewards" or self.called_command == "_scr":
-            cli.show_current_rewards(self.argv)  
+            self.cli.show_current_rewards(self.argv)  
         elif self.called_command == "find":
-            cli.cli_find(self.argv)
+            self.cli.cli_find(self.argv)
         elif self.called_command == "peers":
-            cli.show_peers(self.argv)
+            self.cli.show_peers(self.argv)
         elif self.called_command == "whoami":
-            cli.show_ip(self.argv)
+            self.cli.show_ip(self.argv)
         elif self.called_command == "nodeid2dag":
-            cli.cli_nodeid2dag(self.argv)
+            self.cli.cli_nodeid2dag(self.argv)
         elif self.called_command == "show_node_states" or self.called_command == "_sns":
-            cli.show_node_states(self.argv)
+            self.cli.show_node_states(self.argv)
         elif self.called_command == "passwd12":
-            return_value = cli.passwd12(self.argv)
+            return_value = self.cli.passwd12(self.argv)
         elif self.called_command == "reboot":
-            cli.cli_reboot(self.argv)
+            self.cli.cli_reboot(self.argv)
         elif self.called_command in nodectl_verify_commands:
-            cli.cli_digital_signature(self.argv)
+            self.cli.cli_digital_signature(self.argv)
         elif self.called_command in node_id_commands:
             command = "dag" if self.called_command == "dag" else "nodeid"
-            cli.cli_grab_id({
+            self.cli.cli_grab_id({
                 "command": command,
                 "argv_list": self.argv
             })
         elif self.called_command == "upgrade_nodectl_testnet":
-            cli.print_removed({
+            self.cli.print_removed({
                 "command": self.called_command,
                 "version": "v2.8.0",
                 "new_command": "upgrade_nodectl"
             })
         elif self.called_command == "upgrade_nodectl":
-            return_value = cli.upgrade_nodectl({
+            return_value = self.cli.upgrade_nodectl({
                 "argv_list": self.argv,
                 "help": self.argv[0]
             })
         elif self.called_command in ssh_commands:
-            cli.ssh_configure({
+            self.cli.ssh_configure({
                 "command": self.called_command,
                 "argv_list": self.argv   
             })
@@ -275,42 +276,42 @@ class ShellHandler:
                 })
         elif self.called_command in clean_files_list:
             command_obj = {"argv_list": self.argv, "action": "normal"}
-            cli.clean_files(command_obj)
+            self.cli.clean_files(command_obj)
             
         elif self.called_command in removed_clear_file_cmds:
-            return_value = cli.print_removed({
+            return_value = self.cli.print_removed({
                 "command": self.called_command,
                 "version": "v2.0.0",
                 "new_command": "n/a"
             })
             
         elif self.called_command == "check_seedlist" or self.called_command == "_csl":
-            return_value = cli.check_seed_list(self.argv)
+            return_value = self.cli.check_seed_list(self.argv)
         elif self.called_command == "check_consensus" or self.called_command == "_con":
-            cli.cli_check_consensus({"argv_list":self.argv})
+            self.cli.cli_check_consensus({"argv_list":self.argv})
         elif self.called_command == "check_minority_fork" or self.called_command == "_cmf":
-            cli.cli_minority_fork_detection({"argv_list":self.argv})
+            self.cli.cli_minority_fork_detection({"argv_list":self.argv})
         elif self.called_command == "update_seedlist" or self.called_command == "_usl":
-            return_value = cli.update_seedlist(self.argv)
+            return_value = self.cli.update_seedlist(self.argv)
         elif self.called_command == "export_private_key": 
-            cli.export_private_key(self.argv)
+            self.cli.export_private_key(self.argv)
         elif self.called_command == "check_source_connection" or self.called_command == "_csc":
-            return_value = cli.check_source_connection(self.argv)
+            return_value = self.cli.check_source_connection(self.argv)
         elif self.called_command == "show_node_proofs" or self.called_command == "_snp":
-            return_value = cli.show_current_snapshot_proofs(self.argv)
+            return_value = self.cli.show_current_snapshot_proofs(self.argv)
         elif self.called_command == "check_connection" or self.called_command == "_cc":
-            cli.check_connection(self.argv)
+            self.cli.check_connection(self.argv)
         elif self.called_command == "send_logs" or self.called_command == "_sl":
-            cli.prepare_and_send_logs(self.argv)
+            self.cli.prepare_and_send_logs(self.argv)
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
-            cli.show_seedlist_participation(self.argv)
+            self.cli.show_seedlist_participation(self.argv)
         elif self.called_command == "download_status" or self.called_command == "_ds":
-            cli.show_download_status({
+            self.cli.show_download_status({
                 "caller": "download_status",
                 "command_list": self.argv
             })
         elif self.called_command in cv_commands:
-            cli.check_versions(self.argv)
+            self.cli.check_versions(self.argv)
         elif "auto_" in self.called_command:
             if self.called_command == "auto_upgrade":
                 if "help" not in self.argv:
@@ -331,30 +332,30 @@ class ShellHandler:
                exit(0)
             self.auto_restart_handler("service_start",True)
         elif self.called_command == "log" or self.called_command == "logs":
-            return_value = cli.show_logs(self.argv)
+            return_value = self.cli.show_logs(self.argv)
         elif self.called_command == "install":
             self.install(self.argv)
         elif self.called_command == "upgrade":
             self.upgrade_node(self.argv)
         elif self.called_command == "upgrade_path" or self.called_command == "_up":
-            cli.check_nodectl_upgrade_path({
+            self.cli.check_nodectl_upgrade_path({
                 "called_command": self.called_command,
                 "argv_list": self.argv,
             })
         elif self.called_command == "refresh_binaries" or self.called_command == "_rtb":
-            cli.download_tess_binaries(self.argv)
+            self.cli.download_tess_binaries(self.argv)
         elif self.called_command == "health":
-            cli.show_health(self.argv)
+            self.cli.show_health(self.argv)
         elif self.called_command == "show_service_log" or self.called_command == "_ssl":
-            cli.show_service_log(self.argv)
+            self.cli.show_service_log(self.argv)
         elif self.called_command == "sec":
-            cli.show_security(self.argv)
+            self.cli.show_security(self.argv)
         elif self.called_command == "price" or self.called_command == "prices":
-            cli.show_prices(self.argv)
+            self.cli.show_prices(self.argv)
         elif "market" in self.called_command:
-            return_value = cli.show_markets(self.argv)
+            return_value = self.cli.show_markets(self.argv)
         elif self.called_command == "show_dip_error" or self.called_command == "_sde":
-            cli.show_dip_error(self.argv)
+            self.cli.show_dip_error(self.argv)
         elif self.called_command in config_list:
             self.functions.print_help({
                 "usage_only": True,
@@ -506,7 +507,6 @@ class ShellHandler:
         env_provided = command_obj.get("env_provided",False)
         action = command_obj.get("action","normal")
         self.log.logger.info("testing permissions")
-        skip_warning = True if "--skip_warning_messages" in self.argv else False
         
         progress = {
             "status": "running",
@@ -610,7 +610,7 @@ class ShellHandler:
                     ["  - Restart this upgrade of Tessellation.",1,"magenta"],
                 ])
                     
-                if force or skip_warning:
+                if force or self.cli.skip_warning_messages:
                     self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],

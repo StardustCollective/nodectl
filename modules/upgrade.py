@@ -26,7 +26,6 @@ class Upgrader():
         self.environment = command_obj.get("environment")
         self.argv_list = command_obj.get("argv_list")
         
-        self.skip_warning = True if "--skip_warning_messages" in self.argv_list else False
         self.non_interactive = self.download_version = self.forced = False
         self.debug = command_obj.get("debug",False)
         
@@ -362,7 +361,7 @@ class Upgrader():
                                 [download_version,-1,"cyan","bold"], ["]",-1,"yellow"],["",1],
                             ])
                         else:
-                            if found_tess_version != download_version:
+                            if found_tess_version != download_version and not self.cli.skip_warning_messages:
                                 self.functions.print_paragraphs([
                                     ["This does not seem to be the latest version?",1,"red","bold"]
                                 ])
