@@ -895,6 +895,7 @@ class Functions():
         if quit_option and (self.key_pressed.upper() == quit_option.upper()):
             cprint("  Action cancelled by User","yellow")
             if quit_with_exception:
+                self.cancel_event = True
                 raise self.exception
             exit(0)
             
@@ -2127,6 +2128,8 @@ class Functions():
         if phrase == "none":
             phrase = "to allow services to take effect"
         for n in range(start,end_range+1):
+            if self.cancel_event: break
+            
             if not self.auto_restart:
                 self.print_clear_line()
                 print(colored(f"  Pausing:","magenta"),

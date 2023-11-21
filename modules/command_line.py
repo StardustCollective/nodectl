@@ -200,13 +200,21 @@ class CLI():
                 
         with ThreadPoolExecutor() as executor:
             if watch_enabled:
-                quit_loop = executor.submit(self.functions.get_user_keypress,{
-                    "prompt": None,
-                    "prompt_color": "magenta",
-                    "options": ["Q"],
-                    "quit_option": "Q",
-                })
-        
+                try:
+                    executor.submit(self.functions.get_user_keypress,{
+                        "prompt": None,
+                        "prompt_color": "magenta",
+                        "options": ["Q"],
+                        "quit_option": "Q",
+                        "quit_with_exception": True,
+                    })
+                except self.functions.exception:
+                    self.functions.cancel_event = True
+                    self.functions.print_paragraphs([
+                        ["Action cancelled by user",1,"green"]
+                    ])
+                    exit(0)
+                            
             def convert_time_node_id(elements):
                 try:
                     restart_time = self.functions.get_date_time({
@@ -234,22 +242,21 @@ class CLI():
                 return restart_time, uptime, node_id
                         
             while True:
+                if self.functions.cancel_event: exit(0)
                 if watch_enabled:
                     watch_passes += 1
                     system("clear")
                     self.functions.print_paragraphs([
                         ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
-                        ["Once",0], ["'q'",0,"yellow"], 
-                        ["is pressed and the last timer is completed, the program will exit.",1],
-                        ["Do not use",0],["Ctrl-c",2,"yellow"],
+                        ["Do not use",0],["ctrl",0,"yellow"],["and",0],["c",2,"yellow"],
                     ])
                     if range_error:
                         self.functions.print_paragraphs([
                             [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
                         ]) 
-                    if quit_loop._state == "FINISHED":
-                        system("clear")
-                        exit(0)
+                    # if quit_loop._state == "FINISHED":
+                    #     system("clear")
+                    #     exit(0)
                 
                 try:
                     ordinal_dict["backend"] = str(self.functions.get_snapshot({
@@ -334,16 +341,7 @@ class CLI():
                         "profile": self.profile,
                         "caller": "status",
                     })
-                    # consensus = self.functions.get_info_from_edge_point({
-                    #     "profile": self.profile,
-                    #     "caller": "status",
-                    #     "api_endpoint_type": "consensus",
-                    #     "specific_ip": self.ip_address,
-                    # })
-                    # consensus_match = colored("False","red")
-                    # if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
-                    #     consensus_match = colored("True","green")
-                    
+
                     def setup_output():
                         on_network = colored("False","red")
                         cluster_session = sessions["session0"]
@@ -490,8 +488,9 @@ class CLI():
                             })
                             
                 if watch_enabled:
-                    if quit_loop._state == "FINISHED":
-                        exit(0) 
+                    # if quit_loop._state == "FINISHED":
+                    #     exit(0) 
+                    if self.functions.cancel_event: exit(0)
                     self.functions.print_paragraphs([
                         ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
                         ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
@@ -1015,7 +1014,7 @@ class CLI():
                 
         if follow == "-f":
             has_line_changed = None
-            print(colored("ctrl-c","cyan"),"to exit follow")
+            print(colored("ctrl+c","cyan"),"to exit follow")
             while True:
                 try:
                     with open(f'{file_path}', 'rb') as f:
@@ -2993,14 +2992,23 @@ class CLI():
                         if dip_status:
                             self.functions.print_paragraphs([
                                 ["",2],[" IMPORTANT ",0,"red,on_yellow"], ["the",0], ["--dip",0,"yellow"],
-                                ["option was identified.  This will cause nodectl to execute the",0],
-                                ["download_status",0,"yellow"], ["command.",2],
-                                ["In order to cancel this potentially long process, you will need to issue a",0],
-                                ["ctrl-c",0,"blue","bold"],
-                                ["which will exit the entire upgrade or restart processes.",0], 
-                                ["This will not harm the process, just exit the visual aspects of it",0,"green"],
-                                ["Another option is to skip this option and issue:",0], ["sudo nodectl download_status",0,"yellow"],
-                                ["when the upgrade or restart process completes.",2],
+                                ["option has been identified.  This will prompt nodectl to execute the",0],
+                                ["download_status",0,"magenta"], ["command.",2],
+                                ["The",0,],["DownloadInProgress",0,"magenta"], ["stage of the",0],["join cluster",0,"magenta"],
+                                ["process can be time consuming. If there's a desire to cancel watching the",0], ["DownloadInProgress",0,"magenta"],
+                                ["stage, pressing the",0],["ctrl",0,"blue","bold"],["and",0],["c",0,"blue","bold"],
+                                ["will exit this process.",2], 
+                                
+                                ["Cancelling will",0,"green"], ["NOT",0,"green","bold"], ["harm or halt the join or restart process;",0,"green"],
+                                ["instead, it will just exit the visual aspects of this command and allow the Node process to continue in the",0,"green"],
+                                ["background.",2,"green"],
+                                
+                                ["If you cancel the process or do not issue the",0], ["--dip",0,"magenta"],
+                                ["option; you can issue:",1], 
+                                ["sudo nodectl download_status",1,"yellow"],
+                                ["to follow the",0], ["DownloadInProgress",0,"magenta"], ["progress stage, or",1],
+                                ["sudo nodectl download_status --snapshot",1,"yellow"],
+                                ["to capture a snapshot of the",0], ["DownloadInProgress",0,"magenta"], ["stage at the current moment in time.",2],
                             ])
                             if non_interactive: continue_dip = True
                             else:  

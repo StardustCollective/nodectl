@@ -2704,7 +2704,7 @@ class Configurator():
             [" WARNING! ",0,"grey,on_red","bold"], ["This is a dangerous command and should be done with precaution.  It will migrate an entire profile's settings and directory structure.",2],
             
             ["Please make sure you know what you are doing before continuing...",1],
-            ["press ctrl-c to quit at any time",2,"yellow"],     
+            ["press ctrl+c to quit at any time",2,"yellow"],     
                    
             ["Please enter in the new profile name you would like to change to at the input.",1,"magenta"],
 
