@@ -752,7 +752,7 @@ class Functions():
                 r_session = self.set_request_session()
                 r_session.timeout = (2,2)
                 r_session.verify = False
-                session = get(api_url).json()
+                session = r_session.get(api_url).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
                 if n == tolerance-1:
