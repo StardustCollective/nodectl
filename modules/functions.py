@@ -865,6 +865,7 @@ class Functions():
         quit_with_exception = command_obj.get("quit_with_exception",False)
         
         self.key_pressed = None
+        if prompt == None: prompt = ""
         
         invalid_str = f"  {colored(' Invalid ','yellow','on_red',attrs=['bold'])}: {colored('only','red')} "
         for option in options:
@@ -2604,7 +2605,7 @@ class Functions():
             cursor = next(spinner)
             print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
             sleep(0.3)
-            if not self.event or self.cancel_thread:
+            if not self.event:
                 self.print_clear_line()
                 break
 
