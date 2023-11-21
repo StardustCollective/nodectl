@@ -1933,7 +1933,10 @@ class Functions():
                         
                     if ip_address["ip"] is not None:
                         try: 
-                            state = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
+                            session = self.set_request_session()
+                            session.verify = False
+                            session.timeout = 2 
+                            state = session.get(uri).json()
                             color = self.change_connection_color(state)
                             self.log.logger.debug(f"test_peer_state -> uri [{uri}]")
 
@@ -1960,6 +1963,8 @@ class Functions():
                             break_while = True
                             if simple: # do not check/update source node
                                 break
+                        finally:
+                            session.close()
                 
                 if break_while:
                     break
