@@ -254,9 +254,6 @@ class CLI():
                         self.functions.print_paragraphs([
                             [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
                         ]) 
-                    # if quit_loop._state == "FINISHED":
-                    #     system("clear")
-                    #     exit(0)
                 
                 try:
                     ordinal_dict["backend"] = str(self.functions.get_snapshot({
@@ -488,8 +485,6 @@ class CLI():
                             })
                             
                 if watch_enabled:
-                    # if quit_loop._state == "FINISHED":
-                    #     exit(0) 
                     if self.functions.cancel_event: exit(0)
                     self.functions.print_paragraphs([
                         ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
@@ -2999,16 +2994,12 @@ class CLI():
                                 ["stage, pressing the",0],["ctrl",0,"blue","bold"],["and",0],["c",0,"blue","bold"],
                                 ["will exit this process.",2], 
                                 
-                                ["Cancelling will",0,"green"], ["NOT",0,"green","bold"], ["harm or halt the join or restart process;",0,"green"],
+                                ["Cancelling an issued",0,"green"], ["--dip",0,"yellow"], ["option will",0,"green"], ["NOT",0,"green","bold"], ["harm or halt the join or restart process;",0,"green"],
                                 ["instead, it will just exit the visual aspects of this command and allow the Node process to continue in the",0,"green"],
                                 ["background.",2,"green"],
                                 
-                                ["If you cancel the process or do not issue the",0], ["--dip",0,"magenta"],
-                                ["option; you can issue:",1], 
-                                ["sudo nodectl download_status",1,"yellow"],
-                                ["to follow the",0], ["DownloadInProgress",0,"magenta"], ["progress stage, or",1],
-                                ["sudo nodectl download_status --snapshot",1,"yellow"],
-                                ["to capture a snapshot of the",0], ["DownloadInProgress",0,"magenta"], ["stage at the current moment in time.",2],
+                                ["Issue:",0,],["sudo nodectl download_status help",1,"yellow"],
+                                ["to learn about the dedicated standalone command.",2],
                             ])
                             if non_interactive: continue_dip = True
                             else:  
