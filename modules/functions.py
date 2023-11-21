@@ -12,7 +12,7 @@ import validators
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
-from requests import get
+from requests import get, Session
 from subprocess import Popen, PIPE, call, run, check_output
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -340,13 +340,19 @@ class Functions():
         attempts = 1
         while True:
             try:
-                peers = get(f"http://{cluster_ip}:{api_port}/cluster/info",verify=False,timeout=2,headers=self.get_headers)
+                session = self.set_request_session()
+                session.verify = False
+                session.timeout = 2
+                url = f"http://{cluster_ip}:{api_port}/cluster/info"
+                peers = session.get(url)
             except:
                 if attempts > 3:
                     return "error"
                 attempts = attempts+1
             else:
                 break
+            finally:
+                session.close()
 
         try:
             peers = peers.json()
@@ -1167,7 +1173,26 @@ class Functions():
         
         system(f". /home/{username}/.bashrc > /dev/null 2>&1")   
         
-                 
+        
+    def set_request_session(self,json=False):
+        get_headers = {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+        
+        if json:
+            get_headers = {
+                **get_headers,
+                'Accept': 'application/json',
+            }
+            
+        session = Session()            
+        session.headers.update(get_headers)   
+        session.params = {'random': random.randint(10000,20000)}
+        return session
+    
+         
     # =============================
     # pull functions
     # ============================= 

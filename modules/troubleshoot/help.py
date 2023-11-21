@@ -1445,8 +1445,7 @@ def build_help(functions,command_obj):
      - 160Gb HD
      - Internet Access
   '''      
-        
-        
+          
     if extended == "upgrade":
         help_text += title(extended)
         help_text += f'''
