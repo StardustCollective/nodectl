@@ -49,6 +49,7 @@ class Configurator():
         self.backup_file_found = False
         self.node_service = False
         self.skip_clean_profiles_manual = False
+        self.dev_enable_disable = False
         
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
@@ -65,6 +66,10 @@ class Configurator():
             self.action = "edit"
         elif "-n" in argv_list:
             self.action = "new"
+        elif "--developer_mode" in argv_list:
+            if argv_list[argv_list.index("--developer_mode")+1] == "enable" or argv_list[argv_list.index("--developer_mode")+1] == "disable":
+                self.dev_enable_disable = argv_list[argv_list.index("--developer_mode")+1]
+                self.action = "dev_mode"
 
         self.prepare_configuration("new_config")
         self.error_messages = Error_codes(self.c.functions)
@@ -145,7 +150,7 @@ class Configurator():
             self.c.functions.print_paragraphs(paragraphs)
             
             try:
-                if self.detailed == "init":
+                if self.detailed == "init" and not self.dev_enable_disable:
                     paragraphs = [
                         [intro2,2],
                         ["nodectl",0,"blue","bold"], [intro3,0],
@@ -182,12 +187,11 @@ class Configurator():
                 "newline": top_newline
             })
             
-            if (self.action == "edit" or self.action == "help" or self.action == "edit_profile") and option != "reset":
+            if (self.action == "edit" or self.action == "help" or self.action == "edit_profile" or self.action == "dev_mode") and option != "reset":
                 option = "e"
             elif self.action == "new" and option != "reset":
                 option = "n"
             else:
-                
                 option = self.c.functions.print_option_menu({
                     "options": [
                         "New Configuration",
@@ -1990,6 +1994,8 @@ class Configurator():
             
             if self.action == "edit_profile":
                 option = "e"
+            elif self.action == "dev_mode":
+                option = "de"
             else:
                 self.c.functions.print_header_title({
                     "line1": "NODECTL EDITOR READY",
@@ -2043,6 +2049,9 @@ class Configurator():
                 if return_option == "e": self.edit_profiles() # return option can change again
             # elif option == "a": self.edit_append_profile_global("None")
             elif option == "g": self.edit_append_profile_global("p12")
+            elif option == "de": 
+                self.developer_enable_disable()
+                self.quit_configurator(False)
             elif option == "r": self.edit_auto_restart()
             elif option == "l": 
                 self.edit_append_profile_global("log_level")
@@ -2861,6 +2870,21 @@ class Configurator():
                     "newline": True,
                 })
                 self.c.functions.print_any_key({})
+                
+                
+    def developer_enable_disable(self):
+        self.config_obj_apply = {
+            "global_elements": 
+                {"developer_mode": "True" if self.dev_enable_disable == "enable" else "False"}
+            }
+        self.apply_vars_to_config()
+        
+        self.c.functions.print_cmd_status({
+            "text_start": "Developer Mode",
+            "status": "enabled" if self.dev_enable_disable == "enable" else "disabled",
+            "status_color": "green" if self.dev_enable_disable == "enable" else "red",
+            "newline": True,
+        })
         
     # =====================================================
     # OTHER
@@ -3451,10 +3475,11 @@ class Configurator():
             self.c.view_yaml_config("migrate")     
             
 
-    def quit_configurator(self):
+    def quit_configurator(self,requested=True):
         self.move_config_backups()
         if path.isfile(self.yaml_path): system(f"rm -f {self.yaml_path} > /dev/null 2>&1")
-        cprint("  Configurator exited upon Node Operator request","green")
+        if requested:
+            cprint("  Configurator exited upon Node Operator request","green")
         exit(0)  
         
 
