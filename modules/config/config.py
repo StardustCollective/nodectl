@@ -413,6 +413,8 @@ class Configuration():
             "seed_location": "/var/tessellation",
             "pro_rating_file": "ratings.csv",
             "pro_rating_location": "/var/tessellation",
+            "priority_source_file": "priority-list",
+            "priority_source_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": "github.com/Constellation-Labs/tessellation/",
             "edge_point": [
@@ -482,7 +484,10 @@ class Configuration():
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
-                        if tdir == "seed_file": self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist' # exception
+                        if tdir == "seed_file": 
+                            self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist' # exception
+                        elif tdir == "priority_source_file": 
+                            self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-prioritysourcelist' # exception
                         elif isinstance(def_value,list):
                             if tdir == "edge_point": 
                                 for n, edge in enumerate(def_value): 
@@ -516,6 +521,32 @@ class Configuration():
                     "type": "section",
                     "key": "multiple",
                     "value": "seed list access",
+                    "special_case": None
+                })
+                
+            try:
+                value = "location of filename"
+                if self.config_obj[profile]["priority_source_location"] == "disable":  
+                    self.config_obj[profile]["priority_source_path"] = "disable"
+                elif self.config_obj[profile]["priority_source_location"] == "default":
+                    self.config_obj[profile]["priority_source_path"] = "default"
+                else:
+                    self.config_obj[profile]["priority_source_path"] = self.create_path_variable(
+                        self.config_obj[profile]["priority_source_location"],
+                        self.config_obj[profile]["priority_source_file"]
+                    )
+                    # exception rating file is a static user added file
+                    if not path.exists(self.config_obj[profile]["priority_source_location"]):
+                        value = self.config_obj[profile]["priority_source_location"]
+                        raise KeyError
+            except KeyError:
+                self.error_list.append({
+                    "title": "section_missing",
+                    "section": "priority_source",
+                    "profile": profile,
+                    "type": "section",
+                    "key": "location",
+                    "value": value,
                     "special_case": None
                 })
                 
@@ -864,10 +895,6 @@ class Configuration():
 
     def validate_yaml_keys(self):
         missing_list = []
-        
-        # placeholder for source priority path
-        for profile in self.metagraph_list:
-            self.config_obj[profile]["priority_source_path"] = "/var/tessellation/"
             
         for config_key, config_value in self.config_obj.items():
             if "global" not in config_key:

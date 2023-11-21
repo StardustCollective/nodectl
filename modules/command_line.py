@@ -1072,6 +1072,11 @@ class CLI():
             self.profile = profile
             self.set_profile_api_ports()
 
+            if n > 0:
+                self.functions.print_paragraphs([
+                    ["-","half","blue","bold"],["",1],
+                ])
+                
             print_out_list = [
                 {
                     "METAGRAPH NAME": metagraph_name,
@@ -1096,8 +1101,29 @@ class CLI():
                     "header_elements" : header_elements
                 })
                         
-            print("")
-            cprint("  METAGRAPH CUSTOM VALUES","blue",attrs=["bold"])
+            seed_path = self.config_obj[profile]["seed_path"]
+            if self.config_obj[profile]["seed_path"] == "disable":
+                seed_path = "disabled"
+                
+            pro_rating_path = self.config_obj[profile]["pro_rating_path"]    
+            if self.config_obj[profile]["pro_rating_path"] == "disable":
+                pro_rating_path = "disabled"
+                
+            priority_path = self.config_obj[profile]["priority_source_path"]
+            if self.config_obj[profile]["priority_source_path"] == "disable":
+                priority_path = "disabled"
+                
+            self.functions.print_paragraphs([
+                ["",1],
+                ["SEED LIST DETAILS",1,"blue","bold"],
+                [seed_path,1,"yellow"],
+                ["PRIORITY SOURCE LIST DETAILS",1,"blue","bold"],
+                [priority_path,1,"yellow"],
+                ["RATINGS LIST DETAILS",1,"blue","bold"],
+                [pro_rating_path,2,"yellow"],
+                ["METAGRAPH CUSTOM VALUES",1,"blue","bold"],
+            ])
+
             for n, args_envs in enumerate(["custom_args","custom_env_vars"]):
                     print_enabled = True
                     a_type = "arguments" if n < 1 else "environment variables"

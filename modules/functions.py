@@ -74,6 +74,15 @@ class Functions():
             "integrationnet": ["l0-lb-integrationnet.constellationnetwork.io",443],
         }
         
+        self.default_backup_location = "/var/tessellation/backups/"
+        self.default_upload_location = "/var/tessellation/uploads/"
+        
+        self.default_seed_location = "/var/tessellation/"
+        self.default_seed_file = "seed-list"
+        
+        self.default_priority_source_location = "/var/tessellation/"
+        self.default_priority_source_file = "priority-source-list"
+        
         self.default_pro_rating_file = "ratings.csv"
         self.default_pro_rating_location = "/var/tessellation"
         
@@ -1110,17 +1119,15 @@ class Functions():
                             self.config_obj[profile][f"{values['config_key']}_userset"] = True
                          
                 if self.config_obj[profile]["directory_backups"] == "default": # otherwise already set
-                    self.config_obj[profile]["directory_backups"] = "/var/tessellation/backups/"
+                    self.config_obj[profile]["directory_backups"] = self.default_backup_location 
                 if self.config_obj[profile]["directory_uploads"] == "default": # otherwise already set
-                    self.config_obj[profile]["directory_uploads"] = "/var/tessellation/uploads/"
+                    self.config_obj[profile]["directory_uploads"] = self.default_upload_location 
                 if self.config_obj[profile]["seed_location"] == "default": # otherwise already set
-                    self.config_obj[profile]["seed_location"] = "/var/tessellation/"
-                if self.config_obj[profile]["seed_file"] == "default": # otherwise already set
-                    self.config_obj[profile]["seed_file"] = "seed-list"
+                    self.config_obj[profile]["seed_location"] = self.default_seed_location 
+                if self.config_obj[profile]["priority_source_location"] == "default": # otherwise already set
+                    self.config_obj[profile]["priority_source_location"] = self.default_priority_source_location
                 if self.config_obj[profile]["pro_rating_location"] == "default": # otherwise already set
                     self.config_obj[profile]["pro_rating_location"] = self.default_pro_rating_location
-                if self.config_obj[profile]["pro_rating_file"] == "default": # otherwise already set
-                    self.config_obj[profile]["pro_rating_file"] = self.default_pro_rating_file
                  
             # currently not configurable
             self.config_obj[profile]["directory_logs"] = f"/var/tessellation/{profile}/logs/"   
