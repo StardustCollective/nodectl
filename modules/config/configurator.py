@@ -1663,7 +1663,8 @@ class Configurator():
         
         verb = "seed list" 
         if file_repo_type == "priority_source": verb = "priority source list"
-        if file_repo_type == "jar": 
+        elif file_repo_type == "pro_rating": verb = "trust label ratings"
+        elif file_repo_type == "jar": 
             verb = "jar binary"
             allow_disable = False
             one_off = "version"
@@ -1675,6 +1676,16 @@ class Configurator():
                 ["",1], ["You can setup your Node to use the default"],
                 [verb,0,"yellow"], ["elements.",2],
             ])
+            if file_repo_type == "pro_rating":
+                self.c.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"], ["If you choose the default values you will need to make",0,"red"],
+                    ["sure the default file location and file exist on the Node before continuing; however,",0,"red"],
+                    ["the verification will fail.",2,"red"],
+                    ["If you are unsure about this ratings file details, it is recommended to choose",0],
+                    ["disable",0,"magenta"],["as your option settings.",2],
+                    ["    default file name:",0,"magenta"],[self.c.functions.default_pro_rating_file,1,"yellow"],
+                    ["default file location:",0,"magenta"],[self.c.functions.default_pro_rating_location,2,"yellow"],
+                ])
             
         dir_default = self.c.functions.confirm_action({
             "prompt": "Use defaults?",
@@ -1692,7 +1703,7 @@ class Configurator():
             })
             if int(self.c.config_obj[profile]["layer"]) < 1:
                 defaults = {
-                    # f"{file_repo_type}_{one_off}": "default",
+                    f"{file_repo_type}_{one_off}": "default",
                     f"{file_repo_type}_file": "default",
                     f"{file_repo_type}_repository": "default"
                 }
@@ -1702,7 +1713,10 @@ class Configurator():
                     f"{file_repo_type}_file": "disable",
                     f"{file_repo_type}_repository": "disable"
                 } 
-             
+            
+            if file_repo_type == "pro_rating":
+                del defaults[f"{file_repo_type}_repository"]
+                 
             print("")
             
         else:
@@ -1710,7 +1724,8 @@ class Configurator():
                 if one_off == "version": location_default = "default"
                 else: location_default = self.c.config_obj[profile][f"{file_repo_type}_{one_off}"]
                 file_default = self.c.config_obj[profile][f"{file_repo_type}_file"]
-                repo_default = self.c.config_obj[profile][f"{file_repo_type}_repository"]
+                if file_repo_type != "pro_rating":
+                    repo_default = self.c.config_obj[profile][f"{file_repo_type}_repository"]
             else:
                 def_value = "default" if int(self.c.config_obj[profile]["layer"]) < 1 else "disable"
                 location_default, file_default, repo_default = def_value, def_value, def_value
@@ -1730,6 +1745,12 @@ class Configurator():
             if file_repo_type == "seed":
                 description1 += "This is a requirement to authenticate to the Metagraph and/or Hypergraph the Node Operator is "
                 description1 += "attempting to connect to. "
+            if file_repo_type == "ratings":
+                description1 += "Trust labels constitute integral aspects of the Proof of Reputable Observation (PRO) system. "
+                description1 += "They impact several facets, such as determining the nodes from which to obtain snapshots. Trust labels "
+                description1 += "are off-chain information concerning the security of nodes and their potential to harm the network. These labels "
+                description1 += "are local bias values that you supply to your nodes during the joining process to the cluster (metagraph). They "
+                description1 += "are specific to each node. Consequently, different nodes can exhibit varying degrees of bias. "
             if file_repo_type == "jar":
                 description1 = f"The {verb} version is currently disabled in nodectl's configuration and will serve as a placeholder "
                 description1 += "to be removed from the utility in future releases if deemed unnecessary.  nodectl will request "
@@ -1771,13 +1792,17 @@ class Configurator():
                     "required": False,
                     "default": file_default
                 },
-                f"{file_repo_type}_repository": {
-                    "question": f"  {colored(f'Enter a valid {verb} repository','cyan')}",
-                    "description": description3,
-                    "required": False,
-                    "default": repo_default
-                },
             }
+            if file_repo_type != "pro_rating":
+                questions = {
+                    **questions,
+                    f"{file_repo_type}_repository": {
+                        "question": f"  {colored(f'Enter a valid {verb} repository','cyan')}",
+                        "description": description3,
+                        "required": False,
+                        "default": repo_default
+                    },
+                }
         
             if one_off2 == "version":  questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
             
@@ -2142,6 +2167,7 @@ class Configurator():
             ("Consensus Linking",19),
             ("Metagraph Type",20),
             ("Token Identifier",21),
+            ("Rating File Setup",22),
         ]
         section_change_names.sort()
                         
@@ -2261,11 +2287,12 @@ class Configurator():
                     self.manual_build_memory(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [java heap memory] [{self.action}]"
 
-                elif option == 9 or option == 10 or option == 11:
+                elif option == 9 or option == 10 or option == 11 or option == 22:
                     self.called_option = "PRO modification"
                     file_repo_type = "seed" 
                     if option == 11: file_repo_type ="priority_source"
                     if option == 10: file_repo_type = "jar"
+                    if option == 22: file_repo_type = "pro_rating"
                     self.manual_build_file_repo(file_repo_type,profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
                    

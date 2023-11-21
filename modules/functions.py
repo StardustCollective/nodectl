@@ -74,6 +74,9 @@ class Functions():
             "integrationnet": ["l0-lb-integrationnet.constellationnetwork.io",443],
         }
         
+        self.default_pro_rating_file = "ratings.csv"
+        self.default_pro_rating_location = "/var/tessellation"
+        
         # constellation specific statics
         self.be_urls = {
             "testnet": "be-testnet.constellationnetwork.io",
@@ -1072,7 +1075,6 @@ class Functions():
 
     def set_default_directories(self):
         # only to be set if "default" value is found
-
         for profile in self.config_obj.keys():
             if "global" not in profile:
                 self.config_obj[profile]["directory_snapshots_userset"] = False
@@ -1116,9 +1118,9 @@ class Functions():
                 if self.config_obj[profile]["seed_file"] == "default": # otherwise already set
                     self.config_obj[profile]["seed_file"] = "seed-list"
                 if self.config_obj[profile]["pro_rating_location"] == "default": # otherwise already set
-                    self.config_obj[profile]["pro_rating_location"] = "/var/tessellation/"
+                    self.config_obj[profile]["pro_rating_location"] = self.default_pro_rating_location
                 if self.config_obj[profile]["pro_rating_file"] == "default": # otherwise already set
-                    self.config_obj[profile]["pro_rating_file"] = "ratings"
+                    self.config_obj[profile]["pro_rating_file"] = self.default_pro_rating_file
                  
             # currently not configurable
             self.config_obj[profile]["directory_logs"] = f"/var/tessellation/{profile}/logs/"   

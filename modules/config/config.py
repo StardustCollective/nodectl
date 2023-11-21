@@ -411,7 +411,7 @@ class Configuration():
             "directory_uploads": "/var/tessellation/uploads/",
             "seed_file": "seed-list",
             "seed_location": "/var/tessellation",
-            "pro_rating_file": "ratings",
+            "pro_rating_file": "ratings.csv",
             "pro_rating_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": "github.com/Constellation-Labs/tessellation/",
