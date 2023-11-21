@@ -831,7 +831,10 @@ class Functions():
                 
             for n in range(var.attempt_range+1):
                 try:
-                    results = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
+                    session = self.set_request_session()
+                    session.verify = False
+                    session.timeout=2
+                    results = session.get(uri).json()
                 except:
                     if n > var.attempt_range:
                         if not self.auto_restart:
@@ -851,6 +854,9 @@ class Functions():
                     except:
                         self.log.logger.warn("network may have become unavailable during cluster_info_list verification checking.")
                         results = [{"nodectl_found_peer_count": 0}]
+                finally:
+                    session.close()
+                    
                 self.event = False
                 return results 
             
