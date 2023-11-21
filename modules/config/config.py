@@ -520,6 +520,7 @@ class Configuration():
                 })
                 
             try:
+                value = "location of filename"
                 if self.config_obj[profile]["pro_rating_location"] == "disable":  
                     self.config_obj[profile]["pro_rating_path"] = "disable"
                 elif self.config_obj[profile]["pro_rating_location"] == "default":
@@ -529,14 +530,18 @@ class Configuration():
                         self.config_obj[profile]["pro_rating_location"],
                         self.config_obj[profile]["pro_rating_file"]
                     )
+                    # exception rating file is a static user added file
+                    if not path.exists(self.config_obj[profile]["pro_rating_path"]):
+                        value = self.config_obj[profile]["pro_rating_path"]
+                        raise KeyError
             except KeyError:
                 self.error_list.append({
                     "title": "section_missing",
-                    "section": "pro",
+                    "section": "pro_rating",
                     "profile": profile,
                     "type": "section",
-                    "key": "multiple",
-                    "value": "location or filename",
+                    "key": "rating_keys",
+                    "value": value,
                     "special_case": None
                 })
         
@@ -1315,6 +1320,7 @@ class Configuration():
             "meta_type": "options include 'gl' or 'ml'",
             "service": f"{service_dups} {service_dups2}",
             "link_profile": "dependency link profile not found",
+            "pro_rating": "either the path to the file or file configured does not exist.",
             "dirs": f"{dir1} {dir2}",
             "128hex": f"{hex1} {hex2}",
             "gl0_link": "invalid link type",
