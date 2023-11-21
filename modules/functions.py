@@ -1264,9 +1264,13 @@ class Functions():
             self.log.logger.debug(f"pull_node_session -> url: {url}")
             
             try:
-                session = get(url,verify=False,headers=self.get_headers).json()
+                r_session = self.set_request_session()
+                r_session.verify = False
+                session = r_session.get(url).json()
             except:
                 self.log.logger.error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
+            finally:
+                r_session.close()
 
             self.log.logger.info(f"pull_node_sessions found session [{session}] returned from test address [{node}] url [{url}] public_api_port [{port}]")
             try:
@@ -1355,8 +1359,11 @@ class Functions():
 
             for n in range(5):
                 try:
+                    session = self.set_request_session()
+                    session.verify = True
+                    session.timeout = 2
                     url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
-                    balance = get(url,verify=True,timeout=2,headers=self.get_headers).json()
+                    balance = session.get(url).json()
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
@@ -1365,6 +1372,8 @@ class Functions():
                         self.log.logger(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
+                finally:
+                    session.close()
                 break   
             self.event = False              
         
