@@ -176,6 +176,10 @@ def build_help(functions,command_obj):
                              
     check_seedlist_participation | - show access-list verse network comparison
                                      (pre-PRO score temporary feature)
+    
+    check_consensus -p <profile> | - check if Node is participating in consensus on layer0
+    
+    check_minority_fork -p <profile> | - check if Node is in a minority fork
       
     download_status  -p <profile> | - show a progress indicator following the 
                                       progress of your DownloadInProgress None State
@@ -487,6 +491,71 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl send_logs -p <profile_name>','cyan')}  
      or
   # {colored('sudo nodectl -sl -p <profile_name>','cyan')}  
+      '''
+  
+    if extended == "check_consensus":
+
+      help_text += title("Check Consensus")
+      help_text += f'''
+  This command is a simple check against the edge
+  point in order to verify that the Node is 
+  participating in consensus for the profile
+  specified.
+  
+  required:
+  {colored('-p <profile_name>','green')}
+  
+  optional:
+  {colored('-s <ip_address>','green')}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl check_consensus help','cyan')}
+     or
+  # {colored('sudo nodectl -con help','cyan')}
+  
+  execute consensus check
+  # {colored('sudo nodectl check_consensus -p <profile_name>','cyan')}  
+     or
+  # {colored('sudo nodectl -con -p <profile_name>','cyan')}  
+  
+  execute consensus check against Node with 
+  profile name dag-l0 and IP address 10.10.10.10.
+  # {colored('sudo nodectl check_consensus -p dag-l0 -s 10.10.10.10','cyan')}  
+     or
+  # {colored('sudo nodectl -con -p dag-l0 -s 10.10.10.10','cyan')}  
+      '''
+      
+    if extended == "check_minority_fork":
+
+      help_text += title("Check Minority Fork")
+      help_text += f'''
+  This command is a simple check if the Node
+  is no longer on the majority cluster and
+  properly participating.
+  
+  required:
+  {colored('-p <profile_name>','green')}
+  OR required:
+  {colored('-e <environment_name>','green')}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl check_minority_fork help','cyan')}
+     or
+  # {colored('sudo nodectl -con help','cyan')}
+  
+  execute minority fork check using profile
+  # {colored('sudo nodectl check_minority_fork -p <profile_name>','cyan')}  
+     or
+  # {colored('sudo nodectl -cmf -p <profile_name>','cyan')}  
+  
+  execute minority fork check using environment
+  # {colored('sudo nodectl check_minority_fork -e mainnet','cyan')}  
+     or
+  # {colored('sudo nodectl -cmf -e mainnet','cyan')}  
       '''
   
     if extended == "download_status":
@@ -1232,13 +1301,19 @@ def build_help(functions,command_obj):
   The {colored('upgrade_nodectl','cyan')} command will launch the process requirements
   to upgrade the nodectl binary on your Node.
   
+  optional:
+  {colored('-v <version>','green')}
+  
   usage
   -------------
   show this help screen
   # {colored('sudo nodectl upgrade_nodectl help','cyan')}
   
-  execute an upgrade of nodectl on mainnet
+  execute an upgrade of nodectl
   # {colored('sudo nodectl upgrade_nodectl','cyan')}
+  
+  execute an upgrade of nodectl to version "v2.12.0"
+  # {colored('sudo nodectl upgrade_nodectl -v v2.12.0','cyan')}
       
   '''      
         

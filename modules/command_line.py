@@ -3984,6 +3984,9 @@ class CLI():
         argv_list = command_obj.get("argv_list",[])
         profile = command_obj.get("profile",False)
         
+        self.functions.check_for_help(argv_list,"check_minority_fork")
+        
+        
         if "-e" in argv_list:
             environment = argv_list[argv_list.index("-e")+1]
             profile = self.functions.pull_profile({"req":"one_profile_per_env"})
@@ -4084,6 +4087,8 @@ class CLI():
         caller = command_obj.get("caller","check_consensus")
         argv_list = command_obj.get("argv_list",[])   
         ip_address = command_obj.get("ip_address",self.ip_address)   
+        
+        self.functions.check_for_help(argv_list,"check_consensus")
         
         if "-s" in argv_list:
             ip_address = argv_list[argv_list.index("-s")+1]
