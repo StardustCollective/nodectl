@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from termcolor import colored, cprint
 from os import system, path, environ, makedirs, listdir
@@ -1655,7 +1655,16 @@ class Configurator():
         })
  
  
-    def manual_build_file_repo(self, file_repo_type, profile=False):  
+    def manual_build_file_repo(self, file_repo_type, profile=False): 
+        if file_repo_type == "pro_rating" and self.c.config_obj[profile]["layer"] > 0:
+            self.c.functions.print_paragraphs([
+                ["",1],[" ERROR ",0,"yellow,on_red"],["Due to security reasons,",0,"red"],
+                ["trust label ratings should not be configured on layer1 cluster profiles.",1,"red"],
+            ])
+            self.c.functions.print_any_key({}) 
+            system("clear")
+            return False
+        
         title_profile = self.profile_to_edit if not profile else profile
         questions, defaults = False, False
         allow_disable = True
@@ -1816,6 +1825,8 @@ class Configurator():
             "profile": profile,
             "defaults": defaults,
         })
+        
+        return True
 
                 
     def manual_build_memory(self,profile=False):
@@ -2298,7 +2309,7 @@ class Configurator():
                     if option == 11: file_repo_type ="priority_source"
                     if option == 10: file_repo_type = "jar"
                     if option == 22: file_repo_type = "pro_rating"
-                    self.manual_build_file_repo(file_repo_type,profile)
+                    do_validate = self.manual_build_file_repo(file_repo_type,profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [pro seed list] [{self.action}]"
                    
                 elif option == 12:
@@ -2350,7 +2361,8 @@ class Configurator():
                     self.manual_define_token_id(profile)
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
                                         
-                if do_validate: self.validate_config(profile)
+                if do_validate: 
+                    self.validate_config(profile)
                 if do_print_title: print_config_section()
             elif option not in options2:
                 cprint("  Invalid Option, please try again","red")
@@ -3441,12 +3453,22 @@ class Configurator():
 
 
     def validate_config(self,profile):
-        verified = True
-        self.c.build_yaml_dict()
-        self.c.setup_config_vars()
-        self.c.validate_global_setting()
-        verified = self.c.validate_profile_types(profile,True)
-
+        with ThreadPoolExecutor() as executor:
+            self.c.functions.event = True
+            _ = executor.submit(self.c.functions.print_spinner,{
+                "msg": "preparing new configuration",
+                "color": "magenta",
+                "spinner_type": "dotted",
+                })
+            verified = True
+            self.c.skip_global_validation = False
+            self.c.build_yaml_dict()
+            self.c.setup_config_vars()
+            self.c.validate_global_setting()
+            verified = self.c.validate_profile_types(profile,True)
+            self.c.functions.cancel_event = True # clear all threads
+                            
+        self.c.functions.cancel_event = False
         if not verified:
             self.log.logger.error(self.edit_error_msg)
             self.print_error()   

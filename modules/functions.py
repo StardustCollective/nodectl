@@ -46,6 +46,7 @@ class Functions():
         self.config_obj = config_obj
         self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
         self.version_obj = False
+        self.cancel_event = False
         self.valid_commands = []
         
         class TerminateProgramException(Exception): pass
@@ -2571,7 +2572,7 @@ class Functions():
                 for _ in range(1,newlines):
                     print("") # newlines 
                     
-            
+    
     def print_spinner(self,command_obj):
         msg = command_obj.get("msg")
         color = command_obj.get("color","cyan")
@@ -2600,8 +2601,9 @@ class Functions():
             cursor = next(spinner)
             print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
             sleep(0.3)
-            if not self.event:
+            if not self.event or self.cancel_thread:
                 self.print_clear_line()
+                break
 
         if newline == "bottom" or newline == "both":
             print("")
