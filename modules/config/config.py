@@ -1161,6 +1161,7 @@ class Configuration():
                             elif path.isdir(test_value): validated = True
                             elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
                                 title = f"{test_value} is an invalid keyword for layer0"
+                            elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
                             elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
                                 title = f"{test_value} is an invalid keyword"
                             elif not path.isdir(test_value): title = "invalid or path not found"

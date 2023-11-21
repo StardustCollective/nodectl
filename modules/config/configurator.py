@@ -1739,13 +1739,13 @@ class Configurator():
                 description1 += f"elements, out of the scope of nodectl.  The values associated with these configuration values "
                 description1 += f"should be obtained directly from the Metagraph administrators. "
             description1 += f"The {verb} is part of the PRO (proof of reputable observation) elements of Constellation Network. "
-            description1 += "Enter the location (needs to be a full path not including the file name.  Note: The file name will be defined "
-            description1 += "succeeding this entry.) on your local Node.  This is where the Node Operator would like to store the local copy of "
-            description1 += "this access list. "
+            description1 += "Enter the location (needs to be a full path not including the file name. Note: The file name will be defined "
+            description1 += "succeeding this entry.) on your local Node. This is where the Node Operator would like to store the local copy of "
+            description1 += "this data file, list, or access list. "
             if file_repo_type == "seed":
                 description1 += "This is a requirement to authenticate to the Metagraph and/or Hypergraph the Node Operator is "
                 description1 += "attempting to connect to. "
-            if file_repo_type == "ratings":
+            if file_repo_type == "pro_rating":
                 description1 += "Trust labels constitute integral aspects of the Proof of Reputable Observation (PRO) system. "
                 description1 += "They impact several facets, such as determining the nodes from which to obtain snapshots. Trust labels "
                 description1 += "are off-chain information concerning the security of nodes and their potential to harm the network. These labels "
@@ -1765,11 +1765,16 @@ class Configurator():
             description1 += defaultdescr
 
             description2 = f"The file name to be used to contain the {verb} entries.  This should be a single string value with no spaces (if you "
-            description2 += f"want to use multiple strings, delineate them with an underscore, dash, or other). After the {verb} is downloaded "
-            description2 += "from a Metagraph or Hypergraph "
-            description2 += "repository (defined succeeding this entry), the contents will be saved to this file.  The file (downloaded from the repository) " 
-            description2 += "must contain the exact same information as all other Nodes that participate on the cluster. "
-            description2 += "The file will be placed in the location defined by the seed location variable entered above. "
+            description2 += "want to use multiple strings, delineate them with an underscore, dash, or other). "
+            adj = "will"
+            if file_repo_type == "pro_rating":
+                adj = "should"
+                description2 += "The Node Operator should create this file on their own. "
+            else:
+                description2 += f"After the {verb} is downloaded from a Metagraph or Hypergraph "
+                description2 += "repository (defined succeeding this entry), the contents will be saved to this file.  The file (downloaded from the repository) " 
+                description2 += "must contain the exact same information as all other Nodes that participate on the cluster. "
+            description2 += f"The file {adj} be placed in the location defined by the {file_repo_type} location variable entered above. "
             description2 += defaultdescr
             
             description3 = f"The {verb} repository is the location on the Internet (generally a github repository or artifact location) where nodectl can download "
@@ -3439,6 +3444,7 @@ class Configurator():
         verified = True
         self.c.build_yaml_dict()
         self.c.setup_config_vars()
+        self.c.validate_global_setting()
         verified = self.c.validate_profile_types(profile,True)
 
         if not verified:
