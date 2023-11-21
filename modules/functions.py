@@ -1678,7 +1678,10 @@ class Functions():
 
         for n in range(0,4):
             try:
-                health = get(uri,verify=True,timeout=2,headers=self.get_headers)
+                session = self.set_request_session()
+                session.verify = True
+                session.timeout = 2
+                health = session.get(uri)
             except:
                 self.log.logger.warn(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if n > 2:
@@ -1697,6 +1700,9 @@ class Functions():
                         pass
                 else:
                     return True
+            finally:
+                session.close()
+                
             if not self.auto_restart:
                 sleep(1)
             
