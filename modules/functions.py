@@ -1709,13 +1709,19 @@ class Functions():
             
     def check_health_endpoint(self,api_port): 
         try:
-            r = get(f'http://127.0.0.1:{api_port}/node/health',verify=False,timeout=2,headers=self.get_headers)
+            session = self.set_request_session()
+            session.verify = False
+            session.timeout = 2
+            r = session.get(f'http://127.0.0.1:{api_port}/node/health')
         except:
             pass
         else:
             if r.status_code == 200:
                 self.log.logger.error(f"check health failed on endpoint [localhost] port [{api_port}]")
                 return True
+        finally:
+            session.close()
+            
         self.log.logger.debug(f"check health successful on endpoint [localhost] port [{api_port}]")
         return False   
             
