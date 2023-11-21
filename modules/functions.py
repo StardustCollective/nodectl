@@ -782,10 +782,12 @@ class Functions():
         
         for n in range(1,tolerance):
             try:
+                session = self.set_request_session()
+                session.timeout = 2
                 if utype == "json":
-                    response = get(url,timeout=2,headers=self.get_headers).json()
+                    response = session.get(url).json()
                 else:
-                    response = get(url,timeout=2,headers=self.get_headers)
+                    response = session.get(url)
             except Exception as e:
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
                 if n > tolerance-1:
@@ -801,6 +803,8 @@ class Functions():
                 elif utype == "yaml":
                     return yaml.safe_load(response.content)
                 return response
+            finally:
+                session.close()
                         
                     
     def get_cluster_info_list(self,command_obj):
