@@ -492,7 +492,6 @@ class AutoRestart():
             "history": 1,
             "environment": self.environment,
             "return_values": ["ordinal","lastSnapshotHash"],
-            "header": self.functions.get_headers,
             "return_type": "dict"
         }
 
@@ -504,7 +503,7 @@ class AutoRestart():
                 fork_obj = {
                     **fork_obj,
                     "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[self.thread_profile]["public_port"]}/',
-                    "header": {**fork_obj["header"], 'Accept': 'application/json'},
+                    "header": "json",
                     "get_results": "value",
                     "ordinal": global_ordinals["backend"]["ordinal"],
                     "action": "ordinal",

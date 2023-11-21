@@ -1256,7 +1256,7 @@ class CLI():
                     
         snap_obj = {
             "lookup_uri": f'http://127.0.0.1:{self.config_obj[self.profile]["public_port"]}/',
-            "header": {'Accept': 'application/json' },
+            "header": "json",
             "get_results": "proofs", 
             "return_type": "raw"      
         }
@@ -4001,7 +4001,6 @@ class CLI():
             "history": 1,
             "environment": environment,
             "return_values": ["ordinal","lastSnapshotHash"],
-            "header": self.functions.get_headers,
             "return_type": "dict"
         }
         
@@ -4040,7 +4039,7 @@ class CLI():
                 fork_obj = {
                     **fork_obj,
                     "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[profile]["public_port"]}/',
-                    "header": {**fork_obj["header"], 'Accept': 'application/json'},
+                    "header": "json",
                     "get_results": "value",
                     "ordinal": global_ordinals["backend"]["ordinal"],
                     "action": "ordinal",

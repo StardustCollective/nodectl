@@ -968,10 +968,11 @@ class Functions():
         environment = command_obj.get("environment","mainnet")
         return_values = command_obj.get("return_values",False)
         lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
-        header = command_obj.get("header",self.get_headers)
+        header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type","list")
         
+        json = True if header == "json" else False
         return_data = []
         error_secs = 2
         
@@ -989,7 +990,10 @@ class Functions():
             return_type = "dict"
         
         try:
-            results = get(uri,verify=False,timeout=2,headers=header).json()
+            session = self.set_request_session(json)
+            session.verify = False
+            session.timeout = 2
+            results = session.get(uri).json()
             results = results[get_results]
         except Exception as e:
             self.log.logger.warn(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
@@ -1007,6 +1011,8 @@ class Functions():
                             if not return_values or v in return_values:
                                 return_data[v] = results[v]
             return return_data
+        finally:
+            session.close()
 
 
     def get_list_of_files(self,command_obj):
