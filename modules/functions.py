@@ -592,8 +592,9 @@ class Functions():
         start = command_obj["start"]
         end = command_obj["end"]
         current = command_obj["current"]
-        invert = command_obj.get("invert",False)
-        absolute = command_obj.get("absolute",False)
+        invert = command_obj.get("invert", False)
+        absolute = command_obj.get("absolute", False)
+        backwards = command_obj.get("backwards", False)
         
         if not absolute: 
             if current < start:
@@ -604,7 +605,10 @@ class Functions():
         
         total_range = end - start
         current_range = abs(current - start)
-        percentage = (current_range / total_range) * 100
+        if backwards:
+            percentage = (1 - current_range / total_range) * 100
+        else:
+            percentage = (current_range / total_range) * 100
         if invert: percentage = 100 - percentage
         return int(percentage) 
     
