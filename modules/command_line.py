@@ -1539,6 +1539,12 @@ class CLI():
         self.functions.check_for_help(command_list,"show_p12_details")
         p12 = P12Class({"functions": self.functions})      
         p12.show_p12_details(command_list)  
+        
+
+    def cli_create_p12(self,command_list):
+        self.functions.check_for_help(command_list,"cli_create_p12")
+        p12 = P12Class({"functions": self.functions})      
+        p12.create_individual_p12(self)  
 
                 
     # ==========================================

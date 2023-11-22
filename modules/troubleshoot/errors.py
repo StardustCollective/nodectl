@@ -311,6 +311,15 @@ class Error_codes():
             ])            
             
             
+        elif var.line_code == "invalid_user":
+            self.log.logger.critical(f"user not found for process [{var.extra}] username [{var.extra2}]")
+            self.functions.print_paragraphs([
+                ["Invalid User",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["user not found on this VPS or server.",2,"red","bold"],
+                ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the user is valid.",2,"red","bold"],
+                ["Username:",0,"yellow","bold"],[var.extra2,2],
+            ])            
+            
+            
         elif var.line_code == "term":
             self.log.logger.critical("invalid terminal type, exited program")
             self.functions.print_paragraphs([

@@ -4,6 +4,7 @@ from re import match
 from time import sleep
 from getpass import getpass
 from termcolor import colored, cprint
+from types import SimpleNamespace
 
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
@@ -694,6 +695,56 @@ class P12Class():
             
         pass
                 
-                
+    
+    def create_individual_p12(self, cli):
+        
+        if "--username" in cli.command_list:
+            p12_username = cli.command_list[cli.command_list.index("--username")+1]
+        else:
+            p12_username = self.config_obj["global_p12"]["nodeadmin"]
+            
+        if "--location" in cli.command_list:
+            self.p12_file_location = cli.command_list[cli.command_list.index("--location")+1]
+            if self.p12_file_location[-1] != "/":
+                self.p12_file_location = self.p12_file_location+"/"
+        else:
+            self.p12_file_location = self.config_obj["global_p12"]["key_location"]
+
+        try:
+            with open('/etc/passwd', 'r') as passwd_file:
+                _ = any(line.startswith(p12_username + ':') for line in passwd_file)
+        except FileNotFoundError:
+            self.error_messages.error_code_messages({
+                "error_code": "p-709",
+                "line_code": "invalid_user",
+                "extra": "individual p12 creation",
+                "extra2": self.p12_username,
+            })
+        
+        if not path.exists(self.p12_file_location):
+            self.error_messages.error_code_messages({
+                "error_code": "p-719",
+                "line_code": "file_not_found",
+                "extra": self.p12_file_location,
+                "extra2": "verify the location you entered exists or in the configuration is valid.",
+            })
+
+        from .user import UserClass
+        self.user = UserClass(cli,True)
+        self.user.username = p12_username
+        
+        self.cli = {"command_obj": {"caller": "create_p12"}}
+        self.cli = SimpleNamespace(**self.cli)
+        self.generate_p12_file()    
+        
+        self.functions.confirm_action({
+            "prompt": "Review the details of your new p12 file?",
+            "yes_no_default": "y",
+            "return_on": "y",
+            "exit_if": True
+        })
+        self.show_p12_details(["--file",self.p12_file_location+self.p12_filename])
+        
+             
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

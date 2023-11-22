@@ -36,6 +36,7 @@ def pull_valid_command():
         "check_source_connection",
         "check_minority_fork",
         "show_p12_details",
+        "create_p12",
         "show_node_proofs",
         "check_connection",
         "send_logs",
