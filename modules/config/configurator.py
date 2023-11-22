@@ -101,7 +101,7 @@ class Configurator():
             "action": action,
             "implement": implement,
             "skip_report": True,
-            "argv_list": [action],
+            "argv_list": [action,"configurator"],
         })
 
         versioning = Versioning({

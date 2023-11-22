@@ -216,8 +216,10 @@ class Configuration():
             found_yaml_version = self.config_obj["global_elements"]["nodectl_yaml"]
         except:
             found_yaml_version = False
-            
-        if not found_yaml_version or found_yaml_version != nodectl_yaml_version:
+        
+        if self.called_command == "configurator":
+            self.log.logger.debug("configuration module found configuration change request, skipping migration attempts.")
+        elif not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             self.log.logger.info(f"configuration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
             if self.called_command != "upgrade":
                 self.error_messages.error_code_messages({
