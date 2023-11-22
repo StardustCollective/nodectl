@@ -301,7 +301,7 @@ class ShellHandler:
         elif self.called_command == "check_minority_fork" or self.called_command == "_cmf":
             self.cli.cli_minority_fork_detection({"argv_list":self.argv})
         elif self.called_command == "create_p12":
-            self.cli.cli_create_p12({"argv_list":self.argv})
+            self.cli.cli_create_p12(self.argv)
         elif self.called_command == "update_seedlist" or self.called_command == "_usl":
             return_value = self.cli.update_seedlist(self.argv)
         elif self.called_command == "export_private_key": 

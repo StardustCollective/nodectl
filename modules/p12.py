@@ -712,13 +712,15 @@ class P12Class():
 
         try:
             with open('/etc/passwd', 'r') as passwd_file:
-                _ = any(line.startswith(p12_username + ':') for line in passwd_file)
+                test = any(line.startswith(p12_username + ':') for line in passwd_file)
+                if not test:
+                    raise FileNotFoundError
         except FileNotFoundError:
             self.error_messages.error_code_messages({
                 "error_code": "p-709",
                 "line_code": "invalid_user",
                 "extra": "individual p12 creation",
-                "extra2": self.p12_username,
+                "extra2": p12_username,
             })
         
         if not path.exists(self.p12_file_location):

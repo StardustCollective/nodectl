@@ -188,6 +188,8 @@ def build_help(functions,command_obj):
     
     show_service_log -p <profile> | - show the distribution service logs 
                                        associated with profile 
+    
+    show_p12_details | - show details of a p12 file.
                                 
     show_dip_error -p <profile>  | - show any occurances of a DownloadInProgress error
                                      located in the logs.
@@ -224,7 +226,10 @@ def build_help(functions,command_obj):
                                             
                                             see extended help for configurable auto_restart
                                             details... sudo nodectl auto_restart help
-    verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity                                        
+                                            
+    verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity    
+    
+    create_p12 |  Create a single independent p12 file.                                    
                      
     health  | - show basic health elements of your Node
               - show the current 15 minute CPU load and 
@@ -525,6 +530,40 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl check_consensus -p dag-l0 -s 10.10.10.10','cyan')}  
      or
   # {colored('sudo nodectl -con -p dag-l0 -s 10.10.10.10','cyan')}  
+      '''
+  
+    if extended == "cli_create_p12":
+
+      help_text += title("Create a P12 File")
+      help_text += f'''
+  This command will create a p12 file and place
+  it on the system in a location of the Operator's
+  choosing.
+  
+  If a location is not supplied, the global p12
+  configured location will be used by default.
+  
+  If a username is not supplied, the global p12
+  username will be used by default
+  
+  optional:
+  {colored('--file <p12_file_name>','green')}
+  
+  optional:
+  {colored('--location <full_path_to_file>','green')}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl create_p12 help','cyan')}
+  
+  build a new p12 file using the global configured
+  Node admin username:
+  # {colored('sudo nodectl create_p12','cyan')}  
+
+  build a new p12 file using a user named test.p12 and
+  the file location /tmp/my_new_p12_files.
+  # {colored('sudo nodectl create_p12 --file test.p12 --location /tmp/my_new_p12_files/','cyan')}  
       '''
       
     if extended == "check_minority_fork":
