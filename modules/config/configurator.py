@@ -160,9 +160,10 @@ class Configurator():
                         ["Detailed Mode ",0,"grey,on_yellow","bold,underline"],["will walk you through all steps/questions; with detailed explanations of each element of the configuration.",2],
                         ["Advanced Mode ",0,"grey,on_yellow","bold,underline"],["will be non-verbose, with no walk through explanations, only necessary questions.",2],
                         
-                        ["The configuration tool does only a limited amount",0,"red","bold"],
-                        ["of data type or value verification. After the configuration tool creates a new configuration or edits an existing configuration, it will attempt",0,"red","bold"],
-                        ["to verify the end resulting configuration.",2,"red","bold"],  
+                        ["The configuration tool does only a",0,"red"], ["limited amount",0,"red","bold"],
+                        ["of data type or value verification. After the configuration tool creates",0,"red"],
+                        ["a new configuration or edits an existing configuration, it will attempt",0,"red"],
+                        ["to verify the end resulting configuration.",2,"red"],  
 
                         ["You can also choose the",0], ["-a",0,"yellow","bold"], ["option at the command line to enter advanced mode directly.",2],
                     ]
