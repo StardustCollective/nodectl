@@ -4676,7 +4676,7 @@ class CLI():
         self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
-            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')}?"
+            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')} {colored('?','cyan')}"
         })
         
         self.functions.print_paragraphs([
