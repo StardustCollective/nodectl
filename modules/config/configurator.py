@@ -32,8 +32,6 @@ class Configurator():
         self.yaml_path = "/var/tmp/cnng-new-temp-config.yaml"
         self.profile_to_edit = None
         self.config_obj = {}
-        self.detailed = False if "-a" in argv_list else "init"
-        self.edit_error_msg = ""
         
         self.keep_pass_visible = True
         self.action = False
@@ -50,7 +48,16 @@ class Configurator():
         self.node_service = False
         self.skip_clean_profiles_manual = False
         self.dev_enable_disable = False
+        self.requested_profile = None
         
+        self.edit_error_msg = ""
+        self.detailed = "init"
+        if "-a" in argv_list:
+            self.detailed = False
+        elif "-d" in argv_list:
+            self.detailed = True
+
+
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
         ]
@@ -61,6 +68,8 @@ class Configurator():
             self.prepare_configuration("edit_config")
             self.c.functions.check_for_help(["help"],"configure")
         elif "-ep" in argv_list:
+            if "-p" in argv_list:
+                self.requested_profile = argv_list[argv_list.index("-p")+1]
             self.action = "edit_profile"
         elif "-e" in argv_list:
             self.action = "edit"
@@ -97,6 +106,11 @@ class Configurator():
         except:
             self.old_last_cnconfig = False
     
+        try:
+            self.c.configurator_verified = True
+        except: 
+            pass
+        
         self.c = Configuration({
             "action": action,
             "implement": implement,
@@ -165,6 +179,7 @@ class Configurator():
                         ["a new configuration or edits an existing configuration, it will attempt",0,"red"],
                         ["to verify the end resulting configuration.",2,"red"],  
 
+                        ["You can also choose the",0], ["-d",0,"yellow","bold"], ["option at the command line to enter detailed mode directly.",1],
                         ["You can also choose the",0], ["-a",0,"yellow","bold"], ["option at the command line to enter advanced mode directly.",2],
                     ]
 
@@ -1147,7 +1162,7 @@ class Configurator():
             for item in no_change_list:
                 if i_profile not in append_obj: append_obj[i_profile] = {}
                 try: append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
-                except:
+                except Exception as e:
                     if "custom_" in item: 
                         custom = True
                         self.log.logger.debug(f"Did not find custom variable in config, skipping [{item}]")
@@ -1460,15 +1475,16 @@ class Configurator():
             }
             return questions        
  
-        def retain_info(profile, gl0_linking, ml0_linking):
-            self.c.functions.print_cmd_status({
-                "text_start": "Values for",
-                "brackets": l_type.upper(),
-                "text_end": "will be",
-                "status": "retained",
-                "status_color": "green",
-                "newline": True,
-            })
+        def retain_info(profile, gl0_linking, ml0_linking,print_msg=True):
+            if print_msg:
+                self.c.functions.print_cmd_status({
+                    "text_start": "Values for",
+                    "brackets": l_type.upper(),
+                    "text_end": "will be",
+                    "status": "retained",
+                    "status_color": "green",
+                    "newline": True,
+                })
             current_boj = {
                 f"{l_type}_link_key": self.c.config_obj[profile][f"{l_type}_link_key"],
                 f"{l_type}_link_host": self.c.config_obj[profile][f"{l_type}_link_host"],
@@ -1530,12 +1546,15 @@ class Configurator():
                                 c_defaults, gl0_linking, ml0_linking = retain_info(profile, gl0_linking, ml0_linking)
                                 defaults = {**c_defaults, **defaults}
                                 
+                retain_original = False
                 if eval(f"{l_type}_linking"):
                     results = self_linking(l_type, defaults if defaults else {})
                     if not defaults: defaults = {}
                     if results[1]: defaults = {**defaults, **results[0]}
                     elif l_type == "gl0": gl0_ask_questions = True
                     elif l_type == "ml0": ml0_ask_questions = True
+                else:
+                    retain_original = True
 
                 if eval(f"{l_type}_ask_questions"):
                     key_default = self.c.config_obj[profile][f"{l_type}_link_key"]
@@ -1548,6 +1567,16 @@ class Configurator():
                         **questions,
                         **ask_link_questions(l_type, questions, key_default, host_default, port_default)
                     }
+                else:
+                    retain_original = True
+                    
+                if retain_original:
+                    c_defaults, gl0_linking, ml0_linking = retain_info(profile, gl0_linking, ml0_linking,False)
+                    if defaults:
+                        defaults = {**c_defaults, **defaults}
+                    else:
+                        defaults = c_defaults
+        
         
         self.manual_append_build_apply({
             "questions": questions, 
@@ -1775,7 +1804,7 @@ class Configurator():
                 description1 += "are local bias values that you supply to your nodes during the joining process to the cluster (metagraph). They "
                 description1 += "are specific to each node. Consequently, different nodes can exhibit varying degrees of bias. "
             if file_repo_type == "jar":
-                description1 = f"The {verb} version is currently disabled in nodectl's configuration and will serve as a placeholder "
+                description1 = f"The {verb} version is currently disabled [hidden] in nodectl's configuration and will serve as a placeholder "
                 description1 += "to be removed from the utility in future releases if deemed unnecessary.  nodectl will request "
                 description1 += "versioning during the upgrade process or by options from the command line when using the refresh "
                 description1 += "binaries feature.  Thank you for your patience and understanding. "
@@ -1806,7 +1835,10 @@ class Configurator():
             description3 += "from the Metagraph or Hypergraph administrators. "
             description3 += defaultdescr
             
-            one_off2 = "version" if file_repo_type == "jar" else "directory"
+            one_off2 = "directory"
+            if file_repo_type == "jar":
+                one_off2 = "version"
+                
             questions = {
                 f"{file_repo_type}_{one_off}": {
                     "question": f"  {colored(f'Enter a valid {verb} {one_off2}','cyan')}",
@@ -1832,7 +1864,10 @@ class Configurator():
                     },
                 }
         
-            if one_off2 == "version":  questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
+        # deprecate versioning on tessellation jar before removal
+        if one_off == "version" or one_off2 == "version":  
+            if questions: questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
+            del defaults["jar_version"]
             
         self.manual_append_build_apply({
             "questions": questions, 
@@ -2047,7 +2082,7 @@ class Configurator():
             self.prepare_configuration("edit_config",True)
             self.metagraph_list = self.c.metagraph_list
             
-            if self.action == "edit_profile":
+            if self.action == "edit_profile" or self.action == "edit_change_profile":
                 option = "e"
             elif self.action == "dev_mode":
                 option = "de"
@@ -2098,11 +2133,16 @@ class Configurator():
                     option = return_option.lower()
             
             if option == "e":
-                return_option = self.edit_profiles()
+                return_option = None
+                if self.action == "edit_profile": return_option = self.edit_profiles()
                 if return_option == "q": self.quit_configurator()
                 elif return_option != "r": return_option = self.edit_profile_sections()
-                if return_option == "e": self.edit_profiles() # return option can change again
-            # elif option == "a": self.edit_append_profile_global("None")
+                if return_option == "e": 
+                    self.requested_profile = None
+                    self.action = "edit_change_profile"
+                    self.edit_profiles() # return option can change again
+                if return_option == "m":
+                    self.action = "edit"
             elif option == "g": self.edit_append_profile_global("p12")
             elif option == "de": 
                 self.developer_enable_disable()
@@ -2126,7 +2166,7 @@ class Configurator():
         }       
              
         self.c.functions.print_header_title({
-            "line1": "Edit Profiles",
+            "line1": "Select Available Profiles",
             "single_line": True,
             "newline": "bottom",
         })  
@@ -2147,13 +2187,16 @@ class Configurator():
             })
             
         options = copy(self.c.metagraph_list) # don't want metagraph_list altered
-        choice = self.c.functions.print_option_menu({
-            "options": options,
-            "return_value": True,
-            "return_where": "Edit",
-            "color": "magenta",
-            "r_and_q": "both",
-        })
+        if self.requested_profile in options:
+            choice = self.requested_profile
+        else:
+            choice = self.c.functions.print_option_menu({
+                "options": options,
+                "return_value": True,
+                "return_where": "Edit",
+                "color": "magenta",
+                "r_and_q": "both",
+            })
         if choice == "r": 
             self.action = "edit"
             self.edit_config()
@@ -2187,7 +2230,7 @@ class Configurator():
             ("Seed List Setup",9),
             ("Tessellation Binaries",10),
             ("Source Priority Setup",11),
-            ("Policy Description",12),
+            ("Profile Description",12),
             ("Profile Private p12 Key",13),
             ("Node Type",14),
             ("Custom Variables",15),
@@ -2254,12 +2297,13 @@ class Configurator():
             prompt = colored("  Enter an option: ","magenta",attrs=["bold"])
             option = input(prompt)
         
-            if option == "m": return
-            elif option == "p": return "E"
+            if option == "m": return "m"
+            elif option == "p": return "e"
             elif option == "h": 
                 self.move_config_backups()
                 self.c.functions.config_obj = deepcopy(self.c.config_obj)
                 self.c.functions.config_obj["global_elements"]["metagraph_name"] = "None"
+                self.c.functions.profile_names = self.metagraph_list
                 self.c.functions.check_for_help(["help"],"configure")
             elif option == "q": self.quit_configurator()
             elif option == "r":
@@ -2376,10 +2420,12 @@ class Configurator():
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
                                         
                 if do_validate: 
-                    self.validate_config(profile)
+                    self.validate_config()
                 if do_print_title: print_config_section()
             elif option not in options2:
                 cprint("  Invalid Option, please try again","red")
+            
+            self.prepare_configuration("edit_config",False) # reload config in case operator requests 
 
 
     def edit_auto_restart(self):
@@ -3430,8 +3476,8 @@ class Configurator():
     def print_error(self):
         self.c.functions.print_paragraphs([
             ["",1], [" ERROR ",0,"grey,on_red","bold"],
-            ["During the configuration editing session [",0,"red"],
-            [self.called_option,-1,"yellow","bold"], ["] an incorrect input was detected",-1,"red"],["",2],
+            ["During the configuration editing session",1,"red"],
+            ["[",0,"red"], [self.called_option,0,"yellow","bold"], ["] an incorrect input was detected",2,"red"],
         ])
         if self.error_hint:
             if self.error_hint == "dir":
@@ -3450,11 +3496,12 @@ class Configurator():
         self.c.functions.print_paragraphs([
             ["Please review the nodectl logs and/or Node operator notes and try again",2],
             
-            ["You can also attempt to restore your",0,"magenta"], ["cn-config.yaml",0,"yellow","bold"], ["from backups.",2,"magenta"]
+            ["You can attempt to restore your",0,"magenta"], ["cn-config.yaml",0,"yellow","bold"], ["from backups.",1,"magenta"],
+            ["You can also attempt to retry your entries at the main menu",2,"magenta"], 
         ])
         
         if not self.is_new_config:
-            self.c.functions.print_any_key({"prompt":"Press any key to return and try again"})
+            self.c.functions.print_any_key({"prompt":"Press any key to continue"})
             self.edit_profile_sections("RETRY")
         else:
             exit("  invalid input detected")
@@ -3462,28 +3509,20 @@ class Configurator():
 
     def print_quit_option(self):
         self.c.functions.print_paragraphs([
-            [f"Press the <ctrl>+c key to quit any time",1,"yellow"],
+            [f"Press the ctrl+c keys to quit any time",1,"yellow"],
         ]) 
 
 
-    def validate_config(self,profile):
-        with ThreadPoolExecutor() as executor:
-            self.c.functions.event = True
-            _ = executor.submit(self.c.functions.print_spinner,{
-                "msg": "preparing new configuration",
-                "color": "magenta",
-                "spinner_type": "dotted",
-                })
-            verified = True
-            self.c.skip_global_validation = False
-            self.c.build_yaml_dict()
-            self.c.setup_config_vars()
-            self.c.validate_global_setting()
-            verified = self.c.validate_profile_types(profile,True)
-            self.c.functions.cancel_event = True # clear all threads
-                            
-        self.c.functions.cancel_event = False
-        if not verified:
+    def validate_config(self):
+        self.c.functions.print_cmd_status({
+            "text_start": "Basic validation on config",
+            "status": "complete" if self.c.configurator_verified else "failed",
+            "dotted_animated": True,
+            "status_color": "green" if self.c.configurator_verified else "red",
+            "newline": True,
+        })
+                    
+        if not self.c.configurator_verified:
             self.log.logger.error(self.edit_error_msg)
             self.print_error()   
         

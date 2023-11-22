@@ -33,9 +33,12 @@ class Configuration():
 
         self.config_obj = {}
         self.error_list = []
-        self.error_found = False  # for configurator
-        self.auto_restart = True if "auto_restart" in self.argv_list or "service_restart" in self.argv_list else False
         
+        self.error_found = False  # for configurator
+        self.configurator_verified = False # for configurator
+        
+        self.auto_restart = True if "auto_restart" in self.argv_list or "service_restart" in self.argv_list else False
+
         try:
             self.called_command = self.argv_list[1]
         except:
@@ -44,6 +47,7 @@ class Configuration():
         execute = command_obj["implement"]
         self.action = command_obj["action"]        
         self.skip_final_report = command_obj.get("skip_report",False)
+        self.configurator_verified = True
         
         if "view" in self.action or self.action == "-vc":
             self.view_yaml_config("normal")
@@ -1225,6 +1229,8 @@ class Configuration():
                     
         if return_on:
             return return_on_validated
+        if not return_on_validated: 
+            self.configurator_verified = False # only change once 
         self.skip_global_validation = True
 
         

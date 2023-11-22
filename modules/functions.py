@@ -1761,9 +1761,13 @@ class Functions():
 
             
     def check_for_help(self,argv_list,extended):
+        nodectl_version_only = False
+        if extended == "configure": nodectl_version_only = True
+        
         if "help" in argv_list:
             self.print_help({
-                "extended": extended
+                "extended": extended,
+                "nodectl_version_only": nodectl_version_only,
             })  
     
     
@@ -2676,7 +2680,7 @@ class Functions():
                         yield cursor
 
         spinner = spinning_cursor(spinner_type)
-        while self.event:
+        while self.event and not self.cancel_event:
             cursor = next(spinner)
             print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
             sleep(0.3)
