@@ -1593,17 +1593,26 @@ class CLI():
             profile_names = [profile]
                 
         if self.skip_warning_messages:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-1325",
-                "line_code": "input_error",
-                "extra": "skip_warning_messages is invalid for this command."
+            self.functions.print_paragraphs([
+                [" WARNING ",1,"yellow,on_red"], ["Developer Mode",0,"yellow"],["or",0,"red"],
+                ["--skip_warning_messages",0,"yellow"], ["was enabled.",1,"red"],
+                ["This command will",0,"red"],
+                ["automatically disable this option in order to function properly.",1,"red"],
+            ])
+            self.skip_warning_messages = False
+            self.functions.print_cmd_status({
+                "text_start": "disabling --skip_warning_messages",
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
             })
+            print("")
 
         spacing = 25
         match_true= colored("True","green",attrs=["bold"])
         match_false = colored("False","red",attrs=["bold"])
                 
-        for profile in profile_names:
+        for n, profile in enumerate(profile_names):
             try:
                 environment = self.config_obj[profile]["environment"]
             except:
@@ -1628,6 +1637,16 @@ class CLI():
             if self.version_obj[environment]["nodectl"]["nodectl_prerelease"] == "Unknown":
                 prerelease = "Unknown"
             
+            if n < 1:
+                self.functions.print_header_title({
+                    "line1": "CHECK VERSIONS",
+                    "show_titles": False,
+                    "newline": "bottom",
+                })
+            else:
+                self.functions.print_paragraphs([
+                    ["-","half"]
+                ])
             print_out_list = [
                 {
                     "header_elements" : {
@@ -1666,7 +1685,7 @@ class CLI():
                 self.functions.print_show_output({
                     "header_elements" : header_elements
                 })  
-            print("")
+        print("")
        
  
     def check_source_connection(self,command_list):
