@@ -365,6 +365,8 @@ class ShellHandler:
             return_value = self.cli.show_markets(self.argv)
         elif self.called_command == "show_dip_error" or self.called_command == "_sde":
             self.cli.show_dip_error(self.argv)
+        elif self.called_command == "show_p12_details" or self.called_command == "_spd":
+            self.cli.show_p12_details(self.argv)
         elif self.called_command in config_list:
             self.functions.print_help({
                 "usage_only": True,

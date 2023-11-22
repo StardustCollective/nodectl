@@ -281,7 +281,11 @@ class Error_codes():
                 ["Please be diligent and review your Node's security, and other settings!",2,"magenta","bold"],
                 ["Try issuing command:",1,"yellow"],
                 ["sudo nodectl sec",2],
-            ])            
+            ])  
+            if var.extra:
+                self.functions.print_paragraphs([
+                    ["Error Code:",0], [var.extra,2,"yellow"],
+                ])                            
             
         elif var.line_code == "invalid_passphrase_pass":
             self.log.logger.critical("password validation check failed.")
@@ -487,9 +491,10 @@ class Error_codes():
             
             
         elif var.line_code == "open_file":
-            self.log.logger.critical(f"unable to read [{var.extra}]")
+            file_word = "p12 file" if var.extra2 == "p12" else "p12 file"
+            self.log.logger.critical(f"unable to read {file_word} [{var.extra}]")
             self.functions.print_paragraphs([
-                ["Something went wrong attempting to read or open a necessary file.",2,"red","bold"],
+                [f"Something went wrong attempting to read or open a necessary {file_word}.",2,"red","bold"],
                 ["file:",0,"white","bold"], [var.extra,2,"yellow"],
             ])            
 
@@ -503,7 +508,11 @@ class Error_codes():
             elif var.extra == "cn-node": 
                 self.functions.print_paragraphs([  
                     ["Are you sure you have a valid cn-node configuration file on your system?",2,"red","bold"]
-                ])                   
+                ])  
+            elif var.extra2 == "p12":
+                self.functions.print_paragraphs([
+                    ["A valid p12 file was not found.",2,"red","bold"],
+                ])                 
             self.functions.print_paragraphs([
                 ["Please review your",0], ["cn-config.yaml",0,"yellow","bold"], ["file, before continuing.",2]
             ]) 

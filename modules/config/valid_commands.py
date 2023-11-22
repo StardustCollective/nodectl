@@ -35,6 +35,7 @@ def pull_valid_command():
         "check_seedlist",
         "check_source_connection",
         "check_minority_fork",
+        "show_p12_details",
         "show_node_proofs",
         "check_connection",
         "send_logs",
@@ -65,7 +66,7 @@ def pull_valid_command():
         "_sr","_s","_qs","_cv","_vc","_val","_cf",
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
-        "_sde","_usl","_con","_cmf",
+        "_sde","_usl","_con","_cmf","_spd",
         "log","prices","markets"
     ]
     
