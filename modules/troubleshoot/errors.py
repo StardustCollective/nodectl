@@ -50,7 +50,12 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["Possible Upgrade Required!",1,"red","bold"],
                 ["Necessary configuration files or directories are missing.",2,"red","bold"],
+                ["This may be a result of an incompatible configuration file related to this nodectl version.",1,"red","bold"],
+                
+                ["Verify that you are running a valid version of nodectl and that your nodectl is properly upgraded.",2],
             ])
+            
+            
             if var.extra:
                 self.functions.print_paragraphs([
                     [f"{var.extra}",2,"yellow","bold"],
