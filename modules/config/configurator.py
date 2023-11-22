@@ -3349,7 +3349,7 @@ class Configurator():
                             ["directory structure exists",1], 
                             ["profile:",0], [profile,1,"yellow"],
                             ["snapshot dir:",0], [lookup_path_abbrv,1,"yellow"],
-                            ["Existing old snapshots may cause unexpected errors and conflicts, nodectl will remove snapshot contents from this directory",2,"red","bold"],
+                            [f"Existing old {lookup_path_abbrv} may cause unexpected errors and conflicts, nodectl will remove snapshot contents from this directory",2,"red","bold"],
                         ])
                         user_confirm = self.c.functions.confirm_action({
                             "yes_no_default": "y",
