@@ -156,4 +156,5 @@ nodectl:
   global_elements:
     metagraph_name: testnet
     nodectl_yaml: v2.0.0
+    developer_mode: False
     log_level: DEBUG
