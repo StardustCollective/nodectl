@@ -88,6 +88,8 @@ nodectl:
     seed_location: default
     seed_repository: default
     seed_file: default
+    pro_rating_location: disable
+    pro_rating_file: disable
     priority_source_location: default
     priority_source_repository: default
     priority_source_file: default
@@ -133,6 +135,8 @@ nodectl:
     seed_location: disable
     seed_repository: disable
     seed_file: disable
+    pro_rating_location: disable
+    pro_rating_file: disable
     priority_source_location: default
     priority_source_repository: default
     priority_source_file: default
