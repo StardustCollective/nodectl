@@ -2159,6 +2159,73 @@ def build_help(functions,command_obj):
         ''' 
         
         
+    if extended == "show_p12_details":
+        help_text += title("Show P12 Details")
+        help_text += f'''
+  This command will extract the non-priviledged details out 
+  of your p12 file.
+  
+  If provided with a {colored('-p','cyan')} option, the p12 configured on the
+  Node via that profile, will be evaluated.
+  
+  If provided with a {colored('--file','cyan')} option the p12
+  file supplied will be evaluated.
+  
+  P12 Name:  The name of the file being evaluated
+  P12 Location: Locati on of the p12 file
+  SHA1 FingerPrint:   Hash (or checksum), a fixed-size cryptographic hash function that produces a 
+                      160-bit (20-byte) hash value. It is commonly used in various security 
+                      applications and protocols to verify the integrity of data, including 
+                      digital certificates.
+  SHA256 FingerPrint: Hash (or checksum), produces a 256-bit (32-byte) hash value. Like other 
+                      cryptographic hash functions, SHA-256 takes an input (or message) and 
+                      produces a fixed-size string of characters, making it suitable for 
+                      verifying the integrity of data.
+  Creation Date:  When was the certificate created.
+  Version:        The version number of the certificate.
+  Keys Found:     How many keys does this p12 key store file hold.
+  Signature Algo: Method or algorithm used to generate a digital signature and 
+                  verify its authenticity.
+  Public Algo:    Public algorithm that is a type of cryptographic algorithm that 
+                  uses two mathematically distinct keys.
+    - The public key is shared openly, and it's used for encryption or verification. 
+    - The private key is kept secret and is used for decryption or signing.
+  Entry Type:     Refers to the different types of cryptographic objects or entities 
+                  that can be stored within the file.
+    - PrivateKeyEntry: Private key and its associated X.509 certificate chain.
+    - Certificate-only Entry: Contains only the X.509 certificate or certificates 
+                              without the private key.
+    - Secret Key Entry: Include entries for symmetric (secret) keys.
+    
+  Owner/Issuer: The known owner of the private key that signed this certificate. 
+  Owner/Issuer: Common Name: primary identifier associated with the 
+                             certificate holder, which could be 
+                             an individual, organization, server, or 
+                             other entity.
+    
+  required:
+  {colored('-p <profile_name>','green')}  
+  alternate required:
+  {colored('--file <path_to_file>','green')}  
+  
+  short_cut:
+  {colored("-spd","green")}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')} 
+  or 
+  # {colored(f'sudo nodectl -spd help','cyan')}  
+  
+  show p12 for a configured profile_name
+  # {colored(f'sudo nodectl {extended} -p <profile_name>','cyan')}  
+  
+  show p12 for a stand alone p12 file located in /tmp and called test.p12
+  # {colored(f'sudo nodectl {extended} --file /tmp/test.p12','cyan')}  
+        ''' 
+        
+        
     if extended == "status" or extended == "quick_status":
         help_text += title("status")
         help_text += f'''
