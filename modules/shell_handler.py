@@ -78,12 +78,14 @@ class ShellHandler:
                 cli.invalid_version = False
             return cli 
 
-        if self.config_obj["global_elements"]["developer_mode"] or "--skip_warning_messages" in self.argv:
-            cli = {
-                "skip_warning_messages": True,
-                "invalid_version": False,
-            }
-            cli = SimpleNamespace(**cli)
+        if self.called_command != "install":
+            if self.config_obj["global_elements"]["developer_mode"] or "--skip_warning_messages" in self.argv:
+                cli = {
+                    "skip_warning_messages": True,
+                    "invalid_version": False,
+                }
+                cli = SimpleNamespace(**cli)
+                
         return cli
     
          
