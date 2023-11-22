@@ -786,13 +786,14 @@ class ShellHandler:
             "upgrade_path","_up"
         ]
         
-        print_messages, show_spinner, verify_only, force = True, True, False, False   
+        print_messages, show_spinner, verify_only, force, print_object = True, True, False, False, False   
         if called_cmd in need_forced_update: force = True
         if "--force" in self.argv: force = True
 
-        if called_cmd == "update_version_object" and "-v" in self.argv:
-            verify_only = True
-            
+        if called_cmd == "update_version_object":
+            if "-v" in self.argv: verify_only = True
+            if "--print" in self.argv: print_object = True
+
         if called_cmd == "uvos":
             print_messages, show_spinner = False, False
             
@@ -802,15 +803,20 @@ class ShellHandler:
             "print_messages": print_messages,
             "called_cmd": called_cmd,
             "verify_only": verify_only,
+            "print_object": print_object,
             "force": force
         })
-        
+
         if called_cmd == "update_version_object" or called_cmd == "uvos":
-            exit(0)
+            if "help" not in self.argv:
+                exit(0)
             
         self.version_obj = versioning.get_version_obj()  
         self.functions.version_obj = self.version_obj
         self.functions.set_statics()
+
+        if called_cmd == "update_version_object": # needs to be checked after version_obj is created
+            self.functions.check_for_help(self.argv,"update_version_object")          
           
           
     def print_ext_ip(self):

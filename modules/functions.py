@@ -60,12 +60,6 @@ class Functions():
         self.node_nodectl_version_github = self.version_obj["nodectl_github_version"]
         self.node_nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
 
-        # stop requests from caching results
-        self.get_headers = {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
         urllib3.disable_warnings()
 
         # used for installation 
