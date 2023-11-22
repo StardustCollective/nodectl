@@ -487,44 +487,30 @@ class AutoRestart():
         self.fork_check_time = time()
 
         self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] checking for minority fork.")
-        global_ordinals ={}
-        fork_obj = {
-            "history": 1,
-            "environment": self.environment,
-            "return_values": ["ordinal","lastSnapshotHash"],
-            "return_type": "dict"
-        }
-
-        for n in range(0,2):
-            if n == 0: 
-                self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] | fork_obj remote: [{self.functions.be_urls[self.environment]}].")
-                global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
-            else:
-                fork_obj = {
-                    **fork_obj,
-                    "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[self.thread_profile]["public_port"]}/',
-                    "header": "json",
-                    "get_results": "value",
-                    "ordinal": global_ordinals["backend"]["ordinal"],
-                    "action": "ordinal",
-                }
-                self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
-                global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
-
+        
         skip = False
+        try:
+            global_ordinals = self.cli.cli_minority_fork_detection({
+                "caller": "auto_restart",
+                "profile": self.thread_profile,
+            })
+        except Exception as e:
+            self.log.logger.error(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - error while obtaining global ordinals [{e}]")
+            skip = True
+        
         for key, value in global_ordinals.items():
             if value == None:  
                 skip = True
-                self.log.logger.warn(f'auto_restart - minority_fork_handler - requesting ordinal resulted in no results - ordinal key/value [{key}/{value}]')
+                self.log.logger.warn(f'auto_restart - minority_fork_handler - thread [{self.thread_profile}] -requesting ordinal resulted in no results - ordinal key/value [{key}/{value}]')
         if skip: return False # skipping restart
         
-        self.log.logger.debug(f'auto_restart - minority_fork_handler - localhost ordinal [{global_ordinals["local"]["ordinal"]}]')
-        self.log.logger.debug(f'auto_restart - minority_fork_handler -   Backend ordinal [{global_ordinals["backend"]["ordinal"]}]')
-        self.log.logger.debug(f'auto_restart - minority_fork_handler - localhost hash [{global_ordinals["local"]["lastSnapshotHash"]}]')
-        self.log.logger.debug(f'auto_restart - minority_fork_handler -   Backend hash [{global_ordinals["backend"]["lastSnapshotHash"]}]')
+        self.log.logger.debug(f'auto_restart - minority_fork_handler - thread [{self.thread_profile}] - localhost ordinal [{global_ordinals["local"]["ordinal"]}]')
+        self.log.logger.debug(f'auto_restart - minority_fork_handler - thread [{self.thread_profile}] -   Backend ordinal [{global_ordinals["backend"]["ordinal"]}]')
+        self.log.logger.debug(f'auto_restart - minority_fork_handler - thread [{self.thread_profile}] - localhost hash [{global_ordinals["local"]["lastSnapshotHash"]}]')
+        self.log.logger.debug(f'auto_restart - minority_fork_handler - thread [{self.thread_profile}] -   Backend hash [{global_ordinals["backend"]["lastSnapshotHash"]}]')
         
         if global_ordinals["local"]["lastSnapshotHash"] == global_ordinals["backend"]["lastSnapshotHash"]: 
-            self.log.logger.debug(f'auto_restart - minority_fork_handler - fork not detected - valid match found')
+            self.log.logger.debug(f'auto_restart - minority_fork_handler - thread [{self.thread_profile}] - fork not detected - valid match found')
             return False
         
         # restart needed

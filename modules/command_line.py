@@ -62,8 +62,9 @@ class CLI():
             self.profile_names = self.functions.clear_global_profiles(self.profile_names)
 
         self.skip_warning_messages = False
-        if "--skip_warning_messages" in self.command_list or self.config_obj["global_elements"]["developer_mode"]:
-            self.skip_warning_messages = True 
+        if not self.auto_restart:
+            if "--skip_warning_messages" in self.command_list or self.config_obj["global_elements"]["developer_mode"]:
+                self.skip_warning_messages = True 
         
         if not self.skip_services:
             # try:
@@ -3985,7 +3986,7 @@ class CLI():
         profile = command_obj.get("profile",False)
         
         self.functions.check_for_help(argv_list,"check_minority_fork")
-        
+        environment = False
         
         if "-e" in argv_list:
             environment = argv_list[argv_list.index("-e")+1]
@@ -3994,6 +3995,7 @@ class CLI():
 
         if not profile:
             profile = argv_list[argv_list.index("-p")+1]
+        if not environment:
             environment = self.config_obj[profile]["environment"]
             
         global_ordinals ={}
