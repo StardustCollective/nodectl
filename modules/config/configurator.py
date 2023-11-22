@@ -2111,7 +2111,8 @@ class Configurator():
                     "newline": "bottom"
                 })
 
-                options = ["E","A","G","R","L","M","Q"]
+                # options = ["E","A","G","R","L","M","Q"]
+                options = ["E","G","R","L","M","Q"]
                 if return_option not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
