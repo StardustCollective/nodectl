@@ -57,6 +57,7 @@ class ShellHandler:
     def build_cli_obj(self,skip_check=False):
         build_cli = self.check_non_cli_command() if skip_check == False else True
         self.invalid_version = False
+        cli = None
         if build_cli:
             command_obj = {
                 "caller": "shell_handler",

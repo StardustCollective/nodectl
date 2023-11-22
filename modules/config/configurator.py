@@ -300,7 +300,20 @@ class Configurator():
                 ["Please choose the",0], ["profile",0,"blue","bold"], ["below that matches the configuration you are seeking to build.",2],
                 ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
                 ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
-            ])
+                
+                [" WARNING ",0,"red,on_yellow"], ["If you are writing a new configuration over an existing configuration for a Metagraph",0,"red"],
+                ["with the",0,"red"], ["same",0,"red","bold"], ["profile name, during the installation you will be requested to remove",0,"red"],
+                ["the existing",0,"red"], ["snapshots.",0,"red","bold"], ["Please make sure your existing profiles are",0,"red"],
+                ["stopped",0,"red","bold"], ["and",0,"red"], ["off",0,"red","bold"],["the cluster before continuing; otherwise, the protocol",0,"red"],
+                ["may attempt to write or handle snapshots during the new installation, creating unstable or undesirable results.",1,"red"],
+                ["command:",0], ["sudo nodectl stop -p <profile_name>",2,"yellow"],
+            ]) 
+            self.c.functions.confirm_action({
+                "prompt": "Exit new configuration build to stop profiles? ",
+                "yes_no_default": "y",
+                "return_on": "n",
+                "exit_if": True,            
+            })
 
         self.c.functions.print_header_title({
             "line1": "BUILD NEW CONFIGURATION",
@@ -3312,7 +3325,7 @@ class Configurator():
                 "extra": "configurator",
                 "extra2": e,
             })
-            
+           
         for profile in old_metagraph_list:
             found_snap = False
             if self.old_last_cnconfig[profile]["layer"] < 1:
