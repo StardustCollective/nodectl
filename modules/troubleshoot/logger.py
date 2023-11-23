@@ -44,11 +44,13 @@ class Logging():
                 cprint("Permission Error encountered, are you using sudo?","red")
             except:
                 print("Permission Error encountered, are you using sudo?")
+            exit(1)
         except Exception as e:
             try:
                 cprint("Unknown Error encountered?","red")
             except:
                 print("Unknown Error encountered?")
+            exit(1)
 
 
     def check_for_log_file(self):
