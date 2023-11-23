@@ -4,8 +4,9 @@ import time
 from datetime import datetime
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
-from os import geteuid, getgid, environ, system, walk
+from os import geteuid, getgid, environ, system, walk, remove
 from types import SimpleNamespace
+from pathlib import Path
 
 from .auto_restart import AutoRestart
 from .functions import Functions
@@ -100,10 +101,16 @@ class ShellHandler:
 
         self.log.logger.info(f"obtain ip address: {self.ip_address}")
                 
+        # commands that do not need all resources
         version_cmd = ["-v","_v","version"]
         if argv[1] in version_cmd:
             self.functions.auto_restart = False
             self.show_version()
+            exit(0)
+        verify_command = ["verify_nodectl","_vn","-vn"]
+        if argv[1] in verify_command:
+            self.functions.auto_restart = False
+            self.digital_signature(argv)
             exit(0)
 
         self.handle_versioning()
@@ -150,7 +157,6 @@ class ShellHandler:
         ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
         config_list = ["view_config","validate_config","_vc", "_val"]
         clean_files_list = ["clean_files","_cf"]
-        nodectl_verify_commands = ["verify_nodectl","_vn"]
         
         if self.called_command != "service_restart":
             self.functions.print_clear_line()
@@ -257,8 +263,6 @@ class ShellHandler:
             return_value = self.cli.passwd12(self.argv)
         elif self.called_command == "reboot":
             self.cli.cli_reboot(self.argv)
-        elif self.called_command in nodectl_verify_commands:
-            self.cli.cli_digital_signature(self.argv)
         elif self.called_command in node_id_commands:
             command = "dag" if self.called_command == "dag" else "nodeid"
             self.cli.cli_grab_id({
@@ -624,8 +628,13 @@ class ShellHandler:
                     ["  - Issue:",0,"magenta"], ["sudo nodectl upgrade_nodectl",1,"green"],
                     ["  - Restart this upgrade of Tessellation.",1,"magenta"],
                 ])
+                
+                try: 
+                    skip_warning_messages = self.cli.skip_warning_messages
+                except:
+                    skip_warning_messages = False
                     
-                if force or self.cli.skip_warning_messages:
+                if force or skip_warning_messages:
                     self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
@@ -915,7 +924,146 @@ class ShellHandler:
                 "header_elements" : header_elements
             })  
             
-                    
+
+    def digital_signature(self,command_list):
+        self.log.logger.info("Attempting to verify nodectl binary against code signed signature.")
+        self.functions.check_for_help(command_list,"verify_nodectl")
+        self.functions.print_header_title({
+            "line1": "VERIFY NODECTL",
+            "line2": "warning verify keys",
+            "newline": "top",
+        })   
+        
+        version_obj = Versioning({"called_cmd": self.called_command})
+        node_arch = self.functions.get_arch()
+        nodectl_version_github = version_obj.version_obj["nodectl_github_version"]
+        nodectl_version_full = version_obj.version_obj["node_nodectl_version"]
+        
+        outputs, urls = [], []
+        cmds = [  # must be in this order
+            [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
+            [ f'{nodectl_version_github}_{node_arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA256"],
+            [ f"{nodectl_version_github}_{node_arch}.sig","fetching digital signature","none","none"],
+        ]
+                
+        def send_error(extra):
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-3432",
+                "line_code": "verification_failure",
+                "extra": extra,
+            })     
+    
+        progress = {
+            "status": "running",
+            "status_color": "red",
+            "delay": 0.3
+        }
+        for n, cmd in enumerate(cmds): 
+            self.functions.print_cmd_status({
+                **progress,
+                "text_start": cmd[1],
+            })
+            
+            url = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{nodectl_version_github}/admin/{cmd[0]}"
+            urls.append(url)
+            if cmd[2] == "none":
+                url = f"https://github.com/StardustCollective/nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
+                verify_cmd = f"openssl dgst -sha256 -verify /var/tmp/nodectl_public -signature /var/tmp/{cmd[0]} /var/tmp/{cmds[1][0]}"
+
+            wget_cmd = 'sudo wget -H "Cache-Control: no-cache, no-store, must-revalidate" -H "Pragma: no-cache" -H "Expires: 0" '
+            wget_cmd += f'{url} -O /var/tmp/{cmd[0]} -o /dev/null'
+            system(wget_cmd)
+            full_file_path = f"/var/tmp/{cmd[0]}"
+            
+            if cmd[2] == "none":
+                self.functions.print_cmd_status({
+                    "text_start": cmd[1],
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True
+                })  
+            else:
+                text_output = Path(full_file_path).read_text().lstrip()
+                if n != 1: text_output = text_output.replace(" ","")
+                if cmd[3] not in text_output:
+                    send_error(f"invalid {cmd[2]} downloaded or unable to download")
+                outputs.append(text_output.replace("-----BEGINPUBLICKEY-----","").replace("-----ENDPUBLICKEY-----","").replace("\n",""))
+
+                self.functions.print_cmd_status({
+                    "text_start": cmd[1],
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True
+                })   
+        
+        for n, cmd in enumerate(cmds[:-1]):   
+            if cmd[2] == "PUBLIC KEY": 
+                extra1, extra2 = "-----BEGIN PUBLIC KEY-----", "-----END PUBLIC KEY-----" 
+                extra1s, main = 1,1
+            else:
+                extra1, extra2 = "", "" 
+                extra1s, main = 0,-1   
+                            
+            self.functions.print_paragraphs([
+                ["",1],[cmd[2],1,"blue","bold"],
+                ["=","half","blue","bold"],
+                [extra1,extra1s,"yellow"],
+                [outputs[n],main,"yellow"],
+                [extra2,2,"yellow"],
+                ["To further secure that you have the correct binary that was authenticated with a matching",0,"magenta"],
+                [f"{cmd[2]} found in yellow [above].",0,"yellow"],["Please open the following",0,"magenta"],["url",0,"yellow"], 
+                ["in our local browser to compare to the authentic repository via",0,"magenta"], ["https",0,"green","bold"],
+                ["secure hypertext transport protocol.",2,"magenta"],
+                [urls[n],2,"blue","bold"],
+            ])
+
+        self.functions.print_cmd_status({
+            "text_start": "verifying signature match",
+            "newline": True
+        })   
+        
+        self.log.logger.info("copy binary nodectl to nodectl dir for verification via rename")
+        
+        system(f"cp /usr/local/bin/nodectl /var/tmp/nodectl_{node_arch} > /dev/null 2>&1")    
+        result_sig = self.functions.process_command({
+            "bashCommand": verify_cmd,
+            "proc_action": "timeout"
+        })
+        result_nodectl_current_hash = self.functions.process_command({
+            "bashCommand": f"openssl dgst -sha256 -hex nodectl_{node_arch}",
+            "proc_action": "timeout",
+            "working_directory": "/var/tmp/"
+        }).strip("\n")
+        
+        bg, verb, error_line = "on_red","INVALID SIGNATURE - WARNING", ""
+        
+        # handle openssl version incompatibilities
+        output_mod =  outputs[1].split('(', 1)[-1]
+        result_nodectl_current_hash_mod = result_nodectl_current_hash.split('(', 1)[-1]
+        
+        self.log.logger.info("nodectl digital signature verification requested")
+        if "OK" in result_sig and result_nodectl_current_hash_mod == output_mod:
+            self.log.logger.info(f"digital signature verified successfully | {result_sig}")
+            bg, verb = "on_green","SUCCESS - AUTHENTIC NODECTL"
+        else: 
+            error_line = "Review logs for details."
+            self.log.logger.critical(f"digital signature did NOT verified successfully | {result_sig}")
+        self.log.logger.info(f"digital signature - local file hash | {result_nodectl_current_hash}")
+        self.log.logger.info(f"digital signature - remote file hash | {outputs[1]}")
+        
+        self.functions.print_paragraphs([
+            ["",1],["VERIFICATION RESULT",1,"blue","bold"],
+            [f" {verb} ",1,f"blue,{bg}","bold"],
+            [error_line,1,"red"]
+        ])
+                 
+        #clean up
+        self.log.logger.info("cleaning up digital signature check files.")
+        for cmd in cmds[1:]:
+            remove(f'/var/tmp/{cmd[0]}')
+        remove(f'/var/tmp/nodectl_{node_arch}')                    
+    
+    
     def install_upgrade_common(self,command_obj):
         self.functions.print_clear_line()
         self.verify_env_and_versioning(command_obj)
