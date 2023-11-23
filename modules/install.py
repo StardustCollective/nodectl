@@ -193,7 +193,7 @@ class Installer():
             [" IMPORTANT ",2,"white,on_red"], 
             ["nodectl installation will install the new",0,"magenta"], ["Node",0,"blue","bold"], 
             ["with default",0,"magenta"],
-            ["Metagraph Network Variables",2,"blue","bold,underline"],
+            ["Metagraph Network Variables",2,"blue","bold"],
             
             ["Metagraph:",0], [self.config_obj['global_elements']['environment_name'],2,"yellow"],
             

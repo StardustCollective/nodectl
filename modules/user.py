@@ -130,7 +130,12 @@ class UserClass:
 
 
     def test_if_user_exists(self):
-        u_exists = system(f"id {self.username}")
+        try:
+            with open('/etc/passwd', 'r') as passwd_file:
+                u_exists = any(line.startswith(self.username + ':') for line in passwd_file)
+        except FileNotFoundError:
+            u_exists = False       
+        
         self.keep_user = False
         if u_exists:
             self.functions.print_paragraphs([
@@ -451,11 +456,11 @@ class UserClass:
             
         # since we said "yes" to SSH verse password
         self.functions.print_paragraphs([
-            ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen instead of via",0],
-            ["authentication via",0], ["username/password",2,"red"],
+            ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen.",0],
             
-            ["Do you want to [",0],["recommended",0,"green","bold"], 
-            ["] disable username/password based authentication on this Node?",1],
+            ["Do you want [",0],["recommended",0,"green","bold"], 
+            ["] to disable username/password based authentication on this Node at the",0],
+            ["Operating System level to improve security?",1],
         ])
         
         verb = "unchanged"
@@ -485,8 +490,8 @@ class UserClass:
             ["ubuntu",0,"yellow","bold"], ["user or other provider's",0], ["admin",0,"yellow","bold"],
             ["users.",2],
             
-            ["Access should be disabled so that",0,"white","bold"], ["only",0,"white","bold,underline"], ["the",0,"white","bold"],
-            ["Node Administrator",0,"white","bold,underline"], ["has access to this VPS with the",0,"white","bold"], 
+            ["Access should be disabled so that",0,"white","bold"], ["only",0,"white","bold"], ["the",0,"white","bold"],
+            ["Node Administrator",0,"white","bold"], ["has access to this VPS with the",0,"white","bold"], 
             [self.username,0,"yellow","bold"], ["user.",2,"white","bold"],
             
             ["This is recommended.",2,"magenta","bold"],                

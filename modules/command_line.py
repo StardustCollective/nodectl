@@ -63,8 +63,12 @@ class CLI():
 
         self.skip_warning_messages = False
         if not self.auto_restart:
-            if "--skip_warning_messages" in self.command_list or self.config_obj["global_elements"]["developer_mode"]:
-                self.skip_warning_messages = True 
+            try:
+                if "--skip_warning_messages" in self.command_list or self.config_obj["global_elements"]["developer_mode"]:
+                    self.skip_warning_messages = True 
+            except:
+                # install command will not have a config_obj
+                self.skip_warning_messages = False
         
         if not self.skip_services:
             # try:
