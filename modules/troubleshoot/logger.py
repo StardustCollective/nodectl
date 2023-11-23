@@ -20,24 +20,35 @@ class Logging():
                 
     
     def log_setup(self):
-        if len(self.logger.handlers): return
-            
-        if self.level == "NOTSET": self.logger.setLevel(logging.NOTSET)
-        elif self.level == "DEBUG": self.logger.setLevel(logging.DEBUG)
-        elif self.level == "INFO": self.logger.setLevel(logging.INFO)
-        elif self.level == "WARN": self.logger.setLevel(logging.WARN)
-        elif self.level == "ERROR": self.logger.setLevel(logging.ERROR)
-        elif self.level == "CRITICAL": self.logger.setLevel(logging.CRITICAL)
+        try:
+            if len(self.logger.handlers): return
+                
+            if self.level == "NOTSET": self.logger.setLevel(logging.NOTSET)
+            elif self.level == "DEBUG": self.logger.setLevel(logging.DEBUG)
+            elif self.level == "INFO": self.logger.setLevel(logging.INFO)
+            elif self.level == "WARN": self.logger.setLevel(logging.WARN)
+            elif self.level == "ERROR": self.logger.setLevel(logging.ERROR)
+            elif self.level == "CRITICAL": self.logger.setLevel(logging.CRITICAL)
 
-        formatter = logging.Formatter(
-            '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',
-            '%b %d %H:%M:%S')
-        formatter.converter = time.gmtime  # if you want UTC time
+            formatter = logging.Formatter(
+                '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',
+                '%b %d %H:%M:%S')
+            formatter.converter = time.gmtime  # if you want UTC time
 
-        log_handler = RotatingFileHandler(self.full_log_path, maxBytes=2097152, backupCount=3)        
-        log_handler.setFormatter(formatter)
-        self.logger.addHandler(log_handler)
-        self.logger.info(f"Logger module initialized with level [{self.level}]")
+            log_handler = RotatingFileHandler(self.full_log_path, maxBytes=2097152, backupCount=3)        
+            log_handler.setFormatter(formatter)
+            self.logger.addHandler(log_handler)
+            self.logger.info(f"Logger module initialized with level [{self.level}]")
+        except PermissionError as e:
+            try:
+                cprint("Permission Error encountered, are you using sudo?","red")
+            except:
+                print("Permission Error encountered, are you using sudo?")
+        except Exception as e:
+            try:
+                cprint("Unknown Error encountered?","red")
+            except:
+                print("Unknown Error encountered?")
 
 
     def check_for_log_file(self):
