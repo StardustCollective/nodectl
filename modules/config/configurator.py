@@ -63,17 +63,19 @@ class Configurator():
         ]
         self.profile_name_list = [] 
         self.predefined_configuration = {}
-        
+
+        if "-p" in argv_list:
+            self.requested_profile = argv_list[argv_list.index("-p")+1]
+                        
         if "help" in argv_list:
             self.prepare_configuration("edit_config")
             self.c.functions.check_for_help(["help"],"configure")
         elif "-ep" in argv_list:
-            if "-p" in argv_list:
-                self.requested_profile = argv_list[argv_list.index("-p")+1]
             self.action = "edit_profile"
         elif "-e" in argv_list:
             self.action = "edit"
         elif "-n" in argv_list:
+            self.requested_profile = None
             self.action = "new"
         elif "--developer_mode" in argv_list:
             if argv_list[argv_list.index("--developer_mode")+1] == "enable" or argv_list[argv_list.index("--developer_mode")+1] == "disable":
@@ -2209,6 +2211,7 @@ class Configurator():
             
         
     def edit_profile_sections(self,topic="EDIT"):
+
         def print_config_section():
             self.c.functions.print_header_title({
                 "line1": "CONFIGURATOR SECTION",
@@ -2220,8 +2223,12 @@ class Configurator():
             
         print_config_section()
 
-        profile = self.profile_to_edit
-         
+        if self.profile_to_edit == None:
+            if self.requested_profile:
+                profile = self.requested_profile
+            else:
+                profile = self.edit_profiles()
+                         
         section_change_names = [
             ("System Service",4),
             ("Directory Structure",5),
@@ -2250,6 +2257,8 @@ class Configurator():
             secondary_menu = False
             option = 0
             self.called_option = "profile editor"
+            if profile == None:
+                self.edit_profile_sections()
             self.edit_enable_disable_profile(profile,"prepare")
             bright_profile = colored(profile,"magenta",attrs=["bold"])
 

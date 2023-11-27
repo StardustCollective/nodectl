@@ -51,6 +51,7 @@ class Functions():
         
         class TerminateProgramException(Exception): pass
         self.exception = TerminateProgramException()
+        test = 1
         
         
     def set_statics(self):
@@ -888,6 +889,7 @@ class Functions():
         debug = command_obj.get("debug",False)
         quit_option = command_obj.get("quit_option",False)
         quit_with_exception = command_obj.get("quit_with_exception",False)
+        parent = command_obj.get("parent",False)
         
         self.key_pressed = None
         if prompt == None: prompt = ""
@@ -922,7 +924,9 @@ class Functions():
             cprint("  Action cancelled by User","yellow")
             if quit_with_exception:
                 self.cancel_event = True
-                raise self.exception
+                if parent:
+                    parent.clear_and_exit()
+                raise(self.exception)
             exit(0)
             
         try: _ = self.key_pressed.lower()  # avoid NoneType error

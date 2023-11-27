@@ -3008,6 +3008,7 @@ class CLI():
                                     [f"{error_msg[1]}",1],
                                 ])
                             self.functions.print_auto_restart_warning()
+                            print("")
                             exit("  possible error during join")
                         increase_check += 1
                     if state == "WaitingForDownload":

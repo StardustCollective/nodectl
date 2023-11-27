@@ -74,7 +74,10 @@ class Troubleshooter():
                             # only going to search the last lines
                             # because a service start error will be at
                             # the end of the current app file
-                            if message_test["find"] in line["message"] or message_test["find"] in line["stack_trace"]:
+                            if "stack_trace" in line.keys():
+                                if message_test["find"] in line["stack_trace"]:
+                                    return (profile,message_test["user_msg"],message_test["error_msg"])
+                            if message_test["find"] in line["message"]: 
                                 return (profile,message_test["user_msg"],message_test["error_msg"])
 
             except Exception as e:

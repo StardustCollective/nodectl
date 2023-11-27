@@ -21,13 +21,6 @@ class Send():
         self.command_list = command_obj["command_list"]
         self.config_obj = command_obj["config_obj"]
         
-        # versioning = Versioning({
-        #     "config_obj": self.config_obj,
-        #     "seconds": 15*60,
-        #     "called_cmd": "send_obj"
-        # })
-        # self.version_obj = versioning.get_version_obj()
-        
         self.functions = Functions(self.config_obj)
         self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj["ip_address"]
