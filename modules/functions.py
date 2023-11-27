@@ -94,6 +94,7 @@ class Functions():
         
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
+        self.pre_consensus_list = ["DownloadInProgress","WaitingForReady","WaitingForObserving","Observing"]
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
 
@@ -2657,39 +2658,52 @@ class Functions():
                     
     
     def print_spinner(self,command_obj):
-        msg = command_obj.get("msg")
-        color = command_obj.get("color","cyan")
-        newline = command_obj.get("newline",False)
-        clearline = command_obj.get("clearline",True)
-        spinner_type = command_obj.get("spinner_type","spinner")
-        
-        if clearline: self.print_clear_line()
-        
-        if newline == "top" or newline == "both":
-            print("")
-        
-        def spinning_cursor(stype):
-            if stype == "dotted":
-                dots = ["   ",".  ",".. ","..."]
-                while True:
-                    for dot in dots: 
-                        yield dot
-            else:
-                while True:
-                    for cursor in '|/-\\':
-                        yield cursor
+        try:
+            msg = command_obj.get("msg")
+            color = command_obj.get("color","cyan")
+            newline = command_obj.get("newline",False)
+            clearline = command_obj.get("clearline",True)
+            spinner_type = command_obj.get("spinner_type","spinner")
+            timeout = command_obj.get("timeout",False)
+            
+            timer = -1
+            if timeout:
+                timer = perf_counter()
+                
+            if clearline: self.print_clear_line()
+            
+            if newline == "top" or newline == "both":
+                print("")
+            
+            def spinning_cursor(stype):
+                if stype == "dotted":
+                    dots = ["   ",".  ",".. ","..."]
+                    while True:
+                        for dot in dots: 
+                            yield dot
+                else:
+                    while True:
+                        for cursor in '|/-\\':
+                            yield cursor
 
-        spinner = spinning_cursor(spinner_type)
-        while self.event and not self.cancel_event:
-            cursor = next(spinner)
-            print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
-            sleep(0.3)
-            if not self.event:
-                self.print_clear_line()
-                break
+            spinner = spinning_cursor(spinner_type)
+            while self.event and not self.cancel_event:
+                cursor = next(spinner)
+                print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
+                sleep(0.3)
+                if not self.event:
+                    self.print_clear_line()
+                    break
+                
+                current = perf_counter() - timer
+                if timeout and (current - timer > timeout):
+                    exit(0)
 
-        if newline == "bottom" or newline == "both":
-            print("")
+            if newline == "bottom" or newline == "both":
+                print("")
+        except Exception as e:
+            self.log.logger.critical(f"functions -> spinner -> errored with [{e}]")
+            return
             
     
     def print_json_debug(self,obj,exit_on):

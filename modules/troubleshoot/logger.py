@@ -40,16 +40,10 @@ class Logging():
             self.logger.addHandler(log_handler)
             self.logger.info(f"Logger module initialized with level [{self.level}]")
         except PermissionError as e:
-            try:
-                cprint("Permission Error encountered, are you using sudo?","red")
-            except:
-                print("Permission Error encountered, are you using sudo?")
+            # logger -> possible permission issue encountered
             exit(1)
         except Exception as e:
-            try:
-                cprint("Unknown Error encountered?","red")
-            except:
-                print("Unknown Error encountered?")
+            # unrecoverable error
             exit(1)
 
 

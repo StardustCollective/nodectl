@@ -342,6 +342,7 @@ class CLI():
                     consensus_match = self.cli_check_consensus({
                         "profile": self.profile,
                         "caller": "status",
+                        "state": sessions["state1"]
                     })
 
                     def setup_output():
@@ -478,6 +479,8 @@ class CLI():
                         if called_command == "uptime":
                             print_out_list = print_out_list2
                         else:
+                            if self.config_obj[profile]["layer"] > 0:
+                                print_out_list3[0].pop("IN CONSENSUS", None)
                             print_out_list = print_out_list + print_out_list2 + print_out_list3
                             if self.config_obj[profile]["layer"] > 0:
                                 print_out_list.pop(2)
@@ -3234,12 +3237,13 @@ class CLI():
                 }
                 self.functions.print_cmd_status(progress)
                     
-                state = self.functions.test_peer_state({
+                get_state_obj = {
                     "profile": profile,
                     "skip_thread": True,
                     "simple": True,
                     "treaded": threaded,
-                })
+                }
+                state = self.functions.test_peer_state(get_state_obj)
                 
                 self.functions.print_cmd_status({
                     **progress,
@@ -3297,18 +3301,21 @@ class CLI():
                         else: 
                             skip_log_lookup = False
                             break
+                        state = self.functions.test_peer_state(get_state_obj)
+                        if state in self.functions.not_on_network_list: break
+                        
                     if skip_log_lookup:
                         self.functions.print_timer(secs,leave_str,start)
                     else:
                         leave_obj = False
                         sleep(2) # wait 2 seconds
-                        for _ in range(0,3): # 3 minutes
+                        for _ in range(0,3): 
                             leave_obj = self.send.scrap_log({
                                 "profile": profile,
                                 "msg": "Wait for Node to go offline",
                                 "value": "Node state changed to=Offline",
                                 "key": "message",
-                                "timeout": 60,
+                                "timeout": 10,
                                 "timestamp": timestamp,
                             })   
                             if leave_obj: 
@@ -3989,6 +3996,7 @@ class CLI():
         caller = command_obj.get("caller","check_consensus")
         argv_list = command_obj.get("argv_list",[])   
         ip_address = command_obj.get("ip_address",self.ip_address)   
+        state = command_obj.get("state",False)
         
         self.functions.check_for_help(argv_list,"check_consensus")
         
@@ -3997,6 +4005,13 @@ class CLI():
         if "-p" in argv_list:
             profile = argv_list[argv_list.index("-p")+1]
         
+        if not state:
+            state = self.functions.test_peer_state({
+                "profile": profile,
+                "spinner": True,
+                "simple": True,
+            })   
+                     
         consensus = self.functions.get_info_from_edge_point({
             "profile": profile,
             "caller": "status",
@@ -4006,6 +4021,8 @@ class CLI():
         consensus_match = colored("False","red")
         if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
             consensus_match = colored("True","green")    
+        if state in self.functions.pre_consensus_list:
+            consensus_match = colored("Preparing","yellow")
             
         if caller != "check_consensus": 
             return consensus_match

@@ -338,8 +338,8 @@ class Send():
         msg = command_obj["msg"]
         key = command_obj["key"]
         value = command_obj["value"]
-        timeout = command_obj["timeout"]
         timestamp = command_obj.get("timestamp",False)
+        timeout = command_obj.get("timeout",30)
         thread = command_obj.get("thread", True)
         start_time = time()
         go = 0
@@ -355,6 +355,7 @@ class Send():
                         "msg": msg,
                         "color": "cyan",
                         "spinner_type": "dotted",
+                        "timeout": timeout if timeout else False,
                     }) 
                 
                 while go < timeout:

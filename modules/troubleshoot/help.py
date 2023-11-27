@@ -2283,18 +2283,31 @@ def build_help(functions,command_obj):
   less is entered, a {colored('RANGE ERROR','red')} message will show on the CLI output and will 
   automatically be defaulted back to 15 seconds.  
     
-  Status Command will:
-    - show if the node has properly joined 
-      the Constellation Tessellation TestNet
-    - show the current TestNet Tessellation 
-      version running on your system
-    - show latest version of Tessellation
-      detected on the network.
-    - show the current nodectl version
-    - show the current cluster session verses node session
-    - if the sessions do not match, the node is not connected
-      properly.  Even if the Node is in Ready State, this does
-      NOT mean the Node is connected to the network.
+  Status Command Elements:
+    - {colored('profile','cyan')}: Which profile are we reviewing.
+    - {colored('service','cyan')}: The name of the profile's service 
+                                   that is used to run the Node
+              the Constellation Tessellation TestNet.
+    - {colored('join state','cyan')}: The present stage of the Node.
+    - {colored('API TCP','cyan')}: The TCP/IP ports associated with the
+               Public API, Peer-to-Peer API, and Internal only CLI API.
+    - {colored('ordinals','cyan')}: The latest ordinal location on the Node,
+                The last ordinal downloaded to the Node, and the latest
+                ordinal found on the block explorer.
+    - {colored('sessions','cyan')}: Comparison of the Node v Cluster session.
+    - {colored('on network','cyan')}: True or False if the Node is on the correct 
+                 cluster.
+    - {colored('up time','cyan')}: Of the Node, The VPS, and the Cluster.
+    - {colored('nodeid','cyan')}: shortened abbreviation of the Node's public key
+    - {colored('in consensus','cyan')}: True, False or Waiting.  If in {colored('preparing','cyan')},
+                    the Node may be in a stage that is not ready for consensus but
+                    the Node is preparing to join consensus when the proper stage is
+                    reached.
+                  
+  {colored('Note','yellow')}: When the Node starts up or restarts, it will review the latest ordinal
+        download that ordinal and work its way backward to the last known ordinal
+        it ever knew about.  This will cause the {colored('last dled','cyan')} to show
+        as a lower ordinal than the latest on the Node.
     
   States: Initial, ReadyToJoin, StartingSession,SessionStarted,
           ReadyToDownload,WaitingForDownload,DownloadInProgress,
