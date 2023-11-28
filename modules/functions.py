@@ -921,11 +921,13 @@ class Functions():
 
         print("")
         if quit_option and (self.key_pressed.upper() == quit_option.upper()):
+            self.print_clear_line()
             cprint("  Action cancelled by User","yellow")
             if quit_with_exception:
                 self.cancel_event = True
                 if parent:
-                    parent.clear_and_exit()
+                    parent.terminate_program = True
+                    parent.clear_and_exit(False)
                 raise(self.exception)
             exit(0)
             
