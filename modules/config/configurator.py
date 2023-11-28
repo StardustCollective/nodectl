@@ -49,6 +49,7 @@ class Configurator():
         self.skip_clean_profiles_manual = False
         self.dev_enable_disable = False
         self.requested_profile = None
+        self.header_title = None
         
         self.edit_error_msg = ""
         self.detailed = "init"
@@ -66,6 +67,8 @@ class Configurator():
 
         if "-p" in argv_list:
             self.requested_profile = argv_list[argv_list.index("-p")+1]
+        
+        self.confirmed_backup = True if "-cb" in argv_list else False
                         
         if "help" in argv_list:
             self.prepare_configuration("edit_config")
@@ -290,7 +293,7 @@ class Configurator():
         }) 
         
         self.cleanup_old_profiles()
-        self.cleanup_service_files()
+        self.cleanup_service_files(False)
         self.cleanup_create_snapshot_dirs() 
         self.prepare_configuration("edit_config",False)
         self.move_config_backups()
@@ -1600,7 +1603,7 @@ class Configurator():
         description += "resembles a DAG wallet address; however, it is a not a wallet address. "
         description += "You should obtain this identifier from the Metagraph administration.  It should normally be "
         description += "supplied with a pre-defined configuration.  Constellation Network MainNet, TestNet, and IntegrationNet "
-        description += "should have this key pair value set to 'disabled'."
+        description += "should have this key pair value set to 'disable'."
         
         if self.detailed:
             self.c.functions.print_paragraphs([
@@ -2136,16 +2139,27 @@ class Configurator():
                     option = return_option.lower()
             
             if option == "e":
+                print("")
+                self.header_title = {
+                    "line1": "Edit Profiles",
+                    "show_titles": False,
+                    "clear": True,
+                    "newline": "both",
+                }  
+                
                 return_option = None
-                if self.action == "edit_profile": return_option = self.edit_profiles()
-                if return_option == "q": self.quit_configurator()
-                elif return_option != "r": return_option = self.edit_profile_sections()
-                if return_option == "e": 
+                if self.action == "edit_profile": 
+                    return_option = self.edit_profiles()
+                if return_option == "q": 
+                    self.quit_configurator()
+                elif return_option == "e": 
                     self.requested_profile = None
                     self.action = "edit_change_profile"
                     self.edit_profiles() # return option can change again
-                if return_option == "m":
+                elif return_option == "m":
                     self.action = "edit"
+                elif return_option != "r": 
+                    return_option = self.edit_profile_sections()
             elif option == "g": self.edit_append_profile_global("p12")
             elif option == "de": 
                 self.developer_enable_disable()
@@ -2160,14 +2174,6 @@ class Configurator():
 
                 
     def edit_profiles(self):
-        print("")
-        self.header_title = {
-            "line1": "Edit Profiles",
-            "show_titles": False,
-            "clear": True,
-            "newline": "both",
-        }       
-             
         self.c.functions.print_header_title({
             "line1": "Select Available Profiles",
             "single_line": True,
@@ -2223,11 +2229,14 @@ class Configurator():
             
         print_config_section()
 
+        profile = self.profile_to_edit
         if self.profile_to_edit == None:
             if self.requested_profile:
                 profile = self.requested_profile
+                self.profile_to_edit = profile
             else:
                 profile = self.edit_profiles()
+            
                          
         section_change_names = [
             ("System Service",4),
@@ -2739,7 +2748,7 @@ class Configurator():
         self.old_last_cnconfig = deepcopy(self.c.config_obj)
         del self.config_obj[profile]
         self.cleanup_service_file_msg()
-        self.cleanup_service_files(True)
+        self.cleanup_service_files()
         
         for n, end_profile in enumerate(self.metagraph_list):
             if profile == end_profile:
@@ -3051,7 +3060,10 @@ class Configurator():
                 })
                 print(colored("  existing config not found","red"))
                 
-            self.c.functions.print_any_key({})
+            if self.confirmed_backup:
+                sleep(1)
+            else:
+                self.c.functions.print_any_key({})
 
         self.is_file_backedup = True       
 
@@ -3276,9 +3288,9 @@ class Configurator():
         print("")
         
         
-    def cleanup_service_files(self,delete=False):
+    def cleanup_service_files(self,delete=True):
         cleanup, print_abandoned = False, False
-        clean_up_old_list, remove_profiles_from_cleanup = [], []
+        clean_up_old_list = []
         self.log.logger.info("configurator is verifying old service file cleanup.")
         
         self.c.functions.print_header_title({
@@ -3287,13 +3299,13 @@ class Configurator():
             "newline": "both"
         })
         
-        if self.print_old_file_warning("profiles"): return
-        if not self.clean_profiles:
-            verb, color = "not necessary", "green"
-            if self.skip_clean_profiles_manual:
-                verb, color = "declined", "red"
-            cprint(f"  service cleanup {verb}, skipping...",color,attrs=["bold"])
-            return
+        # if self.print_old_file_warning("profiles"): return
+        # if not self.clean_profiles:
+        #     verb, color = "not necessary", "green"
+        #     if self.skip_clean_profiles_manual:
+        #         verb, color = "declined", "red"
+        #     cprint(f"  service cleanup {verb}, skipping...",color,attrs=["bold"])
+        #     return
             
         for old_profile in self.old_last_cnconfig.keys():
             if old_profile not in self.config_obj.keys():
@@ -3301,7 +3313,7 @@ class Configurator():
                     cleanup = True
                     if self.action == "new" or old_profile == self.profile_to_edit:
                         clean_up_old_list.append(old_profile)
-                    self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
+                        self.log.logger.warn(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
         
         clean_up_old_list2 = copy(clean_up_old_list)
 
@@ -3323,14 +3335,15 @@ class Configurator():
                     "color": "red",
                     "newline": True,
                 })
-            
             print_abandoned = False
                     
         if cleanup and len(clean_up_old_list) > 0:
             self.c.functions.print_paragraphs([
-                ["It is recommended to clean up old services files. to:",1,"magenta"],
+                ["",1],
+                ["It is recommended to clean up old services files to:",1,"magenta"],
                 ["  - Avoid conflicts",1],
                 ["  - Avoid undesired Node behavior",1],
+                ["  - Proper organization",1],
                 ["  - Free up disk",2],
             ])
             user_confirm = self.c.functions.confirm_action({
@@ -3463,7 +3476,6 @@ class Configurator():
                 ["",1], ["In order to complete this edit request, the services",0],
                 ["related to Node profile",0,"cyan"], [profile,0,"yellow","bold"],
                 ["must be stopped.",2],
-                
             ])
         else:
             # only ask if advanced (detailed) mode is on

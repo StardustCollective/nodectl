@@ -417,6 +417,7 @@ def build_help(functions,command_obj):
   {colored('-n','green')} | skip directly to a new configuration
   {colored('-e','green')} | skip directly to configuration editor
   {colored('-ep','green')} | skip directly to configuration profile editor
+  {colored('-cb','green')} | confirm backup to avoid having to confirm the backup during setup
   
   In new configuration mode:
   -------------------------
