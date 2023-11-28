@@ -49,6 +49,11 @@ class Troubleshooter():
                             "error_msg": "upgrade_needed",
                         },
                         {
+                            "find":"Address already in use",
+                            "user_msg": "Connection Issue - Server reboot may be required.",
+                            "error_msg": "Unhandled Exception during runtime",
+                        },
+                        {
                             "find":"Unauthorized for request",
                             "user_msg": "Access Permission - Unauthorized",
                             "error_msg": "join_error",
