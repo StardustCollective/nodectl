@@ -26,7 +26,6 @@ class Upgrader():
         self.environment = command_obj.get("environment")
         self.argv_list = command_obj.get("argv_list")
         
-        self.skip_warning = True if "--skip_warning_messages" in self.argv_list else False
         self.non_interactive = self.download_version = self.forced = False
         self.debug = command_obj.get("debug",False)
         
@@ -36,6 +35,7 @@ class Upgrader():
         self.safe_to_upgrade = True
         self.watch = False
         self.show_download_status = False
+        self.nodectl_only = False
         self.final_upgrade_status_list = []
         self.api_ready_list = {}
         self.profile_progress = {}     
@@ -86,10 +86,8 @@ class Upgrader():
 
         self.get_node_id()    
           
-        self.print_section("Handle Node Versioning")
         self.request_version()
         
-        self.print_section("Take Node Offline")
         self.leave_cluster() # async_session_one
         self.stop_service() # async_session_two
 
@@ -98,16 +96,15 @@ class Upgrader():
         self.modify_dynamic_elements()
         self.upgrade_log_archive()  # must be done after modify to accept new config dir
                 
-        self.print_section("Handle Packages")
         self.update_dependencies()      
-
-        self.print_section("Bring Node Back Online")
         self.reload_node_service()
   
-        for profile in self.profile_order:
-            self.start_node_service(profile)
-            self.check_for_api_readytojoin(profile)
-            self.re_join_tessellation(profile)
+        if not self.nodectl_only:
+            self.print_section("Bring Node Back Online")
+            for profile in self.profile_order:
+                self.start_node_service(profile)
+                self.check_for_api_readytojoin(profile)
+                self.re_join_tessellation(profile)
         
         self.complete_process()
     
@@ -275,6 +272,9 @@ class Upgrader():
         
                 
     def request_version(self):
+        if self.nodectl_only: return
+        
+        self.print_section("Handle Node Versioning")
         ml_version_found = False
 
         # all profiles with the ml type should be the same version
@@ -361,7 +361,7 @@ class Upgrader():
                                 [download_version,-1,"cyan","bold"], ["]",-1,"yellow"],["",1],
                             ])
                         else:
-                            if found_tess_version != download_version:
+                            if found_tess_version != download_version and not self.cli.skip_warning_messages:
                                 self.functions.print_paragraphs([
                                     ["This does not seem to be the latest version?",1,"red","bold"]
                                 ])
@@ -412,6 +412,10 @@ class Upgrader():
 
             
     def leave_cluster(self):
+        if self.nodectl_only: return
+        
+        self.print_section("Take Node Offline")
+        
         # < 2.0.0  shutdown legacy
         with ThreadPoolExecutor() as executor:
             for profile_list in self.profile_items:
@@ -433,6 +437,8 @@ class Upgrader():
     
             
     def stop_service(self):
+        if self.nodectl_only: return
+        
         with ThreadPoolExecutor() as executor:
             for profile_list in self.profile_items:
                 for item in profile_list:
@@ -566,54 +572,19 @@ class Upgrader():
         backup = False
         confirm = True if self.non_interactive else False
 
-        # version 2.9.0
-
-        self.log.logger.info(f"upgrader process installing [tree]")
-        with ThreadPoolExecutor() as executor:
-            self.functions.status_dots = True
-            environ['DEBIAN_FRONTEND'] = 'noninteractive'
-            
-            _ = executor.submit(self.functions.print_cmd_status,{
-                "text_start": "Installing dependency",
-                "brackets": "tree",
-                "dotted_animation": True,
-                "status": "installing",
-                "status_color": "yellow",
-            })
-                    
-            bashCommand = f"sudo apt -y install tree"
-            self.functions.process_command({
-                "bashCommand": bashCommand,
-                "proc_action": "timeout",
-            })
-            
-            while True:
-                sleep(2)
-                bashCommand = f"dpkg -s tree"
-                result = self.functions.process_command({
-                    "bashCommand": bashCommand,
-                    "proc_action": "timeout",
-                })
-                if "install ok installed" in str(result):
-                    break   
-
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                "text_start": "Installing dependency",
-                "brackets": "tree",
-                "status": "complete",
-                "newline": True
-            })
-        
         progress = {
             "text_start": "Removing old default seed file",
             "status": "running",
             "status_color": "yellow",
         }
         self.functions.print_cmd_status(progress)
+        
         if path.exists("/var/tessellation/seed-list"):
             remove("/var/tessellation/seed-list")
-            
+        for seed_file in ["dag-l0","dag-l1","intnet-l0","intnet-l1"]:
+            if path.exists(f"/var/tessellation/{seed_file}-seedlist"):
+                remove(f"/var/tessellation/{seed_file}-seedlist")
+                
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -778,6 +749,9 @@ class Upgrader():
                     
             
     def update_dependencies(self):
+        if self.nodectl_only: return
+        
+        self.print_section("Handle Packages")
         self.functions.print_cmd_status({
             "text_start": "Download Tessellation Binaries",
             "status": "running",
@@ -786,8 +760,6 @@ class Upgrader():
             "newline": True
         })
 
-        # profiles = list(self.profile_progress.keys())
-        # download_version = self.profile_progress[profiles[0]]["download_version"]
         self.cli.node_service.download_constellation_binaries({
             "download_version": self.profile_progress,
             "environment": self.environment,
@@ -956,28 +928,48 @@ class Upgrader():
     def complete_process(self):
         self.functions.print_clear_line()
         
-        for profile_list in self.profile_items:
-            for item in profile_list:
-                if not self.get_update_core_statuses("get","complete_status",item["profile"]):
-                    self.get_update_core_statuses("update","complete_status",item["profile"],True)   
-                    self.cli.set_profile(item["profile"])
-                    state = self.functions.test_peer_state({
-                        "profile": item["profile"],
-                        "simple": True
-                    })
-                    states = ["Ready","Observing","WaitingForObserving","WaitingForReady","DownloadInProgress"]
-                    if state not in states:
-                        self.log.logger.warn("There may have been a timeout with the join state during installation")
-                        self.functions.print_paragraphs([
-                            ["An issue may have been found during this upgrade",1,"red","bold"],
-                            ["Profile:",0,"magenta"],[item['profile'],1,"yellow","bold"],
-                            ["sudo nodectl status",0], ["- to verify status.",1,"magenta"],
-                            ["sudo nodectl -cc -p <profile_name>",0], ["- to verify connections.",1,"magenta"]
-                        ])
-                    else:
-                        self.functions.print_paragraphs([ 
-                            [item["profile"],0,"yellow","bold"], ["upgrade process completed!",1,"green","bold"],
-                        ])
+        if self.nodectl_only:
+            print("")
+            self.cli.show_system_status({
+                "rebuild": False,
+                "wait": False,
+                "print_title": False,
+                "-p": "empty",
+                "called": "_qs",
+            })
+            self.functions.print_paragraphs([ 
+                ["nodectl only",0,"yellow","bold"], ["upgrade process completed!",1,"green","bold"],
+            ])            
+        else:
+            for profile_list in self.profile_items:
+                for item in profile_list:
+                    if not self.get_update_core_statuses("get","complete_status",item["profile"]):
+                        self.get_update_core_statuses("update","complete_status",item["profile"],True)   
+                        self.cli.set_profile(item["profile"])
+                        state = self.functions.test_peer_state({
+                            "profile": item["profile"],
+                            "simple": True
+                        })
+                        states = ["Ready","Observing","WaitingForObserving","WaitingForReady","DownloadInProgress"]
+                        if state not in states:
+                            self.log.logger.warn("There may have been a timeout with the join state during installation")
+                            self.functions.print_paragraphs([
+                                ["An issue may have been found during this upgrade",1,"red","bold"],
+                                ["Profile:",0,"magenta"],[item['profile'],1,"yellow","bold"],
+                                ["sudo nodectl status",0], ["- to verify status.",1,"magenta"],
+                                ["sudo nodectl -cc -p <profile_name>",0], ["- to verify connections.",1,"magenta"]
+                            ])
+                        else:    
+                            self.functions.print_paragraphs([ 
+                                [item["profile"],0,"yellow","bold"], ["upgrade process completed!",1,"green","bold"],
+                            ])
+        
+        self.log.logger.info("upgrade -> force update of versioning object after upgrade.")
+        from .shell_handler import ShellHandler
+        shell = ShellHandler(self.config_obj,False)
+        shell.argv = []
+        shell.called_command = "upgrade"
+        shell.handle_versioning()
         
         self.log.logger.info("Upgrade completed!")
         cprint("  Upgrade has completed\n","green",attrs=["bold"])
@@ -1017,6 +1009,8 @@ class Upgrader():
             self.watch = True
         if "--dip" in self.argv_list:
             self.show_download_status = True
+        if "--nodectl_only" in self.argv_list:
+            self.nodectl_only = True
         if "-v" in self.argv_list:
             if self.argv_list.count("-v") > 1:
                 extra = "all -v <version> must be preceded by accompanying -p <profile>"

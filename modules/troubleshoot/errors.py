@@ -50,7 +50,12 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["Possible Upgrade Required!",1,"red","bold"],
                 ["Necessary configuration files or directories are missing.",2,"red","bold"],
+                ["This may be a result of an incompatible configuration file related to this nodectl version.",1,"red","bold"],
+                
+                ["Verify that you are running a valid version of nodectl and that your nodectl is properly upgraded.",2],
             ])
+            
+            
             if var.extra:
                 self.functions.print_paragraphs([
                     [f"{var.extra}",2,"yellow","bold"],
@@ -68,12 +73,32 @@ class Error_codes():
         elif "upgrade_path_needed" in str(var.line_code):
             self.log.logger.error(f"missing components to the VPS running nodectl. The necessary upgrade path may not have been followed? This may not be a valid configuration? | error code: [{var.line_code}]")
             self.functions.print_paragraphs([
-                ["Possible Upgrade Required!",0,"red"], ["This must be done by following the necessary upgrade path",1,"red","bold"],
+                
+                ["This version of nodectl has detected that you may be attempting to upgrade from an older incompatible version of nodectl.",0,"red","bold"],
+                ["It is not possible to directly upgraded to this version.",2,"red","bold"],
+                
+                ["The upgrade must be done by following the necessary upgrade path.",1,"red","bold"],
                 ["Necessary configuration components may be missing.",2,"red"],
+                
                 ["Please issue the following command to attempt to rectify the issue:",1,"magenta"],
-                ["sudo nodectl upgrade_path",2,"cyan","bold"],
-                ["Once the necessary path is found, please use the",0,"yellow"], ["wget",0,"cyan","bold"], ["followed by an",0,"yellow"],
-                ["sudo nodectl upgrade",0,"cyan","bold"], ["to follow the necessary version path upgrades.",2],
+                ["sudo nodectl upgrade_path",2,"yellow","bold"],
+                
+                ["Once the necessary path is found, please use:",1,"magenta"],
+                ["sudo nodectl upgrade_nodectl -v <version_number>",2,"yellow"],
+                 
+                ["Once you obtain the next version in the upgrade path, issue:",1,"magenta"],
+                ["sudo nodectl upgrade",2,"yellow"],
+                
+                ["Repeat the process until you reach the desired version of nodectl.",2],
+                
+                [" NOTE ",0,"blue,on_yellow"], ["You may also upgrade directory to this version by perform an fresh install on a new VPS or server.",0],
+                ["During the installation, utilize the p12 migration feature, that can be done by following the prompts.",0],
+                ["If you take this route, please make sure you have covered the following check list before commencing the new installation.",2,"red","bold"],
+                
+                ["Check List",1,"cyan","bold,underline"],
+                ["- Verify a validated backup of your p12 file is safely created.",1],
+                ["- Obtain your p12 private key store passphrase",1],
+                ["- Obtain your p12 private key store alias",2],
             ])            
 
 
@@ -256,6 +281,17 @@ class Error_codes():
                 ["Please be diligent and review your Node's security, and other settings!",2,"magenta","bold"],
                 ["Try issuing command:",1,"yellow"],
                 ["sudo nodectl sec",2],
+            ])  
+            if var.extra:
+                self.functions.print_paragraphs([
+                    ["Error Code:",0], [var.extra,2,"yellow"],
+                ])                            
+            
+        elif var.line_code == "invalid_passphrase_pass":
+            self.log.logger.critical("password validation check failed.")
+            self.functions.print_paragraphs([
+                ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
+                ["was detected?",0,"red"],
             ])            
             
         elif var.line_code == "invalid_passphrase_pass":
@@ -272,6 +308,15 @@ class Error_codes():
                 ["Invalid",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["address may have been entered.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered",2,"red","bold"],
                 ["Address Entered:",0,"yellow","bold"],[var.extra2,2],
+            ])            
+            
+            
+        elif var.line_code == "invalid_user":
+            self.log.logger.critical(f"user not found for process [{var.extra}] username [{var.extra2}]")
+            self.functions.print_paragraphs([
+                ["Invalid User",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["user not found on this VPS or server.",2,"red","bold"],
+                ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the user is valid.",2,"red","bold"],
+                ["Username:",0,"yellow","bold"],[var.extra2,2],
             ])            
             
             
@@ -332,7 +377,14 @@ class Error_codes():
                 self.functions.print_paragraphs([                
                     ["Hint:",0,"yellow","bold"],
                     ["This node may not be online at the moment.",2],
-                ])                  
+                ])   
+                
+            if var.extra2 == "nodeid2dag":
+                self.functions.print_paragraphs([
+                    ["This command requires that a valid",0,"red"], ["nodeid",0,"blue","bold"],
+                    ["be entered, even if it is the local nodeid on this Node.",1,"red"],
+                    ["command:",0], ["sudo nodectl nodeid -p <profile>",2,"white"],
+                ])               
             else:         
                 self.functions.print_paragraphs([                
                     ["Hints:",1,"yellow","bold"],
@@ -383,16 +435,25 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["System has attempted to access a file to perform a search that returned an empty value.",0,"red"],
                 ["or",0,"yellow","bold"], ["the search request was unable to properly find the item or log entry requested.",1,"red"],
-                ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
+                ["Operation cancelled to avoid unexpected errors | Please try again later.",1,"magenta"],
             ]) 
-                        
+            if var.extra:
+                self.functions.print_paragraphs([
+                    ["hint: ",0], [var.extra,2,"yellow"]
+                ])   
+                
+                                     
         elif var.line_code == "file_not_found":
             self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program.")
             self.functions.print_paragraphs([
                 ["System has attempted to access a file that does not exist.",2,"red","bold"],
                 [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
-            ])            
+            ])     
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    [" Hint: ",0,"blue","bold"], [var.extra2,2,"yellow"],
+                ])                         
                         
             
         elif var.line_code == "dependency":
@@ -439,9 +500,10 @@ class Error_codes():
             
             
         elif var.line_code == "open_file":
-            self.log.logger.critical(f"unable to read [{var.extra}]")
+            file_word = "p12 file" if var.extra2 == "p12" else "p12 file"
+            self.log.logger.critical(f"unable to read {file_word} [{var.extra}]")
             self.functions.print_paragraphs([
-                ["Something went wrong attempting to read or open a necessary file.",2,"red","bold"],
+                [f"Something went wrong attempting to read or open a necessary {file_word}.",2,"red","bold"],
                 ["file:",0,"white","bold"], [var.extra,2,"yellow"],
             ])            
 
@@ -455,7 +517,11 @@ class Error_codes():
             elif var.extra == "cn-node": 
                 self.functions.print_paragraphs([  
                     ["Are you sure you have a valid cn-node configuration file on your system?",2,"red","bold"]
-                ])                   
+                ])  
+            elif var.extra2 == "p12":
+                self.functions.print_paragraphs([
+                    ["A valid p12 file was not found.",2,"red","bold"],
+                ])                 
             self.functions.print_paragraphs([
                 ["Please review your",0], ["cn-config.yaml",0,"yellow","bold"], ["file, before continuing.",2]
             ]) 
@@ -489,6 +555,14 @@ class Error_codes():
                     ["The configuration file may have been corrupted due to an interruption during configuration by nodectl.",2,"magenta"],
                     ["Alternatively, it is advised to attempt to correct issues via nodectl's configure option or use nodectl to build a new configuration.",1,"magenta"],
                     ["Use command:",0,"yellow"], ["sudo nodectl configure",2],
+                ])
+            if var.extra == "configurator":
+                self.log.logger.error(f"configurator error found [{extra2}]")
+                self.functions.print_paragraphs([
+                    ["During an attempt to clean up old directory structure elements",1,"red"],
+                    ["an unrecoverable issue was encountered by nodectl.",2,"red"],
+                    ["It is suggested that you join the appropriate Discord channel and",0,"magenta"],
+                    ["and contact a Constellation Administrator.",2,"magenta"],
                 ])
            
         self.print_error()

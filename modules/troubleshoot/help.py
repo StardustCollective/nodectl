@@ -79,22 +79,9 @@ def build_help(functions,command_obj):
                          and whether they match
                             
     status  | - show the state of the Node's service
-              - show if the node has properly joined 
-                the Constellation Tessellation TestNet
-              - show the current TestNet Tessellation 
-                version running on your system
-              - show latest version of Tessellation
-                detected on the network.
-              - show the current nodectl version
-              - show the current cluster session verses node session
-              - if the sessions do not match, the node is not connected
-                properly.  Even if the Node is in Ready State, this does
-                NOT mean the Node is connected to the network.
-                
-              States: Initial, ReadyToJoin, StartingSession,SessionStarted,
-                      ReadyToDownload,WaitingForDownload,DownloadInProgress,
-                      Observing,WaitingForReady,Ready,Leaving,Offline,ApiNotReady
-                      
+    quick_status | - show an abbreviated version of the status command
+                     that looks at the local API only
+                                       
     -p | - required parameter for several commands
            issue the -p with the name of the profile
            following the -p flag
@@ -189,6 +176,10 @@ def build_help(functions,command_obj):
                              
     check_seedlist_participation | - show access-list verse network comparison
                                      (pre-PRO score temporary feature)
+    
+    check_consensus -p <profile> | - check if Node is participating in consensus on layer0
+    
+    check_minority_fork -p <profile> | - check if Node is in a minority fork
       
     download_status  -p <profile> | - show a progress indicator following the 
                                       progress of your DownloadInProgress None State
@@ -197,6 +188,8 @@ def build_help(functions,command_obj):
     
     show_service_log -p <profile> | - show the distribution service logs 
                                        associated with profile 
+    
+    show_p12_details | - show details of a p12 file.
                                 
     show_dip_error -p <profile>  | - show any occurances of a DownloadInProgress error
                                      located in the logs.
@@ -233,7 +226,10 @@ def build_help(functions,command_obj):
                                             
                                             see extended help for configurable auto_restart
                                             details... sudo nodectl auto_restart help
-    verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity                                        
+                                            
+    verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity    
+    
+    create_p12 |  Create a single independent p12 file.                                    
                      
     health  | - show basic health elements of your Node
               - show the current 15 minute CPU load and 
@@ -421,6 +417,7 @@ def build_help(functions,command_obj):
   {colored('-n','green')} | skip directly to a new configuration
   {colored('-e','green')} | skip directly to configuration editor
   {colored('-ep','green')} | skip directly to configuration profile editor
+  {colored('-cb','green')} | confirm backup to avoid having to confirm the backup during setup
   
   In new configuration mode:
   -------------------------
@@ -500,6 +497,105 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl send_logs -p <profile_name>','cyan')}  
      or
   # {colored('sudo nodectl -sl -p <profile_name>','cyan')}  
+      '''
+  
+    if extended == "check_consensus":
+
+      help_text += title("Check Consensus")
+      help_text += f'''
+  This command is a simple check against the edge
+  point in order to verify that the Node is 
+  participating in consensus for the profile
+  specified.
+  
+  required:
+  {colored('-p <profile_name>','green')}
+  
+  optional:
+  {colored('-s <ip_address>','green')}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl check_consensus help','cyan')}
+     or
+  # {colored('sudo nodectl -con help','cyan')}
+  
+  execute consensus check
+  # {colored('sudo nodectl check_consensus -p <profile_name>','cyan')}  
+     or
+  # {colored('sudo nodectl -con -p <profile_name>','cyan')}  
+  
+  execute consensus check against Node with 
+  profile name dag-l0 and IP address 10.10.10.10.
+  # {colored('sudo nodectl check_consensus -p dag-l0 -s 10.10.10.10','cyan')}  
+     or
+  # {colored('sudo nodectl -con -p dag-l0 -s 10.10.10.10','cyan')}  
+      '''
+  
+    if extended == "cli_create_p12":
+
+      help_text += title("Create a P12 File")
+      help_text += f'''
+  This command will create a p12 file and place
+  it on the system in a location of the Operator's
+  choosing.
+  
+  If a location is not supplied, the global p12
+  configured location will be used by default.
+  
+  If a username is not supplied, the global p12
+  username will be used by default
+  
+  optional:
+  {colored('--file <p12_file_name>','green')}
+  
+  optional:
+  {colored('--location <full_path_to_file>','green')}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl create_p12 help','cyan')}
+  
+  build a new p12 file using the global configured
+  Node admin username:
+  # {colored('sudo nodectl create_p12','cyan')}  
+
+  build a new p12 file using a user named test.p12 and
+  the file location /tmp/my_new_p12_files.
+  # {colored('sudo nodectl create_p12 --file test.p12 --location /tmp/my_new_p12_files/','cyan')}  
+      '''
+      
+    if extended == "check_minority_fork":
+
+      help_text += title("Check Minority Fork")
+      help_text += f'''
+  This command is a simple check if the Node
+  is no longer on the majority cluster and
+  properly participating.
+  
+  required:
+  {colored('-p <profile_name>','green')}
+  OR required:
+  {colored('-e <environment_name>','green')}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl check_minority_fork help','cyan')}
+     or
+  # {colored('sudo nodectl -con help','cyan')}
+  
+  execute minority fork check using profile
+  # {colored('sudo nodectl check_minority_fork -p <profile_name>','cyan')}  
+     or
+  # {colored('sudo nodectl -cmf -p <profile_name>','cyan')}  
+  
+  execute minority fork check using environment
+  # {colored('sudo nodectl check_minority_fork -e mainnet','cyan')}  
+     or
+  # {colored('sudo nodectl -cmf -e mainnet','cyan')}  
       '''
   
     if extended == "download_status":
@@ -1245,13 +1341,19 @@ def build_help(functions,command_obj):
   The {colored('upgrade_nodectl','cyan')} command will launch the process requirements
   to upgrade the nodectl binary on your Node.
   
+  optional:
+  {colored('-v <version>','green')}
+  
   usage
   -------------
   show this help screen
   # {colored('sudo nodectl upgrade_nodectl help','cyan')}
   
-  execute an upgrade of nodectl on mainnet
+  execute an upgrade of nodectl
   # {colored('sudo nodectl upgrade_nodectl','cyan')}
+  
+  execute an upgrade of nodectl to version "v2.12.0"
+  # {colored('sudo nodectl upgrade_nodectl -v v2.12.0','cyan')}
       
   '''      
         
@@ -1383,8 +1485,7 @@ def build_help(functions,command_obj):
      - 160Gb HD
      - Internet Access
   '''      
-        
-        
+          
     if extended == "upgrade":
         help_text += title(extended)
         help_text += f'''
@@ -1392,12 +1493,16 @@ def build_help(functions,command_obj):
   to {colored('upgrade','green',attrs=['bold'])} the local Constellation Node!
   
   optional:
-  {colored('--ni','green')} - {colored('non-interactive','cyan')}
+  {colored('--nodectl_only','green')}
+        If added, nodectl will only upgrade the necessary components that nodectl
+        may require to function properly.  It will avoid the need of installing and
+        restarting the Node's Tessellation services. 
+  {colored('--ni','green')} - ({colored('non-interactive','cyan')})
         If the {colored('--ni','cyan')} option is given at the command entry point, the upgrade 
         will not ask for interaction and will choose all default values 
         including:
           - picking the latest found {colored('version','yellow')} (unless {colored('-v','cyan')} is specified as well)
-          - choosing {colored('yes','yellow')} to clearing the snapshots and logs with the default
+          - choosing {colored('yes','yellow')} to clearing the backups, uploads and logs with the default
             values of 7 days (logs) and 30 days (snapshots)
           - {colored('Note:','yellow',attrs=['bold'])} You will still be prompted for a valid passphrase
             unless the {colored('--pass','green')} option is passed as well.
@@ -2092,6 +2197,146 @@ def build_help(functions,command_obj):
   {extended} the cluster on a configured profile_name
   # {colored(f'sudo nodectl {extended} -p <profile_name>','cyan')}  
         ''' 
+        
+        
+    if extended == "show_p12_details":
+        help_text += title("Show P12 Details")
+        help_text += f'''
+  This command will extract the non-priviledged details out 
+  of your p12 file.
+  
+  If provided with a {colored('-p','cyan')} option, the p12 configured on the
+  Node via that profile, will be evaluated.
+  
+  If provided with a {colored('--file','cyan')} option the p12
+  file supplied will be evaluated.
+  
+  P12 Name:  The name of the file being evaluated
+  P12 Location: Locati on of the p12 file
+  SHA1 FingerPrint:   Hash (or checksum), a fixed-size cryptographic hash function that produces a 
+                      160-bit (20-byte) hash value. It is commonly used in various security 
+                      applications and protocols to verify the integrity of data, including 
+                      digital certificates.
+  SHA256 FingerPrint: Hash (or checksum), produces a 256-bit (32-byte) hash value. Like other 
+                      cryptographic hash functions, SHA-256 takes an input (or message) and 
+                      produces a fixed-size string of characters, making it suitable for 
+                      verifying the integrity of data.
+  Creation Date:  When was the certificate created.
+  Version:        The version number of the certificate.
+  Keys Found:     How many keys does this p12 key store file hold.
+  Signature Algo: Method or algorithm used to generate a digital signature and 
+                  verify its authenticity.
+  Public Algo:    Public algorithm that is a type of cryptographic algorithm that 
+                  uses two mathematically distinct keys.
+    - The public key is shared openly, and it's used for encryption or verification. 
+    - The private key is kept secret and is used for decryption or signing.
+  Entry Type:     Refers to the different types of cryptographic objects or entities 
+                  that can be stored within the file.
+    - PrivateKeyEntry: Private key and its associated X.509 certificate chain.
+    - Certificate-only Entry: Contains only the X.509 certificate or certificates 
+                              without the private key.
+    - Secret Key Entry: Include entries for symmetric (secret) keys.
+    
+  Owner/Issuer: The known owner of the private key that signed this certificate. 
+  Owner/Issuer: Common Name: primary identifier associated with the 
+                             certificate holder, which could be 
+                             an individual, organization, server, or 
+                             other entity.
+    
+  required:
+  {colored('-p <profile_name>','green')}  
+  alternate required:
+  {colored('--file <path_to_file>','green')}  
+  
+  short_cut:
+  {colored("-spd","green")}
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')} 
+  or 
+  # {colored(f'sudo nodectl -spd help','cyan')}  
+  
+  show p12 for a configured profile_name
+  # {colored(f'sudo nodectl {extended} -p <profile_name>','cyan')}  
+  
+  show p12 for a stand alone p12 file located in /tmp and called test.p12
+  # {colored(f'sudo nodectl {extended} --file /tmp/test.p12','cyan')}  
+        ''' 
+        
+        
+    if extended == "status" or extended == "quick_status":
+        help_text += title("status")
+        help_text += f'''
+  The command takes a few options.
+  
+  required:
+  {colored('-p <profile_name> | all','green')}  
+  
+  optional:
+  {colored('-w <seconds>','green')} 
+  
+  The {colored('-w','cyan')} will engage the {colored('watch','cyan')} option. The watch option will continuously watch
+  your Node's profile status for the default of 15 seconds. If the watch option is 
+  followed by an integer above 5 seconds, the watch feature will refresh the 
+  status for the Node Operator entered amount of seconds. If a number of 5 or 
+  less is entered, a {colored('RANGE ERROR','red')} message will show on the CLI output and will 
+  automatically be defaulted back to 15 seconds.  
+    
+  Status Command Elements:
+    - {colored('profile','cyan')}: Which profile are we reviewing.
+    - {colored('service','cyan')}: The name of the profile's service that is used to run the Node.
+    - {colored('join state','cyan')}: The present stage of the Node.
+    - {colored('API TCP','cyan')}: The TCP/IP ports associated with the:
+               - Public API
+               - Peer-to-Peer API
+               - Internal only CLI API.
+    - {colored('ordinals','cyan')}: State of ordinals associated with the Node.
+                - The latest ordinal on the Node.
+                - The last ordinal downloaded to the Node.
+                - The latest ordinal found on the block explorer.
+    - {colored('sessions','cyan')}: Comparison of the Node v. Cluster session.
+    - {colored('on network','cyan')}: True or False if the Node is on the correct cluster.
+    - {colored('up time','cyan')}: Amount of time the Node, VPS, and Cluster has been consecutively
+               up and running.
+    - {colored('nodeid','cyan')}: shortened abbreviation of the Node's public key.
+    - {colored('in consensus','cyan')}: True, False or Preparing. If in {colored('preparing','cyan')}, the Node may 
+                    be in a stage that is not ready for consensus but is properly moving towards a 
+                    stage that allow it to join consensus when reached.
+                  
+  {colored('Note','yellow')}: When the Node starts up or restarts, it will review the latest ordinal,
+        download that ordinal and then work its way backward to the last known ordinal
+        it ever knew about.  This can cause the {colored('last dled','cyan')} to show
+        as a lower ordinal than the latest on the Node.
+    
+  {colored('States','yellow')}: Initial,Offline,ReadyToJoin,StartingSession,SessionStarted,
+          ReadyToDownload,WaitingForDownload,DownloadInProgress,
+          Observing,WaitingForReady,Ready,Leaving,Offline,ApiNotReady
+  
+  {colored('Quick Status','green')}:
+  This command will show an abbreviated version of the status command that
+  reviews the status of your Node based on the local API on the Node.
+  Local API calls can produce false information if the Node is
+  forked.  This produces a quick response because it does not
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}  
+  
+  show {extended} on the cluster for all profiles
+  # {colored(f'sudo nodectl {extended}','cyan')}  
+  
+  show {extended} on the cluster for a configured profile_name
+  # {colored(f'sudo nodectl {extended} -p <profile_name>','cyan')}  
+  
+  show {extended} and watch for the default 15 seconds
+  # {colored(f'sudo nodectl {extended} -p <profile_name> -w','cyan')}  
+  
+  show {extended} and watch for the 30 seconds
+  # {colored(f'sudo nodectl {extended} -p <profile_name> -w 30','cyan')}  
+        ''' 
     
         
     if extended == "change_ssh_port":
@@ -2128,6 +2373,48 @@ def build_help(functions,command_obj):
   ({colored("It is not recommended to use the same port as this example on your Node","yellow")})
   change the port from 22 to 33333
   # {colored(f'sudo nodectl change_ssh_port --port 33333','cyan')}  
+  ''' 
+    
+        
+    if extended == "update_version_object":
+        help_text += title("Update Versioning Object")
+        help_text += f'''
+  This command can be used to manually update the Node's version
+  object.  This functionality is completed automatically by the 
+  nodectl's versioning service every 5 minutes.
+  
+  To ensure that you have the latest version details you can 
+  utilize this command to update the object immediately.
+  
+  When executed, if the versioning object is deemed not in need
+  of an update, it will not update the object unless the {colored("-f","cyan")}
+  option is used to force an update.
+
+  optional:
+  {colored('-f','green')} force
+  {colored('-v','green')} verify
+  {colored('--print','green')} print the contents of the object
+    
+  The {colored("-v","cyan")} optional option can be used to verify that the
+  contents of the versioning object is valid and contains the proper key
+  pair values.
+    
+  The {colored("--print","cyan")} optional option can be used to print out
+  the contents of the versioning object.
+    
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl update_version_object help','cyan')}  
+  
+  force an update to the versioning object.
+  # {colored(f'sudo nodectl update_version_object -f','cyan')}  
+  
+  verify the versioning object.
+  # {colored(f'sudo nodectl update_version_object -v','cyan')}  
+  
+  print the versioning object.
+  # {colored(f'sudo nodectl update_version_object --print','cyan')}  
   ''' 
         
         

@@ -60,8 +60,15 @@ class CLI():
 
         if self.profile_names != None:
             self.profile_names = self.functions.clear_global_profiles(self.profile_names)
-            
-        self.skip_warning_messages = True if "--skip_warning_messages" in self.command_list else False
+
+        self.skip_warning_messages = False
+        if not self.auto_restart:
+            try:
+                if "--skip_warning_messages" in self.command_list or self.config_obj["global_elements"]["developer_mode"]:
+                    self.skip_warning_messages = True 
+            except:
+                # install command will not have a config_obj
+                self.skip_warning_messages = False
         
         if not self.skip_services:
             # try:
@@ -130,6 +137,11 @@ class CLI():
         self.set_profile_api_ports() 
         
 
+    def raise_exception(self):
+        self.functions.set_exception()
+        raise self.functions.exception
+    
+    
     # ==========================================
     # show commands
     # ==========================================
@@ -145,8 +157,10 @@ class CLI():
         all_profile_request = False
         called_profile = self.profile
         called_command = command_obj.get("called","default")
-        if called_command == "uptime": print_title = False
         
+        if called_command == "uptime": print_title = False
+        if called_command == "_s": called_command = "status"
+        if called_command == "_qs": called_command = "quick_status"
         self.functions.check_for_help(command_list,called_command)
         
         profile_list = self.profile_names
@@ -184,8 +198,10 @@ class CLI():
                 watch_seconds = command_list[command_list.index("-w")+1]
                 watch_seconds = int(watch_seconds)
             except: 
-                self.log.logger.error("invalid value for [-w] option, needs to be an integer. Using default of [6].")
-                range_error = True
+                if watch_seconds != "--skip_warning_messages" and watch_seconds != "-p": 
+                    # watch requested with valid next option, skipping error message and using default
+                    self.log.logger.error("invalid value for [-w] option, needs to be an integer. Using default of [6].")
+                    range_error = True
                 watch_seconds = 15
             watch_enabled = True
             if watch_seconds < 6:
@@ -194,13 +210,21 @@ class CLI():
                 
         with ThreadPoolExecutor() as executor:
             if watch_enabled:
-                quit_loop = executor.submit(self.functions.get_user_keypress,{
-                    "prompt": None,
-                    "prompt_color": "magenta",
-                    "options": ["Q"],
-                    "quit_option": "Q",
-                })
-        
+                try:
+                    executor.submit(self.functions.get_user_keypress,{
+                        "prompt": None,
+                        "prompt_color": "magenta",
+                        "options": ["Q"],
+                        "quit_option": "Q",
+                        "quit_with_exception": True,
+                    })
+                except self.functions.exception:
+                    self.functions.cancel_event = True
+                    self.functions.print_paragraphs([
+                        ["Action cancelled by user",1,"green"]
+                    ])
+                    exit(0)
+                            
             def convert_time_node_id(elements):
                 try:
                     restart_time = self.functions.get_date_time({
@@ -221,34 +245,43 @@ class CLI():
                     uptime = "n/a"
                 
                 try:
-                    node_id = f"{elements[1][:9]}...{elements[1][-9:]}"
+                    node_id = f"{elements[1][:8]}...{elements[1][-8:]}"
                 except:
                     node_id = "unknown"
                 
                 return restart_time, uptime, node_id
                         
             while True:
+                if self.functions.cancel_event: exit(0)
                 if watch_enabled:
                     watch_passes += 1
                     system("clear")
                     self.functions.print_paragraphs([
                         ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
-                        ["Once",0], ["'q'",0,"yellow"], 
-                        ["is pressed and the last timer is completed, the program will exit.",1],
-                        ["Do not use",0],["Ctrl-c",2,"yellow"],
+                        ["Do not use",0],["ctrl",0,"yellow"],["and",0],["c",2,"yellow"],
                     ])
                     if range_error:
                         self.functions.print_paragraphs([
                             [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
                         ]) 
-                    if quit_loop._state == "FINISHED":
-                        system("clear")
-                        exit(0)
                 
-                ordinal_dict["backend"] = str(self.functions.get_snapshot({
-                    "history": 1, 
-                    "environment": self.config_obj[called_profile]["environment"],
-                })[1])
+                try:
+                    ordinal_dict["backend"] = str(self.functions.get_snapshot({
+                        "history": 1, 
+                        "environment": self.config_obj[called_profile]["environment"],
+                    })[1])
+                except Exception as e:
+                    if isinstance(ordinal_dict,dict):
+                        ordinal_dict = {
+                            **ordinal_dict,
+                            "backend": "n/a"
+                        }
+                    else:
+                        self.error_messages.error_code({
+                            "error_code": "cmd-261",
+                            "line_code": "api_error",
+                            "extra2": e,
+                        })
                 
                 for n,profile in enumerate(profile_list):
                     self.log.logger.info(f"show system status requested | {profile}")      
@@ -268,7 +301,7 @@ class CLI():
                     if called_command == "quick_status" or called_command == "_qs":
                         if n == 0:
                             self.functions.print_paragraphs([
-                                ["Node Status Quick Results",1,"green","bold"],
+                                [" Node Status Quick Results ",2,"cyan,on_green","bold"],
                             ])                    
                         quick_results = quick_status_pull(self.functions.config_obj[called_profile]["public_port"])
                         restart_time, uptime, node_id = convert_time_node_id(quick_results)
@@ -309,6 +342,12 @@ class CLI():
                         "spinner": spinner,
                         "profile": called_profile, 
                         "key": "clusterSession"
+                    })
+
+                    consensus_match = self.cli_check_consensus({
+                        "profile": self.profile,
+                        "caller": "status",
+                        "state": sessions["state1"]
                     })
 
                     def setup_output():
@@ -391,6 +430,7 @@ class CLI():
                                 ["  Latest Ordinal:",0,"magenta"], [" Node consensus ordinal",1],
                                 ["  Last DLed:",0,"magenta"], ["      Last found ordinal downloaded by Node",1],
                                 ["  Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
+                                ["  Consensus:",0,"magenta"], ["Is this Node participating in consensus rounds",1],
                                 ["  Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
                                 ["  Uptime:",0,"magenta"], ["About of time Node or Cluster has been online",2],
                             ])
@@ -437,12 +477,15 @@ class CLI():
                         print_out_list3 = [
                             {
                                 "NODE ID": node_id,
+                                "IN CONSENSUS": consensus_match,
                             }
                         ]
                         
                         if called_command == "uptime":
                             print_out_list = print_out_list2
                         else:
+                            if self.config_obj[profile]["layer"] > 0:
+                                print_out_list3[0].pop("IN CONSENSUS", None)
                             print_out_list = print_out_list + print_out_list2 + print_out_list3
                             if self.config_obj[profile]["layer"] > 0:
                                 print_out_list.pop(2)
@@ -455,8 +498,7 @@ class CLI():
                             })
                             
                 if watch_enabled:
-                    if quit_loop._state == "FINISHED":
-                        exit(0) 
+                    if self.functions.cancel_event: exit(0)
                     self.functions.print_paragraphs([
                         ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
                         ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
@@ -980,7 +1022,7 @@ class CLI():
                 
         if follow == "-f":
             has_line_changed = None
-            print(colored("ctrl-c","cyan"),"to exit follow")
+            print(colored("ctrl+c","cyan"),"to exit follow")
             while True:
                 try:
                     with open(f'{file_path}', 'rb') as f:
@@ -1037,6 +1079,11 @@ class CLI():
             self.profile = profile
             self.set_profile_api_ports()
 
+            if n > 0:
+                self.functions.print_paragraphs([
+                    ["-","half","blue","bold"],["",1],
+                ])
+                
             print_out_list = [
                 {
                     "METAGRAPH NAME": metagraph_name,
@@ -1061,8 +1108,29 @@ class CLI():
                     "header_elements" : header_elements
                 })
                         
-            print("")
-            cprint("  METAGRAPH CUSTOM VALUES","blue",attrs=["bold"])
+            seed_path = self.config_obj[profile]["seed_path"]
+            if self.config_obj[profile]["seed_path"] == "disable":
+                seed_path = "disabled"
+                
+            pro_rating_path = self.config_obj[profile]["pro_rating_path"]    
+            if self.config_obj[profile]["pro_rating_path"] == "disable":
+                pro_rating_path = "disabled"
+                
+            priority_path = self.config_obj[profile]["priority_source_path"]
+            if self.config_obj[profile]["priority_source_path"] == "disable":
+                priority_path = "disabled"
+                
+            self.functions.print_paragraphs([
+                ["",1],
+                ["SEED LIST DETAILS",1,"blue","bold"],
+                [seed_path,1,"yellow"],
+                ["PRIORITY SOURCE LIST DETAILS",1,"blue","bold"],
+                [priority_path,1,"yellow"],
+                ["RATINGS LIST DETAILS",1,"blue","bold"],
+                [pro_rating_path,2,"yellow"],
+                ["METAGRAPH CUSTOM VALUES",1,"blue","bold"],
+            ])
+
             for n, args_envs in enumerate(["custom_args","custom_env_vars"]):
                     print_enabled = True
                     a_type = "arguments" if n < 1 else "environment variables"
@@ -1201,7 +1269,7 @@ class CLI():
                     
         snap_obj = {
             "lookup_uri": f'http://127.0.0.1:{self.config_obj[self.profile]["public_port"]}/',
-            "header": {'Accept': 'application/json' },
+            "header": "json",
             "get_results": "proofs", 
             "return_type": "raw"      
         }
@@ -1451,7 +1519,7 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         self.log.logger.info(f"show_dip_error -> initiated - profile [{profile}]")
         
-        bashCommand = f"grep -B 15 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
+        bashCommand = f"grep -a -B 15 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
     
         results = self.functions.process_command({
             "bashCommand": bashCommand,
@@ -1477,6 +1545,19 @@ class CLI():
                     ["=","half","bold","blue"],
                     [str(line),1,color],
                 ])
+        
+
+    def show_p12_details(self,command_list):
+        self.functions.check_for_help(command_list,"show_p12_details")
+        p12 = P12Class({"functions": self.functions})      
+        p12.show_p12_details(command_list)  
+        
+
+    def cli_create_p12(self,command_list):
+        self.functions.check_for_help(command_list,"cli_create_p12")
+        p12 = P12Class({"functions": self.functions})      
+        p12.create_individual_p12(self)  
+
                 
     # ==========================================
     # update commands
@@ -1537,22 +1618,26 @@ class CLI():
             profile_names = [profile]
                 
         if self.skip_warning_messages:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-1325",
-                "line_code": "input_error",
-                "extra": "skip_warning_messages is invalid for this command."
+            self.functions.print_paragraphs([
+                [" WARNING ",1,"yellow,on_red"], ["Developer Mode",0,"yellow"],["or",0,"red"],
+                ["--skip_warning_messages",0,"yellow"], ["was enabled.",1,"red"],
+                ["This command will",0,"red"],
+                ["automatically disable this option in order to function properly.",1,"red"],
+            ])
+            self.skip_warning_messages = False
+            self.functions.print_cmd_status({
+                "text_start": "disabling --skip_warning_messages",
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
             })
-            
-        # self.check_for_new_versions({
-        #     "profile": profile if profile != None else "default",
-        #     "current_tess_check": True,
-        # })
+            print("")
 
         spacing = 25
         match_true= colored("True","green",attrs=["bold"])
         match_false = colored("False","red",attrs=["bold"])
                 
-        for profile in profile_names:
+        for n, profile in enumerate(profile_names):
             try:
                 environment = self.config_obj[profile]["environment"]
             except:
@@ -1577,6 +1662,16 @@ class CLI():
             if self.version_obj[environment]["nodectl"]["nodectl_prerelease"] == "Unknown":
                 prerelease = "Unknown"
             
+            if n < 1:
+                self.functions.print_header_title({
+                    "line1": "CHECK VERSIONS",
+                    "show_titles": False,
+                    "newline": "bottom",
+                })
+            else:
+                self.functions.print_paragraphs([
+                    ["-","half"]
+                ])
             print_out_list = [
                 {
                     "header_elements" : {
@@ -1615,7 +1710,7 @@ class CLI():
                 self.functions.print_show_output({
                     "header_elements" : header_elements
                 })  
-            print("")
+        print("")
        
  
     def check_source_connection(self,command_list):
@@ -1970,7 +2065,7 @@ class CLI():
         else:
             self.functions.print_paragraphs([
                 ["",1], [" CONGRATULATIONS ",0,"grey,on_green"], ["No issues were found!",1,"green"],
-                ["This Node looks",0,"green"], ["healthy!",2,"green","bold,underline"],
+                ["This Node looks",0,"green"], ["healthy!",2,"green","bold"],
             ])
             
     
@@ -2647,6 +2742,18 @@ class CLI():
                             "argv_list": []
                         }
                 
+                static_peer = False
+                if "all" in argv_list and "--peer" in argv_list:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"red,on_yellow"], ["an attempt to join with a static",0,"red"],
+                        ["--peer",0,"yellow"], ["option was identified with the special option variable",0,"red"],
+                        ["all",0,"yellow"], ["and will be ignored",1,"red"],
+                    ])
+                elif "--peer" in argv_list:
+                    # validation takes place on join
+                    static_peer = argv_list[argv_list.index("--peer")+1]
+                    self.functions.is_valid_address("ip_address",False,static_peer)
+                    
                 if cli_join_cmd or restart_type != "restart_only":
                     environment = self.config_obj[profile]["environment"]
                     self.print_title(f"Joining [{environment}] [{profile}]")   
@@ -2660,6 +2767,7 @@ class CLI():
                             "watch": watch,
                             "dip": dip,
                             "interactive": interactive,
+                            "static_peer": static_peer,
                             "non_interactive": non_interactive,
                             "single_profile": single_profile,
                             "argv_list": ["-p",profile]
@@ -2750,6 +2858,7 @@ class CLI():
         skip_msg = command_obj.get("skip_msg",False)
         skip_title = command_obj.get("skip_title",False)
         watch_peer_counts = command_obj.get("watch",False)
+        static_peer = command_obj.get("static_peer",False)
         single_profile = command_obj.get("single_profile",True)
         upgrade = command_obj.get("upgrade",False)
         interactive = command_obj.get("interactive",False)
@@ -2760,10 +2869,17 @@ class CLI():
         called_profile = argv_list[argv_list.index("-p")+1]
         self.set_profile(called_profile)
         
+        if "--peer" in argv_list:
+            static_peer = argv_list[argv_list.index("--peer")+1]
+        if static_peer:
+            self.functions.is_valid_address("ip_address",False,static_peer)
+            
         result, snapshot_issues, tolerance_result = False, False, False
         first_attempt = True
         wfd_count, wfd_max = 0, 3  # WaitingForDownload
         dip_count, dip_max = 0, 8 # DownloadInProgress
+        ss_count, ss_max = 0, 5 # SessionStarted
+        
         attempt = ""
         
         defined_connection_threshold = .8
@@ -2775,8 +2891,7 @@ class CLI():
 
         states = list(zip(*self.functions.get_node_states("on_network")))[0]
         break_states = list(zip(*self.functions.get_node_states("past_observing")))[0]
-        
-        
+                
         def print_update():
             nonlocal first_attempt
             if first_attempt:
@@ -2856,6 +2971,7 @@ class CLI():
         join_result = self.node_service.join_cluster({
             "caller": "cli_join",
             "action":"cli",
+            "static_peer": static_peer,
             "interactive": True if watch_peer_counts or interactive else False, 
         })
       
@@ -2897,6 +3013,7 @@ class CLI():
                                     [f"{error_msg[1]}",1],
                                 ])
                             self.functions.print_auto_restart_warning()
+                            print("")
                             exit("  possible error during join")
                         increase_check += 1
                     if state == "WaitingForDownload":
@@ -2906,18 +3023,29 @@ class CLI():
                             tolerance_result = False # force last error to print
                             break
                         wfd_count += 1
+                    if state == "SessionStarted":
+                        if ss_count > ss_max:
+                            result = False
+                            tolerance_result = False # force last error to print
+                            break
+                        ss_max += 1
                     if state == "DownloadInProgress":
                         if dip_status:
                             self.functions.print_paragraphs([
                                 ["",2],[" IMPORTANT ",0,"red,on_yellow"], ["the",0], ["--dip",0,"yellow"],
-                                ["option was identified.  This will cause nodectl to execute the",0],
-                                ["download_status",0,"yellow"], ["command.",2],
-                                ["In order to cancel this potentially long process, you will need to issue a",0],
-                                ["ctrl-c",0,"blue","bold"],
-                                ["which will exit the entire upgrade or restart processes.",0], 
-                                ["This will not harm the process, just exit the visual aspects of it",0,"green"],
-                                ["Another option is to skip this option and issue:",0], ["sudo nodectl download_status",0,"yellow"],
-                                ["when the upgrade or restart process completes.",2],
+                                ["option has been identified.  This will prompt nodectl to execute the",0],
+                                ["download_status",0,"magenta"], ["command.",2],
+                                ["The",0,],["DownloadInProgress",0,"magenta"], ["stage of the",0],["join cluster",0,"magenta"],
+                                ["process can be time consuming. If there's a desire to cancel watching the",0], ["DownloadInProgress",0,"magenta"],
+                                ["stage, pressing the",0],["ctrl",0,"blue","bold"],["and",0],["c",0,"blue","bold"],
+                                ["will exit this process.",2], 
+                                
+                                ["Cancelling an issued",0,"green"], ["--dip",0,"yellow"], ["option will",0,"green"], ["NOT",0,"green","bold"], ["harm or halt the join or restart process;",0,"green"],
+                                ["instead, it will just exit the visual aspects of this command and allow the Node process to continue in the",0,"green"],
+                                ["background.",2,"green"],
+                                
+                                ["Issue:",0,],["sudo nodectl download_status help",1,"yellow"],
+                                ["to learn about the dedicated standalone command.",2],
                             ])
                             if non_interactive: continue_dip = True
                             else:  
@@ -3064,7 +3192,8 @@ class CLI():
         reboot_flag = command_obj.get("reboot_flag", False)
         skip_msg = command_obj.get("skip_msg", False)
         threaded = command_obj.get("threaded", False)
-        
+        leave_obj, backup_line = False, False
+                
         sleep(command_obj.get("delay",0))
 
         api_port = self.functions.config_obj[profile]["public_port"]
@@ -3095,10 +3224,9 @@ class CLI():
                 })
                 if state == "Ready": continue
                 return state
-                
-                
 
         call_leave_cluster()
+
         if not skip_msg:
             start = 1
             while True:
@@ -3115,12 +3243,13 @@ class CLI():
                 }
                 self.functions.print_cmd_status(progress)
                     
-                state = self.functions.test_peer_state({
+                get_state_obj = {
                     "profile": profile,
                     "skip_thread": True,
                     "simple": True,
                     "treaded": threaded,
-                })
+                }
+                state = self.functions.test_peer_state(get_state_obj)
                 
                 self.functions.print_cmd_status({
                     **progress,
@@ -3137,7 +3266,9 @@ class CLI():
                         "newline": True
                     })
                     break
+                elif leave_obj: break
                 elif start > 1:
+                    if backup_line: print(f'\x1b[1A', end='')
                     self.functions.print_cmd_status({
                         "text_start": f"{profile} not out of cluster",
                         "text_color": "red",
@@ -3157,10 +3288,60 @@ class CLI():
                         })
                     break
                 if print_timer:
-                    leave_str = "to allow Node to gracefully leave"
-                    self.functions.print_timer(secs,leave_str,start)
+                    skip_log_lookup = False
+                    self.prepare_and_send_logs(["-p",profile,"scrap"])
+                    for _ in range(0,3): # 3 tries
+                        try:
+                            leave_obj = self.send.scrap_log({
+                                "profile": profile,
+                                "msg": "Wait for Node to go offline",
+                                "value": "Node state changed to=Leaving",
+                                "key": "message",
+                                "thread": False,
+                                "timeout": 40,
+                                "parent": self,
+                            })
+                        except Exception as e:
+                            self.log.logger.error(f"leave object exception raised [{e}]")
+                            
+                        try: timestamp = leave_obj["@timestamp"]
+                        except:
+                            leave_str = "to allow Node to gracefully leave"
+                            skip_log_lookup = True
+                            sleep(.5)
+                        else: 
+                            skip_log_lookup = False
+                            break
+                        state = self.functions.test_peer_state(get_state_obj)
+                        if state in self.functions.not_on_network_list: break
+                        
+                    if skip_log_lookup:
+                        self.functions.print_timer(secs,leave_str,start)
+                    else:
+                        leave_obj = False
+                        sleep(2) # wait 2 seconds
+                        for _ in range(0,3): 
+                            try:
+                                leave_obj = self.send.scrap_log({
+                                    "profile": profile,
+                                    "msg": "Wait for Node to go offline",
+                                    "value": "Node state changed to=Offline",
+                                    "key": "message",
+                                    "timeout": 10,
+                                    "timestamp": timestamp,
+                                })
+                            except Exception as e:
+                                self.log.logger.error(f"leave object exception raised [{e}]")
+                                   
+                            if leave_obj: 
+                                skip_log_lookup = False 
+                                break   
+                            sleep(.1) 
+                            skip_log_lookup = True      
+                            backup_line = True           
                 else:
                     sleep(secs) # silent sleep 
+                    
                 self.functions.print_clear_line()
                 start = start - 1 if secs > 1 else start
                 start = start+secs      
@@ -3276,6 +3457,8 @@ class CLI():
                         
                     if not nodeid_to_ip:
                         ip_address = colored("not found?","red")
+                    elif command == "dag":
+                        pass
                     elif "-l" not in argv_list: nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
 
                 elif not nodeid:
@@ -3349,6 +3532,12 @@ class CLI():
             # this creates a print /r status during retrieval so placed here to not affect output
             if wallet_only:
                 self.functions.is_valid_address("dag",False,nodeid)
+                
+            consensus = self.cli_check_consensus({
+                "caller": "dag",
+                "ip_address": ip_address,
+                "profile": profile,
+            })
                     
             wallet_balance = self.functions.pull_node_balance({
                 "ip_address": ip_address,
@@ -3442,6 +3631,7 @@ class CLI():
                             "$DAG BALANCE": f"{wallet_balance.balance_dag: <20}",
                             "$USD VALUE": f"{wallet_balance.balance_usd}",
                             "$DAG PRICE": f"{wallet_balance.dag_price}",
+                            "IN CONSENSUS": consensus,
                         }
                     ]
                 
@@ -3675,7 +3865,8 @@ class CLI():
             self.error_messages.error_code_messages({
                 "error_code": "cmd-2735",
                 "line_code": "node_id_issue",
-                "extra": "invalid"
+                "extra": "invalid",
+                "extra2": "nodeid2dag"
             })
 
         nodeid = sha256( bytes.fromhex(nodeid)).hexdigest()
@@ -3710,143 +3901,160 @@ class CLI():
             })  
         
         return
+                     
 
-
-    def cli_digital_signature(self,command_list):
-        self.log.logger.info("Attempting to verify nodectl binary against code signed signature.")
-        self.functions.check_for_help(command_list,"verify_nodectl")
-        self.functions.print_header_title({
-            "line1": "VERIFY NODECTL",
-            "line2": "warning verify keys",
-            "newline": "top",
-        })   
+    def cli_minority_fork_detection(self,command_obj):
+        caller = command_obj.get("caller","cli")
+        argv_list = command_obj.get("argv_list",[])
+        profile = command_obj.get("profile",False)
         
-        nodectl_version_github = self.functions.node_nodectl_version_github
-        nodectl_version_full = self.functions.node_nodectl_version
-        outputs, urls = [], []
-        cmds = [  # must be in this order
-            [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
-            [ f'{nodectl_version_github}_{self.arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA256"],
-            [ f"{nodectl_version_github}_{self.arch}.sig","fetching digital signature","none","none"],
-        ]
-                
-        def send_error(extra):
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-3432",
-                "line_code": "verification_failure",
-                "extra": extra,
-            })     
-    
-        progress = {
-            "status": "running",
-            "status_color": "red",
-            "delay": 0.3
+        self.functions.check_for_help(argv_list,"check_minority_fork")
+        environment = False
+        
+        if "-e" in argv_list:
+            environment = argv_list[argv_list.index("-e")+1]
+            profile = self.functions.pull_profile({"req":"one_profile_per_env"})
+            profile = profile[0]
+
+        if not profile:
+            profile = argv_list[argv_list.index("-p")+1]
+        if not environment:
+            environment = self.config_obj[profile]["environment"]
+            
+        global_ordinals ={}
+        fork_obj = {
+            "history": 1,
+            "environment": environment,
+            "return_values": ["ordinal","lastSnapshotHash"],
+            "return_type": "dict"
         }
-        for n, cmd in enumerate(cmds): 
-            self.functions.print_cmd_status({
-                **progress,
-                "text_start": cmd[1],
-            })
-            
-            url = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{nodectl_version_github}/admin/{cmd[0]}"
-            urls.append(url)
-            if cmd[2] == "none":
-                url = f"https://github.com/StardustCollective/nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
-                verify_cmd = f"openssl dgst -sha256 -verify {self.functions.nodectl_path}nodectl_public -signature {self.functions.nodectl_path}{cmd[0]} {self.functions.nodectl_path}{cmds[1][0]}"
-
-            wget_cmd = 'sudo wget -H "Cache-Control: no-cache, no-store, must-revalidate" -H "Pragma: no-cache" -H "Expires: 0" '
-            wget_cmd += f'{url} -O {self.functions.nodectl_path}{cmd[0]} -o /dev/null'
-            system(wget_cmd)
-            full_file_path = f"{self.functions.nodectl_path}{cmd[0]}"
-            
-            if cmd[2] == "none":
-                self.functions.print_cmd_status({
-                    "text_start": cmd[1],
-                    "status": "complete",
-                    "status_color": "green",
-                    "newline": True
-                })  
+        
+        if caller != "auto_restart":
+            adj = "STATE"
+            print_error = False
+            if self.config_obj[profile]["layer"] > 0:
+                adj = "BLOCKCHAIN LAYER"
+                print_error = True
             else:
-                text_output = Path(full_file_path).read_text().lstrip()
-                if n != 1: text_output = text_output.replace(" ","")
-                if cmd[3] not in text_output:
-                    send_error(f"invalid {cmd[2]} downloaded or unable to download")
-                outputs.append(text_output.replace("-----BEGINPUBLICKEY-----","").replace("-----ENDPUBLICKEY-----","").replace("\n",""))
-
-                self.functions.print_cmd_status({
-                    "text_start": cmd[1],
-                    "status": "complete",
-                    "status_color": "green",
-                    "newline": True
-                })   
-        
-        for n, cmd in enumerate(cmds[:-1]):   
-            if cmd[2] == "PUBLIC KEY": 
-                extra1, extra2 = "-----BEGIN PUBLIC KEY-----", "-----END PUBLIC KEY-----" 
-                extra1s, main = 1,1
+                state = self.functions.test_peer_state({
+                    "profile": profile,
+                    "simple": True,
+                })
+                if state != "Ready": 
+                    print_error = True    
+            
+            if print_error:
+                self.functions.print_paragraphs([
+                    [f" INVALID PROFILE {adj} ",1,"red,on_yellow"],
+                    ["Unable to process minority fork detection request",1,"red"],
+                ])
+                if adj == "STATE":
+                    self.functions.print_paragraphs([
+                        ["    Profile:",0], [profile,1,"yellow"],
+                        ["Environment:",0], [environment,1,"yellow"],
+                        ["      State:",0], [state,1,"yellow"]
+                    ])
+                exit(0)
+                
+        for n in range(0,2):
+            if n == 0: 
+                self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | fork_obj remote: [{self.functions.be_urls[environment]}].")
+                global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
             else:
-                extra1, extra2 = "", "" 
-                extra1s, main = 0,-1   
-                            
-            self.functions.print_paragraphs([
-                ["",1],[cmd[2],1,"blue","bold"],
-                ["=","half","blue","bold"],
-                [extra1,extra1s,"yellow"],
-                [outputs[n],main,"yellow"],
-                [extra2,2,"yellow"],
-                ["To further secure that you have the correct binary that was authenticated with a matching",0,"magenta"],
-                [f"{cmd[2]} found in yellow [above].",0,"yellow"],["Please open the following",0,"magenta"],["url",0,"yellow"], 
-                ["in our local browser to compare to the authentic repository via",0,"magenta"], ["https",0,"green","bold"],
-                ["secure hypertext transport protocol.",2,"magenta"],
-                [urls[n],2,"blue","bold"],
-            ])
+                fork_obj = {
+                    **fork_obj,
+                    "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[profile]["public_port"]}/',
+                    "header": "json",
+                    "get_results": "value",
+                    "ordinal": global_ordinals["backend"]["ordinal"],
+                    "action": "ordinal",
+                }
+                self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
+                global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
 
-        self.functions.print_cmd_status({
-            "text_start": "verifying signature match",
-            "newline": True
-        })   
+        if caller != "cli": return global_ordinals
         
-        self.log.logger.info("copy binary nodectl to nodectl dir for verification via rename")
-        system(f"cp /usr/local/bin/nodectl /var/tessellation/nodectl/nodectl_{self.arch}")    
-        result_sig = self.functions.process_command({
-            "bashCommand": verify_cmd,
-            "proc_action": "timeout"
-        })
-        result_nodectl_current_hash = self.functions.process_command({
-            "bashCommand": f"openssl dgst -sha256 -hex nodectl_{self.arch}",
-            "proc_action": "timeout",
-            "working_directory": "/var/tessellation/nodectl/"
-        }).strip("\n")
-        
-        bg, verb, error_line = "on_red","INVALID SIGNATURE - WARNING", ""
-        
-        # handle openssl version incompatibilities
-        output_mod =  outputs[1].split('(', 1)[-1]
-        result_nodectl_current_hash_mod = result_nodectl_current_hash.split('(', 1)[-1]
-        
-        self.log.logger.info("nodectl digital signature verification requested")
-        if "OK" in result_sig and result_nodectl_current_hash_mod == output_mod:
-            self.log.logger.info(f"digital signature verified successfully | {result_sig}")
-            bg, verb = "on_green","SUCCESS - AUTHENTIC NODECTL"
-        else: 
-            error_line = "Review logs for details."
-            self.log.logger.critical(f"digital signature did NOT verified successfully | {result_sig}")
-        self.log.logger.info(f"digital signature - local file hash | {result_nodectl_current_hash}")
-        self.log.logger.info(f"digital signature - remote file hash | {outputs[1]}")
-        
+        fork_result = colored("True","red",attrs=["bold"])
+        if global_ordinals["local"]["lastSnapshotHash"] == global_ordinals["backend"]["lastSnapshotHash"]:
+            fork_result = colored("False","green",attrs=["bold"])
+            
         self.functions.print_paragraphs([
-            ["",1],["VERIFICATION RESULT",1,"blue","bold"],
-            [f" {verb} ",1,f"blue,{bg}","bold"],
-            [error_line,1,"red"]
+            ["",1],[" MINORITY FORK DETECTION ",2,"green,on_blue","bold"],
         ])
-                 
-        #clean up
-        self.log.logger.info("cleaning up digital signature check files.")
-        for cmd in cmds[1:]:
-            remove(f'/var/tessellation/nodectl/{cmd[0]}')
-        remove(f'/var/tessellation/nodectl/nodectl_{self.arch}')
-                         
-                         
+        
+        print_out_list = [
+            {
+                "PROFILE": profile,
+                "ENVIRONMENT": environment,
+                "IP ADDRESS": self.ip_address,
+            },
+            {
+                "LOCAL ORDINAL": global_ordinals["local"]["ordinal"],
+                "LOCAL HASH": global_ordinals["local"]["lastSnapshotHash"],
+            },
+            {
+                "REMOTE ORDINAL": global_ordinals["backend"]["ordinal"],
+                "REMOTE HASH": global_ordinals["backend"]["lastSnapshotHash"],
+            },
+            {
+                "MINORITY FORK": fork_result,
+            },
+        ] 
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })          
+        
+    
+    def cli_check_consensus(self,command_obj):
+        profile = command_obj.get("profile",False) 
+        caller = command_obj.get("caller","check_consensus")
+        argv_list = command_obj.get("argv_list",[])   
+        ip_address = command_obj.get("ip_address",self.ip_address)   
+        state = command_obj.get("state",False)
+        
+        self.functions.check_for_help(argv_list,"check_consensus")
+        
+        if "-s" in argv_list:
+            ip_address = argv_list[argv_list.index("-s")+1]
+        if "-p" in argv_list:
+            profile = argv_list[argv_list.index("-p")+1]
+        
+        if not state:
+            state = self.functions.test_peer_state({
+                "profile": profile,
+                "spinner": True,
+                "simple": True,
+            })   
+                     
+        consensus = self.functions.get_info_from_edge_point({
+            "profile": profile,
+            "caller": "status",
+            "api_endpoint_type": "consensus",
+            "specific_ip": ip_address,
+        })
+        consensus_match = colored("False","red")
+        if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
+            consensus_match = colored("True","green")    
+        if state in self.functions.pre_consensus_list:
+            consensus_match = colored("Preparing","yellow")
+            
+        if caller != "check_consensus": 
+            return consensus_match
+        
+        print_out_list = [
+            {
+                "PROFILE": profile,
+                "IP ADDRESS": ip_address,
+                "IN CONSENSUS": consensus_match,
+            },
+        ] 
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })         
+                  
+                             
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")
         self.functions.check_for_help(command_list,"passwd12")
@@ -4027,6 +4235,7 @@ class CLI():
         action = "port" if var.command == "change_ssh_port" else action
         port_no = None
         install = True if "install" in var.argv_list else False
+        one_off = False
         
         if "help" in var.argv_list:
             show_help = True
@@ -4119,24 +4328,54 @@ class CLI():
                                 else:
                                     self.log.logger.critical("could not find a backup authorized_key file to recover")
                             if action == "disable":
+                                verb = "no"
                                 if path.isfile("/root/.ssh/authorized_keys"):
                                     system(f"sudo mv /root/.ssh/authorized_keys /root/.ssh/backup_authorized_keys > /dev/null 2>&1")
                                     self.log.logger.warn("found and renamed authorized_keys file")
                                 else:
                                     self.log.logger.critical("could not find an authorized_key file to update")
-                                verb = "no"
                             newfile.write(f"PermitRootLogin {verb}\n")
                         else:
                             newfile.write(f"{line}")
                         action_print = f"{action} root user"
+                        
+                    elif action == "disable_user_auth":
+                        if "PasswordAuthentication" in line:
+                            verb = "yes"
+                            if action == "disable_user_auth":
+                                verb = "no"
+                            newfile.write(f"PasswordAuthentication {verb}\n")
+                        else:
+                            newfile.write(f"{line}")
+                        action_print = f"password authentication set to {verb}"
+                        
                     elif action == "port":
                         action_print = action
                         if not "GatewayPorts" in line and "Port" in line:
                             newfile.write(f"Port {port_no}\n")
                         else:
                             newfile.write(f"{line}")
+            
             newfile.close()
             config_file.close()
+
+            # one off check
+            if action == "disable_user_auth":
+                if path.exists("/etc/ssh/sshd_config.d/50-cloud-init.conf"):
+                    one_off = True
+                    config_file = open("/etc/ssh/sshd_config.d/50-cloud-init.conf")
+                    f = config_file.readlines()
+                    with open("/tmp/sshd_config-new2","w") as newfile:
+                        for line in f:
+                            if "PasswordAuthentication" in line:
+                                verb = "yes"
+                                if action == "disable_user_auth":
+                                    verb = "no"
+                                newfile.write(f"PasswordAuthentication {verb}\n")
+                            else:
+                                newfile.write(f"{line}")
+                    newfile.close()
+                    config_file.close()
             
             progress = {
                 "text_start": "Reloading",
@@ -4147,10 +4386,16 @@ class CLI():
             self.functions.print_cmd_status(progress)
 
             system("mv /tmp/sshd_config-new /etc/ssh/sshd_config > /dev/null 2>&1")
+            if one_off:
+                system("mv /tmp/sshd_config-new2 /etc/ssh/sshd_config.d/50-cloud-init.conf > /dev/null 2>&1")
+                
             sleep(1)
             system("service sshd restart > /dev/null 2>&1")
             
             self.log.logger.info(f"SSH port configuration change successfully implemented [{action_print}]")
+            if one_off:
+                self.log.logger.info(f"SSH configuration for an include file [one off] has been updated with password authentication [{verb}]")
+                
             self.functions.print_cmd_status({
                 **progress,
                 "status": "complete",
@@ -4161,12 +4406,15 @@ class CLI():
 
     def prepare_and_send_logs(self, command_list):
         self.functions.check_for_help(command_list,"send_logs")    
-        Send({
+        send = Send({
             "config_obj": self.functions.config_obj,
             "command_list": command_list,
             "ip_address": self.ip_address,
         })             
-        
+        if "scrap" in command_list: self.send = send
+        else:
+            send.prepare_and_send_logs()
+            
         
     def download_tess_binaries(self,command_list):
         if "-e" not in command_list:
@@ -4329,7 +4577,7 @@ class CLI():
         self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
-            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')}?"
+            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')} {colored('?','cyan')}"
         })
         
         self.functions.print_paragraphs([
