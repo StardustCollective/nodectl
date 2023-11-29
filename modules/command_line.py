@@ -24,6 +24,7 @@ from .cleaner import Cleaner
 from .troubleshoot.send_logs import Send
 from .troubleshoot.ts import Troubleshooter
 
+class TerminateCLIException(Exception): pass
 
 class CLI():
     
@@ -3318,22 +3319,22 @@ class CLI():
                     else:
                         leave_obj = False
                         sleep(2) # wait 2 seconds
-                        for _ in range(0,3): 
-                            try:
-                                leave_obj = self.send.scrap_log({
-                                    "profile": profile,
-                                    "msg": "Wait for Node to go offline",
-                                    "value": "Node state changed to=Offline",
-                                    "key": "message",
-                                    "timeout": 10,
-                                    "timestamp": timestamp,
-                                })
-                            except Exception as e:
-                                self.log.logger.error(f"leave object exception raised [{e}]")
-                                   
-                            if leave_obj: 
-                                skip_log_lookup = False 
-                                break   
+                        try:
+                            leave_obj = self.send.scrap_log({
+                                "profile": profile,
+                                "msg": "Wait for Node to go offline",
+                                "value": "Node state changed to=Offline",
+                                "key": "message",
+                                "timeout": 40,
+                                "timestamp": timestamp,
+                                "parent": self,
+                            })
+                        except Exception as e:
+                            self.log.logger.error(f"leave object exception raised [{e}]")
+                                
+                        if leave_obj: 
+                            skip_log_lookup = False 
+                        else:
                             sleep(.1) 
                             skip_log_lookup = True      
                             backup_line = True           

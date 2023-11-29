@@ -36,6 +36,8 @@ from pycoingecko import CoinGeckoAPI
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 
+class TerminateFunctionsException(Exception): pass
+
 class Functions():
 
     def __init__(self,config_obj):
@@ -48,7 +50,6 @@ class Functions():
         self.version_obj = False
         self.cancel_event = False
         self.valid_commands = []
-        self.exception = self.set_exception()
         
                         
     def set_statics(self):
@@ -911,11 +912,14 @@ class Functions():
                 print(f"{invalid_str} {colored('options','red')}")
                 cprint("  are accepted, please try again","red")
 
-        listen_keyboard(
-            on_press=press,
-            delay_second_char=0.75,
-        )
-
+        try:
+            listen_keyboard(
+                on_press=press,
+                delay_second_char=0.75,
+            )
+        except Exception as e:
+            self.log.logger.warn(f"functions -> spinner exited with [{e}]")
+            
         print("")
         if quit_option and (self.key_pressed.upper() == quit_option.upper()):
             self.print_clear_line()
@@ -925,7 +929,7 @@ class Functions():
                 if parent:
                     parent.terminate_program = True
                     parent.clear_and_exit(False)
-                raise(self.exception)
+                raise TerminateFunctionsException("spinner cancel")
             exit(0)
             
         try: _ = self.key_pressed.lower()  # avoid NoneType error
@@ -1210,11 +1214,7 @@ class Functions():
         session.headers.update(get_headers)   
         session.params = {'random': random.randint(10000,20000)}
         return session
-    
-    
-    def set_exception(self):
-        class TerminateProgramException(Exception): pass
-        return TerminateProgramException()
+
          
     # =============================
     # pull functions
