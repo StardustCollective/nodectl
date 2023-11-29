@@ -301,7 +301,7 @@ class CLI():
                     if called_command == "quick_status" or called_command == "_qs":
                         if n == 0:
                             self.functions.print_paragraphs([
-                                [" Node Status Quick Results ",2,"cyan,on_green","bold"],
+                                [" Node Status Quick Results ",2,"yellow,on_blue","bold"],
                             ])                    
                         quick_results = quick_status_pull(self.functions.config_obj[called_profile]["public_port"])
                         restart_time, uptime, node_id = convert_time_node_id(quick_results)
