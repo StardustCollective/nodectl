@@ -1514,7 +1514,7 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         self.log.logger.info(f"show_dip_error -> initiated - profile [{profile}]")
         
-        bashCommand = f"grep -B 15 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
+        bashCommand = f"grep -a -B 15 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
     
         results = self.functions.process_command({
             "bashCommand": bashCommand,
