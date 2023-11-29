@@ -2257,8 +2257,6 @@ class CLI():
         nodectl_version_check = False
         caller = command_obj.get("caller",None)
         
-        if self.skip_warning_messages: return
-        
         self.functions.get_service_status()
         if caller == "upgrade_nodectl":
             return
@@ -2274,7 +2272,7 @@ class CLI():
         for env in environments["environment_names"]:
             nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
-                if nodectl_version_check == "current_greater":
+                if nodectl_version_check == "current_greater" and not self.skip_warning_messages:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"],
                         ["You are running a version of nodectl that is claiming to be newer than what was found on the",0],
