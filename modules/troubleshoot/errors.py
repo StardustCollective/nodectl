@@ -5,6 +5,58 @@ from types import SimpleNamespace
 
 from .logger import Logging
 
+# glossary or error_code
+# =======================
+# not_new_install
+# upgrade_needed
+# upgrade_path_needed
+# upgrade_incompatibility
+# environment_error
+# lb_not_up
+# verification_failure
+# service
+# service_join
+# join_error
+# new_connect_error
+# link_to_profile
+# api_error
+# seed-list
+# off_network
+# join
+# ssh_keys
+# invalid_passphrase
+# invalid_passphrase_pass
+# invalid_address
+# invalid_user
+# term
+# ip_not_found
+# version_fetch
+# sudo_error
+# peer_count_error
+# node_id_issue
+#     invalid
+#     external
+#     nodeid2dag
+#     config
+# invalid_tcp_ports
+# input_error
+# invalid_layer
+# invalid_search
+# file_not_found
+# dependency
+# invalid_file_format
+# invalid_output_file
+# profile_error
+# open_file
+#     cn-node
+#     id_hex_file
+#     p12
+# download_yaml
+# config_error
+#     format
+#     existence
+#     configurator
+
 class Error_codes():
     
     def __init__(self,functions,debug=False):
@@ -293,14 +345,6 @@ class Error_codes():
                 ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
                 ["was detected?",0,"red"],
             ])            
-            
-        elif var.line_code == "invalid_passphrase_pass":
-            self.log.logger.critical("password validation check failed.")
-            self.functions.print_paragraphs([
-                ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
-                ["was detected?",0,"red"],
-            ])            
-            
             
         elif var.line_code == "invalid_address":
             self.log.logger.critical(f"attempt to use an invalid {var.extra} address detected [{var.extra2}]")

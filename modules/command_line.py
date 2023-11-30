@@ -4066,11 +4066,21 @@ class CLI():
             profile = argv_list[argv_list.index("-p")+1]
         if "-s" in argv_list:
             ip_address = argv_list[argv_list.index("-s")+1]
-        if "--id" in argv_list:
+            
+        if "-id" in argv_list:
+            nodeid = argv_list[argv_list.index("-id")+1]
+        elif "--id" in argv_list:
             nodeid = argv_list[argv_list.index("--id")+1]
-        if "--file" in argv_list:
+        elif "--file" in argv_list:
             file = argv_list[argv_list.index("--file")+1]
         
+        if nodeid and not self.functions.is_valid_address("nodeid",True,nodeid):
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4079",
+                "line_code": "input_error",
+                "extra": "Is the nodeid format correct?",
+            })
+            
         if not state:
             state = self.functions.test_peer_state({
                 "profile": profile,
