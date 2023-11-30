@@ -2425,6 +2425,7 @@ class CLI():
         self.functions.check_for_help(argv_list,"stop")
         self.set_profile(profile)
 
+        self.log.logger.info(f"cli_stop -> stop process commencing | profile [{profile}]")
         self.functions.print_cmd_status({
             "status": "stop",
             "text_start": "Issuing system service manipulation",
@@ -2439,6 +2440,7 @@ class CLI():
                 "spinner": spinner,
                 "simple": True
             })     
+            self.log.logger.info(f"cli_stop -> found state | profile [{profile}] | state [{state}]")
             if state == "Ready" or state == "DownloadInProgress":
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"white,on_red"], ["This profile [",0],
@@ -2498,6 +2500,7 @@ class CLI():
         if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
             rebuild = False
         
+        self.log.logger.debug(f"cli_stop -> stop process completed | profile [{profile}]")
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -2542,6 +2545,7 @@ class CLI():
                 
         self.functions.print_clear_line()
         performance_start = perf_counter()  # keep track of how long
+        self.log.logger.debug(f"cli_restart -> request commencing")
         self.functions.print_cmd_status({
             "text_start": "Restart request initiated",
             "status": "running",
@@ -2589,6 +2593,7 @@ class CLI():
         with ThreadPoolExecutor() as executor:
             leave_list = []; stop_list = []; delay = 0
             for n, profile in enumerate(profile_order):
+                self.log.logger.debug(f"cli_restart -> preparing to leave and stop | profile [{profile}]")
                 leave_obj = {
                     "secs": secs,
                     "delay": delay,
@@ -2608,7 +2613,8 @@ class CLI():
                          
             # leave
             self.print_title("Leaving Metagraphs") 
-            leave_list[-1]["skip_msg"] = False                    
+            leave_list[-1]["skip_msg"] = False     
+            self.log.logger.info(f"cli_restart -> executing leave process against profiles found")               
             futures = [executor.submit(self.cli_leave, obj) for obj in leave_list]
             thread_wait(futures)
 
@@ -2620,6 +2626,7 @@ class CLI():
             })
         
             # stop
+            self.log.logger.debug(f"cli_restart -> executing stop process against profiles found")
             self.print_title(f"Stopping profile {'services' if called_profile == 'all' else 'service'}")    
             stop_list[-1]["spinner"] = True
             futures = [executor.submit(self.cli_stop, obj) for obj in stop_list]
@@ -2636,6 +2643,7 @@ class CLI():
         
         for n, profile in enumerate(profile_order):
             self.node_service.set_profile(profile)
+            self.log.logger.debug(f"cli_restart -> handling seed list updates against profile [{profile}]")
             self.node_service.download_update_seedlist({
                 "action": "normal",
                 "install_upgrade": False,
@@ -2651,6 +2659,7 @@ class CLI():
                 self.set_profile(profile)
                     
                 if restart_type == "restart_only":
+                    self.log.logger.debug(f"cli_restart -> 'restart_only' option found")
                     link_profiles = self.functions.pull_profile({
                         "profile": profile,
                         "req": "all_link_profiles",
@@ -2665,16 +2674,17 @@ class CLI():
                             
                             if state != "Ready":
                                 link_profile = link_profiles[f"{link_type}_profile"]
+                                self.log.logger.warn(f"cli_restart -> restart_only with join requested for a profile that is dependent on other profiles | [{profile}] link profile [{link_profile}]")
                                 self.functions.print_paragraphs([
                                     ["",1], 
                                     [" WARNING ",2,"white,on_red"], 
                                     
                                     ["nodectl",0,"cyan","bold"], ["has detected a [",0], ["restart_only",-1,"yellow","bold"], 
                                     ["] request.  However, the configuration is showing that this node is (",-1],
-                                    ["properly",0,"green","underline"], [") linking to a layer0 profile [",0],
+                                    ["properly",0,"green","bold"], [") linking to a layer0 profile [",0],
                                     [link_profile,-1,"yellow","bold"], ["].",-1], ["",2],
                                     
-                                    ["Due to this",0], ["recommended",0,"cyan","underline"], ["configurational setup, the layer1 [",0],
+                                    ["Due to this",0], ["recommended",0,"cyan","bold"], ["configurational setup, the layer1 [",0],
                                     [profile,-1,"yellow","bold"], ["]'s associated service will",-1], ["not",0,"red","bold"], 
                                     ["be able to start until after",0],
                                     [f"the {link_profile} profile is joined successfully to the network. A restart_only will not join the network.",2],
@@ -2682,7 +2692,7 @@ class CLI():
                                     ["      link profile: ",0,"yellow"], [link_profile,1,"magenta"],
                                     ["link profile state: ",0,"yellow"], [state,2,"red","bold"],
                                     
-                                    ["This",0], ["restart_only",0,"magenta"], ["request will be",0], ["skipped",0,"red","underline"],
+                                    ["This",0], ["restart_only",0,"magenta"], ["request will be",0], ["skipped",0,"red","bold"],
                                     [f"for {profile}.",-1]
                                 ])
                             
@@ -2691,6 +2701,7 @@ class CLI():
                 if not service_name.startswith("cnng-"): service_name = f"cnng-{service_name}"
                     
                 for n in range(1,failure_retries+1):
+                    self.log.logger.debug(f"cli_restart -> service[s] associated with [{called_profile}]")
                     self.print_title(f"Restarting profile {'services' if called_profile == 'all' else 'service'}")
                     self.cli_start({
                         "spinner": False,
@@ -2707,9 +2718,11 @@ class CLI():
 
                     ready_states = list(zip(*self.functions.get_node_states("ready_states")))[0]
                     if peer_test_results in ready_states:  # ReadyToJoin and Ready
+                        self.log.logger.debug(f"cli_restart -> found state [{peer_test_results}] profile [{profile}]")
                         break
                     else:
                         if n == failure_retries:
+                            self.log.logger.error(f"cli_restart -> service failed to start [{service_name}] profile [{profile}]")
                             self.functions.print_paragraphs([
                                 [profile,0,"red","bold"], ["service failed to start...",1]
                             ])
@@ -2719,6 +2732,7 @@ class CLI():
                             })
                             results = ts.test_for_connect_error() 
                             if results:
+                                self.log.logger.error(f"cli_restart -> profile [{results[0]}] possible cause [{results[1]}] result [{results[2]}] ")
                                 self.functions.print_paragraphs([
                                     ["",1], ["The following was identified in the logs",1],
                                     ["       Profile:",0],[results[0],1,"yellow"],
@@ -2743,6 +2757,7 @@ class CLI():
                 
                 static_peer = False
                 if "all" in argv_list and "--peer" in argv_list:
+                    self.log.logger.warn(f'cli_restart -> static peer attempt failed during join process and will be ignored. | [{argv_list[argv_list.index("--peer")+1]}]')
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], ["an attempt to join with a static",0,"red"],
                         ["--peer",0,"yellow"], ["option was identified with the special option variable",0,"red"],
@@ -2758,6 +2773,7 @@ class CLI():
                     self.print_title(f"Joining [{environment}] [{profile}]")   
 
                     if profile not in start_failed_list:
+                        self.log.logger.info(f'cli_restart -> sending to join process. | profile [{profile}]')
                         self.cli_join({
                             "skip_msg": False,
                             "caller": "cli_restart",
@@ -2772,6 +2788,7 @@ class CLI():
                             "argv_list": ["-p",profile]
                         })
                     else:
+                        self.log.logger.error(f'cli_restart -> restart process failed due to improper join, skipping join process. | profile [{profile}]')
                         self.functions.print_paragraphs([
                             [profile,0,"red","bold"], ["did not start properly; therefore,",0,"red"],
                             ["the join process cannot begin",0,"red"], ["skipping",1, "yellow"],
@@ -2905,12 +2922,12 @@ class CLI():
                 colored("State:","cyan"),colored(f"{state}","yellow"), 
                 colored("Timer:","cyan"),colored(f"{allocated_time}","yellow"),
                 end='\r')
-            
                     
         if not skip_title:
             self.print_title(f"Joining {called_profile}")  
         
         if not skip_msg:
+            self.log.logger.info(f"cli_join -> join starting| profile [{self.profile}]")
             self.functions.print_cmd_status({
                 "text_start": "Joining",
                 "brackets": self.profile,
@@ -2924,12 +2941,15 @@ class CLI():
             if not watch_peer_counts: # check to see if we can skip waiting for Ready
                 for link_profile in self.profile_names:
                     if self.functions.config_obj[link_profile]["gl0_link_profile"] == called_profile:
+                        self.log.logger.debug(f"cli_join -> found gl0 dependency | profile [{called_profile}]")
                         found_dependency = True
                         break
                     elif self.functions.config_obj[link_profile]["ml0_link_profile"] == called_profile:
+                        self.log.logger.debug(f"cli_join -> found ml0 dependency | profile [{called_profile}]")
                         found_dependency = True
                         break
             if not found_dependency:
+                self.log.logger.debug(f"cli_join -> no dependency found | profile [{called_profile}]")
                 single_profile = True
 
             
@@ -2938,6 +2958,7 @@ class CLI():
             "simple": True
         })
         
+        self.log.logger.debug(f"cli_join -> reviewing node state | profile [{self.profile}] state [{state}]")
         self.functions.print_cmd_status({
             "text_start": "Reviewing",
             "brackets": self.profile,
@@ -2947,6 +2968,7 @@ class CLI():
         })
 
         if state == "Ready":
+            self.log.logger.warn(f"cli_join -> profile already in proper state, nothing to do | profile [{self.profile}] state [{state}]")
             self.functions.print_paragraphs([
                 ["Profile already in",0,"green"],
                 [" Ready ",0,"grey,on_green","bold"],
@@ -2955,18 +2977,21 @@ class CLI():
             return
         
         if state == "ApiNotReady":
+            self.log.logger.warn(f"cli_join -> service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
             self.functions.print_paragraphs([
-                ["Profile state in",0,"red"], [state,0,"red","bold,underline"],
+                ["Profile state in",0,"red"], [state,0,"red","bold"],
                 ["state, cannot join",1,"red"], ["Attempting to start service [",0],
                 [self.service_name.replace('cnng-',''),-1,"yellow","bold"], ["] again.",-1], ["",1]
             ])
             
+            self.log.logger.debug(f"cli_join -> attempting to start service | profile [{self.profile}] service [{self.service_name}]")
             self.cli_start({
                 "spinner": True,
                 "profile": self.profile,
                 "service_name": self.service_name,
             })
         
+        self.log.logger.info(f"cli_join -> sending to node services to start join process | profile [{self.profile}] static peer [{static_peer}]")
         join_result = self.node_service.join_cluster({
             "caller": "cli_join",
             "action":"cli",
@@ -2986,7 +3011,7 @@ class CLI():
         if color == "green":
             for allocated_time in range(0,max_timer):
                 sleep(1)
-                
+                self.log.logger.debug(f"cli_join -> watching join process | profile [{self.profile}]")
                 if allocated_time % 5 == 0 or allocated_time < 1:  # 5 second mark or first attempt
                     if allocated_time % 10 == 0 or allocated_time < 1:
                         # re-check source every 10 seconds
@@ -3111,12 +3136,14 @@ class CLI():
                 
             if snapshot_issues:
                 if snapshot_issues == "wfd_break":
+                    self.log.logger.error(f"cli_join -> possible issue found | profile [{self.profile}] issue [WaitingForDownload]")
                     self.functions.print_paragraphs([
                         ["",2],["nodectl has detected",0],["WaitingForDownload",0,"red","bold"],["state.",2],
                         ["This is an indication that your Node may be stuck in an improper state.",0],
                         ["Please contact technical support in the Discord Channels for more help.",1],
                     ])                    
                 if snapshot_issues == "dip_break":
+                    self.log.logger.warn(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
                     self.functions.print_paragraphs([
                         ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],["state.",2],
                         ["This is",0], ["not",0,"green","bold"], ["an issue; however, Nodes may take",0],
@@ -3124,6 +3151,7 @@ class CLI():
                         ["watching for peers process during this join in order to avoid undesirable wait times.",1],
                     ])       
             elif not result and tolerance_result:
+                self.log.logger.warn(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1],["nodectl tolerance connection status of [",0,],
@@ -3131,6 +3159,7 @@ class CLI():
                     ["continuing join request.",1]
                 ])
             elif not result and not tolerance_result:
+                self.log.logger.error(f"cli_join -> may have found an issue during join process; however, this may not be of concern if the Node is in proper state | profile [{self.profile}]")
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING ",0,"yellow,on_red","bold"], ["Issue may be present?",0,"red"],
@@ -3143,6 +3172,7 @@ class CLI():
                 ])
                 
         print("")
+        self.log.logger.info(f"cli_join -> join process has completed | profile [{self.profile}] result [{join_result}]")
         self.functions.print_cmd_status({
             "text_start": f"Join process{attempt} complete",
             "status": join_result,
@@ -3192,6 +3222,7 @@ class CLI():
         skip_msg = command_obj.get("skip_msg", False)
         threaded = command_obj.get("threaded", False)
         leave_obj, backup_line = False, False
+        max_retries = 5
                 
         sleep(command_obj.get("delay",0))
 
@@ -3213,27 +3244,32 @@ class CLI():
         self.node_service.set_profile(profile)
         
         def call_leave_cluster():
-            for _ in range(0,4):
-                state = self.node_service.leave_cluster({
-                    "skip_thread": True,
-                    "threaded": threaded,
-                    "profile": profile,
-                    "secs": secs,
-                    "cli_flag": True    
-                })
-                if state == "Ready": continue
-                return state
+            state = self.node_service.leave_cluster({
+                "skip_thread": True,
+                "threaded": threaded,
+                "profile": profile,
+                "secs": secs,
+                "cli_flag": True    
+            })
+            return state
 
         call_leave_cluster()
 
         if not skip_msg:
             start = 1
+            skip_log_lookup = False
             while True:
-                self.log.logger.info(f"leave in progress | profile [{profile}] port [{api_port}] | ip [127.0.0.1]")
-                if start > secs*3:
+                self.log.logger.info(f"cli_leave -> leave in progress | profile [{profile}] port [{api_port}] | ip [127.0.0.1]")
+                if start > max_retries+1:
                     self.log.logger.warn(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
                     call_leave_cluster()
 
+                self.functions.print_cmd_status({
+                    "text_start": "Node going",
+                    "brackets": "Offline",
+                    "text_end": "Please be patient",
+                    "newline": True,
+                })
                 progress = {
                     "status": "testing",
                     "text_start": "Retrieving Node Service State",
@@ -3256,6 +3292,7 @@ class CLI():
                 })
                 
                 if state in self.functions.not_on_network_list:
+                    self.log.logger.debug(f"cli_leave -> leave process complete | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                     self.functions.print_cmd_status({
                         "status": "out of cluster",
                         "status_color": "green",
@@ -3268,6 +3305,7 @@ class CLI():
                 elif leave_obj: break
                 elif start > 1:
                     if backup_line: print(f'\x1b[1A', end='')
+                    self.log.logger.warn(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                     self.functions.print_cmd_status({
                         "text_start": f"{profile} not out of cluster",
                         "text_color": "red",
@@ -3275,7 +3313,7 @@ class CLI():
                         "status_color": "yellow",
                         "newline": True
                     })  
-                if start > secs*4:
+                if start > 4:
                     self.log.logger.warn(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
                     if print_timer:
                         self.functions.print_cmd_status({
@@ -3287,63 +3325,70 @@ class CLI():
                         })
                     break
                 if print_timer:
-                    skip_log_lookup = False
                     self.prepare_and_send_logs(["-p",profile,"scrap"])
-                    for _ in range(0,3): # 3 tries
-                        try:
-                            leave_obj = self.send.scrap_log({
-                                "profile": profile,
-                                "msg": "Wait for Node to go offline",
-                                "value": "Node state changed to=Leaving",
-                                "key": "message",
-                                "thread": False,
-                                "timeout": 40,
-                                "parent": self,
-                            })
-                        except Exception as e:
-                            self.log.logger.error(f"leave object exception raised [{e}]")
-                            
-                        try: timestamp = leave_obj["@timestamp"]
-                        except:
-                            leave_str = "to allow Node to gracefully leave"
-                            skip_log_lookup = True
-                            sleep(.5)
-                        else: 
-                            skip_log_lookup = False
-                            break
-                        state = self.functions.test_peer_state(get_state_obj)
-                        if state in self.functions.not_on_network_list: break
+                    try:
+                        self.log.logger.debug(f"cli_leave -> leave process waiting for | profile [{profile}] state to be [leaving] | ip [127.0.0.1]")
+                        leave_obj = self.send.scrap_log({
+                            "profile": profile,
+                            "msg": "Wait for Node to go offline",
+                            "value": "Node state changed to=Leaving",
+                            "key": "message",
+                            "thread": False,
+                            "timeout": 40,
+                            "parent": self,
+                        })
+                    except Exception as e:
+                        self.log.logger.error(f"leave object exception raised [{e}]")
+                        
+                    try: 
+                        timestamp = leave_obj["@timestamp"]
+                    except:
+                        self.log.logger.warn(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
+                        leave_str = "to allow Node to gracefully leave"
+                        skip_log_lookup = True
+                        sleep(.5)
+
+                    state = self.functions.test_peer_state(get_state_obj)
+                    if state in self.functions.not_on_network_list: 
+                        self.log.logger.debug(f"cli_leave -> found out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1] - continuing")
+                        break
+                    elif start > 2:
+                        skip_log_lookup = True
                         
                     if skip_log_lookup:
+                        self.log.logger.debug(f"cli_leave -> pausing to allow leave process to complete | profile [{profile}] | ip [127.0.0.1]")
                         self.functions.print_timer(secs,leave_str,start)
                     else:
                         leave_obj = False
-                        sleep(2) # wait 2 seconds
+                        sleep(1)
                         try:
+                            self.log.logger.debug(f"cli_leave -> checking for Offline status | profile [{profile}] | ip [127.0.0.1]")
                             leave_obj = self.send.scrap_log({
                                 "profile": profile,
                                 "msg": "Wait for Node to go offline",
                                 "value": "Node state changed to=Offline",
                                 "key": "message",
                                 "timeout": 40,
-                                "timestamp": timestamp,
+                                "timestamp": timestamp if timestamp else False,
                                 "parent": self,
                             })
                         except Exception as e:
                             self.log.logger.error(f"leave object exception raised [{e}]")
+                            skip_log_lookup = True
                                 
-                        if leave_obj: 
-                            skip_log_lookup = False 
-                        else:
+                        state = self.functions.test_peer_state(get_state_obj)
+                        if state not in self.functions.not_on_network_list and start > 2: 
+                            self.log.logger.warn(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                             sleep(.1) 
                             skip_log_lookup = True      
-                            backup_line = True           
+                            backup_line = True  
+                        else: 
+                            break         
                 else:
-                    sleep(secs) # silent sleep 
+                    sleep(5) # silent sleep 
                     
                 self.functions.print_clear_line()
-                start = start - 1 if secs > 1 else start
-                start = start+secs      
+                start += 1      
                     
         
     def cli_grab_id(self,command_obj):

@@ -1002,15 +1002,37 @@ class Upgrader():
         
     
     def setup_argv_list(self):
+        argv_display_obj = {
+            "text_start": "Enabling option",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True            
+        }
         input_error = False
         if "-f" in self.argv_list:
-            self.forced = True  
+            self.forced = True          
+            self.functions.print_cmd_status({
+                **argv_display_obj,
+                "brackets": "forced"
+            })
         if "-w" in self.argv_list:
             self.watch = True
+            self.functions.print_cmd_status({
+                **argv_display_obj,
+                "brackets": "watch"
+            })
         if "--dip" in self.argv_list:
             self.show_download_status = True
+            self.functions.print_cmd_status({
+                **argv_display_obj,
+                "brackets": "dip watch"
+            })
         if "--nodectl_only" in self.argv_list:
             self.nodectl_only = True
+            self.functions.print_cmd_status({
+                **argv_display_obj,
+                "brackets": "nodectl_only"
+            })
         if "-v" in self.argv_list:
             if self.argv_list.count("-v") > 1:
                 extra = "all -v <version> must be preceded by accompanying -p <profile>"
@@ -1053,6 +1075,10 @@ class Upgrader():
             
         if "-ni" in self.argv_list or "--ni" in self.argv_list:
             self.non_interactive = True      
+            self.functions.print_cmd_status({
+                **argv_display_obj,
+                "brackets": "non-interactive"
+            })
         if "--pass" in self.argv_list:
            self.cli_global_pass = self.argv_list[self.argv_list.index("--pass")+1]            
                 

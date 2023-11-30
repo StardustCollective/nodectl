@@ -2703,7 +2703,7 @@ class Functions():
                     break
                 
                 current = perf_counter() - timer
-                if timeout and (current - timer > timeout):
+                if timeout and (current > timeout):
                     exit(0)
 
             if newline == "bottom" or newline == "both":

@@ -769,9 +769,10 @@ class Node():
             "profile": self.profile,
             "skip_thread": skip_thread,
             "simple": True
-        }) 
-               
+        })         
+        
         if state not in self.functions.not_on_network_list: # otherwise skip
+            self.log.logger.debug(f"node_service -> cluster leave process | profile [{profile}] state [{state}] ip [127.0.0.1]")
             cmd = f"curl -X POST http://127.0.0.1:{self.api_ports['cli']}/cluster/leave"
             self.functions.process_command({
                 "bashCommand": cmd,
@@ -959,9 +960,12 @@ class Node():
         if (profile_layer == 0 and not gl0_linking_enabled) or layer_zero_ready:
             if not self.auto_restart:
                 self.functions.print_cmd_status({
-                    "text_start": "Preparing to join cluster",
+                    "text_start": "Join cluster status",
                     "brackets": self.profile,
+                    "spinner": "dotted",
                     "newline": True,
+                    "status": "Preparing",
+                    "status_color": "green"
                 })
                 sleep(1)
                 
