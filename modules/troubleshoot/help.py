@@ -513,6 +513,19 @@ def build_help(functions,command_obj):
   
   optional:
   {colored('-s <ip_address>','green')}
+  {colored('--id <ip_address>','green')}
+  {colored('--file <full_file_path>','green')}
+  
+  Is the {colored('-s','cyan')} option is requested the
+  consensus will be checked against the IP address inputted.
+  
+  Is the {colored('--id','cyan')} option is requested the
+  consensus will be checked against the nodeid public key inputted.
+  
+  Is the {colored('--file','cyan')} option is requested the
+  consensus will be checked against the file that contains at least
+  one nodeid public key or multiple nodeids formatted in one line
+  per nodeid public key.
   
   Example Usage
   -------------
@@ -531,6 +544,13 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl check_consensus -p dag-l0 -s 10.10.10.10','cyan')}  
      or
   # {colored('sudo nodectl -con -p dag-l0 -s 10.10.10.10','cyan')}  
+  
+  execute consensus check against list of node ids with 
+  profile name dag-l0 and file containing node id list called test.csv
+  locationed in the the /tmp/ directory on the Node.
+  # {colored('sudo nodectl check_consensus -p dag-l0 --file /tmp/test.csv','cyan')}  
+     or
+  # {colored('sudo nodectl -con -p dag-l0 --file /tmp/test.csv','cyan')}  
       '''
   
     if extended == "cli_create_p12":
