@@ -46,9 +46,12 @@ class Configuration():
         
         execute = command_obj["implement"]
         self.action = command_obj["action"]        
-        self.skip_final_report = command_obj.get("skip_report",False)
-        self.configurator_verified = True
         
+        self.skip_final_report = command_obj.get("skip_report",False)
+        if self.called_command == "uvos": self.skip_final_report = True
+        
+        self.configurator_verified = True
+                
         if "view" in self.action or self.action == "-vc":
             self.view_yaml_config("normal")
         
@@ -588,7 +591,7 @@ class Configuration():
             return self.config_obj
         
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
-        self.config_obj["global_elements"]["p12_validated"] = False  # init key (used outside of this class)
+        self.config_obj["global_p12"]["p12_validated"] = False  # init key (used outside of this class)
             
             
     def prepare_p12(self):
