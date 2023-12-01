@@ -248,6 +248,29 @@ class Upgrader():
                     "newline": True
                 })
 
+        p_color = "cyan"
+        for profile in self.profiles_by_env:
+            if self.functions.config_obj[profile]["global_p12_passphrase"]:
+                p_status = "using global"
+                p_color = "cyan"
+            else:
+                p_status = self.functions.config_obj[profile]["p12_validated"]
+                p_color = "green" if p_status else "red"
+            self.functions.print_cmd_status({
+                "text_start": "p12 validated",
+                "brackets": profile,
+                "status": p_status,
+                "status_color": p_color,
+                "newline": True,
+            })
+
+        self.functions.print_cmd_status({
+            "text_start": "Global p12 validated",
+            "status": self.functions.config_obj["global_p12"]["p12_validated"],
+            "status_color": "green" if self.functions.config_obj["global_p12"]["p12_validated"] else "red",
+            "newline": True,
+        })
+
         if self.functions.config_obj["global_elements"]["all_global"]:
             pull_node_id("global")
             return

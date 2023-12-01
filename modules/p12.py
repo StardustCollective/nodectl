@@ -261,6 +261,10 @@ class P12Class():
                                     self.config_obj[pass_profile]["p12_passphrase"] = passwd
                     else:
                         self.config_obj[profile]["p12_passphrase"] = passwd
+                if "global" in profile:
+                    self.config_obj["global_p12"]["p12_validated"] = valid
+                else:
+                    self.config_obj[profile]["p12_validated"] = valid
                 break
 
             self.log.logger.warn(f"invalid keyphrase entered [{attempts}] of 3")
@@ -282,7 +286,7 @@ class P12Class():
             "status": "validated!",
             "status_color": "green",
         })                
-        sleep(.5)
+        sleep(1.3)
 
         if operation == "upgrade":
             print("") # overcome '\r'
@@ -313,16 +317,27 @@ class P12Class():
             self.log.logger.info("p12 file unlocked successfully - keytool")
             return True
         
-        # check p12 agasint method 3
-        bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -legacy")
+        # check p12 against method 3
+        bashCommand = "openssl version"
         results = self.functions.process_command({
-            "bashCommand": bashCommand3,
-            "proc_action": "wait", 
+            "bashCommand": bashCommand,
+            "proc_action": "subprocess_co", 
             "return_error": True
         })
-        if not "Invalid password" in str(results):
-            self.log.logger.info("p12 file unlocked successfully - openssl")
-            return True
+        if "OpenSSL 3" in results:        
+            bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -legacy")
+            results = self.functions.process_command({
+                "bashCommand": bashCommand3,
+                "proc_action": "wait", 
+                "return_error": True
+            })
+            if not "Invalid password" in str(results):
+                self.log.logger.info("p12 file unlocked successfully - openssl")
+                return True
+        else:
+            msg = "p12 -> attempt to authenticate via nodectl method 3 (of 3) with '-legacy' option failed. Unable to process because the SSL version is out-of-date, "
+            msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
+            self.log.logger.warn(msg)
         
         self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
         return False

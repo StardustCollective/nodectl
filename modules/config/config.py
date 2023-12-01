@@ -581,11 +581,14 @@ class Configuration():
                     "value": value,
                     "special_case": None
                 })
+                
+            self.config_obj[profile]["p12_validated"] = False # initialize to False
         
         if self.action == "install":
             return self.config_obj
         
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
+        self.config_obj["global_elements"]["p12_validated"] = False  # init key (used outside of this class)
             
             
     def prepare_p12(self):
@@ -818,7 +821,8 @@ class Configuration():
                 ["p12_key_name","str"],
                 ["p12_key_alias","str"],
                 ["p12_passphrase","str"], 
-                ["p12_key_store","str"], # automated value [not part of yaml]              
+                ["p12_key_store","str"], # automated value [not part of yaml] 
+                ["p12_validated","bool"], # automated value [not part of yaml]             
                 ["seed_location","path_def_dis"],
                 ["seed_repository","host_def_dis"],
                 ["seed_file","str"],             
@@ -853,6 +857,7 @@ class Configuration():
                 ["key_alias","str"],
                 ["passphrase","str"],
                 ["key_store","str"], # automated value [not part of yaml]
+                ["p12_validated","bool"], # automated value [not part of yaml]
             ],
             "global_elements": [
                 ["metagraph_name","str"],
