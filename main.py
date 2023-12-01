@@ -54,6 +54,7 @@ def cli_commands(argv_list):
                         current_shell = ShellHandler(config.config_obj,False)               
                 else:
                     caller = argv_list[1] if argv_list[1] in exclude_config else "config"
+                    if "main_error" in argv_list: caller = "main_error" 
                     current_shell = ShellHandler({"global_elements":{"caller":caller}},False)
             if current_shell:        
                 current_shell.start_cli(argv_list)
