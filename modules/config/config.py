@@ -23,13 +23,17 @@ class Configuration():
         
         self.versioning_service = False
         self.argv_list = command_obj["argv_list"]
+
+        self.skip_final_report = command_obj.get("skip_report",False)
+
         if "uvos" in self.argv_list: 
             # do not log if versioning service initialized Configuration
             self.versioning_service = True
+            self.skip_final_report = True
             for handler in self.log.logger.handlers[:]:
                 self.log.logger.removeHandler(handler)
                 
-        if "help" in self.argv_list[0]: return
+        if "help" in self.argv_list[0] or "main_error" in self.argv_list[0]: return
 
         self.config_obj = {}
         self.error_list = []
@@ -46,10 +50,7 @@ class Configuration():
         
         execute = command_obj["implement"]
         self.action = command_obj["action"]        
-        
-        self.skip_final_report = command_obj.get("skip_report",False)
-        if self.called_command == "uvos": self.skip_final_report = True
-        
+    
         self.configurator_verified = True
                 
         if "view" in self.action or self.action == "-vc":

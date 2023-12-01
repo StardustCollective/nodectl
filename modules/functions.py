@@ -2755,6 +2755,14 @@ class Functions():
                 "clear": True
             })
             
+        if not self.version_obj:
+            self.print_paragraphs([
+                [" WARNING/ERROR ",0,"red,on_yellow"],
+                ["nodectl was initialized without a command request, or something went wrong?",2,"red"],
+                ["command:",0],["sudo nodectl help",2,"yellow","bold"],
+            ])
+            exit(0)
+            
         self.help_text = f"  NODECTL INSTALLED: [{colored(self.version_obj['node_nodectl_version'],'yellow')}]"
 
         if not nodectl_version_only:

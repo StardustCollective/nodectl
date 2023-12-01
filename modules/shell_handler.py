@@ -102,6 +102,15 @@ class ShellHandler:
         self.log.logger.info(f"obtain ip address: {self.ip_address}")
                 
         # commands that do not need all resources
+        if "main_error" in argv:
+            self.functions.auto_restart = False
+            self.log.logger.error(f"invalid command called [{self.called_command}] sending to help file.")
+            self.functions.print_help({
+                "usage_only": True,
+                "nodectl_version_only": True,
+                "hint": "unknown",
+            })
+
         version_cmd = ["-v","_v","version"]
         if argv[1] in version_cmd:
             self.functions.auto_restart = False
@@ -116,14 +125,6 @@ class ShellHandler:
         self.handle_versioning()
         self.check_valid_command()
 
-        if self.called_command == "main_error":
-            self.log.logger.error(f"invalid command called [{self.called_command}] sending to help file.")
-            self.functions.print_help({
-                "usage_only": True,
-                "nodectl_version_only": True,
-                "hint": "unknown",
-            })
-        
         self.setup_profiles()
         self.check_auto_restart()
         self.check_skip_services()
