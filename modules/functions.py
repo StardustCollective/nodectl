@@ -2709,7 +2709,7 @@ class Functions():
             if newline == "bottom" or newline == "both":
                 print("")
         except Exception as e:
-            self.log.logger.critical(f"functions -> spinner -> errored with [{e}]")
+            self.log.logger.warn(f"functions -> spinner -> errored with [{e}]")
             return
             
     
