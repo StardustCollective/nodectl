@@ -229,7 +229,7 @@ class P12Class():
             
             try:
                 if profile == "global" and passwd == False and self.config_obj["global_elements"]["global_upgrader"] == False:
-                    cprint("  Global profile passphrase not found.","yellow")
+                    cprint("  Global profile passphrase doesn't match, is incorrect, or is not found.","yellow")
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "p12-227",
@@ -570,6 +570,10 @@ class P12Class():
         
         
     def show_p12_details(self, command_list):
+        alias, owner, owner_cn, iowner = "unknown", "unknown", "unknown", "unknown"
+        sha1, sha256, sig_alg, pub_alg = "unknown", "unknown", "unknown", "unknown"
+        version, value, entry_number = "unknown", "unknown", "unknown"
+
         if "--file" in command_list:
             p12_location = command_list[command_list.index("--file")+1]
         elif "-p" in command_list:

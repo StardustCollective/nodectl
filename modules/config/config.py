@@ -2,7 +2,8 @@ import yaml
 import json
 
 from termcolor import colored
-from time import sleep
+from time import sleep, time
+from random import randint
 from re import match
 from os import system, path, get_terminal_size
 from sys import exit
@@ -13,6 +14,7 @@ from ..p12 import P12Class
 from ..troubleshoot.errors import Error_codes
 from ..troubleshoot.logger import Logging
 from .versioning import Versioning
+
 
 class Configuration():
     
@@ -1485,7 +1487,7 @@ class Configuration():
             "extra": extra,
             "extra2": extra2
         }) 
-        
-        
+
+
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation") 
