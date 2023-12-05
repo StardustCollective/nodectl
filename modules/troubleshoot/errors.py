@@ -27,6 +27,7 @@ from .logger import Logging
 # invalid_passphrase
 # invalid_passphrase_pass
 # invalid_address
+# possible404
 # invalid_user
 # term
 # ip_not_found
@@ -352,6 +353,14 @@ class Error_codes():
                 ["Invalid",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["address may have been entered.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered",2,"red","bold"],
                 ["Address Entered:",0,"yellow","bold"],[var.extra2,2],
+            ])            
+            
+        elif var.line_code == "possible404":
+            self.log.logger.critical(f"attempt to access an invalid URI failed with error code [{var.extra.text} uri/url [{var.extra2}]")
+            self.functions.print_paragraphs([
+                ["Invalid",0,"red","bold"], [var.extra.text,1,"red","bold,underline"], ["URL may have been entered or nodectl could not reach?",2,"red","bold"],
+                ["Please check network connectivity and try again later.",1,"red","bold"],
+                ["URI/URL:",0,"yellow","bold"],[var.extra2,2],
             ])            
             
             

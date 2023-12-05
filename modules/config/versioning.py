@@ -16,10 +16,10 @@ class Versioning():
     def __init__(self,command_obj):
         self.log = Logging()
         
-        nodectl_version = "v2.12.4"
+        nodectl_version = "v2.12.5"
         nodectl_yaml_version = "v2.1.0"
-        self.upgrade_path_path = f"https://raw.githubusercontent.com/stardustCollective/nodectl/{nodectl_version}/admin/upgrade_path.json"
-        
+        self.upgrade_path_path = f'https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_{nodectl_version.replace(".","")}/admin/upgrade_path.json'
+                
         self.print_messages = command_obj.get("print_messages",True)
         self.show_spinner = command_obj.get("show_spinner",True)
         self.called_cmd = command_obj["called_cmd"]
@@ -319,7 +319,16 @@ class Versioning():
                 session.close()
 
             upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
-            self.upgrade_path = eval(upgrade_path)
+            try:
+                self.upgrade_path = eval(upgrade_path)
+            except Exception as e:
+                self.log.logger.critical(f"verisoning --> upgrade_path uri returned invalid data [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "ver_327",
+                    "line_code": "possible404",
+                    "extra": e,
+                    "extra2": self.upgrade_path_path,
+                })
             self.upgrade_path["nodectl_pre_release"] = self.is_nodectl_pre_release()
         else:
             self.upgrade_path = {
