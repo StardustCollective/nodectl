@@ -319,7 +319,7 @@ class Configuration():
             **self.functions.config_obj,            
         }
         self.migrate = Migration({
-            "functions": self.functions,
+            "parent": self,
         })
         if self.migrate.migrate():
             self.view_yaml_config("migrate")
@@ -427,6 +427,7 @@ class Configuration():
             "pro_rating_location": "/var/tessellation",
             "priority_source_file": "priority-list",
             "priority_source_location": "/var/tessellation",
+            "enable_encryption": "False",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": "github.com/Constellation-Labs/tessellation/",
             "edge_point": [
@@ -833,7 +834,7 @@ class Configuration():
                 ["seed_repository","host_def_dis"],
                 ["seed_file","str"],             
                 ["seed_path","path_def_dis"], # automated value [not part of yaml]
-                ["pro_rating_location","path_def_dis"],
+                ["pro_rating_location","path_def_dis"], 
                 ["pro_rating_file","str"], 
                 ["pro_rating_path","path_def_dis"], # automated value [not part of yaml]     
                 ["priority_source_location","path_def_dis"],
@@ -862,13 +863,14 @@ class Configuration():
                 ["key_name","str"],
                 ["key_alias","str"],
                 ["passphrase","str"],
+                ["enable_encryption","bool"], 
                 ["key_store","str"], # automated value [not part of yaml]
                 ["p12_validated","bool"], # automated value [not part of yaml]
             ],
             "global_elements": [
                 ["metagraph_name","str"],
                 ["nodectl_yaml","str"],
-                ["developer_mode","bool"],
+                ["developer_mode","bool"],  
                 ["log_level","log_level"],
             ]
         }
@@ -912,14 +914,16 @@ class Configuration():
 
     def validate_yaml_keys(self):
         missing_list = []
-            
+        not_in_list = [
+            "seed_path","pro_rating_path",
+            "gl0_link_is_self","ml0_link_is_self",
+            "p12_key_store","jar_github"
+        ]
+
         for config_key, config_value in self.config_obj.items():
             if "global" not in config_key:
-                # testing profiles
-                # key_test_list = list(config_value.keys())
-                # schema_test_list = [item[0] for item in self.schema["metagraphs"]]
                 missing =  [item[0] for item in self.schema["metagraphs"]] - config_value.keys()
-                missing = [x for x in missing if x not in ["seed_path","pro_rating_path","gl0_link_is_self","ml0_link_is_self","p12_key_store","jar_github"]]
+                missing = [x for x in missing if x not in not_in_list]
                 for item in missing:
                     missing_list.append([config_key, item])
             if "global" in config_key:

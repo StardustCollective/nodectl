@@ -16,8 +16,16 @@ class Versioning():
     def __init__(self,command_obj):
         self.log = Logging()
         
-        nodectl_version = "v2.12.5"
-        nodectl_yaml_version = "v2.1.0"
+        # important
+        # migration -> verify_config_type -> simple verification value counts
+        #                                    may need to adjusted if new key/pair 
+        #                                    was introduced.  The value should remain
+        #                                    at the last required migration upgrade_path
+        
+        nodectl_version = "v2.13.0"
+        nodectl_yaml_version = "v2.2.0"
+        node_upgrade_path_yaml_version = "v2.0.0" # if previous is 'current_less'; upgrade path needed (for migration module)
+
         self.upgrade_path_path = f'https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_{nodectl_version.replace(".","")}/admin/upgrade_path.json'
                 
         self.print_messages = command_obj.get("print_messages",True)
@@ -52,7 +60,8 @@ class Versioning():
         
         self.nodectl_static_versions = {
             "node_nodectl_version": nodectl_version,
-            "node_nodectl_yaml_version": nodectl_yaml_version,            
+            "node_nodectl_yaml_version": nodectl_yaml_version,  
+            "node_upgrade_path_yaml_version": node_upgrade_path_yaml_version,          
         }
         self.version_obj = copy(self.nodectl_static_versions)
         self.version_obj["nodectl_github_version"] = f'nodectl_{self.version_obj["node_nodectl_version"].replace(".","")}'
@@ -322,7 +331,7 @@ class Versioning():
             try:
                 self.upgrade_path = eval(upgrade_path)
             except Exception as e:
-                self.log.logger.critical(f"verisoning --> upgrade_path uri returned invalid data [{e}]")
+                self.log.logger.critical(f"versioning --> upgrade_path uri returned invalid data [{e}]")
                 self.error_messages.error_code_messages({
                     "error_code": "ver_327",
                     "line_code": "possible404",
@@ -392,7 +401,7 @@ class Versioning():
         
         root_keys = [
             "node_nodectl_version","node_nodectl_yaml_version","nodectl_github_version",
-            "upgrade_path","last_updated","next_updated",
+            "upgrade_path","last_updated","next_updated","node_upgrade_path_yaml_version",
         ]    
         nodectl_keys = [
             "latest_nodectl_version","nodectl_prerelease","nodectl_remote_config",

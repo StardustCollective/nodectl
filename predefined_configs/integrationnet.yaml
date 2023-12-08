@@ -153,6 +153,7 @@ nodectl:
     key_name: blank
     key_alias: blank
     passphrase: blank
+    encryption: False
   global_elements:
     metagraph_name: integrationnet
     nodectl_yaml: v2.1.0

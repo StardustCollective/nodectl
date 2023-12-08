@@ -7,7 +7,13 @@ from ..troubleshoot.errors import Error_codes
 class Migration():
     
     def __init__(self,command_obj):
-        self.functions = command_obj["functions"]
+        self.parent = command_obj.get("parent",False)
+
+        if self.parent:
+            self.functions = self.parent.functions
+        else:
+            self.functions = self.config_obj["functions"]
+
         self.config_obj = self.functions.config_obj
         self.version_obj = self.functions.version_obj
         
@@ -45,9 +51,15 @@ class Migration():
             self.log.logger.error("migration module unable to pull profiles from the configuration")
             upgrade_error = True
         
+
         try:
-            if self.config_obj["global_elements"]["nodectl_yaml"] != "v2.0.0":
-                self.log.logger.error(f'migration module determined incorrect nodectl yaml version | [{self.config_obj["global_elements"]["nodectl_yaml"]}]')
+            yaml_version = str(self.functions.is_new_version(
+                self.config_obj["global_elements"]["nodectl_yaml"],
+                self.version_obj["node_upgrade_path_yaml_version"]
+            ))
+            if yaml_version == "current_less":
+                # This version of nodectl needs to follow an upgrade path to migrate properly
+                self.log.logger.warn(f'migration module determined incorrect nodectl yaml version | [{self.config_obj["global_elements"]["nodectl_yaml"]}]')
                 upgrade_error = True
         except:
             upgrade_error = True
@@ -63,9 +75,9 @@ class Migration():
         requirements = {
             "global_count": 3,
             "global_p12_count": 5,
-            "global_elements_count": 3,
+            "global_elements_count": 4,
             "global_auto_restart_count": 4, 
-            "profile_count": 44*len(self.profiles),          
+            "profile_count": 46*len(self.profiles),          
         }
 
         for key in self.config_obj.keys():

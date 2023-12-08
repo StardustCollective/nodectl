@@ -1234,6 +1234,7 @@ nodectl:
     key_name: nodegaragep12keyname
     key_alias: nodegaragep12keyalias
     passphrase: nodegaragep12passphrase
+    enable_encryption: nodegaragep12enableencryption
 '''
         
         if var.file == "config_yaml_global_elements":
