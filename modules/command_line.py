@@ -2259,7 +2259,7 @@ class CLI():
         caller = command_obj.get("caller",None)
         
         self.functions.get_service_status()
-        if caller == "upgrade_nodectl":
+        if caller == "upgrade_nodectl" or caller == "main_error":
             return
         
         profile_names = self.profile_names
