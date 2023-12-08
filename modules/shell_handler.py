@@ -95,9 +95,7 @@ class ShellHandler:
         self.check_error_argv(argv)
         
         self.skip_services = True
-        show_help = False
         return_value = 0
-
 
         self.log.logger.info(f"obtain ip address: {self.ip_address}")
                 
@@ -286,10 +284,6 @@ class ShellHandler:
                 "command": self.called_command,
                 "argv_list": self.argv   
             })
-        elif self.called_command == "help" or self.called_command == "_h":
-                self.functions.print_help({
-                    "usage_only": False,
-                })
         elif self.called_command in clean_files_list:
             command_obj = {"argv_list": self.argv, "action": "normal"}
             self.cli.clean_files(command_obj)
@@ -376,17 +370,21 @@ class ShellHandler:
             self.cli.show_dip_error(self.argv)
         elif self.called_command == "show_p12_details" or self.called_command == "_spd":
             self.cli.show_p12_details(self.argv)
+
+        elif self.called_command == "help" or self.called_command == "_h":
+                self.functions.print_help({
+                    "usage_only": False,
+                })
+        elif self.called_command == "help_only": 
+            self.functions.print_help({
+                "usage_only": True,
+                "hint": False,
+            })
         elif self.called_command in config_list:
             self.functions.print_help({
                 "usage_only": True,
                 "nodectl_version_only": True,
                 "extended": self.called_command,
-            })
-
-        if show_help:
-            self.functions.print_help({
-                "usage_only": True,
-                "hint": False,
             })
             
         self.handle_exit(return_value)
@@ -417,7 +415,7 @@ class ShellHandler:
                 ])
                 exit("  invalid nodectl installation")
                 
-            self.called_command = "help"
+            self.called_command = "help_only"
             return
                     
         if "uvos" in argv: 
@@ -429,7 +427,7 @@ class ShellHandler:
         try:
             self.called_command = self.argv[1]
         except:
-            self.called_command = "help"
+            self.called_command = "help_only"
             return
                     
         if "help" in self.argv: self.help_requested = True  
@@ -518,7 +516,7 @@ class ShellHandler:
         all_command_check = self.valid_commands+valid_short_cuts+service_cmds+removed_cmds
 
         if self.called_command not in all_command_check:
-            self.called_command = "main_error"
+            self.called_command = "help_only"
         
         
     def verify_env_and_versioning(self,command_obj):

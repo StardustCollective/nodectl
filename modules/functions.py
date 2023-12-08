@@ -2739,7 +2739,8 @@ class Functions():
         nodectl_version_only = command_obj.get("nodectl_version_only",False)
         hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
-        
+        usage_only = command_obj.get("usage_only",False)
+
         command_obj = {
             **command_obj,
             "valid_commands": self.valid_commands
@@ -2778,7 +2779,8 @@ class Functions():
         self.help_text += build_help(self,command_obj)
         
         print(self.help_text)
-                
+        if usage_only: exit(0)
+
         if "profile" in hint:
             self.print_paragraphs([
                 ["HINT:",0,"yellow","bold"],
