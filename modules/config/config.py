@@ -417,7 +417,10 @@ class Configuration():
                 "special_case": None
             }) 
             
-        # default seed_repository setup in node_services -> download_update_seedlist        
+        # default seed_repository setup in node_services -> download_update_seedlist       
+        
+        # The following defaults objects is for config elements that can be set to
+        # "default" by the Node Operator to obtain the current default values.  
         defaults = {
             "directory_backups": "/var/tessellation/backups/",
             "directory_uploads": "/var/tessellation/uploads/",
@@ -427,7 +430,6 @@ class Configuration():
             "pro_rating_location": "/var/tessellation",
             "priority_source_file": "priority-list",
             "priority_source_location": "/var/tessellation",
-            "enable_encryption": "False",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": "github.com/Constellation-Labs/tessellation/",
             "edge_point": [
@@ -848,6 +850,7 @@ class Configuration():
                 ["global_p12_key_location","bool"], # automated value [not part of yaml]
                 ["global_p12_key_name","bool"], # automated value [not part of yaml]
                 ["global_p12_nodeadmin","bool"], # automated value [not part of yaml]
+                ["global_p12_encryption","bool"], # automated value [not part of yaml]
                 ["global_p12_key_alias","bool"], # automated value [not part of yaml]
                 ["global_p12_cli_pass","bool"], # automated value [not part of yaml]
             ],
@@ -863,7 +866,7 @@ class Configuration():
                 ["key_name","str"],
                 ["key_alias","str"],
                 ["passphrase","str"],
-                ["enable_encryption","bool"], 
+                ["encryption","bool"], 
                 ["key_store","str"], # automated value [not part of yaml]
                 ["p12_validated","bool"], # automated value [not part of yaml]
             ],
@@ -1013,7 +1016,7 @@ class Configuration():
                         "value": "skip"
                     })
                     
-                g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"]]
+                g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x != "encryption"]
                 if g_tests.count("global") == len(self.config_obj["global_p12"]):
                     # test if everything is set to global
                     self.config_obj[profile]["global_p12_all_global"] = True

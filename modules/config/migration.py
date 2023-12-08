@@ -299,8 +299,8 @@ class Migration():
                 "nodegarageprioritysourcefile": self.config_obj[profile]["priority_source_file"],
                 "nodegaragecustomargsenable": self.config_obj[profile]["custom_args_enable"],
                 "nodegaragecustomenvvarsenable": self.config_obj[profile]["custom_env_vars_enable"], 
-                "nodegarageratingfile": "disable", # new in v2.12.0
-                "nodegarageratinglocation": "disable", # new in v2.12.0
+                "nodegarageratingfile": self.config_obj[profile]["pro_rating_file"], # new in v2.12.0
+                "nodegarageratinglocation": self.config_obj[profile]["pro_rating_location"], # new in v2.12.0
                 "create_file": "config_yaml_profile",
             }
             self.yaml += self.build_yaml(rebuild_obj)
@@ -328,6 +328,7 @@ class Migration():
             "nodegaragep12keyname": self.config_obj["global_p12"]["key_name"],
             "nodegaragep12keyalias": self.config_obj["global_p12"]["key_alias"],
             "nodegaragep12passphrase": f'"{self.config_obj["global_p12"]["passphrase"]}"',
+            "nodegaragep12encryption": "False", # new to v2.13.0
             "create_file": "config_yaml_p12",
         }
         self.yaml += self.build_yaml(rebuild_obj)
@@ -337,7 +338,7 @@ class Migration():
         # =======================================================        
         rebuild_obj = {
             "nodegaragemetagraphname": self.config_obj["global_elements"]["metagraph_name"],
-            "nodegaragenodectlyaml": "v2.1.0", # replacement
+            "nodegaragenodectlyaml": self.version_obj["node_nodectl_yaml_version"],
             "nodegarageloglevel": self.config_obj["global_elements"]["log_level"],
             "nodegaragedevelopermode": "False", # new in v2.12.0
             "create_file": "config_yaml_global_elements",
