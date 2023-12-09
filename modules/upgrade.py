@@ -1050,7 +1050,7 @@ class Upgrader():
                 **argv_display_obj,
                 "brackets": "dip watch"
             })
-        if "--nodectl_only" in self.argv_list:
+        if "--nodectl_only" in self.argv_list or "--nodectl-only" in self.argv_list:
             self.nodectl_only = True
             self.functions.print_cmd_status({
                 **argv_display_obj,

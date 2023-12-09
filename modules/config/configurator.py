@@ -2117,7 +2117,7 @@ class Configurator():
                 })
 
                 # options = ["E","A","G","R","L","M","Q"]
-                options = ["E","G","R","L","M","Q"]
+                options = ["E","G","R","L","P","M","Q"]
                 if return_option not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
@@ -2125,6 +2125,7 @@ class Configurator():
                         ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
                         ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
+                        ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
                         ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
                         ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
                     ])
@@ -2165,6 +2166,7 @@ class Configurator():
                 self.developer_enable_disable()
                 self.quit_configurator(False)
             elif option == "r": self.edit_auto_restart()
+            elif option == "p": self.passphrase_enable_disable_encryption()
             elif option == "l": 
                 self.edit_append_profile_global("log_level")
             elif option == "m":
@@ -3009,6 +3011,13 @@ class Configurator():
             "newline": True,
         })
         
+
+    def passphrase_enable_disable_encryption(self):
+        print("here too")
+        
+        exit(0)
+
+
     # =====================================================
     # OTHER
     # =====================================================
