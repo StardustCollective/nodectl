@@ -9,6 +9,12 @@ import subprocess
 import socket
 import validators
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import Fernet
+import base64
+
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
@@ -1048,7 +1054,66 @@ class Functions():
                 
         return possible_found
     
-    
+
+    def get_persist_hash(self, command_obj):
+        pass1 = command_obj["pass1"]
+        enc_data = command_obj.get("enc_data",False)
+        salt = command_obj.get("salt",False)
+
+        if not salt:
+            salt = self.process_command({
+                "bashCommand": "blkid",
+                "proc_action": "subprocess_co", 
+                "return_error": True
+            })
+            salt_pattern = compile(r'UUID="([^"]+)"')
+            salt_pattern = salt_pattern.findall(salt)
+            try:
+                salt = salt_pattern[0]
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "fnt-1070",
+                    "line_code": "system_error",
+                    "extra": "encryption generation issue.",
+                })
+
+            salt += "0" * (32 - len(salt))
+            try:
+                salt = base64.urlsafe_b64decode(salt)
+            except binascii.Error as e:
+                self.log.logger.critical(f"Invalid salt base64 encoding: {e}")
+                self.error_messages.error_code_messages({
+                    "error_code": "fnt-1079",
+                    "line_code": "system_error",
+                    "extra": "encryption generation issue.",
+                })
+
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA3_512(),
+                iterations=1311313,
+                salt=salt,
+                length=32,
+                backend=default_backend(),
+            )
+            key = kdf.derive(pass1.encode())
+            fernet_key = base64.urlsafe_b64encode(key)
+            enc_key = Fernet(fernet_key)
+            fernet_key = fernet_key.decode()
+            enc_data = enc_key.encrypt(pass1.encode()).decode()
+            return (enc_data,fernet_key)
+
+        try:
+            decrypt_data = enc_key.decrypt(pass1.encode())
+            return decrypt_data.decode()
+        except Exception as e:  # Catch any exceptions during decryption
+            self.log.logger.critical(f"Decryption failed: {e}")
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-1108",
+                "line_code": "system_error",
+                "extra": "encryption generation issue.",
+            })
+
+
     # =============================
     # setter functions
     # =============================

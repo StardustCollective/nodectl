@@ -41,6 +41,7 @@ from .logger import Logging
 #     config
 # invalid_tcp_ports
 # input_error
+# system_error
 # invalid_layer
 # invalid_search
 # file_not_found
@@ -553,7 +554,7 @@ class Error_codes():
             
             
         elif var.line_code == "open_file":
-            file_word = "p12 file" if var.extra2 == "p12" else "p12 file"
+            file_word = "p12 file" if var.extra2 == "p12" else "file"
             self.log.logger.critical(f"unable to read {file_word} [{var.extra}]")
             self.functions.print_paragraphs([
                 [f"Something went wrong attempting to read or open a necessary {file_word}.",2,"red","bold"],
@@ -578,13 +579,19 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["Please review your",0], ["cn-config.yaml",0,"yellow","bold"], ["file, before continuing.",2]
             ]) 
-            
-            
+                        
         elif var.line_code == "download_yaml":
             self.log.logger.critical(f"unable to download valid configuration file [cn-config.yaml]")
             self.functions.print_paragraphs([
                 ["nodectl installer attempted to download an invalid or non-existent yaml pre-defined configuration.",0,"red"],
                 ["The installer cannot continue, please try installation again or seek assistance from the official Constellation Discord channel.",0,"red"],
+            ])
+            
+        elif var.line_code == "system_error":
+            self.log.logger.critical(f"an unrecoverable system error occurred. [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["nodectl attempted to issue an invalid, or non-executable command.",0,"red"],
+                ["This could be due to a customized configuration on your Debian Linux distro or other non-default setup?",0,"red"],
             ])
             
         elif var.line_code == "config_error":

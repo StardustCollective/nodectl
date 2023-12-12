@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from termcolor import colored, cprint
-from os import system, path, environ, makedirs, listdir
+from os import system, path, environ, makedirs, listdir, chmod
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
@@ -9,8 +9,10 @@ from copy import deepcopy, copy
 from secrets import compare_digest
 from time import sleep
 from requests import get
+from re import search, compile
 from itertools import chain
-	
+from zlib import compress
+
 from .migration import Migration
 from .config import Configuration
 from ..troubleshoot.logger import Logging
@@ -935,7 +937,7 @@ class Configurator():
 
 
     def manual_build_description(self,profile=False):
-        default = "none" if not profile else self.c.config_obj[profile]["description"]
+        default = "None" if not profile else self.c.config_obj[profile]["description"]
         profile = self.profile_to_edit if not profile else profile
 
         self.manual_section_header(profile,"DESCRIPTION") 
@@ -2105,7 +2107,7 @@ class Configurator():
                         
                         ["If the configuration found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
                         ["It is recommended to go through each",0,"red"],["issue",0,"yellow","underline"], ["one at a time, revalidating the configuration",0,"red"],
-                        ["after each edit, in order to make sure that dependent values, are cleared by each edit",2,"red"],
+                        ["after each edit, in order to make sure that dependent values, are cleared by each edit made.",2,"red"],
                         
                         ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
                     ])
@@ -3013,10 +3015,159 @@ class Configurator():
         
 
     def passphrase_enable_disable_encryption(self):
-        print("here too")
-        
-        exit(0)
 
+        system("clear")
+        enable = False if self.c.config_obj["global_p12"]["encryption"] else True
+
+        print("\n"*2)
+        line2 = "Disable Encryption"
+        self.c.functions.print_header_title({
+            "line1": f"Configuration Passphrase Encryption",
+            "line2": "Enable Encryption" if enable else line2,
+            "clear": True,
+            "show_titles": False,
+        })
+
+        e_action = "Building" if enable else "Removing"
+        encryption_obj = {
+            "text_start": f"{e_action} encryption elements",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        }
+        if enable:
+            enc_pass = self.c.config_obj["global_p12"]["passphrase"]
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1],[" IMPORTANT ",0,"yellow,on_red"], 
+                    ["Enabling encryption will encrypt your passphrase in the configuration file",0],
+                    ["linked to",0], ["nodectl",0,"yellow"], ["functionality.",2],
+                    ["In the event you displace your simple passphrase related to this",0],
+                    ["encryption step, you can simply",0],["disable",0,"red"], ["this functionality,",0],
+                    ["update/change your passphrase, and, upon completion,",0],
+                    ["re-enable",0,"green"], ["the encryption feature.",2],
+
+                    ["For security purposes, nodectl will not decrypt the passphrase upon disabling the",0,"red","bold"],
+                    ["encryption feature.",2,"red","bold"],
+
+                    ["You will be prompted to input a",0], ["seed phrase",0,"yellow"], ["to encrypt your passphrase.",0],
+                    ["This seed phrase will be securely stored by the root admin user of your Node, accessible",0],
+                    ["exclusively to the root user. You can opt for a straightforward seed word or enhance",0],
+                    ["complexity as preferred, ensuring the seed phrase is longer than",0], ["4",0,"green","bold"],
+                    
+                    ["characters, numbers, special characters, or combination of all three.",2],
+                    
+                    ["For security purposes you will not see your seed phrase while entering.",2],
+                ])
+
+            double_confirm = False
+            if enc_pass == "None":
+                double_confirm = True
+            for t in range(1,3):
+                ptype = "p12 passphrase"
+                if t == 2: 
+                    ptype = "Seed Phrase"
+                    self.c.functions.print_paragraphs([
+                        ["",],["Press enter a simple seed phrase that is at least 4 alphanumeric or special characters.",2,"white","bold"],
+                    ])
+                else:
+                    self.c.functions.print_paragraphs([
+                        ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
+                    ])
+                for n in range(0,4):
+                    if n > 2:
+                        cprint("  Cancelling action","red")
+                        sleep(2)
+                        return
+                    pass1 = getpass(f"          {ptype}: ")
+                    if t > 1 or double_confirm:
+                        pass2 = getpass(f"  Confirm {ptype}: ")
+                    else:
+                        pass2 = enc_pass
+                    if pass1 == pass2 and len(pass1) > 3: 
+                        if t == 1: pass3 = pass1
+                        else: pass4 = pass1
+                        break
+                    self.c.functions.print_paragraphs([
+                        ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
+                        ["retry:",0], [str(n+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
+                    ])   
+
+            fpass = f"{pass3}cnng{pass4}"
+            print("")
+            self.c.functions.print_cmd_status({
+                **encryption_obj,
+            })    
+
+            try:
+                hashed, enc_key = self.c.functions.get_persist_hash({"pass1": fpass})
+                if not hashed: raise Exception("hashing issue")
+                if not enc_key: raise Exception("encryption generation issue")
+            except Exception as e:
+                self.log.logger.critical(f"configurator --> [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "cfg-3110",
+                    "line_code": "system_error",
+                    "extra": e,
+                })
+
+            self.config_obj_apply = {
+                "global_p12": {
+                    "encryption": "True",
+                    "passphrase": f'{hashed.replace("=","")}{enc_key.replace("=","")}',
+                }
+            } 
+        else:
+            if self.detailed:
+                if self.profile_to_edit:
+                    verb1, verb2 = "this", "profile's" 
+                else:
+                    verb1, verb2 = "the", "global"
+                self.c.functions.print_paragraphs([
+                    ["",1],[" WARNING ",0,"yellow,on_red"], 
+                    ["Disabling encryption will remove any existing seed phrase permanently.",2],
+
+                    ["Your passphrase will",0,"red"], ["NOT",0,"red","bold"], 
+                    ["be restored in your Node's configuration file.",1,"red"],
+                    ["Passphrase will be set to",0,"red"], ["None",2,"yellow","bold"],
+
+                    [f"Please reset {verb1}",0,"red"], [verb2,0,"yellow"], ["passphrase via the configurator to",0,"red"],
+                    ["resume nodectl's ability to automate processes that require the",0,"red"],
+                    ["p12",0,"yellow"], ["key store elements to function.",2,"red"],
+                    ["Alternatively, you can resume using",0,"red"],
+                    ["--pass <passphrase>",0], ["at the command prompt.",2,"red"],
+                ])
+
+            self.c.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": "Do you want to remove encryption?",
+                "exit_if": True
+            })
+
+            self.c.functions.print_paragraphs([
+                ["",1], ["This is permanent...",1,"red","bold"],
+            ])
+            self.c.functions.print_cmd_status({
+                **encryption_obj,
+            })  
+
+            sleep(1)
+            self.config_obj_apply = {
+                "global_p12": {
+                    "encryption": "False",
+                    "passphrase": "None",
+                }
+            } 
+
+        self.apply_vars_to_config()
+        self.c.functions.print_cmd_status({
+            **encryption_obj,
+            "newline": True,
+            "status": "completed",
+            "status_color": "green",
+        })  
+        sleep(1)
 
     # =====================================================
     # OTHER
