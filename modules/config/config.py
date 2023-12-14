@@ -1024,7 +1024,7 @@ class Configuration():
                     self.config_obj[profile]["global_p12_all_global"] = True
                     self.config_obj[profile]["global_p12_key_name"] = True
                     self.config_obj[profile]["global_p12_key_location"] = True
-                    self.config_obj[profile]["global_p12_key_key_alias"] = True
+                    self.config_obj[profile]["global_p12_key_alias"] = True
 
                 if self.config_obj[profile]["p12_nodeadmin"] == "global":
                     self.config_obj[profile]["global_p12_nodeadmin"] = True

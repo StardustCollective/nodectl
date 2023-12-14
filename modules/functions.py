@@ -1074,7 +1074,8 @@ class Functions():
             salt = salt[:32]
             try:
                 salt = base64.urlsafe_b64decode(salt)
-            except binascii.Error as e:
+            # except binascii.Error as e:
+            except Exception as e:
                 self.log.logger.critical(f"Invalid salt base64 encoding: {e}")
                 self.error_messages.error_code_messages({
                     "error_code": "fnt-1079",

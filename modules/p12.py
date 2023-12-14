@@ -420,41 +420,76 @@ class P12Class():
         is_global = command_obj.get("global",True)
         profile = command_obj.get("profile",False)
         env_vars = command_obj.get("env_vars",False)
-        
+
+        enc = False
+        p_sub_key = "p12_passprhase"
+        if is_global: 
+            profile = "global_p12"
+            p_sub_key = "passphrase"
+
+        if self.config_obj["global_p12"]["encryption"]:
+                enc = True
+                if env_vars: pass1 = self.p12_password
+                else: pass1 = self.config_obj[profile][p_sub_key]
+                pass1 = self.functions.get_persist_hash({
+                    "pass1": pass1,
+                    "profile": profile,
+                    "enc_data": True,
+                }) 
+        else: pass1 = self.config_obj[profile][p_sub_key]   
+
         if env_vars:
+            environ['CL_STOREPASS'] = f"{pass1}" if enc else f"{self.p12_password}"
             # used for p12 generation on install of solo p12 build
             environ['CL_KEYSTORE'] = f"{self.p12_file_location}/{self.p12_filename}"
             # environ['CL_KEYSTORE'] = f"{self.p12_key_store}"
             environ['CL_KEYPASS'] = f"{self.p12_password}"
-            environ['CL_STOREPASS'] = f"{self.p12_password}"
             environ['CL_PASSWORD'] = f"{self.p12_password}"
             environ['CL_KEYALIAS'] = f"{self.key_alias}"
             return
         
-        if is_global:
-            passphrase = self.config_obj["global_p12"]["passphrase"]
-            nodeadmin = self.config_obj["global_p12"]["nodeadmin"]
-            key_location = self.config_obj["global_p12"]["key_location"]
-            p12_key_name = self.config_obj["global_p12"]["key_name"]
-            key_alias = self.config_obj["global_p12"]["key_alias"]
-            key_store = self.config_obj["global_p12"]["key_store"]
-        else:
-            passphrase =self.config_obj[profile]["p12_passphrase"]
-            nodeadmin =self.config_obj[profile]["p12_nodeadmin"]
-            key_location =self.config_obj[profile]["p12_key_location"]
-            p12_key_name =self.config_obj[profile]["p12_key_name"]
-            key_alias =self.config_obj[profile]["p12_key_alias"]            
-            key_store =self.config_obj[profile]["p12_key_store"]
+        indiv_p12_obj = {"passphrase": pass1}
+        skeys = ["nodeadmin","key_location","key_name","key_alias","key_store"]
+        for skey in skeys:
+            p12_key = skey
+            if profile != "global_p12": skey = f"p12_{skey}"
+            indiv_p12_obj[p12_key] = self.config_obj[profile][skey] 
+
+        # if env_vars:
+        #     # used for p12 generation on install of solo p12 build
+        #     environ['CL_KEYSTORE'] = f"{self.p12_file_location}/{self.p12_filename}"
+        #     # environ['CL_KEYSTORE'] = f"{self.p12_key_store}"
+        #     environ['CL_KEYPASS'] = f"{self.p12_password}"
+        #     environ['CL_STOREPASS'] = f"{self.p12_password}"
+        #     environ['CL_PASSWORD'] = f"{self.p12_password}"
+        #     environ['CL_KEYALIAS'] = f"{self.key_alias}"
+        #     return
+        
+        # if is_global:
+        #     passphrase = self.config_obj["global_p12"]["passphrase"]
+        #     nodeadmin = self.config_obj["global_p12"]["nodeadmin"]
+        #     key_location = self.config_obj["global_p12"]["key_location"]
+        #     p12_key_name = self.config_obj["global_p12"]["key_name"]
+        #     key_alias = self.config_obj["global_p12"]["key_alias"]
+        #     key_store = self.config_obj["global_p12"]["key_store"]
+        # else:
+        #     passphrase =self.config_obj[profile]["p12_passphrase"]
+        #     nodeadmin =self.config_obj[profile]["p12_nodeadmin"]
+        #     key_location =self.config_obj[profile]["p12_key_location"]
+        #     p12_key_name =self.config_obj[profile]["p12_key_name"]
+        #     key_alias =self.config_obj[profile]["p12_key_alias"]            
+        #     key_store =self.config_obj[profile]["p12_key_store"]
+
 
         self.log.logger.info("p12 file exporting p12 details into env variables.")
             
         passes = ["CL_PASSWORD","CL_KEYPASS","CL_STOREPASS"]
         for key in passes:
-            environ[key] = passphrase
+            environ[key] = indiv_p12_obj["passphrase"]
             
         try:
-            environ["CL_KEYALIAS"] = key_alias
-            environ["CL_KEYSTORE"] = key_store
+            environ["CL_KEYALIAS"] = indiv_p12_obj["key_alias"]
+            environ["CL_KEYSTORE"] = indiv_p12_obj["key_store"]
         except Exception as e:
             self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}]")
             self.error_messages.error_code_messages({
@@ -462,9 +497,9 @@ class P12Class():
                 "line_code": "config_error",
                 "extra": "format"
             })
-        self.path_to_p12 = key_location
-        self.p12_username = nodeadmin
-        self.p12_file = p12_key_name
+        self.path_to_p12 = indiv_p12_obj["key_location"]
+        self.p12_username = indiv_p12_obj["nodeadmin"]
+        self.p12_file = indiv_p12_obj["key_name"]
 
                   
     def generate(self):

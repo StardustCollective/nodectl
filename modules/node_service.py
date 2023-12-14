@@ -599,7 +599,16 @@ class Node():
             for key, value in self.functions.config_obj[profile].items():
                 for env_key_value in p12_keys:
                     if key == env_key_value[1]:
-                        f.write(f'{env_key_value[0]}="{self.functions.config_obj[profile][key]}"\n')
+                        epass = self.functions.config_obj[profile][key]
+                        if self.config_obj["global_p12"]["encryption"] and "PASS" in env_key_value[0]:
+                            eprofile = profile
+                            if self.functions.config_obj[profile]["global_p12_passphrase"]: eprofile = "global"
+                            epass = self.functions.get_persist_hash({
+                                "pass1": epass,
+                                "profile": eprofile,
+                                "enc_data": True,
+                            })                             
+                        f.write(f'{env_key_value[0]}="{epass}"\n')
         f.close()
 
         if not self.auto_restart:        
