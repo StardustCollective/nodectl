@@ -2,7 +2,8 @@ import yaml
 import json
 
 from termcolor import colored
-from time import sleep
+from time import sleep, time
+from random import randint
 from re import match
 from os import system, path, get_terminal_size
 from sys import exit
@@ -14,6 +15,7 @@ from ..troubleshoot.errors import Error_codes
 from ..troubleshoot.logger import Logging
 from .versioning import Versioning
 
+
 class Configuration():
     
     def __init__(self,command_obj):
@@ -23,19 +25,26 @@ class Configuration():
         
         self.versioning_service = False
         self.argv_list = command_obj["argv_list"]
+
+        self.skip_final_report = command_obj.get("skip_report",False)
+
         if "uvos" in self.argv_list: 
             # do not log if versioning service initialized Configuration
             self.versioning_service = True
+            self.skip_final_report = True
             for handler in self.log.logger.handlers[:]:
                 self.log.logger.removeHandler(handler)
                 
-        if "help" in self.argv_list[0]: return
+        if "help" in self.argv_list[0] or "main_error" in self.argv_list[0]: return
 
         self.config_obj = {}
         self.error_list = []
-        self.error_found = False  # for configurator
-        self.auto_restart = True if "auto_restart" in self.argv_list or "service_restart" in self.argv_list else False
         
+        self.error_found = False  # for configurator
+        self.configurator_verified = False # for configurator
+        
+        self.auto_restart = True if "auto_restart" in self.argv_list or "service_restart" in self.argv_list else False
+
         try:
             self.called_command = self.argv_list[1]
         except:
@@ -43,8 +52,9 @@ class Configuration():
         
         execute = command_obj["implement"]
         self.action = command_obj["action"]        
-        self.skip_final_report = command_obj.get("skip_report",False)
-        
+    
+        self.configurator_verified = True
+                
         if "view" in self.action or self.action == "-vc":
             self.view_yaml_config("normal")
         
@@ -176,10 +186,9 @@ class Configuration():
                     "line_code": "config_error",
                     "extra": "format",
                     "extra2": None
-                })      
-
+                })   
+                   
         self.nodectl_config_simple_format_check = list(self.yaml_dict.keys())
-        
         self.config_obj = {
             **self.config_obj,
             **self.yaml_dict[self.nodectl_config_simple_format_check[0]],
@@ -196,11 +205,11 @@ class Configuration():
         self.functions.set_statics()
         
         
-    def check_for_migration(self):
+    def check_for_migration(self,check_only=False):
         # self.functions.pull_upgrade_path(True)
         nodectl_version = self.functions.version_obj["node_nodectl_version"]
         nodectl_yaml_version = self.functions.version_obj["node_nodectl_yaml_version"]
-        
+                 
         validate = True
         if len(self.nodectl_config_simple_format_check) > 1 or "nodectl" not in self.nodectl_config_simple_format_check[0]:
             validate = False
@@ -217,8 +226,10 @@ class Configuration():
             found_yaml_version = self.config_obj["global_elements"]["nodectl_yaml"]
         except:
             found_yaml_version = False
-            
-        if not found_yaml_version or found_yaml_version != nodectl_yaml_version:
+        
+        if self.called_command == "configurator":
+            self.log.logger.debug("configuration module found configuration change request, skipping migration attempts.")
+        elif not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             self.log.logger.info(f"configuration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
             if self.called_command != "upgrade":
                 self.error_messages.error_code_messages({
@@ -315,7 +326,7 @@ class Configuration():
         
 
     def view_yaml_config(self,action):
-        if self.called_command == "view_config":
+        if self.called_command == "view_config" or self.called_command == "-vc":
             self.build_function_obj({
                 "global_elements": {"caller":"config"},
                 "sudo_rights": False,
@@ -412,6 +423,10 @@ class Configuration():
             "directory_uploads": "/var/tessellation/uploads/",
             "seed_file": "seed-list",
             "seed_location": "/var/tessellation",
+            "pro_rating_file": "ratings.csv",
+            "pro_rating_location": "/var/tessellation",
+            "priority_source_file": "priority-list",
+            "priority_source_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": "github.com/Constellation-Labs/tessellation/",
             "edge_point": [
@@ -481,7 +496,10 @@ class Configuration():
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
-                        if tdir == "seed_file": self.config_obj[profile][tdir] = f'{profile}-seedlist' # exception
+                        if tdir == "seed_file": 
+                            self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist' # exception
+                        elif tdir == "priority_source_file": 
+                            self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-prioritysourcelist' # exception
                         elif isinstance(def_value,list):
                             if tdir == "edge_point": 
                                 for n, edge in enumerate(def_value): 
@@ -498,10 +516,15 @@ class Configuration():
                 self.config_obj[profile]["jar_github"] = True 
                 
             try:
-                self.config_obj[profile]["seed_path"] = self.create_path_variable(
-                    self.config_obj[profile]["seed_location"],
-                    self.config_obj[profile]["seed_file"]
-                )
+                if self.config_obj[profile]["seed_location"] == "disable":
+                    self.config_obj[profile]["seed_path"] = "disable"
+                elif self.config_obj[profile]["seed_location"] == "default":
+                    self.config_obj[profile]["seed_path"] = "default"
+                else:
+                    self.config_obj[profile]["seed_path"] = self.create_path_variable(
+                        self.config_obj[profile]["seed_location"],
+                        self.config_obj[profile]["seed_file"]
+                    )
             except KeyError:
                 self.error_list.append({
                     "title": "section_missing",
@@ -509,14 +532,69 @@ class Configuration():
                     "profile": profile,
                     "type": "section",
                     "key": "multiple",
-                    "value": "p12",
+                    "value": "seed list access",
                     "special_case": None
                 })
+                
+            try:
+                value = "location of filename"
+                if self.config_obj[profile]["priority_source_location"] == "disable":  
+                    self.config_obj[profile]["priority_source_path"] = "disable"
+                elif self.config_obj[profile]["priority_source_location"] == "default":
+                    self.config_obj[profile]["priority_source_path"] = "default"
+                else:
+                    self.config_obj[profile]["priority_source_path"] = self.create_path_variable(
+                        self.config_obj[profile]["priority_source_location"],
+                        self.config_obj[profile]["priority_source_file"]
+                    )
+                    # exception rating file is a static user added file
+                    if not path.exists(self.config_obj[profile]["priority_source_location"]):
+                        value = self.config_obj[profile]["priority_source_location"]
+                        raise KeyError
+            except KeyError:
+                self.error_list.append({
+                    "title": "section_missing",
+                    "section": "priority_source",
+                    "profile": profile,
+                    "type": "section",
+                    "key": "location",
+                    "value": value,
+                    "special_case": None
+                })
+                
+            try:
+                value = "location of filename"
+                if self.config_obj[profile]["pro_rating_location"] == "disable":  
+                    self.config_obj[profile]["pro_rating_path"] = "disable"
+                elif self.config_obj[profile]["pro_rating_location"] == "default":
+                    self.config_obj[profile]["pro_rating_path"] = "default"
+                else:
+                    self.config_obj[profile]["pro_rating_path"] = self.create_path_variable(
+                        self.config_obj[profile]["pro_rating_location"],
+                        self.config_obj[profile]["pro_rating_file"]
+                    )
+                    # exception rating file is a static user added file
+                    if not path.exists(self.config_obj[profile]["pro_rating_path"]):
+                        value = self.config_obj[profile]["pro_rating_path"]
+                        raise KeyError
+            except KeyError:
+                self.error_list.append({
+                    "title": "section_missing",
+                    "section": "pro_rating",
+                    "profile": profile,
+                    "type": "section",
+                    "key": "rating_keys",
+                    "value": value,
+                    "special_case": None
+                })
+                
+            self.config_obj[profile]["p12_validated"] = False # initialize to False
         
         if self.action == "install":
             return self.config_obj
         
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
+        self.config_obj["global_p12"]["p12_validated"] = False  # init key (used outside of this class)
             
             
     def prepare_p12(self):
@@ -749,11 +827,15 @@ class Configuration():
                 ["p12_key_name","str"],
                 ["p12_key_alias","str"],
                 ["p12_passphrase","str"], 
-                ["p12_key_store","str"], # automated value [not part of yaml]              
+                ["p12_key_store","str"], # automated value [not part of yaml] 
+                ["p12_validated","bool"], # automated value [not part of yaml]             
                 ["seed_location","path_def_dis"],
                 ["seed_repository","host_def_dis"],
                 ["seed_file","str"],             
                 ["seed_path","path_def_dis"], # automated value [not part of yaml]
+                ["pro_rating_location","path_def_dis"],
+                ["pro_rating_file","str"], 
+                ["pro_rating_path","path_def_dis"], # automated value [not part of yaml]     
                 ["priority_source_location","path_def_dis"],
                 ["priority_source_repository","host_def_dis"],
                 ["priority_source_file","str"],             
@@ -781,10 +863,12 @@ class Configuration():
                 ["key_alias","str"],
                 ["passphrase","str"],
                 ["key_store","str"], # automated value [not part of yaml]
+                ["p12_validated","bool"], # automated value [not part of yaml]
             ],
             "global_elements": [
                 ["metagraph_name","str"],
                 ["nodectl_yaml","str"],
+                ["developer_mode","bool"],
                 ["log_level","log_level"],
             ]
         }
@@ -827,31 +911,7 @@ class Configuration():
                 
 
     def validate_yaml_keys(self):
-        # self.common_test_dict = {
-        #     "auto_restart": ["enable","auto_upgrade","rapid_restart"],
-        #     "global_p12": ["nodeadmin","key_location","key_name","key_alias","passphrase"],
-        #     "cnng_dynamic_profiles": [
-        #         "enable","metagraph_name","description","node_type","meta_type","layer","service",
-        #         "environment","edge_point","edge_point_tcp_port",
-        #         "public_port","p2p_port","cli_port",
-        #         "gl0_link_enable","gl0_link_key","gl0_link_host","gl0_link_port","gl0_link_profile",
-        #         "ml0_link_enable","ml0_link_key","ml0_link_host","ml0_link_port","ml0_link_profile",
-        #         "directory_backups","directory_uploads",
-        #         "java_xms","java_xmx",
-        #         "java_xss","jar_repository",
-        #         "p12_nodeadmin","p12_key_location","p12_key_name","p12_key_alias","p12_passphrase",
-        #         "seed_location","seed_file",
-        #         "custom_args_enable","custom_env_vars_enable",
-        #     ],
-        # }
-        # profile_value_list = self.common_test_dict["cnng_dynamic_profiles"]
         missing_list = []
-        
-        # ====================================
-        # placeholder for source priority path
-        # ====================================
-        for profile in self.metagraph_list:
-            self.config_obj[profile]["priority_source_path"] = "/var/tessellation/"
             
         for config_key, config_value in self.config_obj.items():
             if "global" not in config_key:
@@ -859,7 +919,7 @@ class Configuration():
                 # key_test_list = list(config_value.keys())
                 # schema_test_list = [item[0] for item in self.schema["metagraphs"]]
                 missing =  [item[0] for item in self.schema["metagraphs"]] - config_value.keys()
-                missing = [x for x in missing if x not in ["seed_path","gl0_link_is_self","ml0_link_is_self","p12_key_store","jar_github"]]
+                missing = [x for x in missing if x not in ["seed_path","pro_rating_path","gl0_link_is_self","ml0_link_is_self","p12_key_store","jar_github"]]
                 for item in missing:
                     missing_list.append([config_key, item])
             if "global" in config_key:
@@ -1144,12 +1204,13 @@ class Configuration():
 
                         elif "path" in req_type:
                             # global paths replaced already
-                            if "path" in req_type: validated = True # dynamic value skip validation
+                            if "path" in key: validated = True # dynamic value skip validation
                             if "path_def" in req_type and test_value == "default": validated = True
                             elif req_type == "path_def_dis" and test_value == "disable": validated = True
                             elif path.isdir(test_value): validated = True
                             elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
                                 title = f"{test_value} is an invalid keyword for layer0"
+                            elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
                             elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
                                 title = f"{test_value} is an invalid keyword"
                             elif not path.isdir(test_value): title = "invalid or path not found"
@@ -1179,6 +1240,8 @@ class Configuration():
                     
         if return_on:
             return return_on_validated
+        if not return_on_validated: 
+            self.configurator_verified = False # only change once 
         self.skip_global_validation = True
 
         
@@ -1216,9 +1279,6 @@ class Configuration():
 
     def validate_seedlist_duplicates(self):
         seeds = []; duplicates = []
-        # for profile in self.metagraph_list: 
-        #     if self.config_obj[profile]["seed_path"] != "disable":
-        #         seeds.append(self.config_obj[profile]["seed_path"])
         seeds = [self.config_obj[profile]["seed_path"] for profile in self.metagraph_list if "disable" not in self.config_obj[profile]["seed_path"]]
         seeds_set = set(seeds)
         if len(seeds_set) != len(seeds):
@@ -1306,6 +1366,7 @@ class Configuration():
             "meta_type": "options include 'gl' or 'ml'",
             "service": f"{service_dups} {service_dups2}",
             "link_profile": "dependency link profile not found",
+            "pro_rating": "either the path to the file or file configured does not exist.",
             "dirs": f"{dir1} {dir2}",
             "128hex": f"{hex1} {hex2}",
             "gl0_link": "invalid link type",
@@ -1426,7 +1487,7 @@ class Configuration():
             "extra": extra,
             "extra2": extra2
         }) 
-        
-        
+
+
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation") 

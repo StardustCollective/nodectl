@@ -18,18 +18,20 @@ def cli_commands(argv_list):
         
     while True:
         try:
-            config_list = [
-                "configure","install",
+            skip_config_list = ["install","verify_nodectl","-vn"]
+            exception_list = [
+                "configure",
                 "validate_config","validate-config","-val",
-                "view_config","view-config","-vc"
+                "view_config","view-config","-vc",
             ]
+            exception_list += skip_config_list
             exclude_config = ["-v","_v","version"]
             
-            if argv_list[1] in config_list:
+            if argv_list[1] in exception_list:
                 if argv_list[1] == "configure":
                     Configurator(argv_list)
-                elif argv_list[1] == "install":
-                    current_shell = ShellHandler({"global_elements":{"caller":"install"}},False)
+                elif argv_list[1] in skip_config_list:
+                    current_shell = ShellHandler({"global_elements":{"caller": argv_list[1]}},False)
                 else:  
                     config_needed = Configuration({
                         "action": argv_list[1],
@@ -52,6 +54,7 @@ def cli_commands(argv_list):
                         current_shell = ShellHandler(config.config_obj,False)               
                 else:
                     caller = argv_list[1] if argv_list[1] in exclude_config else "config"
+                    if "main_error" in argv_list: caller = "main_error" 
                     current_shell = ShellHandler({"global_elements":{"caller":caller}},False)
             if current_shell:        
                 current_shell.start_cli(argv_list)

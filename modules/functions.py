@@ -12,7 +12,7 @@ import validators
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
-from requests import get
+from requests import get, Session
 from subprocess import Popen, PIPE, call, run, check_output
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -36,6 +36,8 @@ from pycoingecko import CoinGeckoAPI
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 
+class TerminateFunctionsException(Exception): pass
+
 class Functions():
 
     def __init__(self,config_obj):
@@ -46,9 +48,10 @@ class Functions():
         self.config_obj = config_obj
         self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
         self.version_obj = False
+        self.cancel_event = False
         self.valid_commands = []
         
-        
+                        
     def set_statics(self):
         self.error_messages = Error_codes(self.config_obj)         
         # versioning
@@ -56,12 +59,6 @@ class Functions():
         self.node_nodectl_version_github = self.version_obj["nodectl_github_version"]
         self.node_nodectl_yaml_version = self.version_obj["node_nodectl_yaml_version"]
 
-        # stop requests from caching results
-        self.get_headers = {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
         urllib3.disable_warnings()
 
         # used for installation 
@@ -70,6 +67,18 @@ class Functions():
             "mainnet": ["l0-lb-mainnet.constellationnetwork.io",443],
             "integrationnet": ["l0-lb-integrationnet.constellationnetwork.io",443],
         }
+        
+        self.default_backup_location = "/var/tessellation/backups/"
+        self.default_upload_location = "/var/tessellation/uploads/"
+        
+        self.default_seed_location = "/var/tessellation/"
+        self.default_seed_file = "seed-list"
+        
+        self.default_priority_source_location = "/var/tessellation/"
+        self.default_priority_source_file = "priority-source-list"
+        
+        self.default_pro_rating_file = "ratings.csv"
+        self.default_pro_rating_location = "/var/tessellation"
         
         # constellation specific statics
         self.be_urls = {
@@ -84,6 +93,7 @@ class Functions():
         
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
+        self.pre_consensus_list = ["DownloadInProgress","WaitingForReady","WaitingForObserving","Observing"]
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
 
@@ -324,13 +334,19 @@ class Functions():
         attempts = 1
         while True:
             try:
-                peers = get(f"http://{cluster_ip}:{api_port}/cluster/info",verify=False,timeout=2,headers=self.get_headers)
+                session = self.set_request_session()
+                session.verify = False
+                session.timeout = 2
+                url = f"http://{cluster_ip}:{api_port}/cluster/info"
+                peers = session.get(url)
             except:
                 if attempts > 3:
                     return "error"
                 attempts = attempts+1
             else:
                 break
+            finally:
+                session.close()
 
         try:
             peers = peers.json()
@@ -503,10 +519,12 @@ class Functions():
         if action == "date":
             return new_time.strftime("%Y-%m-%d")
         elif action == "datetime":
-            return new_time.strftime("%Y-%m-%d-%H:%M:%SZ")
+            return new_time.strftime(format)
         elif action == "get_elapsed":
-            try: old_time = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
+            try: old_time = datetime.strptime(old_time, format)
             except: pass # already in proper format
+            if isinstance(new_time,str):
+                new_time = datetime.strptime(new_time, format)
             return new_time - old_time
         elif action == "future_datetime":
             new_time += timedelta(seconds=elapsed)
@@ -530,7 +548,7 @@ class Functions():
         elif action == "session_to_date":
             elapsed = elapsed/1000
             elapsed = datetime.fromtimestamp(elapsed)
-            return elapsed.strftime("%Y-%m-%d-%H:%M:%SZ")
+            return elapsed.strftime(format)
         elif action == "uptime_seconds":
             uptime_output = check_output(["uptime"]).decode("utf-8")
             uptime_parts = uptime_output.split()
@@ -547,8 +565,8 @@ class Functions():
                 uptime_seconds = (uptime_hours * 60 + uptime_minutes) * 60
             return uptime_seconds
         elif action == "difference":
-            test1 = datetime.strptime(old_time, "%Y-%m-%d-%H:%M:%SZ")
-            test2 = datetime.strptime(new_time, "%Y-%m-%d-%H:%M:%SZ")
+            test1 = datetime.strptime(old_time, format)
+            test2 = datetime.strptime(new_time, format)
             if getattr(test1, time_part) != getattr(test2, time_part):
                 return True  # There is a difference            
             return False
@@ -574,8 +592,14 @@ class Functions():
         start = command_obj["start"]
         end = command_obj["end"]
         current = command_obj["current"]
-        invert = command_obj.get("invert",False)
-        absolute = command_obj.get("absolute",False)
+        absolute = command_obj.get("absolute", False)
+        backwards = command_obj.get("backwards", False)
+        set_current = command_obj.get("set_current","end")
+        
+        if set_current == "end":
+            set_current = end
+        else:
+            set_current = start
         
         if not absolute: 
             if current < start:
@@ -584,10 +608,13 @@ class Functions():
         elif current >= end:
             return 100
         
-        total_range = end - start
-        current_range = abs(current - start)
-        percentage = (current_range / total_range) * 100
-        if invert: percentage = 100 - percentage
+        if backwards:
+            total_range = end - start
+            current_range = abs(set_current - start)
+            percentage = (1 - current_range / total_range) * 100
+        else:
+            percentage = (current / end) * 100
+
         return int(percentage) 
     
 
@@ -716,7 +743,10 @@ class Functions():
         result_list = []
         for n in range(0,tolerance):
             try:
-                session = get(api_url,verify=False,timeout=(2,2),headers=self.get_headers).json()
+                r_session = self.set_request_session()
+                r_session.timeout = (2,2)
+                r_session.verify = False
+                session = r_session.get(api_url).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
                 if n == tolerance-1:
@@ -725,6 +755,8 @@ class Functions():
                 sleep(1.5)
             else:
                 break
+            finally:
+                r_session.close()
 
         if len(session) < 2 and "data" in session.keys():
             session = session["data"]
@@ -744,10 +776,12 @@ class Functions():
         
         for n in range(1,tolerance):
             try:
+                session = self.set_request_session()
+                session.timeout = 2
                 if utype == "json":
-                    response = get(url,timeout=2,headers=self.get_headers).json()
+                    response = session.get(url).json()
                 else:
-                    response = get(url,timeout=2,headers=self.get_headers)
+                    response = session.get(url)
             except Exception as e:
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
                 if n > tolerance-1:
@@ -763,6 +797,8 @@ class Functions():
                 elif utype == "yaml":
                     return yaml.safe_load(response.content)
                 return response
+            finally:
+                session.close()
                         
                     
     def get_cluster_info_list(self,command_obj):
@@ -789,7 +825,10 @@ class Functions():
                 
             for n in range(var.attempt_range+1):
                 try:
-                    results = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
+                    session = self.set_request_session()
+                    session.verify = False
+                    session.timeout=2
+                    results = session.get(uri).json()
                 except:
                     if n > var.attempt_range:
                         if not self.auto_restart:
@@ -809,6 +848,9 @@ class Functions():
                     except:
                         self.log.logger.warn("network may have become unavailable during cluster_info_list verification checking.")
                         results = [{"nodectl_found_peer_count": 0}]
+                finally:
+                    session.close()
+                    
                 self.event = False
                 return results 
             
@@ -839,17 +881,16 @@ class Functions():
     
         
     def get_user_keypress(self,command_obj):
-        # prompt=(str)
-        # prompt_color=(str)
-        # options=(list) list of valid keys
-        # debug=(bool) if want to test output of key for dev purposes
-        
         options = command_obj.get("options",["any_key"])
         prompt = command_obj.get("prompt","")
         prompt_color = command_obj.get("prompt_color","magenta")
         debug = command_obj.get("debug",False)
         quit_option = command_obj.get("quit_option",False)
+        quit_with_exception = command_obj.get("quit_with_exception",False)
+        parent = command_obj.get("parent",False)
+        
         self.key_pressed = None
+        if prompt == None: prompt = ""
         
         invalid_str = f"  {colored(' Invalid ','yellow','on_red',attrs=['bold'])}: {colored('only','red')} "
         for option in options:
@@ -871,14 +912,24 @@ class Functions():
                 print(f"{invalid_str} {colored('options','red')}")
                 cprint("  are accepted, please try again","red")
 
-        listen_keyboard(
-            on_press=press,
-            delay_second_char=0.75,
-        )
-
+        try:
+            listen_keyboard(
+                on_press=press,
+                delay_second_char=0.75,
+            )
+        except Exception as e:
+            self.log.logger.warn(f"functions -> spinner exited with [{e}]")
+            
         print("")
         if quit_option and (self.key_pressed.upper() == quit_option.upper()):
+            self.print_clear_line()
             cprint("  Action cancelled by User","yellow")
+            if quit_with_exception:
+                self.cancel_event = True
+                if parent:
+                    parent.terminate_program = True
+                    parent.clear_and_exit(False)
+                raise TerminateFunctionsException("spinner cancel")
             exit(0)
             
         try: _ = self.key_pressed.lower()  # avoid NoneType error
@@ -919,10 +970,11 @@ class Functions():
         environment = command_obj.get("environment","mainnet")
         return_values = command_obj.get("return_values",False)
         lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
-        header = command_obj.get("header",self.get_headers)
+        header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type","list")
         
+        json = True if header == "json" else False
         return_data = []
         error_secs = 2
         
@@ -940,7 +992,10 @@ class Functions():
             return_type = "dict"
         
         try:
-            results = get(uri,verify=False,timeout=2,headers=header).json()
+            session = self.set_request_session(json)
+            session.verify = False
+            session.timeout = 2
+            results = session.get(uri).json()
             results = results[get_results]
         except Exception as e:
             self.log.logger.warn(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
@@ -958,6 +1013,8 @@ class Functions():
                             if not return_values or v in return_values:
                                 return_data[v] = results[v]
             return return_data
+        finally:
+            session.close()
 
 
     def get_list_of_files(self,command_obj):
@@ -1068,7 +1125,6 @@ class Functions():
 
     def set_default_directories(self):
         # only to be set if "default" value is found
-
         for profile in self.config_obj.keys():
             if "global" not in profile:
                 self.config_obj[profile]["directory_snapshots_userset"] = False
@@ -1104,13 +1160,15 @@ class Functions():
                             self.config_obj[profile][f"{values['config_key']}_userset"] = True
                          
                 if self.config_obj[profile]["directory_backups"] == "default": # otherwise already set
-                    self.config_obj[profile]["directory_backups"] = "/var/tessellation/backups/"
+                    self.config_obj[profile]["directory_backups"] = self.default_backup_location 
                 if self.config_obj[profile]["directory_uploads"] == "default": # otherwise already set
-                    self.config_obj[profile]["directory_uploads"] = "/var/tessellation/uploads/"
+                    self.config_obj[profile]["directory_uploads"] = self.default_upload_location 
                 if self.config_obj[profile]["seed_location"] == "default": # otherwise already set
-                    self.config_obj[profile]["seed_location"] = "/var/tessellation/"
-                if self.config_obj[profile]["seed_file"] == "default": # otherwise already set
-                    self.config_obj[profile]["seed_file"] = "seed-list"
+                    self.config_obj[profile]["seed_location"] = self.default_seed_location 
+                if self.config_obj[profile]["priority_source_location"] == "default": # otherwise already set
+                    self.config_obj[profile]["priority_source_location"] = self.default_priority_source_location
+                if self.config_obj[profile]["pro_rating_location"] == "default": # otherwise already set
+                    self.config_obj[profile]["pro_rating_location"] = self.default_pro_rating_location
                  
             # currently not configurable
             self.config_obj[profile]["directory_logs"] = f"/var/tessellation/{profile}/logs/"   
@@ -1138,7 +1196,26 @@ class Functions():
         
         system(f". /home/{username}/.bashrc > /dev/null 2>&1")   
         
-                 
+        
+    def set_request_session(self,json=False):
+        get_headers = {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+        
+        if json:
+            get_headers = {
+                **get_headers,
+                'Accept': 'application/json',
+            }
+            
+        session = Session()            
+        session.headers.update(get_headers)   
+        session.params = {'random': random.randint(10000,20000)}
+        return session
+
+         
     # =============================
     # pull functions
     # ============================= 
@@ -1189,9 +1266,13 @@ class Functions():
             self.log.logger.debug(f"pull_node_session -> url: {url}")
             
             try:
-                session = get(url,verify=False,headers=self.get_headers).json()
+                r_session = self.set_request_session()
+                r_session.verify = False
+                session = r_session.get(url).json()
             except:
                 self.log.logger.error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
+            finally:
+                r_session.close()
 
             self.log.logger.info(f"pull_node_sessions found session [{session}] returned from test address [{node}] url [{url}] public_api_port [{port}]")
             try:
@@ -1199,7 +1280,7 @@ class Functions():
             except Exception as e:
                 try:
                     self.log.logger.warn(f"Load Balancer did not return a token | reason [{session['reason']} error [{e}]]")
-                    session_obj[f"session{i}"] = f"LB_NotReady{i}"
+                    session_obj[f"session{i}"] = f"{i}"
                 except:
                     self.error_messages.error_code_messages({
                         "error_code": "fnt-958",
@@ -1280,8 +1361,11 @@ class Functions():
 
             for n in range(5):
                 try:
+                    session = self.set_request_session()
+                    session.verify = True
+                    session.timeout = 2
                     url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
-                    balance = get(url,verify=True,timeout=2,headers=self.get_headers).json()
+                    balance = session.get(url).json()
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
@@ -1290,6 +1374,8 @@ class Functions():
                         self.log.logger(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
+                finally:
+                    session.close()
                 break   
             self.event = False              
         
@@ -1594,7 +1680,10 @@ class Functions():
 
         for n in range(0,4):
             try:
-                health = get(uri,verify=True,timeout=2,headers=self.get_headers)
+                session = self.set_request_session()
+                session.verify = True
+                session.timeout = 2
+                health = session.get(uri)
             except:
                 self.log.logger.warn(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if n > 2:
@@ -1613,19 +1702,28 @@ class Functions():
                         pass
                 else:
                     return True
+            finally:
+                session.close()
+                
             if not self.auto_restart:
                 sleep(1)
             
             
     def check_health_endpoint(self,api_port): 
         try:
-            r = get(f'http://127.0.0.1:{api_port}/node/health',verify=False,timeout=2,headers=self.get_headers)
+            session = self.set_request_session()
+            session.verify = False
+            session.timeout = 2
+            r = session.get(f'http://127.0.0.1:{api_port}/node/health')
         except:
             pass
         else:
             if r.status_code == 200:
                 self.log.logger.error(f"check health failed on endpoint [localhost] port [{api_port}]")
                 return True
+        finally:
+            session.close()
+            
         self.log.logger.debug(f"check health successful on endpoint [localhost] port [{api_port}]")
         return False   
             
@@ -1671,9 +1769,13 @@ class Functions():
 
             
     def check_for_help(self,argv_list,extended):
+        nodectl_version_only = False
+        if extended == "configure": nodectl_version_only = True
+        
         if "help" in argv_list:
             self.print_help({
-                "extended": extended
+                "extended": extended,
+                "nodectl_version_only": nodectl_version_only,
             })  
     
     
@@ -1721,6 +1823,8 @@ class Functions():
         reg_expression = "^[D][A][G][a-zA-Z0-9]{37}$"
         if v_type == "nodeid":
             reg_expression = "^[a-f0-9]{128}$"
+        if v_type == "ip_address":
+            reg_expression = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
             
         if match(reg_expression,address):
             valid = True
@@ -1835,7 +1939,10 @@ class Functions():
                         
                     if ip_address["ip"] is not None:
                         try: 
-                            state = get(uri,verify=False,timeout=2,headers=self.get_headers).json()
+                            session = self.set_request_session()
+                            session.verify = False
+                            session.timeout = 2 
+                            state = session.get(uri).json()
                             color = self.change_connection_color(state)
                             self.log.logger.debug(f"test_peer_state -> uri [{uri}]")
 
@@ -1862,6 +1969,8 @@ class Functions():
                             break_while = True
                             if simple: # do not check/update source node
                                 break
+                        finally:
+                            session.close()
                 
                 if break_while:
                     break
@@ -2107,6 +2216,8 @@ class Functions():
         if phrase == "none":
             phrase = "to allow services to take effect"
         for n in range(start,end_range+1):
+            if self.cancel_event: break
+            
             if not self.auto_restart:
                 self.print_clear_line()
                 print(colored(f"  Pausing:","magenta"),
@@ -2552,40 +2663,54 @@ class Functions():
                 for _ in range(1,newlines):
                     print("") # newlines 
                     
-            
+    
     def print_spinner(self,command_obj):
-        msg = command_obj.get("msg")
-        color = command_obj.get("color","cyan")
-        newline = command_obj.get("newline",False)
-        clearline = command_obj.get("clearline",True)
-        spinner_type = command_obj.get("spinner_type","spinner")
-        
-        if clearline: self.print_clear_line()
-        
-        if newline == "top" or newline == "both":
-            print("")
-        
-        def spinning_cursor(stype):
-            if stype == "dotted":
-                dots = ["   ",".  ",".. ","..."]
-                while True:
-                    for dot in dots: 
-                        yield dot
-            else:
-                while True:
-                    for cursor in '|/-\\':
-                        yield cursor
+        try:
+            msg = command_obj.get("msg")
+            color = command_obj.get("color","cyan")
+            newline = command_obj.get("newline",False)
+            clearline = command_obj.get("clearline",True)
+            spinner_type = command_obj.get("spinner_type","spinner")
+            timeout = command_obj.get("timeout",False)
+            
+            timer = -1
+            if timeout:
+                timer = perf_counter()
+                
+            if clearline: self.print_clear_line()
+            
+            if newline == "top" or newline == "both":
+                print("")
+            
+            def spinning_cursor(stype):
+                if stype == "dotted":
+                    dots = ["   ",".  ",".. ","..."]
+                    while True:
+                        for dot in dots: 
+                            yield dot
+                else:
+                    while True:
+                        for cursor in '|/-\\':
+                            yield cursor
 
-        spinner = spinning_cursor(spinner_type)
-        while self.event:
-            cursor = next(spinner)
-            print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
-            sleep(0.3)
-            if not self.event:
-                self.print_clear_line()
+            spinner = spinning_cursor(spinner_type)
+            while self.event and not self.cancel_event:
+                cursor = next(spinner)
+                print(f"  {colored(msg,color)} {colored(cursor,color)}",end="\r")
+                sleep(0.3)
+                if not self.event:
+                    self.print_clear_line()
+                    break
+                
+                current = perf_counter() - timer
+                if timeout and (current > timeout):
+                    exit(0)
 
-        if newline == "bottom" or newline == "both":
-            print("")
+            if newline == "bottom" or newline == "both":
+                print("")
+        except Exception as e:
+            self.log.logger.warn(f"functions -> spinner -> errored with [{e}]")
+            return
             
     
     def print_json_debug(self,obj,exit_on):
@@ -2614,7 +2739,8 @@ class Functions():
         nodectl_version_only = command_obj.get("nodectl_version_only",False)
         hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
-        
+        usage_only = command_obj.get("usage_only",False)
+
         command_obj = {
             **command_obj,
             "valid_commands": self.valid_commands
@@ -2629,6 +2755,14 @@ class Functions():
                 "newline": "top",
                 "clear": True
             })
+            
+        if not self.version_obj:
+            self.print_paragraphs([
+                [" WARNING/ERROR ",0,"red,on_yellow"],
+                ["nodectl was initialized without a command request, or something went wrong?",2,"red"],
+                ["command:",0],["sudo nodectl help",2,"yellow","bold"],
+            ])
+            exit(0)
             
         self.help_text = f"  NODECTL INSTALLED: [{colored(self.version_obj['node_nodectl_version'],'yellow')}]"
 
@@ -2645,7 +2779,8 @@ class Functions():
         self.help_text += build_help(self,command_obj)
         
         print(self.help_text)
-                
+        if usage_only: exit(0)
+
         if "profile" in hint:
             self.print_paragraphs([
                 ["HINT:",0,"yellow","bold"],
@@ -2759,7 +2894,9 @@ class Functions():
         elif action == "remove_char":
             return sub(char, '', line)  
         elif action == "service_prefix":
-            return sub("cnng-","", line)   
+            return sub("cnng-","", line)  
+        elif action == "double_spaces":
+            return sub(r'\s+', ' ', line) 
         elif action == "trailing_backslash":
             if line[-1] == "/":
                 return line[0:-1]

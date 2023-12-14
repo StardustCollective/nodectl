@@ -70,10 +70,15 @@ class UserClass:
         })
         
         user_type = "non-commonly known"
-        if current_user == "root" or current_user == "ubuntu":
-            print(colored(f"\n  This {colored(current_user,'cyan',attrs=['bold'])} {colored('user is dangerous.','cyan')}","cyan"))
+        if current_user == "root" or current_user == "ubuntu" or current_user == "admin":
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"yellow,on_red"], ["User:",0,"red"], [current_user,0,"yellow","bold"],
+                ["is a dangerous user to use on a day-to-day basis.",2,"red"],
+            ])
+        
         if current_user == "root":
             user_type = "non-root"
+        
         if current_user == "nodeadmin":
             self.functions.print_paragraphs([
                 ["",1],[" DETECTED NODEADMIN ",0,"white,on_blue"], 
@@ -121,11 +126,35 @@ class UserClass:
                     break
                 
         self.username = user
+        self.test_if_user_exists()
 
 
+    def test_if_user_exists(self):
+        try:
+            with open('/etc/passwd', 'r') as passwd_file:
+                u_exists = any(line.startswith(self.username + ':') for line in passwd_file)
+        except FileNotFoundError:
+            u_exists = False       
+        
+        self.keep_user = False
+        if u_exists:
+            self.functions.print_paragraphs([
+                [" NOTICE ",0,"white,on_blue"], ["The user that you requested to add",0],
+                ["already exists on this Debian based VPS or Server instance.",2],
+            ])
+            prompt_str = f"Update password for {self.username}"
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "n",
+                "prompt": prompt_str,
+                "exit_if": False
+            })
+            if confirm:
+                self.keep_user = True
+
+        
     def ask_for_password(self):
-        if self.keep_user:
-            return
+        if self.keep_user: return
         
         print(""); cprint(f"  We need to create a password for {self.username} user","cyan")
         self.print_password_descriptions(10,"password")
@@ -424,7 +453,34 @@ class UserClass:
         
         if disable_root_user:
             self.disable_root_user()
-
+            
+        # since we said "yes" to SSH verse password
+        self.functions.print_paragraphs([
+            ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen.",0],
+            
+            ["Do you want [",0],["recommended",0,"green","bold"], 
+            ["] to disable username/password based authentication on this Node at the",0],
+            ["Operating System level to improve security?",1],
+        ])
+        
+        verb = "unchanged"
+        if self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt": "Confirm:",
+            "exit_if": False
+        }):
+            self.cli_obj.ssh_configure({
+                "command": "disable_user_auth",
+                "argv_list": ["install"]
+            })
+            verb = "disabled"
+            
+        self.functions.print_cmd_status({
+            "text_start": "Username/Password authentication",
+            "status": verb,
+            "status_color": "green" if verb == "disabled" else "red"
+        })
 
     def disable_root_user(self):
         # check for non-root users
@@ -434,8 +490,8 @@ class UserClass:
             ["ubuntu",0,"yellow","bold"], ["user or other provider's",0], ["admin",0,"yellow","bold"],
             ["users.",2],
             
-            ["Access should be disabled so that",0,"white","bold"], ["only",0,"white","bold,underline"], ["the",0,"white","bold"],
-            ["Node Administrator",0,"white","bold,underline"], ["has access to this VPS with the",0,"white","bold"], 
+            ["Access should be disabled so that",0,"white","bold"], ["only",0,"white","bold"], ["the",0,"white","bold"],
+            ["Node Administrator",0,"white","bold"], ["has access to this VPS with the",0,"white","bold"], 
             [self.username,0,"yellow","bold"], ["user.",2,"white","bold"],
             
             ["This is recommended.",2,"magenta","bold"],                

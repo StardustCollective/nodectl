@@ -316,16 +316,14 @@ class Node():
         
         self.log.logger.debug("node service - download seed list initiated...")
         profile = command_obj.get("profile",self.profile)
-        install_upgrade = command_obj.get("install_upgrade",True)
-        download_version = command_obj.get("download_version",None)
+        # install_upgrade = command_obj.get("install_upgrade",True)
+        download_version = command_obj.get("download_version","default")
         environment_name = self.functions.config_obj[profile]["environment"]
         seed_path = self.functions.config_obj[profile]["seed_path"]    
         seed_file = self.config_obj[profile]['seed_file']
         seed_repo = self.config_obj[profile]['seed_repository']
-        print_message = True
         
-        if self.auto_restart or install_upgrade:
-            print_message = False    
+        if download_version == None: download_version = "default"
         
         if not self.auto_restart:
             progress = {
@@ -347,16 +345,17 @@ class Node():
         # includes seed-list access-list  
         if download_version == "default":
             self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
+            download_version = self.version_obj[environment_name][profile]['cluster_tess_version']
 
         if self.config_obj[profile]["seed_repository"] == "default":
             if environment_name == "testnet":
-                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist -O {seed_path} -o /dev/null"
+                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{environment_name}-seedlist -O {seed_path} -o /dev/null"
             elif environment_name == "integrationnet":
-                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/integrationnet-seedlist -O {seed_path} -o /dev/null"
+                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{environment_name}-seedlist -O {seed_path} -o /dev/null"
             elif environment_name == "mainnet":
                 if download_version == "default":
                     download_version = self.version_obj[environment_name][self.functions.default_profile]["cluster_tess_version"]
-                bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/mainnet-seedlist -O {seed_path} -o /dev/null"
+                bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/{environment_name}-seedlist -O {seed_path} -o /dev/null"
         else:
             # makes ability to not include https or http
             if "http://" not in seed_repo and "https://" not in seed_repo:
@@ -425,13 +424,24 @@ class Node():
                     profile
                 ) 
                 
-                if self.config_obj[profile]["seed_path"] == "disable/disable":
+                if self.config_obj[profile]["seed_path"] == "disable":
                     template = template.replace("--seedlist nodegarageseedlistv","")
                     template = template.rstrip()
                 else:
                     template = template.replace(
                         "nodegarageseedlistv",
-                        self.config_obj[profile]["seed_location"]+"/"+self.config_obj[profile]["seed_file"]
+                        self.config_obj[profile]["seed_path"]
+                    )
+                    template = template.replace("//","/") # avoid double //
+                    template = template.rstrip()
+                
+                if self.config_obj[profile]["pro_rating_path"] == "disable":
+                    template = template.replace("--ratings nodegarageratingv","")
+                    template = template.rstrip()
+                else:
+                    template = template.replace(
+                        "nodegarageratingv",
+                        self.config_obj[profile]["pro_rating_path"]
                     )
                     template = template.replace("//","/") # avoid double //
                     template = template.rstrip()
@@ -484,6 +494,7 @@ class Node():
             substring = "/usr/bin/java"
             index = template.find(substring)
             pre_template = template[:index]; post_template = self.functions.cleaner(template[index:],"new_line")
+            post_template = self.functions.cleaner(post_template,"double_spaces")
             template = f"{pre_template}{post_template}"
             
             # append background switch to command
@@ -758,9 +769,10 @@ class Node():
             "profile": self.profile,
             "skip_thread": skip_thread,
             "simple": True
-        }) 
-               
+        })         
+        
         if state not in self.functions.not_on_network_list: # otherwise skip
+            self.log.logger.debug(f"node_service -> cluster leave process | profile [{profile}] state [{state}] ip [127.0.0.1]")
             cmd = f"curl -X POST http://127.0.0.1:{self.api_ports['cli']}/cluster/leave"
             self.functions.process_command({
                 "bashCommand": cmd,
@@ -777,13 +789,15 @@ class Node():
         action = command_obj["action"]
         caller = command_obj.get("caller",False) # for troubleshooting and logging
         interactive = command_obj.get("interactive",True)
+        static_peer = command_obj.get("static_peer",False)
+        
         final = False  # only allow 2 non_interactive attempts
         
         self.set_profile_api_ports()
         
         self.log.logger.info(f"joining cluster profile [{self.profile}]")
         layer_zero_ready = False
-        join_failure = False
+        join_breakout = False
         exception_found = False
         state = None
         
@@ -820,15 +834,30 @@ class Node():
                             if link_type == "gl0": gl0_linking_enabled = False
                             elif link_type == "ml0": ml0_linking_enabled = False
 
-        self.source_node_choice = self.functions.get_info_from_edge_point({
-            "caller": f"{caller} -> join_cluster",
-            "profile": self.profile,
-            "desired_key": "state",
-            "desired_value": "Ready",
-            "return_value": "all",
-            "api_endpoint_type": "consensus",
-        })
+        get_info_obj = {
+                "caller": f"{caller} -> join_cluster",
+                "profile": self.profile,
+                "desired_key": "state",
+                "desired_value": "Ready",
+                "return_value": "all",
+                "api_endpoint_type": "consensus",            
+        }
+        if static_peer: get_info_obj["specific_ip"] = static_peer
+        self.source_node_choice = self.functions.get_info_from_edge_point(get_info_obj)
         
+        if static_peer:
+            if self.source_node_choice["specific_ip_found"][0] != self.source_node_choice["specific_ip_found"][1]:
+                self.functions.print_paragraphs([
+                    [" ERROR ",0,"red,on_yellow"], ["--peer",0,"red"], [static_peer,0,"yellow"], 
+                    ["was specifically requests as the peer to join against; however, this peer was not found on the cluster!",1,"red"],
+                ])
+                self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": "Would you nodectl to pick a peer and continue?",
+                    "exit_if": True,
+                })
+                
         # join header header data
         data = { 
                 "id": self.source_node_choice["id"], 
@@ -837,6 +866,15 @@ class Node():
         }
         self.log.logger.info(f"join cluster -> joining via [{data}]")
 
+        if not self.auto_restart:
+            self.functions.print_cmd_status({
+                "text_start": "Joining with peer",
+                "status": self.source_node_choice["ip"],
+                "brackets": f'{self.source_node_choice["id"][0:8]}...{self.source_node_choice["id"][-8:]}',
+                "status_color": "yellow",
+                "newline": True,
+            })
+        
         join_session = Session()  # this is a requests Session external library
                 
         if gl0_linking_enabled or ml0_linking_enabled:
@@ -848,6 +886,9 @@ class Node():
                             "profile": eval(f"{link_type}_link_profile")
                         })  
                     except:
+                        self.log.logger.error(f"node_service -> join link to profile error for profile [{self.profile}] link type [{link_type}]")
+                        if self.auto_restart:
+                            exit(1)
                         self.error_messages.error_code_messages({
                             "error_code": "ser-357",
                             "line_code": "link_to_profile",
@@ -879,7 +920,7 @@ class Node():
                                 break
                             if state != "Observing" and state != "WaitingForReady":
                                 layer_zero_ready = False
-                                join_failure = True
+                                join_breakout = True
                                 break
 
                             if action == "cli":
@@ -887,7 +928,7 @@ class Node():
                                 self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
                             else:
                                 self.functions.print_timer(12,"Sleeping prior to retry")
-                        if layer_zero_ready or join_failure:
+                        if layer_zero_ready or join_breakout:
                             break
 
                         if not self.auto_restart and not layer_zero_ready:
@@ -919,9 +960,12 @@ class Node():
         if (profile_layer == 0 and not gl0_linking_enabled) or layer_zero_ready:
             if not self.auto_restart:
                 self.functions.print_cmd_status({
-                    "text_start": "Preparing to join cluster",
+                    "text_start": "Join cluster status",
                     "brackets": self.profile,
+                    "spinner": "dotted",
                     "newline": True,
+                    "status": "Preparing",
+                    "status_color": "green"
                 })
                 sleep(1)
                 
@@ -1031,7 +1075,7 @@ WantedBy=multi-user.target
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
 '''
         
         if var.file == "service_restart":
@@ -1048,7 +1092,7 @@ Environment="SCRIPT_ARGS=%I"
 ExecStart=nodectl service_restart $SCRIPT_ARGS
 Restart=always
 RestartSec=15
-RuntimeMaxSec=14400
+RuntimeMaxSec=3600
 ExecStop=/bin/true
 
 [Install]
@@ -1166,6 +1210,8 @@ nodectl:
     seed_location: nodegarageseedlocation
     seed_repository: nodegarageseedrepository
     seed_file: nodegarageseedfile
+    pro_rating_location: nodegarageratinglocation
+    pro_rating_file: nodegarageratingfile
     priority_source_location: nodegarageprioritysourcelocation
     priority_source_repository: nodegarageprioritysourcerepository
     priority_source_file: nodegarageprioritysourcefile
@@ -1194,6 +1240,7 @@ nodectl:
             cur_file = '''  global_elements:
     metagraph_name: nodegaragemetagraphname         
     nodectl_yaml: nodegaragenodectlyaml
+    developer_mode: nodegaragedevelopermode
     log_level: nodegarageloglevel
 '''
 
@@ -1244,7 +1291,7 @@ read -e -p "  ${pink}Press ${yellow}Y ${pink}then ${yellow}[ENTER] ${pink}to upg
 
 if [[ ("$CHOICE" == "y" || "$CHOICE" == "Y") ]]; then
     echo "${clr}"
-    sudo nodectl upgrade
+    sudo nodectl upgrade --nodectl_only
 fi
 exit 0
 
