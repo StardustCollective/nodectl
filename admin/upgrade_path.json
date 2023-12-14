@@ -14,5 +14,5 @@
     "version": "v2.12.7",
     "upgrade": "False"
   },
-  "nodectl_config": "v2.2.0"
+  "nodectl_config": "v2.1.0"
 }
