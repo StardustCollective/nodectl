@@ -994,10 +994,12 @@ class Configuration():
     def validate_global_setting(self):
         # key_name, passphrase, and alias all have to match if set to global
         self.config_obj["global_elements"]["all_global"] = True
+        global_p12_keys = ["key_name","passphrase","key_alias"] # test to make sure if one key is global all must be
         try:
             for profile in self.metagraph_list:
                 self.config_obj[profile]["global_p12_all_global"] = False
-                g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x in ["key_name","passphrase","key_alias"]]
+                self.config_obj[profile]["global_p12_encryption"] = False
+                g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x in global_p12_keys]
                 self.config_obj[profile] = {
                     **self.config_obj[profile],
                     **{ f"global_p12_{x}": False for x in self.config_obj["global_p12"] },
@@ -1017,9 +1019,22 @@ class Configuration():
                     })
                     
                 g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x != "encryption"]
-                if g_tests.count("global") == len(self.config_obj["global_p12"]):
+                if g_tests.count("global") == len(self.config_obj["global_p12"])-1: # ignore encryption element
                     # test if everything is set to global
                     self.config_obj[profile]["global_p12_all_global"] = True
+                    self.config_obj[profile]["global_p12_key_name"] = True
+                    self.config_obj[profile]["global_p12_key_location"] = True
+                    self.config_obj[profile]["global_p12_key_key_alias"] = True
+
+                if self.config_obj[profile]["p12_nodeadmin"] == "global":
+                    self.config_obj[profile]["global_p12_nodeadmin"] = True
+                if self.config_obj[profile]["p12_key_location"] == "global":
+                    self.config_obj[profile]["global_p12_key_location"] = True
+                if self.config_obj[profile]["p12_passphrase"] == "global":
+                    self.config_obj[profile]["global_p12_passphrase"] = True
+
+                if self.config_obj["global_p12"]["encryption"]: 
+                    self.config_obj[profile]["global_p12_encryption"] = True
 
         except Exception as e:
             self.log.logger.critical(f"configuration format failure detected | exception [{e}]")

@@ -1,3 +1,5 @@
+import uuid
+import random
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from termcolor import colored, cprint
@@ -2105,7 +2107,7 @@ class Configurator():
                     self.c.functions.print_paragraphs([
                         ["nodectl",0,"blue","bold"], ["configuration yaml",0],["was found, loaded, and validated.",2],
                         
-                        ["If the configuration found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
+                        ["If the configuration",0,"red","bold"], ["found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
                         ["It is recommended to go through each",0,"red"],["issue",0,"yellow","underline"], ["one at a time, revalidating the configuration",0,"red"],
                         ["after each edit, in order to make sure that dependent values, are cleared by each edit made.",2,"red"],
                         
@@ -2252,7 +2254,7 @@ class Configurator():
             ("Tessellation Binaries",10),
             ("Source Priority Setup",11),
             ("Profile Description",12),
-            ("Profile Private p12 Key",13),
+            ("Profile P12 Key Setup",13),
             ("Node Type",14),
             ("Custom Variables",15),
             ("Collateral Requirements",16),
@@ -3018,6 +3020,9 @@ class Configurator():
 
         system("clear")
         enable = False if self.c.config_obj["global_p12"]["encryption"] else True
+        efp = "/etc/security/"
+        eff = "cnngsenc.conf"
+        effp = f"{efp}{eff}"
 
         print("\n"*2)
         line2 = "Disable Encryption"
@@ -3035,17 +3040,22 @@ class Configurator():
             "status_color": "yellow",
             "newline": False,
         }
+
+        encryption_list = self.metagraph_list
+        encryption_list.insert(0,"global_p12")
         if enable:
-            enc_pass = self.c.config_obj["global_p12"]["passphrase"]
+            pass_key = "passphrase"
             if self.detailed:
                 self.c.functions.print_paragraphs([
-                    ["",1],[" IMPORTANT ",0,"yellow,on_red"], 
+                    ["",1],[" IMPORTANT ",1,"yellow,on_red"], 
                     ["Enabling encryption will encrypt your passphrase in the configuration file",0],
                     ["linked to",0], ["nodectl",0,"yellow"], ["functionality.",2],
                     ["In the event you displace your simple passphrase related to this",0],
                     ["encryption step, you can simply",0],["disable",0,"red"], ["this functionality,",0],
                     ["update/change your passphrase, and, upon completion,",0],
                     ["re-enable",0,"green"], ["the encryption feature.",2],
+
+                    ["Encryption will be turned on globally for all profiles.  Each profile encrypted with a different key.",2],
 
                     ["For security purposes, nodectl will not decrypt the passphrase upon disabling the",0,"red","bold"],
                     ["encryption feature.",2,"red","bold"],
@@ -3058,65 +3068,138 @@ class Configurator():
                     ["characters, numbers, special characters, or combination of all three.",2],
                     
                     ["For security purposes you will not see your seed phrase while entering.",2],
+
+                    [" WARNING ",1,"yellow,on_red"], 
+                    ["If the configuration file was manually updated, any updated encryption elements [or other] will be",0,"red","bold"],
+                    ["overwritten",0,"magenta","bold"], ["causing old encryption data that may be allowing nodectl to handle previously encrypted",0,"red","bold"],
+                    ["elements to stop working, to be overwritten, and removed!",2,"red","bold"],
                 ])
-
-            double_confirm = False
-            if enc_pass == "None":
-                double_confirm = True
-            for t in range(1,3):
-                ptype = "p12 passphrase"
-                if t == 2: 
-                    ptype = "Seed Phrase"
-                    self.c.functions.print_paragraphs([
-                        ["",],["Press enter a simple seed phrase that is at least 4 alphanumeric or special characters.",2,"white","bold"],
-                    ])
-                else:
-                    self.c.functions.print_paragraphs([
-                        ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
-                    ])
-                for n in range(0,4):
-                    if n > 2:
-                        cprint("  Cancelling action","red")
-                        sleep(2)
-                        return
-                    pass1 = getpass(f"          {ptype}: ")
-                    if t > 1 or double_confirm:
-                        pass2 = getpass(f"  Confirm {ptype}: ")
-                    else:
-                        pass2 = enc_pass
-                    if pass1 == pass2 and len(pass1) > 3: 
-                        if t == 1: pass3 = pass1
-                        else: pass4 = pass1
-                        break
-                    self.c.functions.print_paragraphs([
-                        ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
-                        ["retry:",0], [str(n+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
-                    ])   
-
-            fpass = f"{pass3}cnng{pass4}"
-            print("")
-            self.c.functions.print_cmd_status({
-                **encryption_obj,
-            })    
-
-            try:
-                hashed, enc_key = self.c.functions.get_persist_hash({"pass1": fpass})
-                if not hashed: raise Exception("hashing issue")
-                if not enc_key: raise Exception("encryption generation issue")
-            except Exception as e:
-                self.log.logger.critical(f"configurator --> [{e}]")
-                self.error_messages.error_code_messages({
-                    "error_code": "cfg-3110",
-                    "line_code": "system_error",
-                    "extra": e,
+                self.c.functions.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": "Do you want to enable encryption?",
+                    "exit_if": True
                 })
 
-            self.config_obj_apply = {
-                "global_p12": {
-                    "encryption": "True",
-                    "passphrase": f'{hashed.replace("=","")}{enc_key.replace("=","")}',
-                }
-            } 
+            if not path.exists(efp):
+                self.error_messages.error_code_messages({
+                    "error_code": "cfr-3150",
+                    "line_code": "system_error",
+                    "extra": "invalid file system",
+                })  
+
+            system(f"rm -f {effp} > /dev/null 2>&1")  
+
+            for profile in encryption_list:
+                if profile != "global_p12":
+                    pass_key = "p12_passphrase"
+                    if self.c.config_obj[profile]["p12_passphrase"] == "global":
+                        continue 
+                enc_pass = self.c.config_obj[profile][pass_key]
+                if enc_pass == "None":
+                    self.error_messages.error_code_messages({
+                        "error_code": "cfr-3092",
+                        "line_code": "invalid_passphrase",
+                        "extra": "Must be present in configuration",
+                    })
+                self.c.functions.print_header_title({
+                    "line1": "Global P12" if profile == "global_p12" else profile.upper(),
+                    "newline": "both",
+                    "single_line": True,
+                })
+                double_confirm = False
+                if enc_pass == "None":
+                    double_confirm = True
+                for t in range(1,3):
+                    ptype = "p12 passphrase"
+                    if t == 2: 
+                        ptype = "Seed Phrase"
+                        self.c.functions.print_paragraphs([
+                            ["",],["Press enter a simple seed phrase that is at least 4 alphanumeric",0,"white","bold"],
+                            ["ONLY",0,"red","bold"], ["characters.",2,"white","bold"],
+                        ])
+                    else:
+                        self.c.functions.print_paragraphs([
+                            ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
+                        ])
+                    for n in range(0,4):
+                        if n > 2:
+                            cprint("  Cancelling action","red")
+                            sleep(2)
+                            return
+                        pass1 = getpass(f"          {ptype}: ")
+                        if t > 1 or double_confirm:
+                            pass2 = getpass(f"  Confirm {ptype}: ")
+                        else:
+                            pass2 = enc_pass
+                        if pass1 == pass2 and len(pass1) > 3: 
+                            if t == 1: pass3 = pass1
+                            else: pass4 = pass1
+                            break
+                        self.c.functions.print_paragraphs([
+                            ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
+                            ["retry:",0], [str(n+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
+                        ])   
+
+                print("")
+                self.c.functions.print_cmd_status({
+                    **encryption_obj,
+                    "brackets": "global" if profile == "global_p12" else profile,
+                })    
+
+                try:
+                    hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": pass4})
+                    if not hashed: raise Exception("hashing issue")
+                    if not enc_key: raise Exception("encryption generation issue")
+                except Exception as e:
+                    self.log.logger.critical(f"configurator --> [{e}]")
+                    self.error_messages.error_code_messages({
+                        "error_code": "cfr-3110",
+                        "line_code": "system_error",
+                        "extra": e,
+                    })
+
+                enc_list, enc_de, enc_h = self.build_uuid_mangle(len(hashed))
+                enc_str = ""
+                for n, i in enumerate(enc_list):
+                    if n < 1: enc_str += hashed[:i]
+                    elif n == len(enc_list): hashed[enc_list.index(i)-1:]
+                    else: enc_str += hashed[enc_list.index(i)-1:i]
+                    
+                fe, fe_list = "", []
+                fe_list = []
+                index = 0
+                for length in enc_list:
+                    fe_list.append(hashed[index:index + length])
+                    index += length
+                for pi, _ in enc_de: fe += fe_list[pi]  
+                enc_key = f"{profile}::{enc_key}{enc_h}"
+            
+                with open(f"{effp}","a") as f:
+                    f.write(enc_key+"\n")
+
+                if profile == "global_p12":
+                    self.config_obj_apply = {
+                        **self.config_obj_apply,
+                        f"{profile}": {
+                            "encryption": "True",
+                            "passphrase": fe,
+                        }
+                    } 
+                else:
+                    self.config_obj_apply = {
+                        **self.config_obj_apply,
+                        f"{profile}": {
+                            "p12_passphrase": fe,
+                        }
+                    } 
+                self.c.functions.print_cmd_status({
+                    **encryption_obj,
+                    "brackets": "global" if profile == "global_p12" else profile,
+                    "newline": True,
+                    "status": "completed",
+                    "status_color": "green",
+                }) 
         else:
             if self.detailed:
                 if self.profile_to_edit:
@@ -3148,17 +3231,30 @@ class Configurator():
             self.c.functions.print_paragraphs([
                 ["",1], ["This is permanent...",1,"red","bold"],
             ])
+            
             self.c.functions.print_cmd_status({
                 **encryption_obj,
             })  
 
             sleep(1)
-            self.config_obj_apply = {
-                "global_p12": {
-                    "encryption": "False",
-                    "passphrase": "None",
-                }
-            } 
+            if  path.exists(effp): system(f"rm -f {effp} > /dev/null 2>&1")     
+            for profile in encryption_list:
+                if profile == "global_p12":
+                    self.config_obj_apply = {
+                        **self.config_obj_apply,
+                        "global_p12": {
+                            "encryption": "False",
+                            "passphrase": "None",
+                        }
+                    } 
+                elif self.c.config_obj[profile]["p12_passphrase"] == "global":
+                    self.config_obj_apply = {
+                        **self.config_obj_apply,
+                        f"{profile}": {
+                            "p12_passphrase": "None",
+                        }
+                    } 
+                                    
 
         self.apply_vars_to_config()
         self.c.functions.print_cmd_status({
@@ -3653,6 +3749,75 @@ class Configurator():
                     "exit_if": True
                 })   
         self.handle_service(profile,profile)
+
+
+    def build_uuid_mangle(self,size,max_value=15):
+        iuuid = self.c.functions.get_uuid().replace("-","")
+        hex_value = bytes.fromhex(iuuid)
+        integer_value = int.from_bytes(hex_value, byteorder='big')
+        digit_string = str(integer_value)
+        iuuid_int_list = []
+        current_value = ""
+
+        for digit in digit_string:
+            current_value += digit
+            current_value_int = int(current_value)
+            if current_value_int > max_value:
+                current_value = ""
+                continue
+            if 4 < current_value_int < max_value+1:
+                if sum(iuuid_int_list)+current_value_int <= size:
+                    iuuid_int_list.append(current_value_int)
+                else:
+                    while True:
+                        last_number = size - (sum(iuuid_int_list)+current_value_int)
+                        if last_number == 0: 
+                            if sum(iuuid_int_list) < size:
+                                iuuid_int_list.append(size - sum(iuuid_int_list))
+                                break
+                        if last_number < 0:
+                            last_number = iuuid_int_list[-1]+last_number
+                        iuuid_int_list[-1] = last_number
+                        if iuuid_int_list[-1] < 0:
+                            iuuid_int_list.pop()
+                    break
+                current_value = ""  
+        
+        if sum(iuuid_int_list) < size:
+            remainder = size - sum(iuuid_int_list)
+            while remainder > max_value:
+                pull = random.randint(10,max_value)
+                iuuid_int_list.append(pull)
+                remainder -= pull
+            if remainder > 0:
+                iuuid_int_list.append(remainder)
+
+            iuuid_int_list.append(size - sum(iuuid_int_list))
+
+        while True:
+            if len(iuuid_int_list) > max_value:
+                ct1 = iuuid_int_list.pop()
+                ct2 = iuuid_int_list.pop()
+                if ct1+ct2 > max_value:
+                    iuuid_int_list.append(ct1)
+                    for ct3 in iuuid_int_list:
+                        if ct3+ct2 < max_value-1:
+                            iuuid_int_list.append(ct3+ct2)
+                        else:
+                            madd = min(max_value - x for x in iuuid_int_list)
+                            iuuid_int_list = [x + min(ct2, madd) for x in iuuid_int_list]
+                            break
+                else:
+                    iuuid_int_list.append(ct1+ct2)
+            else:
+                break
+      
+        iuuid_int_list2 = copy(iuuid_int_list)
+        iuuid_int_list2 = list(enumerate(iuuid_int_list2))
+        random.shuffle(iuuid_int_list2)
+        iuuid_int_list3 = ":" + ''.join('{:X}{:X}'.format(x, y) for x, y in iuuid_int_list2)
+
+        return iuuid_int_list,iuuid_int_list2, iuuid_int_list3
 
 
     def print_error(self):

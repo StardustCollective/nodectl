@@ -8,6 +8,7 @@ import select
 import subprocess
 import socket
 import validators
+import uuid
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -1055,29 +1056,22 @@ class Functions():
         return possible_found
     
 
+    def get_uuid(self):
+        return str(uuid.uuid4())
+    
+
     def get_persist_hash(self, command_obj):
         pass1 = command_obj["pass1"]
         enc_data = command_obj.get("enc_data",False)
-        salt = command_obj.get("salt",False)
+        salt2 = command_obj.get("salt2",False)
+        profile = command_obj.get("profile",False)
+        ekf = "/etc/security/cnngsenc.conf"
 
-        if not salt:
-            salt = self.process_command({
-                "bashCommand": "blkid",
-                "proc_action": "subprocess_co", 
-                "return_error": True
-            })
-            salt_pattern = compile(r'UUID="([^"]+)"')
-            salt_pattern = salt_pattern.findall(salt)
-            try:
-                salt = salt_pattern[0]
-            except:
-                self.error_messages.error_code_messages({
-                    "error_code": "fnt-1070",
-                    "line_code": "system_error",
-                    "extra": "encryption generation issue.",
-                })
-
+        if not enc_data:
+            salt = self.get_uuid()
+            salt = f"{salt2[:6]}{salt}"
             salt += "0" * (32 - len(salt))
+            salt = salt[:32]
             try:
                 salt = base64.urlsafe_b64decode(salt)
             except binascii.Error as e:
@@ -1102,8 +1096,31 @@ class Functions():
             enc_data = enc_key.encrypt(pass1.encode()).decode()
             return (enc_data,fernet_key)
 
+        if not path.exists(ekf):
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-1100",
+                "line_code": "system_error",
+                "extra": "encryption issue found, unable to decrypt",
+            })
+        with open(ekf,"r") as f:
+            for line in f.readlines():
+                if profile in line:
+                    key = line
+                    break
+        key = key.split(":")
+        kdf = key[2].encode()
+        dec = key[-1].strip("\n")
+        enc_key = Fernet(kdf)
+        de = [(int(dec[i], 16), int(dec[i + 1], 16)) for i in range(0, len(dec), 2)]
+        de_list = [""]*len(de)
+        index = 0
+        for i, length in de:
+            de_list[i] = pass1[index:index + length]
+            index += length        
+        pass1 = ''.join(de_list).encode()
+
         try:
-            decrypt_data = enc_key.decrypt(pass1.encode())
+            decrypt_data = enc_key.decrypt(pass1)
             return decrypt_data.decode()
         except Exception as e:  # Catch any exceptions during decryption
             self.log.logger.critical(f"Decryption failed: {e}")
@@ -1280,7 +1297,8 @@ class Functions():
         session.params = {'random': random.randint(10000,20000)}
         return session
 
-         
+
+
     # =============================
     # pull functions
     # ============================= 

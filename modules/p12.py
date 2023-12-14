@@ -217,14 +217,16 @@ class P12Class():
         operation = command_obj["operation"]
         passwd = command_obj.get("passwd",False)
         profile = command_obj.get("profile","global")
-        manual = False
+        de, manual = False, False
         
         self.log.logger.info(f"p12 keyphrase validation process started")
         
         for attempts in range(1,4):
             if profile == "global":
-                self.set_variables(True,None)                
+                self.set_variables(True,None)      
+                if self.config_obj["global_p12"]["encryption"]: de = True
             else:
+                if not self.config_obj[profile]["global_p12_password"] and ["profile_p12_encryption"]: de = True
                 self.set_variables(False,profile)   
             
             try:
@@ -236,6 +238,12 @@ class P12Class():
                     "line_code": "invalid_passphrase"
                 })
             
+            if de: 
+                passwd = self.functions.get_persist_hash({
+                    "pass1": passwd,
+                    "profile": profile,
+                    "enc_data": True,
+                })
             if not passwd:
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
                 if profile != "global":
@@ -297,7 +305,6 @@ class P12Class():
         bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_file}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
         
         # check p12 against method 1
-        # results = self.functions.process_command(bashCommand1,"wait",True,180,False,False,True)
         results = self.functions.process_command({
             "bashCommand": bashCommand1,
             "proc_action": "wait", 

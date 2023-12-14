@@ -591,7 +591,7 @@ class Error_codes():
             self.log.logger.critical(f"an unrecoverable system error occurred. [{var.extra}]")
             self.functions.print_paragraphs([
                 ["nodectl attempted to issue an invalid, or non-executable command.",0,"red"],
-                ["This could be due to a customized configuration on your Debian Linux distro or other non-default setup?",0,"red"],
+                ["This could be due to a customized configuration on your Debian Linux distro or other non-default setup?",2,"red"],
             ])
             
         elif var.line_code == "config_error":
@@ -631,7 +631,7 @@ class Error_codes():
     def print_error(self,when="end"):
         if when == "start":
             self.functions.print_paragraphs([
-                ["",1], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
+                ["",2], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
                 ["Terminating",0], ["nodectl",0,"cyan","underline"], ["utility or current thread process.",2],
                 ["Error Code:",0,"white","bold"], [self.error_code,2,"yellow","bold"],
             ])
