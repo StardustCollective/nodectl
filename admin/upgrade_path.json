@@ -7,7 +7,7 @@
     "upgrade": "False"
   },
   "mainnet": {
-    "version": "v2.11.3",
+    "version": "v2.12.6",
     "upgrade": "False"
   },
   "integrationnet": {
