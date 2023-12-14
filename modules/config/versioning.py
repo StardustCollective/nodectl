@@ -22,7 +22,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.12.6"
+        nodectl_version = "v2.12.7"
         nodectl_yaml_version = "v2.1.0"
         node_upgrade_path_yaml_version = "v2.0.0" # if previous is 'current_less'; upgrade path needed (for migration module)
 
@@ -358,15 +358,12 @@ class Versioning():
     def is_nodectl_pre_release(self):
         p_version = self.upgrade_path[self.functions.environment_names[0]]["version"]
         pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
-        pre_success = True
 
         try:
             session = self.functions.set_request_session()
             pre_release = session.get(pre_release_uri).json()
-            # pre_release = {"prerelease": True} # debug
         except Exception as e:
             self.log.logger.warn(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
-            pre_success = False
         else:
             try:
                 if "API rate limit" in pre_release["message"]:
@@ -376,10 +373,12 @@ class Versioning():
         finally:
             session.close()
             
-        if not pre_success: pre_release["prerelease"] = "Unknown"
-        return pre_release["prerelease"]  # this will be true or false
+        try:
+            return pre_release["prerelease"]  # this will be true or false
+        except:
+            return "Unknown"
 
-    
+
     def write_file(self):
         if not path.exists(self.version_obj_path):
             mkdir(self.version_obj_path)
