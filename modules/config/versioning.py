@@ -358,7 +358,7 @@ class Versioning():
     def is_nodectl_pre_release(self):
         p_version = self.upgrade_path[self.functions.environment_names[0]]["version"]
         pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
-        pre_success = True
+        pre_release = {"prerelease":"Unknown"}
 
         try:
             session = self.functions.set_request_session()
@@ -366,7 +366,6 @@ class Versioning():
             # pre_release = {"prerelease": True} # debug
         except Exception as e:
             self.log.logger.warn(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
-            pre_success = False
         else:
             try:
                 if "API rate limit" in pre_release["message"]:
@@ -376,8 +375,10 @@ class Versioning():
         finally:
             session.close()
             
-        if not pre_success: pre_release["prerelease"] = "Unknown"
-        return pre_release["prerelease"]  # this will be true or false
+        try:
+            return pre_release["prerelease"] # this will be true or false
+        except:
+            return "Unknown"  
 
     
     def write_file(self):
