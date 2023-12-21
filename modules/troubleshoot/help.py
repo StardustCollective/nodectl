@@ -2087,6 +2087,12 @@ def build_help(functions,command_obj):
   {colored('-r','green')} - {colored('retries','cyan')}
         If specified at the command line, nodectl will replace all retries
         on failure with a numeric integer following the -r option.
+  {colored('--peer <ip_address>','green')} - {colored('retries','cyan')}
+        If specified at the command line, nodectl will lookup that specific
+        peer ip address, if it is participating in consensus, nodectl will
+        use that node to join the cluster.  Note: This is an IP address only 
+        without the port specified. 
+
   Example Usage
   -------------
   show this help screen
@@ -2209,6 +2215,13 @@ def build_help(functions,command_obj):
   the proper cluster join settings then attempt
   to join the cluster
   
+  optional:
+    {colored('--peer <ip_address>','green')} - {colored('retries','cyan')}
+        If specified at the command line, nodectl will lookup that specific
+        peer ip address, if it is participating in consensus, nodectl will
+        use that node to join the cluster.  Note: This is an IP address only 
+        without the port specified.
+
   Example Usage
   -------------
   show this help screen

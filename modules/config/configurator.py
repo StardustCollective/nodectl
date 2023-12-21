@@ -3118,6 +3118,10 @@ class Configurator():
                             ["",],["Press enter a simple seed phrase that is at least 4 alphanumeric",0,"white","bold"],
                             ["ONLY",0,"red","bold"], ["characters.",2,"white","bold"],
                         ])
+                        if self.detailed:
+                            self.c.functions.print_paragraphs([
+                                ["This seed phrase does not need to be remembered and will not be asked for again.",2,"white","bold"]
+                            ])
                     else:
                         self.c.functions.print_paragraphs([
                             ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
