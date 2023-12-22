@@ -11,6 +11,7 @@ from .logger import Logging
 # upgrade_needed
 # upgrade_path_needed
 # upgrade_incompatibility
+# upgrade_failure
 # environment_error
 # lb_not_up
 # verification_failure
@@ -176,9 +177,22 @@ class Error_codes():
                 ["nodectl found metagraph environments installed on this Node that may not be supported by this version of nodectl.",0,"yellow"],
                 ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
                 
-                ["In order to continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
+                ["To continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
                 ["Please see the Constellation documentation portal for more details.",2],
                 ["https://docs.constellationnetwork.io/validate/",2],
+            ])
+                        
+                        
+        elif "upgrade_failure" in str(var.line_code):
+            self.log.logger.critical(f"Upgrade cannot continue because nodectl found issue with node or architecture that is not supported by nodectl.")
+            self.functions.print_paragraphs([
+                ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
+
+                ["nodectl found elements on this Node that may not be supported by this version of nodectl.",0,"yellow"],
+                ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
+                
+                ["To continue, it is recommend to perform manual download of the desired nodectl binary from the GitHub repository.",2],
+                ["https://github.com/StardustCollective/nodectl/releases",2],
             ])
 
             

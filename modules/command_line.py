@@ -4707,11 +4707,18 @@ class CLI():
             "pre_release": version_obj["nodectl"]["nodectl_prerelease"],
         })
 
-        upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
-        upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
-        upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
-        upgrade_file = upgrade_file.replace("ARCH",self.arch)
-        
+        try:
+            upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
+            upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
+            upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
+            upgrade_file = upgrade_file.replace("ARCH",self.arch)
+        except Exception as e:
+            self.log.logger.debug(f"nodectl binary updater was unable to build the upgrade file path | upgrade chosen [{upgrade_chosen}] old [{node_nodectl_version}] backup location [{backup_location}] arch [{self.arch}] | error [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4718",
+                "line_code": "",
+                "extra": ""
+            })
         upgrade_bash_script = "/var/tmp/upgrade-nodectl"
         with open(upgrade_bash_script,'w') as file:
             file.write(upgrade_file)
