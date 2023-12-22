@@ -1101,7 +1101,7 @@ class Functions():
                                 } 
                                 break # on 1st and lowest layer   
             except Exception as e:
-                self.log.logger.error("functions unable to process profile while setting up default values")
+                self.log.logger.error(f"functions unable to process profile while setting up default values | error [{e}]")
                 if not skip_error:
                     self.error_messages.error_code_messages({
                         "error_code": "fnt-924",
