@@ -506,7 +506,7 @@ class Installer():
             self.error_messages.error_code_messages({
                 "error_code": "int-507",
                 "line_code": "file_not_found",
-                "extra": location,
+                "extra": location if isinstance(location,str) else "unknown",
                 "extra2": "Are you sure your uploaded the proper p12 file?"
             })
         
