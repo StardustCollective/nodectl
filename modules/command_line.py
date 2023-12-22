@@ -2077,9 +2077,17 @@ class CLI():
         skip = True if "skip_warnings" in command_list else False
         
         if not "skip_seedlist_title" in command_list: self.print_title("Check Seed List Request")
-
-        is_target = command_list[command_list.index("-p")+1] if "-t" in command_list else False
-        target = ["-t",target] if is_target else []
+        
+        target = []
+        if "-t" in command_list:
+            target = command_list[command_list.index("-t")+1]
+            if not self.functions.is_valid_address("ip_address",True,target):
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-2086",
+                    "line_code": "input_error",
+                    "extra": "not a valid ip address; use -id for node id",
+                })
+            target = ["-t",target,"-l"]
         nodeid = command_list[command_list.index("-id")+1] if "-id" in command_list else False
 
         if self.functions.config_obj[profile]["seed_location"] == "disable":
@@ -2102,11 +2110,18 @@ class CLI():
                 "is_global": False,
                 "profile": profile,
                 "argv_list": target,
-                "skip_display": skip
+                "skip_display": skip,
+                "return_success": "set_value",
             })
             nodeid = self.nodeid
                
         if nodeid:
+            if not self.functions.is_valid_address("nodeid",True,nodeid):
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-2121",
+                    "line_code": "input_error",
+                    "extra": "not a valid nodeid; use -t for node ip address",
+                })
             nodeid = self.functions.cleaner(nodeid,"new_line")
             test = self.functions.test_or_replace_line_in_file({
               "file_path": self.functions.config_obj[profile]["seed_path"],
@@ -3795,7 +3810,9 @@ class CLI():
                 ])  
                                                    
         if return_success:    
-            if nodeid == "unable to derive":
+            if return_success == "set_value":
+                self.nodeid = nodeid
+            elif nodeid == "unable to derive":
                 return False 
             return True
             

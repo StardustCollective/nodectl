@@ -1984,8 +1984,8 @@ def build_help(functions,command_obj):
   {extended} for the configured profile_name dag-l0 for ip address 10.10.10.10
   # {colored(f'sudo nodectl {extended} -p dag-l0 -t 10.10.10.10','cyan')}  
   
-  {extended} for the configured profile_name dag-l0 of a nodeid that 
-  would be replace the <node_id> variable in the example with a 128bit nodeid
+  {extended} for the configured profile_name "dag-l0" looking for <node_id>
+  where <nodeid> is replaced with a 128bit nodeid
   # {colored(f'sudo nodectl {extended} -p dag-l0 -id <node_id>','cyan')}  
         ''' 
         
