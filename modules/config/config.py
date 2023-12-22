@@ -1204,17 +1204,26 @@ class Configuration():
 
                         elif "path" in req_type:
                             # global paths replaced already
-                            if "path" in key: validated = True # dynamic value skip validation
-                            if "path_def" in req_type and test_value == "default": validated = True
-                            elif req_type == "path_def_dis" and test_value == "disable": validated = True
-                            elif path.isdir(test_value): validated = True
-                            elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
-                                title = f"{test_value} is an invalid keyword for layer0"
-                            elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
-                            elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
-                                title = f"{test_value} is an invalid keyword"
-                            elif not path.isdir(test_value): title = "invalid or path not found"
-                            else: validated = True
+                            try:
+                                if "path" in key: validated = True # dynamic value skip validation
+                                if "path_def" in req_type and test_value == "default": validated = True
+                                elif req_type == "path_def_dis" and test_value == "disable": validated = True
+                                elif path.isdir(test_value): validated = True
+                                elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
+                                    title = f"{test_value} is an invalid keyword for layer0"
+                                elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
+                                elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
+                                    title = f"{test_value} is an invalid keyword"
+                                elif not path.isdir(test_value): title = "invalid or path not found"
+                                else: validated = True
+                            except KeyError as e:
+                                self.log.logger.debug(f"config -> configuration object missing keys | error [{e}]")
+                                validated = False
+                                title = "invalid configuration file"
+                            except Exception as e:
+                                self.log.logger.debug(f"config -> configuration profile types issue | error [{e}]")
+                                validated = False
+                                title = "invalid configuration file"
                                 
                         elif req_type == "mem_size":
                             if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
