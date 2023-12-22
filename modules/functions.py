@@ -112,7 +112,7 @@ class Functions():
         self.status_dots = False # used for different threading events
         
         self.auto_restart = True if self.config_obj["global_elements"]["caller"] == "auto_restart" else False
-        ignore_defaults = ["config","install","auto_restart","ts","debug"]
+        ignore_defaults = ["config","install","installer","auto_restart","ts","debug"]
         if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
 
 
@@ -1100,7 +1100,7 @@ class Functions():
                                     "uri": uri
                                 } 
                                 break # on 1st and lowest layer   
-            except:
+            except Exception as e:
                 self.log.logger.error("functions unable to process profile while setting up default values")
                 if not skip_error:
                     self.error_messages.error_code_messages({
