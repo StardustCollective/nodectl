@@ -40,8 +40,19 @@ class P12Class():
                            
         try:
             self.app_env = self.config_obj[self.profile]["environment"]
-        except:
-            self.app_env = self.config_obj["global_elements"]["metagraph_name"]
+        except Exception as e:
+            try:
+                self.app_env = self.config_obj["global_elements"]["metagraph_name"]
+            except Exception as ee: 
+                try:
+                    self.app_env = self.config_obj["global_elements"]["environment_name"]
+                except Exception as eee:
+                    self.error_messages.error_code_messages({
+                        "error_code": "p-51",
+                        "line_code": "config_error",
+                        "extra": "format",
+                        "extra2": f"config keys missing | {e} | {ee} | {eee}"
+                    })
             
         self.solo = False # part of install or solo request to create p12?
         if process == "install":

@@ -22,7 +22,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.12.7"
+        nodectl_version = "v2.12.8"
         nodectl_yaml_version = "v2.1.0"
         node_upgrade_path_yaml_version = "v2.0.0" # if previous is 'current_less'; upgrade path needed (for migration module)
 
@@ -41,7 +41,9 @@ class Versioning():
         self.config_obj = command_obj.get("config_obj",False)
     
         self.auto_restart = False
-        if self.called_cmd == "auto_restart" or self.called_cmd == "service_restart":
+
+        exception_cmds = ["auto_restart","uvos","service_restart"]
+        if self.called_cmd in exception_cmds:
             self.auto_restart = True
             self.print_messages = False 
             self.show_spinner = False 
