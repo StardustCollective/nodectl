@@ -37,9 +37,9 @@ class Installer():
         self.build_config_file("skeleton")
         self.build_classes()
         self.build_config_file("defaults")
-        # self.process_distro_dependencies()
-        # self.download_binaries()
-        # self.make_swap_file()
+        self.process_distro_dependencies()
+        self.download_binaries()
+        self.make_swap_file()
         self.setup_user()
         self.create_dynamic_elements()
         self.generate_p12_from_install()
@@ -114,7 +114,7 @@ class Installer():
             
 
     def setup_user(self):
-        self.functions.print_any_key({})
+        self.functions.print_any_key({"newline":"top"})
         self.user.setup_user()  
         
                   
@@ -204,7 +204,7 @@ class Installer():
             ["sudo nodectl configure",2],
         ])
         
-        self.functions.print_any_key({})
+        self.functions.print_any_key({"newline":"bottom"})
 
         m_progress = {
             "text_start": "Creating",

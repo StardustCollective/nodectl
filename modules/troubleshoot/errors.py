@@ -611,6 +611,15 @@ class Error_codes():
                     ["This is important to allow the file to properly load.",2,"red","bold"],
                     ["To correct error, issue:",0,"magenta"], ["sudo nodectl configure",2]
                 ])
+            if var.extra == "install":
+                self.functions.print_paragraphs([
+                    ["nodectl failed to properly load configuration elements during the installation.",1,"red","bold"],
+                    ["Please verify that you entered all details during the installation",0,"red"],
+                    ["properly.",2,"red"],
+                    
+                    ["Please try the installation again",2,"magenta"],
+                    ["If the error persists, please seek help in the offical Constellation Discord server.",2,"yellow"], 
+                ])
             if var.extra == "format" or var.extra2 == "existence":
                 self.functions.print_paragraphs([
                     ["nodectl attempted to load an invalid configuration!",1,"red","bold"],
@@ -631,6 +640,8 @@ class Error_codes():
                     ["It is suggested that you join the appropriate Discord channel and",0,"magenta"],
                     ["and contact a Constellation Administrator.",2,"magenta"],
                 ])
+            elif var.extra2:
+                self.log.logger.error(f"error code [{self.error_code}] error found [{var.extra2}]")
            
         self.print_error()
            

@@ -4437,7 +4437,7 @@ class CLI():
             })
             
         if confirm:
-            backup_dir = "/var/tmp"
+            backup_dir = "/var/tmp/"
             if not install:
                 profile = self.functions.pull_profile({"req":"default_profile"})
                 backup_dir = self.functions.config_obj[profile]["directory_backups"]
@@ -4460,12 +4460,7 @@ class CLI():
             with open("/tmp/sshd_config-new","w") as newfile:
                 for line in f:
                     if action == "enable" or action == "disable":
-                        if "PubkeyAuthentication" in line:
-                            verb = "no"
-                            if action == "enable":
-                                verb = "yes"
-                            newfile.write(f"PubkeyAuthentication {verb}\n")
-                        if "PermitRootLogin" in line:
+                        if line.startswith("PermitRootLogin") or line.startswith("#PermitRootLogin"):
                             if action == "enable":
                                 verb = "yes"
                                 if path.isfile(f"{upath}.ssh/backup_authorized_keys"):
@@ -4473,7 +4468,7 @@ class CLI():
                                     self.log.logger.info(f"cli -> found and recovered {user} authorized_keys file")
                                 else:
                                     self.log.logger.critical(f"cli -> could not find a backup authorized_key file to recover | user {user}")
-                            if action == "disable":
+                            elif action == "disable":
                                 verb = "no"
                                 if path.isfile(f"{upath}.ssh/authorized_keys"):
                                     system(f"sudo mv {upath}.ssh/authorized_keys {upath}.ssh/backup_authorized_keys > /dev/null 2>&1")
@@ -4486,19 +4481,25 @@ class CLI():
                         action_print = f"{action} {user} user"
                         
                     elif action == "disable_user_auth":
-                        if "PasswordAuthentication" in line:
-                            verb = "no"
-                            newfile.write(f"PasswordAuthentication {verb}\n")
-                        if "ChallengeResponseAuthentication" in line:
-                            verb = "no"
-                            newfile.write(f"ChallengeResponseAuthentication {verb}\n")
+                        if line.startswith("PubkeyAuthentication") or line.startswith("#PubkeyAuthentication"):
+                            self.log.logger.warn(f"cli -> found and enabled PubkeyAuthentication for SSH protocol daemon | sshd_config")
+                            newfile.write(f"PubkeyAuthentication yes\n")
+                        elif line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
+                            self.log.logger.warn(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | sshd_config")
+                            newfile.write(f"PasswordAuthentication no\n")
+                        elif line.startswith("KbdInteractiveAuthentication") or line.startswith("#KbdInteractiveAuthentication"):
+                            self.log.logger.warn(f"cli -> found and disabled KbdInteractiveAuthentication for SSH protocol daemon | sshd_config")
+                            newfile.write(f"KbdInteractiveAuthentication no\n")
+                        elif line.startswith("ChallengeResponseAuthentication") or line.startswith("#ChallengeResponseAuthentication"):
+                            self.log.logger.warn(f"cli -> found and disabled ChallengeResponseAuthentication for SSH protocol daemon | sshd_config")
+                            newfile.write(f"ChallengeResponseAuthentication no\n")
                         else:
                             newfile.write(f"{line}")
-                        action_print = f"password authentication set to {verb}"
                         
                     elif action == "port":
                         action_print = action
-                        if not "GatewayPorts" in line and "Port" in line:
+                        if not "GatewayPorts" in line and (line.startswith("Port") or line.startswith("#Port")):
+                            self.log.logger.warn(f"cli -> found and updated the Port settings for SSH protocol daemon | sshd_config")
                             newfile.write(f"Port {port_no}\n")
                         else:
                             newfile.write(f"{line}")
@@ -4509,16 +4510,15 @@ class CLI():
             # one off check
             if action == "disable_user_auth":
                 if path.exists("/etc/ssh/sshd_config.d/50-cloud-init.conf"):
+                    system(f"cp /etc/ssh/sshd_config.d/50-cloud-init.conf {backup_dir}50-cloud-init.conf{date}.bak > /dev/null 2>&1")
                     one_off = True
                     config_file = open("/etc/ssh/sshd_config.d/50-cloud-init.conf")
                     f = config_file.readlines()
                     with open("/tmp/sshd_config-new2","w") as newfile:
                         for line in f:
-                            if "PasswordAuthentication" in line:
-                                verb = "yes"
-                                if action == "disable_user_auth":
-                                    verb = "no"
-                                newfile.write(f"PasswordAuthentication {verb}\n")
+                            if line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
+                                self.log.logger.warn(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | 50-cloud-init.conf")
+                                newfile.write(f"PasswordAuthentication no\n")
                             else:
                                 newfile.write(f"{line}")
                     newfile.close()

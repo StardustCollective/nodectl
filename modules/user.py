@@ -460,14 +460,14 @@ class UserClass:
             ["",1],[" Recommended ",0,"yellow,on_green","bold"], 
             ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen.",1],
             ["Do you want to disable username/password based authentication on this Node at the",0],
-            ["Operating System level to improve security?",1],
+            ["Operating System level to improve security?",2],
         ])
         
         verb = "unchanged"
         if self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
-            "prompt": "Confirm:",
+            "prompt": "Disable username/password access?",
             "exit_if": False
         }):
             self.cli_obj.ssh_configure({
