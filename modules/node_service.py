@@ -1278,7 +1278,7 @@ else
     exit 0
 fi
 
-sudo nodectl update_version_object -f
+sudo nodectl update_version_object --force
 sudo nodectl verify_nodectl
 sudo nodectl version
 echo ""
