@@ -114,7 +114,7 @@ class Installer():
             
 
     def setup_user(self):
-        self.functions.print_any_key({})
+        self.functions.print_any_key({"newline":"top"})
         self.user.setup_user()  
         
                   
@@ -150,6 +150,7 @@ class Installer():
             self.functions.set_statics()
             self.cli.functions.set_statics()
             self.cli.node_service.functions.set_statics()
+            self.functions.profile_names = self.metagraph_list
             versioning = Versioning({
                 "called_cmd": "install",
                 "request": "install",
@@ -203,7 +204,7 @@ class Installer():
             ["sudo nodectl configure",2],
         ])
         
-        self.functions.print_any_key({})
+        self.functions.print_any_key({"newline":"bottom"})
 
         m_progress = {
             "text_start": "Creating",
@@ -506,7 +507,7 @@ class Installer():
             self.error_messages.error_code_messages({
                 "error_code": "int-507",
                 "line_code": "file_not_found",
-                "extra": location,
+                "extra": location if isinstance(location,str) else "unknown",
                 "extra2": "Are you sure your uploaded the proper p12 file?"
             })
         

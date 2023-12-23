@@ -45,6 +45,7 @@ class AutoRestart():
         self.stuck_timers = {
             "Observing_tolerance": 6*60, 
             "Observing_state_enabled": False,
+            "WaitingForDownload_state_enabled": False,
             "WaitingForDownload_tolerance": 6*60,
             "WaitingForDownload_enabled": False,    
         }
@@ -424,7 +425,8 @@ class AutoRestart():
     def silent_restart(self,action):
         self.on_boot_handler()
         if action != "join_only":
-            self.update_profile_states()  # double check in case network issue caused a false positive
+            if not self.profile_states[self.node_service.profile]["minority_fork"]:
+                self.update_profile_states()  # double check in case network issue caused a false positive
             if self.profile_states[self.node_service.profile]["action"] == "NoActionNeeded":
                 self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  possible cluster restart false positive detected - skipping restart | profile [{self.node_service.profile}]")
                 return
@@ -456,9 +458,9 @@ class AutoRestart():
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - testing timing for state [{state}]")
         current_time = time()
         
-        if not self.stuck_timers[f"{state}_enabled"]:
+        if not self.stuck_timers[f"{state}_state_enabled"]:
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - enabling timer for state [{state}]")
-            self.stuck_timers[f"{state}_enabled"] = True
+            self.stuck_timers[f"{state}_state_enabled"] = True
             self.profile_states[self.node_service.profile][f"{state}_time"] = time()
 
         elapsed_seconds = int(current_time - self.profile_states[self.node_service.profile][f"{state}_time"])
@@ -482,6 +484,7 @@ class AutoRestart():
         if self.fork_check_time > -1: 
             if  self.fork_timer >= (time() - self.fork_check_time):
                 self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - minority check timer not met, skipping.")
+                if self.profile_states[self.node_service.profile]["minority_fork"]: return True
                 return False
                 
         self.fork_check_time = time()
