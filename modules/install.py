@@ -37,9 +37,9 @@ class Installer():
         self.build_config_file("skeleton")
         self.build_classes()
         self.build_config_file("defaults")
-        self.process_distro_dependencies()
-        self.download_binaries()
-        self.make_swap_file()
+        # self.process_distro_dependencies()
+        # self.download_binaries()
+        # self.make_swap_file()
         self.setup_user()
         self.create_dynamic_elements()
         self.generate_p12_from_install()
@@ -150,6 +150,7 @@ class Installer():
             self.functions.set_statics()
             self.cli.functions.set_statics()
             self.cli.node_service.functions.set_statics()
+            self.functions.profile_names = self.metagraph_list
             versioning = Versioning({
                 "called_cmd": "install",
                 "request": "install",

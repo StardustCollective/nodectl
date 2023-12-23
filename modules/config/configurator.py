@@ -2820,7 +2820,7 @@ class Configurator():
         })
             
         notice = [
-            ["",1], [" NOTICE ",1,"blue,on_yellow","bold"], 
+            ["",2], [" NOTICE ",1,"blue,on_yellow","bold"], 
             ["This Node's service name will not changed.",2,"yellow"],
             ["Although this is",0],["not",0,"green","bold"],
             ["an issue and your Node will not be affected; be aware that",0], 

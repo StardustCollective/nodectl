@@ -1,6 +1,8 @@
 import re
 import base58
 import psutil
+import fileinput
+
 from hashlib import sha256
 
 from time import sleep, perf_counter
@@ -4354,23 +4356,30 @@ class CLI():
     
     def ssh_configure(self,command_obj):
         #,action="enable",port_no=22,install=False):
-        var = SimpleNamespace(**command_obj)
-        self.log.logger.info(f"SSH port configuration change initiated | command [{var.command}]")
-        action_print = var.command
+        command = command_obj["command"]
+        argv_list = command_obj["argv_list"]
+        user = command_obj.get("user","root")
+        do_confirm = command_obj.get("do_confirm",True)
+
+        self.log.logger.info(f"SSH port configuration change initiated | command [{command}]")
+        action_print = command
         show_help = False
-        action = "disable" if "disable" in var.command else "enable"
-        action = "port" if var.command == "change_ssh_port" else action
+        action = "disable" if "disable" in command else "enable"
+        action = "port" if command == "change_ssh_port" else action
+        if command == "disable_user_auth": action = command
+
         port_no = None
-        install = True if "install" in var.argv_list else False
+        install = True if "install" in argv_list else False
         one_off = False
         
-        if "help" in var.argv_list:
+        
+        if "help" in argv_list:
             show_help = True
         else:
-            if "--port" not in var.argv_list and var.command == "change_ssh_port":
+            if "--port" not in argv_list and command == "change_ssh_port":
                 show_help = True
-            elif "--port" in var.argv_list:
-                port_no = var.argv_list[var.argv_list.index("--port")+1]
+            elif "--port" in argv_list:
+                port_no = argv_list[argv_list.index("--port")+1]
             else:
                 port_no = 22
                 
@@ -4393,10 +4402,10 @@ class CLI():
         if show_help:
             self.functions.print_help({
                 "usage_only": True,
-                "extended": var.command
+                "extended": command
             })
          
-        if "install" not in var.argv_list:
+        if "install" not in argv_list or not do_confirm:
             confirm = True
         else:
             self.functions.print_paragraphs([
@@ -4406,7 +4415,7 @@ class CLI():
             if action != "port":
                 self.functions.print_paragraphs([
                     ["This feature will",0], [action,0,"cyan","underline"], 
-                    ["root",0], [" SSH ",0,"grey,on_yellow","bold"], ["access for this server (VPS, Bare Metal). It is independent of",0], 
+                    [user,0], [" SSH ",0,"grey,on_yellow","bold"], ["access for this server (VPS, Bare Metal). It is independent of",0], 
                     ["nodectl",0,"cyan","underline"], [".",-1], ["",2]
                 ])
                 if action == "disable":
@@ -4443,35 +4452,46 @@ class CLI():
             
             config_file = open("/etc/ssh/sshd_config")
             f = config_file.readlines()
+            
+            upath = f"/home/{user}/"
+            if user == "root": upath = "/root/"
+            verb = "not completed"
+
             with open("/tmp/sshd_config-new","w") as newfile:
                 for line in f:
                     if action == "enable" or action == "disable":
+                        if "PubkeyAuthentication" in line:
+                            verb = "no"
+                            if action == "enable":
+                                verb = "yes"
+                            newfile.write(f"PubkeyAuthentication {verb}\n")
                         if "PermitRootLogin" in line:
                             if action == "enable":
                                 verb = "yes"
-                                if path.isfile("/root/.ssh/backup_authorized_keys"):
-                                    system(f"sudo mv /root/.ssh/backup_authorized_keys /root/.ssh/authorized_keys > /dev/null 2>&1")
-                                    self.log.logger.info("found and recovered root authorized_keys file")
+                                if path.isfile(f"{upath}.ssh/backup_authorized_keys"):
+                                    system(f"sudo mv {upath}.ssh/backup_authorized_keys {upath}.ssh/authorized_keys > /dev/null 2>&1")
+                                    self.log.logger.info(f"cli -> found and recovered {user} authorized_keys file")
                                 else:
-                                    self.log.logger.critical("could not find a backup authorized_key file to recover")
+                                    self.log.logger.critical(f"cli -> could not find a backup authorized_key file to recover | user {user}")
                             if action == "disable":
                                 verb = "no"
-                                if path.isfile("/root/.ssh/authorized_keys"):
-                                    system(f"sudo mv /root/.ssh/authorized_keys /root/.ssh/backup_authorized_keys > /dev/null 2>&1")
-                                    self.log.logger.warn("found and renamed authorized_keys file")
+                                if path.isfile(f"{upath}.ssh/authorized_keys"):
+                                    system(f"sudo mv {upath}.ssh/authorized_keys {upath}.ssh/backup_authorized_keys > /dev/null 2>&1")
+                                    self.log.logger.warn(f"cli -> found and renamed authorized_keys file | user {user}")
                                 else:
-                                    self.log.logger.critical("could not find an authorized_key file to update")
+                                    self.log.logger.critical(f"cli -> could not find an authorized_key file to update | {user}")
                             newfile.write(f"PermitRootLogin {verb}\n")
                         else:
                             newfile.write(f"{line}")
-                        action_print = f"{action} root user"
+                        action_print = f"{action} {user} user"
                         
                     elif action == "disable_user_auth":
                         if "PasswordAuthentication" in line:
-                            verb = "yes"
-                            if action == "disable_user_auth":
-                                verb = "no"
+                            verb = "no"
                             newfile.write(f"PasswordAuthentication {verb}\n")
+                        if "ChallengeResponseAuthentication" in line:
+                            verb = "no"
+                            newfile.write(f"ChallengeResponseAuthentication {verb}\n")
                         else:
                             newfile.write(f"{line}")
                         action_print = f"password authentication set to {verb}"
