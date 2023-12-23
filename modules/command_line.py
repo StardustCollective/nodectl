@@ -4360,6 +4360,7 @@ class CLI():
         argv_list = command_obj["argv_list"]
         user = command_obj.get("user","root")
         do_confirm = command_obj.get("do_confirm",True)
+        skip_reload_status = command_obj.get("skip_reload_status",False)
 
         self.log.logger.info(f"SSH port configuration change initiated | command [{command}]")
         action_print = command
@@ -4524,13 +4525,14 @@ class CLI():
                     newfile.close()
                     config_file.close()
             
-            progress = {
-                "text_start": "Reloading",
-                "text_end": "daemon",
-                "brackets": "SSH",
-                "status": "running"
-            }
-            self.functions.print_cmd_status(progress)
+            if not skip_reload_status:
+                progress = {
+                    "text_start": "Reloading",
+                    "text_end": "daemon",
+                    "brackets": "SSH",
+                    "status": "running"
+                }
+                self.functions.print_cmd_status(progress)
 
             system("mv /tmp/sshd_config-new /etc/ssh/sshd_config > /dev/null 2>&1")
             if one_off:
@@ -4543,12 +4545,13 @@ class CLI():
             if one_off:
                 self.log.logger.info(f"SSH configuration for an include file [one off] has been updated with password authentication [{verb}]")
                 
-            self.functions.print_cmd_status({
-                **progress,
-                "status": "complete",
-                "status_color": "green",
-                "newline": True
-            })
+            if not skip_reload_status:
+                self.functions.print_cmd_status({
+                    **progress,
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True
+                })
 
 
     def prepare_and_send_logs(self, command_list):
