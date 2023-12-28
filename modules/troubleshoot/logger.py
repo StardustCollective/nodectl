@@ -2,6 +2,7 @@ import logging
 import time
 from os import path, system
 from termcolor import cprint
+from sys import exit
 
 from logging.handlers import RotatingFileHandler
 
@@ -14,37 +15,42 @@ class Logging():
         self.level = "INFO"
         self.logger = logging.getLogger("nodectl_logging")     
            
-        self.check_for_log_file()
-        self.get_log_level()
-        self.log_setup()
+        try:
+            self.check_for_log_file()
+            self.get_log_level()
+            self.log_setup()
+        except PermissionError:
+            print("  There was an permission error found")
+            print("  Does the process have proper elevated permissions?")
+            print("  Please verify and try again.")
+            exit("permissions error")
+        except Exception:
+            print("  Unknown logging error was found.")
+            print("  Please try again.")
+            print("  If error persists you may need to reinstall nodectl?")
+            print("  Please seek help on the Constellation Discord channels.")
+            exit(1)
                 
     
     def log_setup(self):
-        try:
-            if len(self.logger.handlers): return
-                
-            if self.level == "NOTSET": self.logger.setLevel(logging.NOTSET)
-            elif self.level == "DEBUG": self.logger.setLevel(logging.DEBUG)
-            elif self.level == "INFO": self.logger.setLevel(logging.INFO)
-            elif self.level == "WARN": self.logger.setLevel(logging.WARN)
-            elif self.level == "ERROR": self.logger.setLevel(logging.ERROR)
-            elif self.level == "CRITICAL": self.logger.setLevel(logging.CRITICAL)
+        if len(self.logger.handlers): return
+            
+        if self.level == "NOTSET": self.logger.setLevel(logging.NOTSET)
+        elif self.level == "DEBUG": self.logger.setLevel(logging.DEBUG)
+        elif self.level == "INFO": self.logger.setLevel(logging.INFO)
+        elif self.level == "WARN": self.logger.setLevel(logging.WARN)
+        elif self.level == "ERROR": self.logger.setLevel(logging.ERROR)
+        elif self.level == "CRITICAL": self.logger.setLevel(logging.CRITICAL)
 
-            formatter = logging.Formatter(
-                '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',
-                '%b %d %H:%M:%S')
-            formatter.converter = time.gmtime  # if you want UTC time
+        formatter = logging.Formatter(
+            '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',
+            '%b %d %H:%M:%S')
+        formatter.converter = time.gmtime  # if you want UTC time
 
-            log_handler = RotatingFileHandler(self.full_log_path, maxBytes=2097152, backupCount=3)        
-            log_handler.setFormatter(formatter)
-            self.logger.addHandler(log_handler)
-            self.logger.info(f"Logger module initialized with level [{self.level}]")
-        except PermissionError as e:
-            # logger -> possible permission issue encountered
-            exit(1)
-        except Exception as e:
-            # unrecoverable error
-            exit(1)
+        log_handler = RotatingFileHandler(self.full_log_path, maxBytes=2097152, backupCount=3)        
+        log_handler.setFormatter(formatter)
+        self.logger.addHandler(log_handler)
+        self.logger.info(f"Logger module initialized with level [{self.level}]")
 
 
     def check_for_log_file(self):

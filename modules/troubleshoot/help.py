@@ -1984,8 +1984,8 @@ def build_help(functions,command_obj):
   {extended} for the configured profile_name dag-l0 for ip address 10.10.10.10
   # {colored(f'sudo nodectl {extended} -p dag-l0 -t 10.10.10.10','cyan')}  
   
-  {extended} for the configured profile_name dag-l0 of a nodeid that 
-  would be replace the <node_id> variable in the example with a 128bit nodeid
+  {extended} for the configured profile_name "dag-l0" looking for <node_id>
+  where <nodeid> is replaced with a 128bit nodeid
   # {colored(f'sudo nodectl {extended} -p dag-l0 -id <node_id>','cyan')}  
         ''' 
         
@@ -2424,7 +2424,7 @@ def build_help(functions,command_obj):
   option is used to force an update.
 
   optional:
-  {colored('-f','green')} force
+  {colored('--force','green')} force
   {colored('-v','green')} verify
   {colored('--print','green')} print the contents of the object
     
@@ -2441,7 +2441,7 @@ def build_help(functions,command_obj):
   # {colored(f'sudo nodectl update_version_object help','cyan')}  
   
   force an update to the versioning object.
-  # {colored(f'sudo nodectl update_version_object -f','cyan')}  
+  # {colored(f'sudo nodectl update_version_object --force','cyan')}  
   
   verify the versioning object.
   # {colored(f'sudo nodectl update_version_object -v','cyan')}  

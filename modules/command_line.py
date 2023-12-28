@@ -1,6 +1,8 @@
 import re
 import base58
 import psutil
+import fileinput
+
 from hashlib import sha256
 
 from time import sleep, perf_counter
@@ -2077,9 +2079,17 @@ class CLI():
         skip = True if "skip_warnings" in command_list else False
         
         if not "skip_seedlist_title" in command_list: self.print_title("Check Seed List Request")
-
-        is_target = command_list[command_list.index("-p")+1] if "-t" in command_list else False
-        target = ["-t",target] if is_target else []
+        
+        target = []
+        if "-t" in command_list:
+            target = command_list[command_list.index("-t")+1]
+            if not self.functions.is_valid_address("ip_address",True,target):
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-2086",
+                    "line_code": "input_error",
+                    "extra": "not a valid ip address; use -id for node id",
+                })
+            target = ["-t",target,"-l"]
         nodeid = command_list[command_list.index("-id")+1] if "-id" in command_list else False
 
         if self.functions.config_obj[profile]["seed_location"] == "disable":
@@ -2102,11 +2112,18 @@ class CLI():
                 "is_global": False,
                 "profile": profile,
                 "argv_list": target,
-                "skip_display": skip
+                "skip_display": skip,
+                "return_success": "set_value",
             })
             nodeid = self.nodeid
                
         if nodeid:
+            if not self.functions.is_valid_address("nodeid",True,nodeid):
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-2121",
+                    "line_code": "input_error",
+                    "extra": "not a valid nodeid; use -t for node ip address",
+                })
             nodeid = self.functions.cleaner(nodeid,"new_line")
             test = self.functions.test_or_replace_line_in_file({
               "file_path": self.functions.config_obj[profile]["seed_path"],
@@ -3795,7 +3812,9 @@ class CLI():
                 ])  
                                                    
         if return_success:    
-            if nodeid == "unable to derive":
+            if return_success == "set_value":
+                self.nodeid = nodeid
+            elif nodeid == "unable to derive":
                 return False 
             return True
             
@@ -4337,23 +4356,31 @@ class CLI():
     
     def ssh_configure(self,command_obj):
         #,action="enable",port_no=22,install=False):
-        var = SimpleNamespace(**command_obj)
-        self.log.logger.info(f"SSH port configuration change initiated | command [{var.command}]")
-        action_print = var.command
+        command = command_obj["command"]
+        argv_list = command_obj["argv_list"]
+        user = command_obj.get("user","root")
+        do_confirm = command_obj.get("do_confirm",True)
+        skip_reload_status = command_obj.get("skip_reload_status",False)
+
+        self.log.logger.info(f"SSH port configuration change initiated | command [{command}]")
+        action_print = command
         show_help = False
-        action = "disable" if "disable" in var.command else "enable"
-        action = "port" if var.command == "change_ssh_port" else action
+        action = "disable" if "disable" in command else "enable"
+        action = "port" if command == "change_ssh_port" else action
+        if command == "disable_user_auth": action = command
+
         port_no = None
-        install = True if "install" in var.argv_list else False
+        install = True if "install" in argv_list else False
         one_off = False
         
-        if "help" in var.argv_list:
+        
+        if "help" in argv_list:
             show_help = True
         else:
-            if "--port" not in var.argv_list and var.command == "change_ssh_port":
+            if "--port" not in argv_list and command == "change_ssh_port":
                 show_help = True
-            elif "--port" in var.argv_list:
-                port_no = var.argv_list[var.argv_list.index("--port")+1]
+            elif "--port" in argv_list:
+                port_no = argv_list[argv_list.index("--port")+1]
             else:
                 port_no = 22
                 
@@ -4376,10 +4403,10 @@ class CLI():
         if show_help:
             self.functions.print_help({
                 "usage_only": True,
-                "extended": var.command
+                "extended": command
             })
          
-        if "install" not in var.argv_list:
+        if "install" not in argv_list or not do_confirm:
             confirm = True
         else:
             self.functions.print_paragraphs([
@@ -4389,7 +4416,7 @@ class CLI():
             if action != "port":
                 self.functions.print_paragraphs([
                     ["This feature will",0], [action,0,"cyan","underline"], 
-                    ["root",0], [" SSH ",0,"grey,on_yellow","bold"], ["access for this server (VPS, Bare Metal). It is independent of",0], 
+                    [user,0], [" SSH ",0,"grey,on_yellow","bold"], ["access for this server (VPS, Bare Metal). It is independent of",0], 
                     ["nodectl",0,"cyan","underline"], [".",-1], ["",2]
                 ])
                 if action == "disable":
@@ -4411,7 +4438,7 @@ class CLI():
             })
             
         if confirm:
-            backup_dir = "/var/tmp"
+            backup_dir = "/var/tmp/"
             if not install:
                 profile = self.functions.pull_profile({"req":"default_profile"})
                 backup_dir = self.functions.config_obj[profile]["directory_backups"]
@@ -4426,42 +4453,54 @@ class CLI():
             
             config_file = open("/etc/ssh/sshd_config")
             f = config_file.readlines()
+            
+            upath = f"/home/{user}/"
+            if user == "root": upath = "/root/"
+            verb = "not completed"
+
             with open("/tmp/sshd_config-new","w") as newfile:
                 for line in f:
                     if action == "enable" or action == "disable":
-                        if "PermitRootLogin" in line:
+                        if line.startswith("PermitRootLogin") or line.startswith("#PermitRootLogin"):
                             if action == "enable":
                                 verb = "yes"
-                                if path.isfile("/root/.ssh/backup_authorized_keys"):
-                                    system(f"sudo mv /root/.ssh/backup_authorized_keys /root/.ssh/authorized_keys > /dev/null 2>&1")
-                                    self.log.logger.info("found and recovered root authorized_keys file")
+                                if path.isfile(f"{upath}.ssh/backup_authorized_keys"):
+                                    system(f"sudo mv {upath}.ssh/backup_authorized_keys {upath}.ssh/authorized_keys > /dev/null 2>&1")
+                                    self.log.logger.info(f"cli -> found and recovered {user} authorized_keys file")
                                 else:
-                                    self.log.logger.critical("could not find a backup authorized_key file to recover")
-                            if action == "disable":
+                                    self.log.logger.critical(f"cli -> could not find a backup authorized_key file to recover | user {user}")
+                            elif action == "disable":
                                 verb = "no"
-                                if path.isfile("/root/.ssh/authorized_keys"):
-                                    system(f"sudo mv /root/.ssh/authorized_keys /root/.ssh/backup_authorized_keys > /dev/null 2>&1")
-                                    self.log.logger.warn("found and renamed authorized_keys file")
+                                if path.isfile(f"{upath}.ssh/authorized_keys"):
+                                    system(f"sudo mv {upath}.ssh/authorized_keys {upath}.ssh/backup_authorized_keys > /dev/null 2>&1")
+                                    self.log.logger.warn(f"cli -> found and renamed authorized_keys file | user {user}")
                                 else:
-                                    self.log.logger.critical("could not find an authorized_key file to update")
+                                    self.log.logger.critical(f"cli -> could not find an authorized_key file to update | {user}")
                             newfile.write(f"PermitRootLogin {verb}\n")
                         else:
                             newfile.write(f"{line}")
-                        action_print = f"{action} root user"
+                        action_print = f"{action} {user} user"
                         
                     elif action == "disable_user_auth":
-                        if "PasswordAuthentication" in line:
-                            verb = "yes"
-                            if action == "disable_user_auth":
-                                verb = "no"
-                            newfile.write(f"PasswordAuthentication {verb}\n")
+                        if line.startswith("PubkeyAuthentication") or line.startswith("#PubkeyAuthentication"):
+                            self.log.logger.warn(f"cli -> found and enabled PubkeyAuthentication for SSH protocol daemon | sshd_config")
+                            newfile.write(f"PubkeyAuthentication yes\n")
+                        elif line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
+                            self.log.logger.warn(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | sshd_config")
+                            newfile.write(f"PasswordAuthentication no\n")
+                        elif line.startswith("KbdInteractiveAuthentication") or line.startswith("#KbdInteractiveAuthentication"):
+                            self.log.logger.warn(f"cli -> found and disabled KbdInteractiveAuthentication for SSH protocol daemon | sshd_config")
+                            newfile.write(f"KbdInteractiveAuthentication no\n")
+                        elif line.startswith("ChallengeResponseAuthentication") or line.startswith("#ChallengeResponseAuthentication"):
+                            self.log.logger.warn(f"cli -> found and disabled ChallengeResponseAuthentication for SSH protocol daemon | sshd_config")
+                            newfile.write(f"ChallengeResponseAuthentication no\n")
                         else:
                             newfile.write(f"{line}")
-                        action_print = f"password authentication set to {verb}"
                         
                     elif action == "port":
                         action_print = action
-                        if not "GatewayPorts" in line and "Port" in line:
+                        if not "GatewayPorts" in line and (line.startswith("Port") or line.startswith("#Port")):
+                            self.log.logger.warn(f"cli -> found and updated the Port settings for SSH protocol daemon | sshd_config")
                             newfile.write(f"Port {port_no}\n")
                         else:
                             newfile.write(f"{line}")
@@ -4472,28 +4511,28 @@ class CLI():
             # one off check
             if action == "disable_user_auth":
                 if path.exists("/etc/ssh/sshd_config.d/50-cloud-init.conf"):
+                    system(f"cp /etc/ssh/sshd_config.d/50-cloud-init.conf {backup_dir}50-cloud-init.conf{date}.bak > /dev/null 2>&1")
                     one_off = True
                     config_file = open("/etc/ssh/sshd_config.d/50-cloud-init.conf")
                     f = config_file.readlines()
                     with open("/tmp/sshd_config-new2","w") as newfile:
                         for line in f:
-                            if "PasswordAuthentication" in line:
-                                verb = "yes"
-                                if action == "disable_user_auth":
-                                    verb = "no"
-                                newfile.write(f"PasswordAuthentication {verb}\n")
+                            if line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
+                                self.log.logger.warn(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | 50-cloud-init.conf")
+                                newfile.write(f"PasswordAuthentication no\n")
                             else:
                                 newfile.write(f"{line}")
                     newfile.close()
                     config_file.close()
             
-            progress = {
-                "text_start": "Reloading",
-                "text_end": "daemon",
-                "brackets": "SSH",
-                "status": "running"
-            }
-            self.functions.print_cmd_status(progress)
+            if not skip_reload_status:
+                progress = {
+                    "text_start": "Reloading",
+                    "text_end": "daemon",
+                    "brackets": "SSH",
+                    "status": "running"
+                }
+                self.functions.print_cmd_status(progress)
 
             system("mv /tmp/sshd_config-new /etc/ssh/sshd_config > /dev/null 2>&1")
             if one_off:
@@ -4506,12 +4545,13 @@ class CLI():
             if one_off:
                 self.log.logger.info(f"SSH configuration for an include file [one off] has been updated with password authentication [{verb}]")
                 
-            self.functions.print_cmd_status({
-                **progress,
-                "status": "complete",
-                "status_color": "green",
-                "newline": True
-            })
+            if not skip_reload_status:
+                self.functions.print_cmd_status({
+                    **progress,
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True
+                })
 
 
     def prepare_and_send_logs(self, command_list):
@@ -4707,11 +4747,18 @@ class CLI():
             "pre_release": version_obj["nodectl"]["nodectl_prerelease"],
         })
 
-        upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
-        upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
-        upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
-        upgrade_file = upgrade_file.replace("ARCH",self.arch)
-        
+        try:
+            upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
+            upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
+            upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
+            upgrade_file = upgrade_file.replace("ARCH",self.arch)
+        except Exception as e:
+            self.log.logger.debug(f"nodectl binary updater was unable to build the upgrade file path | upgrade chosen [{upgrade_chosen}] old [{node_nodectl_version}] backup location [{backup_location}] arch [{self.arch}] | error [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4718",
+                "line_code": "",
+                "extra": ""
+            })
         upgrade_bash_script = "/var/tmp/upgrade-nodectl"
         with open(upgrade_bash_script,'w') as file:
             file.write(upgrade_file)

@@ -447,7 +447,7 @@ class Configurator():
                 if self.c.error_found:
                     self.log.logger.critical("Attempting to pull existing p12 information for the configuration file failed.  Valid inputs did not exist.")
                     self.log.logger.error(f"configurator was unable to retrieve p12 detail information during a configuration [{self.action}]")
-                    self.print_error("Retrieving p12 details")
+                    self.print_error()
                 self.prepare_configuration("new_config")
                 self.c.functions.print_cmd_status({
                     "text_start": f"Existing global p12 details {preserved}",
@@ -2826,7 +2826,7 @@ class Configurator():
         })
             
         notice = [
-            ["",1], [" NOTICE ",1,"blue,on_yellow","bold"], 
+            ["",2], [" NOTICE ",1,"blue,on_yellow","bold"], 
             ["This Node's service name will not changed.",2,"yellow"],
             ["Although this is",0],["not",0,"green","bold"],
             ["an issue and your Node will not be affected; be aware that",0], 

@@ -41,7 +41,9 @@ class Versioning():
         self.config_obj = command_obj.get("config_obj",False)
     
         self.auto_restart = False
-        if self.called_cmd == "auto_restart" or self.called_cmd == "service_restart":
+
+        exception_cmds = ["auto_restart","uvos","service_restart"]
+        if self.called_cmd in exception_cmds:
             self.auto_restart = True
             self.print_messages = False 
             self.show_spinner = False 
@@ -358,12 +360,14 @@ class Versioning():
     def is_nodectl_pre_release(self):
         p_version = self.upgrade_path[self.functions.environment_names[0]]["version"]
         pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
+<<<<<<< HEAD
         pre_release = {"prerelease":"Unknown"}
+=======
+>>>>>>> nodectl_v2128
 
         try:
             session = self.functions.set_request_session()
             pre_release = session.get(pre_release_uri).json()
-            # pre_release = {"prerelease": True} # debug
         except Exception as e:
             self.log.logger.warn(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
         else:
@@ -376,11 +380,17 @@ class Versioning():
             session.close()
             
         try:
+<<<<<<< HEAD
             return pre_release["prerelease"] # this will be true or false
         except:
             return "Unknown"  
+=======
+            return pre_release["prerelease"]  # this will be true or false
+        except:
+            return "Unknown"
 
-    
+>>>>>>> nodectl_v2128
+
     def write_file(self):
         if not path.exists(self.version_obj_path):
             mkdir(self.version_obj_path)

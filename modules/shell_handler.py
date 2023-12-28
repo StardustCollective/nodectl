@@ -1318,7 +1318,7 @@ class ShellHandler:
         })
         
         self.install_upgrade = "upgrade"
-        if "-ni" not in argv_list and "--ni" in argv_list:
+        if "-ni" not in argv_list and not "--ni" in argv_list:
             self.confirm_int_upg()
 
         self.functions.print_header_title({

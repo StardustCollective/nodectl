@@ -11,6 +11,7 @@ from .logger import Logging
 # upgrade_needed
 # upgrade_path_needed
 # upgrade_incompatibility
+# upgrade_failure
 # environment_error
 # lb_not_up
 # verification_failure
@@ -177,9 +178,22 @@ class Error_codes():
                 ["nodectl found metagraph environments installed on this Node that may not be supported by this version of nodectl.",0,"yellow"],
                 ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
                 
-                ["In order to continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
+                ["To continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
                 ["Please see the Constellation documentation portal for more details.",2],
                 ["https://docs.constellationnetwork.io/validate/",2],
+            ])
+                        
+                        
+        elif "upgrade_failure" in str(var.line_code):
+            self.log.logger.critical(f"Upgrade cannot continue because nodectl found issue with node or architecture that is not supported by nodectl.")
+            self.functions.print_paragraphs([
+                ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
+
+                ["nodectl found elements on this Node that may not be supported by this version of nodectl.",0,"yellow"],
+                ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
+                
+                ["To continue, it is recommend to perform manual download of the desired nodectl binary from the GitHub repository.",2],
+                ["https://github.com/StardustCollective/nodectl/releases",2],
             ])
 
             
@@ -604,6 +618,15 @@ class Error_codes():
                     ["This is important to allow the file to properly load.",2,"red","bold"],
                     ["To correct error, issue:",0,"magenta"], ["sudo nodectl configure",2]
                 ])
+            if var.extra == "install":
+                self.functions.print_paragraphs([
+                    ["nodectl failed to properly load configuration elements during the installation.",1,"red","bold"],
+                    ["Please verify that you entered all details during the installation",0,"red"],
+                    ["properly.",2,"red"],
+                    
+                    ["Please try the installation again",2,"magenta"],
+                    ["If the error persists, please seek help in the offical Constellation Discord server.",2,"yellow"], 
+                ])
             if var.extra == "format" or var.extra2 == "existence":
                 self.functions.print_paragraphs([
                     ["nodectl attempted to load an invalid configuration!",1,"red","bold"],
@@ -624,6 +647,8 @@ class Error_codes():
                     ["It is suggested that you join the appropriate Discord channel and",0,"magenta"],
                     ["and contact a Constellation Administrator.",2,"magenta"],
                 ])
+            elif var.extra2:
+                self.log.logger.error(f"error code [{self.error_code}] error found [{var.extra2}]")
            
         self.print_error()
            

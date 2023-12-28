@@ -139,7 +139,7 @@ class UserClass:
         self.keep_user = False
         if u_exists:
             self.functions.print_paragraphs([
-                [" NOTICE ",0,"white,on_blue"], ["The user that you requested to add",0],
+                ["",1],[" NOTICE ",0,"white,on_blue"], ["The user that you requested to add",0],
                 ["already exists on this Debian based VPS or Server instance.",2],
             ])
             prompt_str = f"Update password for {self.username}"
@@ -354,6 +354,7 @@ class UserClass:
             "status": "transfer",
             "status_color": "yellow",
         }
+        print("")
         self.functions.print_cmd_status(progress)
         
         self.file = "authorized_keys"
@@ -456,23 +457,23 @@ class UserClass:
             
         # since we said "yes" to SSH verse password
         self.functions.print_paragraphs([
-            ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen.",0],
-            
-            ["Do you want [",0],["recommended",0,"green","bold"], 
-            ["] to disable username/password based authentication on this Node at the",0],
-            ["Operating System level to improve security?",1],
+            ["",1],[" Recommended ",0,"yellow,on_green","bold"], 
+            ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen.",1],
+            ["Do you want to disable username/password based authentication on this Node at the",0],
+            ["Operating System level to improve security?",2],
         ])
         
         verb = "unchanged"
         if self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
-            "prompt": "Confirm:",
+            "prompt": "Disable username/password access?",
             "exit_if": False
         }):
             self.cli_obj.ssh_configure({
                 "command": "disable_user_auth",
-                "argv_list": ["install"]
+                "argv_list": ["install"],
+                "do_confirm": False,
             })
             verb = "disabled"
             
@@ -481,6 +482,7 @@ class UserClass:
             "status": verb,
             "status_color": "green" if verb == "disabled" else "red"
         })
+
 
     def disable_root_user(self):
         # check for non-root users
@@ -507,9 +509,9 @@ class UserClass:
             return
 
         progress = {
-            "text_start": "Disabling",
+            "text_start": "Disable",
             "brackets": "SSH",
-            "text_end": "for root, ubuntu and/or admin",
+            "text_end": "for special accounts",
             "status": "disable",
             "status_color": "yellow",
         }
@@ -524,18 +526,24 @@ class UserClass:
             bashCommand = f"id -u {poss_user}"
             is_userid = self.functions.process_command({
                 "bashCommand": bashCommand,
-                "proc_action": "timeout"
+                "proc_action": "poll"
             })
             try:
-                int(is_userid)
+                int(is_userid.strip("\n"))
             except:
                 pass
             else:
                 possible_users[poss_user] = True
                 
+        try:
+            do_confirm = False if self.cli_obj.command_obj["caller"] == "installer" else True
+        except:
+            do_confirm = True
+
         self.cli_obj.ssh_configure({
             "command": "disable",
-            "argv_list": ["install"]
+            "argv_list": ["install"],
+            "do_confirm": do_confirm,
         })
         
         end_status = "complete"
@@ -557,8 +565,9 @@ class UserClass:
                         end_status = "partial",
                         end_color = "yellow"
                 else:
-                    end_status = "skipped"
-                    end_color = "red"                    
+                    if end_status != "complete":
+                        end_status = "skipped"
+                        end_color = "red"                    
 
         self.functions.print_cmd_status({
             **progress,

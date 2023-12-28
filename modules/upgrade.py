@@ -627,13 +627,61 @@ class Upgrader():
         # security a little more cleaned up
         if path.isfile(f"{self.p12.p12_file_location}/id_ecdsa.hex"):
             remove(f"{self.p12.p12_file_location}/id_ecdsa.hex > /dev/null 2>&1")
-        system(f"rm -f /var/tmp/cnng-* > /dev/null 2>&1")
-        system(f"rm -f /var/tmp/cn-* > /dev/null 2>&1")
+        system("sudo rm -f /var/tmp/cnng-* > /dev/null 2>&1")
+        system("sudo rm -f /var/tmp/cn-* > /dev/null 2>&1")
+        system("sudo rm -f /var/tmpsshd_config* > /dev/null 2>&1")
+
+        # mv temp rewritten rc files to backup
+        rc_file_name = "{"+"}"+".bashrc*"
+        system(f'sudo mv /home/{self.p12.p12_username}/{rc_file_name} {self.config_obj[self.functions.default_profile]["directory_backups"]} > /dev/null 2>&1')
 
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
             "status_color": "green",
+            "newline": True,
+        })
+
+        ## Possible Security Vulnerability Fix
+        self.functions.print_paragraphs([
+            ["",1],[" IMPORTANT ",0,"yellow,on_red"],
+            ["nodectl would like to update or confirm that password verification and SSH",0],
+            ["authentication is properly configured on this Node.",2],
+
+            ["Verify username/password challenging is disabled",1,"yellow"],
+            ["Verify root access is disabled",1,"yellow"],
+            ["Verify SSH setup is correct",2,"yellow"],
+
+            ["This is a possible security venerability, and it is recommended to verified.",1,"red"],
+            ["Advanced Node Operators should skip this step and manually update the SSH configuration.",2,"magenta"]
+        ])
+
+        if not confirm:
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": "Verify password and SSH auth settings?",
+                "exit_if": False
+            })
+        progress = {
+            "text_start": "Modifying security vunerablity",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        }        
+        self.functions.print_cmd_status({**progress})
+        if confirm:
+            for n, ssh_cmd in enumerate(["disable","disable_user_auth"]):
+                self.cli.ssh_configure({
+                    "command": ssh_cmd,
+                    "argv_list": ["upgrade"],
+                    "do_confirm": False,
+                    "skip_reload_status": False if n < 1 else True,
+                })
+        self.functions.print_cmd_status({
+            **progress,
+            "status": "complete" if confirm else "skipped",
+            "status_color": "green" if confirm else "yellow",
             "newline": True,
         })
         
