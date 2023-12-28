@@ -633,7 +633,7 @@ class Upgrader():
 
         # mv temp rewritten rc files to backup
         rc_file_name = "{"+"}"+".bashrc*"
-        system(f'sudo mv /home/{self.p12.p12_username}/{rc_file_name} {self.config_obj[self.functions.default_profile]["directory_backups"]}')
+        system(f'sudo mv /home/{self.p12.p12_username}/{rc_file_name} {self.config_obj[self.functions.default_profile]["directory_backups"]} > /dev/null 2>&1')
 
         self.functions.print_cmd_status({
             **progress,
@@ -642,17 +642,17 @@ class Upgrader():
             "newline": True,
         })
 
-        ## Possible Security Vunerablity Fix
+        ## Possible Security Vulnerability Fix
         self.functions.print_paragraphs([
             ["",1],[" IMPORTANT ",0,"yellow,on_red"],
-            ["nodectl would like to update or confirm that password verfication and SSH",0],
-            ["authentictaion is properly configured on this Node.",2],
+            ["nodectl would like to update or confirm that password verification and SSH",0],
+            ["authentication is properly configured on this Node.",2],
 
             ["Verify username/password challenging is disabled",1,"yellow"],
             ["Verify root access is disabled",1,"yellow"],
             ["Verify SSH setup is correct",2,"yellow"],
 
-            ["This is a possible security vunerablity, and it is recommended to verfied.",1,"red"],
+            ["This is a possible security venerability, and it is recommended to verified.",1,"red"],
             ["Advanced Node Operators should skip this step and manually update the SSH configuration.",2,"magenta"]
         ])
 
