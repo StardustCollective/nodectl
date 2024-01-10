@@ -17,8 +17,8 @@ class Versioning():
         self.log = Logging()
         
         # important
-        # migration -> verify_config_type -> simple verification value counts
-        #                                    may need to adjusted if new key/pair 
+        # migration -> verify_config_type -> simple verification value counters
+        #                                    may need to be adjusted if new key/pair 
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
@@ -42,9 +42,9 @@ class Versioning():
     
         self.auto_restart = False
 
-        exception_cmds = ["auto_restart","uvos","service_restart"]
+        exception_cmds = ["auto_restart","uvos","service_restart","quick_install"]
         if self.called_cmd in exception_cmds:
-            self.auto_restart = True
+            if self.called_cmd != "quick_install": self.auto_restart = True
             self.print_messages = False 
             self.show_spinner = False 
         
@@ -79,7 +79,7 @@ class Versioning():
     def execute_versioning(self):
         self.log.logger.debug(f"versioning - called [{self.logging_name}] - executing versioning update request.")
         if self.called_cmd == "show_version": return # nodectl only
-        if self.called_cmd == "upgrade": self.force = True
+        if self.called_cmd in ["upgrade","install","quick_install"]: self.force = True
 
         self.functions = Functions(self.config_obj)
         self.error_messages = Error_codes(self.functions) 
@@ -287,7 +287,7 @@ class Versioning():
                     
                     last_environment = environment
                     
-                if self.request == "install": break
+                if "install" in self.request: break
 
             self.version_obj = {**self.version_obj, **version_obj}
             self.version_obj["last_updated"] = self.date_time
@@ -360,10 +360,7 @@ class Versioning():
     def is_nodectl_pre_release(self):
         p_version = self.upgrade_path[self.functions.environment_names[0]]["version"]
         pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
-<<<<<<< HEAD
         pre_release = {"prerelease":"Unknown"}
-=======
->>>>>>> nodectl_v2128
 
         try:
             session = self.functions.set_request_session()
@@ -380,16 +377,9 @@ class Versioning():
             session.close()
             
         try:
-<<<<<<< HEAD
             return pre_release["prerelease"] # this will be true or false
         except:
             return "Unknown"  
-=======
-            return pre_release["prerelease"]  # this will be true or false
-        except:
-            return "Unknown"
-
->>>>>>> nodectl_v2128
 
     def write_file(self):
         if not path.exists(self.version_obj_path):

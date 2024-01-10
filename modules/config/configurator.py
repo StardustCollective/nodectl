@@ -1,6 +1,5 @@
-import uuid
 import random
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
 from os import system, path, environ, makedirs, listdir, chmod
@@ -8,7 +7,8 @@ from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
 from copy import deepcopy, copy
-from secrets import compare_digest
+from string import ascii_letters
+from secrets import compare_digest, choice
 from time import sleep
 from requests import get
 from re import search, compile
@@ -20,9 +20,15 @@ from .config import Configuration
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
-from ..shell_handler import ShellHandler
 from ..troubleshoot.errors import Error_codes
 from .versioning import Versioning
+
+try:
+    from ..shell_handler import ShellHandler
+except ImportError:
+    # installation may be calling this Class which will not need
+    # the ShellHandler which would also cause a circular reference
+    pass
 
 class Configurator():
     
@@ -54,14 +60,14 @@ class Configurator():
         self.dev_enable_disable = False
         self.requested_profile = None
         self.header_title = None
-        
+        self.installer = False
+        self.quick_install = False
+        self.encryption_failed = True
+
         self.edit_error_msg = ""
         self.detailed = "init"
-        if "-a" in argv_list:
-            self.detailed = False
-        elif "-d" in argv_list:
-            self.detailed = True
-
+        if "-a" in argv_list: self.detailed = False
+        elif "-d" in argv_list: self.detailed = True
 
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
@@ -88,9 +94,16 @@ class Configurator():
             if argv_list[argv_list.index("--developer_mode")+1] == "enable" or argv_list[argv_list.index("--developer_mode")+1] == "disable":
                 self.dev_enable_disable = argv_list[argv_list.index("--developer_mode")+1]
                 self.action = "dev_mode"
-
+        
         self.prepare_configuration("new_config")
         self.error_messages = Error_codes(self.c.functions)
+
+        if "--installer" in argv_list:
+            self.installer = True
+            self.action = "install"
+            self.detailed = False
+            return
+
         self.setup()
         
 
@@ -762,15 +775,18 @@ class Configurator():
                     
         system(f"sudo cp {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
         system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
-        print("")
-        self.c.functions.print_cmd_status({
-            "text_start": "Configuration changes applied",
-            "status": "successfully",
-            "status_color": "green",
-            "newline": True,
-            "delay": 1.5,
-        })
-        if self.action != "new": self.prepare_configuration("edit_config",True)
+
+        if not self.quick_install:
+            print("")
+            self.c.functions.print_cmd_status({
+                "text_start": "Configuration changes applied",
+                "status": "successfully",
+                "status_color": "green",
+                "newline": True,
+                "delay": 1.5,
+            })
+
+        if self.action not in ["new","install"]: self.prepare_configuration("edit_config",True)
 
 
     def build_service_file(self,command_obj):
@@ -2146,7 +2162,7 @@ class Configurator():
             if option == "e":
                 print("")
                 self.header_title = {
-                    "line1": "Edit Profiles",
+                    "line1": "EDIT PROFILES",
                     "show_titles": False,
                     "clear": True,
                     "newline": "both",
@@ -2181,7 +2197,7 @@ class Configurator():
                 
     def edit_profiles(self):
         self.c.functions.print_header_title({
-            "line1": "Select Available Profiles",
+            "line1": "SELECT AVAILABLE PROFILES",
             "single_line": True,
             "newline": "bottom",
         })  
@@ -2668,7 +2684,7 @@ class Configurator():
 
         
     def edit_append_profile_global(self,s_type):
-        line1 = "Edit P12 Global" if s_type else "Append new profile"
+        line1 = "EDIT P12 GLOBAL" if s_type else "APPEND NEW PROFILE"
         line2 = "Private Keys" if s_type else "to configuration"
         
         self.header_title = {
@@ -2779,7 +2795,7 @@ class Configurator():
         
     def edit_profile_name(self, old_profile):
         self.c.functions.print_header_title({
-            "line1": "Change Profile Name",
+            "line1": "CHANGE PROFILE NAME",
             "line2": old_profile,
             "clear": True,
             "show_titles": False,
@@ -3017,29 +3033,30 @@ class Configurator():
         
 
     def passphrase_enable_disable_encryption(self):
+        self.log.logger.info("configurator -> encryption method envoked.")
 
-        system("clear")
+        if self.action != "install": system("clear")
         enable = False if self.c.config_obj["global_p12"]["encryption"] else True
         efp = "/etc/security/"
         eff = "cnngsenc.conf"
         effp = f"{efp}{eff}"
 
-        print("\n"*2)
-        line2 = "Disable Encryption"
-        self.c.functions.print_header_title({
-            "line1": f"Configuration Passphrase Encryption",
-            "line2": "Enable Encryption" if enable else line2,
-            "clear": True,
-            "show_titles": False,
-        })
+        if not self.quick_install:
+            print("\n"*2)
+            self.c.functions.print_header_title({
+                "line1": f"PASSPHRASE ENCRYPTION",
+                "line2": "Enable Encryption" if enable else "Disable Encryption",
+                "clear": True,
+                "show_titles": False,
+            })
 
-        e_action = "Building" if enable else "Removing"
-        encryption_obj = {
-            "text_start": f"{e_action} encryption elements",
-            "status": "running",
-            "status_color": "yellow",
-            "newline": False,
-        }
+            e_action = "Building" if enable else "Removing"
+            encryption_obj = {
+                "text_start": f"{e_action} encryption elements",
+                "status": "running",
+                "status_color": "yellow",
+                "newline": False,
+            }
 
         encryption_list = self.metagraph_list
         encryption_list.insert(0,"global_p12")
@@ -3064,22 +3081,23 @@ class Configurator():
                     ["This seed phrase will be securely stored by the root admin user of your Node, accessible",0],
                     ["exclusively to the root user. You can opt for a straightforward seed word or enhance",0],
                     ["complexity as preferred, ensuring the seed phrase is longer than",0], ["4",0,"green","bold"],
+                    ["characters.",2], ["Do",0], ["not",0,"red","bold"], 
+                    ["include numbers or special characters.",2],
                     
-                    ["characters, numbers, special characters, or combination of all three.",2],
-                    
-                    ["For security purposes you will not see your seed phrase while entering.",2],
+                    ["For security purposes you will not see your seed phrase while entering.",2,"blue","bold"],
 
                     [" WARNING ",1,"yellow,on_red"], 
                     ["If the configuration file was manually updated, any updated encryption elements [or other] will be",0,"red","bold"],
                     ["overwritten",0,"magenta","bold"], ["causing old encryption data that may be allowing nodectl to handle previously encrypted",0,"red","bold"],
                     ["elements to stop working, to be overwritten, and removed!",2,"red","bold"],
                 ])
-                self.c.functions.confirm_action({
-                    "yes_no_default": "y",
-                    "return_on": "y",
-                    "prompt": "Do you want to enable encryption?",
-                    "exit_if": True
-                })
+                if not self.action == "install":
+                    self.c.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "prompt": "Do you want to enable encryption?",
+                        "exit_if":  True
+                    })
 
             if not path.exists(efp):
                 self.error_messages.error_code_messages({
@@ -3093,7 +3111,7 @@ class Configurator():
             for profile in encryption_list:
                 if profile != "global_p12":
                     pass_key = "p12_passphrase"
-                    if self.c.config_obj[profile]["p12_passphrase"] == "global":
+                    if self.c.config_obj[profile][pass_key] == "global":
                         continue 
                 enc_pass = self.c.config_obj[profile][pass_key]
                 if enc_pass == "None":
@@ -3102,57 +3120,78 @@ class Configurator():
                         "line_code": "invalid_passphrase",
                         "extra": "Must be present in configuration",
                     })
-                self.c.functions.print_header_title({
-                    "line1": "Global P12" if profile == "global_p12" else profile.upper(),
-                    "newline": "both",
-                    "single_line": True,
-                })
-                double_confirm = False
-                if enc_pass == "None":
-                    double_confirm = True
-                for t in range(1,3):
-                    ptype = "p12 passphrase"
-                    if t == 2: 
-                        ptype = "Seed Phrase"
-                        self.c.functions.print_paragraphs([
-                            ["",],["Press enter a simple seed phrase that is at least 4 alphanumeric",0,"white","bold"],
-                            ["ONLY",0,"red","bold"], ["characters.",2,"white","bold"],
-                        ])
-                        if self.detailed:
-                            self.c.functions.print_paragraphs([
-                                ["This seed phrase does not need to be remembered and will not be asked for again.",2,"white","bold"]
-                            ])
-                    else:
-                        self.c.functions.print_paragraphs([
-                            ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
-                        ])
-                    for n in range(0,4):
-                        if n > 2:
-                            cprint("  Cancelling action","red")
-                            sleep(2)
-                            return
-                        pass1 = getpass(f"          {ptype}: ")
-                        if t > 1 or double_confirm:
-                            pass2 = getpass(f"  Confirm {ptype}: ")
-                        else:
-                            pass2 = enc_pass
-                        if pass1 == pass2 and len(pass1) > 3: 
-                            if t == 1: pass3 = pass1
-                            else: pass4 = pass1
-                            break
-                        self.c.functions.print_paragraphs([
-                            ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
-                            ["retry:",0], [str(n+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
-                        ])   
+                if not self.quick_install:
+                    self.c.functions.print_header_title({
+                        "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
+                        "newline": "both",
+                        "single_line": True,
+                    })
 
-                print("")
-                self.c.functions.print_cmd_status({
-                    **encryption_obj,
-                    "brackets": "global" if profile == "global_p12" else profile,
-                })    
+                r_default_seed = ''.join(choice(ascii_letters) for _ in range(12))
+                if self.quick_install:
+                    default_seed = r_default_seed
+                    pass3 = enc_pass
+                else:
+                    for ptype in ["P12 passphrase","Seed Phrase"]:
+                        do_confirm = True
+                        if ptype == "Seed Phrase": 
+                            self.c.functions.print_paragraphs([
+                                ["",],["Press enter a simple seed phrase that is at least 4 alphanumeric",0,"white","bold"],
+                                ["ONLY",0,"red","bold"], ["characters.",1,"white","bold"],
+                                ["Press <enter> to accept suggestion seed phrase",2,"yellow"],
+                            ])
+                            if self.detailed:
+                                self.c.functions.print_paragraphs([
+                                    ["This seed phrase does not need to be remembered and will not be asked for again.",2,"white","bold"]
+                                ])
+                        else:
+                            if self.action == "install": # set in installer
+                                do_confirm = False
+                                pass3 = enc_pass
+                            else:
+                                self.c.functions.print_paragraphs([
+                                    ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
+                                ])
+
+                        if do_confirm:
+                            for attempt in range(0,4):
+                                if attempt > 2:
+                                    self.log.logger.error("configurator -> encrpytion -> passphrase confirmation failed.")
+                                    self.encryption_failed = True
+                                    cprint("  Cancelling action","red")
+                                    sleep(2)
+                                    return
+                                
+                                # if attempt > 0: 
+                                #     # second try requires confirmation
+                                if ptype == "Seed Phrase":
+                                    pass1 = getpass(f"          {ptype} [{r_default_seed}]: ")
+                                    if pass1 == "" or pass1 == None: pass1 = r_default_seed
+                                else:
+                                    pass1 = getpass(f"          {ptype}: ")
+
+                                if ptype == "Seed Phrase":
+                                    if pass1 == r_default_seed: pass2 = r_default_seed
+                                    else: pass2 = getpass(f"  Confirm {ptype}: ")
+                                else:
+                                    pass2 = enc_pass
+                                if pass1 == pass2 and len(pass1) > 3: 
+                                    if ptype == "P12 passphrase": pass3 = pass1
+                                    else: default_seed = pass1
+                                    break
+                                self.c.functions.print_paragraphs([
+                                    ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
+                                    ["retry:",0], [str(attempt+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
+                                ])   
+
+                    print("")
+                    self.c.functions.print_cmd_status({
+                        **encryption_obj,
+                        "brackets": "global" if profile == "global_p12" else profile,
+                    })    
 
                 try:
-                    hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": pass4})
+                    hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": default_seed})
                     if not hashed: raise Exception("hashing issue")
                     if not enc_key: raise Exception("encryption generation issue")
                 except Exception as e:
@@ -3197,13 +3236,14 @@ class Configurator():
                             "p12_passphrase": fe,
                         }
                     } 
-                self.c.functions.print_cmd_status({
-                    **encryption_obj,
-                    "brackets": "global" if profile == "global_p12" else profile,
-                    "newline": True,
-                    "status": "completed",
-                    "status_color": "green",
-                }) 
+                if not self.quick_install:
+                    self.c.functions.print_cmd_status({
+                        **encryption_obj,
+                        "brackets": "global" if profile == "global_p12" else profile,
+                        "newline": True,
+                        "status": "completed",
+                        "status_color": "green",
+                    }) 
         else:
             if self.detailed:
                 if self.profile_to_edit:
@@ -3258,16 +3298,16 @@ class Configurator():
                             "p12_passphrase": "None",
                         }
                     } 
-                                    
-
+                                
         self.apply_vars_to_config()
-        self.c.functions.print_cmd_status({
-            **encryption_obj,
-            "newline": True,
-            "status": "completed",
-            "status_color": "green",
-        })  
-        sleep(1)
+        if not self.quick_install:
+            self.c.functions.print_cmd_status({
+                **encryption_obj,
+                "newline": True,
+                "status": "completed",
+                "status_color": "green",
+            })  
+            sleep(1)
 
     # =====================================================
     # OTHER
@@ -3911,7 +3951,13 @@ class Configurator():
                 "caller": "configurator"
             })
             if s_action == "leave":
-                self.c.functions.print_timer(40,"to gracefully leave the network")
+                # self.c.functions.print_timer(40,"to gracefully leave the network")
+                self.c.functions.print_timer({
+                    "seconds": 40,
+                    "prhase": "Gracefully",
+                    "step": -1,
+                    "end_phrase": "leaving cluster"
+                })
                     
         self.c.functions.print_cmd_status({
             "text_start": "Updating Service",

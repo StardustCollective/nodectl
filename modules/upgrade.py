@@ -492,7 +492,7 @@ class Upgrader():
         days = 30
         for item in to_clear:
             self.functions.print_header_title({
-                "line1": f"Clean up {item}",
+                "line1": f"CLEAN UP {item.upper()}",
                 "single_line": True,
                 "newline": "both",
             })
@@ -1141,7 +1141,8 @@ class Upgrader():
             self.error_messages.error_code_messages({
                 "error_code": "upg-550",
                 "line_code": "input_error",
-                "extra": extra
+                "extra": "upgrade option error",
+                "extra2": extra,
             })
             
         if "-ni" in self.argv_list or "--ni" in self.argv_list:

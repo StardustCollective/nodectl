@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
-from os import geteuid, getgid, environ, system, walk, remove
+from os import geteuid, getgid, environ, system, walk, remove, path
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -519,19 +519,20 @@ class ShellHandler:
             self.called_command = "help_only"
         
         
-    def verify_env_and_versioning(self,command_obj):
+    def verify_environments(self,command_obj):
         force = command_obj.get("force",False)
         show_list = command_obj.get("show_list",False)
         env_provided = command_obj.get("env_provided",False)
         action = command_obj.get("action","normal")
         self.log.logger.info("testing permissions")
         
-        progress = {
-            "status": "running",
-            "text_start": "Check permissions & versioning",
-        }
-        self.functions.print_cmd_status(progress) 
-        time.sleep(.8)
+        if action != "quick_install":
+            progress = {
+                "status": "running",
+                "text_start": "Verifying environment",
+            }
+            self.functions.print_cmd_status(progress) 
+            time.sleep(.8)
 
         if action == "normal":
             environments = self.functions.pull_profile({"req": "environments"})
@@ -551,7 +552,7 @@ class ShellHandler:
             if show_list:
                 print("")
                 self.functions.print_header_title({
-                    "line1": "Upgrade Environment Menu",
+                    "line1": "ENVIRONMENT UPGRADE MENU",
                     "newline": "both",
                     "single_line": True,
                 })
@@ -653,15 +654,19 @@ class ShellHandler:
         else:
             request_environment = False
             try:
-                environment = self.functions.environment_name
+                if env_provided:
+                    environment = self.functions.environment_name = env_provided 
+                else:
+                    env_provided = self.functions.environment_name
+                    request_environment = True
             except AttributeError:
                 request_environment = True
+
             if not self.functions.environment_name: request_environment = True
             
-            if action == "install": 
-                print("") # create newline
+            if "install" in action and request_environment:
+                print("") 
                 title = "PLEASE CHOOSE METAGRAPH TO INSTALL"
-                
             if request_environment:
                 environment = self.functions.print_profile_env_menu({
                     "p_type": "environment",
@@ -673,16 +678,16 @@ class ShellHandler:
                 "status": environment,
                 "newline": True,
             })
-                 
-        self.functions.check_sudo()
+
+        self.environment_requested = environment
+        if action == "quick_install": return   
+
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
             "newline": True
         })
 
-        self.environment_requested = environment
-        
         
     def check_deps(self,package):
         bashCommand = f"dpkg -s {package}"
@@ -849,33 +854,32 @@ class ShellHandler:
         })
         
                                                 
-    def update_os(self):
+    def update_os(self,threading=True,display=True):
         with ThreadPoolExecutor() as executor:
-            self.functions.status_dots = True
             self.log.logger.info(f"updating the Debian operating system.")
             environ['DEBIAN_FRONTEND'] = 'noninteractive'
             
-            _ = executor.submit(self.functions.print_cmd_status,{
-                "text_start": "Updating the Debian OS system",
-                "dotted_animation": True,
-                "status": "running",
-            })
-                    
-            if self.debug:
-                pass
-            else:
-                bashCommand = "apt-get -o Dpkg::Options::=--force-confold -y update"
-                self.functions.process_command({
-                    "bashCommand": bashCommand,
-                    "proc_action": "timeout",
-                })        
+            if threading:
+                self.functions.status_dots = True
+                _ = executor.submit(self.functions.print_cmd_status,{
+                    "text_start": "Updating the Debian OS system",
+                    "dotted_animation": True,
+                    "status": "running",
+                })
 
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                "text_start": "Updating the Debian OS system",
-                "status": "complete",
-                "newline": True
-            })
+            bashCommand = "apt-get -o Dpkg::Options::=--force-confold -y update"
+            self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "timeout",
+            })        
+
+            if threading: self.functions.status_dots = False
+            if display:
+                self.functions.print_cmd_status({
+                    "text_start": "Updating the Debian OS system",
+                    "status": "complete",
+                    "newline": True
+                })
         
 
     def setup_profiles(self):
@@ -1062,15 +1066,8 @@ class ShellHandler:
             remove(f'/var/tmp/{cmd[0]}')
         remove(f'/var/tmp/nodectl_{node_arch}')                    
     
-    
-    def install_upgrade_common(self,command_obj):
-        self.functions.print_clear_line()
-        self.verify_env_and_versioning(command_obj)
-        self.print_ext_ip()        
-            
             
     def confirm_int_upg(self):
-        
         self.log.logger.info(f"{self.install_upgrade} for Tessellation and nodectl started")       
         
         if self.install_upgrade == "installation":
@@ -1095,7 +1092,7 @@ class ShellHandler:
                 
         prompt_str = f"Are you sure you want to continue this {self.install_upgrade}?"
         self.functions.confirm_action({
-            "yes_no_default": "n",
+            "yes_no_default": "y",
             "return_on": "y",
             "prompt": prompt_str,
         })
@@ -1335,7 +1332,10 @@ class ShellHandler:
         }
         
         # -e gets converted into self.environment_requested
-        self.install_upgrade_common(command_obj)
+        self.functions.print_clear_line()
+        self.functions.check_sudo()
+        self.verify_environments(command_obj)
+        self.print_ext_ip()     
         self.upgrader = Upgrader({
             "ip_address": self.ip_address,
             "functions": self.functions,
@@ -1355,123 +1355,94 @@ class ShellHandler:
                 "nodectl_version_only": True,
                 "extended": "install",
             })
-        self.log.logger.debug("installation request started")
-        
+
         performance_start = time.perf_counter()  # keep track of how long
+        self.installer = Installer(self,argv_list)
+        self.installer.install_process()
 
-        environment = argv_list[argv_list.index("-e")+1] if "-e" in argv_list else False
+        # quick_install = True if "--quick_install" in argv_list else False
+        # self.log.logger.debug(f"installation request started - quick install [{quick_install}]")
+        # environment = argv_list[argv_list.index("-e")+1] if "-e" in argv_list else False
         
-        self.functions.print_header_title({
-          "line1":  "INSTALLATION REQUEST",
-          "line2": "TESSELLATION VALIDATOR NODE",
-          "clear": True,
-        })
-        self.install_upgrade = "installation"
-        self.functions.print_paragraphs([
-            [" NOTE ",2,"yellow,on_magenta"],
-            ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow,bold"],
-            ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
-            ["key to accept said value.",2,"magenta"],
+        # self.functions.print_header_title({
+        #   "line1":  "INSTALLATION REQUEST",
+        #   "line2": "TESSELLATION VALIDATOR NODE",
+        #   "clear": True,
+        # })
+        # self.install_upgrade = "installation"
+        # self.functions.print_paragraphs([
+        #     [" NOTE ",2,"yellow,on_magenta"],
+        #     ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow,bold"],
+        #     ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
+        #     ["key to accept said value.",2,"magenta"],
             
-            ["n",0,"yellow","bold"], ["stands for",0], [" no  ",0,"yellow,on_red"], ["",1],
-            ["y",0,"yellow","bold"], ["stands for",0], [" yes ",0,"blue,on_green"], ["",2],
+        #     ["n",0,"yellow","bold"], ["stands for",0], [" no  ",0,"yellow,on_red"], ["",1],
+        #     ["y",0,"yellow","bold"], ["stands for",0], [" yes ",0,"blue,on_green"], ["",2],
             
-            ["IMPORTANT",0,"red","bold"],
-            ["nodectl",0,"blue","bold"], ["was designed to run on a terminal session with a",0], ["black",0,"cyan","bold"],
-            ["background setting. Default terminal emulators with a",0], ["white",0,"cyan","bold"], ["background may experience some 'hard to see' contrasts.",0],
-            ["It is recommended to change the preferences on your terminal [of choice] to run with a",0], ["black",0,"cyan","bold"],
-            ["background.",2],
-        ])
+        #     ["IMPORTANT",0,"red","bold"],
+        #     ["nodectl",0,"blue","bold"], ["was designed to run on a terminal session with a",0], ["black",0,"cyan","bold"],
+        #     ["background setting. Default terminal emulators with a",0], ["white",0,"cyan","bold"], ["background may experience some 'hard to see' contrasts.",0],
+        #     ["It is recommended to change the preferences on your terminal [of choice] to run with a",0], ["black",0,"cyan","bold"],
+        #     ["background.",2],
+        # ])
 
-        self.confirm_int_upg()
+        # if quick_install:
+        #     self.functions.print_paragraphs([
+        #         [" QUICK INSTALL REQUESTED ",0,"white,on_green"],
+        #         [" WARNING ",1,"red,on_yellow"], 
+        #         ["nodectl will use all recommended settings without prompting for confirmations, be sure this is acceptiable before continuing",0],
+        #         ["with this settings.",2],
+        #         ["There are a few required entries needed; therefore, nodectl will now ask a few questions prior to initiating the installation.",2],
+        #     ])
+
+        # self.confirm_int_upg()
         
         # self.functions.print_clear_line()
-        self.functions.print_header_title({
-            "line1": "Installation Starting",
-            "single_line": True,
-            "show_titles": False,
-            "newline": "both",
-        })
+        # self.functions.print_header_title({
+        #     "line1": "Installation Starting",
+        #     "single_line": True,
+        #     "show_titles": False,
+        #     "newline": "both",
+        # })
         
-        self.functions.print_paragraphs([
-            ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
-            ["on various Metagraph pre-defined configurations.",2,"green"],
-            
-            ["If the Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
-            ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
-            ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
-            ["required components, to ensure successful implementation of this utility.",0],
-            
-            ["If a pre-defined Metagraph listed above is not the ultimate role of this future Node,",0],
-            ["following a successful installation, the next steps should be for you to refer to the Metagraph",0],
-            ["Administrators of the Metagraph you are expected to finally connect with. The Administrator",0,],
-            ["will offer instructions on how to obtain the required configuration file for said Metagraph.",2],
-            ["Please key press number of a Metagraph configuration below:",2,"blue","bold"],
-        ])
-        
-        self.install_upgrade_common({
-            "env_provided": environment,
-            "action": "install"
-        })
-        
-        self.functions.print_header_title({
-            "line1": "P12 Migration Check",
-            "single_line": True,
-            "show_titles": False,
-            "newline": "both",
-        })
-        
-        self.has_existing_p12 = self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "y",
-            "prompt": "Are you migrating an existing p12 private key to this Node?",
-            "exit_if": False,
-        })
-        
-        if self.has_existing_p12:        
-            self.functions.print_paragraphs([
-                ["",1], [" BEFORE WE BEGIN ",2,"grey,on_yellow"], 
-                ["If",0,"cyan","bold,underline"], ["this Node will be using",0],
-                ["an existing",0], ["p12 private key",0,"yellow","bold"], [", the installation should be exited and the",-1],
-                ["existing",0,"yellow","bold"], ["p12 private key uploaded to a known secure local directory on this server.",0],
-                ["Alternatively, you can simply pause here and upload the p12 private key file, and then continue.",2],
+        # if not environment:
+        #     self.functions.print_paragraphs([
+        #         ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
+        #         ["on various Metagraph pre-defined configurations.",2,"green"],
                 
-                ["Please see the Constellation Doc Hub Validator section for instructions on how to do this.",2,"magenta"],
+        #         ["If the Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
+        #         ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
+        #         ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
+        #         ["required components, to ensure successful implementation of this utility.",0],
                 
-                ["Later in the installation, the Node Operator will be given the opportunity to migrate over the existing p12 private key.",0],
-                ["At the necessary time, a request for the",0], ["p12 name",0,"yellow","bold"], ["and",0], ["directory location",0,"yellow","bold"],
-                ["will be given.",0], ["Once nodectl understands where the p12 file is located and necessary credentials, it will then be migrated by the installation to the proper location.",2]
-            ])
-            
-            prompt_str = f"Exit now to upload existing p12?"
-            self.functions.confirm_action({
-                "yes_no_default": "n",
-                "prompt_color": "red",
-                "return_on": "n",
-                "prompt": prompt_str,
-                "exit_if": True,
-            })
-
-        print("")
-        self.functions.print_header_title({
-            "line1": "Update Distribution",
-            "single_line": True,
-            "show_titles": False,
-            "newline": "both",
-        })
-        self.update_os()
+        #         ["If a pre-defined Metagraph listed above is not the ultimate role of this future Node,",0],
+        #         ["following a successful installation, the next steps should be for you to refer to the Metagraph",0],
+        #         ["Administrators of the Metagraph you are expected to finally connect with. The Administrator",0,],
+        #         ["will offer instructions on how to obtain the required configuration file for said Metagraph.",2],
+        #         ["Please key press number of a Metagraph configuration below:",2,"blue","bold"],
+        #     ])
         
-        # self.functions.pull_remote_profiles()
-        # self.functions.check_config_environment()
+        # self.install_upgrade_common({
+        #     "env_provided": environment,
+        #     "action": "install"
+        # })
         
-        self.installer = Installer({
-            "ip_address": self.ip_address,
-            "existing_p12": self.has_existing_p12,
-            "environment_name": self.environment_requested,
-            "functions": self.functions,
-        })
+        # print("")
+        # self.functions.print_header_title({
+        #     "line1": "Update Distribution",
+        #     "single_line": True,
+        #     "show_titles": False,
+        #     "newline": "both",
+        # })
+        # self.update_os()
         
-        self.installer.install_process()
+        # self.installer = Installer({
+        #     "ip_address": self.ip_address,
+        #     "environment_name": self.environment_requested,
+        #     "argv_list": argv_list,
+        #     "functions": self.functions,
+        # })
+        
         self.functions.print_perftime(performance_start,"installation")
 
 

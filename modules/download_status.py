@@ -265,7 +265,7 @@ class DownloadStatus():
             hash_marks = int((self.dip_vals.percentage/100)*columns)
             self.dip_vals.hash_marks = "#"*hash_marks + "." * (columns - hash_marks)
         except ZeroDivisionError:
-            self.log.logger.error(f"download_status - attempting to derive hash progress indicator resulted in [ZeroDivisionError] as [{e}]")
+            self.log.logger.error(f"download_status - attempting to derive hash progress indicator resulted in [ZeroDivisionError]")
         
         try:
             _ = f"{self.dip_vals.hash_marks}"
@@ -328,7 +328,13 @@ class DownloadStatus():
                 "profile": self.profile,
                 "simple": True
             })                    
-            self.functions.print_timer(5,"before checking again")
+            # self.functions.print_timer(5,"before checking again")
+            self.functions.print_timer({
+                "seconds": 5,
+                "phrase": "Pausing",
+                "phrase_end": "before recheck",
+                "p_type": "cmd",
+            })
             if state != "WaitingForDownload": break
             try: wfd_attempts += 1 
             except: wfd_attempts = 1

@@ -382,7 +382,7 @@ class Error_codes():
         elif var.line_code == "invalid_user":
             self.log.logger.critical(f"user not found for process [{var.extra}] username [{var.extra2}]")
             self.functions.print_paragraphs([
-                ["Invalid User",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["user not found on this VPS or server.",2,"red","bold"],
+                ["Invalid User:",0,"red","bold"], [var.extra,0,"red","bold"], ["user not found on this VPS or server.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the user is valid.",2,"red","bold"],
                 ["Username:",0,"yellow","bold"],[var.extra2,2],
             ])            
@@ -492,9 +492,9 @@ class Error_codes():
                 ["Please try again later or issue the",0], ["help",0,"yellow","bold"], 
                 ["option with the command in question for extended details",2],
             ])  
-            if var.extra:
+            if var.extra2:
                 self.functions.print_paragraphs([
-                    ["option or hint: ",0], [var.extra,2,"yellow"]
+                    ["option or hint: ",1], [var.extra2,2,"yellow"]
                 ])       
             
         
@@ -549,12 +549,17 @@ class Error_codes():
         elif var.line_code == "invalid_file_format":
             self.log.logger.warn(f"invalid file format for file [{var.extra}], exited program. file could not be processed")
             self.functions.print_paragraphs([
-                ["System detected an attempt import data from a file or a file.",0,"red","bold"],
-                ["nodectl is setup to access a file that may have been altered manually or is corrupted.",0,"red","bold"],
+                ["System detected an attempt to import data from a file or an invalid file format.",0,"red","bold"],
+                ["nodectl is setup to access a file that may have been inputted incorrectly, formatted incorrectly,",0,"red","bold"],
+                ["altered manually with invalid data, or is corrupted.",2,"red","bold"],
                 ["Please contact a System Administrator for assistance:",0,"red","bold"],["sudo nodectl configure",2],
                 [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
                 ["In some cases you can attempt to remove the file and have nodectl recreate it for you.",2,"magenta"],
-            ])            
+            ]) 
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    ["option or hint: ",0], [var.extra2,2,"yellow"]
+                ])              
             
             
         elif var.line_code == "profile_error":

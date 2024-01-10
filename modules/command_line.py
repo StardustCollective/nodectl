@@ -400,7 +400,7 @@ class CLI():
                     if not self.skip_build:
                         if rebuild:
                             if do_wait:
-                                self.functions.print_timer(20)
+                                self.functions.print_timer(({"seconds":20}))
                                 
                             sessions["state1"] = self.functions.test_peer_state({
                                 "threaded": threaded,
@@ -507,7 +507,12 @@ class CLI():
                         ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
                         ["Intervals:",0,"magenta"], [f"{watch_seconds}s",1,"yellow"],
                     ])
-                    self.functions.print_timer(watch_seconds,"before updating status")
+                    self.functions.print_timer({
+                        "p_type": "cmd",
+                        "seconds": watch_seconds,
+                        "phrase": "Waiting",
+                        "end_phrase": "before updating",
+                    })
                 else: break    
                 
 
@@ -631,7 +636,7 @@ class CLI():
         status = Status(self.functions)
         
         self.functions.print_header_title({
-            "line1": "Node Basic Health",
+            "line1": "NODE BASIC HEALTH",
             "single_line": True,
             "newline": "both"
         })
@@ -2078,7 +2083,7 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         skip = True if "skip_warnings" in command_list else False
         
-        if not "skip_seedlist_title" in command_list: self.print_title("Check Seed List Request")
+        if not "skip_seedlist_title" in command_list: self.print_title("CHECK SEED LIST REQUEST")
         
         target = []
         if "-t" in command_list:
@@ -2087,7 +2092,8 @@ class CLI():
                 self.error_messages.error_code_messages({
                     "error_code": "cli-2086",
                     "line_code": "input_error",
-                    "extra": "not a valid ip address; use -id for node id",
+                    "extra": "invalid ip address",
+                    "extra2": "An invalid ip address was entered; use -id for node id",
                 })
             target = ["-t",target,"-l"]
         nodeid = command_list[command_list.index("-id")+1] if "-id" in command_list else False
@@ -2122,7 +2128,8 @@ class CLI():
                 self.error_messages.error_code_messages({
                     "error_code": "cli-2121",
                     "line_code": "input_error",
-                    "extra": "not a valid nodeid; use -t for node ip address",
+                    "extra": "invalid nodeid entere with -t",
+                    "extra2": "invalid nodeid; use -t for node ip address",
                 })
             nodeid = self.functions.cleaner(nodeid,"new_line")
             test = self.functions.test_or_replace_line_in_file({
@@ -2393,8 +2400,14 @@ class CLI():
             "status": "complete",
         }) 
         
-        self.functions.print_timer(6,"wait for start",1)
-        
+        # self.functions.print_timer(6,"wait for start",1)
+        self.functions.print_timer({
+            "p_type": "cmd",
+            "seconds": 6,
+            "phrase": "Waiting",
+            "end_phrase": "before starting",
+        })
+
         with ThreadPoolExecutor() as executor:
             if spinner:
                 self.functions.event = True
@@ -2557,7 +2570,8 @@ class CLI():
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-2138",
                     "line_code": "input_error",
-                    "extra": f'-r {argv_list[argv_list.index("-r")+1]}'
+                    "extra": "invalid -r option",
+                    "extra2": f'-r {argv_list[argv_list.index("-r")+1]}'
                 })
                 
         self.functions.print_clear_line()
@@ -2629,7 +2643,7 @@ class CLI():
                 stop_list.append(stop_obj)  
                          
             # leave
-            self.print_title("Leaving Metagraphs") 
+            self.print_title("LEAVING METAGRAPHS") 
             leave_list[-1]["skip_msg"] = False     
             self.log.logger.info(f"cli_restart -> executing leave process against profiles found")               
             futures = [executor.submit(self.cli_leave, obj) for obj in leave_list]
@@ -2644,7 +2658,7 @@ class CLI():
         
             # stop
             self.log.logger.debug(f"cli_restart -> executing stop process against profiles found")
-            self.print_title(f"Stopping profile {'services' if called_profile == 'all' else 'service'}")    
+            self.print_title(f"STOPPING PROFILE {'SERVICES' if called_profile == 'all' else 'SERVICE'}")    
             stop_list[-1]["spinner"] = True
             futures = [executor.submit(self.cli_stop, obj) for obj in stop_list]
             thread_wait(futures)  
@@ -2656,7 +2670,7 @@ class CLI():
                 "newline": True,
             })        
 
-        self.print_title("Updating seed list")
+        self.print_title("UPDATING SEED LIST")
         
         for n, profile in enumerate(profile_order):
             self.node_service.set_profile(profile)
@@ -2719,7 +2733,7 @@ class CLI():
                     
                 for n in range(1,failure_retries+1):
                     self.log.logger.debug(f"cli_restart -> service[s] associated with [{called_profile}]")
-                    self.print_title(f"Restarting profile {'services' if called_profile == 'all' else 'service'}")
+                    self.print_title(f"RESTARTING PROFILE {'SERVICES' if called_profile == 'all' else 'SERVICE'}")
                     self.cli_start({
                         "spinner": False,
                         "profile": profile,
@@ -2787,7 +2801,7 @@ class CLI():
                     
                 if cli_join_cmd or restart_type != "restart_only":
                     environment = self.config_obj[profile]["environment"]
-                    self.print_title(f"Joining [{environment}] [{profile}]")   
+                    self.print_title(f"JOINING [{environment.upper()}] [{profile.upper()}]")   
 
                     if profile not in start_failed_list:
                         self.log.logger.info(f'cli_restart -> sending to join process. | profile [{profile}]')
@@ -2941,7 +2955,7 @@ class CLI():
                 end='\r')
                     
         if not skip_title:
-            self.print_title(f"Joining {called_profile}")  
+            self.print_title(f"JOINING {called_profile.upper()}")  
         
         if not skip_msg:
             self.log.logger.info(f"cli_join -> join starting| profile [{self.profile}]")
@@ -3374,7 +3388,11 @@ class CLI():
                         
                     if skip_log_lookup:
                         self.log.logger.debug(f"cli_leave -> pausing to allow leave process to complete | profile [{profile}] | ip [127.0.0.1]")
-                        self.functions.print_timer(secs,leave_str,start)
+                        self.functions.print_timer({
+                            "seconds": secs,
+                            "phrase": leave_str,
+                            "start": start,
+                        })
                     else:
                         leave_obj = False
                         sleep(1)
@@ -4097,7 +4115,8 @@ class CLI():
             self.error_messages.error_code_messages({
                 "error_code": "cli-4079",
                 "line_code": "input_error",
-                "extra": "Is the nodeid format correct?",
+                "extra": "invalid nodeid format",
+                "extra2": "Is the nodeid format correct?",
             })
             
         if not state:
@@ -4406,7 +4425,7 @@ class CLI():
                 "extended": command
             })
          
-        if "install" not in argv_list or not do_confirm:
+        if "quick_install" in argv_list and not do_confirm:
             confirm = True
         else:
             self.functions.print_paragraphs([
@@ -4525,7 +4544,7 @@ class CLI():
                     newfile.close()
                     config_file.close()
             
-            if not skip_reload_status:
+            if not skip_reload_status and "quick_install" not in argv_list:
                 progress = {
                     "text_start": "Reloading",
                     "text_end": "daemon",
@@ -4545,7 +4564,7 @@ class CLI():
             if one_off:
                 self.log.logger.info(f"SSH configuration for an include file [one off] has been updated with password authentication [{verb}]")
                 
-            if not skip_reload_status:
+            if not skip_reload_status and "quick_install" not in argv_list:
                 self.functions.print_cmd_status({
                     **progress,
                     "status": "complete",
@@ -4872,4 +4891,5 @@ class CLI():
             return 0
 
                   
-        
+if __name__ == "__main__":
+    print("This class module is not designed to be run independently, please refer to the documentation")      

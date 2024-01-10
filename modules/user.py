@@ -12,7 +12,7 @@ from .config.versioning import Versioning
 
 class UserClass:
     
-    def __init__(self,cli_obj,debug):
+    def __init__(self,cli_obj):
         
         self.username = ""
         self.password = ""
@@ -24,11 +24,11 @@ class UserClass:
         
         self.aws = False
         self.ssh_key = False
-        self.debug = debug  # bypass password checks
         
         self.username = None
         self.password = None
         self.migrating_p12 = False
+        self.quick_install = False
         
         
     def setup_user(self):
@@ -102,7 +102,7 @@ class UserClass:
                 return
             
         self.functions.print_paragraphs([
-            ["",1],["You should create a",0], [user_type,0,"yellow","bold"], ["user to administer your Node.",2],
+            ["You should create a",0], [user_type,0,"yellow","bold"], ["user to administer your Node.",2],
             ["It is recommended to use",0,], ["nodeadmin",0,"yellow","bold"], ["as the Node Administrator.",2],
             ["This is recommended because it will help during troubleshooting, administering, etc. as you follow any instructional documentation or tutorials.",2],
         ])
@@ -156,16 +156,18 @@ class UserClass:
     def ask_for_password(self):
         if self.keep_user: return
         
-        print(""); cprint(f"  We need to create a password for {self.username} user","cyan")
-        self.print_password_descriptions(10,"password")
-        
         self.functions.print_paragraphs([
-            ["This password will allow access to enter",0,"white"], ["sudo",0,"cyan","bold"], ["(superuser do).",2,"white"],
-            ["Please create a",0,"white"], ["unique",0,"yellow","bold"], ["password and write it down!",2,"white"],
-            ["It is recommended to save this password to a secure location and do",0,"white"], ["NOT",0,"red","bold"],["forget it!",0,"white"],
-            ["If choosing to write it down, label in your notes:",1,"white"],
-            [f"\"{self.username} user password to access sudo (administrator) rights on the Node.\"",2]
+            ["",1], [f"We need to create a password for {self.username} user.",1],
         ])
+        if not self.quick_install:
+            self.print_password_descriptions(10,"password")
+            self.functions.print_paragraphs([
+                ["This password will allow access to enter",0,"white"], ["sudo",0,"cyan","bold"], ["(superuser do).",2,"white"],
+                ["Please create a",0,"white"], ["unique",0,"yellow","bold"], ["password and write it down!",2,"white"],
+                ["It is recommended to save this password to a secure location and do",0,"white"], ["NOT",0,"red","bold"],["forget it!",0,"white"],
+                ["If choosing to write it down, label in your notes:",1,"white"],
+                [f"\"{self.username} user password to access sudo (administrator) rights on the Node.\"",2]
+            ])
         
         self.password = self.get_verify_password(10,self.username,"password")
         
@@ -270,14 +272,15 @@ class UserClass:
 
 
     def create_debian_user(self):
-        print("") # newline
-        progress = {
-            "text_start": "Adding new user",
-            "brackets": self.username,
-            "status": "creating",
-            "status_color": "yellow",
-        }
-        self.functions.print_cmd_status(progress)
+        if not self.quick_install:
+            print("") # newline
+            progress = {
+                "text_start": "Adding new user",
+                "brackets": self.username,
+                "status": "creating",
+                "status_color": "yellow",
+            }
+            self.functions.print_cmd_status(progress)
 
         bashCommand = f"openssl passwd -1 {self.password}"
         encrypt_passwd = self.functions.process_command({
@@ -289,73 +292,76 @@ class UserClass:
             "bashCommand": bashCommand,
             "proc_action": "timeout"
         })
-        
-        self.functions.print_cmd_status({
-            **progress,
-            "status": "complete",
-            "status_color": "green",
-            "newline": True,
-            "delay": .5
-        })
-        
-        self.functions.print_cmd_status({
-            **progress,
-            "status": "running",
-            "text_end": "to sudo group",
-            "delay": .8
-        })
+
+        if not self.quick_install:
+            self.functions.print_cmd_status({
+                **progress,
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+                "delay": .5
+            })
+            
+            self.functions.print_cmd_status({
+                **progress,
+                "status": "running",
+                "text_end": "to sudo group",
+                "delay": .8
+            })
         
         system(f"usermod -aG sudo {self.username} > /dev/null 2>&1")
         self.functions.set_system_prompt(self.username)
                      
-        self.functions.print_cmd_status({
-            **progress,
-            "status": "complete",
-            "status_color": "green",
-            "text_end": "to sudo group",
-            "newline": True,
-            "delay": 1,
-        })
+        if not self.quick_install:
+            self.functions.print_cmd_status({
+                **progress,
+                "status": "complete",
+                "status_color": "green",
+                "text_end": "to sudo group",
+                "newline": True,
+                "delay": 1,
+            })
          
            
     def transfer_ssh_key(self):
-        self.functions.print_header_title({
-          "line1": "SSH KEYS",
-          "show_titles": False,
-          "newline": "top",
-          "clear": True,
-        }) 
+        if not self.quick_install:
+            self.functions.print_header_title({
+            "line1": "SSH KEYS",
+            "show_titles": False,
+            "newline": "top",
+            "clear": True,
+            }) 
                      
-        self.functions.print_paragraphs([
-            ["There are",0], ["2",0,"yellow"], ["main",0,"cyan","underline"], ["ways to connection to VPS or bare metal servers.",2],
+            self.functions.print_paragraphs([
+                ["There are",0], ["2",0,"yellow"], ["main",0,"cyan","underline"], ["ways to connection to VPS or bare metal servers.",2],
+                
+                ["1",0,"magenta","bold"], ["SSH KEY passphrase/keyphrase",1,"yellow"],
+                ["2",0,"magenta","bold"], ["VPS admin user's password",2,"yellow"],
+                
+                ["IT IS HIGHLY RECOMMENDED YOU SETUP THIS VPS WITH SSH KEYS",2,"red","bold"],
+                
+                ["If you followed the provided instructions and are not an advanced user, you most likely setup your VPS with",0],
+                ["SSH key",0,"yellow","bold"], ["pairs.",2],
+            ])
             
-            ["1",0,"magenta","bold"], ["SSH KEY passphrase/keyphrase",1,"yellow"],
-            ["2",0,"magenta","bold"], ["VPS admin user's password",2,"yellow"],
-            
-            ["IT IS HIGHLY RECOMMENDED YOU SETUP THIS VPS WITH SSH KEYS",2,"red","bold"],
-            
-            ["If you followed the provided instructions and are not an advanced user, you most likely setup your VPS with",0],
-            ["SSH key",0,"yellow","bold"], ["pairs.",2],
-        ])
-        
-        confirm = self.functions.confirm_action({
-            "yes_no_default": "y",
-            "return_on": "y",
-            "prompt": "Did you use an SSH key pair?",
-            "prompt_color": "magenta",
-            "exit_if": False
-        })
-        if not confirm:
-            return
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": "Did you use an SSH key pair?",
+                "prompt_color": "magenta",
+                "exit_if": False
+            })
+            if not confirm:
+                return
 
-        progress = {
-            "text_start": "Transferring SSH key to",
-            "brackets": self.username,
-            "status": "transfer",
-            "status_color": "yellow",
-        }
-        print("")
-        self.functions.print_cmd_status(progress)
+            progress = {
+                "text_start": "Transferring SSH key to",
+                "brackets": self.username,
+                "status": "transfer",
+                "status_color": "yellow",
+            }
+            print("")
+            self.functions.print_cmd_status(progress)
         
         self.file = "authorized_keys"
         dest_dir = f"/home/{self.username}/.ssh/"
@@ -372,47 +378,53 @@ class UserClass:
         if path.isfile(f"/root/.ssh/{self.file}"):
             copyfile(src_dir_file,dest_dir_file)
         elif path.isfile(dest_dir_file):
-            self.functions.print_paragraphs([
-                ["",1], [f"Found the {self.username} user ssh key file already?",1,"yellow"],
-                ["Are you sure this is a new installation?",1,"red"],
-                ["nodectl will skip this step",1],
-            ])            
+            if not self.quick_install:
+                self.functions.print_paragraphs([
+                    ["",1], [f"Found the {self.username} user ssh key file already?",1,"yellow"],
+                    ["Are you sure this is a new installation?",1,"red"],
+                    ["nodectl will skip this step",1],
+                ])            
         elif path.isfile(f"/root/.ssh/backup_{self.file}"):
             disable_root_user = False
-            
-            self.functions.print_paragraphs([
-                ["",1],["Found the root user ssh key file was disabled?",0,"red"],
-                ["Are you sure this is a new installation?",1,"red"],
-                
-                [f"Do you want to install disabled SSH key from the root user to the new {self.username}?",1],
-            ])
-                
-            confirm = self.functions.confirm_action({
-                "yes_no_default": "n",
-                "return_on": "y",
-                "prompt": "Confirm:",
-                "exit_if": False
-            })  
-            status = "skipped"
-            status_color = "red"
-            progress = {
-                "text_start": "removing",
-                "brackets": self.file,
-                "status": "running",
-                "status_color": "yellow",
-            }
-            self.functions.print_cmd_status(progress)      
+            if self.quick_install:
+                confirm, warning = True, False
+            else:
+                self.functions.print_paragraphs([
+                    ["",1],["Found the root user ssh key file was disabled?",0,"red"],
+                    ["Are you sure this is a new installation?",1,"red"],
+                    
+                    [f"Do you want to install disabled SSH key from the root user to the new {self.username}?",1],
+                ])
+                    
+                confirm = self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": "Confirm:",
+                    "exit_if": False
+                })  
+                status = "skipped"
+                status_color = "red"
+                progress = {
+                    "text_start": "removing",
+                    "brackets": self.file,
+                    "status": "running",
+                    "status_color": "yellow",
+                }
+                self.functions.print_cmd_status(progress)    
+
             if confirm:
                 copyfile(f"/root/.ssh/backup_{self.file}",dest_dir_file) 
                 status = "complete"
                 status_color = "green"
-            self.functions.print_cmd_status({
-                **progress,
-                "status": status,
-                "status_color": status_color,
-                "newline": True,
-            })  
-            warning = True if status == "skipped" else warning
+
+            if not self.quick_install:
+                self.functions.print_cmd_status({
+                    **progress,
+                    "status": status,
+                    "status_color": status_color,
+                    "newline": True,
+                })  
+                warning = True if status == "skipped" else warning
             
         if warning:
             self.functions.print_paragraphs([
@@ -445,77 +457,87 @@ class UserClass:
         system(f"chown {self.username}:{self.username} {dest_dir_file} > /dev/null 2>&1")
         system(f"chmod 600 {dest_dir_file} > /dev/null 2>&1")
 
-        self.functions.print_cmd_status({
-            **progress,
-            "status": end_status,
-            "status_color": end_color,
-            "newline": True,
-        })
+        if not self.quick_install:
+            self.functions.print_cmd_status({
+                **progress,
+                "status": end_status,
+                "status_color": end_color,
+                "newline": True,
+            })
         
         if disable_root_user:
             self.disable_root_user()
             
         # since we said "yes" to SSH verse password
-        self.functions.print_paragraphs([
-            ["",1],[" Recommended ",0,"yellow,on_green","bold"], 
-            ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen.",1],
-            ["Do you want to disable username/password based authentication on this Node at the",0],
-            ["Operating System level to improve security?",2],
-        ])
+        if self.quick_install:
+            confirm = True
+        else:
+            self.functions.print_paragraphs([
+                ["",1],[" Recommended ",0,"yellow,on_green","bold"], 
+                ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen.",1],
+                ["Do you want to disable username/password based authentication on this Node at the",0],
+                ["Operating System level to improve security?",2],
+            ])
+            
+            verb = "unchanged"
+            
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": "Disable username/password access?",
+                "exit_if": False
+            })
         
-        verb = "unchanged"
-        if self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "y",
-            "prompt": "Disable username/password access?",
-            "exit_if": False
-        }):
+        if confirm:
             self.cli_obj.ssh_configure({
                 "command": "disable_user_auth",
-                "argv_list": ["install"],
+                "argv_list": ["install"] if not self.quick_install else ["quick_install"],
                 "do_confirm": False,
             })
             verb = "disabled"
             
-        self.functions.print_cmd_status({
-            "text_start": "Username/Password authentication",
-            "status": verb,
-            "status_color": "green" if verb == "disabled" else "red"
-        })
+        if not self.quick_install:
+            self.functions.print_cmd_status({
+                "text_start": "Username/Password authentication",
+                "status": verb,
+                "status_color": "green" if verb == "disabled" else "red"
+            })
 
 
     def disable_root_user(self):
         # check for non-root users
-
-        self.functions.print_paragraphs([
-            ["",1], ["The root user should not have access via",0], ["SSH",0,"yellow","bold"], ["nor should AWS's default",0],
-            ["ubuntu",0,"yellow","bold"], ["user or other provider's",0], ["admin",0,"yellow","bold"],
-            ["users.",2],
-            
-            ["Access should be disabled so that",0,"white","bold"], ["only",0,"white","bold"], ["the",0,"white","bold"],
-            ["Node Administrator",0,"white","bold"], ["has access to this VPS with the",0,"white","bold"], 
-            [self.username,0,"yellow","bold"], ["user.",2,"white","bold"],
-            
-            ["This is recommended.",2,"magenta","bold"],                
-        ])
+        if self.quick_install:
+            confirm = True
+        else:
+            self.functions.print_paragraphs([
+                ["",1], ["The root user should not have access via",0], ["SSH",0,"yellow","bold"], ["nor should AWS's default",0],
+                ["ubuntu",0,"yellow","bold"], ["user or other provider's",0], ["admin",0,"yellow","bold"],
+                ["users.",2],
+                
+                ["Access should be disabled so that",0,"white","bold"], ["only",0,"white","bold"], ["the",0,"white","bold"],
+                ["Node Administrator",0,"white","bold"], ["has access to this VPS with the",0,"white","bold"], 
+                [self.username,0,"yellow","bold"], ["user.",2,"white","bold"],
+                
+                ["This is recommended.",2,"magenta","bold"],                
+            ])
         
-        confirm = self.functions.confirm_action({
-            "yes_no_default": "y",
-            "return_on": "y",
-            "prompt": "Disable SSH access to these root and special accounts?",
-            "exit_if": False
-        })
-        if not confirm:
-            return
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": "Disable SSH access to these root and special accounts?",
+                "exit_if": False
+            })
 
-        progress = {
-            "text_start": "Disable",
-            "brackets": "SSH",
-            "text_end": "for special accounts",
-            "status": "disable",
-            "status_color": "yellow",
-        }
-        self.functions.print_cmd_status(progress)
+        if not confirm: return
+        if not self.quick_install:
+            progress = {
+                "text_start": "Disable",
+                "brackets": "SSH",
+                "text_end": "for special accounts",
+                "status": "disable",
+                "status_color": "yellow",
+            }
+            self.functions.print_cmd_status(progress)
         
         possible_users = {
             "admin": False, 
@@ -539,10 +561,11 @@ class UserClass:
             do_confirm = False if self.cli_obj.command_obj["caller"] == "installer" else True
         except:
             do_confirm = True
+        if self.quick_install: do_confirm = False
 
         self.cli_obj.ssh_configure({
             "command": "disable",
-            "argv_list": ["install"],
+            "argv_list": ["install"] if not self.quick_install else ["quick_install"],
             "do_confirm": do_confirm,
         })
         
@@ -554,14 +577,16 @@ class UserClass:
                     try:
                         system(f"mv /home/ubuntu/.ssh/{self.file} /home/ubuntu/.ssh/backup_{self.file} > /dev/null 2>&1")
                     except:
-                        cprint("  could not move ubuntu ssh key file","red")
+                        if not self.quick_install:
+                            cprint("  could not move ubuntu ssh key file","red")
                         end_status = "partial",
                         end_color = "yellow"
                 elif "admin" in poss_user and path.isfile("/admin/.ssh/authorized_keys"):
                     try:
                         system(f"mv /home/admin/.ssh/{self.file} /home/admin/.ssh/backup_{self.file} > /dev/null 2>&1")
                     except:
-                        cprint("  could not move admin ssh key file","red")
+                        if not self.quick_install:
+                            cprint("  could not move admin ssh key file","red")
                         end_status = "partial",
                         end_color = "yellow"
                 else:
@@ -569,12 +594,13 @@ class UserClass:
                         end_status = "skipped"
                         end_color = "red"                    
 
-        self.functions.print_cmd_status({
-            **progress,
-            "status": end_status,
-            "status_color": end_color,
-            "newline": True,
-        })
+        if not self.quick_install:
+            self.functions.print_cmd_status({
+                **progress,
+                "status": end_status,
+                "status_color": end_color,
+                "newline": True,
+            })
 
             
 if __name__ == "__main__":

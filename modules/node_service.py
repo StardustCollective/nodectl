@@ -90,10 +90,7 @@ class Node():
     
     
     def download_constellation_binaries(self,command_obj):
-        # download_version=(bool) "default"
-        # print_version=(bool) True
         download_version = command_obj.get("download_version","default")
-        print_version = command_obj.get("print_version",True)
         action = command_obj.get("action","normal")
         requested_profile = command_obj.get("profile",False)
         environment = command_obj.get("environment",False)
@@ -197,13 +194,6 @@ class Node():
                 "line_code": "environment_error",
                 "extra": "binary downloads",
             })
-        
-        # if download_version == "default":
-        #     self.version_obj["cluster_tess_version"] = self.functions.get_version({
-        #         "which": "cluster_tess",
-        #         "print_version": print_version,
-        #         "action": action
-        #     })
         
         file_pos = 3
         if action == "upgrade":
@@ -674,7 +664,11 @@ class Node():
                 if early_quit:
                     cprint("  Node Operator requested to quit operations","green")
                     exit(0)
-            self.functions.print_timer(5,error_str)
+            # self.functions.print_timer(5,error_str)
+            self.functions.print_timer({
+                "seconds": 5,
+                "phrase": error_str
+            })
         
         executor.shutdown(wait=False,cancel_futures=True)
         return False
@@ -934,9 +928,18 @@ class Node():
 
                             if action == "cli":
                                 self.functions.print_clear_line()
-                                self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
+                                # self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
+                                self.functions.print_timer({
+                                    "seconds": 12,
+                                    "prhase": f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),
+                                    "start": start
+                                })
                             else:
-                                self.functions.print_timer(12,"Sleeping prior to retry")
+                                # self.functions.print_timer(12,"Sleeping prior to retry")
+                                self.functions.print_timer({
+                                    "seconds": 12,
+                                    "phrase": "Sleeping prior to retry"
+                                })
                         if layer_zero_ready or join_breakout:
                             break
 
@@ -997,7 +1000,14 @@ class Node():
                         "status_color": "red",
                         "newline": True
                     })
-                    self.functions.print_timer(8,"pausing")
+                    # self.functions.print_timer(8,"pausing")
+                    self.functions.print_timer({
+                        "seconds": 8,
+                        "phrase": "Pausing",
+                        "p_type": "cmd",
+                        "step": -1,
+                        "end_phrase": f"of {cprint('8','cyan',attr=['bold'])} seconds"
+                    })
             
             if exception_found and action == "auto_join":
                 # needs to be first

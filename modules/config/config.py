@@ -61,7 +61,7 @@ class Configuration():
         self.validated = True
         self.profile_check = False
 
-        skip_validation = ["configure","new_config","install"]
+        skip_validation = ["configure","new_config","install","quick_install"]
         self.do_validation = False if self.action in skip_validation else True
         if self.action == "new_config_init": self.action = "edit_config"
 
@@ -593,7 +593,7 @@ class Configuration():
                 
             self.config_obj[profile]["p12_validated"] = False # initialize to False
         
-        if self.action == "install":
+        if "install" in self.action:
             return self.config_obj
         
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
@@ -629,7 +629,7 @@ class Configuration():
     def is_passphrase_required(self):
         passphrase_required_list = [
             "start","stop","upgrade","restart","check_seedlist",
-            "nodeid","id","export_private_key",
+            "nodeid","id","export_private_key","show_p12_details",
             "leave","join", "upgrade",
             "passwd","clean_snapshots","clean_files",
             "auto_restart", "refresh_binaries","sec"

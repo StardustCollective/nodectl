@@ -713,7 +713,11 @@ class Functions():
                     self.log.logger.error(f"unable to find a Node on the current cluster with [{desired_key}] == [{desired_value}]") 
                     if not self.auto_restart:
                         print(colored("  WARNING:","yellow",attrs=['bold']),colored(f"unable to find node in [{desired_value}]","red"))
-                        self.print_timer(10,"Pausing 10 seconds",1)
+                        # self.print_timer(10,"Pausing 10 seconds",1)
+                        self.print_timer({
+                            "seconds": 10,
+                            "phrase": ""
+                        })
 
         
     def get_api_node_info(self,command_obj):
@@ -895,7 +899,8 @@ class Functions():
         quit_option = command_obj.get("quit_option",False)
         quit_with_exception = command_obj.get("quit_with_exception",False)
         parent = command_obj.get("parent",False)
-        
+        display = command_obj.get("display",True)
+
         self.key_pressed = None
         if prompt == None: prompt = ""
         
@@ -904,8 +909,9 @@ class Functions():
             invalid_str += f"{colored(option,'white',attrs=['bold'])}, " if option != options[-1] else f"{colored(option,'white',attrs=['bold'])}"
         invalid_str = colored(invalid_str,"red")
                 
-        cprint(f"  {prompt}",prompt_color,end="\r")
-        print("\033[F")
+        if display:
+            cprint(f"  {prompt}",prompt_color,end="\r")
+            print("\033[F")
         
         def press(key):
             if debug:
@@ -916,8 +922,9 @@ class Functions():
                 self.key_pressed = key
                 return
             if key != "enter":
-                print(f"{invalid_str} {colored('options','red')}")
-                cprint("  are accepted, please try again","red")
+                if display:
+                    print(f"{invalid_str} {colored('options','red')}")
+                    cprint("  are accepted, please try again","red")
 
         try:
             listen_keyboard(
@@ -927,10 +934,15 @@ class Functions():
         except Exception as e:
             self.log.logger.warn(f"functions -> spinner exited with [{e}]")
             
-        print("")
+        if options[0] == "any_key" and quit_with_exception:
+            if parent:
+                parent.terminate_program = True
+
+        if display: print("")
         if quit_option and (self.key_pressed.upper() == quit_option.upper()):
-            self.print_clear_line()
-            cprint("  Action cancelled by User","yellow")
+            if display:
+                self.print_clear_line()
+                cprint("  Action cancelled by User","yellow")
             if quit_with_exception:
                 self.cancel_event = True
                 if parent:
@@ -1108,17 +1120,21 @@ class Functions():
                 if profile in line:
                     key = line
                     break
-        key = key.split(":")
-        kdf = key[2].encode()
-        dec = key[-1].strip("\n")
-        enc_key = Fernet(kdf)
-        de = [(int(dec[i], 16), int(dec[i + 1], 16)) for i in range(0, len(dec), 2)]
-        de_list = [""]*len(de)
-        index = 0
-        for i, length in de:
-            de_list[i] = pass1[index:index + length]
-            index += length        
-        pass1 = ''.join(de_list).encode()
+        try:
+            key = key.split(":")
+            kdf = key[2].encode()
+            dec = key[-1].strip("\n")
+            enc_key = Fernet(kdf)
+            de = [(int(dec[i], 16), int(dec[i + 1], 16)) for i in range(0, len(dec), 2)]
+            de_list = [""]*len(de)
+            index = 0
+            for i, length in de:
+                de_list[i] = pass1[index:index + length]
+                index += length        
+            pass1 = ''.join(de_list).encode()
+        except:
+            self.log.logger.critical("unabled to decrypt passphrase, please verify settings.")
+            return None
 
         try:
             decrypt_data = enc_key.decrypt(pass1)
@@ -1297,7 +1313,6 @@ class Functions():
         session.headers.update(get_headers)   
         session.params = {'random': random.randint(10000,20000)}
         return session
-
 
 
     # =============================
@@ -2285,33 +2300,71 @@ class Functions():
     # print functions
     # =============================  
 
-    def print_clear_line(self,lines=1):
+    # def print_clear_line(self,lines=1,backwards=False,f_extra_line=True,back):
+    def print_clear_line(self,lines=1,command_obj=False):
+        backwards, fl, bl = False, False, False
+        if command_obj:
+            backwards = command_obj.get("backwards",False)
+            fl = command_obj.get("fl",False) # extra forward lines
+            bl = command_obj.get("bl",False) # extra backward lines
+            if lines < 2 and not bl: bl = -1
+
         console_size = get_terminal_size()
-        for _ in range(1,lines-1):
+        print(f"{' ': >{console_size.columns-2}}",end="\r")
+        if backwards:
+            print(f'\x1b[{lines}A', end='')
+            print(f"{' ': >{console_size.columns-2}}",end="\r")
+        if lines < 2: lines -= 1
+        for _ in range(1,lines):
             print(f"{' ': >{console_size.columns-2}}")
         print(f"{' ': >{console_size.columns-2}}",end="\r")
+        if backwards:
+            if lines > 1: print("\n"*fl) 
+            elif fl: print("")
+            if bl: lines += bl
+            print(f'\x1b[{lines}A', end='')        
         
-        
-    def print_timer(self,seconds,phrase="none",start=1):
-        end_range = start+seconds
-        if start == 1:
-            end_range = end_range-1
-            
-        if phrase == "none":
-            phrase = "to allow services to take effect"
-        for n in range(start,end_range+1):
+
+    # def print_timer(self,seconds,phrase="none",start=1):
+    def print_timer(self,command_obj):
+        seconds = command_obj["seconds"]
+        start = command_obj.get("start",1)
+        phrase = command_obj.get("phrase",None)
+        end_phrase = command_obj.get("end_phrase",None)
+        p_type = command_obj.get("p_type","trad")
+        step = command_obj.get("step",1)
+
+        if step > 0: 
+            end_range = start+seconds
+            if start == 1: end_range = end_range-1
+        else: 
+            start = seconds
+            end_range = 0
+
+        if phrase == None:
+            phrase = "to allow services to take effect"        
+
+        for s in range(start,end_range+1,step):
             if self.cancel_event: break
-            
+                
             if not self.auto_restart:
-                self.print_clear_line()
-                print(colored(f"  Pausing:","magenta"),
-                        colored(f"{n}","yellow"),
-                        colored("of","magenta"),
-                        colored(f"{end_range}","yellow"),
-                        colored(f"seconds {phrase}","magenta"), end='\r')
+                if p_type == "trad":
+                    self.print_clear_line()
+                    print(colored(f"  Pausing:","magenta"),
+                            colored(f"{s}","yellow"),
+                            colored("of","magenta"),
+                            colored(f"{end_range}","yellow"),
+                            colored(f"seconds {phrase}","magenta"), end='\r')
+                elif p_type == "cmd":
+                    self.print_cmd_status({
+                        "text_start": phrase,
+                        "brackets": str(s),
+                        "text_end": end_phrase,
+                        "status": "preparing",
+                    })
             sleep(1) 
-            
-        self.print_clear_line()  
+
+        self.print_clear_line()           
             
             
     def print_states(self):
@@ -2600,6 +2653,14 @@ class Functions():
         if not title:
             title = f"Press choose required {p_type}"
 
+        if len(p_type_list) < 1 and p_type == "environment":
+            self.pull_remote_profiles({
+                "set_in_functions": True,
+                "retrieve": None,
+            })
+            p_type_list = self.environment_names
+        
+
         print("")
         if print_header:
             self.print_header_title({
@@ -2634,7 +2695,7 @@ class Functions():
         newline = command_obj.get("newline",False)
         prompt = command_obj.get("prompt",False)
         color = command_obj.get("color", "yellow")
-        
+        return_key_pressed = command_obj.get("return_key",False)
         key_pressed = None
         
         if newline == "top" or newline == "both":
@@ -2660,6 +2721,8 @@ class Functions():
             
         try: key_pressed = key_pressed.lower()
         except: key_pressed = "None"
+    
+        if return_key_pressed: return key_pressed
         if quit_option and quit_option == key_pressed:
             return True
         return
@@ -3065,7 +3128,11 @@ class Functions():
                     "newline": True,
                 }
                 self.print_cmd_status(progress)
-                self.print_timer(seconds,"to allow network to recover",start=1)
+                # self.print_timer(seconds,"to allow network to recover",start=1)
+                self.print_timer({
+                    "seconds": seconds,
+                    "phrase": "to allow network to recover",
+                })
                 print(f'\x1b[1A', end='')
                 self.print_clear_line()
                 self.print_cmd_status({
