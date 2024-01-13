@@ -272,6 +272,7 @@ class CLI():
                     ordinal_dict["backend"] = str(self.functions.get_snapshot({
                         "history": 1, 
                         "environment": self.config_obj[called_profile]["environment"],
+                        "profile": called_profile
                     })[1])
                 except Exception as e:
                     if isinstance(ordinal_dict,dict):
@@ -1274,7 +1275,8 @@ class CLI():
             "lookup_uri": f'http://127.0.0.1:{self.config_obj[self.profile]["public_port"]}/',
             "header": "json",
             "get_results": "proofs", 
-            "return_type": "raw"      
+            "return_type": "raw",
+            "profile": self.profile,     
         }
         
         # get state here first
@@ -1352,7 +1354,7 @@ class CLI():
                 "extra": None,
             })            
         
-        data = self.get_and_verify_snapshots(snapshot_size, self.config_obj[profile]["environment"])        
+        data = self.get_and_verify_snapshots(snapshot_size, self.config_obj[profile]["environment"],profile)        
             
         if "-p" in command_list:
             profile = command_list[command_list.index("-p")+1]
@@ -3703,7 +3705,7 @@ class CLI():
                                     
                 if not "-b" in argv_list:
                     total_rewards = 0
-                    data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"])
+                    data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"],profile)
                     elapsed = data["elapsed_time"]
                     data = data["data"]
                     show_title = True
@@ -3989,7 +3991,8 @@ class CLI():
             "history": 1,
             "environment": environment,
             "return_values": ["ordinal","lastSnapshotHash"],
-            "return_type": "dict"
+            "return_type": "dict",
+            "profile": profile,
         }
         
         if caller != "auto_restart":
@@ -4031,6 +4034,7 @@ class CLI():
                     "get_results": "value",
                     "ordinal": global_ordinals["backend"]["ordinal"],
                     "action": "ordinal",
+                    "profile": profile,
                 }
                 self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
                 global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
@@ -4801,7 +4805,7 @@ class CLI():
     # reusable methods
     # ==========================================
 
-    def get_and_verify_snapshots(self,snapshot_size, environment):
+    def get_and_verify_snapshots(self,snapshot_size, environment, profile):
         error = True
         return_data = {}
         for _ in range(0,5): # 5 attempts
@@ -4809,6 +4813,7 @@ class CLI():
                 "action": "history",
                 "history": snapshot_size,
                 "environment": environment,
+                "profile": profile,
             })   
             
             try:

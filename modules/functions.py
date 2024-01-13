@@ -86,6 +86,7 @@ class Functions():
             "mainnet": "be-mainnet.constellationnetwork.io",
             "integrationnet": "be-integrationnet.constellationnetwork.io",
         }
+        self.snapshot_type = "global_snapshots"
         
         # constellation nodectl statics
         self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
@@ -968,8 +969,10 @@ class Functions():
         ordinal = command_obj.get("ordinal",False)
         history = command_obj.get("history",50)
         environment = command_obj.get("environment","mainnet")
-        return_values = command_obj.get("return_values",False)
-        lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
+        profile = command_obj.get("profile",self.default_profile)
+        return_values = command_obj.get("return_values",False) # list
+        # lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
+        lookup_uri = command_obj.get("lookup_uri",self.set_be_uri({"environment":environment, "profile": profile}))
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type","list")
@@ -979,15 +982,15 @@ class Functions():
         error_secs = 2
         
         if action == "latest":
-            uri = f"{lookup_uri}global-snapshots/latest"
+            uri = f"{lookup_uri}/{self.snapshot_type}/latest"
             if not return_values: return_values = ["timestamp","ordinal"]
         elif action == "history":
-            uri = f"{lookup_uri}global-snapshots?limit={history}"
+            uri = f"{lookup_uri}/{self.snapshot_type}?limit={history}"
             return_type = "raw"
         elif action == "ordinal":
-            uri = f"{lookup_uri}global-snapshots/{ordinal}"
+            uri = f"{lookup_uri}/{self.snapshot_type}/{ordinal}"
         elif action == "rewards":
-            uri = f"{lookup_uri}global-snapshots/{ordinal}/rewards"
+            uri = f"{lookup_uri}/{self.snapshot_type}/{ordinal}/rewards"
             if not return_values: return_values = ["destination"]
             return_type = "dict"
         
@@ -1067,7 +1070,26 @@ class Functions():
             
         return api_url
     
-    
+
+    def set_be_uri(self,command_obj):   
+        profile = command_obj.get("profile",self.default_profile) 
+        environment = command_obj.get("environment",self.environment_name)  
+        ti = False
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+        if self.config_obj[profile]["token_identifier"] != "disable":
+            ti = self.config_obj[profile]["token_identifier"] 
+            self.snapshot_type = "snapshots"
+        
+        if ti:
+            api_uri = f"https://{self.be_urls[environment]}/currency/{ti}"
+        else:
+            self.snapshot_type = "global_snapshots"
+            api_uri = f"https://{self.be_urls[environment]}"
+
+        return api_uri
+
+
     def set_default_variables(self,command_obj):
         # set default profile
         # set default edge point

@@ -190,11 +190,12 @@ class DownloadStatus():
         
     def pull_ordinal_values(self):
         self.dip_status = {}
-        metrics = self.functions.get_api_node_info({
-            "api_host": self.functions.be_urls[self.config_obj[self.profile]["environment"]],
-            "api_port": 443,
-            "api_endpoint": "/global-snapshots/latest",
-            "info_list": ["height","subHeight","ordinal"],   
+        
+        metrics = self.functions.get_snapshot({
+            "environment": self.config_obj[self.profile]["environment"],
+            "profile": self.profile,
+            "return_values": ["height","subHeight","ordinal"],
+            "return_type": "list",
         })
         
         try: self.dip_status["height"] = metrics[0]
