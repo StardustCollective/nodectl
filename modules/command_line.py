@@ -1272,7 +1272,7 @@ class CLI():
             more_break = round((console_size.lines-20)/6)
                     
         snap_obj = {
-            "lookup_uri": f'http://127.0.0.1:{self.config_obj[self.profile]["public_port"]}/',
+            "lookup_uri": f'http://127.0.0.1:{self.config_obj[self.profile]["public_port"]}',
             "header": "json",
             "get_results": "proofs", 
             "return_type": "raw",
@@ -1293,25 +1293,32 @@ class CLI():
             exit(0)
                 
         results = self.functions.get_snapshot(snap_obj)
-        for n, result in enumerate(results):
-            if do_more and n % more_break == 0 and n > 0:
-                more = self.functions.print_any_key({
-                    "quit_option": "q",
-                    "newline": "both",
-                })
-                print_title = True
-                if more:
-                    break     
-            if result == results[0] or print_title:           
+        try:
+            for n, result in enumerate(results):
+                if do_more and n % more_break == 0 and n > 0:
+                    more = self.functions.print_any_key({
+                        "quit_option": "q",
+                        "newline": "both",
+                    })
+                    print_title = True
+                    if more:
+                        break     
+                if result == results[0] or print_title:           
+                    self.functions.print_paragraphs([
+                        ["SNAPSHOT SIGNATURES IN CURRENT GLOBAL SNAPSHOT BEING PROCESSED ON NODE",2,"green"]
+                    ])
+                    print_title = False
                 self.functions.print_paragraphs([
-                    ["SNAPSHOT SIGNATURES IN CURRENT GLOBAL SNAPSHOT BEING PROCESSED ON NODE",2,"green"]
+                    ["SnapShot Transaction Id:",1,"blue","bold"], [result["id"],1,"yellow"],
+                    ["SnapShot Transaction Sig:",1,"blue","bold"], [result["signature"],2,"yellow"],
                 ])
-                print_title = False
+        except Exception as e:
+            self.log.logger.error(f"show_current_snapshot_proofs -> unable to process results [{e}]")
             self.functions.print_paragraphs([
-                ["SnapShot Transaction Id:",1,"blue","bold"], [result["id"],1,"yellow"],
-                ["SnapShot Transaction Sig:",1,"blue","bold"], [result["signature"],2,"yellow"],
+                ["Unable to parse any transactions",1,"red"],
             ])
-        
+            result = []
+
         self.functions.print_paragraphs([
             ["Transactions Found:",0],[str(len(results)),1,"green","bold"],
         ])

@@ -85,7 +85,8 @@ class Versioning():
         self.error_messages = Error_codes(self.functions) 
         self.functions.log = self.log # avoid embedded circular reference errors
 
-        if self.auto_restart: return  # relies on service updater
+        if self.auto_restart and not self.service_uvos: 
+            return  # relies on service updater
                         
         self.get_cached_version_obj()
         
@@ -130,7 +131,7 @@ class Versioning():
                 "action": "get_elapsed",
                 "old_time": version_obj["last_updated"],
             })
-            if (self.force or elapsed.seconds > self.seconds) and not self.auto_restart:
+            if (self.force or elapsed.seconds > self.seconds) and (not self.auto_restart or self.service_uvos):
                 self.log.logger.debug(f"versioning - called by [{self.logging_name}] - out of date - updating.")
                 self.write_version_obj_file()
             else:

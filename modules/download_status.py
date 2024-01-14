@@ -428,8 +428,15 @@ class DownloadStatus():
             self.dip_vals.use_current = self.dip_status["current"]
             self.dip_vals.use_end = self.dip_status["latest"]
             self.dip_vals.percentage1 = percentage
-            self.dip_vals.left = abs(start-current)
             self.dip_vals.goal = start
+
+            self.dip_vals.left = abs(start-current)
+            if self.dip_vals.left > self.dip_vals.previous_left:
+                self.dip_vals.left = self.dip_vals.use_current
+            else:
+                self.dip_vals.previous_left = self.dip_vals.left
+            
+
             
             # if start < 2: self.dip_vals.goal = self.dip_status["end"]
             if start < 2: self.dip_vals.goal = self.dip_status["latest"]
@@ -591,6 +598,7 @@ class DownloadStatus():
                 "use_current": self.dip_status["current"],
                 "use_end": self.dip_status["latest"],
                 "freeze_display": -1,
+                "previous_left": -1,
                 "last_hash_marks": "", "hash_marks": "",       
             } 
             self.dip_vals = SimpleNamespace(**dip_current_values)       
