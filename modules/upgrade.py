@@ -110,7 +110,7 @@ class Upgrader():
     
     
     def handle_profiles(self):
-        profile_items = self.functions.pull_profile({"req": "order_pairings"})
+        profile_items = self.functions.pull_profile({"req": "order_pairing"})
         self.profile_order = profile_items.pop()
         self.profiles_by_env = list(self.functions.pull_profile({
             "req": "profiles_by_environment",
@@ -302,7 +302,7 @@ class Upgrader():
 
         # all profiles with the ml type should be the same version
         for profile in self.profile_order:
-            do_continue = False
+            do_continue, dynamic_uri = False, True
             env = self.config_obj[profile]["environment"]
             if self.profile_progress[profile]["download_version"]:
                 download_version = self.profile_progress[profile]["download_version"]
@@ -321,6 +321,17 @@ class Upgrader():
                 ])
                 continue
             
+            if self.config_copy[profile]["jar_repository"] != "default":
+                self.functions.print_cmd_status({
+                    "text_start": "Statically defined versioning found",
+                    "status": "continuing",
+                    "status_color": "green",
+                    "newline": True,
+                })
+                do_continue = True
+                dynamic_uri = False
+                download_version = False
+
             try:
                 found_tess_version = self.version_obj[env][profile]['cluster_tess_version']
                 running_tess_version = self.version_obj[env][profile]["node_tess_version"]
@@ -332,20 +343,26 @@ class Upgrader():
                 
             self.log.logger.info(f"upgrade handling versioning: profile [{profile}] latest [{found_tess_version}] current: [{running_tess_version}]")
             
-            self.functions.print_cmd_status({
-                "status": found_tess_version,
-                "text_start": "The latest Tess version",
-                "brackets": profile,
-                "result_color": "green",
-                "newline": True
-            })
+            self.functions.print_paragraphs([
+                ["Tess",0,"yellow"],["short hand for",0], 
+                ["Tessellation",0,"yellow"],[".",-1],["",1],
+            ])
+        
+            if dynamic_uri:
+                self.functions.print_cmd_status({
+                    "status": found_tess_version,
+                    "text_start": "The latest Tess version",
+                    "brackets": profile,
+                    "result_color": "green",
+                    "newline": True
+                })
             
             if running_tess_version.lower() == "v":
                 self.version_obj[env][profile]['node_tess_version'] = "unavailable" 
                 
             self.functions.print_cmd_status({
                 "status": running_tess_version,
-                "text_start": "Tessellation version running currently",
+                "text_start": "Current Global Tess version",
                 "status_color": "red",
                 "newline": True
             })  
@@ -358,12 +375,13 @@ class Upgrader():
                     ["version level by simply hitting",0,"yellow"],["<enter>",0,"white"],["here.",2,"yellow"],
                 ])
                 
-            self.functions.print_paragraphs([
-                ["Press enter to accept the default value between",0], ["[]",0,"white"], ["brackets.",1]
-            ])
+            if dynamic_uri:
+                self.functions.print_paragraphs([
+                    ["Press enter to accept the default value between",0], ["[]",0,"white"], ["brackets.",1]
+                ])
                 
             while True:
-                if not self.profile_progress[profile]["download_version"]:
+                if not self.profile_progress[profile]["download_version"] and dynamic_uri:
                     version_str = colored("  Please enter version to upgrade to".ljust(45,"."),"cyan")+"["+colored(found_tess_version,"yellow",attrs=['bold'])+"] : "
                     download_version = input(version_str) if not self.non_interactive else False
                 if not download_version:
@@ -419,7 +437,7 @@ class Upgrader():
                 
             self.functions.print_cmd_status({
                 "status": download_version,
-                "text_start": "Using version",
+                "text_start": "Using Global Tess",
                 "result_color": "green",
                 "newline": True
             })  
@@ -652,7 +670,7 @@ class Upgrader():
             ["Verify root access is disabled",1,"yellow"],
             ["Verify SSH setup is correct",2,"yellow"],
 
-            ["This is a possible security venerability, and it is recommended to verified.",1,"red"],
+            ["This is a possible security vulnerability, and it is recommended to allow nodectl to verify the configurations.",1,"red"],
             ["Advanced Node Operators should skip this step and manually update the SSH configuration.",2,"magenta"]
         ])
 

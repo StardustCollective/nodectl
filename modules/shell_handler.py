@@ -636,8 +636,8 @@ class ShellHandler:
                 if force or skip_warning_messages:
                     self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                     self.functions.print_paragraphs([
-                        [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
-                        [f"this {self.install_upgrade}",1],
+                        [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, developer mode, or extra parameters were supplied to",0],
+                        [f"this {self.install_upgrade}.",1],
                         ["It will continue at the Node Operator's",0,"yellow"],
                         ["own risk and decision.",2,"yellow","bold"]
                     ])
@@ -1133,7 +1133,7 @@ class ShellHandler:
         if action == "service_start":
             self.log.logger.info("auto_restart - restart session threader - invoked.")
 
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=6) as executor:
                 thread_list = []
                 # self.profile_names = ["dag-l0"]  # used for debugging purposes
                 for n, profile in enumerate(self.profile_names):

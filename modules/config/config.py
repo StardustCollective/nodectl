@@ -234,7 +234,8 @@ class Configuration():
             if self.called_command != "upgrade":
                 self.error_messages.error_code_messages({
                     "error_code": "cfg-199",
-                    "line_code": "upgrade_needed"
+                    "line_code": "upgrade_needed",
+                    "extra": "Configuration yaml version mismatch."
                 })
             self.migration()
             self.config_obj = {}  # reset
@@ -887,8 +888,15 @@ class Configuration():
         def check_slash(st_val,path_value):
             if "def" in st_val and path_value == "default": return
             if "dis" in st_val and path_value == "disable": return
-            if path_value[-1] != "/": 
-                self.config_obj[profile][s_type] = f"{path_value}/" 
+            try:
+                if path_value[-1] != "/": 
+                    self.config_obj[profile][s_type] = f"{path_value}/"
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "cfg-896",
+                    "line_code": "config_error",
+                    "extra": "format",
+                })
                            
         try:
             for section, section_types in self.schema.items():

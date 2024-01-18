@@ -526,9 +526,17 @@ class DownloadStatus():
             print("\n" * 4)
         exit(0)   
                 
-                             
-    # Main method
+
     def download_status(self,dip_pass=1):
+        try:
+            self.download_status_process(dip_pass)
+        except BlockingIOError:
+            print("Issue with session, may have timed out")
+            exit(0)
+
+
+    # Main method
+    def download_status_process(self,dip_pass=1):
         with ThreadPoolExecutor() as executor:
             if self.caller == "download_status":
                 try:

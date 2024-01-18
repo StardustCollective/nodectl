@@ -79,6 +79,7 @@ class Functions():
         
         self.default_pro_rating_file = "ratings.csv"
         self.default_pro_rating_location = "/var/tessellation"
+        self.default_tessellation_repo = "https://github.com/Constellation-Labs/tessellation"
         
         # constellation specific statics
         self.be_urls = {
@@ -1497,7 +1498,7 @@ class Functions():
                 pull_all()
                 return service_list
             
-        elif "pairings" in var.req:
+        elif "pairing" in var.req:
             # return list of profile objects that are paired via layer0_link
             pairing_list = []
                        
@@ -1510,7 +1511,11 @@ class Functions():
                         link_profile = self.config_obj[profile][f"{link_type}_link_profile"]
                         if link_profile != "None":
                             pairing_list.append([profile, self.config_obj[profile][f"{link_type}_link_profile"]])
-                        else: pairing_list.append([profile])
+                        else: pairing_list.append([{
+                            "profile": "external",
+                            "host": self.config_obj[profile][f"{link_type}_link_host"],
+                            "port": self.config_obj[profile][f"{link_type}_link_port"]
+                        }])
                 if not link_found: pairing_list.append([profile])
             
             n = 0
@@ -1529,6 +1534,7 @@ class Functions():
             # add services to the pairing list
             for n, s_list in enumerate(pairing_list):
                 for i, profile in enumerate(s_list):
+                    if isinstance(profile,dict): continue  # external connection not profile
                     pair_dict = {
                         "profile": profile,
                         "service": self.config_obj[profile]["service"],

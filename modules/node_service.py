@@ -81,21 +81,15 @@ class Node():
 
     def set_github_repository(self,repo,profile,download_version):
         if repo == "default":
-            repo = "https://github.com/Constellation-Labs/tessellation"
-            
-        if self.config_obj[profile]["jar_github"]:
-            repo = f"{repo}/releases/download/{download_version}"
-        
-        return repo
+            return f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
+        return self.config_obj[profile]["jar_repository"]
     
     
     def download_constellation_binaries(self,command_obj):
-        # download_version=(bool) "default"
-        # print_version=(bool) True
-        download_version = command_obj.get("download_version","default")
-        print_version = command_obj.get("print_version",True)
+
         action = command_obj.get("action","normal")
         requested_profile = command_obj.get("profile",False)
+        download_version = command_obj.get("download_version","default")
         environment = command_obj.get("environment",False)
         argv_list = command_obj.get("argv_list",[])
         backup = command_obj.get("backup", True)
@@ -104,6 +98,7 @@ class Node():
         
         if self.auto_restart: profile_names = [requested_profile]
         else: profile_names = self.functions.profile_names
+
         
         def screen_print_download_results(file,first=False):
             backup = ""
@@ -191,6 +186,7 @@ class Node():
                     file_obj_copy["cur_pos"] = cur_pos
                     return file_obj_copy
 
+
         if not environment:
             self.error_messages.error_code_messages({
                 "error_code": "ns-95",
@@ -198,16 +194,9 @@ class Node():
                 "extra": "binary downloads",
             })
         
-        # if download_version == "default":
-        #     self.version_obj["cluster_tess_version"] = self.functions.get_version({
-        #         "which": "cluster_tess",
-        #         "print_version": print_version,
-        #         "action": action
-        #     })
-        
         file_pos = 3
         if action == "upgrade":
-            download_version = download_version[profile_names[0]]["download_version"]
+                download_version = download_version[profile_names[0]]["download_version"]
         file_obj = {
             "cl-keytool.jar": { "state": "fetching", "pos": 1, "location": "default", "version": download_version},
             "cl-wallet.jar":  { "state": "fetching", "pos": 2, "location": "default", "version": download_version},
@@ -227,7 +216,7 @@ class Node():
                     "state": "fetching",
                     "pos": n+file_pos,
                     "location": self.config_obj[profile]["jar_repository"],
-                    "version": download_version,
+                    "version": download_version if self.config_obj[profile]["jar_repository"] == "default" else "static",
                     "profile": profile
                 }
                 
@@ -630,24 +619,33 @@ class Node():
             })   
         
 
-    def build_remote_link(self,link_type):
+    def build_remote_link(self,link_type,interactive):
+        not_ready_option = None
         for n in range(0,4):
             source_node_list = self.functions.get_api_node_info({
                 "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
                 "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
-            if source_node_list[3] == "Ready":
-                return True
 
             self.functions.print_cmd_status({
                 "text_start": f"{link_type.upper()} Link Node in",
                 "brackets": source_node_list[3],
-                "text_end": "state | not",
+                "text_end": "state" if source_node_list[3] == "Ready" else "state | not",
                 "status": "Ready",
-                "status_color": "red"
+                "status_color": "green" if source_node_list[3] == "Ready" else "red",
+                "newline": True
             })
+            print("")
+
+            ready_list = ["Ready","WaitingForReady","Observing","WaitingForObserving"]
+            ready_list = ["Ready"]
+            if source_node_list[3] in ready_list:
+                self.log.logger.debug(f"node_service -> build_remote_link -> source node [{source_node_list[3]}] in state [{source_node_list[3]}].")
+                return True
+
             if n > 2:
+                self.log.logger.error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
                 self.functions.print_paragraphs([
                     [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
                     ["Exiting join process, please try again later or check Node configuration.",2,"red"],
@@ -657,17 +655,25 @@ class Node():
             
             error_str = colored("before trying again ","red")+colored(n,"yellow",attrs=["bold"])
             error_str += colored(" of ","red")+colored("3","yellow",attrs=["bold"])
-            with ProcessPoolExecutor() as executor:
-                early_quit = executor.submit(self.functions.key_pressed({
-                    "quit_option": "quit_only",
-                    "newline": True,    
-                }))
-                if early_quit:
+
+            if interactive:
+                self.functions.print_paragraphs([
+                    ["Press",0],["w",0,"yellow"], ["to wait 30 seconds",1],
+                    ["Press",0],["s",0,"yellow"], ["to skip join",1],
+                    ["Press",0],["q",0,"yellow"], ["to quit",1],
+                ])
+                not_ready_option =self.functions.get_user_keypress({
+                    "prompt": "KEY press and OPTION",
+                    "prompt_color": "magenta",
+                    "options": ["W","S","Q"],
+                })
+                if not_ready_option.upper() == "Q":
                     cprint("  Node Operator requested to quit operations","green")
                     exit(0)
-            self.functions.print_timer(5,error_str)
-        
-        executor.shutdown(wait=False,cancel_futures=True)
+
+                if not_ready_option.upper() == "S": break
+            self.functions.print_timer(30,error_str)
+
         return False
         
                                
@@ -802,10 +808,11 @@ class Node():
         state = None
         
         # profile is set by cli.set_profile method
-        gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"]
         gl0_linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
-        ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"]
         ml0_linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
+        # gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"]
+        # ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"]
+
         profile_layer = self.functions.config_obj[self.profile]["layer"]
         link_types = ["gl0","ml0"]
         headers = {
@@ -819,17 +826,17 @@ class Node():
             self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
             if not self.auto_restart:
                 for link_type in link_types:
-                    verb = "profile" if eval(f"{link_type}_link_profile") != "None" else ""
-                    link_word = eval(f"{link_type}_link_profile") if verb == "profile" else "Remote Link"
-                    graph_type = "Hypergraph" if link_type == "gl0" else "Metagraph"
+                    verb = " profile" if eval(f"{link_type}_link_profile") != "None" else ""
+                    link_word = eval(f"{link_type}_link_profile") if verb == " profile" else f"Remote Link [{self.functions.config_obj[self.profile][f'{link_type}_link_host']}:{self.functions.config_obj[self.profile][f'{link_type}_link_port']}]"
+                    graph_type = "Hypergraph" if self.functions.config_obj[self.profile]['meta_type'] == "gl" else "Metagraph"
                     if eval(f"{link_type}_linking_enabled"):
                         self.functions.print_paragraphs([
-                            [f"Waiting on {verb}",0,"yellow"],[link_word,0,"green"],["state to be",0,"yellow"],
+                            [f"Waiting on{verb}",0,"yellow"],[link_word,0,"green"],["state to be",0,"yellow"],
                             ["Ready",0,"green"], [f"before initiating {graph_type} join.",1,"yellow"]
                         ])
                         found_link_types.append(link_type)
-                    if eval(f"{link_type}_linking_enabled") and eval(f"{link_type}_link_profile") == "None":
-                        layer_zero_ready = self.build_remote_link(link_type)
+                    if eval(f"{link_type}_linking_enabled"): # and eval(f"{link_type}_link_profile") == "None":
+                        layer_zero_ready = self.build_remote_link(link_type,interactive)
                         if not layer_zero_ready:
                             if link_type == "gl0": gl0_linking_enabled = False
                             elif link_type == "ml0": ml0_linking_enabled = False

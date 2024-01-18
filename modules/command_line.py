@@ -1330,7 +1330,8 @@ class CLI():
             "command_obj": command_obj,
         })
         if command_obj["caller"] == "status":
-            return download_status.download_status()
+            ds = download_status.download_status_process()
+            return ds
         download_status.download_status()
             
                        
@@ -2558,7 +2559,7 @@ class CLI():
         dip = True if "--dip" in argv_list else False
         
         link_types = ["gl0","ml0"] 
-        
+
         failure_retries = 3
         if "-r" in argv_list:
             try: failure_retries = int(argv_list[argv_list.index("-r")+1])
@@ -2592,9 +2593,10 @@ class CLI():
         valid_request, single_profile = False, True
    
         profile_pairing_list = self.functions.pull_profile({
-            "req": "order_pairings",
+            "req": "order_pairing",
         })
         profile_order = profile_pairing_list.pop()
+        profile_order = profile_order[1:]
         
         if called_profile == "all":
             single_profile = False
@@ -2962,18 +2964,19 @@ class CLI():
                 "newLine": True
             })
 
-        if gl0_link and ml0_link and not single_profile:
+        if (gl0_link or ml0_link) and not single_profile:
             found_dependency = False
             if not watch_peer_counts: # check to see if we can skip waiting for Ready
                 for link_profile in self.profile_names:
-                    if self.functions.config_obj[link_profile]["gl0_link_profile"] == called_profile:
-                        self.log.logger.debug(f"cli_join -> found gl0 dependency | profile [{called_profile}]")
-                        found_dependency = True
-                        break
-                    elif self.functions.config_obj[link_profile]["ml0_link_profile"] == called_profile:
-                        self.log.logger.debug(f"cli_join -> found ml0 dependency | profile [{called_profile}]")
-                        found_dependency = True
-                        break
+                    for link_type in ["gl0","ml0"]:
+                        if eval(f"{link_type}_link"):
+                            if self.functions.config_obj[called_profile][f"{link_type}_link_profile"] == link_profile:
+                                self.log.logger.debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}]")
+                                found_dependency = True
+                            elif self.functions.config_obj[called_profile][f"{link_type}_link_profile"] == "None" and not found_dependency:
+                                self.log.logger.debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}] external [{self.functions.config_obj[link_profile][f'{link_type}_link_host']}] external port [{self.functions.config_obj[link_profile][f'{link_type}_link_port']}]")
+                                found_dependency = True
+
             if not found_dependency:
                 self.log.logger.debug(f"cli_join -> no dependency found | profile [{called_profile}]")
                 single_profile = True
@@ -4033,10 +4036,16 @@ class CLI():
             if n == 0: 
                 self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | fork_obj remote: [{self.functions.be_urls[environment]}].")
                 global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
+                if global_ordinals["backend"] is None:
+                    self.log.logger.error("check_minority_fork -> backend api endpoint did not return any results.") 
+                    global_ordinals["backend"] = {
+                        "ordinal": "unknown",
+                        "lastSnapshotHash": "unknown",
+                    }
             else:
                 fork_obj = {
                     **fork_obj,
-                    "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[profile]["public_port"]}/',
+                    "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[profile]["public_port"]}',
                     "header": "json",
                     "get_results": "value",
                     "ordinal": global_ordinals["backend"]["ordinal"],
@@ -4045,6 +4054,13 @@ class CLI():
                 }
                 self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
                 global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
+                if global_ordinals["local"] is None: 
+                    self.log.logger.error("check_minority_fork -> local api endpoint did not return any results.") 
+                    global_ordinals["local"] = {
+                        "ordinal": "unknown",
+                        "lastSnapshotHash": "unknown",
+                    }
+
 
         if caller != "cli": return global_ordinals
         
