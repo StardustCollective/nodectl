@@ -175,11 +175,7 @@ class ShellHandler:
         elif self.called_command in service_change_commands:
             if not self.help_requested:
                 try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
-                except: 
-                    self.error_messages.error_code_messages({
-                        "error_code": "sh-161",
-                        "line_code": "profile_error",
-                    })
+                except: exit(0) # profile error caught by fnt-998
             if not self.help_requested:            
                 if self.called_command == "start":
                     self.cli.cli_start({

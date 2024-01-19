@@ -1645,6 +1645,7 @@ class Functions():
                 "line_code": "profile_error",
                 "extra": profile
             })
+            exit(0) # force exit on service changes.
     
     
     def pull_remote_profiles(self,command_obj):
