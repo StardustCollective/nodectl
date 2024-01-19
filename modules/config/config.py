@@ -493,7 +493,11 @@ class Configuration():
                         "value": "link_profile",
                         "special_case": None
                     })
-                    
+
+            self.config_obj[profile]["is_jar_static"] = False        
+            if self.config_obj[profile]["jar_repository"] != "default":
+                self.config_obj[profile]["is_jar_static"] = True
+                                    
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
@@ -512,8 +516,8 @@ class Configuration():
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found()
 
-            self.config_obj[profile]["jar_github"] = False         
-            if "github.com" in self.config_obj[profile]["jar_repository"]:
+            self.config_obj[profile]["jar_github"] = False 
+            if "github.com" in self.config_obj[profile]["jar_repository"] and not self.config_obj[profile]["is_jar_static"]:
                 self.config_obj[profile]["jar_github"] = True 
                 
             try:
@@ -822,6 +826,7 @@ class Configuration():
                 ["java_xss","mem_size"],
                 ["jar_repository","host_def"], 
                 ["jar_file","str"],
+                ["is_jar_static","bool"], # automated value [not part of yaml]
                 ["jar_github","bool"], # automated value [not part of yaml]
                 ["p12_nodeadmin","str"],
                 ["p12_key_location","path"],

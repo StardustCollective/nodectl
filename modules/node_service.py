@@ -80,13 +80,12 @@ class Node():
 
 
     def set_github_repository(self,repo,profile,download_version):
-        if repo == "default":
+        if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
             return f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
         return self.config_obj[profile]["jar_repository"]
     
     
     def download_constellation_binaries(self,command_obj):
-
         action = command_obj.get("action","normal")
         requested_profile = command_obj.get("profile",False)
         download_version = command_obj.get("download_version","default")
@@ -216,7 +215,7 @@ class Node():
                     "state": "fetching",
                     "pos": n+file_pos,
                     "location": self.config_obj[profile]["jar_repository"],
-                    "version": download_version if self.config_obj[profile]["jar_repository"] == "default" else "static",
+                    "version": download_version if not self.config_obj[profile]["is_jar_static"] else "static",
                     "profile": profile
                 }
                 
