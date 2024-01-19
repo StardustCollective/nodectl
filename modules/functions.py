@@ -973,7 +973,7 @@ class Functions():
         profile = command_obj.get("profile",self.default_profile)
         return_values = command_obj.get("return_values",False) # list
         # lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
-        lookup_uri = command_obj.get("lookup_uri",self.set_be_uri({"environment":environment, "profile": profile}))
+        lookup_uri = command_obj.get("lookup_uri",self.set_proof_uri({"environment":environment, "profile": profile}))
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type","list")
@@ -981,6 +981,8 @@ class Functions():
         json = True if header == "json" else False
         return_data = []
         error_secs = 2
+        
+        self.set_proof_uri({"environment":environment, "profile": profile},True)
         
         if action == "latest":
             uri = f"{lookup_uri}/{self.snapshot_type}/latest"
@@ -1072,7 +1074,7 @@ class Functions():
         return api_url
     
 
-    def set_be_uri(self,command_obj):   
+    def set_proof_uri(self,command_obj,snap_type_only=False):   
         profile = command_obj.get("profile",self.default_profile) 
         environment = command_obj.get("environment",self.environment_name)  
         ti = False
@@ -1081,11 +1083,14 @@ class Functions():
         if self.config_obj[profile]["token_identifier"] != "disable":
             ti = self.config_obj[profile]["token_identifier"] 
             self.snapshot_type = "snapshots"
+        else:
+            self.snapshot_type = "global_snapshots"
+
+        if snap_type_only: return
         
         if ti:
             api_uri = f"https://{self.be_urls[environment]}/currency/{ti}"
         else:
-            self.snapshot_type = "global_snapshots"
             api_uri = f"https://{self.be_urls[environment]}"
 
         return api_uri

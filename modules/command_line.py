@@ -1317,7 +1317,7 @@ class CLI():
             self.functions.print_paragraphs([
                 ["Unable to parse any transactions",1,"red"],
             ])
-            result = []
+            results = []
 
         self.functions.print_paragraphs([
             ["Transactions Found:",0],[str(len(results)),1,"green","bold"],
@@ -1410,8 +1410,11 @@ class CLI():
                     color = "green"; found = "TRUE"
                 else:
                     reward_amount[reward["destination"]] = reward["amount"]
-        
-        first = reward_amount.popitem()  
+        try:
+            first = reward_amount.popitem()  
+        except:
+            first = [0,0]
+
         title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"   
         
         elapsed = self.functions.get_date_time({
