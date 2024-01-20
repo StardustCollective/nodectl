@@ -2172,7 +2172,7 @@ class CLI():
     def check_nodectl_upgrade_path(self,command_obj):
         called_command = command_obj["called_command"]
         argv_list = command_obj["argv_list"]
-        
+
         try: env = argv_list[argv_list.index('-e')+1]
         except: argv_list.append("help")
             
@@ -2186,10 +2186,15 @@ class CLI():
         nodectl_uptodate = nodectl_uptodate["nodectl"]["nodectl_uptodate"]
         
         upgrade_path = versions.upgrade_path
-        if versions.node_nodectl_version in upgrade_path:
-            upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]      
-            next_upgrade_path = upgrade_path_this_version[0] 
-        else: next_upgrade_path = upgrade_path[0]   
+        try:
+            test_next_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1]
+        except:
+            test_next_version = upgrade_path[0]
+        finally:
+            if versions.node_nodectl_version in upgrade_path and versions.node_nodectl_version != upgrade_path[0] and test_next_version != upgrade_path[0]:
+                upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]    
+                next_upgrade_path = upgrade_path_this_version[0] 
+            else: next_upgrade_path = upgrade_path[0]   
         
         for test_version in reversed(upgrade_path):
             test = self.functions.is_new_version(versions.node_nodectl_version,test_version)
@@ -2198,26 +2203,22 @@ class CLI():
                 break
         
         def print_version_path():
-            console_size, console_setup = self.functions.set_console_setup(None)
             self.functions.print_header_title({
                 "line1": "UPGRADE PATH",
                 "single_line": True,
                 "show_titles": False,
                 "newline": "both"
             })
-            self.functions.print_paragraphs([
-                ["=","full",2,"green","bold"],
-            ])
-            for n, version in enumerate(reversed(upgrade_path)):
-                if n < 1:
-                    print(" ",end=" ")
-                print(f"{colored(version,'yellow')}",end=" ")
-                if version != upgrade_path[0]:
-                    print(colored("-->","cyan"),end=" ")
 
-            self.functions.print_paragraphs([
-                ["",1],["=","full",1,"green","bold"],
-            ])                                
+            upgrade_path_str_list = [["=","half",2,"green","bold"]]
+            for version in reversed(upgrade_path):
+                upgrade_path_str_list.append([version,0,'yellow'])
+                if version != upgrade_path[0]:
+                    upgrade_path_str_list.append(["-->",0,"cyan"])
+            upgrade_path_str_list.append(["",1])
+            upgrade_path_str_list.append(["=","half",2,"green","bold"])
+            self.functions.print_paragraphs(upgrade_path_str_list)
+                          
                                 
         if versions.node_nodectl_version != next_upgrade_path:
             if next_upgrade_path != upgrade_path[0]:
@@ -2235,7 +2236,7 @@ class CLI():
                     [f"sudo nodectl {called_command}",2],
                     ["See:",0,"red"], ["Github release notes",2,"magenta"]
                 ])
-            elif called_command == "upgrade_path":
+            elif called_command == "upgrade_path" and not nodectl_uptodate:
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
