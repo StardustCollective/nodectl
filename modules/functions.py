@@ -87,7 +87,7 @@ class Functions():
             "mainnet": "be-mainnet.constellationnetwork.io",
             "integrationnet": "be-integrationnet.constellationnetwork.io",
         }
-        self.snapshot_type = "global_snapshots"
+        self.snapshot_type = "global-snapshots"
         
         # constellation nodectl statics
         self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
@@ -1084,7 +1084,7 @@ class Functions():
             ti = self.config_obj[profile]["token_identifier"] 
             self.snapshot_type = "snapshots"
         else:
-            self.snapshot_type = "global_snapshots"
+            self.snapshot_type = "global-snapshots"
 
         if snap_type_only: return
         
