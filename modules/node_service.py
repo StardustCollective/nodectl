@@ -209,13 +209,15 @@ class Node():
 
         for n, profile in enumerate(profile_names):
             # version = download_version
+            if self.config_obj[profile]["is_jar_static"]: download_version = "static" 
+            if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
             if self.config_obj[profile]["environment"] == environment:
                 first_profile = profile if n < 1 else first_profile
                 file_obj[self.config_obj[profile]["jar_file"]] = {
                     "state": "fetching",
                     "pos": n+file_pos,
                     "location": self.config_obj[profile]["jar_repository"],
-                    "version": download_version if not self.config_obj[profile]["is_jar_static"] else "static",
+                    "version": download_version,
                     "profile": profile
                 }
                 
@@ -809,8 +811,8 @@ class Node():
         # profile is set by cli.set_profile method
         gl0_linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
         ml0_linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
-        # gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"]
-        # ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"]
+        gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"] # dynamically reviewed
+        ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"] # dynamically reviewed
 
         profile_layer = self.functions.config_obj[self.profile]["layer"]
         link_types = ["gl0","ml0"]

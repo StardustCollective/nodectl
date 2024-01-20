@@ -2599,7 +2599,9 @@ class CLI():
             "req": "order_pairing",
         })
         profile_order = profile_pairing_list.pop()
-        profile_order = profile_order[1:]
+
+        if "external" in profile_order:
+            profile_order.remove("external")
         
         if called_profile == "all":
             single_profile = False

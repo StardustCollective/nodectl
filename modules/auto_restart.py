@@ -207,7 +207,7 @@ class AutoRestart():
 
         self.auto_upgrade, self.passphrase_warning = False, False
         if self.functions.config_obj["global_auto_restart"]["auto_upgrade"]: 
-            if self.functions.config_obj[self.thread_profile]["jar_repository"] == "default":
+            if self.functions.config_obj[self.thread_profile]["is_jar_static"]:
                 self.auto_upgrade = True
             else:
                 self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] - update profile states - [auto_upgrade] is [enabled] however, the jar repository is statically defined.  auto_upgrade will not be able to determine if an upgrade is needed, disabling feature [False].")

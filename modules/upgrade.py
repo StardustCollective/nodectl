@@ -321,7 +321,7 @@ class Upgrader():
                 ])
                 continue
             
-            if self.config_copy[profile]["jar_repository"] != "default":
+            if self.config_copy[profile]["is_jar_static"]:
                 self.functions.print_cmd_status({
                     "text_start": "Statically defined versioning found",
                     "status": "continuing",
@@ -383,7 +383,7 @@ class Upgrader():
             while True:
                 if not self.profile_progress[profile]["download_version"] and dynamic_uri:
                     version_str = colored("  Please enter version to upgrade to".ljust(45,"."),"cyan")+"["+colored(found_tess_version,"yellow",attrs=['bold'])+"] : "
-                    download_version = input(version_str) if not self.non_interactive else False
+                    download_version = False if "-ni" in self.argv_list or "--ni" in self.argv_list else input(version_str) # cannot use self.non_interactive because of developer mode
                 if not download_version:
                     download_version = found_tess_version
                     break
