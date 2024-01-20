@@ -7,11 +7,11 @@
     "upgrade": "False"
   },
   "mainnet": {
-    "version": "v2.12.8",
+    "version": "v2.12.9",
     "upgrade": "False"
   },
   "integrationnet": {
-    "version": "v2.12.8",
+    "version": "v2.12.9",
     "upgrade": "False"
   },
   "nodectl_config": "v2.1.0"
