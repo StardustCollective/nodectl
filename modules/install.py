@@ -187,7 +187,7 @@ class Installer():
         self.functions.print_header_title({
             "line1": "TESSELLATION DYNAMIC STRUCTURES",
             "single_line": True,
-            "newline": "both"
+            "newline": "both",
         })
         
         self.functions.print_paragraphs([

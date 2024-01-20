@@ -337,7 +337,8 @@ class Configuration():
             "line1": "YAML CONFIGURATION",
             "line2": "cn-config.yaml review",
             "clear": True,
-            "newline": "top"
+            "newline": "top",
+            "upper": False,
         })
         
         if "--json" in self.argv_list:
@@ -655,7 +656,7 @@ class Configuration():
             if not passwd:
                 self.functions.print_header_title({
                     "line1": "PASSPHRASE REQUIRED",
-                    "line2": profile.upper(),
+                    "line2": profile,
                     "clear": clear,
                     "show_titles": show_titles,
                     "newline": top_new_line
@@ -1408,6 +1409,7 @@ class Configuration():
                 "line1": "CONFIGURATION",
                 "line2": "validator",
                 "clear": True,
+                "upper": False,
             })
             
         if not self.validated:

@@ -634,7 +634,7 @@ class CLI():
         self.functions.print_header_title({
             "line1": "Node Basic Health",
             "single_line": True,
-            "newline": "both"
+            "newline": "both",
         })
         
         print_out_list = [
@@ -1060,6 +1060,7 @@ class CLI():
             "line1": "CURRENT LOADED METAGRAPHS",
             "line2": "Based on local Node's config",
             "newline": "top",
+            "upper": False,
         })
         
         profile_details = self.functions.pull_profile({
@@ -2840,7 +2841,8 @@ class CLI():
         self.functions.print_header_title({
             "line1": "REBOOT REQUEST",
             "line2": "nodectl",
-            "newline": "top"
+            "newline": "top",
+            "upper": False,
         })
         
         self.functions.print_paragraphs([
@@ -4228,6 +4230,7 @@ class CLI():
             "line2": "request initiated",
             "newline": "top",
             "clear": True,
+            "upper": False,
         })
         
         self.functions.print_paragraphs([
@@ -4607,6 +4610,7 @@ class CLI():
           "line1": "TESSELLATION BINARIES",
           "line2": "refresh request",
           "clear": False,
+          "upper": False,
         })
         
         self.functions.print_paragraphs([
@@ -4732,6 +4736,7 @@ class CLI():
                         "line2": "please choose a version",
                         "show_titles": False,
                         "newline": "both",
+                        "upper": False,
                     })
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], ["downgrading to a previous version of nodectl may cause",0,"red"],

@@ -2288,22 +2288,21 @@ class Functions():
 
 
     def print_header_title(self,command_obj):
-        #line1=(str), line2=(str)None, clear=(bool)True, newline=(str) Top, Bottom, Both
-        #show_titles=(bool)
-        #single_line=(bool) default: False
-        #single_color=(str) default: yellow
-        #single_bg=(str) default: on_blue
-        
         line1 = command_obj["line1"] 
         line2 = command_obj.get("line2", None)
         clear = command_obj.get("clear", False)
         show_titles = command_obj.get("show_titles", True)
         newline = command_obj.get("newline", False)
-        
+        upper = command_obj.get("uppercase",True)
+
         single_line = command_obj.get("single_line", False)
         single_color = command_obj.get("single_color", "yellow")
         single_bg = command_obj.get("single_bg", "on_blue")
-        
+
+        if upper:
+            line1 = line1.upper()
+            line2 = line2.upper()
+
         if "on_" not in single_bg:
             single_bg = f"on_{single_bg}" 
 
@@ -2787,7 +2786,8 @@ class Functions():
                 "line1": "NODE GARAGE",
                 "line2": "welcome to the help section",
                 "newline": "top",
-                "clear": True
+                "clear": True,
+                "upper": False,
             })
             
         if not self.version_obj:

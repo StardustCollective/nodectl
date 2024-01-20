@@ -46,7 +46,7 @@ class Send():
         
         self.functions.print_header_title({
             "line1": "RETRIEVE NODE LOGS",
-            "line2": self.profile.upper(),
+            "line2": self.profile,
             "clear": True,
         })
         

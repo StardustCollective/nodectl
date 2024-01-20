@@ -927,6 +927,7 @@ class ShellHandler:
             "line1": "VERIFY NODECTL",
             "line2": "warning verify keys",
             "newline": "top",
+            "upper": False,
         })   
         
         version_obj = Versioning({"called_cmd": self.called_command})
