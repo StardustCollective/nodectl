@@ -429,14 +429,14 @@ class CLI():
                         if print_title:
                             self.functions.print_states()
                             self.functions.print_paragraphs([
-                                ["Current Session:",0,"magenta"], ["  The Hypergraph cluster session",1],
-                                ["  Found Session:",0,"magenta"], ["  The Cluster session Node is currently connected",1],
-                                ["  Latest Ordinal:",0,"magenta"], [" Node consensus ordinal",1],
-                                ["  Last DLed:",0,"magenta"], ["      Last found ordinal downloaded by Node",1],
-                                ["  Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
-                                ["  Consensus:",0,"magenta"], ["Is this Node participating in consensus rounds",1],
-                                ["  Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
-                                ["  Uptime:",0,"magenta"], ["About of time Node or Cluster has been online",2],
+                                ["Current Session:",0,"magenta"], ["The Metagraph cluster session",1],
+                                ["  Found Session:",0,"magenta"], ["Node's current cluster session",1],
+                                [" Latest Ordinal:",0,"magenta"], ["Node consensus ordinal",1],
+                                ["      Last DLed:",0,"magenta"], ["Last found ordinal downloaded by Node",1],
+                                ["Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
+                                ["      Consensus:",0,"magenta"], ["Is this Node participating in consensus rounds",1],
+                                ["          Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
+                                ["         Uptime:",0,"magenta"], ["About of time Node or Cluster has been online",2],
                             ])
                         
                         if self.config_obj[profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
@@ -2198,6 +2198,7 @@ class CLI():
                 break
         
         def print_version_path():
+            console_size, console_setup = self.functions.set_console_setup(None)
             self.functions.print_header_title({
                 "line1": "UPGRADE PATH",
                 "single_line": True,
@@ -2213,6 +2214,7 @@ class CLI():
                 print(f"{colored(version,'yellow')}",end=" ")
                 if version != upgrade_path[0]:
                     print(colored("-->","cyan"),end=" ")
+
             self.functions.print_paragraphs([
                 ["",1],["=","full",1,"green","bold"],
             ])                                

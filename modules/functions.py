@@ -98,7 +98,7 @@ class Functions():
         self.pre_consensus_list = ["DownloadInProgress","WaitingForReady","WaitingForObserving","Observing"]
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
-
+        self.session_timeout = 2 # seconds
         
         try:
             self.environment_name = self.config_obj["global_elements"]["metagraph_name"]
@@ -340,7 +340,7 @@ class Functions():
                 session.verify = False
                 session.timeout = 2
                 url = f"http://{cluster_ip}:{api_port}/cluster/info"
-                peers = session.get(url)
+                peers = session.get(url,timeout=self.session_timeout)
             except:
                 if attempts > 3:
                     return "error"
@@ -748,7 +748,7 @@ class Functions():
                 r_session = self.set_request_session()
                 r_session.timeout = (2,2)
                 r_session.verify = False
-                session = r_session.get(api_url).json()
+                session = r_session.get(api_url, timeout=self.session_timeout).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
                 if n == tolerance-1:
@@ -781,9 +781,9 @@ class Functions():
                 session = self.set_request_session()
                 session.timeout = 2
                 if utype == "json":
-                    response = session.get(url).json()
+                    response = session.get(url, timeout=self.session_timeout).json()
                 else:
-                    response = session.get(url)
+                    response = session.get(url, timeout=self.session_timeout)
             except Exception as e:
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
                 if n > tolerance-1:
@@ -830,7 +830,7 @@ class Functions():
                     session = self.set_request_session()
                     session.verify = False
                     session.timeout=2
-                    results = session.get(uri).json()
+                    results = session.get(uri, timeout=self.session_timeout).json()
                 except:
                     if n > var.attempt_range:
                         if not self.auto_restart:
@@ -1001,7 +1001,7 @@ class Functions():
             session = self.set_request_session(json)
             session.verify = False
             session.timeout = 2
-            results = session.get(uri).json()
+            results = session.get(uri, timeout=self.session_timeout).json()
             results = results[get_results]
         except Exception as e:
             self.log.logger.warn(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
@@ -1243,7 +1243,23 @@ class Functions():
         session.params = {'random': random.randint(10000,20000)}
         return session
 
-         
+
+    def set_console_setup(self,wrapper_obj):
+        console_size = get_terminal_size()  # columns, lines
+
+        initial_indent = subsequent_indent = "  "
+        if wrapper_obj is not None:
+                initial_indent = wrapper_obj.get("indent","  ")
+                subsequent_indent = wrapper_obj.get("sub_indent","  ")
+                
+        console_setup = TextWrapper()
+        console_setup.initial_indent = initial_indent
+        console_setup.subsequent_indent = subsequent_indent
+        console_setup.width=(console_size.columns - 2)
+
+        return console_size, console_setup
+
+
     # =============================
     # pull functions
     # ============================= 
@@ -1296,7 +1312,7 @@ class Functions():
             try:
                 r_session = self.set_request_session()
                 r_session.verify = False
-                session = r_session.get(url).json()
+                session = r_session.get(url, timeout=self.session_timeout).json()
             except:
                 self.log.logger.error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
             finally:
@@ -1393,7 +1409,7 @@ class Functions():
                     session.verify = True
                     session.timeout = 2
                     url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
-                    balance = session.get(url).json()
+                    balance = session.get(url, timeout=self.session_timeout).json()
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
@@ -1717,7 +1733,7 @@ class Functions():
                 session = self.set_request_session()
                 session.verify = True
                 session.timeout = 2
-                health = session.get(uri)
+                health = session.get(uri, timeout=self.session_timeout)
             except:
                 self.log.logger.warn(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if n > 2:
@@ -1748,7 +1764,7 @@ class Functions():
             session = self.set_request_session()
             session.verify = False
             session.timeout = 2
-            r = session.get(f'http://127.0.0.1:{api_port}/node/health')
+            r = session.get(f'http://127.0.0.1:{api_port}/node/health', timeout=self.session_timeout)
         except:
             pass
         else:
@@ -1976,7 +1992,7 @@ class Functions():
                             session = self.set_request_session()
                             session.verify = False
                             session.timeout = 2 
-                            state = session.get(uri).json()
+                            state = session.get(uri, timeout=self.session_timeout).json()
                             color = self.change_connection_color(state)
                             self.log.logger.debug(f"test_peer_state -> uri [{uri}]")
 
@@ -2613,7 +2629,7 @@ class Functions():
             return True
         return
         
-        
+
     def print_paragraphs(self,paragraphs,wrapper_obj=None):
         # paragraph=(list)
         # [0] = line
@@ -2623,17 +2639,19 @@ class Functions():
             # 2 - X = number of newlines
         # [2] = color (optional default = cyan)
 
-        console_size = get_terminal_size()  # columns, lines
+        console_size, console_setup = self.set_console_setup(wrapper_obj)
+        # console_size = get_terminal_size()  # columns, lines
 
-        initial_indent = subsequent_indent = "  "
-        if wrapper_obj is not None:
-                initial_indent = wrapper_obj.get("indent","  ")
-                subsequent_indent = wrapper_obj.get("sub_indent","  ")
+        # initial_indent = subsequent_indent = "  "
+        # if wrapper_obj is not None:
+        #         initial_indent = wrapper_obj.get("indent","  ")
+        #         subsequent_indent = wrapper_obj.get("sub_indent","  ")
                 
-        console_setup = TextWrapper()
-        console_setup.initial_indent = initial_indent
-        console_setup.subsequent_indent = subsequent_indent
-        console_setup.width=(console_size.columns - 2)
+        # console_setup = TextWrapper()
+        # console_setup.initial_indent = initial_indent
+        # console_setup.subsequent_indent = subsequent_indent
+        # console_setup.width=(console_size.columns - 2)
+
         attribute = []
         
         try:
