@@ -4,15 +4,15 @@
   ],
   "testnet": {
     "version": "v2.12.9",
-    "upgrade": "True"
+    "upgrade": "False"
   },
   "mainnet": {
     "version": "v2.12.8",
-    "upgrade": "True"
+    "upgrade": "False"
   },
   "integrationnet": {
     "version": "v2.12.8",
-    "upgrade": "True"
+    "upgrade": "False"
   },
   "nodectl_config": "v2.1.0"
 }
