@@ -2300,8 +2300,8 @@ class Functions():
         single_bg = command_obj.get("single_bg", "on_blue")
 
         if upper:
-            line1 = line1.upper()
-            line2 = line2.upper()
+            if line1 is not None: line1 = line1.upper()
+            if line2 is not None: line2 = line2.upper()
 
         if "on_" not in single_bg:
             single_bg = f"on_{single_bg}" 
@@ -2314,7 +2314,7 @@ class Functions():
         if single_line:
             line1 = f" * {line1} * "  
             print("  ",end="")  
-            cprint(f'{line1:-^40}',single_color,single_bg,attrs=["bold"])
+            cprint(f' {line1:-^40} ',single_color,single_bg,attrs=["bold"])
         else:
             header0 = "  ========================================"
             header1 = "  =   CONSTELLATION NETWORK HYPERGRAPH   ="
