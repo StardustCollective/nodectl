@@ -198,8 +198,6 @@ class AutoRestart():
             self.profile_pairing.append(merge_profile)
             self.profile_names.append(merge_profile["profile"])
 
-        pass
-
 
     def setup_profile_states(self):
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  setup profiles - initializing known profile sessions and state | all profile [{self.profile_names}]")

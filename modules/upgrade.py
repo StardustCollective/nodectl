@@ -112,6 +112,7 @@ class Upgrader():
     def handle_profiles(self):
         profile_items = self.functions.pull_profile({"req": "order_pairing"})
         self.profile_order = profile_items.pop()
+        self.profile_order = self.functions.clear_external_profiles(self.profile_order)
         self.profiles_by_env = list(self.functions.pull_profile({
             "req": "profiles_by_environment",
             "environment": self.environment
@@ -120,7 +121,8 @@ class Upgrader():
         # removes any profiles that don't belong to this environment
         for n, profile_list in enumerate(profile_items):
             for profile in profile_list:
-                if profile["profile"] not in self.profiles_by_env: profile_items.pop(n)
+                if profile["profile"] == "external": continue
+                elif profile["profile"] not in self.profiles_by_env: profile_items.pop(n)
                 else:
                     self.profile_progress = {
                         **self.profile_progress,
@@ -134,7 +136,15 @@ class Upgrader():
                             f"download_version": False,
                         }
                     }
-        self.profile_items = profile_items
+        
+        # clean up external entries
+        clean_profile_list = []
+        for n, profile_list in enumerate(profile_items):
+            if profile_list[0]["profile"] != "external":
+                clean_profile_list.append(profile_list)
+        self.profile_items = clean_profile_list
+
+
         
         
     def handle_verification(self):

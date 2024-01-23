@@ -688,6 +688,10 @@ class Functions():
                         if specific_ip == i_node["ip"]:
                             node = i_node
                             break
+
+                if node == self.ip_address:
+                    self.log.logger.debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked was self, trying again: attempt [{n}] of [{max_range}]")
+                    continue # avoid picking "ourself"
                 
                 self.log.logger.debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked: [{node}]")
                 
@@ -2926,6 +2930,12 @@ class Functions():
         if isinstance(profile_list_or_obj,list):
             return [x for x in profile_list_or_obj if "global" not in x]
         return [ x for x in profile_list_or_obj.keys() if "global" not in x]
+        
+        
+    def clear_external_profiles(self,profile_list_or_obj):
+        if isinstance(profile_list_or_obj,list):
+            return [x for x in profile_list_or_obj if "external" not in x]
+        return [ x for x in profile_list_or_obj.keys() if "external" not in x]
 
     
     def cleaner(self, line, action, char=None):

@@ -629,6 +629,16 @@ class Node():
                 "info_list": ["id","host","p2pPort","state"]
             })
 
+            if source_node_list == None: 
+                if n < 3:                    
+                    self.error_messages.error_code_messages({
+                        "error_code": "ns-634",
+                        "line_code": "config_error",
+                        "extra": "format",
+                    })
+                self.log.logger.error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{source_node_list}]")
+                continue # try again... 
+
             self.functions.print_cmd_status({
                 "text_start": f"{link_type.upper()} Link Node in",
                 "brackets": source_node_list[3],

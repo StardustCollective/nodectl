@@ -7,57 +7,73 @@ from .logger import Logging
 
 # glossary or error_code
 # =======================
-# not_new_install
-# upgrade_needed
-# upgrade_path_needed
-# upgrade_incompatibility
-# upgrade_failure
-# environment_error
-# lb_not_up
-# verification_failure
-# service
-# service_join
-# join_error
-# new_connect_error
-# link_to_profile
+
 # api_error
-# seed-list
-# off_network
-# join
-# ssh_keys
+
+# config_error
+#     format
+#     existence
+#     configurator
+
+# download_yaml
+# dependency
+
+# environment_error
+
+# file_not_found
+
 # invalid_passphrase
 # invalid_passphrase_pass
 # invalid_address
-# possible404
-# invalid_user
-# term
+# invalid_tcp_ports
+# input_error
+# invalid_layer
+# invalid_search
 # ip_not_found
-# version_fetch
-# sudo_error
-# peer_count_error
+# invalid_user
+# invalid_file_format
+# invalid_output_file
+
+# join_error
+# join
+
+# lb_not_up
+# link_to_profile
+
+# not_new_install
 # node_id_issue
 #     invalid
 #     external
 #     nodeid2dag
 #     config
-# invalid_tcp_ports
-# input_error
-# invalid_layer
-# invalid_search
-# file_not_found
-# dependency
-# invalid_file_format
-# invalid_output_file
-# profile_error
+# new_connect_error
+
+# off_network
 # open_file
 #     cn-node
 #     id_hex_file
 #     p12
-# download_yaml
-# config_error
-#     format
-#     existence
-#     configurator
+
+# possible404
+# peer_count_error
+# profile_error
+
+# service
+# service_join
+# seed-list
+# ssh_keys
+# sudo_error
+
+# term
+
+# upgrade_needed
+# upgrade_path_needed
+# upgrade_incompatibility
+# upgrade_failure
+
+# version_fetch
+# verification_failure
+
 
 class Error_codes():
     
