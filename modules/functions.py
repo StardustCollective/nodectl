@@ -1573,12 +1573,27 @@ class Functions():
                 # order_pairing option should have the last element with the
                 # pairing dict popped before the returned list is used.
                 pre_profile_order = []; profile_order = []
+
                 for profile_group in pairing_list:
                     for profile_obj in reversed(profile_group):
                         pre_profile_order.append(profile_obj["profile"])
-                [profile_order.append(element) for element in pre_profile_order if element not in profile_order]         
-                pairing_list.append(profile_order)
                 
+                [profile_order.append(element) for element in pre_profile_order if element not in profile_order]      
+                if len(profile_order) < 2 and profile_order[0] == "external":
+                    pairing_list = []
+                    for profile in self.profile_names:
+                        pairing_list.append(
+                            [{
+                            "profile": profile,
+                            "service" : self.config_obj[profile]["service"],
+                            "layer": self.config_obj[profile]["layer"],
+                            }]
+                        )
+                    pairing_list.append(["external"])
+                    pairing_list[-1] += self.profile_names
+                else:
+                    pairing_list.append(profile_order)
+
             return pairing_list
 
         elif "environments" in var.req:

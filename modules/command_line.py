@@ -2604,8 +2604,8 @@ class CLI():
         })
         profile_order = profile_pairing_list.pop()
 
-        if "external" in profile_order:
-            profile_order.remove("external")
+        # if "external" in profile_order: 
+        #     profile_order.remove("external")
         
         if called_profile == "all":
             single_profile = False

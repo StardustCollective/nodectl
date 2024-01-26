@@ -145,8 +145,6 @@ class Upgrader():
         self.profile_items = clean_profile_list
 
 
-        
-        
     def handle_verification(self):
         self.print_section("Verify Node Upgrade")
         
@@ -1091,12 +1089,14 @@ class Upgrader():
                     ignore_sub_list2.append(f"cnng-{value}")
 
         ignore_list = [ignore_sub_list,ignore_sub_list2]
-
+        arg_list = ["-t","config_change"]
+        if self.non_interactive: arg_list.append("--ni")
         self.cli.clean_files({
             "action": "config_change",
             "time_check": -1,
+            "non"
             "ignore_list": ignore_list,
-            "argv_list": ["-t","config_change"]
+            "argv_list": arg_list,
         })
         
     
