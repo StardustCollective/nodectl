@@ -22,7 +22,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.12.10"
+        nodectl_version = "v2.12.11"
         nodectl_yaml_version = "v2.1.0"
         node_upgrade_path_yaml_version = "v2.0.0" # if previous is 'current_less'; upgrade path needed (for migration module)
 
