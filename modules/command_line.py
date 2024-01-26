@@ -2932,7 +2932,7 @@ class CLI():
         first_attempt = True
         wfd_count, wfd_max = 0, 3  # WaitingForDownload
         dip_count, dip_max = 0, 8 # DownloadInProgress
-        ss_count, ss_max = 0, 5 # SessionStarted
+        ss_count, ss_max = 0, 3 # SessionStarted
         
         attempt = ""
         
@@ -3091,7 +3091,7 @@ class CLI():
                             result = False
                             tolerance_result = False # force last error to print
                             break
-                        ss_max += 1
+                        ss_count += 1
                     if state == "DownloadInProgress":
                         if dip_status:
                             self.functions.print_paragraphs([
