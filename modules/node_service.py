@@ -355,6 +355,9 @@ class Node():
         if not self.auto_restart:
             self.functions.print_cmd_status(progress)
         
+        if not path.exists(self.config_obj[profile]['seed_location']):
+            makedirs(self.config_obj[profile]['seed_location'])
+            
         # execute download and test for zero file size   
         for n in range(0,4):
             self.functions.process_command({
