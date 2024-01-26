@@ -2604,10 +2604,10 @@ class CLI():
         })
         profile_order = profile_pairing_list.pop()
 
-        # if "external" in profile_order: 
-        #     profile_order.remove("external")
         
         if called_profile == "all":
+            if "external" in profile_order: 
+                profile_order.remove("external")
             single_profile = False
             valid_request = True
         elif called_profile != "empty" and called_profile != None:
