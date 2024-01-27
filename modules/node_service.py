@@ -312,7 +312,7 @@ class Node():
         seed_path = self.functions.config_obj[profile]["seed_path"]    
         seed_file = self.config_obj[profile]['seed_file']
         seed_repo = self.config_obj[profile]['seed_repository']
-        
+
         if download_version == None: download_version = "default"
         
         if not self.auto_restart:
@@ -642,15 +642,15 @@ class Node():
                 self.log.logger.error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{source_node_list}]")
                 continue # try again... 
 
-            self.functions.print_cmd_status({
-                "text_start": f"{link_type.upper()} Link Node in",
-                "brackets": source_node_list[3],
-                "text_end": "state" if source_node_list[3] == "Ready" else "state | not",
-                "status": "Ready",
-                "status_color": "green" if source_node_list[3] == "Ready" else "red",
-                "newline": True
-            })
-            print("")
+            if not self.auto_restart:
+                self.functions.print_cmd_status({
+                    "text_start": f"{link_type.upper()} Link Node in",
+                    "brackets": source_node_list[3],
+                    "text_end": "state" if source_node_list[3] == "Ready" else "state | not",
+                    "status": "Ready",
+                    "status_color": "green" if source_node_list[3] == "Ready" else "red",
+                    "newline": True
+                })
 
             ready_list = ["Ready","WaitingForReady","Observing","WaitingForObserving"]
             ready_list = ["Ready"]
@@ -660,17 +660,18 @@ class Node():
 
             if n > 2:
                 self.log.logger.error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
-                self.functions.print_paragraphs([
-                    [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
-                    ["Exiting join process, please try again later or check Node configuration.",2,"red"],
-                ])
-                self.functions.print_auto_restart_warning()
+                if not self.auto_restart:
+                    self.functions.print_paragraphs([
+                        [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
+                        ["Exiting join process, please try again later or check Node configuration.",2,"red"],
+                    ])
+                    self.functions.print_auto_restart_warning()
                 return False
             
             error_str = colored("before trying again ","red")+colored(n,"yellow",attrs=["bold"])
             error_str += colored(" of ","red")+colored("3","yellow",attrs=["bold"])
 
-            if interactive:
+            if interactive and not self.auto_restart:
                 self.functions.print_paragraphs([
                     ["Press",0],["w",0,"yellow"], ["to wait 30 seconds",1],
                     ["Press",0],["s",0,"yellow"], ["to skip join",1],
@@ -686,7 +687,8 @@ class Node():
                     exit(0)
 
                 if not_ready_option.upper() == "S": break
-            self.functions.print_timer(30,error_str)
+            if not self.auto_restart:
+                self.functions.print_timer(30,error_str)
 
         return False
         
@@ -812,20 +814,26 @@ class Node():
         static_peer = command_obj.get("static_peer",False)
         
         final = False  # only allow 2 non_interactive attempts
-        
+        clear_to_join, join_breakout, exception_found = True, False, False 
+        state = None        
+
         self.set_profile_api_ports()
-        
         self.log.logger.info(f"joining cluster profile [{self.profile}]")
-        layer_zero_ready = False
-        join_breakout = False
-        exception_found = False
-        state = None
         
         # profile is set by cli.set_profile method
-        gl0_linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
-        ml0_linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
-        gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"] # dynamically reviewed
-        ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"] # dynamically reviewed
+        link_obj = {
+            "gl0_linking_enabled": self.functions.config_obj[self.profile]["gl0_link_enable"],
+            "ml0_linking_enabled": self.functions.config_obj[self.profile]["ml0_link_enable"],
+            "gl0_link_ready": False,
+            "ml0_link_ready": False,
+            "gl0_link_profile": self.functions.config_obj[self.profile]["gl0_link_profile"],
+            "ml0_link_profile": self.functions.config_obj[self.profile]["ml0_link_profile"]         
+        }
+        # gl0_linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
+        # ml0_linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
+        # gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"] # dynamically reviewed
+        # ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"] # dynamically reviewed
+        # found_token = self.config_obj[self.profile]['token_identifier']
 
         profile_layer = self.functions.config_obj[self.profile]["layer"]
         link_types = ["gl0","ml0"]
@@ -836,24 +844,26 @@ class Node():
         if caller: self.log.logger.debug(f"join_cluster called from [{caller}]")
         
         found_link_types = []
-        if gl0_linking_enabled or ml0_linking_enabled:
+        if link_obj["gl0_linking_enabled"] or link_obj["ml0_linking_enabled"]:
             self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
-            if not self.auto_restart:
-                for link_type in link_types:
-                    verb = " profile" if eval(f"{link_type}_link_profile") != "None" else ""
-                    link_word = eval(f"{link_type}_link_profile") if verb == " profile" else f"Remote Link [{self.functions.config_obj[self.profile][f'{link_type}_link_host']}:{self.functions.config_obj[self.profile][f'{link_type}_link_port']}]"
+            for link_type in link_types:
+                if not self.auto_restart:
+                    verb = " profile" if link_obj[f"{link_type}_link_profile"] != "None" else ""
+                    link_word = link_obj[f"{link_type}_link_profile"] if verb == " profile" else f"Remote Link [{self.functions.config_obj[self.profile][f'{link_type}_link_host']}:{self.functions.config_obj[self.profile][f'{link_type}_link_port']}]"
+                    if verb == " profile":
+                        link_word = link_obj[f"{link_type}_link_profile"] 
+                    else:
+                        f"Remote Link [{self.functions.config_obj[self.profile][f'{link_type}_link_host']}:{self.functions.config_obj[self.profile][f'{link_type}_link_port']}]"
                     graph_type = "Hypergraph" if self.functions.config_obj[self.profile]['meta_type'] == "gl" else "Metagraph"
-                    if eval(f"{link_type}_linking_enabled"):
+                if link_obj[f"{link_type}_linking_enabled"]:
+                    if not self.auto_restart:
                         self.functions.print_paragraphs([
                             [f"Waiting on{verb}",0,"yellow"],[link_word,0,"green"],["state to be",0,"yellow"],
                             ["Ready",0,"green"], [f"before initiating {graph_type} join.",1,"yellow"]
                         ])
-                        found_link_types.append(link_type)
-                    if eval(f"{link_type}_linking_enabled"): # and eval(f"{link_type}_link_profile") == "None":
-                        layer_zero_ready = self.build_remote_link(link_type,interactive)
-                        if not layer_zero_ready:
-                            if link_type == "gl0": gl0_linking_enabled = False
-                            elif link_type == "ml0": ml0_linking_enabled = False
+                    found_link_types.append(link_type)
+                if link_obj[f"{link_type}_linking_enabled"]: 
+                    link_obj[f"{link_type}_link_ready"] = self.build_remote_link(link_type,interactive)
 
         get_info_obj = {
                 "caller": f"{caller} -> join_cluster",
@@ -897,14 +907,22 @@ class Node():
             })
         
         join_session = Session()  # this is a requests Session external library
-                
-        if gl0_linking_enabled or ml0_linking_enabled:
+        
+        # are we clear to join?
+        for link_type in link_types:
+            if profile_layer == 0 and not link_obj["gl0_linking_enabled"]:
+                break
+            if link_obj[f"{link_type}_linking_enabled"] and not link_obj[f"{link_type}_link_ready"]:
+                clear_to_join = False
+
+        if clear_to_join:
             for link_type in link_types:
-                if eval(f"{link_type}_link_profile") != "None":  # if None should be static
+                gl0ml0 = link_obj[f"{link_type}_link_profile"]
+                if gl0ml0 != "None":  # if None should be static
                     try:
                         _ = self.functions.pull_profile({
                             "req": "ports",
-                            "profile": eval(f"{link_type}_link_profile")
+                            "profile": gl0ml0
                         })  
                     except:
                         self.log.logger.error(f"node_service -> join link to profile error for profile [{self.profile}] link type [{link_type}]")
@@ -914,9 +932,9 @@ class Node():
                             "error_code": "ser-357",
                             "line_code": "link_to_profile",
                             "extra": self.profile,
-                            "extra2": eval(f"{link_type}_link_profile")
+                            "extra2": gl0ml0
                     })
-            
+                
                     while True:
                         for n in range(1,10):
                             start = n*12-12
@@ -924,23 +942,23 @@ class Node():
                                 start = 1
 
                             state = self.functions.test_peer_state({
-                                "profile": eval(f"{link_type}_link_profile"),
+                                "profile": gl0ml0,
                                 "simple": True
                             })
 
                             if not self.auto_restart:
                                 self.functions.print_cmd_status({
                                     "text_start": "Current Found State",
-                                    "brackets": eval(f"{link_type}_link_profile"),
+                                    "brackets": gl0ml0,
                                     "status": state,
                                     "newline": True,
                                 })
                                 
                             if state == "Ready":
-                                layer_zero_ready = True
+                                link_obj[f"{link_type}_link_ready"] = True
                                 break
                             if state != "Observing" and state != "WaitingForReady":
-                                layer_zero_ready = False
+                                link_obj[f"{link_type}_link_ready"] = False
                                 join_breakout = True
                                 break
 
@@ -949,10 +967,10 @@ class Node():
                                 self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
                             else:
                                 self.functions.print_timer(12,"Sleeping prior to retry")
-                        if layer_zero_ready or join_breakout:
+                        if link_obj[f"{link_type}_link_ready"] or join_breakout:
                             break
 
-                        if not self.auto_restart and not layer_zero_ready:
+                        if not self.auto_restart and not link_obj[f"{link_type}_link_ready"]:
                             self.functions.print_paragraphs([
                                 ["",1], [" ERROR ",0,"red,on_yellow"],
                                 [f"nodectl was unable to find the {link_type.upper()} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
@@ -978,7 +996,6 @@ class Node():
                                     break
                                 final = True  # only allow one retry
                     
-        if (profile_layer == 0 and not gl0_linking_enabled) or layer_zero_ready:
             if not self.auto_restart:
                 self.functions.print_cmd_status({
                     "text_start": "Join cluster status",
@@ -1047,11 +1064,12 @@ class Node():
                 
             result = "done".ljust(32)
         else:
+            self.log.logger.warn("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
             try: return_str = found_link_types.pop()
-            except: return_str == self.profile
+            except: return_str = self.profile
             else:
                 for link_type in found_link_types:
-                    return_str += f" and {link_type}"
+                    return_str += f" and/or {link_type}"
             result = f"{return_str} not Ready".ljust(32)
                 
         if action == "cli":

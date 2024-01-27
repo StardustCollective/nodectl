@@ -169,7 +169,7 @@ class AutoRestart():
         # related to this service / thread
         self.profile_names = []
         profile_pairings = self.functions.pull_profile({
-            "req": "pairings",
+            "req": "pairing",
         })
 
         # merge pairing lists if first element is the same
@@ -177,6 +177,8 @@ class AutoRestart():
         merge_list = []
         profile = None  # skip the first merge pair
         for merge_pairing in profile_pairings:
+            if merge_pairing[0]["profile"] == "external": 
+                continue
             if merge_pairing[0]["profile"] == profile:
                 merge_list.append(merge_pairing[1])
             profile = merge_pairing[0]["profile"]
@@ -197,6 +199,10 @@ class AutoRestart():
         for merge_profile in merge_list: 
             self.profile_pairing.append(merge_profile)
             self.profile_names.append(merge_profile["profile"])
+
+        if len(self.profile_names) < 1:
+            # duplicate independent link
+            self.profile_names = [self.thread_profile,self.thread_profile]
 
 
     def setup_profile_states(self):

@@ -1559,7 +1559,7 @@ class Functions():
             # add services to the pairing list
             for n, s_list in enumerate(pairing_list):
                 for i, profile in enumerate(s_list):
-                    if isinstance(profile,dict): continue  # external connection not profile
+                    if isinstance(profile,dict) or profile == "external": continue  # external connection not profile
                     pair_dict = {
                         "profile": profile,
                         "service": self.config_obj[profile]["service"],
