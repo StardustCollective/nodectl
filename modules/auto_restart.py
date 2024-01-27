@@ -580,14 +580,24 @@ class AutoRestart():
     
         # update version_obj
         def update_version_cache():
-            self.version_obj = self.versioning.get_cached_version_obj()
+            for n in range(1,5):
+                self.version_obj = self.versioning.get_cached_version_obj()
+                try:
+                    if isinstance(self.version_obj[self.environment][self.thread_profile]["tess_uptodate"],bool):
+                        self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "false"
+                        self.profile_states[self.node_service.profile]["version_uptodate"] = False
+                        if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"]:
+                            self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "true"
+                            self.profile_states[self.node_service.profile]["version_uptodate"] = True
+                except Exception as e:
+                    self.log.logger.critical(f"auto_restart -> version_check_handler -> update_version -> failed with [{e}]")
+                    if n > 3:
+                        self.attempts_looper(0,"versioning_update",125,1,True)
+                    self.log.logger.debug(f"attempting to update version object | attempt [{n}] or [3]")
+                    self.attempts_looper(0,"versioning_update",125,1,False)
+                else:
+                    break
 
-            if isinstance(self.version_obj[self.environment][self.thread_profile]["tess_uptodate"],bool):
-                self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "false"
-                self.profile_states[self.node_service.profile]["version_uptodate"] = False
-                if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"]:
-                    self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "true"
-                    self.profile_states[self.node_service.profile]["version_uptodate"] = True
                     
             versions = [
                 self.version_obj[self.environment][self.thread_profile]["cluster_tess_version"],

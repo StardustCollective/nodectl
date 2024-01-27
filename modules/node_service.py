@@ -829,11 +829,6 @@ class Node():
             "gl0_link_profile": self.functions.config_obj[self.profile]["gl0_link_profile"],
             "ml0_link_profile": self.functions.config_obj[self.profile]["ml0_link_profile"]         
         }
-        # gl0_linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
-        # ml0_linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
-        # gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"] # dynamically reviewed
-        # ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"] # dynamically reviewed
-        # found_token = self.config_obj[self.profile]['token_identifier']
 
         profile_layer = self.functions.config_obj[self.profile]["layer"]
         link_types = ["gl0","ml0"]

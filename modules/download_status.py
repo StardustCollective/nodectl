@@ -260,7 +260,7 @@ class DownloadStatus():
     def build_percent_hashes(self):
         self.dip_vals.last_hash_marks = self.dip_vals.hash_marks
         console_size = get_terminal_size()
-        columns = int(console_size.columns*.65)
+        columns = int(console_size.columns*.62)
         
         try:
             hash_marks = int((self.dip_vals.percentage/100)*columns)
@@ -393,12 +393,17 @@ class DownloadStatus():
             current = self.dip_status["current_height"]
             set_current = "start"
         else:   
-            end = self.dip_status["latest"]
-            current = self.dip_status["current"]     
-            if self.dip_vals.start < 1: start = self.dip_status["start"]
-            else: start = self.dip_vals.start
+            end = self.dip_status["current"] - self.dip_status["start"]
+            current = self.dip_status["current"]  
+            start = self.dip_status["start"]
             if start > current: absolute = True
             backwards = True
+            # end = self.dip_status["latest"]
+            # current = self.dip_status["current"]     
+            # if self.dip_vals.start < 1: start = self.dip_status["start"]
+            # else: start = self.dip_vals.start
+            # if start > current: absolute = True
+            # backwards = True
         
         try:
             percentage = self.functions.get_percentage_complete({
@@ -432,7 +437,7 @@ class DownloadStatus():
 
             self.dip_vals.left = abs(start-current)
             if self.dip_vals.left > self.dip_vals.previous_left:
-                self.dip_vals.left = self.dip_vals.use_current
+                self.dip_vals.left = self.dip_vals.use_current - self.dip_vals.goal
             else:
                 self.dip_vals.previous_left = self.dip_vals.left
             

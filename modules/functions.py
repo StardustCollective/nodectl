@@ -612,12 +612,12 @@ class Functions():
         
         if backwards:
             total_range = end - start
-            current_range = abs(set_current - start)
-            percentage = (1 - current_range / total_range) * 100
+            current_range = abs(total_range)
+            percentage = 100 - (1 - current_range / start) * 100
         else:
             percentage = (current / end) * 100
 
-        return int(percentage) 
+        return round(percentage,2) 
     
 
     def get_info_from_edge_point(self,command_obj):
