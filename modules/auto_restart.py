@@ -30,9 +30,10 @@ class AutoRestart():
         self.retry_tolerance = 50
         self.thread_profile = thread_profile  # initialize
         self.rapid_restart = self.config_obj["global_auto_restart"]["rapid_restart"] 
-        self.gl0_link_profile = self.config_obj[self.thread_profile]["gl0_link_profile"]
-        self.ml0_link_profile = self.config_obj[self.thread_profile]["ml0_link_profile"]
         self.thread_layer = self.config_obj[self.thread_profile]["layer"]
+
+        # self.gl0_link_profile = self.config_obj[self.thread_profile]["gl0_link_profile"]
+        # self.ml0_link_profile = self.config_obj[self.thread_profile]["ml0_link_profile"]
 
         self.sleep_on_critical = 15 if self.rapid_restart else 600
         self.silent_restart_timer = 5 if self.rapid_restart else 30  
@@ -43,7 +44,7 @@ class AutoRestart():
         self.on_boot_handler_check = True
         
         self.stuck_timers = {
-            "Observing_tolerance": 6*60, 
+            "Observing_tolerance": 10*60, 
             "Observing_state_enabled": False,
             "WaitingForDownload_state_enabled": False,
             "WaitingForDownload_tolerance": 6*60,
@@ -168,7 +169,7 @@ class AutoRestart():
         # related to this service / thread
         self.profile_names = []
         profile_pairings = self.functions.pull_profile({
-            "req": "pairings",
+            "req": "pairing",
         })
 
         # merge pairing lists if first element is the same
@@ -176,6 +177,8 @@ class AutoRestart():
         merge_list = []
         profile = None  # skip the first merge pair
         for merge_pairing in profile_pairings:
+            if merge_pairing[0]["profile"] == "external": 
+                continue
             if merge_pairing[0]["profile"] == profile:
                 merge_list.append(merge_pairing[1])
             profile = merge_pairing[0]["profile"]
@@ -197,14 +200,21 @@ class AutoRestart():
             self.profile_pairing.append(merge_profile)
             self.profile_names.append(merge_profile["profile"])
 
+        if len(self.profile_names) < 1:
+            # duplicate independent link
+            self.profile_names = [self.thread_profile,self.thread_profile]
+
 
     def setup_profile_states(self):
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  setup profiles - initializing known profile sessions and state | all profile [{self.profile_names}]")
         self.profile_states = {}
-        
+
         self.auto_upgrade, self.passphrase_warning = False, False
         if self.functions.config_obj["global_auto_restart"]["auto_upgrade"]: 
-            self.auto_upgrade = True
+            if not self.functions.config_obj[self.thread_profile]["is_jar_static"]:
+                self.auto_upgrade = True
+            else:
+                self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] - update profile states - [auto_upgrade] is [enabled] however, the jar repository is statically defined.  auto_upgrade will not be able to determine if an upgrade is needed, disabling feature [False].")
         if self.functions.config_obj["global_p12"]["passphrase"] == "None":
             self.passphrase_warning = True
             
@@ -220,18 +230,26 @@ class AutoRestart():
             self.profile_states[profile]["action"] = None
             self.profile_states[profile]["gl0_link_profile"] = False
             self.profile_states[profile]["ml0_link_profile"] = False
+            self.profile_states[profile]["gl0_link_ehost"] = False
+            self.profile_states[profile]["gl0_link_eport"] = False
+            self.profile_states[profile]["ml0_link_ehost"] = False
+            self.profile_states[profile]["ml0_link_eport"] = False
             self.profile_states[profile]["layer"] = int(self.functions.config_obj[profile]["layer"])
             
             for link_type in self.link_types:
-                if self.functions.config_obj[profile][f"{link_type}_link_enable"] == True:
-                    if eval(f"self.{link_type}_link_profile") != "None": 
-                        self.profile_states[profile][f"{link_type}_link_profile"] = eval(f"self.{link_type}_link_profile")
+                if self.functions.config_obj[profile][f"{link_type}_link_enable"]:
+                    self.profile_states[profile][f"{link_type}_link_profile"] = 'external'
+                    if self.functions.config_obj[profile][f"{link_type}_link_profile"] == "None":
+                        self.profile_states[profile][f"{link_type}_link_ehost"] = self.functions.config_obj[profile][f"{link_type}_link_host"]
+                        self.profile_states[profile][f"{link_type}_link_eport"] = self.functions.config_obj[profile][f"{link_type}_link_port"]
+                    else:
+                        self.profile_states[profile][f"{link_type}_link_profile"] =  self.functions.config_obj[profile][f"{link_type}_link_profile"]
                         
         if len(self.profile_states) < 2: self.independent_profile = True
 
     
     def update_profile_states(self):
-        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | all profile [{self.profile_names}]")
+        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - update profile states | all profile [{self.profile_names}]")
         
         for profile in self.profile_states:
            self.node_service.set_profile(profile)
@@ -249,7 +267,19 @@ class AutoRestart():
            
         self.node_service.set_profile(self.thread_profile)  ## return the node_service profile to the appropriate profile
                         
-                             
+
+    def set_external_state(self,link_type):
+        return self.functions.test_peer_state({
+                    "test_address": self.profile_states[self.node_service.profile][f"{link_type}_link_ehost"],
+                    "profile": self.node_service.profile,
+                    "simple": True,
+                    "print_output": False,
+                    "skip_thread": True,
+                    "threaded": False,
+                    "spinner": False,
+                })  
+
+
     def set_session_and_state(self):
         self.log.logger.info(f"auto restart - get session and state - updating profile [{self.node_service.profile}] state and session object with edge device [{self.edge_device}]") 
         
@@ -304,15 +334,34 @@ class AutoRestart():
             continue_checking = False
             
         if continue_checking:
-            if gl0_dependent_link and self.profile_states[gl0_dependent_link]["node_state"] != "Ready":
+            if gl0_dependent_link == "external":
+                ext_state = self.set_external_state("gl0")
+                if ext_state != "Ready":
+                    self.log.logger.debug(f'auto_restart - set sessions - profile [{self.thread_profile}] | gl0 link not ready | state [{ext_state}] - Detected external link not local to Node - setting layer0_wait flag')
+                    self.profile_states[self.node_service.profile]["match"] = False
+                    self.profile_states[self.node_service.profile]["ep_ready"] = True
+                    self.profile_states[self.node_service.profile]["action"] = "layer0_wait"
+                    self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
+                    continue_checking = False
+            elif gl0_dependent_link and self.profile_states[gl0_dependent_link]["node_state"] != "Ready":
                 self.log.logger.debug(f'auto_restart - set sessions - profile [{self.thread_profile}] | gl0 link not ready | state [{self.profile_states[gl0_dependent_link]["node_state"]}] - setting layer0_wait flag')
                 self.profile_states[self.node_service.profile]["match"] = False
                 self.profile_states[self.node_service.profile]["ep_ready"] = True
                 self.profile_states[self.node_service.profile]["action"] = "layer0_wait"
                 self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
                 continue_checking = False
+
             if self.profile_states[self.node_service.profile]["layer"] > 0:
-                if ml0_dependent_link and self.profile_states[ml0_dependent_link]["node_state"] != "Ready":
+                if ml0_dependent_link == "external":
+                    ext_state = self.set_external_state("ml0")
+                    if ext_state != "Ready":
+                        self.log.logger.debug(f'auto_restart - set sessions - profile [{self.thread_profile}] | gl0 link not ready | state [{ext_state}] - Detected external link not local to Node - setting layer0_wait flag')
+                        self.profile_states[self.node_service.profile]["match"] = False
+                        self.profile_states[self.node_service.profile]["ep_ready"] = True
+                        self.profile_states[self.node_service.profile]["action"] = "layer1_wait"
+                        self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
+                        continue_checking = False
+                elif ml0_dependent_link and self.profile_states[ml0_dependent_link]["node_state"] != "Ready":
                     self.log.logger.debug(f'auto_restart - set sessions - profile [{self.thread_profile}] | ml0 link not ready | state [{self.profile_states[ml0_dependent_link]["node_state"]}] - setting layer1_wait flag')
                     self.profile_states[self.node_service.profile]["match"] = False
                     self.profile_states[self.node_service.profile]["ep_ready"] = True
@@ -531,14 +580,24 @@ class AutoRestart():
     
         # update version_obj
         def update_version_cache():
-            self.version_obj = self.versioning.get_cached_version_obj()
+            for n in range(1,5):
+                self.version_obj = self.versioning.get_cached_version_obj()
+                try:
+                    if isinstance(self.version_obj[self.environment][self.thread_profile]["tess_uptodate"],bool):
+                        self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "false"
+                        self.profile_states[self.node_service.profile]["version_uptodate"] = False
+                        if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"]:
+                            self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "true"
+                            self.profile_states[self.node_service.profile]["version_uptodate"] = True
+                except Exception as e:
+                    self.log.logger.critical(f"auto_restart -> version_check_handler -> update_version -> failed with [{e}]")
+                    if n > 3:
+                        self.attempts_looper(0,"versioning_update",125,1,True)
+                    self.log.logger.debug(f"attempting to update version object | attempt [{n}] or [3]")
+                    self.attempts_looper(0,"versioning_update",125,1,False)
+                else:
+                    break
 
-            if isinstance(self.version_obj[self.environment][self.thread_profile]["tess_uptodate"],bool):
-                self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "false"
-                self.profile_states[self.node_service.profile]["version_uptodate"] = False
-                if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"]:
-                    self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] = "true"
-                    self.profile_states[self.node_service.profile]["version_uptodate"] = True
                     
             versions = [
                 self.version_obj[self.environment][self.thread_profile]["cluster_tess_version"],

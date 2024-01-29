@@ -175,11 +175,7 @@ class ShellHandler:
         elif self.called_command in service_change_commands:
             if not self.help_requested:
                 try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
-                except: 
-                    self.error_messages.error_code_messages({
-                        "error_code": "sh-161",
-                        "line_code": "profile_error",
-                    })
+                except: exit(0) # profile error caught by fnt-998
             if not self.help_requested:            
                 if self.called_command == "start":
                     self.cli.cli_start({
@@ -637,8 +633,8 @@ class ShellHandler:
                 if force or skip_warning_messages:
                     self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                     self.functions.print_paragraphs([
-                        [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, or extra parameters were supplied to",0],
-                        [f"this {self.install_upgrade}",1],
+                        [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, developer mode, or extra parameters were supplied to",0],
+                        [f"this {self.install_upgrade}.",1],
                         ["It will continue at the Node Operator's",0,"yellow"],
                         ["own risk and decision.",2,"yellow","bold"]
                     ])
@@ -935,6 +931,7 @@ class ShellHandler:
             "line1": "VERIFY NODECTL",
             "line2": "warning verify keys",
             "newline": "top",
+            "upper": False,
         })   
         
         version_obj = Versioning({"called_cmd": self.called_command})
@@ -1130,7 +1127,7 @@ class ShellHandler:
         if action == "service_start":
             self.log.logger.info("auto_restart - restart session threader - invoked.")
 
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=6) as executor:
                 thread_list = []
                 # self.profile_names = ["dag-l0"]  # used for debugging purposes
                 for n, profile in enumerate(self.profile_names):

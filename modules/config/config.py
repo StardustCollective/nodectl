@@ -234,7 +234,8 @@ class Configuration():
             if self.called_command != "upgrade":
                 self.error_messages.error_code_messages({
                     "error_code": "cfg-199",
-                    "line_code": "upgrade_needed"
+                    "line_code": "upgrade_needed",
+                    "extra": "Configuration yaml version mismatch."
                 })
             self.migration()
             self.config_obj = {}  # reset
@@ -336,7 +337,8 @@ class Configuration():
             "line1": "YAML CONFIGURATION",
             "line2": "cn-config.yaml review",
             "clear": True,
-            "newline": "top"
+            "newline": "top",
+            "upper": False,
         })
         
         if "--json" in self.argv_list:
@@ -495,7 +497,11 @@ class Configuration():
                         "value": "link_profile",
                         "special_case": None
                     })
-                    
+
+            self.config_obj[profile]["is_jar_static"] = False        
+            if self.config_obj[profile]["jar_repository"] != "default":
+                self.config_obj[profile]["is_jar_static"] = True
+                                    
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
@@ -514,8 +520,8 @@ class Configuration():
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found()
 
-            self.config_obj[profile]["jar_github"] = False         
-            if "github.com" in self.config_obj[profile]["jar_repository"]:
+            self.config_obj[profile]["jar_github"] = False 
+            if "github.com" in self.config_obj[profile]["jar_repository"] and not self.config_obj[profile]["is_jar_static"]:
                 self.config_obj[profile]["jar_github"] = True 
                 
             try:
@@ -653,7 +659,7 @@ class Configuration():
             if not passwd:
                 self.functions.print_header_title({
                     "line1": "PASSPHRASE REQUIRED",
-                    "line2": profile.upper(),
+                    "line2": profile,
                     "clear": clear,
                     "show_titles": show_titles,
                     "newline": top_new_line
@@ -824,6 +830,7 @@ class Configuration():
                 ["java_xss","mem_size"],
                 ["jar_repository","host_def"], 
                 ["jar_file","str"],
+                ["is_jar_static","bool"], # automated value [not part of yaml]
                 ["jar_github","bool"], # automated value [not part of yaml]
                 ["p12_nodeadmin","str"],
                 ["p12_key_location","path"],
@@ -892,8 +899,15 @@ class Configuration():
         def check_slash(st_val,path_value):
             if "def" in st_val and path_value == "default": return
             if "dis" in st_val and path_value == "disable": return
-            if path_value[-1] != "/": 
-                self.config_obj[profile][s_type] = f"{path_value}/" 
+            try:
+                if path_value[-1] != "/": 
+                    self.config_obj[profile][s_type] = f"{path_value}/"
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "cfg-896",
+                    "line_code": "config_error",
+                    "extra": "format",
+                })
                            
         try:
             for section, section_types in self.schema.items():
@@ -1417,6 +1431,7 @@ class Configuration():
                 "line1": "CONFIGURATION",
                 "line2": "validator",
                 "clear": True,
+                "upper": False,
             })
             
         if not self.validated:

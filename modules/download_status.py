@@ -190,11 +190,12 @@ class DownloadStatus():
         
     def pull_ordinal_values(self):
         self.dip_status = {}
-        metrics = self.functions.get_api_node_info({
-            "api_host": self.functions.be_urls[self.config_obj[self.profile]["environment"]],
-            "api_port": 443,
-            "api_endpoint": "/global-snapshots/latest",
-            "info_list": ["height","subHeight","ordinal"],   
+        
+        metrics = self.functions.get_snapshot({
+            "environment": self.config_obj[self.profile]["environment"],
+            "profile": self.profile,
+            "return_values": ["height","subHeight","ordinal"],
+            "return_type": "list",
         })
         
         try: self.dip_status["height"] = metrics[0]
@@ -259,7 +260,7 @@ class DownloadStatus():
     def build_percent_hashes(self):
         self.dip_vals.last_hash_marks = self.dip_vals.hash_marks
         console_size = get_terminal_size()
-        columns = int(console_size.columns*.65)
+        columns = int(console_size.columns*.62)
         
         try:
             hash_marks = int((self.dip_vals.percentage/100)*columns)
@@ -398,12 +399,17 @@ class DownloadStatus():
             current = self.dip_status["current_height"]
             set_current = "start"
         else:   
-            end = self.dip_status["latest"]
-            current = self.dip_status["current"]     
-            if self.dip_vals.start < 1: start = self.dip_status["start"]
-            else: start = self.dip_vals.start
+            end = self.dip_status["current"] - self.dip_status["start"]
+            current = self.dip_status["current"]  
+            start = self.dip_status["start"]
             if start > current: absolute = True
             backwards = True
+            # end = self.dip_status["latest"]
+            # current = self.dip_status["current"]     
+            # if self.dip_vals.start < 1: start = self.dip_status["start"]
+            # else: start = self.dip_vals.start
+            # if start > current: absolute = True
+            # backwards = True
         
         try:
             percentage = self.functions.get_percentage_complete({
@@ -433,8 +439,15 @@ class DownloadStatus():
             self.dip_vals.use_current = self.dip_status["current"]
             self.dip_vals.use_end = self.dip_status["latest"]
             self.dip_vals.percentage1 = percentage
-            self.dip_vals.left = abs(start-current)
             self.dip_vals.goal = start
+
+            self.dip_vals.left = abs(start-current)
+            if self.dip_vals.left > self.dip_vals.previous_left:
+                self.dip_vals.left = self.dip_vals.use_current - self.dip_vals.goal
+            else:
+                self.dip_vals.previous_left = self.dip_vals.left
+            
+
             
             # if start < 2: self.dip_vals.goal = self.dip_status["end"]
             if start < 2: self.dip_vals.goal = self.dip_status["latest"]
@@ -524,9 +537,17 @@ class DownloadStatus():
             print("\n" * 4)
         exit(0)   
                 
-                             
-    # Main method
+
     def download_status(self,dip_pass=1):
+        try:
+            self.download_status_process(dip_pass)
+        except BlockingIOError:
+            print("Issue with session, may have timed out")
+            exit(0)
+
+
+    # Main method
+    def download_status_process(self,dip_pass=1):
         with ThreadPoolExecutor() as executor:
             if self.caller == "download_status":
                 try:
@@ -596,6 +617,7 @@ class DownloadStatus():
                 "use_current": self.dip_status["current"],
                 "use_end": self.dip_status["latest"],
                 "freeze_display": -1,
+                "previous_left": -1,
                 "last_hash_marks": "", "hash_marks": "",       
             } 
             self.dip_vals = SimpleNamespace(**dip_current_values)       

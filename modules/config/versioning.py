@@ -27,6 +27,7 @@ class Versioning():
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
 
         self.upgrade_path_path = f'https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_{nodectl_version.replace(".","")}/admin/upgrade_path.json'
+        # self.upgrade_path_path = f'https://raw.githubusercontent.com/StardustCollective/nodectl/main/admin/upgrade_path.json'
                 
         self.print_messages = command_obj.get("print_messages",True)
         self.show_spinner = command_obj.get("show_spinner",True)
@@ -59,7 +60,8 @@ class Versioning():
         self.update_file_only = False
         self.version_valid_cache = False
         self.date_time = None
-        
+        self.session_timeout = 2
+
         self.nodectl_static_versions = {
             "node_nodectl_version": nodectl_version,
             "node_nodectl_yaml_version": nodectl_yaml_version,  
@@ -85,7 +87,8 @@ class Versioning():
         self.error_messages = Error_codes(self.functions) 
         self.functions.log = self.log # avoid embedded circular reference errors
 
-        if self.auto_restart: return  # relies on service updater
+        if self.auto_restart and not self.service_uvos: 
+            return  # relies on service updater
                         
         self.get_cached_version_obj()
         
@@ -130,7 +133,7 @@ class Versioning():
                 "action": "get_elapsed",
                 "old_time": version_obj["last_updated"],
             })
-            if (self.force or elapsed.seconds > self.seconds) and not self.auto_restart:
+            if (self.force or elapsed.seconds > self.seconds) and (not self.auto_restart or self.service_uvos):
                 self.log.logger.debug(f"versioning - called by [{self.logging_name}] - out of date - updating.")
                 self.write_version_obj_file()
             else:
@@ -314,7 +317,7 @@ class Versioning():
         if do_update or self.force:
             try:
                 session = self.functions.set_request_session()
-                upgrade_path = session.get(self.upgrade_path_path)
+                upgrade_path = session.get(self.upgrade_path_path, timeout=self.session_timeout)
             except:
                 # only trying once (not that important)
                 
@@ -364,7 +367,7 @@ class Versioning():
 
         try:
             session = self.functions.set_request_session()
-            pre_release = session.get(pre_release_uri).json()
+            pre_release = session.get(pre_release_uri, timeout=self.session_timeout).json()
         except Exception as e:
             self.log.logger.warn(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
         else:

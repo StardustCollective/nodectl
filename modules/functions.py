@@ -86,6 +86,7 @@ class Functions():
         
         self.default_pro_rating_file = "ratings.csv"
         self.default_pro_rating_location = "/var/tessellation"
+        self.default_tessellation_repo = "https://github.com/Constellation-Labs/tessellation"
         
         # constellation specific statics
         self.be_urls = {
@@ -93,6 +94,7 @@ class Functions():
             "mainnet": "be-mainnet.constellationnetwork.io",
             "integrationnet": "be-integrationnet.constellationnetwork.io",
         }
+        self.snapshot_type = "global-snapshots"
         
         # constellation nodectl statics
         self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
@@ -103,7 +105,7 @@ class Functions():
         self.pre_consensus_list = ["DownloadInProgress","WaitingForReady","WaitingForObserving","Observing"]
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
-
+        self.session_timeout = 2 # seconds
         
         try:
             self.environment_name = self.config_obj["global_elements"]["metagraph_name"]
@@ -345,7 +347,7 @@ class Functions():
                 session.verify = False
                 session.timeout = 2
                 url = f"http://{cluster_ip}:{api_port}/cluster/info"
-                peers = session.get(url)
+                peers = session.get(url,timeout=self.session_timeout)
             except:
                 if attempts > 3:
                     return "error"
@@ -617,12 +619,12 @@ class Functions():
         
         if backwards:
             total_range = end - start
-            current_range = abs(set_current - start)
-            percentage = (1 - current_range / total_range) * 100
+            current_range = abs(total_range)
+            percentage = 100 - (1 - current_range / start) * 100
         else:
             percentage = (current / end) * 100
 
-        return int(percentage) 
+        return round(percentage,2) 
     
 
     def get_info_from_edge_point(self,command_obj):
@@ -693,6 +695,10 @@ class Functions():
                         if specific_ip == i_node["ip"]:
                             node = i_node
                             break
+
+                if node == self.ip_address:
+                    self.log.logger.debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked was self, trying again: attempt [{n}] of [{max_range}]")
+                    continue # avoid picking "ourself"
                 
                 self.log.logger.debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked: [{node}]")
                 
@@ -757,7 +763,7 @@ class Functions():
                 r_session = self.set_request_session()
                 r_session.timeout = (2,2)
                 r_session.verify = False
-                session = r_session.get(api_url).json()
+                session = r_session.get(api_url, timeout=self.session_timeout).json()
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
                 if n == tolerance-1:
@@ -790,9 +796,9 @@ class Functions():
                 session = self.set_request_session()
                 session.timeout = 2
                 if utype == "json":
-                    response = session.get(url).json()
+                    response = session.get(url, timeout=self.session_timeout).json()
                 else:
-                    response = session.get(url)
+                    response = session.get(url, timeout=self.session_timeout)
             except Exception as e:
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
                 if n > tolerance-1:
@@ -839,7 +845,7 @@ class Functions():
                     session = self.set_request_session()
                     session.verify = False
                     session.timeout=2
-                    results = session.get(uri).json()
+                    results = session.get(uri, timeout=self.session_timeout).json()
                 except:
                     if n > var.attempt_range:
                         if not self.auto_restart:
@@ -987,8 +993,10 @@ class Functions():
         ordinal = command_obj.get("ordinal",False)
         history = command_obj.get("history",50)
         environment = command_obj.get("environment","mainnet")
-        return_values = command_obj.get("return_values",False)
-        lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
+        profile = command_obj.get("profile",self.default_profile)
+        return_values = command_obj.get("return_values",False) # list
+        # lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
+        lookup_uri = command_obj.get("lookup_uri",self.set_proof_uri({"environment":environment, "profile": profile}))
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type","list")
@@ -997,16 +1005,18 @@ class Functions():
         return_data = []
         error_secs = 2
         
+        self.set_proof_uri({"environment":environment, "profile": profile},True)
+        
         if action == "latest":
-            uri = f"{lookup_uri}global-snapshots/latest"
+            uri = f"{lookup_uri}/{self.snapshot_type}/latest"
             if not return_values: return_values = ["timestamp","ordinal"]
         elif action == "history":
-            uri = f"{lookup_uri}global-snapshots?limit={history}"
+            uri = f"{lookup_uri}/{self.snapshot_type}?limit={history}"
             return_type = "raw"
         elif action == "ordinal":
-            uri = f"{lookup_uri}global-snapshots/{ordinal}"
+            uri = f"{lookup_uri}/{self.snapshot_type}/{ordinal}"
         elif action == "rewards":
-            uri = f"{lookup_uri}global-snapshots/{ordinal}/rewards"
+            uri = f"{lookup_uri}/{self.snapshot_type}/{ordinal}/rewards"
             if not return_values: return_values = ["destination"]
             return_type = "dict"
         
@@ -1014,7 +1024,7 @@ class Functions():
             session = self.set_request_session(json)
             session.verify = False
             session.timeout = 2
-            results = session.get(uri).json()
+            results = session.get(uri, timeout=self.session_timeout).json()
             results = results[get_results]
         except Exception as e:
             self.log.logger.warn(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
@@ -1166,7 +1176,29 @@ class Functions():
             
         return api_url
     
-    
+
+    def set_proof_uri(self,command_obj,snap_type_only=False):   
+        profile = command_obj.get("profile",self.default_profile) 
+        environment = command_obj.get("environment",self.environment_name)  
+        ti = False
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+        if self.config_obj[profile]["token_identifier"] != "disable":
+            ti = self.config_obj[profile]["token_identifier"] 
+            self.snapshot_type = "snapshots"
+        else:
+            self.snapshot_type = "global-snapshots"
+
+        if snap_type_only: return
+        
+        if ti:
+            api_uri = f"https://{self.be_urls[environment]}/currency/{ti}"
+        else:
+            api_uri = f"https://{self.be_urls[environment]}"
+
+        return api_uri
+
+
     def set_default_variables(self,command_obj):
         # set default profile
         # set default edge point
@@ -1315,6 +1347,21 @@ class Functions():
         return session
 
 
+    def set_console_setup(self,wrapper_obj):
+        console_size = get_terminal_size()  # columns, lines
+
+        initial_indent = subsequent_indent = "  "
+        if wrapper_obj is not None:
+                initial_indent = wrapper_obj.get("indent","  ")
+                subsequent_indent = wrapper_obj.get("sub_indent","  ")
+                
+        console_setup = TextWrapper()
+        console_setup.initial_indent = initial_indent
+        console_setup.subsequent_indent = subsequent_indent
+        console_setup.width=(console_size.columns - 2)
+
+        return console_size, console_setup
+
     # =============================
     # pull functions
     # ============================= 
@@ -1367,7 +1414,7 @@ class Functions():
             try:
                 r_session = self.set_request_session()
                 r_session.verify = False
-                session = r_session.get(url).json()
+                session = r_session.get(url, timeout=self.session_timeout).json()
             except:
                 self.log.logger.error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
             finally:
@@ -1464,7 +1511,7 @@ class Functions():
                     session.verify = True
                     session.timeout = 2
                     url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
-                    balance = session.get(url).json()
+                    balance = session.get(url, timeout=self.session_timeout).json()
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
@@ -1574,7 +1621,7 @@ class Functions():
                 pull_all()
                 return service_list
             
-        elif "pairings" in var.req:
+        elif "pairing" in var.req:
             # return list of profile objects that are paired via layer0_link
             pairing_list = []
                        
@@ -1587,7 +1634,11 @@ class Functions():
                         link_profile = self.config_obj[profile][f"{link_type}_link_profile"]
                         if link_profile != "None":
                             pairing_list.append([profile, self.config_obj[profile][f"{link_type}_link_profile"]])
-                        else: pairing_list.append([profile])
+                        else: pairing_list.append([{
+                            "profile": "external",
+                            "host": self.config_obj[profile][f"{link_type}_link_host"],
+                            "port": self.config_obj[profile][f"{link_type}_link_port"]
+                        }])
                 if not link_found: pairing_list.append([profile])
             
             n = 0
@@ -1606,6 +1657,7 @@ class Functions():
             # add services to the pairing list
             for n, s_list in enumerate(pairing_list):
                 for i, profile in enumerate(s_list):
+                    if isinstance(profile,dict) or profile == "external": continue  # external connection not profile
                     pair_dict = {
                         "profile": profile,
                         "service": self.config_obj[profile]["service"],
@@ -1619,12 +1671,27 @@ class Functions():
                 # order_pairing option should have the last element with the
                 # pairing dict popped before the returned list is used.
                 pre_profile_order = []; profile_order = []
+
                 for profile_group in pairing_list:
                     for profile_obj in reversed(profile_group):
                         pre_profile_order.append(profile_obj["profile"])
-                [profile_order.append(element) for element in pre_profile_order if element not in profile_order]         
-                pairing_list.append(profile_order)
                 
+                [profile_order.append(element) for element in pre_profile_order if element not in profile_order]      
+                if len(profile_order) < 2 and profile_order[0] == "external":
+                    pairing_list = []
+                    for profile in self.profile_names:
+                        pairing_list.append(
+                            [{
+                            "profile": profile,
+                            "service" : self.config_obj[profile]["service"],
+                            "layer": self.config_obj[profile]["layer"],
+                            }]
+                        )
+                    pairing_list.append(["external"])
+                    pairing_list[-1] += self.profile_names
+                else:
+                    pairing_list.append(profile_order)
+
             return pairing_list
 
         elif "environments" in var.req:
@@ -1711,6 +1778,7 @@ class Functions():
                 "line_code": "profile_error",
                 "extra": profile
             })
+            exit(0) # force exit on service changes.
     
     
     def pull_remote_profiles(self,command_obj):
@@ -1782,7 +1850,7 @@ class Functions():
                 session = self.set_request_session()
                 session.verify = True
                 session.timeout = 2
-                health = session.get(uri)
+                health = session.get(uri, timeout=self.session_timeout)
             except:
                 self.log.logger.warn(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if n > 2:
@@ -1813,7 +1881,7 @@ class Functions():
             session = self.set_request_session()
             session.verify = False
             session.timeout = 2
-            r = session.get(f'http://127.0.0.1:{api_port}/node/health')
+            r = session.get(f'http://127.0.0.1:{api_port}/node/health', timeout=self.session_timeout)
         except:
             pass
         else:
@@ -2041,7 +2109,7 @@ class Functions():
                             session = self.set_request_session()
                             session.verify = False
                             session.timeout = 2 
-                            state = session.get(uri).json()
+                            state = session.get(uri, timeout=self.session_timeout).json()
                             color = self.change_connection_color(state)
                             self.log.logger.debug(f"test_peer_state -> uri [{uri}]")
 
@@ -2391,22 +2459,21 @@ class Functions():
 
 
     def print_header_title(self,command_obj):
-        #line1=(str), line2=(str)None, clear=(bool)True, newline=(str) Top, Bottom, Both
-        #show_titles=(bool)
-        #single_line=(bool) default: False
-        #single_color=(str) default: yellow
-        #single_bg=(str) default: on_blue
-        
         line1 = command_obj["line1"] 
         line2 = command_obj.get("line2", None)
         clear = command_obj.get("clear", False)
         show_titles = command_obj.get("show_titles", True)
         newline = command_obj.get("newline", False)
-        
+        upper = command_obj.get("uppercase",True)
+
         single_line = command_obj.get("single_line", False)
         single_color = command_obj.get("single_color", "yellow")
         single_bg = command_obj.get("single_bg", "on_blue")
-        
+
+        if upper:
+            if line1 is not None: line1 = line1.upper()
+            if line2 is not None: line2 = line2.upper()
+
         if "on_" not in single_bg:
             single_bg = f"on_{single_bg}" 
 
@@ -2418,7 +2485,7 @@ class Functions():
         if single_line:
             line1 = f" * {line1} * "  
             print("  ",end="")  
-            cprint(f'{line1:-^40}',single_color,single_bg,attrs=["bold"])
+            cprint(f' {line1:-^40} ',single_color,single_bg,attrs=["bold"])
         else:
             header0 = "  ========================================"
             header1 = "  =   CONSTELLATION NETWORK HYPERGRAPH   ="
@@ -2727,7 +2794,7 @@ class Functions():
             return True
         return
         
-        
+
     def print_paragraphs(self,paragraphs,wrapper_obj=None):
         # paragraph=(list)
         # [0] = line
@@ -2737,17 +2804,19 @@ class Functions():
             # 2 - X = number of newlines
         # [2] = color (optional default = cyan)
 
-        console_size = get_terminal_size()  # columns, lines
+        console_size, console_setup = self.set_console_setup(wrapper_obj)
+        # console_size = get_terminal_size()  # columns, lines
 
-        initial_indent = subsequent_indent = "  "
-        if wrapper_obj is not None:
-                initial_indent = wrapper_obj.get("indent","  ")
-                subsequent_indent = wrapper_obj.get("sub_indent","  ")
+        # initial_indent = subsequent_indent = "  "
+        # if wrapper_obj is not None:
+        #         initial_indent = wrapper_obj.get("indent","  ")
+        #         subsequent_indent = wrapper_obj.get("sub_indent","  ")
                 
-        console_setup = TextWrapper()
-        console_setup.initial_indent = initial_indent
-        console_setup.subsequent_indent = subsequent_indent
-        console_setup.width=(console_size.columns - 2)
+        # console_setup = TextWrapper()
+        # console_setup.initial_indent = initial_indent
+        # console_setup.subsequent_indent = subsequent_indent
+        # console_setup.width=(console_size.columns - 2)
+
         attribute = []
         
         try:
@@ -2900,7 +2969,8 @@ class Functions():
                 "line1": "NODE GARAGE",
                 "line2": "welcome to the help section",
                 "newline": "top",
-                "clear": True
+                "clear": True,
+                "upper": False,
             })
             
         if not self.version_obj:
@@ -3021,6 +3091,12 @@ class Functions():
         if isinstance(profile_list_or_obj,list):
             return [x for x in profile_list_or_obj if "global" not in x]
         return [ x for x in profile_list_or_obj.keys() if "global" not in x]
+        
+        
+    def clear_external_profiles(self,profile_list_or_obj):
+        if isinstance(profile_list_or_obj,list):
+            return [x for x in profile_list_or_obj if "external" not in x]
+        return [ x for x in profile_list_or_obj.keys() if "external" not in x]
 
     
     def cleaner(self, line, action, char=None):

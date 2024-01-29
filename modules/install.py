@@ -307,15 +307,14 @@ class Installer():
         self.cli.node_service.download_constellation_binaries({
             "action": "install",
             "environment": self.options.environment,
-            "backup": False,
         })
         
         self.functions.print_cmd_status({
             "text_start": "Installing Tessellation binaries",
             "status": "complete",
             "newline": True
-        })    
-    
+        })
+
     
     # Distribution
     # =====================

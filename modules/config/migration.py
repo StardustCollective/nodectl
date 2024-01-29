@@ -40,6 +40,7 @@ class Migration():
             "line1": "VERSION 2.0",
             "line2": "Configuration Migration",
             "clear": True,
+            "upper": False,
         })
             
                 

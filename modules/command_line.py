@@ -272,6 +272,7 @@ class CLI():
                     ordinal_dict["backend"] = str(self.functions.get_snapshot({
                         "history": 1, 
                         "environment": self.config_obj[called_profile]["environment"],
+                        "profile": called_profile
                     })[1])
                 except Exception as e:
                     if isinstance(ordinal_dict,dict):
@@ -428,14 +429,14 @@ class CLI():
                         if print_title:
                             self.functions.print_states()
                             self.functions.print_paragraphs([
-                                ["Current Session:",0,"magenta"], ["  The Hypergraph cluster session",1],
-                                ["  Found Session:",0,"magenta"], ["  The Cluster session Node is currently connected",1],
-                                ["  Latest Ordinal:",0,"magenta"], [" Node consensus ordinal",1],
-                                ["  Last DLed:",0,"magenta"], ["      Last found ordinal downloaded by Node",1],
-                                ["  Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
-                                ["  Consensus:",0,"magenta"], ["Is this Node participating in consensus rounds",1],
-                                ["  Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
-                                ["  Uptime:",0,"magenta"], ["About of time Node or Cluster has been online",2],
+                                ["Current Session:",0,"magenta"], ["The Metagraph cluster session",1],
+                                ["  Found Session:",0,"magenta"], ["Node's current cluster session",1],
+                                [" Latest Ordinal:",0,"magenta"], ["Node consensus ordinal",1],
+                                ["      Last DLed:",0,"magenta"], ["Last found ordinal downloaded by Node",1],
+                                ["Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
+                                ["      Consensus:",0,"magenta"], ["Is this Node participating in consensus rounds",1],
+                                ["          Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
+                                ["         Uptime:",0,"magenta"], ["About of time Node or Cluster has been online",2],
                             ])
                         
                         if self.config_obj[profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
@@ -638,7 +639,7 @@ class CLI():
         self.functions.print_header_title({
             "line1": "NODE BASIC HEALTH",
             "single_line": True,
-            "newline": "both"
+            "newline": "both",
         })
         
         print_out_list = [
@@ -1064,6 +1065,7 @@ class CLI():
             "line1": "CURRENT LOADED METAGRAPHS",
             "line2": "Based on local Node's config",
             "newline": "top",
+            "upper": False,
         })
         
         profile_details = self.functions.pull_profile({
@@ -1276,10 +1278,11 @@ class CLI():
             more_break = round((console_size.lines-20)/6)
                     
         snap_obj = {
-            "lookup_uri": f'http://127.0.0.1:{self.config_obj[self.profile]["public_port"]}/',
+            "lookup_uri": f'http://127.0.0.1:{self.config_obj[self.profile]["public_port"]}',
             "header": "json",
             "get_results": "proofs", 
-            "return_type": "raw"      
+            "return_type": "raw",
+            "profile": self.profile,     
         }
         
         # get state here first
@@ -1296,25 +1299,32 @@ class CLI():
             exit(0)
                 
         results = self.functions.get_snapshot(snap_obj)
-        for n, result in enumerate(results):
-            if do_more and n % more_break == 0 and n > 0:
-                more = self.functions.print_any_key({
-                    "quit_option": "q",
-                    "newline": "both",
-                })
-                print_title = True
-                if more:
-                    break     
-            if result == results[0] or print_title:           
+        try:
+            for n, result in enumerate(results):
+                if do_more and n % more_break == 0 and n > 0:
+                    more = self.functions.print_any_key({
+                        "quit_option": "q",
+                        "newline": "both",
+                    })
+                    print_title = True
+                    if more:
+                        break     
+                if result == results[0] or print_title:           
+                    self.functions.print_paragraphs([
+                        ["SNAPSHOT SIGNATURES IN CURRENT GLOBAL SNAPSHOT BEING PROCESSED ON NODE",2,"green"]
+                    ])
+                    print_title = False
                 self.functions.print_paragraphs([
-                    ["SNAPSHOT SIGNATURES IN CURRENT GLOBAL SNAPSHOT BEING PROCESSED ON NODE",2,"green"]
+                    ["SnapShot Transaction Id:",1,"blue","bold"], [result["id"],1,"yellow"],
+                    ["SnapShot Transaction Sig:",1,"blue","bold"], [result["signature"],2,"yellow"],
                 ])
-                print_title = False
+        except Exception as e:
+            self.log.logger.error(f"show_current_snapshot_proofs -> unable to process results [{e}]")
             self.functions.print_paragraphs([
-                ["SnapShot Transaction Id:",1,"blue","bold"], [result["id"],1,"yellow"],
-                ["SnapShot Transaction Sig:",1,"blue","bold"], [result["signature"],2,"yellow"],
+                ["Unable to parse any transactions",1,"red"],
             ])
-        
+            results = []
+
         self.functions.print_paragraphs([
             ["Transactions Found:",0],[str(len(results)),1,"green","bold"],
         ])
@@ -1326,7 +1336,8 @@ class CLI():
             "command_obj": command_obj,
         })
         if command_obj["caller"] == "status":
-            return download_status.download_status()
+            ds = download_status.download_status_process()
+            return ds
         download_status.download_status()
             
                        
@@ -1357,7 +1368,7 @@ class CLI():
                 "extra": None,
             })            
         
-        data = self.get_and_verify_snapshots(snapshot_size, self.config_obj[profile]["environment"])        
+        data = self.get_and_verify_snapshots(snapshot_size, self.config_obj[profile]["environment"],profile)        
             
         if "-p" in command_list:
             profile = command_list[command_list.index("-p")+1]
@@ -1405,8 +1416,11 @@ class CLI():
                     color = "green"; found = "TRUE"
                 else:
                     reward_amount[reward["destination"]] = reward["amount"]
-        
-        first = reward_amount.popitem()  
+        try:
+            first = reward_amount.popitem()  
+        except:
+            first = [0,0]
+
         title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"   
         
         elapsed = self.functions.get_date_time({
@@ -2165,7 +2179,7 @@ class CLI():
     def check_nodectl_upgrade_path(self,command_obj):
         called_command = command_obj["called_command"]
         argv_list = command_obj["argv_list"]
-        
+
         try: env = argv_list[argv_list.index('-e')+1]
         except: argv_list.append("help")
             
@@ -2179,10 +2193,15 @@ class CLI():
         nodectl_uptodate = nodectl_uptodate["nodectl"]["nodectl_uptodate"]
         
         upgrade_path = versions.upgrade_path
-        if versions.node_nodectl_version in upgrade_path:
-            upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]      
-            next_upgrade_path = upgrade_path_this_version[0] 
-        else: next_upgrade_path = upgrade_path[0]   
+        try:
+            test_next_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1]
+        except:
+            test_next_version = upgrade_path[0]
+        finally:
+            if versions.node_nodectl_version in upgrade_path and versions.node_nodectl_version != upgrade_path[0] and test_next_version != upgrade_path[0]:
+                upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]    
+                next_upgrade_path = upgrade_path_this_version[0] 
+            else: next_upgrade_path = upgrade_path[0]   
         
         for test_version in reversed(upgrade_path):
             test = self.functions.is_new_version(versions.node_nodectl_version,test_version)
@@ -2197,18 +2216,16 @@ class CLI():
                 "show_titles": False,
                 "newline": "both"
             })
-            self.functions.print_paragraphs([
-                ["=","full",2,"green","bold"],
-            ])
-            for n, version in enumerate(reversed(upgrade_path)):
-                if n < 1:
-                    print(" ",end=" ")
-                print(f"{colored(version,'yellow')}",end=" ")
+
+            upgrade_path_str_list = [["=","half",2,"green","bold"]]
+            for version in reversed(upgrade_path):
+                upgrade_path_str_list.append([version,0,'yellow'])
                 if version != upgrade_path[0]:
-                    print(colored("-->","cyan"),end=" ")
-            self.functions.print_paragraphs([
-                ["",1],["=","full",1,"green","bold"],
-            ])                                
+                    upgrade_path_str_list.append(["-->",0,"cyan"])
+            upgrade_path_str_list.append(["",1])
+            upgrade_path_str_list.append(["=","half",2,"green","bold"])
+            self.functions.print_paragraphs(upgrade_path_str_list)
+                          
                                 
         if versions.node_nodectl_version != next_upgrade_path:
             if next_upgrade_path != upgrade_path[0]:
@@ -2226,7 +2243,7 @@ class CLI():
                     [f"sudo nodectl {called_command}",2],
                     ["See:",0,"red"], ["Github release notes",2,"magenta"]
                 ])
-            elif called_command == "upgrade_path":
+            elif called_command == "upgrade_path" and not nodectl_uptodate:
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
@@ -2562,7 +2579,7 @@ class CLI():
         dip = True if "--dip" in argv_list else False
         
         link_types = ["gl0","ml0"] 
-        
+
         failure_retries = 3
         if "-r" in argv_list:
             try: failure_retries = int(argv_list[argv_list.index("-r")+1])
@@ -2597,11 +2614,14 @@ class CLI():
         valid_request, single_profile = False, True
    
         profile_pairing_list = self.functions.pull_profile({
-            "req": "order_pairings",
+            "req": "order_pairing",
         })
         profile_order = profile_pairing_list.pop()
+
         
         if called_profile == "all":
+            if "external" in profile_order: 
+                profile_order.remove("external")
             single_profile = False
             valid_request = True
         elif called_profile != "empty" and called_profile != None:
@@ -2838,7 +2858,8 @@ class CLI():
         self.functions.print_header_title({
             "line1": "REBOOT REQUEST",
             "line2": "nodectl",
-            "newline": "top"
+            "newline": "top",
+            "upper": False,
         })
         
         self.functions.print_paragraphs([
@@ -2925,7 +2946,7 @@ class CLI():
         first_attempt = True
         wfd_count, wfd_max = 0, 3  # WaitingForDownload
         dip_count, dip_max = 0, 8 # DownloadInProgress
-        ss_count, ss_max = 0, 5 # SessionStarted
+        ss_count, ss_max = 0, 3 # SessionStarted
         
         attempt = ""
         
@@ -2967,18 +2988,19 @@ class CLI():
                 "newLine": True
             })
 
-        if gl0_link and ml0_link and not single_profile:
+        if (gl0_link or ml0_link) and not single_profile:
             found_dependency = False
             if not watch_peer_counts: # check to see if we can skip waiting for Ready
                 for link_profile in self.profile_names:
-                    if self.functions.config_obj[link_profile]["gl0_link_profile"] == called_profile:
-                        self.log.logger.debug(f"cli_join -> found gl0 dependency | profile [{called_profile}]")
-                        found_dependency = True
-                        break
-                    elif self.functions.config_obj[link_profile]["ml0_link_profile"] == called_profile:
-                        self.log.logger.debug(f"cli_join -> found ml0 dependency | profile [{called_profile}]")
-                        found_dependency = True
-                        break
+                    for link_type in ["gl0","ml0"]:
+                        if eval(f"{link_type}_link"):
+                            if self.functions.config_obj[called_profile][f"{link_type}_link_profile"] == link_profile:
+                                self.log.logger.debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}]")
+                                found_dependency = True
+                            elif self.functions.config_obj[called_profile][f"{link_type}_link_profile"] == "None" and not found_dependency:
+                                self.log.logger.debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}] external [{self.functions.config_obj[link_profile][f'{link_type}_link_host']}] external port [{self.functions.config_obj[link_profile][f'{link_type}_link_port']}]")
+                                found_dependency = True
+
             if not found_dependency:
                 self.log.logger.debug(f"cli_join -> no dependency found | profile [{called_profile}]")
                 single_profile = True
@@ -3083,7 +3105,7 @@ class CLI():
                             result = False
                             tolerance_result = False # force last error to print
                             break
-                        ss_max += 1
+                        ss_count += 1
                     if state == "DownloadInProgress":
                         if dip_status:
                             self.functions.print_paragraphs([
@@ -3721,7 +3743,7 @@ class CLI():
                                     
                 if not "-b" in argv_list:
                     total_rewards = 0
-                    data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"])
+                    data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"],profile)
                     elapsed = data["elapsed_time"]
                     data = data["data"]
                     show_title = True
@@ -4007,7 +4029,8 @@ class CLI():
             "history": 1,
             "environment": environment,
             "return_values": ["ordinal","lastSnapshotHash"],
-            "return_type": "dict"
+            "return_type": "dict",
+            "profile": profile,
         }
         
         if caller != "auto_restart":
@@ -4041,17 +4064,31 @@ class CLI():
             if n == 0: 
                 self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | fork_obj remote: [{self.functions.be_urls[environment]}].")
                 global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
+                if global_ordinals["backend"] is None:
+                    self.log.logger.error("check_minority_fork -> backend api endpoint did not return any results.") 
+                    global_ordinals["backend"] = {
+                        "ordinal": "unknown",
+                        "lastSnapshotHash": "unknown",
+                    }
             else:
                 fork_obj = {
                     **fork_obj,
-                    "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[profile]["public_port"]}/',
+                    "lookup_uri": f'http://{self.ip_address}:{self.functions.config_obj[profile]["public_port"]}',
                     "header": "json",
                     "get_results": "value",
                     "ordinal": global_ordinals["backend"]["ordinal"],
                     "action": "ordinal",
+                    "profile": profile,
                 }
                 self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
                 global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
+                if global_ordinals["local"] is None: 
+                    self.log.logger.error("check_minority_fork -> local api endpoint did not return any results.") 
+                    global_ordinals["local"] = {
+                        "ordinal": "unknown",
+                        "lastSnapshotHash": "unknown",
+                    }
+
 
         if caller != "cli": return global_ordinals
         
@@ -4215,6 +4252,7 @@ class CLI():
             "line2": "request initiated",
             "newline": "top",
             "clear": True,
+            "upper": False,
         })
         
         self.functions.print_paragraphs([
@@ -4594,6 +4632,7 @@ class CLI():
           "line1": "TESSELLATION BINARIES",
           "line2": "refresh request",
           "clear": False,
+          "upper": False,
         })
         
         self.functions.print_paragraphs([
@@ -4719,6 +4758,7 @@ class CLI():
                         "line2": "please choose a version",
                         "show_titles": False,
                         "newline": "both",
+                        "upper": False,
                     })
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], ["downgrading to a previous version of nodectl may cause",0,"red"],
@@ -4820,7 +4860,7 @@ class CLI():
     # reusable methods
     # ==========================================
 
-    def get_and_verify_snapshots(self,snapshot_size, environment):
+    def get_and_verify_snapshots(self,snapshot_size, environment, profile):
         error = True
         return_data = {}
         for _ in range(0,5): # 5 attempts
@@ -4828,6 +4868,7 @@ class CLI():
                 "action": "history",
                 "history": snapshot_size,
                 "environment": environment,
+                "profile": profile,
             })   
             
             try:

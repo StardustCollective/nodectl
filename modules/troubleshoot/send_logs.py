@@ -46,7 +46,7 @@ class Send():
         
         self.functions.print_header_title({
             "line1": "RETRIEVE NODE LOGS",
-            "line2": self.profile.upper(),
+            "line2": self.profile,
             "clear": True,
         })
         
@@ -250,7 +250,7 @@ class Send():
 
         # clean up
         self.log.logger.warn(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
-        system(f"rm -rf {tar_package['tar_creation_path']} > /dev/null 2>&1")
+        system(f"sudo rm -rf {tar_package['tar_creation_path']} > /dev/null 2>&1")
 
         self.functions.print_paragraphs([
             ["Log tarball created and also located:",0,"green"],

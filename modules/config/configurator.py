@@ -263,6 +263,7 @@ class Configurator():
             "line1": "NODECTL",
             "line2": "create new configuration",
             "clear": True,
+            "upper": False,
         })  
         
         if self.detailed:
@@ -330,6 +331,7 @@ class Configurator():
             "line1": "NODECTL",
             "line2": "profile based configuration",
             "clear": True,
+            "upper": False,
         })  
 
         if self.detailed:        
@@ -548,7 +550,7 @@ class Configurator():
             print("")
             
             self.c.functions.print_header_title({
-                "line1": f"{ptype.upper()} PROFILE P12 ENTRY",
+                "line1": f"{ptype} PROFILE P12 ENTRY",
                 "single_line": True,
                 "newline": False if self.detailed else "bottom"
             })
@@ -605,7 +607,7 @@ class Configurator():
             self.is_all_global = False
             for profile in self.metagraph_list:
                 self.c.functions.print_header_title({
-                    "line1": f"{profile.upper()} PROFILE P12 ENTRY",
+                    "line1": f"{profile} PROFILE P12 ENTRY",
                     "single_line": True,
                     "newline": "both",
                 })
@@ -838,7 +840,7 @@ class Configurator():
     def manual_section_header(self, profile, header):
         self.c.functions.print_header_title(self.header_title)
         self.c.functions.print_header_title({
-            "line1": f"{profile.upper()} PROFILE {header}",
+            "line1": f"{profile} PROFILE {header}",
             "show_titles": False,
             "single_line": True,
             "newline": False if self.detailed else "bottom"
@@ -2246,7 +2248,8 @@ class Configurator():
                 "line2": f"{topic}",
                 "show_titles": False,
                 "newline": "top",
-                "clear": True
+                "clear": True,
+                "upper": False,
             })
             
         print_config_section()
@@ -2730,7 +2733,8 @@ class Configurator():
             "line2": profile,
             "single_line": True,
             "clear": True,
-            "newline": "both"
+            "newline": "both",
+            "upper": False,
         })
 
         notice = [
@@ -2799,6 +2803,7 @@ class Configurator():
             "line2": old_profile,
             "clear": True,
             "show_titles": False,
+            "upper": False,
         })
         
         self.c.functions.print_paragraphs([
@@ -2839,6 +2844,7 @@ class Configurator():
             "line2": f"NEW: {new_profile}",
             "clear": False,
             "show_titles": False,
+            "upper": False,
         })
             
         notice = [
