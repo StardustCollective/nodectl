@@ -121,7 +121,7 @@ class Functions():
         self.status_dots = False # used for different threading events
         
         self.auto_restart = True if self.config_obj["global_elements"]["caller"] == "auto_restart" else False
-        ignore_defaults = ["config","install","installer","auto_restart","ts","debug"]
+        ignore_defaults = ["config","install","uninstall","installer","auto_restart","ts","debug"]
         if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
 
 
@@ -1246,8 +1246,8 @@ class Functions():
         try: self.profile_names.pop(self.profile_names.index("upgrader"))
         except ValueError: pass
         
-        for profile in self.profile_names:
-            self.environment_names.append(self.config_obj[profile]["environment"])
+        for i_profile in self.profile_names:
+            self.environment_names.append(self.config_obj[i_profile]["environment"])
         self.environment_names = list(set(self.environment_names))
         
         self.ip_address = self.get_ext_ip()

@@ -108,7 +108,8 @@ class ShellHandler:
                 "nodectl_version_only": True,
                 "hint": "unknown",
             })
-
+        if self.called_command == "uninstall": 
+            self.install(self.argv)
         version_cmd = ["-v","_v","version"]
         if argv[1] in version_cmd:
             self.functions.auto_restart = False
@@ -1355,90 +1356,12 @@ class ShellHandler:
 
         performance_start = time.perf_counter()  # keep track of how long
         self.installer = Installer(self,argv_list)
+
+        if self.called_command == "uninstall":
+            self.installer.action = "uninstall"
+            self.installer.uninstall()
+
         self.installer.install_process()
-
-        # quick_install = True if "--quick_install" in argv_list else False
-        # self.log.logger.debug(f"installation request started - quick install [{quick_install}]")
-        # environment = argv_list[argv_list.index("-e")+1] if "-e" in argv_list else False
-        
-        # self.functions.print_header_title({
-        #   "line1":  "INSTALLATION REQUEST",
-        #   "line2": "TESSELLATION VALIDATOR NODE",
-        #   "clear": True,
-        # })
-        # self.install_upgrade = "installation"
-        # self.functions.print_paragraphs([
-        #     [" NOTE ",2,"yellow,on_magenta"],
-        #     ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow,bold"],
-        #     ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
-        #     ["key to accept said value.",2,"magenta"],
-            
-        #     ["n",0,"yellow","bold"], ["stands for",0], [" no  ",0,"yellow,on_red"], ["",1],
-        #     ["y",0,"yellow","bold"], ["stands for",0], [" yes ",0,"blue,on_green"], ["",2],
-            
-        #     ["IMPORTANT",0,"red","bold"],
-        #     ["nodectl",0,"blue","bold"], ["was designed to run on a terminal session with a",0], ["black",0,"cyan","bold"],
-        #     ["background setting. Default terminal emulators with a",0], ["white",0,"cyan","bold"], ["background may experience some 'hard to see' contrasts.",0],
-        #     ["It is recommended to change the preferences on your terminal [of choice] to run with a",0], ["black",0,"cyan","bold"],
-        #     ["background.",2],
-        # ])
-
-        # if quick_install:
-        #     self.functions.print_paragraphs([
-        #         [" QUICK INSTALL REQUESTED ",0,"white,on_green"],
-        #         [" WARNING ",1,"red,on_yellow"], 
-        #         ["nodectl will use all recommended settings without prompting for confirmations, be sure this is acceptiable before continuing",0],
-        #         ["with this settings.",2],
-        #         ["There are a few required entries needed; therefore, nodectl will now ask a few questions prior to initiating the installation.",2],
-        #     ])
-
-        # self.confirm_int_upg()
-        
-        # self.functions.print_clear_line()
-        # self.functions.print_header_title({
-        #     "line1": "Installation Starting",
-        #     "single_line": True,
-        #     "show_titles": False,
-        #     "newline": "both",
-        # })
-        
-        # if not environment:
-        #     self.functions.print_paragraphs([
-        #         ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
-        #         ["on various Metagraph pre-defined configurations.",2,"green"],
-                
-        #         ["If the Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
-        #         ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
-        #         ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
-        #         ["required components, to ensure successful implementation of this utility.",0],
-                
-        #         ["If a pre-defined Metagraph listed above is not the ultimate role of this future Node,",0],
-        #         ["following a successful installation, the next steps should be for you to refer to the Metagraph",0],
-        #         ["Administrators of the Metagraph you are expected to finally connect with. The Administrator",0,],
-        #         ["will offer instructions on how to obtain the required configuration file for said Metagraph.",2],
-        #         ["Please key press number of a Metagraph configuration below:",2,"blue","bold"],
-        #     ])
-        
-        # self.install_upgrade_common({
-        #     "env_provided": environment,
-        #     "action": "install"
-        # })
-        
-        # print("")
-        # self.functions.print_header_title({
-        #     "line1": "Update Distribution",
-        #     "single_line": True,
-        #     "show_titles": False,
-        #     "newline": "both",
-        # })
-        # self.update_os()
-        
-        # self.installer = Installer({
-        #     "ip_address": self.ip_address,
-        #     "environment_name": self.environment_requested,
-        #     "argv_list": argv_list,
-        #     "functions": self.functions,
-        # })
         
         self.functions.print_perftime(performance_start,"installation")
 

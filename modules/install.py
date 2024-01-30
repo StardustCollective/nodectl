@@ -27,13 +27,8 @@ class Installer():
         self.argv_list = argv_list
         self.p12_session = False
         self.found_errors = False
-        self.action = "install"
 
-        # self.ip_address = command_obj["ip_address"]
-        # self.options.environment = command_obj["environment_name"]
-        # self.functions = command_obj["functions"]
-        # self.argv_list = command_obj["argv_list"]
-        # self.command_obj = command_obj
+        self.action = "install"
 
         self.error_messages = Error_codes(self.functions) 
         self.log = Logging()
@@ -57,10 +52,10 @@ class Installer():
             self.handle_exisitng()
             self.build_config_file("skeleton")
             self.build_config_file("defaults")
-            # self.update_os()
-            # self.process_distro_dependencies()
-            # self.download_binaries()
-            # self.make_swap_file()
+            self.update_os()
+            self.process_distro_dependencies()
+            self.download_binaries()
+            self.make_swap_file()
             self.setup_user()
             self.create_dynamic_elements()
             self.generate_p12_from_install()
@@ -812,6 +807,7 @@ class Installer():
         else:
             self.functions.print_clear_line(1,{"backwards":True}) 
 
+
     def encrypt_passprhase(self):
         if self.options.quick_install:
             self.configurator.quick_install = True
@@ -995,12 +991,50 @@ class Installer():
                     "newline": True,
                 })        
 
+        system("clear")
+        self.functions.print_header_title({
+            "line1": "NODECTL UNINSTALLATION",
+            "single_line": True,
+            "newline": "both"
+        })
+
+        self.functions.print_paragraphs([
+            [" WARNING ",0,"yellow,on_red"], ["This will",0,"red"], ["attempt",0,"yellow","bold"],
+            ["to remove all aspects of this",0,"red"],["Constellation Network",0,"blud","bold"], 
+            ["Node.",2,"red"],
+
+            ["Including:",1,"red"],
+            ["   - Binaries",1],
+            ["   - Configurations",1],
+            ["   - All p12 files",1],
+            ["   - Seedlists",1],
+            ["   - Node services",1],
+            ["   - Snapshots",2],
+
+            ["Please make sure you have a backup of any and all important files before continuing.",1,"red"],
+            ["This execution cannot be undone.",2,"yellow","bold"],
+
+            ["Must type CONSTELLATION exactly to confirm or 'n' for no.",1,"yellow"],
+        ])
+
+        _ = self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "CONSTELLATION",
+            "strict": True,
+            "prompt_color": "red",
+            "prompt": "Uninstall this Constellation Network Node?", 
+            "exit_if": True
+        })
+
         # restore access to root
         # restore access to admin, ubuntu
         # remove nodeadmin
         # remove services
         # remove config files
         # remove seedlists
+
+        print("  here")
+        pass
 
 
     def complete_install(self):
@@ -1026,6 +1060,25 @@ class Installer():
             "status_color": "yellow",
             "newline": True,
         })      
+        self.functions.print_cmd_status({
+            "text_start": "P12 Location",
+            "status": path.dirname(self.options.p12_path),
+            "status_color": "yellow",
+            "newline": True,
+        })  
+        self.functions.print_cmd_status({
+            "text_start": "P12 Name",
+            "status": path.basename(self.options.p12_path),
+            "status_color": "yellow",
+            "newline": True,
+        })  
+        self.functions.print_cmd_status({
+            "text_start": "P12 Alias",
+            "status": self.options.p12_alias,
+            "status_color": "red" if self.options.p12_alias == "error" else "yellow",
+            "newline": True,
+        })  
+
         print("")
 
         success = self.cli.cli_grab_id({
