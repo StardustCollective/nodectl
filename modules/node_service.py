@@ -1299,6 +1299,23 @@ nodectl:
     developer_mode: nodegaragedevelopermode
     log_level: nodegarageloglevel
 '''
+        
+        if var.file == "uninstall_nodectl":
+            cur_file = '''#!/bin/bash
+sleep 1
+red='\033[1;31m'
+blue='\033[1;36m'
+green='\033[1;32m'
+clr='\033[0m'
+
+if [ -f "/usr/local/bin/nodectl" ]; then
+  rm -f /usr/local/bin/nodectl
+  echo "  ${blue}Removing nodectl binary........................ ${green}complete${clr}"
+else
+  echo "  ${blue}Removing nodectl binary........................ ${red}failed${clr}"
+fi
+rm -f "$0"
+'''
 
         elif var.file == "upgrade":
             url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"

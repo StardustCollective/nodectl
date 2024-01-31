@@ -44,6 +44,7 @@ def pull_valid_command():
         "download_status",
         "auto_restart",
         "install",
+        "uninstall",
         "upgrade",
         "upgrade_path",
         "refresh_binaries",

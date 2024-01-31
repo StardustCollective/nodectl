@@ -1,4 +1,6 @@
-from os import makedirs, system, path, environ
+import pwd
+import modules.uninstall as uninstaller
+from os import makedirs, system, path, environ, walk
 from time import sleep
 from termcolor import colored, cprint
 from types import SimpleNamespace
@@ -14,6 +16,9 @@ from .config.config import Configuration
 from .config.configurator import Configurator
 from .config.versioning import Versioning
 from .quick_install import QuickInstaller
+from .node_service import Node
+from .upgrade import Upgrader
+
 
 class Installer():
 
@@ -231,13 +236,13 @@ class Installer():
         if not self.options.quick_install: self.parent.print_ext_ip()
 
         found_files = self.functions.get_list_of_files({
-            "paths": ["/var/tessellation/","/home/nodeadmin/tessellation/"],
+            "paths": ["var/tessellation/","home/nodeadmin/tessellation/"],
             "files": ["*"],
-            "exclude_paths": ["/var/tessellation/nodectl"],
+            "exclude_paths": ["var/tessellation/nodectl"],
             "exclude_files": ["nodectl.log"],
         })
         found_files2 = self.functions.get_list_of_files({
-            "paths": ["/etc/systemd/system/"],
+            "paths": ["etc/systemd/system/"],
             "files": ["cnng-*","node_restart*"],
         })
         
@@ -270,7 +275,8 @@ class Installer():
                     "exit_if": True,
                 })
                 self.functions.print_clear_line(1,{"backwards":True,"fl":1})
-                self.uninstall()
+            uninstaller.install_cleaner(self.functions,self.options)
+            pass
 
 
     def populate_node_service(self):
@@ -943,6 +949,8 @@ class Installer():
         self.cli.functions.set_statics()
         self.user = UserClass(self.cli)
         
+        if self.action == "uninstall": return
+
         self.setup_config = Configuration({
             "implement": False,
             "action": "install" if not self.options.quick_install else "quick_install",
@@ -979,62 +987,17 @@ class Installer():
     
     
     def uninstall(self):
-        if self.action == "install":
-            system(f"sudo rm {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
-            system(f"sudo rm {self.functions.nodectl_path}version_obj.json > /dev/null 2>&1")
-            if not self.options.quick_install: 
-                print("")
-                self.functions.print_cmd_status({
-                    "text_start": "Removing old configuration files",
-                    "status": "complete",
-                    "status_color": "green",
-                    "newline": True,
-                })        
+        self.build_classes()
+        node_service = Node({"functions": self.functions})
+        uninstaller.start_uninstall(self.functions)
+        uninstaller.stop_services(self.functions, node_service)
+        uninstaller.restore_user_access(self.cli,self.functions)
+        node_admins = uninstaller.remove_data(self.functions)
+        uninstaller.remove_admins(self.functions,node_admins)
+        uninstaller.finish_uninstall(self.functions)
+        uninstaller.remove_nodectl(node_service)
 
-        system("clear")
-        self.functions.print_header_title({
-            "line1": "NODECTL UNINSTALLATION",
-            "single_line": True,
-            "newline": "both"
-        })
-
-        self.functions.print_paragraphs([
-            [" WARNING ",0,"yellow,on_red"], ["This will",0,"red"], ["attempt",0,"yellow","bold"],
-            ["to remove all aspects of this",0,"red"],["Constellation Network",0,"blud","bold"], 
-            ["Node.",2,"red"],
-
-            ["Including:",1,"red"],
-            ["   - Binaries",1],
-            ["   - Configurations",1],
-            ["   - All p12 files",1],
-            ["   - Seedlists",1],
-            ["   - Node services",1],
-            ["   - Snapshots",2],
-
-            ["Please make sure you have a backup of any and all important files before continuing.",1,"red"],
-            ["This execution cannot be undone.",2,"yellow","bold"],
-
-            ["Must type CONSTELLATION exactly to confirm or 'n' for no.",1,"yellow"],
-        ])
-
-        _ = self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "CONSTELLATION",
-            "strict": True,
-            "prompt_color": "red",
-            "prompt": "Uninstall this Constellation Network Node?", 
-            "exit_if": True
-        })
-
-        # restore access to root
-        # restore access to admin, ubuntu
-        # remove nodeadmin
-        # remove services
-        # remove config files
-        # remove seedlists
-
-        print("  here")
-        pass
+        exit(0)
 
 
     def complete_install(self):

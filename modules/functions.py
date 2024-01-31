@@ -121,7 +121,7 @@ class Functions():
         self.status_dots = False # used for different threading events
         
         self.auto_restart = True if self.config_obj["global_elements"]["caller"] == "auto_restart" else False
-        ignore_defaults = ["config","install","uninstall","installer","auto_restart","ts","debug"]
+        ignore_defaults = ["config","install","installer","auto_restart","ts","debug"]
         if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
 
 
@@ -3229,6 +3229,7 @@ class Functions():
         autoSplit = command_obj.get("autoSplit",True)
         timeout = command_obj.get("timeout",180)
         skip = command_obj.get("skip",False)
+        check = command_obj.get("check",False)
         log_error = command_obj.get("log_error",False)
         return_error = command_obj.get("return_error",False)
         working_directory = command_obj.get("working_directory",None)
@@ -3272,6 +3273,20 @@ class Functions():
         
         if proc_action == "subprocess_run":
             output = subprocess.run(shlexsplit(bashCommand), shell=True, text=True)
+            return output
+        
+        if proc_action == "subprocess_run_pipe":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except subprocess.CalledProcessError:
+                output = False
+            return output
+        
+        if proc_action == "subprocess_run_check":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), check=True)
+            except subprocess.CalledProcessError:
+                output = False
             return output
             
         if autoSplit:

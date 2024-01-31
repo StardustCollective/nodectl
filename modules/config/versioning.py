@@ -72,7 +72,7 @@ class Versioning():
         self.version_obj_path = "/var/tessellation/nodectl/"
         self.version_obj_file = f"{self.version_obj_path}version_obj.json"
 
-        init_only = ["verify_nodectl","_vn","-vn"]
+        init_only = ["verify_nodectl","_vn","-vn","uninstall"]
         if self.called_cmd in init_only: return
         
         self.execute_versioning()

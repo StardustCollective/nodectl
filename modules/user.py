@@ -171,7 +171,11 @@ class UserClass:
         
         self.password = self.get_verify_password(10,self.username,"password")
         
-        
+
+    def get_user(self):
+        return getuser()
+    
+            
     def print_password_descriptions(self,length,type,already_user=False):
         
         paragraphs = [

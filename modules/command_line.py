@@ -2300,8 +2300,7 @@ class CLI():
         caller = command_obj.get("caller",None)
         
         self.functions.get_service_status()
-        if caller == "upgrade_nodectl" or caller == "main_error":
-            return
+        if caller in ["upgrade_nodectl","main_error","uninstall"]: return
         
         profile_names = self.profile_names
         if profile != "default":
@@ -4428,8 +4427,9 @@ class CLI():
 
         port_no = None
         install = True if "install" in argv_list else False
+        uninstall = True if "uninstall" in argv_list else False
         one_off = False
-        
+        found_errors = False
         
         if "help" in argv_list:
             show_help = True
@@ -4463,7 +4463,7 @@ class CLI():
                 "extended": command
             })
          
-        if "quick_install" in argv_list and not do_confirm:
+        if "quick_install" in argv_list or not do_confirm:
             confirm = True
         else:
             self.functions.print_paragraphs([
@@ -4496,14 +4496,14 @@ class CLI():
             
         if confirm:
             backup_dir = "/var/tmp/"
-            if not install:
+            if not install and not uninstall:
                 profile = self.functions.pull_profile({"req":"default_profile"})
                 backup_dir = self.functions.config_obj[profile]["directory_backups"]
             
-            if not path.exists(backup_dir):
+            if not path.exists(backup_dir) and not uninstall:
                 self.log.logger.warn(f"backup dir did not exist, attempting to create [{backup_dir}]")
                 system(f"mkdir {backup_dir} > /dev/null 2>&1")
-            
+
             self.log.logger.info(f"creating a backup of the sshd.config file to [{backup_dir}]")
             date = self.functions.get_date_time({"action":"datetime"})
             system(f"cp /etc/ssh/sshd_config {backup_dir}sshd_config{date}.bak > /dev/null 2>&1")
@@ -4525,6 +4525,7 @@ class CLI():
                                     system(f"sudo mv {upath}.ssh/backup_authorized_keys {upath}.ssh/authorized_keys > /dev/null 2>&1")
                                     self.log.logger.info(f"cli -> found and recovered {user} authorized_keys file")
                                 else:
+                                    found_errors = f"auth_not_found {user}"
                                     self.log.logger.critical(f"cli -> could not find a backup authorized_key file to recover | user {user}")
                             elif action == "disable":
                                 verb = "no"
@@ -4533,7 +4534,11 @@ class CLI():
                                     self.log.logger.warn(f"cli -> found and renamed authorized_keys file | user {user}")
                                 else:
                                     self.log.logger.critical(f"cli -> could not find an authorized_key file to update | {user}")
-                            newfile.write(f"PermitRootLogin {verb}\n")
+                            if user == "root":
+                                self.log.logger.warn(f"cli -> setting PermitRootLogin to [{verb}] | user [{user}]")
+                                newfile.write(f"PermitRootLogin {verb}\n")
+                            else:
+                                newfile.write(f"{line}")
                         else:
                             newfile.write(f"{line}")
                         action_print = f"{action} {user} user"
@@ -4592,10 +4597,13 @@ class CLI():
                 self.functions.print_cmd_status(progress)
 
             system("mv /tmp/sshd_config-new /etc/ssh/sshd_config > /dev/null 2>&1")
+            self.log.logger.info(f"cli -> moving modified sshd_config into place.")
             if one_off:
+                self.log.logger.info(f"cli -> found one-off [50-cloud-init-config] moving modified sshd config file into place.")
                 system("mv /tmp/sshd_config-new2 /etc/ssh/sshd_config.d/50-cloud-init.conf > /dev/null 2>&1")
                 
             sleep(1)
+            self.log.logger.info(f"cli -> restarted sshd service.")
             system("service sshd restart > /dev/null 2>&1")
             
             self.log.logger.info(f"SSH port configuration change successfully implemented [{action_print}]")
@@ -4609,6 +4617,8 @@ class CLI():
                     "status_color": "green",
                     "newline": True
                 })
+            
+            if uninstall: return found_errors
 
 
     def prepare_and_send_logs(self, command_list):

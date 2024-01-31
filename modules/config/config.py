@@ -206,7 +206,6 @@ class Configuration():
         
         
     def check_for_migration(self,check_only=False):
-        # self.functions.pull_upgrade_path(True)
         nodectl_version = self.functions.version_obj["node_nodectl_version"]
         nodectl_yaml_version = self.functions.version_obj["node_nodectl_yaml_version"]
                  
@@ -227,8 +226,8 @@ class Configuration():
         except:
             found_yaml_version = False
         
-        if self.called_command == "configurator":
-            self.log.logger.debug("configuration module found configuration change request, skipping migration attempts.")
+        if self.called_command in ["configurator","uninstall"]:
+            self.log.logger.debug(f"configuration module found {self.called_command} request, skipping migration attempts.")
         elif not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             self.log.logger.info(f"configuration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
             if self.called_command != "upgrade":

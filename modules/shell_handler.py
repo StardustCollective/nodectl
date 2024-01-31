@@ -108,8 +108,6 @@ class ShellHandler:
                 "nodectl_version_only": True,
                 "hint": "unknown",
             })
-        if self.called_command == "uninstall": 
-            self.install(self.argv)
         version_cmd = ["-v","_v","version"]
         if argv[1] in version_cmd:
             self.functions.auto_restart = False
@@ -342,7 +340,7 @@ class ShellHandler:
             self.auto_restart_handler("service_start",True)
         elif self.called_command == "log" or self.called_command == "logs":
             return_value = self.cli.show_logs(self.argv)
-        elif self.called_command == "install":
+        elif "install" in self.called_command:
             self.install(self.argv)
         elif self.called_command == "upgrade":
             self.upgrade_node(self.argv)
@@ -492,8 +490,9 @@ class ShellHandler:
 
     def check_non_cli_command(self):
         non_cli_commands = [
-            "upgrade","install","auto_restart",
-            "service_restart","uvos","help",
+            "upgrade","install",
+            "auto_restart","service_restart",
+            "uvos","help",
         ]
         if self.called_command in non_cli_commands:
             return False
