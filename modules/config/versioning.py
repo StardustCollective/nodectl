@@ -266,6 +266,7 @@ class Versioning():
                     if not last_environment or last_environment != self.config_obj[profile]["environment"]:
                         version_obj["upgrade_path"] = upgrade_path["path"]
                         version_obj[environment]["nodectl"]["latest_nodectl_version"] = upgrade_path[environment]["version"]
+                        version_obj[environment]["nodectl"]["stable_nodectl_version"] = upgrade_path[environment]["current_stable"]
                         version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
                         version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
                         version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
@@ -274,7 +275,7 @@ class Versioning():
                         except: pass
 
                     up_to_date = [
-                        ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["version"]],
+                        ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["current_stable"]],
                         ["tess_uptodate", node_tess_version, version]
                     ]
                     for versions in up_to_date:

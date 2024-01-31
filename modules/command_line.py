@@ -1707,14 +1707,15 @@ class CLI():
                     "header_elements" : {
                     "TESS INSTALLED": self.version_obj[environment][profile]["node_tess_version"],
                     "NODECTL INSTALLED": self.version_obj["node_nodectl_version"],
+                    "NODECTL PRERELEASE": prerelease,
                     },
                     "spacing": spacing
                 },
                 {
                     "header_elements" : {
                     "TESS LATEST": self.version_obj[environment][profile]["cluster_tess_version"],
-                    "NODECTL LATEST": self.version_obj[environment]["nodectl"]["latest_nodectl_version"],
-                    "NODECTL PRE_RELEASE": prerelease,
+                    "NODECTL LATEST STABLE": self.version_obj[environment]["nodectl"]["stable_nodectl_version"],
+                    "NODECTL LATEST": self.version_obj["upgrade_path"][0],
                     },
                     "spacing": spacing
                 },
@@ -1732,7 +1733,14 @@ class CLI():
                 self.functions.print_show_output({
                     "header_elements" : header_elements
                 })  
-        print("")
+
+            self.functions.print_paragraphs([
+                ["",1],
+                ["nodectl installed:",0,"blue","bold"], ["Running on Node.",1],
+                ["nodectl latest stable:",0,"blue","bold"], ["Recommended version.",1],
+                ["nodectl latest:",0,"blue","bold"], ["Newest, may be experimental and not stable.",2],
+            ])
+
        
  
     def check_source_connection(self,command_list):
@@ -2323,7 +2331,8 @@ class CLI():
                         ["- malware",1,"magenta"],
                         ["- not an official supported version",2,"magenta"],
                         ["   environment checked:",0],[env,1,"yellow","bold"],
-                        ["current stable version:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
+                        ["        latest version:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
+                        ["current stable version:",0],[self.version_obj[env]["nodectl"]["stable_nodectl_version"],1,"yellow","bold"],
                         [" version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
                         ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
                     ])
