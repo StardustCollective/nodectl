@@ -634,8 +634,27 @@ class CLI():
     def show_health(self, command_list):
         self.functions.check_for_help(command_list,"health")
         self.log.logger.info(f"show health requested")
-        status = Status(self.functions)
-        
+
+        with ThreadPoolExecutor() as executor:
+            self.functions.status_dots = True
+            status_obj = {
+                "text_start": f"Calculating health stats",
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor.submit(self.functions.print_cmd_status,status_obj)
+            status = Status(self.functions)
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                **status_obj,
+                "status": "completed",
+                "status_color": "green",
+                "dotted_animation": False,
+                "newline": True,
+            })
+
         self.functions.print_header_title({
             "line1": "NODE BASIC HEALTH",
             "single_line": True,
@@ -658,6 +677,7 @@ class CLI():
         for n, profile in enumerate(status.profile_sizes.keys()):
             dyn_dict = {}
             section_dict = {}
+
             size_list = status.profile_sizes[profile]
 
             profile_title = "PROFILE" if n == 0 else "\n  PROFILE"
@@ -672,7 +692,7 @@ class CLI():
                         if len(size_list) == 0:
                             break
                         tup = size_list.pop()
-                        section_dict[tup[0].upper()] = tup[1]
+                        section_dict[tup[0].upper().replace("DIRECTORY_","")] = tup[1]
                     dyn_dict["header_elements"] = section_dict
                     dyn_dict["spacing"] = 15
                     print_out_list.append(dyn_dict)

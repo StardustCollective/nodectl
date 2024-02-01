@@ -812,16 +812,21 @@ class ShellHandler:
 
         if called_cmd == "uvos":
             print_messages, show_spinner = False, False
-            
-        versioning = Versioning({
-            "config_obj": self.config_obj,
-            "show_spinner": show_spinner,
-            "print_messages": print_messages,
-            "called_cmd": called_cmd,
-            "verify_only": verify_only,
-            "print_object": print_object,
-            "force": force
-        })
+
+        try:   
+            versioning = Versioning({
+                "config_obj": self.config_obj,
+                "show_spinner": show_spinner,
+                "print_messages": print_messages,
+                "called_cmd": called_cmd,
+                "verify_only": verify_only,
+                "print_object": print_object,
+                "force": force
+            })
+        except Exception as e:
+            self.log.logger.error(f"shell_handler -> unable to process versioning | [{e}]")
+            self.functions.event = False
+            exit(1)
 
         if called_cmd == "update_version_object" or called_cmd == "uvos":
             if "help" not in self.argv:

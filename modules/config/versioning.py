@@ -122,7 +122,8 @@ class Versioning():
             self.new_creation = True
         except json.JSONDecodeError:
             self.log.logger.error(f"Versioning Failed to decode JSON in [{self.version_obj_file}].")
-            self.print_error()
+            if self.called_cmd != "uvos":
+                self.print_error("ver-126","invalid_file_format")
         
         self.verify_version_object()
         if self.new_creation:
@@ -264,18 +265,26 @@ class Versioning():
                     env_version_obj[profile]["node_tess_jar"] = jar
                     
                     if not last_environment or last_environment != self.config_obj[profile]["environment"]:
-                        version_obj["upgrade_path"] = upgrade_path["path"]
-                        version_obj[environment]["nodectl"]["latest_nodectl_version"] = upgrade_path[environment]["version"]
-                        version_obj[environment]["nodectl"]["stable_nodectl_version"] = upgrade_path[environment]["current_stable"]
-                        version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
-                        version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
-                        version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
+                        try:
+                            version_obj["upgrade_path"] = upgrade_path["path"]
+                            version_obj[environment]["nodectl"]["latest_nodectl_version"] = upgrade_path[environment]["version"]
+                            version_obj[environment]["nodectl"]["stable_nodectl_version"] = upgrade_path[environment]["stable_nodectl_version"]
+                            version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
+                            version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
+                            version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
+                        except Exception as e:
+                            self.log.logger.error(f"versioning --> building object issue encountered | [{e}]")
+                            self.functions.event = False
+                            if self.called_cmd != "uvos":
+                                self.print_error("ver-278","invalid_file_format","sudo nodectl update_version_object")
+                            return
+
                         
                         try: del version_obj[environment]["nodectl"]["version"]
                         except: pass
 
                     up_to_date = [
-                        ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["current_stable"]],
+                        ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["stable_nodectl_version"]],
                         ["tess_uptodate", node_tess_version, version]
                     ]
                     for versions in up_to_date:
@@ -356,6 +365,7 @@ class Versioning():
                     "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
                     f"{environment}": {
                         "version": self.old_version_obj[environment]["nodectl"]["latest_nodectl_version"],
+                        "stable_nodectl_version": self.old_version_obj[environment]["nodectl"]["stable_nodectl_version"],
                         "upgrade": self.old_version_obj[environment]["nodectl"]["upgrade"]
                     }
                 }
@@ -392,12 +402,13 @@ class Versioning():
             json.dump(self.version_obj,file,indent=4)
             
     
-    def print_error(self):
+    def print_error(self,ver,code,hint=None):
         self.error_messages.error_code_messages({
-            "error_code": "ver-83",
-            "line_code": "invalid_file_format",
+            "error_code": ver,
+            "line_code": code,
             "extra": self.version_obj_file,
-        })         
+            "hint": hint,
+        })
         
          
     def verify_version_object(self):

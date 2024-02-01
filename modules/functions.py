@@ -129,7 +129,6 @@ class Functions():
     # getter functions
     # =============================
     def get_crypto_price(self):
-        pricing_list = ["N/A","N/A","N/A","N/A","N/A","N/A"]  
         # The last element is used for balance calculations
         # It is not used by the show prices command
         
@@ -143,6 +142,11 @@ class Functions():
                 coin_prices['lattice-token']['usd'] 
             except:
                 coin_prices['lattice-token']['usd'] = 0.00
+            
+            try:
+                coin_prices['dor']['usd'] 
+            except:
+                coin_prices['dor']['usd'] = 0.00
             
             try:
                 coin_prices['bitcoin']['usd']
@@ -167,7 +171,7 @@ class Functions():
         self.create_coingecko_obj()
         
         try:
-            coin_prices = self.cg.get_price(ids='constellation-labs,lattice-token,bitcoin,ethereum,quant-network', vs_currencies='usd')
+            coin_prices = self.cg.get_price(ids='constellation-labs,lattice-token,Dor,bitcoin,ethereum,quant-network', vs_currencies='usd')
         except Exception as e:
             self.log.logger.error(f"coingecko response error | {e}")
             cprint("  Unable to process CoinGecko results...","red")
@@ -178,12 +182,13 @@ class Functions():
             pricing_list_temp = [
             "${:,.3f}".format(coin_prices['constellation-labs']['usd']),
             "${:,.3f}".format(coin_prices['lattice-token']['usd']),
+            "${:,.3f}".format(coin_prices['dor']['usd']),
             "${:,.2f}".format(coin_prices['bitcoin']['usd']),
             "${:,.2f}".format(coin_prices['ethereum']['usd']),
             "${:,.2f}".format(coin_prices['quant-network']['usd']),
             coin_prices['constellation-labs']['usd']  # unformatted 
             ]
-            
+            pricing_list = ["N/A" for _ in pricing_list_temp]  
             for n, price in enumerate(pricing_list_temp):
                 try:
                     price = price
@@ -1510,8 +1515,10 @@ class Functions():
                     session = self.set_request_session()
                     session.verify = True
                     session.timeout = 2
-                    url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
-                    balance = session.get(url, timeout=self.session_timeout).json()
+                    uri = self.set_proof_uri({})
+                    # url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
+                    uri = f"{uri}/addresses/{wallet}/balance"
+                    balance = session.get(uri, timeout=self.session_timeout).json()
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
