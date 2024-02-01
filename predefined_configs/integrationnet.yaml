@@ -73,12 +73,14 @@ nodectl:
     ml0_link_port: None
     ml0_link_profile: None
     token_identifier: disable
+    token: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
     java_xmx: default
     java_xss: default
     jar_repository: default
+    jar_version: default
     jar_file: default
     p12_nodeadmin: global
     p12_key_location: global
@@ -120,12 +122,14 @@ nodectl:
     ml0_link_port: self
     ml0_link_profile: intnet-l0
     token_identifier: disable
+    token: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
     java_xmx: default
     java_xss: default
     jar_repository: default
+    jar_version: default
     jar_file: default
     p12_nodeadmin: global
     p12_key_location: global
@@ -156,6 +160,7 @@ nodectl:
     encryption: False
   global_elements:
     metagraph_name: integrationnet
+    token: default
     nodectl_yaml: v2.1.0
     developer_mode: False
     log_level: INFO

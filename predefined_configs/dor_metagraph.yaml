@@ -22,10 +22,10 @@
 #
 # Failure to do so may create undesired results from
 # nodectl (especially the configurator) the Node Operator
-# should use the configurator over manually updating this 
+# should use the configurator over manually updating this
 # config file.
 # ---------------------------------------------------------
-# Required arguments 
+# Required arguments
 # ---------------------------------------------------------
 # custom_args_enable: True (or False)
 # custom_env_vars_enable: True (or False)
@@ -36,7 +36,7 @@
 # MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
 # ---------------------------------------------------------
 # MANUAL ENTRY MUST BE IN CORRECT ORDER FOR CONFIGURATOR
-# TO WORK PROPERLY.  
+# TO WORK PROPERLY.
 # custom_args_enable followed by all custom_args
 # custom_env_vars_enabled followed by all custom_env_var
 # Failure to do so will lead to unexpected behavior
@@ -48,40 +48,40 @@
 # =========================================================
 
 nodectl:
-  dag-l0:
+  dor-dl1:
     profile_enable: True
-    environment: testnet
-    description: Constellation Network TestNet Global layer0 ml0
+    environment: integrationnet
+    description: Dor Metagraph Data layer1
     node_type: validator
     meta_type: ml
-    layer: 0
+    layer: 1
     collateral: 0
-    service: node_l0
-    edge_point: default
-    edge_point_tcp_port: default
-    public_port: default
-    p2p_port: default
-    cli_port: default
-    gl0_link_enable: False
-    gl0_link_key: None
-    gl0_link_host: None
-    gl0_link_port: None
+    service: dor_dl1
+    edge_point: 54.218.46.24
+    edge_point_tcp_port: 9000
+    public_port: 8018
+    p2p_port: 8019
+    cli_port: 8020
+    gl0_link_enable: True
+    gl0_link_key: external
+    gl0_link_host: 52.53.46.33
+    gl0_link_port: 9000
     gl0_link_profile: None
-    ml0_link_enable: False
-    ml0_link_key: None
-    ml0_link_host: None
-    ml0_link_port: None
+    ml0_link_enable: True
+    ml0_link_key: external
+    ml0_link_host: 54.218.46.24
+    ml0_link_port: 7000
     ml0_link_profile: None
-    token_identifier: disable
+    token_identifier: DAG5kfY9GoHF1CYaY8tuRJxmB3JSzAEARJEAkA2C
     token: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
     java_xmx: default
     java_xss: default
-    jar_repository: default
-    jar_version: default
-    jar_file: default
+    jar_repository: github.com/Constellation-Labs/dor-metagraph/releases/download/
+    jar_version: v1.2.0
+    jar_file: data-l1.jar
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
@@ -97,70 +97,20 @@ nodectl:
     priority_source_file: default
     custom_args_enable: False
     custom_env_vars_enable: False
-  dag-l1:
-    profile_enable: True
-    environment: testnet
-    description: Constellation Network TestNet layer1 ml1
-    node_type: validator
-    meta_type: ml
-    layer: 1
-    collateral: 0
-    service: node_l1
-    edge_point: default
-    edge_point_tcp_port: default
-    public_port: default
-    p2p_port: default
-    cli_port: default
-    gl0_link_enable: False
-    gl0_link_key: None
-    gl0_link_host: None
-    gl0_link_port: None
-    gl0_link_profile: None
-    ml0_link_enable: True
-    ml0_link_key: self
-    ml0_link_host: self
-    ml0_link_port: self
-    ml0_link_profile: dag-l0
-    token_identifier: disable
-    token: global
-    directory_backups: default
-    directory_uploads: default
-    java_xms: default
-    java_xmx: default
-    java_xss: default
-    jar_repository: default
-    jar_version: default
-    jar_file: default
-    p12_nodeadmin: global
-    p12_key_location: global
-    p12_key_name: global
-    p12_key_alias: global
-    p12_passphrase: global
-    seed_location: disable
-    seed_repository: disable
-    seed_file: disable
-    pro_rating_location: disable
-    pro_rating_file: disable
-    priority_source_location: default
-    priority_source_repository: default
-    priority_source_file: default
-    custom_args_enable: False
-    custom_env_vars_enable: False
   global_auto_restart:
     auto_restart: False
     auto_upgrade: False
     on_boot: False
     rapid_restart: False
   global_p12:
-    nodeadmin: blank
-    key_location: blank
-    key_name: blank
-    key_alias: blank
-    passphrase: blank
-    encryption: False
+    nodeadmin: nodeadmin
+    key_location: /home/nodeadmin/tessellation/
+    key_name: node-garage-node01-w.p12
+    key_alias: node-garage-node01-wallet-alias
+    passphrase: "g7%f4iI#gheEz^11ujW1A#%q!"
   global_elements:
-    metagraph_name: testnet
-    token: default
+    metagraph_name: integrationnet
+    token: dor
     nodectl_yaml: v2.1.0
     developer_mode: False
-    log_level: DEBUG
+    log_level: INFO
