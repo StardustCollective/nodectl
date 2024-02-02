@@ -433,6 +433,7 @@ class Configuration():
             "priority_source_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": "github.com/Constellation-Labs/tessellation/",
+            "token": "dag",
             "edge_point": [
                 "l0-lb-cnng_edge_name.constellationnetwork.io",
                 "l1-lb-cnng_edge_name.constellationnetwork.io",
@@ -836,6 +837,7 @@ class Configuration():
                 ["ml0_link_port","self_port"],
                 ["ml0_link_profile","str"],
                 ["token_identifier","wallet"],
+                ["token","str"],
                 ["ml0_link_is_self","bool"], # automated value [not part of yaml]
                 ["directory_backups","path_def"],
                 ["directory_uploads","path_def"],
@@ -843,6 +845,7 @@ class Configuration():
                 ["java_xmx","mem_size"],
                 ["java_xss","mem_size"],
                 ["jar_repository","host_def"], 
+                ["jar_version","str"],
                 ["jar_file","str"],
                 ["is_jar_static","bool"], # automated value [not part of yaml]
                 ["jar_github","bool"], # automated value [not part of yaml]
@@ -893,7 +896,9 @@ class Configuration():
             ],
             "global_elements": [
                 ["metagraph_name","str"],
+                ["token","str"],
                 ["nodectl_yaml","str"],
+                ["includes","bool"],
                 ["developer_mode","bool"],  
                 ["log_level","log_level"],
             ]

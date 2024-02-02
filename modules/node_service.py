@@ -6,11 +6,10 @@ from termcolor import colored, cprint
 from requests import Session
 from types import SimpleNamespace
 
-from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .troubleshoot.ts import Troubleshooter
-from .config.versioning import Versioning
+
 
 class Node():
         
@@ -1250,12 +1249,14 @@ nodectl:
     ml0_link_port: nodegarageml0linkport
     ml0_link_profile: nodegarageml0linkprofile
     token_identifier: nodegaragetokenidentifier
+    token: nodegaragemetatoken
     directory_backups: nodegaragedirectorybackups
     directory_uploads: nodegaragedirectoryuploads
     java_xms: nodegaragexms
     java_xmx: nodegaragexmx
     java_xss: nodegaragexss
     jar_repository: nodegaragejarrepository
+    jar_version: nodeagaragejarversion
     jar_file: nodegaragejarfile
     p12_nodeadmin: nodegaragep12nodeadmin
     p12_key_location: nodegaragep12keylocation
@@ -1294,8 +1295,10 @@ nodectl:
         
         if var.file == "config_yaml_global_elements":
             cur_file = '''  global_elements:
-    metagraph_name: nodegaragemetagraphname         
+    metagraph_name: nodegaragemetagraphname  
+    token: nodegaragemetatoken       
     nodectl_yaml: nodegaragenodectlyaml
+    includes: nodegarageincludes
     developer_mode: nodegaragedevelopermode
     log_level: nodegarageloglevel
 '''

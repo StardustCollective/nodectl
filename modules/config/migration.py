@@ -1,5 +1,6 @@
 from os import system, path, makedirs
 
+from .versioning import Versioning
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
@@ -15,7 +16,14 @@ class Migration():
             self.functions = self.config_obj["functions"]
 
         self.config_obj = self.functions.config_obj
-        self.version_obj = self.functions.version_obj
+
+        versioning = Versioning({
+            "config_obj": self.config_obj,
+            "print_messages": True,
+            "called_cmd": "migrator",
+            "force": True,
+        })
+        self.version_obj = versioning.get_version_obj()
         
         self.log = Logging()
         self.functions.log = self.log
@@ -28,7 +36,8 @@ class Migration():
     
     def migrate(self):
         self.start_migration()
-        if not self.verify_config_type(): return
+        verify = self.verify_config_type()
+        if not verify: return
         self.backup_config()
         self.create_n_write_yaml()
         self.final_yaml_write_out()
@@ -74,7 +83,8 @@ class Migration():
         # simple verification only
         valid = True
         requirements = {
-            "global_count": 3,
+            # should be the old version counts
+            "global_count": 3, 
             "global_p12_count": 5,
             "global_elements_count": 4,
             "global_auto_restart_count": 4, 
@@ -280,12 +290,14 @@ class Migration():
                 "nodegarageml0linkport": self.config_obj[profile]["ml0_link_port"],
                 "nodegarageml0linkprofile": self.config_obj[profile]["ml0_link_profile"],
                 "nodegaragetokenidentifier": self.config_obj[profile]["token_identifier"],
+                "nodegaragemetatoken": "global", # new to v2.13.0
                 "nodegaragedirectorybackups": self.config_obj[profile]["directory_backups"],
                 "nodegaragedirectoryuploads": self.config_obj[profile]["directory_uploads"],
                 "nodegaragexms": self.config_obj[profile]["java_xms"],
                 "nodegaragexmx": self.config_obj[profile]["java_xmx"],
                 "nodegaragexss": self.config_obj[profile]["java_xss"],
                 "nodegaragejarrepository": self.config_obj[profile]["jar_repository"],
+                "nodeagaragejarversion": "default", # new to v2.13.0
                 "nodegaragejarfile": self.config_obj[profile]["jar_file"],
                 "nodegaragep12nodeadmin": self.config_obj[profile]["p12_nodeadmin"],
                 "nodegaragep12keylocation": self.config_obj[profile]["p12_key_location"],
@@ -300,8 +312,8 @@ class Migration():
                 "nodegarageprioritysourcefile": self.config_obj[profile]["priority_source_file"],
                 "nodegaragecustomargsenable": self.config_obj[profile]["custom_args_enable"],
                 "nodegaragecustomenvvarsenable": self.config_obj[profile]["custom_env_vars_enable"], 
-                "nodegarageratingfile": self.config_obj[profile]["pro_rating_file"], # new in v2.12.0
-                "nodegarageratinglocation": self.config_obj[profile]["pro_rating_location"], # new in v2.12.0
+                "nodegarageratingfile": self.config_obj[profile]["pro_rating_file"], 
+                "nodegarageratinglocation": self.config_obj[profile]["pro_rating_location"], 
                 "create_file": "config_yaml_profile",
             }
             self.yaml += self.build_yaml(rebuild_obj)
@@ -339,9 +351,12 @@ class Migration():
         # =======================================================        
         rebuild_obj = {
             "nodegaragemetagraphname": self.config_obj["global_elements"]["metagraph_name"],
+            "nodegaragemetatoken": "default", # new to v2.13.0
             "nodegaragenodectlyaml": self.version_obj["node_nodectl_yaml_version"],
+            "nodegarageincludes": "False", # new to v2.13.0
+            "nodegaragedevelopermode": self.config_obj["global_elements"]["developer_mode"],
             "nodegarageloglevel": self.config_obj["global_elements"]["log_level"],
-            "nodegaragedevelopermode": "False", # new in v2.12.0
+
             "create_file": "config_yaml_global_elements",
         }
         self.yaml += self.build_yaml(rebuild_obj)
