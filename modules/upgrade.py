@@ -186,7 +186,7 @@ class Upgrader():
                 verify.config_obj["global_p12"]["passphrase"] = self.cli_global_pass
         pass_vault["global"] = verify.config_obj["global_p12"]["passphrase"]
         verify.config_obj["global_p12"]["passphrase"] = "None"
-        verify.functions.config_obj["global_elements"]["metagraph_name"] = self.environment
+        # verify.functions.config_obj["global_elements"]["metagraph_name"] = self.environment
         verify.metagraph_list = self.profiles_by_env
         verify.functions.version_obj = self.version_obj
         

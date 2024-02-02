@@ -1117,6 +1117,7 @@ class CLI():
             print_out_list = [
                 {
                     "METAGRAPH NAME": metagraph_name,
+                    "ENIVRONMENT": self.functions.config_obj[profile]["environment"],
                     "PROFILE NAME": profile,
                 },
                 {
@@ -1714,11 +1715,16 @@ class CLI():
                 self.functions.print_paragraphs([
                     ["-","half"]
                 ])
+
+            metagraph = f'{self.config_obj["global_elements"]["metagraph_name"]}/{self.config_obj[profile]["environment"]}'
+            if self.config_obj["global_elements"]["metagraph_name"] == self.config_obj[profile]["environment"]:
+                metagraph = self.config_obj[profile]["environment"]
+                
             print_out_list = [
                 {
                     "header_elements" : {
                     "PROFILE": profile,
-                    "METAGRAPH": self.config_obj["global_elements"]["metagraph_name"],
+                    "METAGRAPH": metagraph,
                     "JAR FILE": self.version_obj[environment][profile]["node_tess_jar"],
                     },
                     "spacing": spacing
@@ -1734,7 +1740,7 @@ class CLI():
                 {
                     "header_elements" : {
                     "TESS LATEST": self.version_obj[environment][profile]["cluster_tess_version"],
-                    "NODECTL LATEST STABLE": self.version_obj[environment]["nodectl"]["stable_nodectl_version"],
+                    "NODECTL LATEST STABLE": self.version_obj[environment]["nodectl"]["current_stable"],
                     "NODECTL LATEST": self.version_obj["upgrade_path"][0],
                     },
                     "spacing": spacing
@@ -2352,7 +2358,7 @@ class CLI():
                         ["- not an official supported version",2,"magenta"],
                         ["   environment checked:",0],[env,1,"yellow","bold"],
                         ["        latest version:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
-                        ["current stable version:",0],[self.version_obj[env]["nodectl"]["stable_nodectl_version"],1,"yellow","bold"],
+                        ["current stable version:",0],[self.version_obj[env]["nodectl"]["current_stable"],1,"yellow","bold"],
                         [" version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
                         ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
                     ])

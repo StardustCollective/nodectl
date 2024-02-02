@@ -281,12 +281,10 @@ class Node():
             elif fail_count == 0:
                 break
             
-        # if action != "install":
         for profile in profile_names:
             command_obj = {
                 **command_obj,
                 "profile": profile,
-                "global_elements": {"metagraph_name": self.functions.config_obj[profile]["environment"]},
                 "download_version": download_version,
             }
             self.download_update_seedlist(command_obj)

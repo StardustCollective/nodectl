@@ -110,7 +110,7 @@ nodectl:
     passphrase: blank
     encryption: False
   global_elements:
-    metagraph_name: mainnet
+    metagraph_name: dor_metagraph
     token: dor
     nodectl_yaml: v2.1.0
     developer_mode: False

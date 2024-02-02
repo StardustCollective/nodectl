@@ -108,7 +108,10 @@ class Functions():
         self.session_timeout = 2 # seconds
         
         try:
-            self.environment_name = self.config_obj["global_elements"]["metagraph_name"]
+            for profile in self.config_obj.keys():
+                if "global" not in profile:
+                    self.environment_name = self.config_obj[profile]["environment"]
+                    break
         except:
             self.environment_name = False
             

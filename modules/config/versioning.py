@@ -268,7 +268,7 @@ class Versioning():
                         try:
                             version_obj["upgrade_path"] = upgrade_path["path"]
                             version_obj[environment]["nodectl"]["latest_nodectl_version"] = upgrade_path[environment]["version"]
-                            version_obj[environment]["nodectl"]["stable_nodectl_version"] = upgrade_path[environment]["current_stable"]
+                            version_obj[environment]["nodectl"]["current_stable"] = upgrade_path[environment]["current_stable"]
                             version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
                             version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
                             version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
@@ -365,7 +365,7 @@ class Versioning():
                     "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
                     f"{environment}": {
                         "version": self.old_version_obj[environment]["nodectl"]["latest_nodectl_version"],
-                        "stable_nodectl_version": self.old_version_obj[environment]["nodectl"]["stable_nodectl_version"],
+                        "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],
                         "upgrade": self.old_version_obj[environment]["nodectl"]["upgrade"]
                     }
                 }
