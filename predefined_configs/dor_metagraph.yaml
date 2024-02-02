@@ -50,14 +50,14 @@
 nodectl:
   dor-dl1:
     profile_enable: True
-    environment: integrationnet
+    environment: mainnet
     description: Dor Metagraph Data layer1
     node_type: validator
     meta_type: ml
     layer: 1
     collateral: 0
     service: dor_dl1
-    edge_point: 54.218.46.24
+    edge_point: 54.191.143.191  
     edge_point_tcp_port: 9000
     public_port: 8018
     p2p_port: 8019
@@ -69,10 +69,10 @@ nodectl:
     gl0_link_profile: None
     ml0_link_enable: True
     ml0_link_key: external
-    ml0_link_host: 54.218.46.24
+    ml0_link_host: 54.191.143.191
     ml0_link_port: 7000
     ml0_link_profile: None
-    token_identifier: DAG5kfY9GoHF1CYaY8tuRJxmB3JSzAEARJEAkA2C
+    token_identifier: DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM
     token: global
     directory_backups: default
     directory_uploads: default
@@ -104,12 +104,13 @@ nodectl:
     rapid_restart: False
   global_p12:
     nodeadmin: nodeadmin
-    key_location: /home/nodeadmin/tessellation/
-    key_name: node-garage-node01-w.p12
-    key_alias: node-garage-node01-wallet-alias
-    passphrase: "g7%f4iI#gheEz^11ujW1A#%q!"
+    key_location: blank
+    key_name: blank
+    key_alias: blank
+    passphrase: blank
+    encryption: False
   global_elements:
-    metagraph_name: integrationnet
+    metagraph_name: mainnet
     token: dor
     nodectl_yaml: v2.1.0
     developer_mode: False
