@@ -1953,11 +1953,11 @@ class Configurator():
                 description1 += "are local bias values that you supply to your nodes during the joining process to the cluster (metagraph). They "
                 description1 += "are specific to each node. Consequently, different nodes can exhibit varying degrees of bias. "
             if file_repo_type == "jar":
-                description1 = f"The {verb} version is currently disabled [hidden] in nodectl's configuration and will serve as a placeholder "
-                description1 += "to be removed from the utility in future releases if deemed unnecessary.  nodectl will request "
-                description1 += "versioning during the upgrade process or by options from the command line when using the refresh "
-                description1 += "binaries feature.  Thank you for your patience and understanding. "
-                description1 += "Please leave as 'default' here. "
+                description1 = f"The {verb} version is used by nodectl's configuration to help determine the "
+                description1 += "version during the upgrade process or from the command line when using the refresh "
+                description1 += "binaries feature. This is required for Metgraphs.  MainNet, TestNet, IntegrationNet, should leave "
+                description1 += "this field set to 'default'. "
+
 
             description1 += defaultdescr
 
