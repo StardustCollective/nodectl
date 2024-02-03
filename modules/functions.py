@@ -719,8 +719,14 @@ class Functions():
                 })
             except Exception as e:
                 self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
-                pass
-            
+                
+            if not cluster_info:
+                self.error_messages.error_code_messages({
+                    "error_code": "fnt-725",
+                    "line_code": "lb_not_up",
+                    "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}'
+                })
+                
             cluster_info_tmp = deepcopy(cluster_info)
             self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
             
@@ -1530,7 +1536,8 @@ class Functions():
         return_obj = {
             "balance_dag": "unavailable",
             "balance_usd": "unavailable",
-            "dag_price": "unavailable"
+            "token_price": "unavailable",
+            "token_symbol": "unknown"
         }
         
         self.print_cmd_status({
@@ -1543,7 +1550,7 @@ class Functions():
         if environment != "mainnet":
             self.print_paragraphs([
                 [" NOTICE ",0,"red,on_yellow"], 
-                [f"Wallet balances on {environment} are fictitious",0],["$DAG",0,"green"], 
+                [f"Wallet balances on {environment} are fictitious",0],["$TOKENS",0,"green"], 
                 ["and will not be redeemable or spendable.",2],
             ])
             
@@ -1584,8 +1591,9 @@ class Functions():
         usd = []
         usd = self.get_crypto_price()  # position 5 in list
 
+        token = self.config_obj[self.default_profile]["token_coin_id"].lower()
         try:
-            return_obj["dag_price"] = "${:,.3f}".format(usd[5])
+            return_obj["token_price"] = usd[token]["formatted"]
         except:
             pass
         try:
@@ -1593,7 +1601,11 @@ class Functions():
         except:
             pass
         try:
-            return_obj["balance_usd"] = "${:,.2f}".format(balance*usd[5])
+            return_obj["balance_usd"] = "${:,.2f}".format(balance*usd[token]["usd"])
+        except:
+            pass
+        try:
+            return_obj["token_symbol"] = f'${usd[token]["symbol"].upper()}'
         except:
             pass
         

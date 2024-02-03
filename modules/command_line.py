@@ -3755,7 +3755,7 @@ class CLI():
                             [
                                 wallet_balance.balance_dag,
                                 wallet_balance.balance_usd,
-                                wallet_balance.dag_price
+                                wallet_balance.token_price
                             ]
                         ]
                 })
@@ -3769,9 +3769,9 @@ class CLI():
                 if not create_csv:
                     print_out_list = [
                         {
-                            "$DAG BALANCE": f"{wallet_balance.balance_dag: <20}",
+                            f"{wallet_balance.token_symbol} BALANCE": f"{wallet_balance.balance_dag: <20}",
                             "$USD VALUE": f"{wallet_balance.balance_usd}",
-                            "$DAG PRICE": f"{wallet_balance.dag_price}",
+                            f"{wallet_balance.token_symbol} PRICE": f"{wallet_balance.token_price}",
                             "IN CONSENSUS": consensus,
                         }
                     ]
