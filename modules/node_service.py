@@ -1247,7 +1247,7 @@ nodectl:
     ml0_link_port: nodegarageml0linkport
     ml0_link_profile: nodegarageml0linkprofile
     token_identifier: nodegaragetokenidentifier
-    token: nodegaragemetatoken
+    token_coin_id: nodegaragemetatokencoinid
     directory_backups: nodegaragedirectorybackups
     directory_uploads: nodegaragedirectoryuploads
     java_xms: nodegaragexms
@@ -1294,7 +1294,8 @@ nodectl:
         if var.file == "config_yaml_global_elements":
             cur_file = '''  global_elements:
     metagraph_name: nodegaragemetagraphname  
-    token: nodegaragemetatoken       
+    metagraph_token_identifier: nodegaragemetatokenidentifier
+    metagraph_token_coin_id: nodegaragemetagraphtokencoinid       
     nodectl_yaml: nodegaragenodectlyaml
     includes: nodegarageincludes
     developer_mode: nodegaragedevelopermode

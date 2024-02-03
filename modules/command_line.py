@@ -1123,6 +1123,7 @@ class CLI():
                 {
                     "SERVICE NAME": profile_services[n],
                     "BLOCKCHAIN LAYER": profile_layers[n],
+                    "TOKEN": f"${self.functions.config_obj[profile]['token_ticker'].upper()}",
                 },
                 {
                     "PROFILE DESCRIPTION": profile_descr[n],

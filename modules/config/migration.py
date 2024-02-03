@@ -179,7 +179,7 @@ class Migration():
             
             [" CAUTION ",0,"red,on_yellow"],["After the",0,"yellow"], ["migration",0,"cyan","bold"], ["is complete, the",0,"yellow"], 
             ["upgrader",0,"cyan","bold"], ["will continue and will prompt you to remove the contents of the backup directory",0,"yellow"],
-            ["where the original",0,"yellow"], ["configuration YAML file",0,"white,on_blue"], ["has been backed up within.",2,"yellow"], 
+            ["where the original",0,"yellow"], ["configuration YAML file",0,"cyan","bold"], ["has been backed up within.",2,"yellow"], 
             
             ["If you choose to empty the contents",0,"yellow"],
             ["of this directory, you will remove the backup",0,"yellow"], ["configuration YAML file",0,"cyan"], ["file.",2,"yellow"],
@@ -290,7 +290,7 @@ class Migration():
                 "nodegarageml0linkport": self.config_obj[profile]["ml0_link_port"],
                 "nodegarageml0linkprofile": self.config_obj[profile]["ml0_link_profile"],
                 "nodegaragetokenidentifier": self.config_obj[profile]["token_identifier"],
-                "nodegaragemetatoken": "global", # new to v2.13.0
+                "nodegaragemetatokencoinid": "global", # new to v2.13.0
                 "nodegaragedirectorybackups": self.config_obj[profile]["directory_backups"],
                 "nodegaragedirectoryuploads": self.config_obj[profile]["directory_uploads"],
                 "nodegaragexms": self.config_obj[profile]["java_xms"],
@@ -348,10 +348,12 @@ class Migration():
         
         # =======================================================
         # build yaml global elements section
-        # =======================================================        
+        # =======================================================    
+            
         rebuild_obj = {
             "nodegaragemetagraphname": self.config_obj["global_elements"]["metagraph_name"],
-            "nodegaragemetatoken": "default", # new to v2.13.0
+            "nodegaragemetatokenidentifier": "disable",
+            "nodegaragemetagraphtokencoinid": "default", # new to v2.13.0
             "nodegaragenodectlyaml": self.version_obj["node_nodectl_yaml_version"],
             "nodegarageincludes": "False", # new to v2.13.0
             "nodegaragedevelopermode": self.config_obj["global_elements"]["developer_mode"],

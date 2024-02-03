@@ -134,37 +134,58 @@ class Functions():
     def get_crypto_price(self):
         # The last element is used for balance calculations
         # It is not used by the show prices command
-        
-        def test_for_api_outage(coin_prices):
-            try:
-                coin_prices['constellation-labs']['usd']
-            except:
-                coin_prices['constellation-labs']['usd'] = 0.00
+
+        def get_token_id(ticker):
+            response = get("https://api.coingecko.com/api/v3/coins/list")
+            if response.status_code == 200:
+                coins = response.json()
+                for coin in coins:
+                    if coin['symbol'].lower() == ticker.lower(): # This checks for the ticker symbol in lowercase
+                        return coin['id']
+            return None  
+              
+        def test_for_api_outage(coin_prices,ticker_id_list):
+
+            for ticker_id in ticker_id_list:
+                try:
+                    coin_prices[ticker_id]['usd']
+                except:
+                    coin_prices[ticker_id]['usd'] = 0.00
+
+            # try:
+            #     coin_prices['constellation-labs']['usd']
+            # except:
+            #     coin_prices['constellation-labs']['usd'] = 0.00
             
-            try:
-                coin_prices['lattice-token']['usd'] 
-            except:
-                coin_prices['lattice-token']['usd'] = 0.00
+            # try:
+            #     coin_prices['lattice-token']['usd'] 
+            # except:
+            #     coin_prices['lattice-token']['usd'] = 0.00
             
-            try:
-                coin_prices['dor']['usd'] 
-            except:
-                coin_prices['dor']['usd'] = 0.00
+            # try:
+            #     coin_prices['dor']['usd'] 
+            # except:
+            #     coin_prices['dor']['usd'] = 0.00
             
-            try:
-                coin_prices['bitcoin']['usd']
-            except:
-                coin_prices['bitcoin']['usd'] = 0.00
+            # try:
+            #     coin_prices['bitcoin']['usd']
+            # except:
+            #     coin_prices['bitcoin']['usd'] = 0.00
                 
-            try:
-                coin_prices['quant-network']['usd']
-            except:
-                coin_prices['quant-network']['usd'] = 0.00
+            # try:
+            #     coin_prices['quant-network']['usd']
+            # except:
+            #     coin_prices['quant-network']['usd'] = 0.00
                 
-            try:
-                coin_prices['quant-network']['usd']
-            except:
-                coin_prices['quant-network']['usd'] = 0.00
+            # try:
+            #     coin_prices['quant-network']['usd']
+            # except:
+            #     coin_prices['quant-network']['usd'] = 0.00
+
+            # try:
+            #     coin_prices[ticker]['usd']
+            # except:
+            #     coin_prices[ticker]['usd'] = 0.00
                 
             return coin_prices
         
@@ -172,25 +193,40 @@ class Functions():
         # This is a quick timeout check before attempting to download pricing
         
         self.create_coingecko_obj()
-        
+        check_ids = 'constellation-labs,lattice-token,Dor,bitcoin,ethereum,quant-network'
+
+        ticker_id = False
+        ticker_list = ["dag","dor","bct","eth","ltx","qnt"]
+        ticker_id_list = check_ids.split(",")
+        if self.config_obj["default_profile"]["token_ticker"] not in ticker_list:
+            ticker_id = get_token_id(self.config_obj["default_profile"]["token_ticker"])
+            ticker_id_list.append(ticker_id)
+            check_ids += f",{ticker_id}"
+
         try:
-            coin_prices = self.cg.get_price(ids='constellation-labs,lattice-token,Dor,bitcoin,ethereum,quant-network', vs_currencies='usd')
+            coin_prices = self.cg.get_price(ids=check_ids, vs_currencies='usd')
         except Exception as e:
             self.log.logger.error(f"coingecko response error | {e}")
             cprint("  Unable to process CoinGecko results...","red")
         else:
             # replace pricing list properly
-            coin_prices = test_for_api_outage(coin_prices)
+            coin_prices = test_for_api_outage(coin_prices,ticker_id_list)
             
-            pricing_list_temp = [
-            "${:,.3f}".format(coin_prices['constellation-labs']['usd']),
-            "${:,.3f}".format(coin_prices['lattice-token']['usd']),
-            "${:,.3f}".format(coin_prices['dor']['usd']),
-            "${:,.2f}".format(coin_prices['bitcoin']['usd']),
-            "${:,.2f}".format(coin_prices['ethereum']['usd']),
-            "${:,.2f}".format(coin_prices['quant-network']['usd']),
-            coin_prices['constellation-labs']['usd']  # unformatted 
-            ]
+            pricing_list_temp = []
+            for ticker_id in ticker_id_list:
+                pricing_list_temp.append("${:,.3f}".format(coin_prices[ticker_id]['usd']))
+            pricing_list_temp.append(coin_prices['constellation-labs']['usd'])  # unformatted
+
+            # pricing_list_temp = [
+            # "${:,.3f}".format(coin_prices['constellation-labs']['usd']),
+            # "${:,.3f}".format(coin_prices['lattice-token']['usd']),
+            # "${:,.3f}".format(coin_prices['dor']['usd']),
+            # "${:,.2f}".format(coin_prices['bitcoin']['usd']),
+            # "${:,.2f}".format(coin_prices['ethereum']['usd']),
+            # "${:,.2f}".format(coin_prices['quant-network']['usd']),
+            # coin_prices['constellation-labs']['usd']  # unformatted 
+            # ]
+
             pricing_list = ["N/A" for _ in pricing_list_temp]  
             for n, price in enumerate(pricing_list_temp):
                 try:
@@ -1816,13 +1852,20 @@ class Functions():
                         "yaml_url": f_url,
                     }
                 }
-                    
+
+        # reorder
+        ordered_predefined_envs = ["mainnet","integrationnet","testnet"]
+        for env in predefined_envs:    
+            if env not in ordered_predefined_envs:
+                ordered_predefined_envs.append(env)
+
         if retrieve == "profile_names" or retrieve == "chosen_profile":    
             chosen_profile = self.print_option_menu({
-                "options": predefined_envs,
+                "options": ordered_predefined_envs,
                 "return_where": return_where,
                 "r_and_q": r_and_q,
                 "color": "green",
+                "newline": True,
                 "return_value": True,
             })
 
@@ -2669,6 +2712,8 @@ class Functions():
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")
         color = command_obj.get("color","cyan")
+        newline = command_obj.get("newline",False)
+
         # If r_and_q is set ("r","q" or "both")
         # make sure if using "let" option, "r" and "q" do not conflict
         r_and_q = command_obj.get("r_and_q",False)
@@ -2689,11 +2734,13 @@ class Functions():
         if r_and_q:
             if r_and_q == "both" or r_and_q == "r":
                 self.print_paragraphs([
-                    ["R",0,color,"bold"], [")",-1,color], [f"eturn to {return_where} Menu",-1,color], ["",1],
+                    ["",1],["R",0,color,"bold"], [")",-1,color], [f"eturn to {return_where} Menu",-1,color], ["",1],
                 ])
                 prefix_list.append("R")
                 options.append("r")
+                newline = False
             if r_and_q == "both" or r_and_q == "q":
+                if newline: print("")
                 self.print_paragraphs([
                     ["Q",-1,color,"bold"], [")",-1,color], ["uit",-1,color], ["",2],                
                 ])

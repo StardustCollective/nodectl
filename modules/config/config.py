@@ -319,6 +319,7 @@ class Configuration():
             **self.functions.config_obj,            
         }
         self.migrate = Migration({
+            "caller": "config",
             "parent": self,
         })
         if self.migrate.migrate():
@@ -432,8 +433,13 @@ class Configuration():
             "priority_source_file": "priority-list",
             "priority_source_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
-            "jar_repository": "github.com/Constellation-Labs/tessellation/",
-            "token": "dag",
+            "jar_repository": {
+                "mainnet": "github.com/Constellation-Labs/tessellation/",
+                "testnet": "github.com/Constellation-Labs/tessellation/",
+                "integrationnet": "github.com/Constellation-Labs/tessellation/",
+                "dor_metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
+            },
+            "token_coin_id": "constellation-labs",
             "edge_point": [
                 "l0-lb-cnng_edge_name.constellationnetwork.io",
                 "l1-lb-cnng_edge_name.constellationnetwork.io",
@@ -454,7 +460,11 @@ class Configuration():
             ) 
         except:
             error_found()
-        
+
+
+        if self.config_obj["global_elements"]["metagraph_token_coin_id"] == "default":
+            self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs" 
+
         for profile in self.metagraph_list:
             try:
                 self.config_obj[profile]["p12_key_store"] = self.create_path_variable(
@@ -501,7 +511,12 @@ class Configuration():
             self.config_obj[profile]["is_jar_static"] = False        
             if self.config_obj[profile]["jar_repository"] != "default":
                 self.config_obj[profile]["is_jar_static"] = True
-                                    
+
+            if self.config_obj[profile]["token_coin_id"] == "global":
+                self.config_obj[profile]["token_coin_id"] = self.config_obj["global_elements"]["metagraph_token_coin_id"]  
+            if self.config_obj[profile]["token_identifier"] == "global":
+                self.config_obj[profile]["token_identifier"] = self.config_obj["global_elements"]["metagraph_token_identifier"]
+
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
@@ -509,6 +524,8 @@ class Configuration():
                             self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist' # exception
                         elif tdir == "priority_source_file": 
                             self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-prioritysourcelist' # exception
+                        elif tdir == "jar_repository": 
+                            self.config_obj[profile][tdir] = defaults[tdir][self.config_obj["global_elements"]["metagraph_name"]]
                         elif isinstance(def_value,list):
                             if tdir == "edge_point": 
                                 for n, edge in enumerate(def_value): 
@@ -837,7 +854,7 @@ class Configuration():
                 ["ml0_link_port","self_port"],
                 ["ml0_link_profile","str"],
                 ["token_identifier","wallet"],
-                ["token","str"],
+                ["token_coin_id","str"],
                 ["ml0_link_is_self","bool"], # automated value [not part of yaml]
                 ["directory_backups","path_def"],
                 ["directory_uploads","path_def"],
@@ -896,7 +913,8 @@ class Configuration():
             ],
             "global_elements": [
                 ["metagraph_name","str"],
-                ["token","str"],
+                ["metagraph_token_identifier","wallet"],
+                ["metagraph_token_coin_id","str"],
                 ["nodectl_yaml","str"],
                 ["includes","bool"],
                 ["developer_mode","bool"],  
@@ -1028,6 +1046,7 @@ class Configuration():
         # key_name, passphrase, and alias all have to match if set to global
         self.config_obj["global_elements"]["all_global"] = True
         global_p12_keys = ["key_name","passphrase","key_alias"] # test to make sure if one key is global all must be
+            
         try:
             for profile in self.metagraph_list:
                 self.config_obj[profile]["global_p12_all_global"] = False
@@ -1069,6 +1088,9 @@ class Configuration():
                 if self.config_obj["global_p12"]["encryption"]: 
                     self.config_obj[profile]["global_p12_encryption"] = True
 
+                if self.config_obj[profile]["token_coin_id"] == "global":
+                    self.config_obj[profile]["token_coin_id"] = self.config_obj["global_elements"]["metagraph_token_coin_id"]
+
         except Exception as e:
             self.log.logger.critical(f"configuration format failure detected | exception [{e}]")
             self.send_error("cfg-705","format","existence")
@@ -1088,6 +1110,7 @@ class Configuration():
                         else:
                             self.config_obj[profile][f"global_{p12_key}"] = False
             self.config_obj[profile]["global_p12_cli_pass"] = False # initialize
+
 
         return self.validated
                   
@@ -1245,7 +1268,8 @@ class Configuration():
                         
                         elif req_type == "wallet":
                             pattern = "^DAG[0-9][A-Za-z0-9]{36}"
-                            if not match(pattern,test_value) and test_value != "disable": title = "invalid token identifier"
+                            if test_value == "global" or test_value == "disable": validated = True
+                            elif not match(pattern,test_value): title = "invalid token identifier"
                             else: validated = True 
                                 
                         elif req_type == "list_of_strs":

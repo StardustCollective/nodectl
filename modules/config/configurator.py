@@ -678,6 +678,8 @@ class Configurator():
             "exit_if": False
         })
         
+        print("")
+
         self.c.functions.print_header_title({
             "line1": "GLOBAL P12 DETAILS",
             "single_line": True,
@@ -746,10 +748,7 @@ class Configurator():
         ignore_list = []
         search_dup_only = False
         
-        #for key,values in self.config_obj_apply.items():
         for profile, values in self.config_obj_apply.items():
-            # for profile in self.metagraph_list:
-            #     if key == profile:
             if "do_not_change" in self.config_obj_apply[profile]:
                 search_dup_only = True
             for p_key, p_value in values.items():
@@ -1173,43 +1172,47 @@ class Configurator():
         defaults = command_obj.get("defaults",False)
         confirm = command_obj.get("confirm",True)
         apply = command_obj.get("apply",True)
+        is_global = command_obj.get("is_global",False)
         custom = False
         
         no_change_list = []
-        if questions: no_change_list.append(command_obj.get("no_change_list_questions",list(questions.keys())))
-        if defaults: no_change_list.append(command_obj.get("no_change_list_defaults",list(defaults.keys())))
+        if questions: 
+            no_change_list.append(command_obj.get("no_change_list_questions",list(questions.keys())))
+        if defaults: 
+            no_change_list.append(command_obj.get("no_change_list_defaults",list(defaults.keys())))
         if len(no_change_list) > 0:
             no_change_list = list(chain(*no_change_list))
         append_obj = {}
         
         # identify profiles that do not change
-        for i_profile in self.metagraph_list:
-            if i_profile == profile: continue
+        if not is_global:
+            for i_profile in self.metagraph_list:
+                if i_profile == profile: continue
 
-            for item in no_change_list:
-                if i_profile not in append_obj: append_obj[i_profile] = {}
-                try: append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
-                except Exception as e:
-                    if "custom_" in item: 
-                        custom = True
-                        self.log.logger.debug(f"Did not find custom variable in config, skipping [{item}]")
-                    else:
-                        self.error_messages.error_code_messages({
-                            "error_code": "cfr-1046",
-                            "line_code": "config_error",
-                            "extra": "format"
-                        })
-                append_obj[i_profile]["do_not_change"] = True
-
-        # append and add to the append_obj
-        for i_profile in self.metagraph_list:
-            if i_profile != profile: 
-                i_append_obj = {}
                 for item in no_change_list:
-                    try: i_append_obj[f"{item}"] = self.c.config_obj[i_profile][item]
-                    except: 
-                        if custom: continue
-                append_obj[f"{i_profile}"] = {**i_append_obj, "do_not_change": True}
+                    if i_profile not in append_obj: append_obj[i_profile] = {}
+                    try: append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
+                    except Exception as e:
+                        if "custom_" in item: 
+                            custom = True
+                            self.log.logger.debug(f"Did not find custom variable in config, skipping [{item}] | [{e}]")
+                        else:
+                            self.error_messages.error_code_messages({
+                                "error_code": "cfr-1046",
+                                "line_code": "config_error",
+                                "extra": "format"
+                            })
+                    append_obj[i_profile]["do_not_change"] = True
+
+            # append and add to the append_obj
+            for i_profile in self.metagraph_list:
+                if i_profile != profile: 
+                    i_append_obj = {}
+                    for item in no_change_list:
+                        try: i_append_obj[f"{item}"] = self.c.config_obj[i_profile][item]
+                        except: 
+                            if custom: continue
+                    append_obj[f"{i_profile}"] = {**i_append_obj, "do_not_change": True}
                 
         # append the changing items to the append obj
         if not defaults: defaults = {}
@@ -1234,9 +1237,10 @@ class Configurator():
         self.config_obj_apply = {**self.config_obj_apply, **append_obj} 
         
         # reorder search so that replacement happens
-        # at the correct lines in the correct order
-        for i_profile in reversed(self.metagraph_list):
-            self.config_obj_apply = {f"{i_profile}": self.config_obj_apply.pop(i_profile), **self.config_obj_apply }
+        # at the correct lines in the correct order if not global section
+        if not is_global:
+            for i_profile in reversed(self.metagraph_list):
+                self.config_obj_apply = {f"{i_profile}": self.config_obj_apply.pop(i_profile), **self.config_obj_apply }
         
         if apply: self.apply_vars_to_config() 
         
@@ -1612,11 +1616,25 @@ class Configurator():
         })
         
         
-    def manual_define_token_id(self,profile=False): 
-        default = "disable" if not profile else self.c.config_obj[profile]["token_identifier"]
+    def manual_define_token_identifier(self,profile=False):
+        if profile == "global_elements": pass
+        else: 
+            default = "global" if not profile else self.c.config_obj[profile]["token_identifier"]
         profile = self.profile_to_edit if not profile else profile
         defaults, questions = False, False
-        
+        key_name = "token_identifier"
+
+        if profile == "global_elements":
+            default = "disable"
+            self.header_title = {
+                "line1": "EDIT GLOBAL SETTINGS",
+                "line2": "Metagraph Token Identifier",
+                "show_titles": False,
+                "clear": True,
+                "newline": "both",
+            }
+            key_name = "metagraph_token_identifier"            
+            
         self.manual_section_header(profile,"TOKEN IDENTIFIER")
         print("")
         
@@ -1625,36 +1643,133 @@ class Configurator():
         description += "resembles a DAG wallet address; however, it is a not a wallet address. "
         description += "You should obtain this identifier from the Metagraph administration.  It should normally be "
         description += "supplied with a pre-defined configuration.  Constellation Network MainNet, TestNet, and IntegrationNet "
-        description += "should have this key pair value set to 'disable'."
+        description += "should have this key pair value set to 'disable'. "
+        description += "If the 'token_identifier' is set to 'global', the global 'metagraph_token_identifier' will be used. "
         
         if self.detailed:
             self.c.functions.print_paragraphs([
                 [description,2,"white","bold"]
             ])
             
+        prompt = "Set token identifier to disable?"
+        if profile == "global_elements":
+            prompt = "Set global token identifier to disable?"
         if self.c.functions.confirm_action({
-            "prompt": "Set token identifier to disable?",
+            "prompt": prompt,
             "yes_no_default": "y",
             "return_on": "y",
             "exit_if": False
         }):
             defaults = {
-                "token_identifier": "disable",
+                f"{key_name}": "disable",
             }        
         else:
+            question = f"  {colored(f'Enter the token identifier required for this profile = {profile}','cyan')}"
+            if profile == "global_elements":
+                question = f"  {colored(f'Enter the global token identifier to use for all profiles','cyan')}"
             questions = {
-                "token_identifier": {
-                    "question": f"  {colored(f'Enter the token identifier required for this profile {profile}','cyan')}",
-                    "description": "Metagraph ID",
+                f"{key_name}": {
+                    "question": question,
+                    "description": "Metagraph token Identifier",
                     "default": default,
                     "required": False,
                 },
             }
-        
+    
         self.manual_append_build_apply({
             "questions": questions, 
             "profile": profile,
             "defaults": defaults,
+            "is_global": True if profile == "global_elements" else False
+        })
+        
+        
+    def manual_define_token_coin(self,profile=False):
+        key_name = "token_coin_id" 
+        if profile == "global_elements":
+            default = "default"
+            self.header_title = {
+                "line1": "EDIT GLOBAL SETTINGS",
+                "line2": "Token Company Specifier",
+                "show_titles": False,
+                "clear": True,
+                "newline": "both",
+            }
+            key_name = "metagraph_token_coin_id"
+        else:
+            default = "global" if not profile else self.c.config_obj[profile][key_name]
+        profile = self.profile_to_edit if not profile else profile
+        defaults, questions, manual = False, False, False
+        
+        self.manual_section_header(profile,"TOKEN COMPANY SPECIFIER ID")
+        print("")
+        
+        description = "The Metagraph you are working with may have a dedicated token specific to that Metagraph. "
+        description += "If the token is recognized by CoinGecko it will be displayed when issuing the 'dag','price', or 'market' commands. "
+        description += "If the token is NOT recognized by CoinGecko, you should enter 'constellation-labs' or 'default'. "
+        description += "This will set nodectl to 'constellation-labs' and display '$DAG' when appropriate. "
+        description += "This value must be the CoinGecko 'api id' for the token/coin you want to be added to nodectl's lookup commands. "
+        description += "You can find the 'id' by going to the CoinGecko website at 'https://www.coingecko.com/en/all-cryptocurrencies' and search through the "
+        description += "list until you find your 'Coin' and click on it.  On the LEFT side of the details for your 'Coin' you will see 'API ID'. Enter that "
+        description += "value here, when requested."
+        
+        description2 = "Handle Metagraph cryptocurrency token symbol identification."
+
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                [description,2,"white","bold"]
+            ])
+
+        if profile == "global_elements":
+            if self.c.functions.confirm_action({
+                "prompt": "Set token coin id to default?",
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": False
+            }):
+                defaults = {
+                    f"{key_name}": default,
+                } 
+            else:
+                manual = True       
+        else:            
+            self.c.functions.print_paragraphs([
+                ["Do you want to setup the token id to follow the global settings, set it up manually, or use the default?",2],
+            ])
+            option = self.c.functions.print_option_menu({
+                "options": ["global","manual","default"],
+                "return_where": "Edit",
+                "r_and_q": "r",
+                "color": "cyan",
+                "newline": True,
+                "return_value": True,
+            })
+            if option == "r": return
+            elif option == "global" or option == "default":
+                defaults = {
+                    f"{key_name}": option,
+                }     
+            elif option == "manual":
+                manual = True  
+
+        if manual:
+            question = f"  {colored(f'Enter the Metagraph token coin api id for this Metagraph profile = {profile}','cyan')}"
+            if profile == "global_elements":
+                question = f"  {colored(f'Enter the Metagraph token coin api id to use for all profiles','cyan')}"
+            questions = {
+                f"{key_name}": {
+                    "question": question,
+                    "description": description2,
+                    "default": default,
+                    "required": False,
+                },
+            }
+    
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+            "defaults": defaults,
+            "is_global": True if profile == "global_elements" else False
         })
 
   
@@ -1784,14 +1899,19 @@ class Configurator():
                 defaults = {
                     f"{file_repo_type}_{one_off}": "default",
                     f"{file_repo_type}_file": "default",
-                    f"{file_repo_type}_repository": "default"
+                    f"{file_repo_type}_repository": "default",
                 }
+                if file_repo_type == "jar":
+                    defaults[f"{file_repo_type}_version"] = "default"
+
             else:
                 defaults = {
                     f"{file_repo_type}_{one_off}": "disable",
                     f"{file_repo_type}_file": "disable",
-                    f"{file_repo_type}_repository": "disable"
+                    f"{file_repo_type}_repository": "disable",
                 } 
+                if file_repo_type == "jar":
+                    defaults[f"{file_repo_type}_version"] = "default"
             
             if file_repo_type == "pro_rating":
                 del defaults[f"{file_repo_type}_repository"]
@@ -1805,6 +1925,8 @@ class Configurator():
                 file_default = self.c.config_obj[profile][f"{file_repo_type}_file"]
                 if file_repo_type != "pro_rating":
                     repo_default = self.c.config_obj[profile][f"{file_repo_type}_repository"]
+                if file_repo_type == "jar":
+                    repo_version_default = self.c.config_obj[profile][f"{file_repo_type}_version"]
             else:
                 def_value = "default" if int(self.c.config_obj[profile]["layer"]) < 1 else "disable"
                 location_default, file_default, repo_default = def_value, def_value, def_value
@@ -1836,11 +1958,7 @@ class Configurator():
                 description1 += "versioning during the upgrade process or by options from the command line when using the refresh "
                 description1 += "binaries feature.  Thank you for your patience and understanding. "
                 description1 += "Please leave as 'default' here. "
-                # description1 = f"The {verb} version is the version number associated with the Metagraph or Hypergraph.  It is necessary that "
-                # description1 += "nodectl understand where it is intending to download the proper jar binaries from. In the event that the "
-                # description1 += "Metagraph associated jar binaries are located as artifacts in a github repository, is a prime example of the "
-                # description1 += "importance of knowing the version number. "
-                # description1 += "The version should be in the form: vX.X.X where X is a number.  Example) v2.0.0. "
+
             description1 += defaultdescr
 
             description2 = f"The file name to be used to contain the {verb} entries.  This should be a single string value with no spaces (if you "
@@ -1864,6 +1982,8 @@ class Configurator():
             
             one_off2 = "directory"
             if file_repo_type == "jar":
+                description4 = f"The jar repository needs to have a version associated with it.  This will make sure that that correction version "
+                description4 += "of the jar binaries are downloaded, allowing you to stay current with the metagraph in question."
                 one_off2 = "version"
                 
             questions = {
@@ -1890,11 +2010,21 @@ class Configurator():
                         "default": repo_default
                     },
                 }
+            if file_repo_type != "jar":
+                questions = {
+                    **questions,
+                    f"{file_repo_type}_version": {
+                        "question": f"  {colored(f'Enter a valid {verb} repository version','cyan')}",
+                        "description": description4,
+                        "required": False,
+                        "default": repo_version_default
+                    },
+                }
         
-        # deprecate versioning on tessellation jar before removal
-        if one_off == "version" or one_off2 == "version":  
-            if questions: questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
-            del defaults["jar_version"]
+        # re-enable the once deprecated versioning on tessellation jar before removal
+        # if one_off == "version" or one_off2 == "version":  
+        #     if questions: questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
+        #     del defaults["jar_version"]
             
         self.manual_append_build_apply({
             "questions": questions, 
@@ -2139,12 +2269,14 @@ class Configurator():
                 })
 
                 # options = ["E","A","G","R","L","M","Q"]
-                options = ["E","G","R","L","P","M","Q"]
+                options = ["E","G","R","L","P","M","Q","T","I"]
                 if return_option not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
                         # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
                         ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
+                        ["I",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Metagraph",0,"magenta"],["T",0,"magenta","underline"], ["oken Identifier",-1,"magenta"], ["",1],
+                        ["T",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Metagraph",0,"magenta"],["T",0,"magenta","underline"], ["oken Coin Id",-1,"magenta"], ["",1],
                         ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
                         ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
@@ -2191,6 +2323,10 @@ class Configurator():
             elif option == "p": self.passphrase_enable_disable_encryption()
             elif option == "l": 
                 self.edit_append_profile_global("log_level")
+            elif option == "i": 
+                self.manual_define_token_identifier("global_elements")
+            elif option == "t": 
+                self.manual_define_token_coin("global_elements")
             elif option == "m":
                 self.action = False
                 self.setup()
@@ -2283,6 +2419,7 @@ class Configurator():
             ("Metagraph Type",20),
             ("Token Identifier",21),
             ("Rating File Setup",22),
+            ("Token Coin ID",23),
         ]
         section_change_names.sort()
                         
@@ -2459,9 +2596,14 @@ class Configurator():
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
                                                             
                 elif option == 21:
-                    self.called_option = "token id"
-                    self.manual_define_token_id(profile)
-                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
+                    self.called_option = "token identifer"
+                    self.manual_define_token_identifier(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [token id] [{self.action}]"
+                                                            
+                elif option == 23:
+                    self.called_option = "token_coin_id"
+                    self.manual_define_token_coin(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [token] [{self.action}]"
                                         
                 if do_validate: 
                     self.validate_config()
