@@ -1772,7 +1772,6 @@ class CLI():
                 ["nodectl latest stable:",0,"blue","bold"], ["Recommended version.",1],
                 ["nodectl latest:",0,"blue","bold"], ["Newest, may be experimental and not stable.",2],
             ])
-
        
  
     def check_source_connection(self,command_list):

@@ -81,7 +81,7 @@ class Node():
     def set_github_repository(self,repo,profile,download_version):
         if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
             return f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
-        return self.config_obj[profile]["jar_repository"]
+        return f'https://{self.config_obj[profile]["jar_repository"]}/releases/download/{download_version}'
     
     
     def download_constellation_binaries(self,command_obj):
@@ -208,7 +208,7 @@ class Node():
 
         for n, profile in enumerate(profile_names):
             # version = download_version
-            if self.config_obj[profile]["is_jar_static"]: download_version = "static" 
+            if self.config_obj[profile]["is_jar_static"]: download_version = self.config_obj[profile]["jar_version"]
             if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
             if self.config_obj[profile]["environment"] == environment:
                 first_profile = profile if n < 1 else first_profile
