@@ -9,6 +9,7 @@ import subprocess
 import socket
 import validators
 import uuid
+import io
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -31,7 +32,7 @@ from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
 from platform import platform
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir
+from os import system, getenv, path, walk, environ, get_terminal_size, scandir, getcwd
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
@@ -135,18 +136,9 @@ class Functions():
         # The last element is used for balance calculations
         # It is not used by the show prices command
 
-        def get_token_id(ticker):
-            response = get("https://api.coingecko.com/api/v3/coins/list")
-            if response.status_code == 200:
-                coins = response.json()
-                for coin in coins:
-                    if coin['symbol'].lower() == ticker.lower(): # This checks for the ticker symbol in lowercase
-                        return coin['id']
-            return None  
-              
-        def test_for_api_outage(coin_prices,ticker_id_list):
+        def test_for_api_outage(coin_prices):
 
-            for ticker_id in ticker_id_list:
+            for ticker_id in coin_prices.keys():
                 try:
                     coin_prices[ticker_id]['usd']
                 except:
@@ -195,27 +187,40 @@ class Functions():
         self.create_coingecko_obj()
         check_ids = 'constellation-labs,lattice-token,Dor,bitcoin,ethereum,quant-network'
 
-        ticker_id = False
-        ticker_list = ["dag","dor","bct","eth","ltx","qnt"]
-        ticker_id_list = check_ids.split(",")
-        if self.config_obj["default_profile"]["token_ticker"] not in ticker_list:
-            ticker_id = get_token_id(self.config_obj["default_profile"]["token_ticker"])
-            ticker_id_list.append(ticker_id)
-            check_ids += f",{ticker_id}"
+        if self.config_obj[self.default_profile]["token_coin_id"] != "Dor" and self.config_obj[self.default_profile]["token_coin_id"] != "constellation-labs":
+            check_ids += f',{self.config_obj[self.default_profile]["token_coin_id"]}'
 
         try:
-            coin_prices = self.cg.get_price(ids=check_ids, vs_currencies='usd')
+            #coin_prices = self.cg.get_price(ids=check_ids, vs_currencies='usd')
+            coin_prices = {'bitcoin': {'usd': 43097}, 'constellation-labs': {'usd': 0.051318}, 'dor': {'usd': 0.04198262}, 'ethereum': {'usd': 2305.3}, 'lattice-token': {'usd': 0.119092}, 'quant-network': {'usd': 103.24}, 'solana': {'usd': 97.75}}
         except Exception as e:
             self.log.logger.error(f"coingecko response error | {e}")
             cprint("  Unable to process CoinGecko results...","red")
         else:
             # replace pricing list properly
-            coin_prices = test_for_api_outage(coin_prices,ticker_id_list)
-            
-            pricing_list_temp = []
-            for ticker_id in ticker_id_list:
-                pricing_list_temp.append("${:,.3f}".format(coin_prices[ticker_id]['usd']))
-            pricing_list_temp.append(coin_prices['constellation-labs']['usd'])  # unformatted
+            coin_prices = test_for_api_outage(coin_prices)
+            coin_list_path = path.join(getcwd(), "modules/data/coingecko_coin_list.json")
+            try:
+                with open(coin_list_path, "r", encoding="utf-8") as file:
+                    coins = json.load(file)
+            except Exception as ee:
+                self.log.logger.error(f"coingecko response error | {ee}")
+                cprint("  Unable to process CoinGecko coin list results...","red")  
+            else:
+                updated_coin_prices = deepcopy(coin_prices)
+                for coin in coins:
+                    for cid in coin_prices.keys():
+                        if coin['id'] == cid:
+                            updated_coin_prices[cid] = {
+                                **updated_coin_prices[cid],
+                                "symbol": coin["symbol"],
+                                "formatted": "${:,.3f}".format(updated_coin_prices[coin['id']]['usd'])
+                            }
+
+            # pricing_list_temp = []
+            # for ticker_id in coin_prices.keys():
+            #     pricing_list_temp.append("${:,.3f}".format(coin_prices[ticker_id]['usd']))
+            # pricing_list_temp.append(coin_prices['constellation-labs']['usd'])  # unformatted
 
             # pricing_list_temp = [
             # "${:,.3f}".format(coin_prices['constellation-labs']['usd']),
@@ -227,16 +232,16 @@ class Functions():
             # coin_prices['constellation-labs']['usd']  # unformatted 
             # ]
 
-            pricing_list = ["N/A" for _ in pricing_list_temp]  
-            for n, price in enumerate(pricing_list_temp):
-                try:
-                    price = price
-                except:
-                    pass
-                else:
-                    pricing_list[n] = price
-                
-        return (pricing_list)
+            # pricing_list = ["N/A" for _ in pricing_list_temp]  
+            # for n, price in enumerate(pricing_list_temp):
+            #     try:
+            #         price = price
+            #     except:
+            #         pass
+            #     else:
+            #         pricing_list[n] = price
+
+        return updated_coin_prices
 
 
     def get_crypto_markets(self):

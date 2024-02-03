@@ -546,17 +546,22 @@ class CLI():
         self.log.logger.info(f"show prices requested")
         crypto_prices = self.functions.get_crypto_price()
         
+        crypto_setup, crypto_setup2 = {}, {}
+        for n, coin in enumerate(crypto_prices.keys()):
+            if n < 4:
+                crypto_setup = {
+                    **crypto_setup,
+                    f"${crypto_prices[coin]['symbol'].upper()}": crypto_prices[coin]['formatted'],
+                }
+            else:
+                crypto_setup2 = {
+                    **crypto_setup2,
+                    f"${crypto_prices[coin]['symbol'].upper()}": crypto_prices[coin]['formatted'],
+                }                
+
         print_out_list = [
-            {
-                "header_elements" : {
-                    "$DAG": crypto_prices[0],
-                    "$LTX": crypto_prices[1],
-                    "$BTC": crypto_prices[2],
-                    "$ETH": crypto_prices[3],
-                    "$QNT": crypto_prices[4],
-                },
-                "spacing": 13
-            },
+            crypto_setup,
+            crypto_setup2,
         ]
         
         for header_elements in print_out_list:
