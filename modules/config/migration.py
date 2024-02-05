@@ -17,6 +17,12 @@ class Migration():
 
         self.config_obj = self.functions.config_obj
 
+        self.parent.setup_config_vars({
+            "key": "edge_point",
+            "profile": list(self.config_obj.keys())[0],
+            "environment": self.functions.environment_name,
+        })
+
         versioning = Versioning({
             "config_obj": self.config_obj,
             "print_messages": True,
@@ -307,6 +313,7 @@ class Migration():
                 "nodegarageseedlocation": self.config_obj[profile]["seed_location"],
                 "nodegarageseedrepository": self.config_obj[profile]["seed_repository"],
                 "nodegarageseedfile": self.config_obj[profile]["seed_file"],
+                "nodegarageseedversion": "default", # new to v2.13.0,
                 "nodegarageprioritysourcelocation": self.config_obj[profile]["priority_source_location"],
                 "nodegarageprioritysourcerepository": self.config_obj[profile]["priority_source_repository"],
                 "nodegarageprioritysourcefile": self.config_obj[profile]["priority_source_file"],

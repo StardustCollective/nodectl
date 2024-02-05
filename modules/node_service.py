@@ -78,10 +78,15 @@ class Node():
         })
 
 
-    def set_github_repository(self,repo,profile,download_version):
-        if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
-            return f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
-        return f'https://{self.config_obj[profile]["jar_repository"]}/releases/download/{download_version}'
+    def set_github_repository(self,repo,profile,download_version,jar_seed="jar"):
+        if jar_seed == "jar":
+            if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
+                return f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
+            return f'https://{self.config_obj[profile]["jar_repository"]}/releases/download/{download_version}'
+        else:
+            if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
+                return f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
+            return f'https://{self.config_obj[profile]["jar_repository"]}/releases/download/{download_version}'
     
     
     def download_constellation_binaries(self,command_obj):
@@ -303,14 +308,11 @@ class Node():
         
         self.log.logger.debug("node service - download seed list initiated...")
         profile = command_obj.get("profile",self.profile)
-        # install_upgrade = command_obj.get("install_upgrade",True)
-        download_version = command_obj.get("download_version","default")
         environment_name = self.functions.config_obj[profile]["environment"]
+        download_version = command_obj.get("download_version","default")
         seed_path = self.functions.config_obj[profile]["seed_path"]    
         seed_file = self.config_obj[profile]['seed_file']
         seed_repo = self.config_obj[profile]['seed_repository']
-
-        if download_version == None: download_version = "default"
         
         if not self.auto_restart:
             progress = {
@@ -342,12 +344,17 @@ class Node():
             elif environment_name == "mainnet":
                 if download_version == "default":
                     download_version = self.version_obj[environment_name][self.functions.default_profile]["cluster_tess_version"]
-                bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/{environment_name}-seedlist -O {seed_path} -o /dev/null"
+                    seed_repo = self.set_github_repository("default",profile,download_version)
+                bashCommand = f"sudo wget {seed_repo}/{environment_name}-seedlist -O {seed_path} -o /dev/null"
         else:
+            seed_repo = f'https://{self.config_obj[profile]["seed_repository"]}'
+            if self.config_obj[profile]["seed_github"]:
+                seed_repo = self.set_github_repository("static",profile,download_version,"seed")
             # makes ability to not include https or http
-            if "http://" not in seed_repo and "https://" not in seed_repo:
-                seed_repo = f"https://{seed_repo}"
+            # if "http://" not in seed_repo and "https://" not in seed_repo:
+            #     seed_repo = f"https://{seed_repo}"
             bashCommand = f"sudo wget {seed_repo}/{seed_file} -O {seed_path} -o /dev/null"
+            bashCommand = bashCommand.replace("//","/")
             
         if not self.auto_restart:
             self.functions.print_cmd_status(progress)
@@ -1263,6 +1270,7 @@ nodectl:
     p12_passphrase: nodegaragep12passphrase
     seed_location: nodegarageseedlocation
     seed_repository: nodegarageseedrepository
+    seed_version: nodegarageseedversion
     seed_file: nodegarageseedfile
     pro_rating_location: nodegarageratinglocation
     pro_rating_file: nodegarageratingfile

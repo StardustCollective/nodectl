@@ -9,7 +9,7 @@ import subprocess
 import socket
 import validators
 import uuid
-import io
+
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -31,6 +31,7 @@ from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
 from platform import platform
+from urllib.parse import urlparse, urlunparse
 
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir, getcwd
 from sys import exit, stdout, stdin
@@ -2238,7 +2239,7 @@ class Functions():
             })
 
 
-    def test_hostname_or_ip(self, hostname):
+    def test_hostname_or_ip(self, hostname, http=True):
         try:
             socket.gethostbyaddr(hostname)
         except:
@@ -2249,6 +2250,10 @@ class Functions():
                     validators.url(hostname)
                 except:
                     return False
+                
+        if not http:
+            if hostname.startswith("http:") or hostname.startswith("https:"):
+                return False
         return True    
     
     
@@ -3198,6 +3203,20 @@ class Functions():
             if line[-1] == "/":
                 return line[0:-1]
             return line
+        elif action == "url":
+            parsed_url = urlparse(line)
+            cleaned_path = parsed_url.path.replace('//', '/')
+            cleaned_url = urlunparse((parsed_url.scheme, parsed_url.netloc, cleaned_path,
+                          parsed_url.params, parsed_url.query, parsed_url.fragment))
+            return cleaned_url
+
+
+
+
+
+
+
+
 
 
     def confirm_action(self,command_obj):

@@ -137,6 +137,8 @@ class AutoRestart():
         self.log.logger.debug("auto_restart -> start_node_service completed successfully.") 
         self.ip_address = self.functions.get_ext_ip()
         
+        self.seed_file_version = self.functions.config_obj[self.thread_profile]["seed_version"]
+        
         self.clean_up_thread_profiles()
         
         self.log.logger.info("auto_restart -> build command_line class obj")
@@ -486,7 +488,6 @@ class AutoRestart():
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - updating [seed_list]")
             self.node_service.download_update_seedlist({
                 "profile": self.thread_profile,
-                "install_upgrade": False,
             })
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [{self.silent_restart_timer}]")
             sleep(self.silent_restart_timer)   # not truly necessary but adding more delay

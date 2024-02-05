@@ -1901,7 +1901,7 @@ class Configurator():
                     f"{file_repo_type}_file": "default",
                     f"{file_repo_type}_repository": "default",
                 }
-                if file_repo_type == "jar":
+                if file_repo_type == "jar" or file_repo_type == "seed":
                     defaults[f"{file_repo_type}_version"] = "default"
 
             else:
@@ -1910,7 +1910,7 @@ class Configurator():
                     f"{file_repo_type}_file": "disable",
                     f"{file_repo_type}_repository": "disable",
                 } 
-                if file_repo_type == "jar":
+                if file_repo_type == "jar" or file_repo_type == "seed":
                     defaults[f"{file_repo_type}_version"] = "default"
             
             if file_repo_type == "pro_rating":
@@ -1925,7 +1925,7 @@ class Configurator():
                 file_default = self.c.config_obj[profile][f"{file_repo_type}_file"]
                 if file_repo_type != "pro_rating":
                     repo_default = self.c.config_obj[profile][f"{file_repo_type}_repository"]
-                if file_repo_type == "jar":
+                if file_repo_type == "jar" or file_repo_type == "seed":
                     repo_version_default = self.c.config_obj[profile][f"{file_repo_type}_version"]
             else:
                 def_value = "default" if int(self.c.config_obj[profile]["layer"]) < 1 else "disable"
@@ -2010,7 +2010,7 @@ class Configurator():
                         "default": repo_default
                     },
                 }
-            if file_repo_type != "jar":
+            if file_repo_type == "jar" or file_repo_type == "seed":
                 questions = {
                     **questions,
                     f"{file_repo_type}_version": {

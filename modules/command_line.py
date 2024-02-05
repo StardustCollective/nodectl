@@ -1632,6 +1632,8 @@ class CLI():
         self.print_title("Update Seed list")
         
         for i_profile in reversed(list(profiles)):
+            download_version = self.functions.config_obj[i_profile]["seed_version"]
+
             if "disable" in self.functions.config_obj[i_profile]["seed_path"]:
                 self.functions.print_paragraphs([
                     ["Seed list is disabled for profile [",0,"red"],
@@ -1639,7 +1641,6 @@ class CLI():
                     ["]",-1,"red"], ["nothing to do",1,"red"], 
                 ])
             else:
-                download_version = "default" if self.functions.config_obj[i_profile]["seed_repository"] == "default" else None
                 self.node_service.download_update_seedlist({
                     "profile": i_profile,
                     "action": "normal",

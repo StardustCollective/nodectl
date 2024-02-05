@@ -403,7 +403,7 @@ class Configuration():
         return path
 
 
-    def setup_config_vars(self):
+    def setup_config_vars(self,one_off=False):
         # sets up the automated values not present in the 
         # yaml file
 
@@ -439,11 +439,12 @@ class Configuration():
                 "integrationnet": "github.com/Constellation-Labs/tessellation/",
                 "dor_metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
             },
+            "edge_point": {
+                "mainnet": "mainnet.constellationnetwork.io",
+                "testnet": "testnet.constellationnetwork.io",
+                "integrationnet": "integrationnet.constellationnetwork.io",
+            },
             "token_coin_id": "constellation-labs",
-            "edge_point": [
-                "l0-lb-cnng_edge_name.constellationnetwork.io",
-                "l1-lb-cnng_edge_name.constellationnetwork.io",
-            ],
             "edge_point_tcp_port": 80,
             "public_port": [9000,9010],
             "p2p_port": [9001,9011],
@@ -453,6 +454,19 @@ class Configuration():
             "java_xmx": ["7G","3G"],
         }
         
+        def handle_edge_point(o_profile,o_environment):
+            if self.config_obj[o_profile]["edge_point"] == "default":
+                prefix_layer = f'l{self.config_obj[o_profile]["layer"]}-lb-'
+                self.config_obj[o_profile]["edge_point"] = f'{prefix_layer}{defaults["edge_point"][o_environment]}'
+            if self.config_obj[o_profile]["edge_point_tcp_port"] == "default":
+                self.config_obj[o_profile]["edge_point_tcp_port"] = defaults["edge_point_tcp_port"]
+            return
+        
+        if isinstance(one_off,dict):
+            if one_off["key"] == "edge_point":
+                handle_edge_point(one_off["profile"], one_off["environment"])
+                return
+
         try:
             self.config_obj["global_p12"]["key_store"] = self.create_path_variable(
                 self.config_obj["global_p12"]["key_location"],
@@ -512,24 +526,29 @@ class Configuration():
             if self.config_obj[profile]["jar_repository"] != "default":
                 self.config_obj[profile]["is_jar_static"] = True
 
+            # self.config_obj[profile]["is_seed_static"] = False        
+            # if self.config_obj[profile]["seed_repository"] != "default" and self.config_obj[profile]["seed_repository"] != "disable":
+            #     self.config_obj[profile]["is_seed_static"] = True
+
             if self.config_obj[profile]["token_coin_id"] == "global":
                 self.config_obj[profile]["token_coin_id"] = self.config_obj["global_elements"]["metagraph_token_coin_id"]  
             if self.config_obj[profile]["token_identifier"] == "global":
                 self.config_obj[profile]["token_identifier"] = self.config_obj["global_elements"]["metagraph_token_identifier"]
 
+            metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
                         if tdir == "seed_file": 
-                            self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-seedlist' # exception
+                            self.config_obj[profile][tdir] = f'{metagraph_name}-seedlist' # exception
                         elif tdir == "priority_source_file": 
-                            self.config_obj[profile][tdir] = f'{self.config_obj[profile]["environment"]}-prioritysourcelist' # exception
+                            self.config_obj[profile][tdir] = f'{metagraph_name}-prioritysourcelist' # exception
                         elif tdir == "jar_repository": 
-                            self.config_obj[profile][tdir] = defaults[tdir][self.config_obj["global_elements"]["metagraph_name"]]
-                        elif isinstance(def_value,list):
+                            self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
+                        elif tdir == "edge_point":
                             if tdir == "edge_point": 
-                                for n, edge in enumerate(def_value): 
-                                    def_value[n] = edge.replace("cnng_edge_name",self.config_obj[profile]["environment"])
+                                handle_edge_point(profile,self.config_obj[profile]["environment"])
+                        elif isinstance(def_value,list):
                             self.config_obj[profile][tdir] = def_value[0]
                             if int(self.config_obj[profile]["layer"]) > 0: self.config_obj[profile][tdir] = def_value[1]
                         else: self.config_obj[profile][tdir] = def_value  
@@ -538,8 +557,27 @@ class Configuration():
                     error_found()
 
             self.config_obj[profile]["jar_github"] = False 
-            if "github.com" in self.config_obj[profile]["jar_repository"] and not self.config_obj[profile]["is_jar_static"]:
+            # if "github.com" in self.config_obj[profile]["jar_repository"] and not self.config_obj[profile]["is_jar_static"]:
+            if "github.com" in self.config_obj[profile]["jar_repository"]:
                 self.config_obj[profile]["jar_github"] = True 
+
+            self.config_obj[profile]["seed_github"] = False 
+            if "github.com" in self.config_obj[profile]["seed_repository"]:
+                self.config_obj[profile]["seed_github"] = True 
+                
+            try:
+                if self.config_obj[profile]["seed_version"] == "default":
+                    self.config_obj[profile]["seed_version"] = self.config_obj[profile]["jar_version"]
+            except KeyError:
+                self.error_list.append({
+                    "title": "section_missing",
+                    "section": "seed_list",
+                    "profile": profile,
+                    "type": "section",
+                    "key": "multiple",
+                    "value": "seed list access",
+                    "special_case": None
+                })
                 
             try:
                 if self.config_obj[profile]["seed_location"] == "disable":
@@ -875,6 +913,8 @@ class Configuration():
                 ["p12_validated","bool"], # automated value [not part of yaml]             
                 ["seed_location","path_def_dis"],
                 ["seed_repository","host_def_dis"],
+                ["seed_github","bool"], # automated value [not part of yaml]
+                ["seed_version","str"],
                 ["seed_file","str"],             
                 ["seed_path","path_def_dis"], # automated value [not part of yaml]
                 ["pro_rating_location","path_def_dis"], 
@@ -1257,8 +1297,8 @@ class Configuration():
                             
                         elif "host" in req_type:
                             if req_type == "host_def" and test_value == "default": validated = True
-                            elif req_type == "host_def_disable" and test_value == "disable": validated = True
-                            elif self.functions.test_hostname_or_ip(test_value) or test_value == "self": validated = True
+                            elif req_type == "host_def_dis" and test_value == "disable": validated = True
+                            elif self.functions.test_hostname_or_ip(test_value,False) or test_value == "self": validated = True
                             else: title = "invalid host or ip"
                         
                         elif req_type == "128hex":
@@ -1534,6 +1574,7 @@ class Configuration():
                     ok_to_ignore = True if "snapshot" in error["key"] else False
                     
             except Exception as e:
+                self.log.logger.error(f"config -> print_report -> found error [{e}]")
                 self.send_error("cfg-1094")
 
             if self.action == "edit_config":
