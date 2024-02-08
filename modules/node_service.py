@@ -162,7 +162,8 @@ class Node():
             while True:
                 if file != "cur_pos":
                     if file_obj_copy[file]["state"] != "complete":
-                        bashCommand = f"sudo wget {uri}/{file} -O /var/tessellation/{file} -o /dev/null"
+                        repo_uri = self.functions(f"{uri}/{file}","url")
+                        bashCommand = f"sudo wget {repo_uri} -O /var/tessellation/{file} -o /dev/null"
                         self.functions.process_command({
                             "bashCommand": bashCommand,
                             "proc_action": "timeout"
@@ -345,16 +346,19 @@ class Node():
                 if download_version == "default":
                     download_version = self.version_obj[environment_name][self.functions.default_profile]["cluster_tess_version"]
                     seed_repo = self.set_github_repository("default",profile,download_version)
+                    seed_repo =  f"{seed_repo}/{environment_name}-seedlist"
+                    seed_repo = self.functions.cleaner(seed_repo)
                 bashCommand = f"sudo wget {seed_repo}/{environment_name}-seedlist -O {seed_path} -o /dev/null"
         else:
             seed_repo = f'https://{self.config_obj[profile]["seed_repository"]}'
             if self.config_obj[profile]["seed_github"]:
                 seed_repo = self.set_github_repository("static",profile,download_version,"seed")
+            seed_repo = f"{seed_repo}/{seed_file}"
+            seed_repo = self.functions.cleaner(seed_repo,"url")
             # makes ability to not include https or http
             # if "http://" not in seed_repo and "https://" not in seed_repo:
             #     seed_repo = f"https://{seed_repo}"
-            bashCommand = f"sudo wget {seed_repo}/{seed_file} -O {seed_path} -o /dev/null"
-            bashCommand = bashCommand.replace("//","/")
+            bashCommand = f"sudo wget {seed_repo} -O {seed_path} -o /dev/null"
             
         if not self.auto_restart:
             self.functions.print_cmd_status(progress)

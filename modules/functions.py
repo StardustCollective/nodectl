@@ -3209,15 +3209,7 @@ class Functions():
             cleaned_url = urlunparse((parsed_url.scheme, parsed_url.netloc, cleaned_path,
                           parsed_url.params, parsed_url.query, parsed_url.fragment))
             return cleaned_url
-
-
-
-
-
-
-
-
-
+        
 
     def confirm_action(self,command_obj):
         self.log.logger.debug("confirm action request")
