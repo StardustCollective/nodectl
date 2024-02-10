@@ -109,7 +109,7 @@ class Configuration():
         self.validate_yaml_keys()
         self.remove_disabled_profiles()
         self.setup_config_vars()
-        if len(self.error_list) == 0:
+        if len(self.error_list) < 1:
             if self.action in continue_list:
                 self.prepare_p12()
                 if self.action != "edit_config":
@@ -117,7 +117,7 @@ class Configuration():
                 self.setup_self_settings()
         
         if self.do_validation:
-            if len(self.error_list) == 0:
+            if len(self.error_list) < 1:
                 result = self.validate_profiles()
                 if result:
                     self.skip_global_validation = False
@@ -426,8 +426,7 @@ class Configuration():
         defaults = {
             "directory_backups": "/var/tessellation/backups/",
             "directory_uploads": "/var/tessellation/uploads/",
-            "seed_file": "seed-list",
-            "seed_location": "/var/tessellation",
+            "seed_location": "/var/tessellation", # profile will be added to the path during iteration below
             "pro_rating_file": "ratings.csv",
             "pro_rating_location": "/var/tessellation",
             "priority_source_file": "priority-list",
@@ -437,12 +436,20 @@ class Configuration():
                 "mainnet": "github.com/Constellation-Labs/tessellation/",
                 "testnet": "github.com/Constellation-Labs/tessellation/",
                 "integrationnet": "github.com/Constellation-Labs/tessellation/",
-                "dor_metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
+                "dor-metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
             },
             "edge_point": {
                 "mainnet": "mainnet.constellationnetwork.io",
+                "dor-metagraph": "mainnet.constellationnetwork.io",
                 "testnet": "testnet.constellationnetwork.io",
                 "integrationnet": "integrationnet.constellationnetwork.io",
+            },
+            "seed_file": {
+                "dor-metagraph": {
+                    "dor-l0": "ml0-",
+                    "dor-dl1": "dl1-",
+                    "dor-cl1": "cl1-",
+                },
             },
             "token_coin_id": "constellation-labs",
             "edge_point_tcp_port": 80,
@@ -536,18 +543,24 @@ class Configuration():
                 self.config_obj[profile]["token_identifier"] = self.config_obj["global_elements"]["metagraph_token_identifier"]
 
             metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
+            environment = self.config_obj[profile]["environment"]
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
                         if tdir == "seed_file": 
-                            self.config_obj[profile][tdir] = f'{metagraph_name}-seedlist' # exception
+                            try:
+                                self.config_obj[profile][tdir] = f"{def_value[metagraph_name][profile]}{environment}-seedlist"
+                            except:
+                                self.config_obj[profile][tdir] = f'{metagraph_name}-seedlist' # exception
                         elif tdir == "priority_source_file": 
                             self.config_obj[profile][tdir] = f'{metagraph_name}-prioritysourcelist' # exception
                         elif tdir == "jar_repository": 
                             self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
                         elif tdir == "edge_point":
                             if tdir == "edge_point": 
-                                handle_edge_point(profile,self.config_obj[profile]["environment"])
+                                handle_edge_point(profile,environment)
+                        elif tdir == "seed_location":
+                            self.config_obj[profile][tdir] = f"{def_value}/{profile}"
                         elif isinstance(def_value,list):
                             self.config_obj[profile][tdir] = def_value[0]
                             if int(self.config_obj[profile]["layer"]) > 0: self.config_obj[profile][tdir] = def_value[1]

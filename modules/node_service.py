@@ -78,15 +78,27 @@ class Node():
         })
 
 
-    def set_github_repository(self,repo,profile,download_version,jar_seed="jar"):
-        if jar_seed == "jar":
-            if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
-                return f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
-            return f'https://{self.config_obj[profile]["jar_repository"]}/releases/download/{download_version}'
-        else:
-            if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
-                return f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
-            return f'https://{self.config_obj[profile]["jar_repository"]}/releases/download/{download_version}'
+    def set_download_repository(self,command_obj):
+        repo = command_obj.get("repo", "default")
+        profile = command_obj.get("profile",self.functions.default_profile)
+        download_version = command_obj["download_version"]
+        environment = command_obj.get("environment",None)
+        repo_type = command_obj.get("repo_type","jar")
+
+        return_repo = f'https://{self.config_obj[profile]["jar_repository"]}/releases/download/{download_version}'
+        if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
+            return_repo = f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
+                
+        if repo_type == "seed":
+            seed_file = self.config_obj[profile]["seed_file"]
+            if repo == "default":
+                _, seed_file = path.split(self.functions.config_obj[profile]["seed_path"])
+            else:
+                return_repo = f'https://{self.config_obj[profile]["seed_repository"]}/releases/download/{download_version}/'
+
+            return_repo = f"{return_repo}/{seed_file}"
+        
+        return self.functions.cleaner(return_repo,"url")
     
     
     def download_constellation_binaries(self,command_obj):
@@ -152,7 +164,11 @@ class Node():
             if download_version == "default":
                 # retrieved from the edge point
                 download_version = self.version_obj[environment][profile]["cluster_tess_version"]
-            uri = self.set_github_repository(uri,profile,download_version)
+            uri = self.set_download_repository({
+                "repo": uri,
+                "profile": profile,
+                "download_version": download_version,
+            })
 
             attempts = 0
             if not path.exists(tess_dir):
@@ -312,7 +328,6 @@ class Node():
         environment_name = self.functions.config_obj[profile]["environment"]
         download_version = command_obj.get("download_version","default")
         seed_path = self.functions.config_obj[profile]["seed_path"]    
-        seed_file = self.config_obj[profile]['seed_file']
         seed_repo = self.config_obj[profile]['seed_repository']
         
         if not self.auto_restart:
@@ -337,28 +352,21 @@ class Node():
             self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
             download_version = self.version_obj[environment_name][profile]['cluster_tess_version']
 
-        if self.config_obj[profile]["seed_repository"] == "default":
-            if environment_name == "testnet":
-                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{environment_name}-seedlist -O {seed_path} -o /dev/null"
-            elif environment_name == "integrationnet":
-                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{environment_name}-seedlist -O {seed_path} -o /dev/null"
-            elif environment_name == "mainnet":
-                if download_version == "default":
-                    download_version = self.version_obj[environment_name][self.functions.default_profile]["cluster_tess_version"]
-                    seed_repo = self.set_github_repository("default",profile,download_version)
-                    seed_repo =  f"{seed_repo}/{environment_name}-seedlist"
-                    seed_repo = self.functions.cleaner(seed_repo)
-                bashCommand = f"sudo wget {seed_repo}/{environment_name}-seedlist -O {seed_path} -o /dev/null"
+        if self.config_obj[profile]["seed_repository"] == "default" and environment_name != "mainnet":
+            if environment_name == "testnet" or environment_name == "integrationnet":
+                seed_repo = "https://constellationlabs-dag.s3.us-west-1.amazonaws.com/"
         else:
-            seed_repo = f'https://{self.config_obj[profile]["seed_repository"]}'
-            if self.config_obj[profile]["seed_github"]:
-                seed_repo = self.set_github_repository("static",profile,download_version,"seed")
-            seed_repo = f"{seed_repo}/{seed_file}"
-            seed_repo = self.functions.cleaner(seed_repo,"url")
-            # makes ability to not include https or http
-            # if "http://" not in seed_repo and "https://" not in seed_repo:
-            #     seed_repo = f"https://{seed_repo}"
-            bashCommand = f"sudo wget {seed_repo} -O {seed_path} -o /dev/null"
+                seed_repo = self.set_download_repository({
+                    "repo": self.config_obj[profile]["seed_repository"],
+                    "profile": profile,
+                    "download_version": download_version,
+                    "environment": environment_name,
+                    "repo_type": "seed",
+                })
+                if self.config_obj[profile]["seed_repository"]:
+                    pass
+        
+        bashCommand = f"sudo wget {seed_repo} -O {seed_path} -o /dev/null"
             
         if not self.auto_restart:
             self.functions.print_cmd_status(progress)

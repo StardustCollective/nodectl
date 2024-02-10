@@ -75,6 +75,7 @@ class Functions():
             "testnet": ["l0-lb-testnet.constellationnetwork.io",443],
             "mainnet": ["l0-lb-mainnet.constellationnetwork.io",443],
             "integrationnet": ["l0-lb-integrationnet.constellationnetwork.io",443],
+            "dor-metagraph": ["54.191.143.191",7000]
         }
         
         self.default_backup_location = "/var/tessellation/backups/"
@@ -94,6 +95,7 @@ class Functions():
         self.be_urls = {
             "testnet": "be-testnet.constellationnetwork.io",
             "mainnet": "be-mainnet.constellationnetwork.io",
+            "dor-metagraph": "be-mainnet.constellationnetwork.io",
             "integrationnet": "be-integrationnet.constellationnetwork.io",
         }
         self.snapshot_type = "global-snapshots"

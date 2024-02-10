@@ -219,8 +219,18 @@ class Versioning():
                         api_host = self.config_obj[profile]["edge_point"]
                         api_port = self.config_obj[profile]["edge_point_tcp_port"]
                     else:
-                        api_host = self.functions.lb_urls[self.functions.environment_name][0]
-                        api_port = self.functions.lb_urls[self.functions.environment_name][1]
+                        core = True
+                        if self.config_obj[profile]["environment"] != self.config_obj["global_elements"]["metagraph_name"]:
+                            # does nodectl statically support "this" specific metagraph
+                            try:
+                                api_host = self.functions.lb_urls[self.functions.environment_name][0]
+                                api_port = self.functions.lb_urls[self.functions.environment_name][1]
+                            except: 
+                                self.log.logger.info(f"versioning -> nodectl found metagraph that is not statically supported, static configuration elements should be used.")
+                            else: core = False
+                        if core:
+                            api_host = self.config_obj[profile]["edge_point"]
+                            api_port = self.config_obj[profile]["edge_point_tcp_port"]
                         
                     if not last_environment or last_environment != self.config_obj[profile]["environment"]:
                         version_obj = {
