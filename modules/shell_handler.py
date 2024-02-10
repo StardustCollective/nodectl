@@ -349,6 +349,8 @@ class ShellHandler:
                 "called_command": self.called_command,
                 "argv_list": self.argv,
             })
+        elif self.called_command == "upgrade_vps":
+            self.cli.cli_upgrade_vps(self.argv)
         elif self.called_command == "refresh_binaries" or self.called_command == "_rtb":
             self.cli.download_tess_binaries(self.argv)
         elif self.called_command == "health":

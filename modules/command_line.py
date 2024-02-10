@@ -4060,6 +4060,87 @@ class CLI():
         return
                      
 
+    def cli_upgrade_vps(self,argv_list):
+        self.log.logger.info("command_line -> request to upgrade VPS issued")
+
+        self.functions.print_header_title({
+            "line1": "UPGRADE VPS or SERVER",
+            "clear": True,
+        })
+
+        self.functions.print_paragraphs([
+            [" IMPORTANT ",0,"red,on_yellow"],
+            ["Throughout this process, you may need to engage with the command line interface. If the server (VPS) necessitates",0], 
+            ["upgrading certain system core functionalities, including:",1],
+            ["- core services",1,"yellow"], 
+            ["- core kernel upgrades",2,"yellow"], 
+
+            ["If you encounter a",0], ["purple",0,"magenta"], ["or",0], ["pink",0,"magenta"],
+            ["full-screen prompt requesting necessary options to be chosen, follow these steps:",1],
+            ["- Press the tab key repeatedly until the CONFIRM or OK option is highlighted.",1,"yellow"], 
+            ["- Once highlighted, press the ENTER key to allow the upgrade process to complete.",2,"yellow"],
+
+            ["Any necessary modifications to core system elements required for the Node to operate successfully",0],
+            ["will be automated through the standard nodectl upgrade process. Therefore, we can accept the",0],
+            ["defaults during this process.",2],
+
+            ["Advanced users have the flexibility to select any options required for customized or non-Node operations being completed simultaneously on this VPS.",2,"red"],
+        ])
+
+        self.functions.confirm_action({
+            "prompt": "Start VPS update and upgrade?",
+            "yes_no_default": "n",
+            "return_on": "y",
+            "exit_if": True,
+        })
+        print("")
+
+        self.functions.print_cmd_status({
+            "text_start": "Updating VPS/Server Package listings",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": True,
+        })
+        self.functions.print_paragraphs([
+            ["",1],["UPDATE OUTPUT BOX",1,"blue","bold"],["-","half","bold"],
+        ])
+        system("sudo apt update")
+        self.functions.print_paragraphs([
+            ["-","half","bold"],["",1],
+        ])
+
+        self.functions.print_cmd_status({
+            "text_start": "Upgrading VPS/Server",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": True,
+        })
+        self.functions.print_paragraphs([
+            ["",1],["UPGRADE OUTPUT BOX",1,"blue","bold"],["-","half","bold"],
+        ])
+        system("sudo apt upgrade")
+        self.functions.print_paragraphs([
+            ["-","half","bold"],["",1],
+        ])
+
+        self.functions.print_cmd_status({
+            "text_start": "VPS/Server updates and upgrades",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
+        self.functions.print_paragraphs([
+            ["",1],["If a message has been presented requesting a system reboot, please gracefully",0,"yellow"],
+            ["exit any clusters that this Node is currently participating in before proceeding with the reboot.",0,"yellow"],
+            ["The following command will accomplish this for you.",2,"yellow"],
+            ["command:",0], ["sudo nodectl reboot",2,"blue","bold"],
+        ])
+
+
+
+        
+
     def cli_minority_fork_detection(self,command_obj):
         caller = command_obj.get("caller","cli")
         argv_list = command_obj.get("argv_list",[])

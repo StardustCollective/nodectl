@@ -47,6 +47,7 @@ def pull_valid_command():
         "uninstall",
         "upgrade",
         "upgrade_path",
+        "upgrade_vps",
         "refresh_binaries",
         "show_service_log",
         "check_consensus",
