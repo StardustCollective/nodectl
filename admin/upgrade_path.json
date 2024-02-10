@@ -17,5 +17,5 @@
     "upgrade": "False",
     "current_stable": "v2.12.11"
   },
-  "nodectl_config": "v2.1.0"
+  "nodectl_config": "v2.2.0"
 }
