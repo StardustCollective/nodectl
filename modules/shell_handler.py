@@ -765,7 +765,10 @@ class ShellHandler:
         elif profile_hint and not either_or_hint:
             self.profile = self.functions.profile_names[0]
             if len(self.functions.profile_names) > 1:
-                self.profile = self.functions.print_profile_env_menu({"p_type": "profile"})
+                menu_action = "profile"
+                if self.called_command in ["_sl","send_logs"]:
+                    menu_action = "send_logs"
+                self.profile = self.functions.print_profile_env_menu({"p_type": menu_action})
             self.argv.extend(["-p",self.profile])
             need_profile = False
         elif env_hint and not either_or_hint:

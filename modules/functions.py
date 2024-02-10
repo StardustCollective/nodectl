@@ -2797,7 +2797,11 @@ class Functions():
         p_type = command_obj.get("p_type","profile")
         title = command_obj.get("title",False)
         
-        p_type_list = self.profile_names if p_type == "profile" else self.environment_names
+        p_type_list = self.environment_names
+        if p_type == "profile" or p_type == "send_logs":
+            p_type_list = self.profile_names
+            if p_type == "send_logs": p_type_list.append("nodectl")
+            
         if not title:
             title = f"Press choose required {p_type}"
 

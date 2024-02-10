@@ -27,6 +27,10 @@ class Send():
         self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj["ip_address"]
 
+        self.nodectl_logs = False
+        if self.profile == "nodectl":
+            self.nodectl_logs = True
+            self.profile = list(self.config_obj.keys())[0]
         
     def prepare_and_send_logs(self):
         changed_ip = self.ip_address.replace(".","-")
@@ -50,20 +54,23 @@ class Send():
             "clear": True,
         })
         
-        self.functions.print_paragraphs([
-            ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs",0,"magenta"], ["",1],
-            ["B",0,"magenta","bold"], [")",-1,"magenta"], ["Backup Logs",0,"magenta"], ["",1],
-            ["D",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date",0,"magenta"], ["",1],
-            ["R",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date Range",0,"magenta"], ["",1],
-            ["A",0,"magenta","bold"], [")",-1,"magenta"], ["Archived Logs",0,"magenta"], ["",1],
-            ["X",0,"magenta","bold"], [")",-1,"magenta"], ["Exit",0,"magenta"], ["",2],
-        ])
-                
-        choice = self.functions.get_user_keypress({
-            "prompt": "KEY PRESS an option",
-            "prompt_color": "cyan",
-            "options": ["C","B","A","X","D","R"],
-        })
+        if self.nodectl_logs:
+            choice = "c"
+        else:
+            self.functions.print_paragraphs([
+                ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs",0,"magenta"], ["",1],
+                ["B",0,"magenta","bold"], [")",-1,"magenta"], ["Backup Logs",0,"magenta"], ["",1],
+                ["D",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date",0,"magenta"], ["",1],
+                ["R",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date Range",0,"magenta"], ["",1],
+                ["A",0,"magenta","bold"], [")",-1,"magenta"], ["Archived Logs",0,"magenta"], ["",1],
+                ["X",0,"magenta","bold"], [")",-1,"magenta"], ["Exit",0,"magenta"], ["",2],
+            ])
+                    
+            choice = self.functions.get_user_keypress({
+                "prompt": "KEY PRESS an option",
+                "prompt_color": "cyan",
+                "options": ["C","B","A","X","D","R"],
+            })
         
         if choice == "a":
             self.log.logger.info(f"Request to upload Tessellation archive logs initiated")
@@ -108,8 +115,10 @@ class Send():
             self.log.logger.info(f"Request to upload Tessellation current logs initiated")
             tar_archive_dir = ""
             tar_creation_path = "/tmp/tess_logs"
-            tar_creation_origin = f"/var/tessellation/{self.profile}"
 
+            tar_creation_origin = f"/var/tessellation/{self.profile}/"
+            if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log*"
+            
             if path.isdir(tar_creation_path):
                 system(f"rm -rf {tar_creation_path} > /dev/null 2>&1")
             mkdir(tar_creation_path)
@@ -124,9 +133,10 @@ class Send():
                     "status": "copying",
                     "status_color": "yellow"
                 })
-                        
-                cmd = f"rsync -a {tar_creation_origin}/ {tar_creation_path}/ "
-                cmd += f"--exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "
+
+                cmd = f"rsync -a {tar_creation_origin} {tar_creation_path}/ "
+                if not self.nodectl_logs:
+                    cmd += f"--exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "
                 cmd += "> /dev/null 2>&1"
                 system(cmd)     
 

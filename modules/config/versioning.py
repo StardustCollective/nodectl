@@ -282,7 +282,7 @@ class Versioning():
                             version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
                             version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
                             version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
-                            version_obj["remote_yaml_version"] = upgrade_path["nodectl_config"]
+                            version_obj[environment]["remote_yaml_version"] = upgrade_path["nodectl_config"]
                         except Exception as e:
                             self.log.logger.error(f"versioning --> building object issue encountered | [{e}]")
                             self.functions.event = False
@@ -375,7 +375,7 @@ class Versioning():
                     **self.upgrade_path,
                     "nodectl_config": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
                     "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
-                    "remote_yaml_version": self.old_version_obj["nodectl_config"],
+                    "remote_yaml_version": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
                     f"{environment}": {
                         "version": self.old_version_obj[environment]["nodectl"]["latest_nodectl_version"],
                         "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],

@@ -2352,6 +2352,7 @@ class CLI():
         nodectl_version_check = False
         caller = command_obj.get("caller",None)
         
+        if caller in ["_sl","send_logs"]: return # send_logs command exception
         self.functions.get_service_status()
         if caller in ["upgrade_nodectl","main_error","uninstall"]: return
         
