@@ -282,6 +282,7 @@ class Versioning():
                             version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
                             version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
                             version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
+                            version_obj["remote_yaml_version"] = upgrade_path["nodectl_config"]
                         except Exception as e:
                             self.log.logger.error(f"versioning --> building object issue encountered | [{e}]")
                             self.functions.event = False
@@ -295,7 +296,8 @@ class Versioning():
 
                     up_to_date = [
                         ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["current_stable"]],
-                        ["tess_uptodate", node_tess_version, version]
+                        ["nodectl_yaml_uptodate", self.version_obj["node_nodectl_yaml_version"],upgrade_path["nodectl_config"]],
+                        ["tess_uptodate", node_tess_version, version],
                     ]
                     for versions in up_to_date:
                         test = self.functions.is_new_version(versions[1],versions[2])
@@ -373,6 +375,7 @@ class Versioning():
                     **self.upgrade_path,
                     "nodectl_config": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
                     "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
+                    "remote_yaml_version": self.old_version_obj["nodectl_config"],
                     f"{environment}": {
                         "version": self.old_version_obj[environment]["nodectl"]["latest_nodectl_version"],
                         "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],
@@ -427,7 +430,8 @@ class Versioning():
         
         root_keys = [
             "node_nodectl_version","node_nodectl_yaml_version","nodectl_github_version",
-            "upgrade_path","last_updated","next_updated","node_upgrade_path_yaml_version",
+            "upgrade_path","last_updated","next_updated",
+            "node_upgrade_path_yaml_version","remote_yaml_version",
         ]    
         nodectl_keys = [
             "latest_nodectl_version","nodectl_prerelease","nodectl_remote_config",

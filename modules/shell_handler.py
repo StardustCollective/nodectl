@@ -918,8 +918,9 @@ class ShellHandler:
                     "MAJOR": parts[0],
                     "MINOR": parts[1],
                     "PATCH": parts[2],
+                    "CONFIG": version_obj["node_nodectl_yaml_version"],
                 },
-                "spacing": 13
+                "spacing": 10
             },
         ]
         

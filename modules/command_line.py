@@ -1705,6 +1705,10 @@ class CLI():
             if not isinstance(self.version_obj[environment][profile]["tess_uptodate"],bool):
                 if "current" in self.version_obj[environment][profile]["tess_uptodate"]:
                     tess_match = False   
+            yaml_match = True       
+            if not isinstance(self.version_obj[environment][profile]["nodectl_yaml_uptodate"],bool):
+                if "current" in self.version_obj[environment][profile]["nodectl_yaml_uptodate"]:
+                    yaml_match = False   
                      
             prerelease = "False"
             if self.version_obj[environment]["nodectl"]["nodectl_prerelease"]:
@@ -1740,7 +1744,7 @@ class CLI():
                     "header_elements" : {
                     "TESS INSTALLED": self.version_obj[environment][profile]["node_tess_version"],
                     "NODECTL INSTALLED": self.version_obj["node_nodectl_version"],
-                    "NODECTL PRERELEASE": prerelease,
+                    "NODECTL CONFIG": self.version_obj["node_nodectl_yaml_version"],
                     },
                     "spacing": spacing
                 },
@@ -1748,7 +1752,7 @@ class CLI():
                     "header_elements" : {
                     "TESS LATEST": self.version_obj[environment][profile]["cluster_tess_version"],
                     "NODECTL LATEST STABLE": self.version_obj[environment]["nodectl"]["current_stable"],
-                    "NODECTL LATEST": self.version_obj["upgrade_path"][0],
+                    "CONFIG LATEST": self.version_obj[environment]["nodectl"]["nodectl_remote_config"],
                     },
                     "spacing": spacing
                 },
@@ -1756,9 +1760,17 @@ class CLI():
                     "header_elements" : {
                         # 38
                         "TESS VERSION MATCH": f"{match_true: <38}" if tess_match else f"{match_false: <38}",
-                        "NODECTL VERSION MATCH": f"{match_true}" if nodectl_match else match_false
+                        "NODECTL VERSION MATCH": f"{match_true: <38}" if nodectl_match else f"{match_false: <38}",
+                        "NODECTL CONFIG MATCH": f"{match_true}" if yaml_match else match_false
                     },
                     "spacing": 25
+                },
+                {
+                    "header_elements" : {
+                    "NODECTL LATEST STABLE": self.version_obj[environment]["nodectl"]["current_stable"],
+                    "NODECTL PRERELEASE": prerelease,
+                    },
+                    "spacing": spacing
                 },
             ]
             
@@ -1771,7 +1783,8 @@ class CLI():
                 ["",1],
                 ["nodectl installed:",0,"blue","bold"], ["Running on Node.",1],
                 ["nodectl latest stable:",0,"blue","bold"], ["Recommended version.",1],
-                ["nodectl latest:",0,"blue","bold"], ["Newest, may be experimental and not stable.",2],
+                ["nodectl latest:",0,"blue","bold"], ["Newest, may be experimental and not stable.",1],
+                ["nodectl config:",0,"blue","bold"], ["nodectl's configuration version.",2],
             ])
        
  
