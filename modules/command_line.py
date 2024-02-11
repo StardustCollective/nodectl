@@ -4138,9 +4138,6 @@ class CLI():
         ])
 
 
-
-        
-
     def cli_minority_fork_detection(self,command_obj):
         caller = command_obj.get("caller","cli")
         argv_list = command_obj.get("argv_list",[])
@@ -4266,7 +4263,6 @@ class CLI():
         ip_address = command_obj.get("ip_address",self.ip_address)   
         state = command_obj.get("state",False)
         base_indent = 38
-        
         self.functions.check_for_help(argv_list,"check_consensus")
         nodeid, file = False, False
         check_node_list = []
@@ -4294,7 +4290,7 @@ class CLI():
         if not state:
             state = self.functions.test_peer_state({
                 "profile": profile,
-                "spinner": True,
+                "spinner": True if not self.auto_restart else False,
                 "simple": True,
             })   
                      
@@ -4341,6 +4337,7 @@ class CLI():
                 "profile": profile,
                 "caller": "status",
                 "api_endpoint_type": "consensus",
+                "threaded": True if not self.auto_restart else False,
                 "specific_ip": ip_address,
             })
             consensus_match = colored("False","red")

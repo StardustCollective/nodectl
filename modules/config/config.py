@@ -420,9 +420,9 @@ class Configuration():
             }) 
             
         # default seed_repository setup in node_services -> download_update_seedlist       
-        
         # The following defaults objects is for config elements that can be set to
         # "default" by the Node Operator to obtain the current default values.  
+            
         defaults = {
             "directory_backups": "/var/tessellation/backups/",
             "directory_uploads": "/var/tessellation/uploads/",
@@ -532,10 +532,6 @@ class Configuration():
             self.config_obj[profile]["is_jar_static"] = False        
             if self.config_obj[profile]["jar_repository"] != "default":
                 self.config_obj[profile]["is_jar_static"] = True
-
-            # self.config_obj[profile]["is_seed_static"] = False        
-            # if self.config_obj[profile]["seed_repository"] != "default" and self.config_obj[profile]["seed_repository"] != "disable":
-            #     self.config_obj[profile]["is_seed_static"] = True
 
             if self.config_obj[profile]["token_coin_id"] == "global":
                 self.config_obj[profile]["token_coin_id"] = self.config_obj["global_elements"]["metagraph_token_coin_id"]  

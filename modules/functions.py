@@ -147,41 +147,6 @@ class Functions():
                 except:
                     coin_prices[ticker_id]['usd'] = 0.00
 
-            # try:
-            #     coin_prices['constellation-labs']['usd']
-            # except:
-            #     coin_prices['constellation-labs']['usd'] = 0.00
-            
-            # try:
-            #     coin_prices['lattice-token']['usd'] 
-            # except:
-            #     coin_prices['lattice-token']['usd'] = 0.00
-            
-            # try:
-            #     coin_prices['dor']['usd'] 
-            # except:
-            #     coin_prices['dor']['usd'] = 0.00
-            
-            # try:
-            #     coin_prices['bitcoin']['usd']
-            # except:
-            #     coin_prices['bitcoin']['usd'] = 0.00
-                
-            # try:
-            #     coin_prices['quant-network']['usd']
-            # except:
-            #     coin_prices['quant-network']['usd'] = 0.00
-                
-            # try:
-            #     coin_prices['quant-network']['usd']
-            # except:
-            #     coin_prices['quant-network']['usd'] = 0.00
-
-            # try:
-            #     coin_prices[ticker]['usd']
-            # except:
-            #     coin_prices[ticker]['usd'] = 0.00
-                
             return coin_prices
         
         # In the circumstance that CoinGecko is down *rare but happens*
@@ -194,8 +159,9 @@ class Functions():
             check_ids += f',{self.config_obj[self.default_profile]["token_coin_id"]}'
 
         try:
-            #coin_prices = self.cg.get_price(ids=check_ids, vs_currencies='usd')
-            coin_prices = {'bitcoin': {'usd': 43097}, 'constellation-labs': {'usd': 0.051318}, 'dor': {'usd': 0.04198262}, 'ethereum': {'usd': 2305.3}, 'lattice-token': {'usd': 0.119092}, 'quant-network': {'usd': 103.24}, 'solana': {'usd': 97.75}}
+            coin_prices = self.cg.get_price(ids=check_ids, vs_currencies='usd')
+            # used for debugging to avoid api hitting attempts peridium 
+            # coin_prices = {'bitcoin': {'usd': 43097}, 'constellation-labs': {'usd': 0.051318}, 'dor': {'usd': 0.04198262}, 'ethereum': {'usd': 2305.3}, 'lattice-token': {'usd': 0.119092}, 'quant-network': {'usd': 103.24}, 'solana': {'usd': 97.75}}
         except Exception as e:
             self.log.logger.error(f"coingecko response error | {e}")
             cprint("  Unable to process CoinGecko results...","red")
@@ -219,30 +185,6 @@ class Functions():
                                 "symbol": coin["symbol"],
                                 "formatted": "${:,.3f}".format(updated_coin_prices[coin['id']]['usd'])
                             }
-
-            # pricing_list_temp = []
-            # for ticker_id in coin_prices.keys():
-            #     pricing_list_temp.append("${:,.3f}".format(coin_prices[ticker_id]['usd']))
-            # pricing_list_temp.append(coin_prices['constellation-labs']['usd'])  # unformatted
-
-            # pricing_list_temp = [
-            # "${:,.3f}".format(coin_prices['constellation-labs']['usd']),
-            # "${:,.3f}".format(coin_prices['lattice-token']['usd']),
-            # "${:,.3f}".format(coin_prices['dor']['usd']),
-            # "${:,.2f}".format(coin_prices['bitcoin']['usd']),
-            # "${:,.2f}".format(coin_prices['ethereum']['usd']),
-            # "${:,.2f}".format(coin_prices['quant-network']['usd']),
-            # coin_prices['constellation-labs']['usd']  # unformatted 
-            # ]
-
-            # pricing_list = ["N/A" for _ in pricing_list_temp]  
-            # for n, price in enumerate(pricing_list_temp):
-            #     try:
-            #         price = price
-            #     except:
-            #         pass
-            #     else:
-            #         pricing_list[n] = price
 
         return updated_coin_prices
 

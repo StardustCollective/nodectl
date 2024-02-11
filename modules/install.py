@@ -610,11 +610,9 @@ class Installer():
                 return
             else:
                 if not self.options.user_password:
-                    # self.user.ask_for_password()
-                    self.options.user_password = self.user.password = "1qaz2wsx#EDC"
+                    self.user.ask_for_password()
                 if not self.options.p12_passphrase:
-                    # self.p12_session.ask_for_keyphrase()
-                    self.options.p12_passphrase = self.p12_session.p12_password = "1qaz2wsx#EDC"
+                    self.p12_session.ask_for_keyphrase()
                 self.passphrases_set = True
                 if self.options.existing_p12: self.derive_p12_alias()
                 return

@@ -51,7 +51,10 @@ class AutoRestart():
             "WaitingForDownload_enabled": False,    
         }
         
-        self.fork_check_time = -1
+        self.fork_check_time = {
+            "minority_fork": -1,
+            "consensus_forK": -1,
+        }
         self.fork_timer = 60*5 # 5 minutes
         
         if self.rapid_restart: self.random_times = [5]; self.timer = 5; self.sleep_on_critical = 15
@@ -322,6 +325,7 @@ class AutoRestart():
         self.profile_states[self.node_service.profile]["local_node"] = session_list["node1"]
         self.profile_states[self.node_service.profile]["node_state"] = session_list["state1"]
         self.profile_states[self.node_service.profile]["minority_fork"] = False if self.first_thread else "functionality disabled"
+        self.profile_states[self.node_service.profile]["consensus_fork"] = False if self.first_thread else "functionality disabled"
         self.profile_states[self.node_service.profile]["action"] = "NoActionNeeded"
         
         gl0_dependent_link = self.profile_states[self.node_service.profile]["gl0_link_profile"]
@@ -372,10 +376,12 @@ class AutoRestart():
                     continue_checking = False
         
         if continue_checking: # and min_fork_check: # check every 5 minutes
-            if self.minority_fork_handler():
-                self.profile_states[self.node_service.profile]["action"] = "restart_full"
-                self.profile_states[self.node_service.profile]["minority_fork"] = True
-                continue_checking = False
+            for fork_type in ["minority_fork","consensus_fork"]:
+                if self.fork_handler(fork_type):
+                    self.profile_states[self.node_service.profile]["action"] = "restart_full"
+                    self.profile_states[self.node_service.profile][fork_type] = True
+                    continue_checking = False
+                    break
             
         if continue_checking:    
             if session_list["session0"] > session_list["session1"] and session_list['session1'] > 0:
@@ -476,7 +482,7 @@ class AutoRestart():
     def silent_restart(self,action):
         self.on_boot_handler()
         if action != "join_only":
-            if not self.profile_states[self.node_service.profile]["minority_fork"]:
+            if not self.profile_states[self.node_service.profile]["minority_fork"] or not self.profile_states[self.node_service.profile]["consensus_fork"]:
                 self.update_profile_states()  # double check in case network issue caused a false positive
             if self.profile_states[self.node_service.profile]["action"] == "NoActionNeeded":
                 self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  possible cluster restart false positive detected - skipping restart | profile [{self.node_service.profile}]")
@@ -521,34 +527,40 @@ class AutoRestart():
         return False
     
     
-    def minority_fork_handler(self):
-        self.log.logger.info(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}]")
+    def fork_handler(self,fork_type):
+        self.log.logger.info(f"auto_restart - {fork_type}_handler - thread [{self.thread_profile}]")
         if self.thread_layer > 0:
-            self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - layer [{self.thread_layer}] - skipping minority fork detection")
+            self.log.logger.debug(f"auto_restart - {fork_type}_handler - thread [{self.thread_profile}] - layer [{self.thread_layer}] - skipping minority fork detection")
             return
         
         if self.profile_states[self.thread_profile]["node_state"] != "Ready": 
-            self.log.logger.warn(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] | Node state: [{self.profile_states[self.thread_profile]['node_state']}] will not check for fork, skipping.")
+            self.log.logger.warn(f"auto_restart - {fork_type}_handler - thread [{self.thread_profile}] | Node state: [{self.profile_states[self.thread_profile]['node_state']}] will not check for fork, skipping.")
             return
         
-        if self.fork_check_time > -1: 
-            if  self.fork_timer >= (time() - self.fork_check_time):
-                self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - minority check timer not met, skipping.")
-                if self.profile_states[self.node_service.profile]["minority_fork"]: return True
+        if self.fork_check_time[fork_type] > -1: 
+            if  self.fork_timer[fork_type] >= (time() - self.fork_check_time[fork_type]):
+                self.log.logger.debug(f"auto_restart - {fork_type}_handler - thread [{self.thread_profile}] - minority check timer not met, skipping.")
+                if self.profile_states[self.node_service.profile][{fork_type}]: return True
                 return False
                 
-        self.fork_check_time = time()
+        self.fork_check_time[fork_type] = time()
 
-        self.log.logger.debug(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] checking for minority fork.")
+        self.log.logger.debug(f"auto_restart - {fork_type}_handler - thread [{self.thread_profile}] checking for minority fork.")
         
         skip = False
         try:
-            global_ordinals = self.cli.cli_minority_fork_detection({
-                "caller": "auto_restart",
-                "profile": self.thread_profile,
-            })
+            if fork_type == "minority_fork":
+                global_ordinals = self.cli.cli_minority_fork_detection({
+                    "caller": "auto_restart",
+                    "profile": self.thread_profile,
+                })
+            elif fork_type == "consensus_fork":
+                consensus_fork = self.cli.cli_check_consensus({
+                    "profile": self.thread_profile,
+                    "caller": "auto_restart",
+                })
         except Exception as e:
-            self.log.logger.error(f"auto_restart - minority_fork_handler - thread [{self.thread_profile}] - error while obtaining global ordinals [{e}]")
+            self.log.logger.error(f"auto_restart - {fork_type}_handler - thread [{self.thread_profile}] - error while obtaining global ordinals [{e}]")
             skip = True
         
         for key, value in global_ordinals.items():
@@ -774,6 +786,7 @@ class AutoRestart():
                 match = self.profile_states[self.node_service.profile]["match"]
                 state = self.profile_states[self.node_service.profile]["node_state"]
                 minority_fork = self.profile_states[self.node_service.profile]["minority_fork"]
+                consensus_fork = self.profile_states[self.node_service.profile]["consensus_fork"]
                 extra_wait_time = random.choice(self.random_times)
                 
                 if action == "ep_wait":
@@ -801,6 +814,11 @@ class AutoRestart():
                         warn_msg = "\n==========================================================================\n"
                         warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
                         warn_msg += "=========================================================================="                        
+                        self.log.logger.warn(warn_msg)
+                    elif consensus_fork:
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED CONSENSUS FORK detected | profile [{self.thread_profile}] state [{state}]\n"
+                        warn_msg += "=========================================================================="      
                         self.log.logger.warn(warn_msg)
                     elif minority_fork:
                         warn_msg = "\n==========================================================================\n"
