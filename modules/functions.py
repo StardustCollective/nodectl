@@ -1941,7 +1941,7 @@ class Functions():
     def check_config_environment(self):
         # if there is not a configuration (during installation)
         # check what the primary network is
-        # this method will need to be refactored as new Metagraphs
+        # this method will need to be refactored as new network clusters
         # register with Node Garage or Constellation (depending)
         try:
             self.environment_name = self.config_obj[self.default_profile]["environment"]             

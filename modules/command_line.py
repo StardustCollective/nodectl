@@ -1087,7 +1087,7 @@ class CLI():
         
         self.functions.print_clear_line()
         self.functions.print_header_title({
-            "line1": "CURRENT LOADED METAGRAPHS",
+            "line1": "CURRENT LOADED CLUSTERS",
             "line2": "Based on local Node's config",
             "newline": "top",
             "upper": False,
@@ -2721,7 +2721,7 @@ class CLI():
                 stop_list.append(stop_obj)  
                          
             # leave
-            self.print_title("LEAVING METAGRAPHS") 
+            self.print_title("LEAVING CLUSTERS") 
             leave_list[-1]["skip_msg"] = False     
             self.log.logger.info(f"cli_restart -> executing leave process against profiles found")               
             futures = [executor.submit(self.cli_leave, obj) for obj in leave_list]
@@ -2931,11 +2931,11 @@ class CLI():
         if on_boot:
             self.functions.print_paragraphs([
                 ["nodectl has detected that you have",0],["on_boot",0,"yellow"], ["enabled!",0],
-                ["Once your VPS completes it startup, the Node should automatically rejoin the Metagraphs configured.",2],
+                ["Once your VPS completes it startup, the Node should automatically rejoin the network clsuters configured.",2],
             ])
         else:
             self.functions.print_paragraphs([
-                ["Once your VPS or bare metal host returns from the soft boot, you will need to manually join the Metagraphs configured",0],
+                ["Once your VPS or bare metal host returns from the soft boot, you will need to manually join the network clusters configured",0],
                 ["by issuing the necessary commands.",2],
                 ["command:",0,"white","bold"], ["sudo nodectl restart -p all",2,"yellow"]
             ])
