@@ -354,7 +354,7 @@ class Node():
 
         if self.config_obj[profile]["seed_repository"] == "default" and environment_name != "mainnet":
             if environment_name == "testnet" or environment_name == "integrationnet":
-                seed_repo = "https://constellationlabs-dag.s3.us-west-1.amazonaws.com/"
+                seed_repo = f"https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{list(path.split(seed_path))[-1]}"
         else:
                 seed_repo = self.set_download_repository({
                     "repo": self.config_obj[profile]["seed_repository"],
