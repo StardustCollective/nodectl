@@ -736,7 +736,7 @@ class Functions():
         
         # dictionary
         #  api_host: to do api call against
-        #  api_port: for the L0 or metagraph channel
+        #  api_port: for the L0 or cluster/metagraph channel
         #  info_list:  list of details to return from the call
         #       if info_list is string "all" will return everything
         #  
@@ -2316,7 +2316,7 @@ class Functions():
     
     
     def test_for_root_ml_type(self,metagraph):
-        # Review the configuration and return the lowest Metagraph
+        # Review the configuration and return the lowest Cluster or Metagraph
         try: profile_names = self.profile_names
         except:
             profile_names = self.clear_global_profiles(self.config_obj)

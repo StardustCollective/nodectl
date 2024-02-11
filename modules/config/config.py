@@ -1225,7 +1225,7 @@ class Configuration():
         if "global" not in profile:
             found_list = [x for x in found_list if x in custom_requirements or "custom" not in x]
             key_list = [x[0] for x in self.schema["metagraphs"]]
-            section = "metagraphs"
+            section = "cluster"
         elif not skip:
             key_list = [x[0] for x in self.schema[profile]]
             section = profile.replace("global_","")
@@ -1404,8 +1404,8 @@ class Configuration():
             self.validated = False
             self.error_list.append({
                 "title": "duplicate api port values found",
-                "section": "metagraphs",
-                "profile": "metagraphs",
+                "section": "cluster",
+                "profile": "cluster",
                 "type": "api_port_dups",
                 "missing_keys": error_keys,
                 "key": None,
@@ -1427,8 +1427,8 @@ class Configuration():
         if not self.validated:
             self.error_list.append({
                 "title": "duplicate seed path found",
-                "section": "metagraphs",
-                "profile": "metagraphs",
+                "section": "cluster",
+                "profile": "cluster",
                 "type": "seed_path_dups",
                 "missing_keys": "seed_location, seed_file",
                 "key": None,
@@ -1514,7 +1514,7 @@ class Configuration():
             "host": "must be a valid host or ip address",
             "host_def": "must be a valid host or ip address",
             "pro": "must be a valid existing path or file",
-            "metagraphs": "There is a misconfigured element in your metagraph profile",
+            "cluster": "There is a misconfigured element in your cluster profile",
             "log_level": "Log level of INFO (recommended) or NOTSET, DEBUG, INFO, WARN, ERROR, CRITICAL required"
         }
         

@@ -13,7 +13,7 @@
 # documentation hub for details on how to configure
 # this file.
 # =========================================================
-# Metagraph sections isolated by profile key name
+# Network cluster sections isolated by profile key name
 # =========================================================
 # Custom Options and Environment Variables
 # ---------------------------------------------------------
@@ -73,14 +73,12 @@ nodectl:
     ml0_link_port: 7000
     ml0_link_profile: None
     token_identifier: DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM
-    token_coin_id: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
     java_xmx: default
     java_xss: default
-    jar_repository: github.com/Constellation-Labs/dor-metagraph/releases/download/
-    jar_version: v1.2.0
+    jar_repository: github.com/Constellation-Labs/dor-metagraph/releases/download/v1.2.0/
     jar_file: data-l1.jar
     p12_nodeadmin: global
     p12_key_location: global
@@ -89,7 +87,6 @@ nodectl:
     p12_passphrase: global
     seed_location: default
     seed_repository: default
-    seed_version: default
     seed_file: default
     pro_rating_location: disable
     pro_rating_file: disable

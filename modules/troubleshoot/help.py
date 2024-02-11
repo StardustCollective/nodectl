@@ -171,7 +171,7 @@ def build_help(functions,command_obj):
                                      and the edge node and reports back status
     
     check_connection | - checks the debug api for peer against
-                             the entire network (Metagraph) you are
+                             the entire network cluster you are
                              connected to and report back status
                              
     check_seedlist_participation | - show access-list verse network comparison
@@ -711,7 +711,7 @@ def build_help(functions,command_obj):
   {colored('--extended','green')}
   
   Normal output from the peers command will show all the peers
-  seen on a given Metagraph or the HyperGraph (profile dependent)
+  seen on a given network cluster (profile dependent)
   this will include:
     - node ip with public port 
       - 10.10.10.10:1000 = 10.10.10.10 with public TCP port of 1000
@@ -842,10 +842,10 @@ def build_help(functions,command_obj):
   {colored('IMPORTANT','red')}
   An {colored('auto_restart','cyan')} may take up to {colored('18 minutes to complete','white',attrs=['bold'])}.  
   This is because the Node will detect one or both profiles down and restart the Global layer0 first
-  before it then attempts to bring up any Metagraphs.  To avoid timing conflicts
+  before it then attempts to bring up any other layers.  To avoid timing conflicts
   with other Node's that may have auto_restart enabled {colored('auto_restart','cyan')} has random
   timers put in place throughout a restart process.  As you will need to properly
-  link your layer1 Metagraph to the Global layer0. {colored('Understanding','green')} this is a
+  link your layer1 to the Global layer0. {colored('Understanding','green')} this is a
   background and unattended process, the {colored('delay','cyan')} is created on purpose.
   
   It is {colored('recommended','cyan')} by the developers to link to layer1 through your
@@ -1585,8 +1585,8 @@ def build_help(functions,command_obj):
   The external IP of your Node is the address that allows your Node
   to communicate with the rest of the systems on the Internet.  This
   is the address that your Node will use to communicate with the rest
-  of the decentralized Nodes that make up the Global Layer0 or the
-  Metagraph (or both) that your Node will attempt to communications 
+  of the decentralized Nodes that make up the Global Layer0, cluster or
+  Metagraph that your Node will attempt to communications 
   with via p2p connections and APIs.
   
   optional option:
@@ -1745,7 +1745,7 @@ def build_help(functions,command_obj):
   (see below)
   
   This command will attempt to find the requested peer
-  on the current connected Metagraph.
+  on the current connected network cluster.
 
   The find command offers insight into the 
     - number of nodes on the cluster

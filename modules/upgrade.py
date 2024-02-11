@@ -186,7 +186,6 @@ class Upgrader():
                 verify.config_obj["global_p12"]["passphrase"] = self.cli_global_pass
         pass_vault["global"] = verify.config_obj["global_p12"]["passphrase"]
         verify.config_obj["global_p12"]["passphrase"] = "None"
-        # verify.functions.config_obj["global_elements"]["metagraph_name"] = self.environment
         verify.metagraph_list = self.profiles_by_env
         verify.functions.version_obj = self.version_obj
         
@@ -320,12 +319,12 @@ class Upgrader():
             
             self.functions.print_paragraphs([
                 ["PROFILE:   ",0], [profile,1,"yellow","bold"], 
-                ["METAGRAPH: ",0],[self.environment,2,"yellow","bold"],
+                ["ENVIRONMENT: ",0],[self.environment,2,"yellow","bold"],
             ])
             
             if do_continue:
                 self.functions.print_paragraphs([
-                    [f"Metagraph {self.environment} for profile {profile} using {ml_download_version}",1]
+                    [f"Cluster {self.environment} for profile {profile} using {ml_download_version}",1]
                 ])
                 continue
             

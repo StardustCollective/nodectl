@@ -1119,9 +1119,11 @@ class CLI():
                     ["-","half","blue","bold"],["",1],
                 ])
                 
+            mc_key = "CLUSTER" if self.functions.config_obj[profile]["environment"] == metagraph_name else "METAGRAPH"
+
             print_out_list = [
                 {
-                    "METAGRAPH NAME": metagraph_name,
+                    f"{mc_key}": metagraph_name,
                     "ENIVRONMENT": self.functions.config_obj[profile]["environment"],
                     "PROFILE NAME": profile,
                 },
@@ -1727,15 +1729,17 @@ class CLI():
                     ["-","half"]
                 ])
 
+            mc_key = "METAGRAPH"
             metagraph = f'{self.config_obj["global_elements"]["metagraph_name"]}/{self.config_obj[profile]["environment"]}'
             if self.config_obj["global_elements"]["metagraph_name"] == self.config_obj[profile]["environment"]:
                 metagraph = self.config_obj[profile]["environment"]
+                mc_key = "CLUSTER"
                 
             print_out_list = [
                 {
                     "header_elements" : {
                     "PROFILE": profile,
-                    "METAGRAPH": metagraph,
+                    f"{mc_key}": metagraph,
                     "JAR FILE": self.version_obj[environment][profile]["node_tess_jar"],
                     },
                     "spacing": spacing

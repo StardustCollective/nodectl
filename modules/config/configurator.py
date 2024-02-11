@@ -269,7 +269,8 @@ class Configurator():
         if self.detailed:
             self.c.functions.print_paragraphs([
                 ["nodectl",0,"blue","bold"], ["can build a configuration for you based on",0], ["predefined",0,"blue","bold"],
-                ["profiles. These profiles are setup by the Metagraph Administrators (or Layer0) companies that plan to ride on the Hypergraph.",2],
+                ["profiles. These profiles are setup by the Constellation Network or Metagraph Administrators",0],
+                ["(or Layer0) companies that plan to ride on the Hypergraph.",2],
 
                 ["Before continuing, please make sure you have the following checklist completed, to save time.",2,"yellow"],
                 
@@ -340,7 +341,7 @@ class Configurator():
                 ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
                 ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
                 
-                [" WARNING ",0,"red,on_yellow"], ["If you are writing a new configuration over an existing configuration for a Metagraph",0,"red"],
+                [" WARNING ",0,"red,on_yellow"], ["If you are writing a new configuration over an existing configuration for a cluster",0,"red"],
                 ["with the",0,"red"], ["same",0,"red","bold"], ["profile name, during the installation you will be requested to remove",0,"red"],
                 ["the existing",0,"red"], ["snapshots.",0,"red","bold"], ["Please make sure your existing profiles are",0,"red"],
                 ["stopped",0,"red","bold"], ["and",0,"red"], ["off",0,"red","bold"],["the cluster before continuing; otherwise, the protocol",0,"red"],
@@ -519,7 +520,7 @@ class Configurator():
                 },
                 "key_alias": {
                     "question": f"  {colored('Enter in p12 wallet alias name: ','cyan')}",
-                    "description": "This should be a single string (word) [connect multiple words with snake_case or dashes eg) 'my alias' becomes 'my_alias' or 'my-alias']. This is the alias (simple name) given to your p12 private key file; also known as, your wallet. SAVE THIS ALIAS IN A SAFE SECURE PLACE! If you forget your alias you made not be able to authenticate to the Hypergraph or Metagraph.",
+                    "description": "This should be a single string (word) [connect multiple words with snake_case or dashes eg) 'my alias' becomes 'my_alias' or 'my-alias']. This is the alias (simple name) given to your p12 private key file; also known as, your wallet. SAVE THIS ALIAS IN A SAFE SECURE PLACE! If you forget your alias you made not be able to authenticate to the a cluster.",
                     "default": alias_default,
                     "required": alias_required,
                 },
@@ -654,10 +655,10 @@ class Configurator():
                 ["The p12 key file should have been created during installation:",1,'yellow'],  
                 ["sudo nodectl install",2], 
                 
-                # ["If you need to create a p12 private key file:",1,"yellow"],
-                # ["sudo nodectl generate_p12",2],
+                ["If you need to create a p12 private key file:",1,"yellow"],
+                ["sudo nodectl generate_p12",2],
 
-                ["nodectl",0,"blue","bold"], ["has three configuration options for access into various Metagraphs or Layer0 channels via a user defined configuration profile.",2],
+                ["nodectl",0,"blue","bold"], ["has three configuration options for access into various network clusters via a user defined configuration profile.",2],
 
             ]
             self.c.functions.print_paragraphs(paragraphs)
@@ -668,7 +669,7 @@ class Configurator():
             print(wrapper.fill(f"{colored('1','magenta',attrs=['bold'])}{colored(': Global     - Setup a global wallet that will work with all profiles.','magenta')}"))
             print(wrapper.fill(f"{colored('2','magenta',attrs=['bold'])}{colored(': Dedicated  – Setup a unique p12 file per profile.','magenta')}"))
             
-            text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the Node to have Metagraphs that uses dedicated (individual) wallets, per Metagraph or Layer0 network."
+            text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the Node to have clusters that uses dedicated (individual) wallets, per cluster."
             print(wrapper.fill(f"{colored('3','magenta',attrs=['bold'])}{colored(text3,'magenta')}"))
         
         self.is_all_global = self.c.functions.confirm_action({
@@ -853,7 +854,7 @@ class Configurator():
         
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["There are only two options: 'validator' and 'genesis'. Unless you are an advanced Metagraph ",0,"white","bold"],
+                ["",1], ["There are only two options: 'validator' and 'genesis'. Unless you are an advanced",0,"white","bold"],
                 ["administrator, the 'validator' option should be chosen.",2,"white","bold"],
             ])
             
@@ -889,7 +890,7 @@ class Configurator():
     def manual_define_meta(self,profile=False):
         profile = self.profile_to_edit if not profile else profile
 
-        self.manual_section_header(profile,"METAGRAPH TYPE")
+        self.manual_section_header(profile,"CLUSTER TYPE")
         
         if self.detailed:
             self.c.functions.print_paragraphs([
@@ -903,7 +904,7 @@ class Configurator():
             ])
             
         self.c.functions.print_paragraphs([
-            ["Metagraph Types",1,"yellow,on_blue"],
+            ["Cluster Types",1,"yellow,on_blue"],
             ["=","half","blue","bold"],
         ])
 
@@ -1025,7 +1026,7 @@ class Configurator():
                 description = "Custom environment variables are key pairs (name of a distribution shell environment variable and its value) "
                 description += "that will be added to the shell environment prior to the start of the Node's process "
             description += "that runs on your Node to allow it to prepare to join a cluster.  This value should be added only "
-            description += "as instructed or required by the Administrators of a Metagraph." 
+            description += "as instructed or required by the Administrators of a cluster." 
             self.c.functions.print_paragraphs([
                 ["",1], [description,2,"white","bold"],
                 ["If you enter a key value that already exists, it will be overwritten in the configuration",0,"yellow"],
@@ -1133,16 +1134,16 @@ class Configurator():
         self.manual_section_header(profile,"EDGE POINTS") 
         
         default_desc = "You can use the word \"default\" to allow nodectl to use known default values."
-        description1 = "Generally a layer0 or Metagraph (layer1) network should have a device on the network (most likely a load balancer type "
+        description1 = "Generally a layer0 or layer1 network should have a device on the network (most likely a load balancer type "
         description1 += "device/system/server) where API (application programming interface) calls can be directed.  These calls will hit the "
         description1 += "edge device and direct those API requests into the network.  This value can be a FQDN (full qualified domain name) hostname " 
-        description1 += "or IP address.  Do not enter a URL/URI (should not include http:// or https://).  Please contact your layer0 or Metagraph Administrator for "
+        description1 += "or IP address.  Do not enter a URL/URI (should not include http:// or https://).  Please contact your Administrator for "
         description1 += "this information. "
         description1 += default_desc
         
         description2 = f"When listening on the network, a network connected server (edge point server entered for this profile {profile}) "
         description2 += "will listen for incoming connections on a specific TCP (Transport Control Protocol) port.  You should consult with the "
-        description2 += "Layer0 or Metagraph Administrators to obtain this port value. "
+        description2 += "Administrators to obtain this port value. "
         description2 += default_desc
         
         questions = {
@@ -1253,7 +1254,7 @@ class Configurator():
         
         description = "The distributed ledger technology 'DLT' generally called the blockchain "
         description += "($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid "
-        description += "integer (number) between 0 and 4, for the 5 available layers. Metagraphs are generally always layer 0 or 1. "
+        description += "integer (number) between 0 and 4, for the 5 available layers. Constellation Network or Metagraph clusters are generally always layer 0 or 1. "
         description += "Metagraph Layer 0 can be referred to as ML0, Metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0.  ML0 and ML1 should link to GL0.  ML1 should link to ML0. "
         description += "See the linking section for link options and details."
@@ -1279,9 +1280,9 @@ class Configurator():
         
         self.manual_section_header(profile,"COLLATERAL")
         
-        description = "In order to participate on a Metagraph or Hypergraph a Node may be required to hold collateral within the "
+        description = "In order to participate on a cluster a Node may be required to hold collateral within the "
         description += "active (hot) wallet located on this Node.  In the event that collateral is waved or there is not a requirement "
-        description += "to hold collateral, this value can be set to 0. Please contact the Metagraph or Hypergraph administration to "
+        description += "to hold collateral, this value can be set to 0. Please contact administration to "
         description += "define this requirement. "
         
         questions = {
@@ -1329,7 +1330,7 @@ class Configurator():
             
     def manual_build_tcp(self,profile=False):
         port_start = "You must define a TCP (Transport Control Protocol) port that your Node will run on, to accept"
-        port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your layer0 or Metagraph administrator for recommended port values."
+        port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your network cluster administrator for recommended port values."
         
         if profile:
             public_default = self.c.config_obj[profile]["public_port"]  
@@ -1482,7 +1483,7 @@ class Configurator():
             return [defaults, set_self_successful]
             
         def ask_link_questions(l_type, questions, key_default, host_default, port_default):
-            warning_msg = f"running a {'ML0' if l_type == 'ml0' else 'GL0'} network on the same Node as the Node running this Metagraph.  In order to do this you cancel this setup and choose the 'self' option when requested."
+            warning_msg = f"running a {'ML0' if l_type == 'ml0' else 'GL0'} network on the same Node as the Node running this cluster.  In order to do this you cancel this setup and choose the 'self' option when requested."
             questions = {
                 **questions,
                 f"{l_type}_link_key": {
@@ -1936,26 +1937,26 @@ class Configurator():
             
             description1 = ""
             if file_repo_type == "priority_source":
-                description1 += f"The {verb} is a specialized access-list that is mostly designated for Metagraph special access-list "
+                description1 += f"The {verb} is a specialized access-list that is mostly designated for network cluster special access-list "
                 description1 += f"elements, out of the scope of nodectl.  The values associated with these configuration values "
-                description1 += f"should be obtained directly from the Metagraph administrators. "
+                description1 += f"should be obtained directly from the administrators. "
             description1 += f"The {verb} is part of the PRO (proof of reputable observation) elements of Constellation Network. "
             description1 += "Enter the location (needs to be a full path not including the file name. Note: The file name will be defined "
             description1 += "succeeding this entry.) on your local Node. This is where the Node Operator would like to store the local copy of "
             description1 += "this data file, list, or access list. "
             if file_repo_type == "seed":
-                description1 += "This is a requirement to authenticate to the Metagraph and/or Hypergraph the Node Operator is "
+                description1 += "This is a requirement to authenticate to the cluster the Node Operator is "
                 description1 += "attempting to connect to. "
             if file_repo_type == "pro_rating":
                 description1 += "Trust labels constitute integral aspects of the Proof of Reputable Observation (PRO) system. "
                 description1 += "They impact several facets, such as determining the nodes from which to obtain snapshots. Trust labels "
                 description1 += "are off-chain information concerning the security of nodes and their potential to harm the network. These labels "
-                description1 += "are local bias values that you supply to your nodes during the joining process to the cluster (metagraph). They "
+                description1 += "are local bias values that you supply to your nodes during the joining process to the cluster. They "
                 description1 += "are specific to each node. Consequently, different nodes can exhibit varying degrees of bias. "
             if file_repo_type == "jar":
                 description1 = f"The {verb} version is used by nodectl's configuration to help determine the "
                 description1 += "version during the upgrade process or from the command line when using the refresh "
-                description1 += "binaries feature. This is required for Metgraphs.  MainNet, TestNet, IntegrationNet, should leave "
+                description1 += "binaries feature. This is required for Metgraphs.  MainNet, TestNet, and IntegrationNet network clusters, should leave "
                 description1 += "this field set to 'default'. "
 
 
@@ -1968,22 +1969,22 @@ class Configurator():
                 adj = "should"
                 description2 += "The Node Operator should create this file on their own. "
             else:
-                description2 += f"After the {verb} is downloaded from a Metagraph or Hypergraph "
+                description2 += f"After the {verb} is downloaded from a cluster "
                 description2 += "repository (defined succeeding this entry), the contents will be saved to this file.  The file (downloaded from the repository) " 
                 description2 += "must contain the exact same information as all other Nodes that participate on the cluster. "
             description2 += f"The file {adj} be placed in the location defined by the {file_repo_type} location variable entered above. "
             description2 += defaultdescr
             
             description3 = f"The {verb} repository is the location on the Internet (generally a github repository or artifact location) where nodectl can download "
-            description3 += f"the {verb} associated with the Metagraph or Hypergraph. Do not enter a URL or URI (do not include "
+            description3 += f"the {verb} associated with the network cluster. Do not enter a URL or URI (do not include "
             description3 += "http:// or https:// in the FQDN (fully qualified domain name)). The Node Operator should obtain this information "
-            description3 += "from the Metagraph or Hypergraph administrators. "
+            description3 += "from the administrators. "
             description3 += defaultdescr
             
             one_off2 = "directory"
             if file_repo_type == "jar":
                 description4 = f"The jar repository needs to have a version associated with it.  This will make sure that that correction version "
-                description4 += "of the jar binaries are downloaded, allowing you to stay current with the metagraph in question."
+                description4 += "of the jar binaries are downloaded, allowing you to stay current with the network cluster in question."
                 one_off2 = "version"
                 
             questions = {
@@ -2097,7 +2098,7 @@ class Configurator():
 
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["The configuration file for this Node is setup with profile sections for each Metagraph or Hypergraph cluster.",0,"white","bold"],
+                ["The configuration file for this Node is setup with profile sections for each cluster.",0,"white","bold"],
                 ["Each profile can be configured with unique or shared (global) p12 private key file (wallet setup) details. These details",0,"white","bold"],
                 ["help nodectl understand what wallets and authorization values to use for each cluster configured.",2,"white","bold"],
                 
@@ -2275,8 +2276,8 @@ class Configurator():
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
                         # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
                         ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
-                        ["I",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Metagraph",0,"magenta"],["T",0,"magenta","underline"], ["oken Identifier",-1,"magenta"], ["",1],
-                        ["T",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Metagraph",0,"magenta"],["T",0,"magenta","underline"], ["oken Coin Id",-1,"magenta"], ["",1],
+                        ["I",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Cluster",0,"magenta"],["T",0,"magenta","underline"], ["oken Identifier",-1,"magenta"], ["",1],
+                        ["T",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Cluster",0,"magenta"],["T",0,"magenta","underline"], ["oken Coin Id",-1,"magenta"], ["",1],
                         ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
                         ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
@@ -2416,7 +2417,7 @@ class Configurator():
             ("API Edge Point",17),
             ("API TCP Ports",18),
             ("Consensus Linking",19),
-            ("Metagraph Type",20),
+            ("Network Cluster Type",20),
             ("Token Identifier",21),
             ("Rating File Setup",22),
             ("Token Coin ID",23),

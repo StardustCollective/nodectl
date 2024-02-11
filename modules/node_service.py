@@ -320,7 +320,7 @@ class Node():
         # hardcoded seed-list download locations.
         # 
         # This method can be either removed or refactored
-        # after new Metagraph Channel requirements are identified
+        # after new cluster or Metagraph Channel requirements are identified
         # ===============================
         
         self.log.logger.debug("node service - download seed list initiated...")
@@ -874,7 +874,7 @@ class Node():
                         link_word = link_obj[f"{link_type}_link_profile"] 
                     else:
                         f"Remote Link [{self.functions.config_obj[self.profile][f'{link_type}_link_host']}:{self.functions.config_obj[self.profile][f'{link_type}_link_port']}]"
-                    graph_type = "Hypergraph" if self.functions.config_obj[self.profile]['meta_type'] == "gl" else "Metagraph"
+                    graph_type = "Hypergraph" if self.functions.config_obj[self.profile]['meta_type'] == "gl" else "Cluster or Metagraph"
                 if link_obj[f"{link_type}_linking_enabled"]:
                     if not self.auto_restart:
                         self.functions.print_paragraphs([
@@ -1203,7 +1203,7 @@ WantedBy=multi-user.target
 # documentation hub for details on how to configure
 # this file.
 # =========================================================
-# Metagraph sections isolated by profile key name
+# Network cluster sections isolated by profile key name
 # =========================================================
 # Custom Options and Environment Variables
 # ---------------------------------------------------------

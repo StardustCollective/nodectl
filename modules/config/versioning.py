@@ -221,12 +221,12 @@ class Versioning():
                     else:
                         core = True
                         if self.config_obj[profile]["environment"] != self.config_obj["global_elements"]["metagraph_name"]:
-                            # does nodectl statically support "this" specific metagraph
+                            # does nodectl statically support "this" specific network cluster
                             try:
                                 api_host = self.functions.lb_urls[self.functions.environment_name][0]
                                 api_port = self.functions.lb_urls[self.functions.environment_name][1]
                             except: 
-                                self.log.logger.info(f"versioning -> nodectl found metagraph that is not statically supported, static configuration elements should be used.")
+                                self.log.logger.info(f"versioning -> nodectl found network cluster that is not supported, static configuration elements should be used.")
                             else: core = False
                         if core:
                             api_host = self.config_obj[profile]["edge_point"]

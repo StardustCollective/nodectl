@@ -174,10 +174,10 @@ class Error_codes():
 
 
         elif var.line_code == "environment_error":
-            self.log.logger.critical(f"missing metagraph environment variable, unable to continue")
+            self.log.logger.critical(f"missing cluster environment variable, unable to continue")
             self.functions.print_paragraphs([
                 ["nodectl attempted to start a command:",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
-                ["Please verify the Metagraph environment variable is correct or present.",2,"red","bold"],
+                ["Please verify the network cluster environment variable is correct or present.",2,"red","bold"],
                 ["Are you sure you have a",0,"magenta"],["valid",0,"magenta"], ["environment requested in your command, loaded or configured?",2,"magenta"]
             ])
             if var.extra2:
@@ -187,11 +187,11 @@ class Error_codes():
                         
                         
         elif "upgrade_incompatibility" in str(var.line_code):
-            self.log.logger.critical(f"Upgrade cannot continue because nodectl found multiple metagraph environment that is not supported by this version of nodectl: environment [{var.extra}]")
+            self.log.logger.critical(f"Upgrade cannot continue because nodectl found multiple environments that are not supported by this version of nodectl: environment [{var.extra}]")
             self.functions.print_paragraphs([
                 ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
 
-                ["nodectl found metagraph environments installed on this Node that may not be supported by this version of nodectl.",0,"yellow"],
+                ["nodectl found environments installed on this Node that may not be supported by this version of nodectl.",0,"yellow"],
                 ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
                 
                 ["To continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
@@ -251,7 +251,7 @@ class Error_codes():
             if var.error_code == "service_join":
                 self.functions.print_paragraphs([
                     ["You may not be joined to the",0,"red","bold"],["Global Layer0",0,"yellow","bold"],
-                    ["or a",0,"red","bold"],["Metagraph?",2,"yellow","bold"],
+                    ["or a",0,"red","bold"],["network cluster?",2,"yellow","bold"],
                 ])
             else:
                 self.functions.print_paragraphs([
@@ -276,7 +276,7 @@ class Error_codes():
                 ])   
             self.functions.print_paragraphs([
                 ["You may not be joined to the",0,"red","bold"],["Global Layer0",0,"cyan","bold"],
-                ["or a",2,"red","bold"],["Metagraph?",2,"cyan","bold"],
+                ["or a",2,"red","bold"],["network cluster?",2,"cyan","bold"],
                 ["Are you sure the",0,"red","bold"], ["Node",0,"yellow","bold,underline"],
                 ["service is running?",2,"red","bold"]
             ])
@@ -415,7 +415,7 @@ class Error_codes():
         elif var.line_code == "ip_not_found":
             self.log.logger.warn("unable to find the external IP address of the Node, there may be internet access issues ensuring, exited program")
             self.functions.print_paragraphs([
-                ["In an attempt to search the Metagraph with an IP address,",0,"red"],
+                ["In an attempt to search the current network cluster with an IP address,",0,"red"],
                 [var.extra,0,"yellow","bold"],
                 ["is invalid or not found, please check this",0,"red"] ,["ip address",0,"red","underline"], ["and try again.",2,"red"],
             ])            

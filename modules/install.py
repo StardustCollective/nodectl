@@ -211,18 +211,18 @@ class Installer():
         if not self.options.environment and not self.options.quick_install:
             self.functions.print_paragraphs([
                 ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
-                ["on various Metagraph pre-defined configurations.",2,"green"],
+                ["on various network clusters or Metagraph pre-defined configurations.",2,"green"],
                 
-                ["If the Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
+                ["If the network cluster or Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
                 ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
                 ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
                 ["required components, to ensure successful implementation of this utility.",0],
                 
-                ["If a pre-defined Metagraph listed above is not the ultimate role of this future Node,",0],
+                ["If a pre-defined network cluster or Metagraph listed above is not the ultimate role of this future Node,",0],
                 ["following a successful installation, the next steps should be for you to refer to the Metagraph",0],
                 ["Administrators of the Metagraph you are expected to finally connect with. The Administrator",0,],
                 ["will offer instructions on how to obtain the required configuration file for said Metagraph.",2],
-                ["Please key press number of a Metagraph configuration below:",2,"blue","bold"],
+                ["Please key press number of a network cluster or Metagraph configuration below:",2,"blue","bold"],
             ])
 
         self.parent.verify_environments({
@@ -356,12 +356,12 @@ class Installer():
                 [" IMPORTANT ",2,"white,on_red"], 
                 ["nodectl installation will install the new",0,"magenta"], ["Node",0,"blue","bold"], 
                 ["with default",0,"magenta"],
-                ["Metagraph Network Variables",2,"blue","bold"],
+                ["network variables",2,"blue","bold"],
                 
-                ["Metagraph:",0], [self.config_obj['global_elements']['environment_name'],2,"yellow"],
+                ["Network Cluster:",0], [self.config_obj['global_elements']['environment_name'],2,"yellow"],
                 
                 ["After installation is complete, the Node Operator may alter the",0,"magenta"], ["nodectl",0,"blue","bold"],
-                ["configuration to allow connection to the",0,"magenta"], ["Metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
+                ["configuration to allow connection to the",0,"magenta"], ["network cluster or Metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
                 
                 ["sudo nodectl configure",2],
             ])

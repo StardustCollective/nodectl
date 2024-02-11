@@ -555,9 +555,9 @@ class ShellHandler:
                     "single_line": True,
                 })
 
-                msg_start = "Multiple Metagraph environments were found on this system."
+                msg_start = "Multiple network cluster environments were found on this system."
                 if show_list and not environments["multiple_environments"]:
-                    msg_start = "Show list of Metagraphs was requested."
+                    msg_start = "Show list of network clusters was requested."
                     self.log.logger.debug("Upgrade show list of environments requested")
                 if env_provided:
                     msg_start = "Choose environment from list requested but environment request was entered at the command line."
@@ -571,7 +571,7 @@ class ShellHandler:
                     print("")
 
                 if environments["multiple_environments"] and not env_provided:
-                    self.log.logger.debug(f"Upgrade found multiple metagraph environments on the same Node that may are supported by different versions of nodectl")
+                    self.log.logger.debug(f"Upgrade found multiple network cluster environments on the same Node that may are supported by different versions of nodectl")
                     self.functions.print_paragraphs([
                         [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
                         ["Please select an environment by",0], ["key pressing",0,"yellow"], 
@@ -664,7 +664,7 @@ class ShellHandler:
             
             if "install" in action and request_environment:
                 print("") 
-                title = "PLEASE CHOOSE METAGRAPH TO INSTALL"
+                title = "PLEASE CHOOSE NETWORK CLUSTER"
             if request_environment:
                 environment = self.functions.print_profile_env_menu({
                     "p_type": "environment",

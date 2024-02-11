@@ -13,7 +13,7 @@
 # documentation hub for details on how to configure
 # this file.
 # =========================================================
-# Metagraph sections isolated by profile key name
+# Network cluster sections isolated by profile key name
 # =========================================================
 # Custom Options and Environment Variables
 # ---------------------------------------------------------
@@ -73,7 +73,7 @@ nodectl:
     ml0_link_port: None
     ml0_link_profile: None
     token_identifier: disable
-    token: global
+    token_coin_id: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
@@ -89,6 +89,7 @@ nodectl:
     p12_passphrase: global
     seed_location: default
     seed_repository: default
+    seed_version: default
     seed_file: default
     pro_rating_location: disable
     pro_rating_file: disable
@@ -122,7 +123,7 @@ nodectl:
     ml0_link_port: self
     ml0_link_profile: dag-l0
     token_identifier: disable
-    token: global
+    token_coin_id: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
@@ -138,6 +139,7 @@ nodectl:
     p12_passphrase: global
     seed_location: disable
     seed_repository: disable
+    seed_version: default
     seed_file: disable
     pro_rating_location: disable
     pro_rating_file: disable
@@ -160,7 +162,9 @@ nodectl:
     encryption: False
   global_elements:
     metagraph_name: testnet
-    token: default
+    metagraph_token_identifier: default
+    metagraph_token_coin_id: default
     nodectl_yaml: v2.1.0
+    includes: False
     developer_mode: False
     log_level: DEBUG
