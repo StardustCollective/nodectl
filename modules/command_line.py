@@ -369,15 +369,18 @@ class CLI():
                                 join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
                                 on_network = colored("ReadyToJoin","yellow")
                             if sessions["session0"] == sessions["session1"]:
-                                if sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "SessionStarted" and sessions["state1"] != "Initial":
+                                if sessions["state1"] == "ApiNotResponding":
+                                    on_network = colored("TryAgainLater","magenta")
+                                    join_state = colored(f"ApiNotResponding".ljust(20),"magenta")
+                                elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "SessionStarted" and sessions["state1"] != "Initial":
                                     # there are other states other than Ready and Observing when on_network
                                     on_network = colored("True","green")
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"green")
                                     if sessions["state1"] == "Observing" or sessions["state1"] == "WaitingForReady":
                                         join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                                elif sessions["state1"] == "Ready":
-                                    join_state = colored(f"{sessions['state1']}".ljust(20),"green",attrs=['bold'])
-                                    on_network = colored("True","green",attrs=["bold"])
+                                # elif sessions["state1"] == "Ready":
+                                #     join_state = colored(f"{sessions['state1']}".ljust(20),"green",attrs=['bold'])
+                                #     on_network = colored("True","green",attrs=["bold"])
                                 else:
                                     node_session = colored("SessionIgnored".ljust(20," "),"red")
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"red")
@@ -675,7 +678,7 @@ class CLI():
                     "MEMORY": status.memory,
                     "SWAP": status.swap,
                 },
-                "spacing": 15
+                "spacing": 15,
             },
         ]
         
@@ -704,6 +707,18 @@ class CLI():
                     section_dict = {}; dyn_dict = {}
                 else:
                     break
+
+            for key, value in status.process_memory.items():
+                if key == profile:
+                    if "-1" in value["RSS"]: value["RSS"] = "n/a"
+                    if "-1" in value["VMS"]: value["VMS"] = "n/a"
+                    dyn_dict["header_elements"] = {
+                        "JAR PROCESS": value["jar_file"],
+                        "RSS": value["RSS"],
+                        "VMS": value["VMS"],
+                    }
+                    dyn_dict["spacing"] = 15
+                    print_out_list.append(dyn_dict)
             
         for header_elements in print_out_list:
             self.functions.print_show_output({
@@ -1219,7 +1234,7 @@ class CLI():
         print(status_header.rjust(28))
         print(status_results)
 
-        nodectl_only = ["ApiNotReady","SessionIgnored","SessionNotFound"]
+        nodectl_only = ["ApiNotReady","ApiNotResponding","SessionIgnored","SessionNotFound"]
         states.pop(0)
         for value in states:
             print_value = value[1]
@@ -1602,14 +1617,8 @@ class CLI():
         self.functions.check_for_help(command_list,"show_p12_details")
         p12 = P12Class({"functions": self.functions})      
         p12.show_p12_details(command_list)  
-        
 
-    def cli_create_p12(self,command_list):
-        self.functions.check_for_help(command_list,"cli_create_p12")
-        p12 = P12Class({"functions": self.functions})      
-        p12.create_individual_p12(self)  
 
-                
     # ==========================================
     # update commands
     # ==========================================
@@ -4524,7 +4533,13 @@ class CLI():
             "newline": True,
         })      
       
-      
+
+    def cli_create_p12(self,command_list):
+        self.functions.check_for_help(command_list,"cli_create_p12")
+        p12 = P12Class({"functions": self.functions})      
+        p12.create_individual_p12(self)  
+
+
     def clean_files(self,command_obj):
         what = "clear_snapshots" if command_obj["action"] == "snapshots" else "clean_files"
         self.log.logger.info(f"request to {what} inventory by Operator...")

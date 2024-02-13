@@ -10,13 +10,13 @@ import socket
 import validators
 import uuid
 
-
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 import base64
 
+from psutil import Process, cpu_percent, virtual_memory, process_iter
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
@@ -149,9 +149,9 @@ class Functions():
 
             return coin_prices
         
+        updated_coin_prices = {}
         # In the circumstance that CoinGecko is down *rare but happens*
         # This is a quick timeout check before attempting to download pricing
-        
         self.create_coingecko_obj()
         check_ids = 'constellation-labs,lattice-token,Dor,bitcoin,ethereum,quant-network'
 
@@ -418,6 +418,7 @@ class Functions():
                 ('Leaving','l*'),
                 ('Offline','o*'),
                 ('ApiNotReady','a*'),
+                ('ApiNotResponding','ar*'),
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]
@@ -1383,8 +1384,8 @@ class Functions():
             "node1": nodes[1],
             "session0": 0,
             "session1": 0,
-            "state0": "ApiNotReady",
-            "state1": "ApiNotReady"
+            "state0": "ApiNotReady", #remote
+            "state1": "ApiNotReady" #local
         }
         
         self.log.logger.debug(f"pull_node_session: session_obj [{session_obj}]")
@@ -1445,7 +1446,15 @@ class Functions():
         except Exception as e:
             self.log.logger.debug(f"pull_node_session - error applying session0 and session1 | [{e}]")
         
-        self.log.logger.debug(f"pull_node_session - session being returned [{session_obj}]")    
+        self.log.logger.debug(f"pull_node_session - session being returned [{session_obj}]") 
+
+        cpu, memory, _ = self.check_cpu_memory_thresholds()
+        if not cpu or not memory:
+            if session_obj["state0"] == "ApiNotReady":
+                session_obj["state0"] = "ApiNotResponding"
+            if session_obj["state1"] == "ApiNotReady":
+                session_obj["state1"] = "ApiNotResponding"
+                
         return session_obj    
     
     
@@ -1973,6 +1982,61 @@ class Functions():
             })
             
             
+    def check_cpu_memory_thresholds(self):
+        memory_threshold = 95
+        cpu_threshold = 98
+        cpu_ok, memory_ok = True, True
+
+        cpu_found_percent = cpu_percent(interval=1)
+        memory_found_percent = virtual_memory().percent
+
+        # important note
+        # memory utilization of the entire box (as found above) does not properly represent 
+        # the metric of whether or not there is a memory issue on the box unless a serious issue
+        # is present.  Future modifications should include the results of the pid process
+        # as calculated below [future feature updates]
+        # =====================================================
+        process_memory = {}
+        for profile in self.profile_names:
+            find_pid_for = self.config_obj[profile]["jar_file"]
+            process_memory = {
+                **process_memory,
+                f"{profile}": {
+                    "jar_file": find_pid_for,
+                    "RSS": -1,
+                    "VMS": -1,
+                }
+            }
+            for process in process_iter(['pid', 'cmdline']):
+                if process.info['cmdline']:
+                    for value in process.info['cmdline']:
+                        if find_pid_for in value:
+                            found_pid = process.pid
+                            process = Process(found_pid)
+                            pid_memory = process.memory_info()
+                            process_memory[profile]["RSS"] = pid_memory.rss
+                            process_memory[profile]["VMS"] = pid_memory.vms
+                            break
+
+        self.log.logger.info(f"functions -> cpu_memory_thresholds -> checked memory and cpu pid values [{process_memory}]")
+        # ======================================================
+
+        if cpu_found_percent > cpu_threshold:
+            self.log.logger.warning(f"functions -> cpu_memory_thresholds -> cpu exceeding max | cpu % [{cpu_found_percent}] | memory % [{memory_found_percent}]")
+            cpu_ok = False
+
+        if memory_found_percent > memory_threshold:
+            self.log.logger.warning(f"functions -> cpu_memory_thresholds -> memory exceeding max | memory % [{memory_found_percent}] cpu % [{cpu_found_percent}]")
+            memory_ok = False
+
+        if not cpu_ok and not memory_ok:
+            self.log.logger.error(f"functions -> cpu_memory_thresholds -> system may be unresponsive or intermittently unresponsive")
+        elif cpu_ok and memory_ok:
+            self.log.logger.info(f"functions -> cpu_memory_thresholds -> checked memory and cpu found [OK] | memory % [{memory_found_percent}] cpu % [{cpu_found_percent}]")
+
+        return cpu_ok, memory_ok, process_memory
+    
+
     # =============================
     # is functions
     # =============================      
@@ -2060,7 +2124,15 @@ class Functions():
         spinner = command_obj.get("spinner", False)
         spinner = False if self.auto_restart else spinner
         api_not_ready_flag = False
-        
+        send_error = False
+
+        def print_test_error(errors):
+            self.error_messages.error_code_messages({
+                "line_code": errors[0],
+                "error_code": "api_error",
+                "extra2": errors[1],
+            })
+
         results = {
             "node_on_src": False,
             "node_on_edge": False,
@@ -2085,6 +2157,7 @@ class Functions():
                 })
             except Exception as e:
                 self.log.logger.error(f"test_peer_state -> error retrieving get_info_from_edge_point | current_source_node: {current_source_node} | e: {e}")
+                send_error = (2160,e)
             
         ip_addresses = prepare_ip_objs = [test_address,current_source_node]
         for n,ip in enumerate(prepare_ip_objs):
@@ -2099,6 +2172,10 @@ class Functions():
                     })
                 except Exception as e:
                     self.log.logger.error(f"test_peer_state -> unable to get_info_from_edge_point | ip_address {ip_addresses[n]} | e: [{e}]")
+                    send_error = (2175,e)
+
+        if send_error and not self.auto_restart:
+            print_test_error(send_error)
 
         with ThreadPoolExecutor() as executor:
             do_thread = False
@@ -2140,8 +2217,14 @@ class Functions():
                                 results['edge_node_color'] = color
                                 
                         except:
-                            if api_not_ready_flag: break_while = True
-                            # try 2 times before passing with ApiNotReady
+                            if api_not_ready_flag: 
+                                cpu, mem, _ = self.check_cpu_memory_thresholds()
+                                if not cpu or not mem: 
+                                    self.log.logger.warn("functions -> test peer state -> setting status to [ApiNotReponding]")
+                                    results['node_state_src'] = "ApiNotResponding"
+                                    results['node_state_edge'] = "ApiNotResponding"
+                                break_while = True
+                            # try 2 times before passing with ApiNotReady or ApiNotResponding
                             attempt = attempt+1
                             if attempt > 1:
                                 api_not_ready_flag = True

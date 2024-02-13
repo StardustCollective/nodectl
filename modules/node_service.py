@@ -874,7 +874,7 @@ class Node():
                         link_word = link_obj[f"{link_type}_link_profile"] 
                     else:
                         f"Remote Link [{self.functions.config_obj[self.profile][f'{link_type}_link_host']}:{self.functions.config_obj[self.profile][f'{link_type}_link_port']}]"
-                    graph_type = "Hypergraph" if self.functions.config_obj[self.profile]['meta_type'] == "gl" else "Cluster or Metagraph"
+                    graph_type = "Hypergraph" if self.functions.config_obj[self.profile]['meta_type'] == "gl" else "cluster"
                 if link_obj[f"{link_type}_linking_enabled"]:
                     if not self.auto_restart:
                         self.functions.print_paragraphs([

@@ -357,6 +357,7 @@ def build_help(functions,command_obj):
   {colored('l','green')}   > Leaving State
   {colored('o','green')}   > Offline State
   {colored('a','green')}   > ApiNotReady State (nodectl only)
+  {colored('a','green')}   > ApiNotResponding State (nodectl only)
 
   {colored("If Node shows False","white",attrs=['bold'])}
   ===================
@@ -787,11 +788,13 @@ def build_help(functions,command_obj):
   find on the Cluster or that nodectl defines when not on the cluster.
   
   {colored("nodectl only states:","cyan")}
-  {colored('ApiNotReady','magenta')}:     shown if nodectl can not reach the Node's
+  {colored('ApiNotReady','magenta')}:      shown if nodectl can not reach the Node's
                    internal API server. 
-  {colored('SessionNotFound','magenta')}: shown if nodectl can not read the Node's
+  {colored('ApiNotResponding','magenta')}: shown if nodectl can not reach the Node's
+                   internal API server, due to cpu or memory issues. 
+  {colored('SessionNotFound','magenta')}:  shown if nodectl can not read the Node's
                    session via the internal API server. 
-  {colored('SessionIgnored','magenta')}:  shown if nodectl is not online and there
+  {colored('SessionIgnored','magenta')}:   shown if nodectl is not online and there
                    is not a session to display. 
   '''
         
@@ -2345,7 +2348,7 @@ def build_help(functions,command_obj):
     
   {colored('States','yellow')}: Initial,Offline,ReadyToJoin,StartingSession,SessionStarted,
           ReadyToDownload,WaitingForDownload,DownloadInProgress,
-          Observing,WaitingForReady,Ready,Leaving,Offline,ApiNotReady
+          Observing,WaitingForReady,Ready,Leaving,Offline,ApiNotReady,ApiNotResponding
   
   {colored('Quick Status','green')}:
   This command will show an abbreviated version of the status command that
