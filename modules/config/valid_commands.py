@@ -1,5 +1,7 @@
 def pull_valid_command():
     valid_commands = [
+        "auto_restart",
+
         "check_versions",
         "change_ssh_port",
         "check_seedlist",
@@ -8,62 +10,47 @@ def pull_valid_command():
         "create_p12",
         "check_versions",
         "check_consensus",
-
+        "clean_files",
+        "check_connection",
+        "check_seedlist_participation",
+        
         "dag",
         "disable_root_ssh",
         "download_status",
-        
+
+        "enable_root_ssh",     
+        "export_private_key",
+
         "find",
+        "find",
+
+        "help",
+
+        "id",
+        "install",
 
         "join",
 
         "leave",
         "list",
+        "logs",
 
-        "restart",
-        "restart_only",
+        "market",
+        "migrate_node",
 
-
-
-        "uptime",
-        "id",
         "nodeid",
+        "nodeid2dag",
+        
+        "peers",
+        "passwd12",
+        "price",
 
         "quick_status",
-        
-        "enable_root_ssh",
 
-        "view_config",
-        "validate_config",
-        "clean_files",
-        "verify_nodectl",
-
-
-        "find",
-        "peers",
-        "whoami",
-        "nodeid2dag",
-
-        "passwd12",
         "reboot",
-        "upgrade_nodectl",
-        "help",
-
-        "show_p12_details",
-
-        "show_node_proofs",
-        "check_connection",
-
-        "check_seedlist_participation",
-
-        "auto_restart",
-        "install",
-        "uninstall",
-        "upgrade",
-        "upgrade_path",
-        "upgrade_vps",
-
         "refresh_binaries",
+        "restart",
+        "restart_only",
 
         "show_service_status",
         "show_service_log",
@@ -75,16 +62,23 @@ def pull_valid_command():
         "slow_restart",
         "status",
         "show_node_states",
-
-
-        "price",
+        "show_p12_details",
+        "show_node_proofs",
         "sec",
-        "market",
-        "migrate_node",
 
+        "upgrade",
+        "upgrade_nodectl",
+        "upgrade_path",
+        "upgrade_vps",
+        "uninstall",
+        "uptime",
         "update_seedlist",
-        "export_private_key",
-        "logs",
+
+        "view_config",
+        "validate_config",
+        "verify_nodectl",
+
+        "whoami",
     ]
 
     service_cmds = [
