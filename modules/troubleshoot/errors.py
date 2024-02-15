@@ -307,8 +307,10 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["Timed Out or Error encountered while waiting for API.",1,"red","bold"],
                 ["An API call returned an invalid response.",2,"red","bold"],
-                ["Possible other reasons could be service related? Are you sure the",0,"red","bold"],
-                ["Node",0,"yellow","underline"], ["service(s) are running?",2,"red","bold"],
+                ["Possible other reasons could be service related? Are you sure:",1,"red","bold"],
+                [" - The",0,"red","bold"],["Node",0,"yellow"], ["service(s) are running?",1,"red","bold"],
+                [" - The",0,"red","bold"],["Edge Point",0,"yellow"], ["API endpoint(s) are available?",2,"red","bold"],
+
                 ["Make sure your",0,"magenta"], ["firewall",0,"magenta","underline"], ["has the proper TCP ports opened.",2,"magenta"],
             ])
             if var.extra != None:

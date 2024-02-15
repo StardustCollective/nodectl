@@ -255,6 +255,8 @@ class ShellHandler:
             self.cli.show_node_states(self.argv)
         elif self.called_command == "passwd12":
             return_value = self.cli.passwd12(self.argv)
+        elif self.called_command == "migrate_node":
+            self.cli.migrate_node(self.argv)
         elif self.called_command == "reboot":
             self.cli.cli_reboot(self.argv)
         elif self.called_command in node_id_commands:
@@ -357,6 +359,8 @@ class ShellHandler:
             self.cli.show_health(self.argv)
         elif self.called_command == "show_service_log" or self.called_command == "_ssl":
             self.cli.show_service_log(self.argv)
+        elif self.called_command == "show_service_status" or self.called_command == "_sss":
+            self.cli.show_service_status(self.argv)
         elif self.called_command == "sec":
             self.cli.show_security(self.argv)
         elif self.called_command == "price" or self.called_command == "prices":

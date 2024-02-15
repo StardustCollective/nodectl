@@ -233,7 +233,7 @@ class DownloadStatus():
                     warning = "  block acceptance paused, standby..."
                 if self.back_and_forth > 2: warning = "  Node is pausing to wait for valid consensus"
 
-                sleep(1)
+                sleep(2)
                 self.pull_ordinal_values()
                 self.dip_vals.use_current = self.dip_status["current"]
                 
@@ -248,7 +248,7 @@ class DownloadStatus():
             
         if self.dip_vals.last_found == self.dip_vals.use_current:
             self.back_and_forth += 1
-            sleep(1)
+            sleep(2)
             self.dip_vals.use_height = False if self.dip_vals.use_height else True
             self.handle_dip_values()
             self.build_percent_hashes()

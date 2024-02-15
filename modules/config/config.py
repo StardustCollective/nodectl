@@ -452,7 +452,7 @@ class Configuration():
                 },
             },
             "token_coin_id": "constellation-labs",
-            "edge_point_tcp_port": 80,
+            "edge_point_tcp_port": 443,
             "public_port": [9000,9010],
             "p2p_port": [9001,9011],
             "cli_port": [9002,9012],

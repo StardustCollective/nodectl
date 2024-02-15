@@ -343,6 +343,7 @@ class CLI():
                     
                     sessions = self.functions.pull_node_sessions({
                         "edge_device": edge_point,
+                        "caller": called_command,
                         "spinner": spinner,
                         "profile": called_profile, 
                         "key": "clusterSession"
@@ -519,6 +520,45 @@ class CLI():
                     })
                 else: break    
                 
+
+    def show_service_status(self,command_list):
+        self.functions.check_for_help(command_list, "show_service_status")
+        print_out_list = []
+        service_elements = self.config_obj["global_elements"]["node_service_status"]
+        for service in service_elements["service_list"]:
+            service_status = service_elements[service]
+            service_code = service_elements[f"{service}_service_return_code"]
+
+            if service in self.functions.profile_names:
+                title_name = service
+                service_name = self.config_obj[service]["service"]
+            else:
+                if "node_restart" in service: title_name = "auto_restart"
+                elif "version_updater" in service: title_name = "version_service"
+                service_name = service.replace("@","")
+            
+            if service_code < 1:
+                service_status = colored(service_status,"green",attrs=["bold"])
+            elif service_code == 768:
+                service_status = colored(service_status,"red")
+            else:
+                service_status = colored(service_status,"yellow")
+
+            print_out_list.append({
+                "OWNER": title_name,
+                "SERVICE": service_name,
+                "STATUS CODE": service_code,
+                "STATUS": service_status,
+            })
+
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements,
+                "spacing": 10,
+        })
+
+        pass
+
 
     def show_service_log(self,command_list):
         self.functions.check_for_help(command_list, "show_service_log")
@@ -710,8 +750,8 @@ class CLI():
 
             for key, value in status.process_memory.items():
                 if key == profile:
-                    if "-1" in value["RSS"]: value["RSS"] = "n/a"
-                    if "-1" in value["VMS"]: value["VMS"] = "n/a"
+                    if "-1" in value["RSS"]: value["RSS"] = "not running"
+                    if "-1" in value["VMS"]: value["VMS"] = "not running"
                     dyn_dict["header_elements"] = {
                         "JAR PROCESS": value["jar_file"],
                         "RSS": value["RSS"],
@@ -4355,10 +4395,11 @@ class CLI():
             })
             consensus_match = colored("False","red")
             if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
-                consensus_match = colored("True","green")    
+                consensus_match = colored("True","green") if caller == "check_consensus" else True
             if state in self.functions.pre_consensus_list:
-                consensus_match = colored("Preparing","yellow")
+                consensus_match = colored("Preparing","yellow") if caller == "check_consensus" else False
                 
+            self.log.logger.debug(f"cli_check_consensus -> caller [{caller}] -> participating in consensus rounds [{consensus_match}]")
             if caller != "check_consensus": 
                 return consensus_match
             

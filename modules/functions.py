@@ -493,19 +493,23 @@ class Functions():
         try: _ = self.profile_names
         except: self.set_default_variables({"skip_error":True})
         
-        for profile in self.profile_names:
-            service_name = f"cnng-{self.config_obj[profile]['service']}"
+        service_names = self.profile_names + ["node_restart@","node_version_updater"]
+        self.config_obj["global_elements"]["node_service_status"]["service_list"] = service_names
+
+        for service in service_names:
+            if service in self.profile_names:
+                service_name = f"cnng-{self.config_obj[service]['service']}"
             service_status = system(f'systemctl is-active --quiet {service_name}')
             if service_status == 0:
-                self.config_obj["global_elements"]["node_service_status"][profile] = "active (running)"
+                self.config_obj["global_elements"]["node_service_status"][service] = "active (running)"
             elif service_status == 768:
-                self.config_obj["global_elements"]["node_service_status"][profile] = "inactive (dead)"
+                self.config_obj["global_elements"]["node_service_status"][service] = "inactive (dead)"
             else:
-                self.config_obj["global_elements"]["node_service_status"][profile] = "error (exit code)"
-            self.config_obj["global_elements"]["node_service_status"]["service_return_code"] = service_status   
-            self.log.logger.debug(f'get_service_status -> [{profile}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][profile]}]')
-            
-    
+                self.config_obj["global_elements"]["node_service_status"][service] = "error (exit code)"
+            self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] = service_status   
+            self.log.logger.debug(f'get_service_status -> [{service}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][service]}]')
+        
+
     def get_date_time(self,command_obj):
         action = command_obj.get("action",False)
         backward = command_obj.get("backward",True) 
@@ -667,6 +671,8 @@ class Functions():
                 self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                 
             if not cluster_info:
+                if self.auto_restart:
+                    return False
                 self.error_messages.error_code_messages({
                     "error_code": "fnt-725",
                     "line_code": "lb_not_up",
@@ -732,7 +738,7 @@ class Functions():
         api_host = command_obj.get("api_host")
         api_port = command_obj.get("api_port")
         api_endpoint = command_obj.get("api_endpoint","/node/info")
-        info_list = command_obj.get("info_list","all")
+        info_list = command_obj.get("info_list",["all"])
         tolerance = command_obj.get("tolerance",2)
         
         # dictionary
@@ -778,7 +784,7 @@ class Functions():
 
         if len(session) < 2 and "data" in session.keys():
             session = session["data"]
-            
+        
         self.log.logger.debug(f"get_api_node_info --> session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
         try:
             for info in info_list:
@@ -787,6 +793,9 @@ class Functions():
             self.log.logger.warn(f"Node was not able to retrieve [{info}] of [{info_list}] returning None")
             return "LB_Not_Ready"
         else:
+            if "reason" in session.keys():
+                if session["reason"] == "Load balancer is currently under a maintenance mode due to cluster upgrade.":
+                    return "LB_Not_Ready" 
             return result_list
 
 
@@ -1373,7 +1382,8 @@ class Functions():
         port = command_obj['edge_device']['remote_port']
         profile = command_obj['profile']
         spinner = command_obj.get("spinner",True)
-        
+        caller = command_obj.get("caller","default")
+
         local_port = self.config_obj[profile]["public_port"]
         nodes = command_obj['edge_device']['remote'], self.ip_address
         session = {}
@@ -1401,6 +1411,7 @@ class Functions():
             try:
                 state = self.test_peer_state({
                     "profile": profile,
+                    "caller": caller,
                     "spinner": spinner,
                     "simple": True,
                 })
@@ -1429,6 +1440,8 @@ class Functions():
                     self.log.logger.warn(f"Load Balancer did not return a token | reason [{session['reason']} error [{e}]]")
                     session_obj[f"session{i}"] = f"{i}"
                 except:
+                    if self.auto_restart:
+                        return False
                     self.error_messages.error_code_messages({
                         "error_code": "fnt-958",
                         "line_code": "lb_not_up",
@@ -2115,6 +2128,7 @@ class Functions():
     def test_peer_state(self,command_obj):
         # test_address=(str), current_source_node=(str), public_port=(int), simple=(bool)
         test_address = command_obj.get("test_address","127.0.0.1")
+        caller = command_obj.get("caller","default")
         profile = command_obj.get("profile")
         simple = command_obj.get("simple",False)
         print_output = command_obj.get("print_output",True)
@@ -2128,9 +2142,10 @@ class Functions():
 
         def print_test_error(errors):
             self.error_messages.error_code_messages({
-                "line_code": errors[0],
-                "error_code": "api_error",
-                "extra2": errors[1],
+                "line_code": "api_error",
+                "error_code": f"fnt-{errors[0]}",
+                "extra": None,
+                "extra2": str(errors[1]),
             })
 
         results = {
@@ -2155,9 +2170,11 @@ class Functions():
                     "profile": profile,
                     "spinner": spinner,
                 })
+            except IndexError as e:
+                self.log.logger.error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | current_source_node: {current_source_node} | e: {e}")
             except Exception as e:
                 self.log.logger.error(f"test_peer_state -> error retrieving get_info_from_edge_point | current_source_node: {current_source_node} | e: {e}")
-                send_error = (2160,e)
+                send_error = (2160,e) # fnt-2160
             
         ip_addresses = prepare_ip_objs = [test_address,current_source_node]
         for n,ip in enumerate(prepare_ip_objs):
@@ -2170,12 +2187,16 @@ class Functions():
                         "specific_ip": ip,
                         "spinner": spinner,
                     })
+                except IndexError as e:
+                    self.log.logger.error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | ip_address {ip_addresses[n]} | e: {e}")
+                    send_error = (2184,e) # fnt-2184
                 except Exception as e:
                     self.log.logger.error(f"test_peer_state -> unable to get_info_from_edge_point | ip_address {ip_addresses[n]} | e: [{e}]")
-                    send_error = (2175,e)
+                    send_error = (2187,e) # fnt-2187
 
         if send_error and not self.auto_restart:
-            print_test_error(send_error)
+            if caller not in ["versioning","status","quick_status"]:
+                print_test_error(send_error)
 
         with ThreadPoolExecutor() as executor:
             do_thread = False

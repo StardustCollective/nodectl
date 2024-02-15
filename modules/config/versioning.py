@@ -185,6 +185,7 @@ class Versioning():
 
             test_obj = {
                 "threaded": False,
+                "caller": "versioning",
                 "spinner": False,
                 "print_output": False,
                 "profile": self.functions.default_profile,
