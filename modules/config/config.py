@@ -538,8 +538,15 @@ class Configuration():
             if self.config_obj[profile]["token_identifier"] == "global":
                 self.config_obj[profile]["token_identifier"] = self.config_obj["global_elements"]["metagraph_token_identifier"]
 
-            metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
             environment = self.config_obj[profile]["environment"]
+
+            metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
+            if metagraph_name == "hypergraph": # Constellation Core Node
+                metagraph_name = environment
+            elif isinstance(metagraph_name,list):
+                # placeholder for multiple Node VPS
+                pass
+
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":

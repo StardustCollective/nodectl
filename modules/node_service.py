@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .troubleshoot.ts import Troubleshooter
-
+from .download_service import Download
 
 class Node():
         
@@ -102,13 +102,21 @@ class Node():
     
     
     def download_constellation_binaries(self,command_obj):
+        download_service = Download({
+            "parent": self,
+            "command_obj": command_obj,
+        })
+        download_service.execute_downloads()
+
+
+    def download_constellation_binaries_old(self,command_obj):
         action = command_obj.get("action","normal")
         requested_profile = command_obj.get("profile",False)
         download_version = command_obj.get("download_version","default")
         environment = command_obj.get("environment",False)
         argv_list = command_obj.get("argv_list",[])
         backup = command_obj.get("backup", True)
-        
+
         if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
         
         if self.auto_restart: profile_names = [requested_profile]
@@ -206,7 +214,6 @@ class Node():
                     file_obj_copy["cur_pos"] = cur_pos
                     return file_obj_copy
 
-
         if not environment:
             self.error_messages.error_code_messages({
                 "error_code": "ns-95",
@@ -230,7 +237,8 @@ class Node():
 
         for n, profile in enumerate(profile_names):
             # version = download_version
-            if self.config_obj[profile]["is_jar_static"]: download_version = self.config_obj[profile]["jar_version"]
+            if self.config_obj[profile]["is_jar_static"]: 
+                download_version = self.config_obj[profile]["jar_version"]
             if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
             if self.config_obj[profile]["environment"] == environment:
                 first_profile = profile if n < 1 else first_profile

@@ -78,6 +78,7 @@ class Functions():
             "dor-metagraph": ["54.191.143.191",7000]
         }
         
+        self.default_tessellation_dir = "/var/tessellation/"
         self.default_backup_location = "/var/tessellation/backups/"
         self.default_upload_location = "/var/tessellation/uploads/"
         
