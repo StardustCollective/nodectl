@@ -21,6 +21,7 @@ class AutoRestart():
         self.config_obj = {
             **config_obj,
             "global_elements": {
+                **config_obj["global_elements"],
                 "caller":"auto_restart",
             },
         }
@@ -694,9 +695,8 @@ class AutoRestart():
             if self.auto_upgrade:
                 notice_warning = "auto_upgrade to obtain "
                 auto_upgrade_success = self.node_service.download_constellation_binaries({
-                    "print_version": False,
+                    "caller": "refresh_binaries",
                     "profile": self.thread_profile,
-                    "download_version": versions[0],
                     "environment": self.environment,
                 })
                 if auto_upgrade_success: 

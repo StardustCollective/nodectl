@@ -30,6 +30,10 @@ class Download():
         
         self.log = self.parent.log
 
+        self.log_prefix = "download_service ->"
+        if self.auto_restart:
+            self.log_prefix = f"auto_restart -> {self.log_prefix}"
+
         command_obj = command_obj["command_obj"]
         self.caller = command_obj.get("caller","node_service")
         self.action = command_obj.get("action","normal")
@@ -41,16 +45,17 @@ class Download():
         self.backup = command_obj.get("backup", True)
 
         self.file_list = []
+        self.successful = True
         self.retries = 3
         self.file_pos = 1
 
-        self.log.logger.info("Download services module initiated")
+        self.log.logger.info(f"{self.log_prefix} module initiated")
         if self.caller == "refresh_binaries" or self.caller == "_rtb":
             self.caller = "refresh_binaries"
-            self.log.logger.debug("Download services - refresh node binaries.")
+            self.log.logger.debug(f"{self.log_prefix} - refresh node binaries.")
         elif self.caller == "update_seedlist" or self.caller == "_usl":
             self.caller = "update_seedlist"
-            self.log.logger.debug("Download services - download seed lists.")
+            self.log.logger.debug(f"{self.log_prefix} - download seed lists.")
 
         if "-v" in self.argv_list: self.download_version = self.argv_list(self.argv_list.index("-v")+1)
         
@@ -74,6 +79,9 @@ class Download():
         self.initialize_output_handler()
         self.threaded_download_handler()
         self.file_backup_handler(False)
+
+        if self.auto_restart:
+            return self.successful
 
     # Setters
         
@@ -138,7 +146,7 @@ class Download():
 
 
     def set_seedfile_object(self):
-        self.log.logger.debug("download_service -> set_seedfile_object -> initiated.")
+        self.log.logger.debug(f"{self.log_prefix} -> set_seedfile_object -> initiated.")
         
         if self.caller == "update_seedlist": self.file_obj = {}
 
@@ -158,7 +166,7 @@ class Download():
                 seed_file = "seed-disabled"
 
             if download_version == "default":
-                self.log.logger.info(f"downloading seed list [{self.environment}] seedlist]")   
+                self.log.logger.info(f"{self.log_prefix} [{self.environment}] seedlist")   
                 download_version = self.parent.version_obj[self.environment][profile]['cluster_tess_version']
 
             if self.config_obj[profile]["seed_repository"] == "default" and self.environment != "mainnet":
@@ -248,11 +256,11 @@ class Download():
 
 
     def get_download(self,file_name):
-        self.log.logger.info(f"download_service -> get_download -> downloading [{self.file_obj[file_name]['type']}] files: {file_name} uri [{self.file_obj[file_name]['uri']}] remote size [{self.file_obj[file_name]['remote_size']}]")
+        self.log.logger.info(f"{self.log_prefix} -> get_download -> downloading [{self.file_obj[file_name]['type']}] files: {file_name} uri [{self.file_obj[file_name]['uri']}] remote size [{self.file_obj[file_name]['remote_size']}]")
         file_path = self.set_file_path(file_name)
 
         if self.file_obj[file_name]["state"] == "disabled":
-            self.log.logger.warn(f"download_service -> get_download -> downloading [{self.file_obj[file_name]['type']}] disabled, skipping.")
+            self.log.logger.warn(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_name]['type']}] disabled, skipping.")
             return
 
         try:
@@ -272,7 +280,7 @@ class Download():
             #             f.write(chunk)
 
         except Exception as e:
-            self.log.logger.error(f"download_service -> get_download -> error streaming down [{self.file_obj[file_name]['type']}] requirement | [{e}]")
+            self.log.logger.error(f"{self.log_prefix} get_download -> error streaming down [{self.file_obj[file_name]['type']}] requirement | [{e}]")
 
         return file_name # return to the futures executor to print results.
     
@@ -329,9 +337,10 @@ class Download():
                     try:
                         future.result()
                     except Exception as e:
-                        self.log.logger.error(f"download_service -> threaded download attempt failed for [{file_name} with [{e}]]")
+                        self.log.logger.error(f"{self.log_prefix} threaded download attempt failed for [{file_name} with [{e}]]")
                         if self.file_obj[file_name]["state"] != "disabled":
                             self.file_obj[file_name]["state"] = "failed"
+                            self.successful = False
                         self.print_status_handler(file_name) 
                     else:
                         if self.file_obj[file_name]["state"] != "disabled":
@@ -343,6 +352,8 @@ class Download():
 
 
     def print_status_handler(self, file_name, init=False):
+        if self.auto_restart: return
+
         escape = "\033[F"
         position = self.file_obj[file_name]["pos"]+1
         if init:
@@ -377,6 +388,7 @@ class Download():
 
 
     def initialize_output_handler(self):
+        if self.auto_restart: return
         self.functions.print_header_title({
             "line1": "DOWNLOADING BINARIES",
             "newline": "top",
@@ -389,13 +401,13 @@ class Download():
 
     def file_backup_handler(self,backup=True):
         if not self.backup: 
-            self.log.logger.warn(f"download_service -> file_backup_handler -> backup feature disabled")
+            self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
             return
         
         file_list = []
 
         if backup:
-            self.log.logger.info(f"download_service -> file_backup_handler -> nodectl backing up the following files | [{self.file_list}]")
+            self.log.logger.info(f"{self.log_prefix} file_backup_handler -> nodectl backing up the following files | [{self.file_list}]")
             action = "backup" 
             file_list = self.file_list
         else:
@@ -406,7 +418,7 @@ class Download():
 
         if len(file_list) > 0:
             if action == "restore":
-                self.log.logger.warn(f"download_service -> file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
+                self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
                 self.functions.print_paragraphs([
                     [" NOTE ",0,"yellow,on_red"], ["nodectl will only restore failed files",1,"red"],
                 ])
