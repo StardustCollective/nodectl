@@ -30,17 +30,22 @@ class Download():
         self.error_messages = Error_codes(self.config_obj) 
         
         self.log = self.parent.log
-        self.log.logger.info("Download services module initiated")
 
         command_obj = command_obj["command_obj"]
         self.action = command_obj.get("action","normal")
         self.requested_profile = command_obj.get("profile",False)
         self.download_version = command_obj.get("download_version","default")
+        self.install_upgrade = command_obj.get("install_upgrade",False)
         self.environment = command_obj.get("environment",False)
         self.argv_list = command_obj.get("argv_list",[])
         self.backup = command_obj.get("backup", True)
-
+        self.seedfile_disabled = False
         self.retries = 3
+
+        if self.caller == "node_services":
+            self.log.logger.info("Download services module initiated")
+        elif self.caller == "update_seedlist":
+            self.log.logger.debug("node service - download seed list initiated.")
 
         if "-v" in self.argv_list: self.download_version = self.argv_list(self.argv_list.index("-v")+1)
         
@@ -57,15 +62,19 @@ class Download():
 
     def execute_downloads(self):
         self.set_file_objects()
+        if not self.seedfile_disabled: return
         self.file_backup_handler()
         self.initialize_output_handler()
         self.threaded_download_handler()
         self.file_backup_handler(False)
-        
 
     # Setters
         
     def set_file_objects(self):
+        if self.caller == "update_seedlist":
+            self.set_seedfile_object()
+            return
+        
         file_pos = 3
         file_obj = {}
 
@@ -121,7 +130,47 @@ class Download():
 
         # self.handle_backups()
 
-        
+
+    def set_seedfile_object(self):
+        self.log.logger.debug("download_service -> set_seedfile_object -> initiated.")
+
+        seed_path = self.functions.config_obj[self.requested_profile]["seed_path"]    
+        seed_repo = self.config_obj[self.requested_profile]['seed_repository']
+        seed_file = self.config_obj[self.requested_profile]["seed_file"]
+
+        if "disable" in seed_path:
+            if not self.auto_restart:
+                self.functions.print_cmd_status({
+                    "text_start": "Fetching cluster seed file",
+                    "status": "disabled/skipped",
+                    "status_color": "red",
+                    "newline": True,
+                })
+            self.seedfile_disabled = True
+            return
+
+        if self.download_version == "default":
+            self.log.logger.info(f"downloading seed list [{self.environment}] seedlist]")   
+            download_version = self.parent.version_obj[self.environment][self.requested_profile]['cluster_tess_version']
+
+        if self.config_obj[self.requested_profile]["seed_repository"] == "default" and self.environment != "mainnet":
+            # does not matter if the global_elements -> metagraph_name is set, if not mainnet
+            if self.environment == "testnet" or self.environment == "integrationnet":
+                seed_repo = f"https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{list(path.split(seed_path))[-1]}"
+        else:
+                seed_repo = self.set_download_options({
+                    seed_repo, download_version, self.requested_profile
+                })
+
+        file_obj = {
+            **file_obj,
+            f"{seed_file}": { "state": "fetching", "pos": 1, "uri": f"{seed_repo}/{seed_file}", "version": download_version } 
+        }
+
+        if not path.exists(self.config_obj[self.requested_profile]['seed_location']):
+            makedirs(self.config_obj[self.requested_profile]['seed_location'])
+
+
     def set_file_path(self,file_name):
         tess_dir = self.functions.default_tessellation_dir
         if not path.exists(tess_dir): makedirs(tess_dir)
@@ -219,7 +268,6 @@ class Download():
         if path.exists(file_path):
             return path.getsize(file_path) == self.file_obj[file_name]["remote_size"]
         return False
-
 
     # Handlers
 

@@ -1692,10 +1692,10 @@ class CLI():
                     ["]",-1,"red"], ["nothing to do",1,"red"], 
                 ])
             else:
-                self.node_service.download_update_seedlist({
+                self.node_service.download_constellation_binaries({
                     "profile": i_profile,
+                    "caller": "update_seedlist",
                     "action": "normal",
-                    "install_upgrade": False,
                     "download_version": download_version
                 })
 
