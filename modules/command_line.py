@@ -1663,6 +1663,59 @@ class CLI():
     # update commands
     # ==========================================
 
+    def tess_downloads(self,command_obj):
+        caller = command_obj.get("caller",False)
+        argv_list = command_obj["argv_list"]
+
+        if "-e" not in argv_list and "-p" not in argv_list:
+            argv_list.append("help")
+        self.functions.check_for_help(argv_list,caller)
+
+        title = "TESSELLATION BINARIES"
+        print_status = "Refresh of Tessellation binaries"
+        confirm_text = "binaries"
+        if caller == "update_seedlist" or caller == "_usl":
+            title = "UPDATE SEEDLISTS"
+            print_status = "Refresh of Tessellation seedlist(s)"
+            confirm_text = "seedlist"
+        self.functions.print_header_title({
+          "line1": title,
+          "line2": "refresh request",
+          "clear": False,
+          "upper": False,
+        })
+
+        if caller == "refresh_binaries" or caller == "_rtb":
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"yellow,on_red","bold"], ["You will need to restart all services after completing this download.",2]
+            ])
+        
+        self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt": f"Are you sure you want to overwrite Tessellation {confirm_text}?",
+            "exit_if": True,
+        })
+        
+        download_obj = {"caller": caller}
+        if "-p" in argv_list:  
+            download_obj["profile"] = argv_list[argv_list.index("-p")+1]
+            download_obj["environment"] = self.config_obj[download_obj["profile"]]["environment"]
+        else:
+            download_obj["environment"] = argv_list[argv_list.index("-e")+1]
+        if "-v" in argv_list:
+            download_obj["download_version"] = argv_list[argv_list.index("-v")+1]
+
+        self.node_service.download_constellation_binaries(download_obj)
+
+        self.functions.print_cmd_status({
+            "text_start": print_status,
+            "status": "complete",
+            "newline": True,
+        })
+        print("")
+
+
     def update_seedlist(self,command_list):
         self.functions.check_for_help(command_list,"update_seedlist")
         self.log.logger.info("updating seed list...")
@@ -1680,24 +1733,36 @@ class CLI():
             profiles.append(profile)
               
         self.functions.print_clear_line()
-        self.print_title("Update Seed list")
-        
-        for i_profile in reversed(list(profiles)):
-            download_version = self.functions.config_obj[i_profile]["seed_version"]
+        self.print_title("UPDATE SEED LIST")
 
-            if "disable" in self.functions.config_obj[i_profile]["seed_path"]:
-                self.functions.print_paragraphs([
-                    ["Seed list is disabled for profile [",0,"red"],
-                    [i_profile,-1,"yellow","bold"],
-                    ["]",-1,"red"], ["nothing to do",1,"red"], 
-                ])
-            else:
-                self.node_service.download_constellation_binaries({
-                    "profile": i_profile,
-                    "caller": "update_seedlist",
-                    "action": "normal",
-                    "download_version": download_version
-                })
+        download_obj = {
+            "environment": command_list[command_list.index("-e")+1]
+        }
+        if "-v" in command_list:
+            download_obj["download_version"] = command_list[command_list.index("-v")+1]
+                    
+        self.node_service.download_constellation_binaries({
+            "profile": profile,
+            "caller": "update_seedlist",
+            "action": "normal",
+            "download_version": download_version
+        })
+        # for i_profile in reversed(list(profiles)):
+        #     download_version = self.functions.config_obj[i_profile]["seed_version"]
+
+        #     if "disable" in self.functions.config_obj[i_profile]["seed_path"]:
+        #         self.functions.print_paragraphs([
+        #             ["Seed list is disabled for profile [",0,"red"],
+        #             [i_profile,-1,"yellow","bold"],
+        #             ["]",-1,"red"], ["nothing to do",1,"red"], 
+        #         ])
+        #     else:
+        #         self.node_service.download_constellation_binaries({
+        #             "profile": i_profile,
+        #             "caller": "update_seedlist",
+        #             "action": "normal",
+        #             "download_version": download_version
+        #         })
 
 
     # ==========================================
@@ -4824,38 +4889,6 @@ class CLI():
         if "scrap" in command_list: self.send = send
         else:
             send.prepare_and_send_logs()
-            
-        
-    def download_tess_binaries(self,command_list):
-        if "-e" not in command_list:
-            command_list.append("help")
-        self.functions.check_for_help(command_list,"refresh_binaries")
-
-        self.functions.print_header_title({
-          "line1": "TESSELLATION BINARIES",
-          "line2": "refresh request",
-          "clear": False,
-          "upper": False,
-        })
-        
-        self.functions.print_paragraphs([
-            [" WARNING ",0,"yellow,on_red","bold"], ["You will need to restart all services after completing this download.",2]
-        ])
-        
-        self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "y",
-            "prompt": "Are you sure you want to overwrite Tessellation binaries?",
-            "exit_if": True,
-        })
-        
-        download_obj = {
-            "environment": command_list[command_list.index("-e")+1]
-        }
-        if "-v" in command_list:
-            download_obj["download_version"] = command_list[command_list.index("-v")+1]
-            
-        self.node_service.download_constellation_binaries(download_obj)
 
     # ==========================================
     # upgrade command

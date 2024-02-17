@@ -22,7 +22,6 @@ class Download():
     def __init__(self,command_obj):
 
         self.parent = command_obj["parent"]
-        self.caller = command_obj.get("caller","node_services")
         self.auto_restart = self.parent.auto_restart
 
         self.functions = self.parent.functions
@@ -32,6 +31,7 @@ class Download():
         self.log = self.parent.log
 
         command_obj = command_obj["command_obj"]
+        self.caller = command_obj.get("caller","node_service")
         self.action = command_obj.get("action","normal")
         self.requested_profile = command_obj.get("profile",False)
         self.download_version = command_obj.get("download_version","default")
@@ -39,18 +39,24 @@ class Download():
         self.environment = command_obj.get("environment",False)
         self.argv_list = command_obj.get("argv_list",[])
         self.backup = command_obj.get("backup", True)
+
+        self.file_list = []
         self.retries = 3
         self.file_pos = 1
 
-        if self.caller == "node_services":
-            self.log.logger.info("Download services module initiated")
-        elif self.caller == "update_seedlist":
-            self.log.logger.debug("node service - download seed list initiated.")
+        self.log.logger.info("Download services module initiated")
+        if self.caller == "refresh_binaries" or self.caller == "_rtb":
+            self.caller = "refresh_binaries"
+            self.log.logger.debug("Download services - refresh node binaries.")
+        elif self.caller == "update_seedlist" or self.caller == "_usl":
+            self.caller = "update_seedlist"
+            self.log.logger.debug("Download services - download seed lists.")
 
         if "-v" in self.argv_list: self.download_version = self.argv_list(self.argv_list.index("-v")+1)
         
-        if self.auto_restart: self.profile_names = [self.requested_profile]
-        else: self.profile_names = self.functions.profile_names
+        self.profile_names = [self.requested_profile]
+        if not self.requested_profile: 
+            self.profile_names = self.functions.profile_names
 
         if not self.environment:
             self.error_messages.error_code_messages({
@@ -78,21 +84,23 @@ class Download():
         file_obj = {}
 
         download_version = self.download_version
+
         if self.action == "upgrade":
-                download_version = download_version[self.profile_names[0]]["download_version"]
+            download_version = download_version[self.profile_names[0]]["download_version"]
 
         # default the wallet and key tools
-        for n, tool in enumerate(["cl-keytool.jar","cl-wallet.jar"]):
-            uri, download_version = self.set_download_options(
-                self.config_obj[self.profile_names[0]]["jar_repository"], download_version, self.profile_names[0]
-            )
-            file_obj = {
-                **file_obj,
-                f"{tool}": { "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": download_version, "type": "binary", "profile": "global"} 
-            }
+        if not self.requested_profile:
+            for n, tool in enumerate(["cl-keytool.jar","cl-wallet.jar"]):
+                uri, download_version = self.set_download_options(
+                    self.config_obj[self.profile_names[0]]["jar_repository"], download_version, self.profile_names[0]
+                )
+                file_obj = {
+                    **file_obj,
+                    f"{tool}": { "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": download_version, "type": "binary", "profile": "global"} 
+                }
 
         if self.auto_restart:
-            # avoid race condition if same file is downloaded at the same time only
+            # auto_restart avoid race condition if same file is downloaded at the same time only
             # download tool jars if root profile.
             root_profile = self.functions.test_for_root_ml_type(self.environment)
             if self.requested_profile != root_profile: 

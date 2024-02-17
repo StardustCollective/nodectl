@@ -155,6 +155,7 @@ class ShellHandler:
         ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
         config_list = ["view_config","validate_config","_vc", "_val"]
         clean_files_list = ["clean_files","_cf"]
+        download_commands = ["refresh_binaries","_rtb","update_seedlist","_usl"]
         
         if self.called_command != "service_restart":
             self.functions.print_clear_line()
@@ -300,8 +301,6 @@ class ShellHandler:
             self.cli.cli_minority_fork_detection({"argv_list":self.argv})
         elif self.called_command == "create_p12":
             self.cli.cli_create_p12(self.argv)
-        elif self.called_command == "update_seedlist" or self.called_command == "_usl":
-            return_value = self.cli.update_seedlist(self.argv)
         elif self.called_command == "export_private_key": 
             self.cli.export_private_key(self.argv)
         elif self.called_command == "check_source_connection" or self.called_command == "_csc":
@@ -353,8 +352,11 @@ class ShellHandler:
             })
         elif self.called_command == "upgrade_vps":
             self.cli.cli_upgrade_vps(self.argv)
-        elif self.called_command == "refresh_binaries" or self.called_command == "_rtb":
-            self.cli.download_tess_binaries(self.argv)
+        elif self.called_command in download_commands:
+            self.cli.tess_downloads({
+                "caller": self.called_command,
+                "argv_list": self.argv,
+            })
         elif self.called_command == "health":
             self.cli.show_health(self.argv)
         elif self.called_command == "show_service_log" or self.called_command == "_ssl":
@@ -719,7 +721,7 @@ class ShellHandler:
 
         need_environment_list = [
             "refresh_binaries","_rtb",
-            "update_seedlist", "_usl",
+            "update_seedlist","_usl",
             "upgrade_path","_up","install",
             "check_minority_fork","_cmf",
         ]
@@ -732,7 +734,7 @@ class ShellHandler:
             "check_connection","_cc",
             "send_logs","_sl","show_node_proofs","_snp",
             "nodeid","id","dag","export_private_key",
-            "check_seedlist","_csl","update_seedlist","_usl",
+            "check_seedlist","_csl",
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf",
