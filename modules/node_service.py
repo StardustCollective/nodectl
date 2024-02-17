@@ -106,7 +106,7 @@ class Node():
             "parent": self,
             "command_obj": command_obj,
         })
-        download_service.execute_downloads()
+        return download_service.execute_downloads()
 
 
     def download_update_seedlist(self,command_obj):

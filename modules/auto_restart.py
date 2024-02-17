@@ -240,6 +240,8 @@ class AutoRestart():
             self.profile_states[profile]["gl0_link_eport"] = False
             self.profile_states[profile]["ml0_link_ehost"] = False
             self.profile_states[profile]["ml0_link_eport"] = False
+            self.profile_states[profile]["minority_fork"] = False
+            self.profile_states[profile]["consensus_fork"] = False
             self.profile_states[profile]["layer"] = int(self.functions.config_obj[profile]["layer"])
             
             for link_type in self.link_types:

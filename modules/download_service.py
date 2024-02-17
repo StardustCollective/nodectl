@@ -79,9 +79,7 @@ class Download():
         self.initialize_output_handler()
         self.threaded_download_handler()
         self.file_backup_handler(False)
-
-        if self.auto_restart:
-            return self.successful
+        return self.successful
 
     # Setters
         
