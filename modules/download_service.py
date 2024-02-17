@@ -39,8 +39,8 @@ class Download():
         self.environment = command_obj.get("environment",False)
         self.argv_list = command_obj.get("argv_list",[])
         self.backup = command_obj.get("backup", True)
-        self.seedfile_disabled = False
         self.retries = 3
+        self.file_pos = 1
 
         if self.caller == "node_services":
             self.log.logger.info("Download services module initiated")
@@ -62,7 +62,8 @@ class Download():
 
     def execute_downloads(self):
         self.set_file_objects()
-        if not self.seedfile_disabled: return
+        self.set_seedfile_object()
+        self.set_file_obj_order()
         self.file_backup_handler()
         self.initialize_output_handler()
         self.threaded_download_handler()
@@ -71,9 +72,7 @@ class Download():
     # Setters
         
     def set_file_objects(self):
-        if self.caller == "update_seedlist":
-            self.set_seedfile_object()
-            return
+        if self.caller == "update_seedlist": return
         
         file_pos = 3
         file_obj = {}
@@ -89,7 +88,7 @@ class Download():
             )
             file_obj = {
                 **file_obj,
-                f"{tool}": { "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": download_version } 
+                f"{tool}": { "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": download_version, "type": "binary", "profile": "global"} 
             }
 
         if self.auto_restart:
@@ -100,6 +99,7 @@ class Download():
                  file_obj, file_pos = {}, 0  # initialize only
 
         for n, profile in enumerate(self.profile_names):
+            file_pos += n
             if self.config_obj[profile]["is_jar_static"]: 
                 download_version = self.config_obj[profile]["jar_version"]
             if "-v" in self.argv_list: 
@@ -110,19 +110,17 @@ class Download():
                 )
                 file_obj[self.config_obj[profile]["jar_file"]] = {
                     "state": "fetching",
-                    "pos": n+file_pos,
+                    "pos": file_pos,
                     "uri": f'{uri}/{self.config_obj[profile]["jar_file"]}',
                     "version": download_version,
-                    "profile": profile
+                    "profile": profile,
+                    "type": "binary"
                 }
-
-        # reorder cursor positions
-        for n, file in enumerate(file_obj):
-            file_obj[file]["pos"] = len(file_obj)-n
 
         self.file_list = list(file_obj.keys())
         self.file_obj = file_obj
-   
+        self.file_pos = file_pos
+
         # debugging purposes
         # self.file_obj = {
         #     "cl-keytool.jar": {'state': 'fetching', 'pos': 4, 'uri': 'https://github.com/Constellation-Labs/tessellation/releases/download/v2.3.0/cl-keytool.jar', 'version': 'v2.3.0'}
@@ -133,47 +131,68 @@ class Download():
 
     def set_seedfile_object(self):
         self.log.logger.debug("download_service -> set_seedfile_object -> initiated.")
+        
+        if self.caller == "update_seedlist": self.file_obj = {}
 
-        seed_path = self.functions.config_obj[self.requested_profile]["seed_path"]    
-        seed_repo = self.config_obj[self.requested_profile]['seed_repository']
-        seed_file = self.config_obj[self.requested_profile]["seed_file"]
+        if self.requested_profile: profiles = [self.requested_profile]
+        else: profiles = self.functions.profile_names
 
-        if "disable" in seed_path:
-            if not self.auto_restart:
-                self.functions.print_cmd_status({
-                    "text_start": "Fetching cluster seed file",
-                    "status": "disabled/skipped",
-                    "status_color": "red",
-                    "newline": True,
-                })
-            self.seedfile_disabled = True
-            return
+        download_version = self.download_version
+        for n, profile in enumerate(profiles):
+            self.file_pos += n+1
+            seed_path = self.config_obj[profile]["seed_path"]    
+            seed_repo = self.config_obj[profile]['seed_repository']
+            seed_file = self.config_obj[profile]["seed_file"]
 
-        if self.download_version == "default":
-            self.log.logger.info(f"downloading seed list [{self.environment}] seedlist]")   
-            download_version = self.parent.version_obj[self.environment][self.requested_profile]['cluster_tess_version']
+            state = "fetching"
+            if "disable" in seed_path:
+                state = "disabled"
+                seed_file = "seed-disabled"
 
-        if self.config_obj[self.requested_profile]["seed_repository"] == "default" and self.environment != "mainnet":
-            # does not matter if the global_elements -> metagraph_name is set, if not mainnet
-            if self.environment == "testnet" or self.environment == "integrationnet":
-                seed_repo = f"https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{list(path.split(seed_path))[-1]}"
-        else:
-                seed_repo = self.set_download_options({
-                    seed_repo, download_version, self.requested_profile
-                })
+            if download_version == "default":
+                self.log.logger.info(f"downloading seed list [{self.environment}] seedlist]")   
+                download_version = self.parent.version_obj[self.environment][profile]['cluster_tess_version']
 
-        file_obj = {
-            **file_obj,
-            f"{seed_file}": { "state": "fetching", "pos": 1, "uri": f"{seed_repo}/{seed_file}", "version": download_version } 
-        }
+            if self.config_obj[profile]["seed_repository"] == "default" and self.environment != "mainnet":
+                # does not matter if the global_elements -> metagraph_name is set, if not mainnet
+                if self.environment == "testnet" or self.environment == "integrationnet":
+                    seed_repo = f"https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{list(path.split(seed_path))[-1]}"
+            elif seed_repo == "disable":
+                pass
+            else:
+                    seed_repo = self.set_download_options({
+                        seed_repo, download_version, profile
+                    })
+                    seed_repo = f"{seed_repo}/{seed_file}"
 
-        if not path.exists(self.config_obj[self.requested_profile]['seed_location']):
-            makedirs(self.config_obj[self.requested_profile]['seed_location'])
+            self.file_obj = {
+                **self.file_obj,
+                f"{seed_file}": { 
+                    "state": state, 
+                    "pos": self.file_pos, 
+                    "uri": seed_repo, 
+                    "version": download_version,
+                    "profile": profile, 
+                    "type": "seedlist",
+                }
+            }
+            if state != "disabled":
+                self.file_list.append(seed_file)
+
+            # debugging purposes
+            # self.file_obj = {
+            #     "testnet-seedlist": {'state': 'fetching', 'pos': 5, 'uri': 'https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist', 'version': 'v2.3.0', 'profile': 'dag-l0', 'type': 'seedlist'}
+            # }
+            if not path.exists(self.config_obj[profile]['seed_location']):
+                if self.config_obj[profile]['seed_location'] != "disable": 
+                    makedirs(self.config_obj[profile]['seed_location'])
 
 
     def set_file_path(self,file_name):
         tess_dir = self.functions.default_tessellation_dir
-        if not path.exists(tess_dir): makedirs(tess_dir)
+        if not path.exists(tess_dir): 
+            if tess_dir != "disable":
+                makedirs(tess_dir)
         return f"{tess_dir}{file_name}"
 
 
@@ -203,6 +222,12 @@ class Download():
         return uri, download_version
     
 
+    def set_file_obj_order(self):
+        # reorder cursor positions
+        for n, file in enumerate(self.file_obj):
+            self.file_obj[file]["pos"] = len(self.file_obj)-n
+
+
     # Getters
 
     def get_download_looper(self,file_name):
@@ -214,31 +239,13 @@ class Download():
         return False
 
 
-    def get_file_size(self,file_name):
-        # get size of the file from remote
-        # https://api.github.com/repos/Constellation-Labs/tessellation/releases/tags/v2.3.1
-        uri = f"{self.file_obj[file_name]['uri']}"
-        uri = uri.split("github.com")[1]
-        uri = uri.split("download")[0]
-        artifact_uri = f"https://api.github.com/repos{uri}tags/{self.file_obj[file_name]['version']}"
-        
-        response = requests.get(artifact_uri)
-        if response.status_code == 200:
-            response = response.json()
-            if "assets" in response.keys():
-                assets = response["assets"]
-                for asset in assets:
-                    if asset["name"] == file_name:
-                        self.file_obj[file_name]["remote_size"] = asset["size"]
-                        return
-
-        self.file_obj[file_name]["remote_size"] = False
-        return
-        
-
     def get_download(self,file_name):
-        self.log.logger.info(f"downloading binary jar files: {file_name} uri [{self.file_obj[file_name]['uri']}] remote size [{self.file_obj[file_name]['remote_size']}]")
+        self.log.logger.info(f"download_service -> get_download -> downloading [{self.file_obj[file_name]['type']}] files: {file_name} uri [{self.file_obj[file_name]['uri']}] remote size [{self.file_obj[file_name]['remote_size']}]")
         file_path = self.set_file_path(file_name)
+
+        if self.file_obj[file_name]["state"] == "disabled":
+            self.log.logger.warn(f"download_service -> get_download -> downloading [{self.file_obj[file_name]['type']}] disabled, skipping.")
+            return
 
         try:
             bashCommand = f'sudo wget {self.file_obj[file_name]["uri"]} -O {file_path} -o /dev/null'
@@ -246,7 +253,8 @@ class Download():
                 "bashCommand": bashCommand,
                 "proc_action": "timeout"
             })
-            chmod(file_path, 0o755)
+            if self.file_obj[file_name]["type"] == "binary":
+                chmod(file_path, 0o755)
 
             # using requests.get is 80% slower than wget?
             # response = requests.get(self.file_obj[file_name]["uri"], stream=True)
@@ -256,15 +264,43 @@ class Download():
             #             f.write(chunk)
 
         except Exception as e:
-            self.log.logger.error(f"download_service -> error streaming down binary requirement | [{e}]")
+            self.log.logger.error(f"download_service -> get_download -> error streaming down [{self.file_obj[file_name]['type']}] requirement | [{e}]")
 
         return file_name # return to the futures executor to print results.
-                
+    
+
+    def get_file_size(self,file_name):
+        # get size of the file from remote
+        # https://api.github.com/repos/Constellation-Labs/tessellation/releases/tags/{version}
+
+        uri = f"{self.file_obj[file_name]['uri']}"
+
+        if "https://github.com" in uri or "http://github.com" in uri:
+            uri = uri.split("github.com")[1]
+            uri = uri.split("download")[0]
+            artifact_uri = f"https://api.github.com/repos{uri}tags/{self.file_obj[file_name]['version']}"
+            
+            response = requests.get(artifact_uri)
+            if response.status_code == 200:
+                response = response.json()
+                if "assets" in response.keys():
+                    assets = response["assets"]
+                    for asset in assets:
+                        if asset["name"] == file_name:
+                            self.file_obj[file_name]["remote_size"] = asset["size"]
+                            return
+                self.file_obj[file_name]["remote_size"] = False
+                return 
+               
+        self.file_obj[file_name]["remote_size"] = -1
+        return           
 
     # Tests
 
     def test_file_size(self,file_name):
         file_path = self.set_file_path(file_name)
+        if self.file_obj[file_name]["state"] == "disabled" or self.file_obj[file_name]["remote_size"] < 0: 
+            return True # skip test
         if path.exists(file_path):
             return path.getsize(file_path) == self.file_obj[file_name]["remote_size"]
         return False
@@ -286,10 +322,12 @@ class Download():
                         future.result()
                     except Exception as e:
                         self.log.logger.error(f"download_service -> threaded download attempt failed for [{file_name} with [{e}]]")
-                        self.file_obj[file_name]["state"] = "failed"
+                        if self.file_obj[file_name]["state"] != "disabled":
+                            self.file_obj[file_name]["state"] = "failed"
                         self.print_status_handler(file_name) 
                     else:
-                        self.file_obj[file_name]["state"] = "completed"
+                        if self.file_obj[file_name]["state"] != "disabled":
+                            self.file_obj[file_name]["state"] = "completed"
                         self.print_status_handler(file_name)
         else: 
             for file_name in list(self.file_obj.keys()):
@@ -309,12 +347,19 @@ class Download():
             status_color = "yellow"
         elif status == "failed":
             status_color = "red"
+        elif status == "disabled":
+            status_color = "magenta"
+
+        text_start = "Fetch"
+        brackets = f'{file_name} -> {self.file_obj[file_name]["profile"]}'
+        if status == "disabled": 
+            brackets = brackets.replace(file_name,"seedlist for")
 
         print(f"{escape}" * position)
         self.functions.print_clear_line()
         self.functions.print_cmd_status({
-            "text_start": "Fetch Tessellation binary",
-            "brackets": file_name,
+            "text_start": text_start,
+            "brackets": brackets,
             "status": status,
             "status_color": status_color,
             "newline": False
@@ -349,7 +394,7 @@ class Download():
             action = "restore"
             for file in self.file_obj.keys():
                 if self.file_obj[file]["state"] == "failed":
-                    file_list.append[file]
+                    file_list.append(file)
 
         if len(file_list) > 0:
             if action == "restore":
