@@ -433,7 +433,7 @@ class AutoRestart():
                 self.profile_states[self.node_service.profile]["action"] = "restart_full" 
 
         if self.profile_states[self.node_service.profile]["node_state"] == "Ready":
-            for clear_state_time in ["Observing","WaitingForDownload"]:
+            for clear_state_time in ["Observing","WaitingForDownload","WaitingForReady"]:
                 self.profile_states[self.node_service.profile][f"{clear_state_time}_time"] = 0   
     
 
