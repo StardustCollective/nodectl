@@ -481,7 +481,7 @@ class Configurator():
                 nodeadmin_default = self.config_obj["global_p12"]["nodeadmin"]
                 location_default = self.config_obj["global_p12"]["key_location"]
                 p12_default = self.config_obj["global_p12"]["key_name"]
-                alias_default = self.config_obj["global_p12"]["key_alias"]   
+                # alias_default = self.config_obj["global_p12"]["key_alias"]   
             else:
                 try:
                     self.sudo_user = environ["SUDO_USER"] 
@@ -494,10 +494,10 @@ class Configurator():
                 nodeadmin_default = self.sudo_user
                 location_default = f"/home/{self.sudo_user}/tessellation/"
                 p12_default = ""
-                alias_default = ""
+                # alias_default = ""
             
             p12_required = False if set_default else True
-            alias_required = False if set_default else True  
+            # alias_required = False if set_default else True  
             
             questions = {
                 "nodeadmin": {
@@ -518,12 +518,12 @@ class Configurator():
                     "default": p12_default,
                     "required": p12_required,
                 },
-                "key_alias": {
-                    "question": f"  {colored('Enter in p12 wallet alias name: ','cyan')}",
-                    "description": "This should be a single string (word) [connect multiple words with snake_case or dashes eg) 'my alias' becomes 'my_alias' or 'my-alias']. This is the alias (simple name) given to your p12 private key file; also known as, your wallet. SAVE THIS ALIAS IN A SAFE SECURE PLACE! If you forget your alias you made not be able to authenticate to the a cluster.",
-                    "default": alias_default,
-                    "required": alias_required,
-                },
+                # "key_alias": {
+                #     "question": f"  {colored('Enter in p12 wallet alias name: ','cyan')}",
+                #     "description": "This should be a single string (word) [connect multiple words with snake_case or dashes eg) 'my alias' becomes 'my_alias' or 'my-alias']. This is the alias (simple name) given to your p12 private key file; also known as, your wallet. SAVE THIS ALIAS IN A SAFE SECURE PLACE! If you forget your alias you made not be able to authenticate to the a cluster.",
+                #     "default": alias_default,
+                #     "required": alias_required,
+                # },
             }
             
             if self.keep_pass_visible:

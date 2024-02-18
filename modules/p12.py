@@ -642,6 +642,8 @@ class P12Class():
             self.functions.check_for_help(command_list,"show_p12_details")
             
         if not path.exists(p12_location):
+            if "--config" in command_list:
+                return False
             self.error_messages.error_code_messages({
                 "error_code": "p-568",
                 "line_code": "open_file",
@@ -685,6 +687,8 @@ class P12Class():
         results = results.split("\n")
 
         if not results or results == "":
+            if "--config" in command_list:
+                return False
             self.functions.print_paragraphs([
                 ["nodectl was not able to process this p12 file?",2,"red","bold"],
             ])
@@ -734,7 +738,7 @@ class P12Class():
         p12_dir = path.dirname(p12_location)
         if p12_dir == "": p12_dir = getcwd()
         
-        if not "--installer" in command_list:
+        if not "--installer" in command_list and not "--config" in command_list:
             self.functions.print_paragraphs([
                 ["",1],["  P12 FILE DETAILS  ",2,"blue,on_yellow","bold"],
             ])

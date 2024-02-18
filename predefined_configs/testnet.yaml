@@ -85,7 +85,6 @@ nodectl:
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
-    p12_key_alias: global
     p12_passphrase: global
     seed_location: default
     seed_repository: default
@@ -135,7 +134,6 @@ nodectl:
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
-    p12_key_alias: global
     p12_passphrase: global
     seed_location: disable
     seed_repository: disable
@@ -157,7 +155,6 @@ nodectl:
     nodeadmin: blank
     key_location: blank
     key_name: blank
-    key_alias: blank
     passphrase: blank
     encryption: False
   global_elements:

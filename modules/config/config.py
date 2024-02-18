@@ -487,6 +487,8 @@ class Configuration():
             self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs" 
 
         for profile in self.metagraph_list:
+            self.config_obj[profile]["p12_key_alias"] = "str" # init (updated outside this method)
+
             try:
                 self.config_obj[profile]["p12_key_store"] = self.create_path_variable(
                     self.config_obj[profile]["p12_key_location"],
@@ -675,6 +677,7 @@ class Configuration():
         
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
         self.config_obj["global_p12"]["p12_validated"] = False  # init key (used outside of this class)
+        self.config_obj["global_p12"]["key_alias"] = "str" # init key (updated outside this class)
             
             
     def prepare_p12(self):
@@ -688,7 +691,7 @@ class Configuration():
         }
         self.p12 = P12Class(p12_obj)
         self.p12.functions = self.functions
-                    
+                
     
     def remove_disabled_profiles(self):
         remove_list = []
@@ -783,7 +786,7 @@ class Configuration():
                     return True
                 sleep(2)
             return False
-                       
+
         write_out, success = False, False
         attempts = 0
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
@@ -874,6 +877,33 @@ class Configuration():
                 f.close()
                 system(f"mv /var/tmp/cn-config-temp.yaml {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
 
+            self.setup_p12_aliases(profile)
+
+
+    def setup_p12_aliases(self,profile):
+
+        p12_alias = self.p12.show_p12_details(
+            [
+                "-p", profile,
+                "--alias", "--return", "--config",
+            ]
+        )
+
+        if not p12_alias:
+            self.validated = False
+            self.error_list.append({
+                "title":"p12 alias extraction",
+                "section": "p12",
+                "profile": profile,
+                "missing_keys": None, 
+                "type": "global",
+                "key": "p12_key_name, p12_passphrase",
+                "special_case": None,
+                "value": "skip"
+            })
+        
+        self.config_obj[profile]["p12_key_alias"] = p12_alias
+        
 
     def setup_schemas(self):   
         # ===================================================== 
@@ -923,7 +953,7 @@ class Configuration():
                 ["p12_nodeadmin","str"],
                 ["p12_key_location","path"],
                 ["p12_key_name","str"],
-                ["p12_key_alias","str"],
+                ["p12_key_alias","str"], # automated value [not part of yaml]
                 ["p12_passphrase","str"], 
                 ["p12_key_store","str"], # automated value [not part of yaml] 
                 ["p12_validated","bool"], # automated value [not part of yaml]             
@@ -961,7 +991,6 @@ class Configuration():
                 ["nodeadmin","str"],
                 ["key_location","path"],
                 ["key_name","str"],
-                ["key_alias","str"],
                 ["passphrase","str"],
                 ["encryption","bool"], 
                 ["key_store","str"], # automated value [not part of yaml]
@@ -1121,7 +1150,7 @@ class Configuration():
                         "profile": profile,
                         "missing_keys": None, 
                         "type": "global",
-                        "key": "p12_key_name, p12_passphrase, p12_alias",
+                        "key": "p12_key_name, p12_passphrase",
                         "special_case": None,
                         "value": "skip"
                     })

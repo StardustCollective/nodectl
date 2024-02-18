@@ -308,7 +308,6 @@ class Migration():
                 "nodegaragep12nodeadmin": self.config_obj[profile]["p12_nodeadmin"],
                 "nodegaragep12keylocation": self.config_obj[profile]["p12_key_location"],
                 "nodegaragep12keyname": self.config_obj[profile]["p12_key_name"],
-                "nodegaragep12keyalias": self.config_obj[profile]["p12_key_alias"],
                 "nodegaragep12passphrase": self.config_obj[profile]["p12_passphrase"],
                 "nodegarageseedlocation": self.config_obj[profile]["seed_location"],
                 "nodegarageseedrepository": self.config_obj[profile]["seed_repository"],
@@ -346,7 +345,6 @@ class Migration():
             "nodegaragep12nodeadmin": self.config_obj["global_p12"]["nodeadmin"],
             "nodegaragep12keylocation": self.config_obj["global_p12"]["key_location"],
             "nodegaragep12keyname": self.config_obj["global_p12"]["key_name"],
-            "nodegaragep12keyalias": self.config_obj["global_p12"]["key_alias"],
             "nodegaragep12passphrase": f'"{self.config_obj["global_p12"]["passphrase"]}"',
             "nodegaragep12encryption": "False", # new to v2.13.0
             "create_file": "config_yaml_p12",

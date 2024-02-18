@@ -982,7 +982,6 @@ nodectl:
     p12_nodeadmin: nodegaragep12nodeadmin
     p12_key_location: nodegaragep12keylocation
     p12_key_name: nodegaragep12keyname
-    p12_key_alias: nodegaragep12keyalias
     p12_passphrase: nodegaragep12passphrase
     seed_location: nodegarageseedlocation
     seed_repository: nodegarageseedrepository
@@ -1010,7 +1009,6 @@ nodectl:
     nodeadmin: nodegaragep12nodeadmin
     key_location: nodegaragep12keylocation
     key_name: nodegaragep12keyname
-    key_alias: nodegaragep12keyalias
     passphrase: nodegaragep12passphrase
     encryption: nodegaragep12encryption
 '''
