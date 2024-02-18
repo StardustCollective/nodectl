@@ -354,6 +354,8 @@ class CLI():
                         "caller": "status",
                         "state": sessions["state1"]
                     })
+                    if consensus_match == 0:
+                        consensus_match = 1
 
                     def setup_output():
                         on_network = colored("False","red")
@@ -4458,11 +4460,12 @@ class CLI():
                 "threaded": True if not self.auto_restart else False,
                 "specific_ip": ip_address,
             })
+
             consensus_match = colored("False","red")
             if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
-                consensus_match = colored("True","green") if caller == "check_consensus" else True
+                consensus_match = colored("True","green") if not self.auto_restart else True
             if state in self.functions.pre_consensus_list:
-                consensus_match = colored("Preparing","yellow") if caller == "check_consensus" else False
+                consensus_match = colored("Preparing","yellow") if not self.auto_restart else False
                 
             self.log.logger.debug(f"cli_check_consensus -> caller [{caller}] -> participating in consensus rounds [{consensus_match}]")
             if caller != "check_consensus": 
@@ -4474,6 +4477,7 @@ class CLI():
                 print_out_list = [
                     {
                         "PROFILE": profile,
+                        "ENVIRONMENT": self.config_obj[profile]["environment"],
                     },
                     {
                         "IP ADDRESS": ip_address,

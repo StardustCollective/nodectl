@@ -677,7 +677,7 @@ class Configuration():
         
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
         self.config_obj["global_p12"]["p12_validated"] = False  # init key (used outside of this class)
-        self.config_obj["global_p12"]["key_alias"] = "str" # init key (updated outside this class)
+        # self.config_obj["global_p12"]["key_alias"] = "str" # init key (updated outside this class)
             
             
     def prepare_p12(self):
@@ -903,7 +903,7 @@ class Configuration():
             })
         
         self.config_obj[profile]["p12_key_alias"] = p12_alias
-        
+
 
     def setup_schemas(self):   
         # ===================================================== 
@@ -1130,7 +1130,8 @@ class Configuration():
     def validate_global_setting(self):
         # key_name, passphrase, and alias all have to match if set to global
         self.config_obj["global_elements"]["all_global"] = True
-        global_p12_keys = ["key_name","passphrase","key_alias"] # test to make sure if one key is global all must be
+        # global_p12_keys = ["key_name","passphrase","key_alias"] # test to make sure if one key is global all must be
+        global_p12_keys = ["key_name","passphrase"] # test to make sure if one key is global all must be
             
         try:
             for profile in self.metagraph_list:

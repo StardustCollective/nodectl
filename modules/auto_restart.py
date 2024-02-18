@@ -46,10 +46,16 @@ class AutoRestart():
         
         self.stuck_timers = {
             "Observing_tolerance": 10*60, 
+            "Observing_enabled": False,
             "Observing_state_enabled": False,
-            "WaitingForDownload_state_enabled": False,
+
             "WaitingForDownload_tolerance": 6*60,
+            "WaitingForDownload_state_enabled": False,
             "WaitingForDownload_enabled": False,    
+
+            "WaitingForReady_tolerance": 5*60,
+            "WaitingForReady_state_enabled": False,
+            "WaitingForReady_enabled": False,    
         }
         
         self.fork_check_time = {
@@ -399,13 +405,14 @@ class AutoRestart():
                     continue_checking = False
                     break
             
-        if continue_checking:    
+        if continue_checking:  
+            stuck_in_state_list = ["Observing","WaitingForDownload","WaitingForReady"]  
             if session_list["session0"] > session_list["session1"] and session_list['session1'] > 0:
                 self.profile_states[self.node_service.profile]["match"] = False
                 self.profile_states[self.node_service.profile]["action"] = "restart_full"  
                 
-            elif session_list["state1"] == "Observing" or session_list["state1"] == "WaitingForDownload":
-                # local service is Observing or WaitingForDownload -- Check for stuck Session
+            elif session_list["state1"] in stuck_in_state_list:
+                # Check for stuck Session
                 state = session_list["state1"]
                 self.profile_states[self.node_service.profile]["match"] = True
                 self.profile_states[self.node_service.profile]["action"] = "NoActionNeeded"  
@@ -515,8 +522,10 @@ class AutoRestart():
             self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  silent restart [stop] initiating | profile [{self.node_service.profile}]")
             self.stop_start_handler("stop")
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - updating [seed_list]")
-            self.node_service.download_update_seedlist({
+            _ = self.node_service.download_constellation_binaries({
+                "caller": "update_seedlist",
                 "profile": self.thread_profile,
+                "environment": self.environment,
             })
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [{self.silent_restart_timer}]")
             sleep(self.silent_restart_timer)   # not truly necessary but adding more delay
