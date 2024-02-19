@@ -355,10 +355,19 @@ class Migration():
         # build yaml global elements section
         # =======================================================    
             
+        # version 2.13 changes environment with hypergraph
+        metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
+        token_coin_id = "default"
+        token_identifier = "disable"
+        if self.config_obj["global_elements"]["metagraph_name"] in ["testnet","mainnet","integrationnet"]:
+            metagraph_name = "hypergraph"
+        elif metagraph_name == "dor_metagraph":
+            token_coin_id = "dor"
+            token_identifier = "default"
         rebuild_obj = {
-            "nodegaragemetagraphname": self.config_obj["global_elements"]["metagraph_name"],
-            "nodegaragemetatokenidentifier": "disable",
-            "nodegaragemetagraphtokencoinid": "default", # new to v2.13.0
+            "nodegaragemetagraphname": metagraph_name,
+            "nodegaragemetatokenidentifier": token_identifier,
+            "nodegaragemetagraphtokencoinid": token_coin_id, # new to v2.13.0
             "nodegaragenodectlyaml": self.version_obj["node_nodectl_yaml_version"],
             "nodegarageincludes": "False", # new to v2.13.0
             "nodegaragedevelopermode": self.config_obj["global_elements"]["developer_mode"],

@@ -433,9 +433,7 @@ class Configuration():
             "priority_source_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": {
-                "mainnet": "github.com/Constellation-Labs/tessellation/",
-                "testnet": "github.com/Constellation-Labs/tessellation/",
-                "integrationnet": "github.com/Constellation-Labs/tessellation/",
+                "hypergraph": "github.com/Constellation-Labs/tessellation/",
                 "dor-metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
             },
             "edge_point": {
@@ -451,7 +449,13 @@ class Configuration():
                     "dor-cl1": "cl1-",
                 },
             },
-            "token_coin_id": "constellation-labs",
+            "token_coin_id": {
+                "hypergraph": "constellation-labs",
+                "dor_metagraph": "dor",
+            },
+            "token_identifier": {
+                "dor_metagraph": "DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM",
+            },
             "edge_point_tcp_port": 443,
             "public_port": [9000,9010],
             "p2p_port": [9001,9011],
