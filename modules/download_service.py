@@ -56,6 +56,9 @@ class Download():
         elif self.caller == "update_seedlist" or self.caller == "_usl":
             self.caller = "update_seedlist"
             self.log.logger.debug(f"{self.log_prefix} - download seed lists.")
+        elif self.action == "upgrade":
+            self.log.logger.debug(f"{self.log_prefix} - upgrade module called.")
+
 
         if "-v" in self.argv_list: self.download_version = self.argv_list(self.argv_list.index("-v")+1)
         

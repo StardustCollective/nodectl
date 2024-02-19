@@ -237,7 +237,7 @@ class Error_codes():
             ])
 
         elif "service" in str(var.line_code):
-            self.log.logger.critical("attempt to access the service file seems to have failed.")
+            self.log.logger.critical(f"attempt to access the service file seems to have failed. [{extra}]")
             self.functions.print_paragraphs([
                 ["Something isn't quite right?",2,"red","bold"],
                 ["Are you sure the",0,"red","bold"], ["Node",0, "yellow","bold,underline"],

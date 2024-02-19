@@ -24,6 +24,8 @@ class Versioning():
         
         nodectl_version = "v2.13.0"
         nodectl_yaml_version = "v2.2.0"
+        nodectl_code_name = "Princess Warrior"
+        
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
 
         self.upgrade_path_path = f'https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_{nodectl_version.replace(".","")}/admin/upgrade_path.json'

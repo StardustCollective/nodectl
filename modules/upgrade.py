@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from os import system, path, makedirs, remove, environ
 from time import sleep
 from termcolor import colored, cprint
@@ -18,24 +18,22 @@ class Upgrader():
         self.log = Logging()
         self.log.logger.info("System Upgrade called, initializing upgrade.")
         
-        self.functions = command_obj.get("functions")
-        self.config_obj = self.functions.config_obj
-        self.version_obj = self.functions.version_obj
-        self.ip_address = command_obj.get("ip_address")
-        self.called_command = command_obj.get("called_command")
-        self.environment = command_obj.get("environment")
-        self.argv_list = command_obj.get("argv_list")
+        self.parent = command_obj["parent"]
+        self.functions = self.parent.functions
+        self.config_obj = self.parent.config_obj
+        self.version_obj = self.parent.version_obj
+        self.argv_list = command_obj["argv_list"]
+        self.environment = command_obj.get("environment",False)
+
+        # self.ip_address = command_obj.get("ip_address")
+        # self.called_command = command_obj.get("called_command")
         
-        self.non_interactive = self.download_version = self.forced = False
         self.debug = command_obj.get("debug",False)
         
         self.step = 1
         self.status = "" #empty
         self.node_id = ""
-        self.safe_to_upgrade = True
-        self.watch = False
-        self.show_download_status = False
-        self.nodectl_only = False
+        
         self.final_upgrade_status_list = []
         self.api_ready_list = {}
         self.profile_progress = {}     
@@ -43,12 +41,12 @@ class Upgrader():
         self.error_messages = Error_codes(self.functions) 
         self.link_types = ["gl0","ml0"]
                 
-        self.command_obj = {
-            **command_obj,
-            "caller": "upgrader",
-            "command": "upgrade",
-        }
-        self.cli = CLI(self.command_obj)
+        # self.command_obj = {
+        #     **command_obj,
+        #     "caller": "upgrader",
+        #     "command": "upgrade",
+        # }
+        # self.cli = CLI(self.command_obj)
 
         self.cli_global_pass = False
         
@@ -65,31 +63,29 @@ class Upgrader():
         
         
     def build_cli_obj(self):
-        command_obj = {
-            **self.command_obj,
-            "functions": self.functions,
-            "profile_names": self.functions.profile_names,
-            "caller": "upgrader",
-            "command": "upgrade",
-        }
-        self.cli = CLI(command_obj)
+        self.cli = self.parent.cli
+        self.cli.caller = "upgrader"
+        self.cli.command = "upgrade"
+        self.cli.profile_name = self.functions.profile_names
                 
                 
     def upgrade_process(self):
 
-        self.handle_profiles()
+        self.setup_upgrader()
         self.setup_argv_list()
-        self.handle_verification()
-        
-        self.build_p12_obj()
+
+        self.environments_verification_handler()
         self.build_cli_obj()
 
+        self.versioning_handler()
+        self.profile_handler()
+
+        self.build_p12_obj()
         self.get_node_id()    
-          
         self.request_version()
         
-        self.leave_cluster() # async_session_one
-        self.stop_service() # async_session_two
+        # self.leave_cluster() 
+        # self.stop_service() 
 
         self.print_section("Node Internal Configuration")
         self.verify_directories()
@@ -109,7 +105,20 @@ class Upgrader():
         self.complete_process()
     
     
-    def handle_profiles(self):
+    def setup_upgrader(self):
+        self.functions.print_header_title({
+          "line1": f"UPGRADE REQUEST",
+          "line2": "TESSELLATION VALIDATOR NODE",
+          "clear": True,
+        })
+        
+        self.install_upgrade = "upgrade"
+        if "-ni" not in self.argv_list and not "--ni" in self.argv_list:
+            self.parent.install_upgrade = "upgrade"
+            self.parent.confirm_int_upg()
+
+
+    def profile_handler(self):
         profile_items = self.functions.pull_profile({"req": "order_pairing"})
         self.profile_order = profile_items.pop()
         self.profile_order = self.functions.clear_external_profiles(self.profile_order)
@@ -145,7 +154,85 @@ class Upgrader():
         self.profile_items = clean_profile_list
 
 
-    def handle_verification(self):
+    def environments_verification_handler(self):
+        self.functions.print_clear_line(1,{
+            "backwards": True,
+            "bl": 1,
+        })
+        print("")
+
+        progress = {
+            "text_start": "Handling environment setup",
+            "status": "running",
+            "newline": False,
+        }
+        self.functions.print_cmd_status(progress)
+
+        verb = "Using" 
+        environments = self.functions.pull_profile({"req": "environments"})
+        if not self.show_list:
+            self.show_list = True if environments["multiple_environments"] else self.show_list
+        
+        if self.environment:
+            print("")
+            if self.environment not in list(environments["environment_names"]):
+                self.error_messages.error_code_messages({
+                    "error_code": "sh-441",
+                    "line_code": "environment_error",
+                    "extra": "upgrade",
+                    "extra2": self.environment
+                })
+    
+        if self.show_list:
+            verb = "Selected"
+            print("")
+            self.functions.print_header_title({
+                "line1": "ENVIRONMENT UPGRADE MENU",
+                "newline": "both",
+                "single_line": True,
+            })
+
+            msg_start = "Multiple network cluster environments were found on this system."
+            if self.show_list and not environments["multiple_environments"]:
+                msg_start = "Show list of network clusters was requested."
+                self.log.logger.debug("Upgrade show list of environments requested")
+            if self.environment:
+                msg_start = "Choose environment from list requested but environment request was entered at the command line."
+                self.functions.print_cmd_status({
+                    "text_start": "Environment requested by argument",
+                    "brackets": "-e",
+                    "status": self.environment,
+                    "status_color": "blue",
+                    "newline": True,
+                })
+                print("")
+
+            if environments["multiple_environments"] and not self.environment:
+                self.log.logger.debug(f"Upgrade found multiple network cluster environments on the same Node that may are supported by different versions of nodectl")
+                self.functions.print_paragraphs([
+                    [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
+                    ["Please select an environment by",0], ["key pressing",0,"yellow"], 
+                    ["the number correlating to the environment you wish to upgrade.",2],  
+                    ["PLEASE CHOOSE AN ENVIRONMENT TO UPGRADE",2,"magenta","bold"]                      
+                ])
+            environment = self.functions.print_option_menu({
+                "options": list(environments["environment_names"]),
+                "return_value": True,
+                "color": "magenta"
+            })
+        else:
+            if not self.environment:
+                self.environment = list(environments["environment_names"])[0]
+
+        self.functions.print_cmd_status({
+            "text_start": f"{verb} environment",
+            "status": self.environment,
+            "status_color": "blue",
+            "newline": True,
+        })       
+
+
+    def versioning_handler(self):
         self.print_section("Verify Node Upgrade")
         
         progress = {
@@ -165,44 +252,63 @@ class Upgrader():
             "newline": True,
         })
         
-        self.config_copy = deepcopy(self.functions.config_obj)
-        verify = Configuration({
-            "implement": False,
-            "action": "configure",
-            "argv_list": ["None"]
-        })
-        verify.config_obj = {
-            **verify.config_obj,
-            **self.functions.config_obj,
-            "upgrader": True
-        }
-
-        pass_vault = {}
-        for p in self.profiles_by_env:
-            if not self.functions.config_obj[p]["global_p12_passphrase"]:
-                pass_vault[p] = verify.config_obj[p]["p12_passphrase"]
-                verify.config_obj[p]["p12_passphrase"] = "None"
-            if self.functions.config_obj[p]["global_p12_cli_pass"]:
-                verify.config_obj["global_p12"]["passphrase"] = self.cli_global_pass
-        pass_vault["global"] = verify.config_obj["global_p12"]["passphrase"]
-        verify.config_obj["global_p12"]["passphrase"] = "None"
-        verify.metagraph_list = self.profiles_by_env
-        verify.functions.version_obj = self.version_obj
+        current = self.functions.version_obj["node_nodectl_version"]
         
-        verify.functions.set_statics()
-        verify.prepare_p12()
-        verify.setup_passwd()
-        
-        # reset the passphrases
-        for profile in self.profiles_by_env:
-            if self.functions.config_obj[profile]["p12_passphrase"] == "None":
-                reset_pass = pass_vault["global"]
-                if not self.functions.config_obj[profile]["global_p12_passphrase"]:
-                    reset_pass = pass_vault[profile]
-                self.functions.config_obj[profile]["p12_passphrase"] = reset_pass
+        show_warning = False
+        if self.functions.version_obj[self.environment]["nodectl"]["nodectl_uptodate"]:
+            if not isinstance(self.functions.version_obj[self.environment]["nodectl"]["nodectl_uptodate"],bool):
+                show_warning = True
                 
-        if not self.functions.config_obj["global_p12"]["passphrase"] or self.functions.config_obj["global_p12"]["passphrase"] == "None":
-            self.functions.config_obj["global_p12"]["passphrase"] = pass_vault['global']
+        if show_warning:
+            err_warn = "warning"
+            err_warn_color = "yellow"
+            if self.install_upgrade == "installation":
+                err_warn = "error"
+                err_warn_color = "red"
+            
+            self.functions.print_cmd_status({
+                "text_start": "Check permissions & versioning",
+                "status": err_warn,
+                "status_color": err_warn_color,
+                "newline": True,
+            })
+            
+            self.functions.print_paragraphs([
+                ["This is not a current stable version of nodectl.",1,"red","bold"],
+                ["Recommended to:",1],
+                ["  - Cancel this upgrade of Tessellation.",1,"magenta"],
+                ["  - Issue:",0,"magenta"], ["sudo nodectl upgrade_nodectl",1,"green"],
+                ["  - Restart this upgrade of Tessellation.",1,"magenta"],
+            ])
+            
+            try: 
+                skip_warning_messages = self.cli.skip_warning_messages
+            except:
+                skip_warning_messages = False
+                
+            if self.forced or skip_warning_messages:
+                self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, developer mode, or extra parameters were supplied to",0],
+                    [f"this {self.install_upgrade}.",1],
+                    ["It will continue at the Node Operator's",0,"yellow"],
+                    ["own risk and decision.",2,"yellow","bold"]
+                ])
+            else:
+                self.log.logger.warn(f"an attempt to upgrade with an older nodectl detected {current}")  
+                prompt_str = f"Are you sure you want to continue this upgrade?"
+                self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": prompt_str,
+                })
+            self.log.logger.warn(f"upgrade executed with an older version of nodectl [{current}]") 
+
+        self.functions.print_cmd_status({
+            **progress,
+            "status": "complete",
+            "newline": True
+        })
 
             
     def print_section(self,line):
@@ -278,7 +384,9 @@ class Upgrader():
             "newline": True,
         })
 
+        self.all_global = True
         if self.functions.config_obj["global_elements"]["all_global"]:
+            self.all_global = True
             pull_node_id("global")
             return
         
@@ -313,7 +421,7 @@ class Upgrader():
             env = self.config_obj[profile]["environment"]
             if self.profile_progress[profile]["download_version"]:
                 download_version = self.profile_progress[profile]["download_version"]
-            elif ml_version_found and self.config_copy[profile]["meta_type"] == "ml": 
+            elif ml_version_found and self.config_obj[profile]["meta_type"] == "ml": 
                 self.profile_progress[profile]["download_version"] = ml_download_version
                 do_continue = True
             
@@ -328,7 +436,7 @@ class Upgrader():
                 ])
                 continue
             
-            if self.config_copy[profile]["is_jar_static"]:
+            if self.config_obj[profile]["is_jar_static"]:
                 self.functions.print_cmd_status({
                     "text_start": "Statically defined versioning found",
                     "status": "continuing",
@@ -450,7 +558,7 @@ class Upgrader():
             })  
             self.profile_progress[profile]["download_version"] = download_version
             
-            if self.config_copy[profile]["meta_type"] == "ml": 
+            if self.config_obj[profile]["meta_type"] == "ml": 
                 ml_version_found = True # only need once
                 ml_download_version = download_version
                 
@@ -466,12 +574,12 @@ class Upgrader():
         
         # < 2.0.0  shutdown legacy
         with ThreadPoolExecutor() as executor:
+            futures = {}
             for profile_list in self.profile_items:
                 for item in profile_list:
                     if not self.get_update_core_statuses("get","leave_complete",item["profile"]):
                         self.get_update_core_statuses("update","leave_complete",item["profile"],True)
-                        cli = CLI(self.command_obj) # rebuild
-                        cli.set_profile(item["profile"])
+                        self.cli.set_profile(item["profile"])
                         print_timer = True if item["profile"] == profile_list[-1]["profile"] else False
                         leave_obj = {
                             "secs": 30,
@@ -480,35 +588,57 @@ class Upgrader():
                             "print_timer": print_timer,
                             "threaded": True,
                         }
-                        executor.submit(cli.cli_leave, leave_obj)
+                        futures = {
+                            **futures,
+                            executor.submit(self.cli.cli_leave, leave_obj): item,
+                        }
                         sleep(1.5)
+            self.futures_error_checking(futures,"upg-594")
+
     
-            
     def stop_service(self):
         if self.nodectl_only: return
         
         with ThreadPoolExecutor() as executor:
+            futures = {}
             for profile_list in self.profile_items:
                 for item in profile_list:
                     if not self.get_update_core_statuses("get","stop_complete",item["profile"]):
                         self.get_update_core_statuses("update","stop_complete",item["profile"],True)
                         if path.exists(f"/etc/systemd/system/cnng-{item['service']}.service") or path.exists(f"/etc/systemd/system/{item['service']}.service"): # includes legacy < v2.0.0
-                            cli = CLI(self.command_obj)
-                            cli.set_profile(item["profile"])
+                            self.cli.set_profile(item["profile"])
                             stop_obj = {
                                 "show_timer": False,
+                                "static_nodeid": self.node_id if self.all_global else False,
                                 "argv_list": []
                             }
-                            executor.submit(cli.cli_stop,stop_obj)
+                            futures = {
+                                **futures,
+                                executor.submit(self.cli.cli_stop,stop_obj): item,
+                            }
                             sleep(1.5)
                         else:
                             self.functions.print_paragraphs([
-                                ["unable to fine [",0,"red"], [item['service'],-1,"yellow","bold"],
+                                ["unable to find [",0,"red"], [item['service'],-1,"yellow","bold"],
                                 ["] on this Node.",-1,"red"],["",1],
                             ])
+            self.futures_error_checking(futures,"upg-622")    
             self.functions.print_clear_line()
             
  
+    def futures_error_checking(self, futures, error_code):
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                self.log.logger.error(f"upgrader -> threaded leave request failed with [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "upg-596",
+                    "line_code": "upgrade_failure",
+                    "extra": e,
+                })
+
+
     def upgrade_log_archive(self):
         self.log.logger.info(f"logging and archiving prior to update.")
 
@@ -617,6 +747,8 @@ class Upgrader():
         
         self.fix_swap_issues()
         self.update_system_prompt()
+
+        # keep in place for future refactoring for future upgrades
         backup = False
         confirm = True if self.non_interactive else False
 
@@ -671,8 +803,6 @@ class Upgrader():
             "newline": True,
         })
 
-
-        
              
     def service_file_manipulation(self):
         # version older than 0.15.0 only
@@ -742,6 +872,8 @@ class Upgrader():
             "text_start": "Clean up config yaml changes v2.0.0",
         }
         self.functions.print_cmd_status(progress)
+        sleep(.8)
+        self.functions.print_clear_line()
         
         self.config_change_cleanup()
         self.functions.print_cmd_status({
@@ -879,6 +1011,7 @@ class Upgrader():
             self.cli.cli_start({
                 "argv_list": [],
                 "wait": False,
+                "static_nodeid": self.node_id if self.all_global else False,
                 "threaded": True,
                 "node_id": self.node_id,
             })
@@ -927,8 +1060,8 @@ class Upgrader():
     def check_for_link_success(self,profile):
         try:
             for link_type in self.link_types:
-                if self.config_copy[profile][f"{link_type}_link_enable"]:
-                    link_profile = self.config_copy[profile][f"{link_type}_link_profile"]
+                if self.config_obj[profile][f"{link_type}_link_enable"]:
+                    link_profile = self.config_obj[profile][f"{link_type}_link_profile"]
                     if not self.profile_progress[link_profile]["ready_to_join"]:
                         return link_type
         except Exception as e:
@@ -949,7 +1082,7 @@ class Upgrader():
                     self.functions.print_paragraphs([
                         ["Please wait while [",0], [profile,-1,"yellow","bold"], ["] attempts to join the network.",-1],["",1],
                     ])
-                    if self.config_copy[profile]["gl0_link_enable"] or self.config_copy[profile]["ml0_link_enable"]:
+                    if self.config_obj[profile]["gl0_link_enable"] or self.config_obj[profile]["ml0_link_enable"]:
                         self.functions.print_paragraphs([
                             [" NOTE ",0,"yellow,on_magenta","bold"], ["ml0 or ml1",0,"cyan"], ["networks will not join the Hypergraph until its",0],
                             ["gl0 or ml0",0,"cyan"], ["linked profile changes to",0], ["Ready",0,"green","bold"], ["state, this could take up to a",0],
@@ -1063,37 +1196,40 @@ class Upgrader():
         
     
     def setup_argv_list(self):
-        argv_display_obj = {
-            "text_start": "Enabling option",
-            "status": "complete",
-            "status_color": "green",
-            "newline": True            
-        }
         input_error = False
-        if "-f" in self.argv_list:
-            self.forced = True          
+
+        self.safe_to_upgrade = True
+        self.watch, self.show_list, self.show_download_status = False, False, False
+        self.nodectl_only, self.non_interactive, self.download_version, self.forced = False, False, False, False
+        
+        def print_argv(brackets):
             self.functions.print_cmd_status({
-                **argv_display_obj,
-                "brackets": "forced"
+                "text_start": "Enabling option",
+                "brackets": brackets,
+                "status": "complete",
+                "status_color": "green",
+                "newline": True   
             })
+
+        if "-f" in self.argv_list:
+            self.forced = True    
+            print_argv("forced")      
         if "-w" in self.argv_list:
             self.watch = True
-            self.functions.print_cmd_status({
-                **argv_display_obj,
-                "brackets": "watch"
-            })
+            print_argv("watch")
+        if "-l" in self.argv_list:
+            self.show_list = True
+            print_argv("show lists")
         if "--dip" in self.argv_list:
             self.show_download_status = True
-            self.functions.print_cmd_status({
-                **argv_display_obj,
-                "brackets": "dip watch"
-            })
+            print_argv("dip watch")
         if "--nodectl_only" in self.argv_list or "--nodectl-only" in self.argv_list:
             self.nodectl_only = True
-            self.functions.print_cmd_status({
-                **argv_display_obj,
-                "brackets": "nodectl_only"
-            })
+            print_argv( "nodectl_only")
+        if "-ni" in self.argv_list or "--ni" in self.argv_list:
+            self.non_interactive = True 
+            print_argv("non-interactive")     
+
         if "-v" in self.argv_list:
             if self.argv_list.count("-v") > 1:
                 extra = "all -v <version> must be preceded by accompanying -p <profile>"
@@ -1135,12 +1271,6 @@ class Upgrader():
                 "extra2": extra,
             })
             
-        if "-ni" in self.argv_list or "--ni" in self.argv_list:
-            self.non_interactive = True      
-            self.functions.print_cmd_status({
-                **argv_display_obj,
-                "brackets": "non-interactive"
-            })
         if "--pass" in self.argv_list:
            self.cli_global_pass = self.argv_list[self.argv_list.index("--pass")+1]            
                 

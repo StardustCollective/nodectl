@@ -635,8 +635,12 @@ class P12Class():
             p12_location = command_list[command_list.index("--file")+1]
         elif "-p" in command_list:
             profile = command_list[command_list.index("-p")+1]
-            p12_location = self.config_obj[profile]["p12_key_store"]    
-            p12_passwd = self.config_obj[profile]["p12_passphrase"]
+            if profile == "global_p12":
+                p12_location = self.config_obj[profile]["key_store"]    
+                p12_passwd = self.config_obj[profile]["passphrase"]
+            else:
+                p12_location = self.config_obj[profile]["p12_key_store"]    
+                p12_passwd = self.config_obj[profile]["p12_passphrase"]
         else:
             command_list.append("help")
             self.functions.check_for_help(command_list,"show_p12_details")

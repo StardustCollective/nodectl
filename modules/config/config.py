@@ -677,7 +677,7 @@ class Configuration():
         
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
         self.config_obj["global_p12"]["p12_validated"] = False  # init key (used outside of this class)
-        # self.config_obj["global_p12"]["key_alias"] = "str" # init key (updated outside this class)
+        self.config_obj["global_p12"]["key_alias"] = "str" # init key (updated outside this class)
             
             
     def prepare_p12(self):
@@ -691,7 +691,9 @@ class Configuration():
         }
         self.p12 = P12Class(p12_obj)
         self.p12.functions = self.functions
-                
+        
+        self.setup_p12_aliases("global_p12")
+                        
     
     def remove_disabled_profiles(self):
         remove_list = []
@@ -902,7 +904,9 @@ class Configuration():
                 "value": "skip"
             })
         
-        self.config_obj[profile]["p12_key_alias"] = p12_alias
+        key = "p12_key_alias"
+        if profile == "global_p12": key = "key_alias"
+        self.config_obj[profile][key] = p12_alias
 
 
     def setup_schemas(self):   
@@ -991,6 +995,7 @@ class Configuration():
                 ["nodeadmin","str"],
                 ["key_location","path"],
                 ["key_name","str"],
+                ["key_alias","str"], # automated value [not part of yaml]
                 ["passphrase","str"],
                 ["encryption","bool"], 
                 ["key_store","str"], # automated value [not part of yaml]
@@ -1329,7 +1334,8 @@ class Configuration():
                                         validated = True
                                         break
                                     title = "invalid range"
-                            if not validated: title = "invalid type"
+                            if not validated: 
+                                title = "invalid type"
                             if "key_name" in key and req_type == "str":
                                 if test_value[-4::] != ".p12": title = "missing .p12 extension"
                                 else: validated = True

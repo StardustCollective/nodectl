@@ -155,6 +155,7 @@ class CLI():
         print_title = command_obj.get("print_title",True)
         spinner = command_obj.get("spinner",True)
         threaded = command_obj.get("threaded",False)
+        static_nodeid = command_obj.get("static_nodeid",False)
         command_list = command_obj.get("command_list",[])
         
         all_profile_request = False
@@ -247,10 +248,22 @@ class CLI():
                     restart_time = "n/a"
                     uptime = "n/a"
                 
-                try:
-                    node_id = f"{elements[1][:8]}...{elements[1][-8:]}"
-                except:
-                    node_id = "unknown"
+                if static_nodeid:
+                    node_id = f"{static_nodeid[:8]}...{static_nodeid[-8:]}"
+                else:
+                    try:
+                        node_id = f"{elements[1][:8]}...{elements[1][-8:]}"
+                    except:
+                        try:
+                            node_id = self.cli_grab_id({
+                                "command": "nodeid",
+                                "argv_list": ["-p",called_profile],
+                                "dag_addr_only": True,
+                            })
+                            node_id = self.functions.cleaner(node_id,"new_line")
+                            node_id = f"{node_id[:8]}...{node_id[-8:]}"
+                        except:
+                            node_id = "unknown"
                 
                 return restart_time, uptime, node_id
                         
@@ -1716,56 +1729,7 @@ class CLI():
             "newline": True,
         })
         print("")
-
-
-    def update_seedlist(self,command_list):
-        self.functions.check_for_help(command_list,"update_seedlist")
-        self.log.logger.info("updating seed list...")
-        profiles = []
         
-        try: # can be either env or profile (prefer -p over -e)
-            profile = command_list[command_list.index("-p")+1]
-        except:
-            environment = command_list[command_list.index("-e")+1]
-            profiles = self.functions.pull_profile({
-                "req":"profiles_by_environment",
-                "environment": environment
-            })      
-        else:
-            profiles.append(profile)
-              
-        self.functions.print_clear_line()
-        self.print_title("UPDATE SEED LIST")
-
-        download_obj = {
-            "environment": command_list[command_list.index("-e")+1]
-        }
-        if "-v" in command_list:
-            download_obj["download_version"] = command_list[command_list.index("-v")+1]
-                    
-        self.node_service.download_constellation_binaries({
-            "profile": profile,
-            "caller": "update_seedlist",
-            "action": "normal",
-            "download_version": download_version
-        })
-        # for i_profile in reversed(list(profiles)):
-        #     download_version = self.functions.config_obj[i_profile]["seed_version"]
-
-        #     if "disable" in self.functions.config_obj[i_profile]["seed_path"]:
-        #         self.functions.print_paragraphs([
-        #             ["Seed list is disabled for profile [",0,"red"],
-        #             [i_profile,-1,"yellow","bold"],
-        #             ["]",-1,"red"], ["nothing to do",1,"red"], 
-        #         ])
-        #     else:
-        #         self.node_service.download_constellation_binaries({
-        #             "profile": i_profile,
-        #             "caller": "update_seedlist",
-        #             "action": "normal",
-        #             "download_version": download_version
-        #         })
-
 
     # ==========================================
     # check commands
@@ -2541,6 +2505,7 @@ class CLI():
         spinner = command_obj.get("spinner",False)
         service_name = command_obj.get("service_name",self.service_name)
         threaded = command_obj.get("threaded", False)
+        static_nodeid = command_obj.get("static_nodeid",False)
         skip_seedlist_title = command_obj.get("skip_seedlist_title",False)
         existing_node_id = command_obj.get("node_id",False)
         self.functions.check_for_help(argv_list,"start")
@@ -2622,6 +2587,7 @@ class CLI():
                 "wait": False,
                 "print_title": False,
                 "threaded": threaded,
+                "static_nodeid": static_nodeid if static_nodeid else False,
                 "-p": profile                
             }
             
@@ -2638,6 +2604,7 @@ class CLI():
         spinner = command_obj.get("spinner",False)
         argv_list = command_obj.get("argv_list",[])
         profile = command_obj.get("profile",self.profile)
+        static_nodeid = command_obj.get("static_nodeid",False)
         check_for_leave = command_obj.get("check_for_leave",False)
         rebuild = True
     
@@ -2733,6 +2700,7 @@ class CLI():
             "wait": show_timer,
             "spinner": spinner,
             "print_title": False,
+            "static_nodeid": static_nodeid if static_nodeid else False,
             "-p": profile
         })
 
@@ -3495,6 +3463,7 @@ class CLI():
                     "text_start": "Node going",
                     "brackets": "Offline",
                     "text_end": "Please be patient",
+                    "status": profile,
                     "newline": True,
                 })
                 progress = {
