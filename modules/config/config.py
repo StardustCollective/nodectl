@@ -65,7 +65,7 @@ class Configuration():
         self.do_validation = False if self.action in skip_validation else True
         if self.action == "new_config_init": self.action = "edit_config"
 
-        self.requested_configuration = False        
+        self.requested_configuration = False
         self.current_layer = None
         self.profile_enable = {
             "profile": None,
@@ -103,7 +103,7 @@ class Configuration():
         continue_list = ["normal","edit_config","edit_on_error"]
         
         self.setup_schemas()
-        self.build_yaml_dict(True)
+        self.build_yaml_dict(True,True)
         self.check_for_migration()
         self.finalize_config_tests()
         self.validate_yaml_keys()
@@ -142,7 +142,7 @@ class Configuration():
             return
         
         
-    def build_yaml_dict(self,nodectl_only=False):
+    def build_yaml_dict(self,nodectl_only=False,setup_version=True):
         # nodectl_only refers to version fetch type
         self.yaml_file = f'{self.functions.nodectl_path}cn-config.yaml'
         try:
@@ -196,12 +196,14 @@ class Configuration():
         
         self.build_function_obj(self.config_obj) # rebuild function obj
         called_cmd = "show_version" if nodectl_only else "config_obj"
-        versioning = Versioning({
-            "config_obj": self.config_obj,
-            "print_messages": False,
-            "called_cmd": called_cmd,
-        })
-        self.functions.version_obj = versioning.get_version_obj()
+
+        if setup_version:
+            self.versioning = Versioning({
+                "config_obj": self.config_obj,
+                "print_messages": False,
+                "called_cmd": called_cmd,
+            })
+        self.functions.version_obj = self.versioning.get_version_obj()
         self.functions.set_statics()
         
         
@@ -237,8 +239,6 @@ class Configuration():
                     "extra": "Configuration yaml version mismatch."
                 })
             self.migration()
-            self.config_obj = {}  # reset
-            self.build_yaml_dict() # rebuild new configuration format
         else:
             self.log.logger.debug(f"configuration validator did not find a migration need for current configuration format - nodectl version [{nodectl_version}]")    
             
@@ -322,8 +322,16 @@ class Configuration():
             "caller": "config",
             "parent": self,
         })
-        if self.migrate.migrate():
+        self.migrate.migrate()
+        if self.migrate.verify_config_request:
             self.view_yaml_config("migrate")
+        if self.migrate.do_migrate:
+            self.build_yaml_dict(False,False)
+            self.setup_config_vars({
+                "key": "edge_point",
+                "profile": list(self.config_obj.keys())[0],
+                "environment": self.config_obj[list(self.config_obj.keys())[0]]["environment"]
+            })
         
 
     def view_yaml_config(self,action):
@@ -433,7 +441,6 @@ class Configuration():
             "priority_source_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_repository": {
-                "hypergraph": "github.com/Constellation-Labs/tessellation/",
                 "dor-metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
             },
             "edge_point": {
@@ -450,10 +457,15 @@ class Configuration():
                 },
             },
             "token_coin_id": {
-                "hypergraph": "constellation-labs",
+                "mainnet": "constellation-labs",
+                "testnet": "constellation-labs",
+                "integrationnet": "constellation-labs",
                 "dor_metagraph": "dor",
             },
             "token_identifier": {
+                "mainnet": "disable",
+                "testnet": "disable",
+                "integrationnet": "disable",                
                 "dor_metagraph": "DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM",
             },
             "edge_point_tcp_port": 443,
@@ -486,9 +498,30 @@ class Configuration():
         except:
             error_found()
 
+        metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
+        if isinstance(metagraph_name,list):
+            # placeholder for multiple Node VPS
+            pass
 
         if self.config_obj["global_elements"]["metagraph_token_coin_id"] == "default":
-            self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs" 
+            if metagraph_name == "hypergraph":
+                self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs" 
+            else:
+                try:
+                    self.config_obj["global_elements"]["metagraph_token_coin_id"] = defaults["token_coin_id"][metagraph_name]
+                except:
+                    self.log.logger.error("config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
+                    self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs"
+
+        if self.config_obj["global_elements"]["metagraph_token_identifier"] == "default":
+            if metagraph_name == "hypergraph":
+                self.config_obj["global_elements"]["metagraph_token_identifier"] = "disable" 
+            else:
+                try:
+                    self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][metagraph_name]
+                except:
+                    self.log.logger.error("config -> during configuration setup, nodectl could not determine the token identifier")
+                    error_found()
 
         for profile in self.metagraph_list:
             self.config_obj[profile]["p12_key_alias"] = "str" # init (updated outside this method)
@@ -546,13 +579,6 @@ class Configuration():
 
             environment = self.config_obj[profile]["environment"]
 
-            metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
-            if metagraph_name == "hypergraph": # Constellation Core Node
-                metagraph_name = environment
-            elif isinstance(metagraph_name,list):
-                # placeholder for multiple Node VPS
-                pass
-
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
@@ -564,7 +590,11 @@ class Configuration():
                         elif tdir == "priority_source_file": 
                             self.config_obj[profile][tdir] = f'{metagraph_name}-prioritysourcelist' # exception
                         elif tdir == "jar_repository": 
-                            self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
+                            try:
+                                self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
+                            except:
+                                # hypergraph exception
+                                self.config_obj[profile][tdir] = "github.com/Constellation-Labs/tessellation/"
                         elif tdir == "edge_point":
                             if tdir == "edge_point": 
                                 handle_edge_point(profile,environment)
@@ -573,7 +603,14 @@ class Configuration():
                         elif isinstance(def_value,list):
                             self.config_obj[profile][tdir] = def_value[0]
                             if int(self.config_obj[profile]["layer"]) > 0: self.config_obj[profile][tdir] = def_value[1]
-                        else: self.config_obj[profile][tdir] = def_value  
+                        elif tdir == "token_coin_id":
+                            try:
+                                self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
+                            except:
+                                self.log.logger.error("config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
+                                self.config_obj[profile][tdir] = "constellation-labs"                            
+                        else: 
+                            self.config_obj[profile][tdir] = def_value  
                 except Exception as e:
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found()

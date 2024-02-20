@@ -16,7 +16,50 @@ class Migration():
             self.functions = self.config_obj["functions"]
 
         self.config_obj = self.functions.config_obj
+        
+        self.log = Logging()
+        self.functions.log = self.log
+        self.log.logger.debug("migration process started...")
+        self.errors = Error_codes(self.functions)
+        self.caller = command_obj.get("caller","default")
+        self.retention = {}
+        self.ingest, self.verify_config_request, self.do_migrate = False, False, False 
+        self.yaml = "" # initialize 
+    
+    
+    def migrate(self):
+        self.start_migration()
+        self.edge_point_handler()
+        self.setup_versioning()
+        verify = self.verify_config_type()
+        if not verify: return
+        self.backup_config()
+        self.create_n_write_yaml()
+        self.final_yaml_write_out()
+        self.confirm_config()
+        
 
+    def print_config_header(self):
+        self.functions.print_header_title({
+            "line1": "VERSION 2.0",
+            "line2": "Configuration Migration",
+            "clear": True,
+            "upper": False,
+        })
+            
+
+    def edge_point_handler(self):
+        # make a copy to replace the updated config
+        # after versioning is completed.
+        for profile in self.parent.yaml_dict["nodectl"].keys():
+            if "global" not in profile:
+                self.retention[profile] = {
+                    "ep": self.config_obj[profile]["edge_point"],
+                    "ep_tcp": self.config_obj[profile]["edge_point_tcp_port"]
+                } 
+
+
+    def setup_versioning(self):
         self.parent.setup_config_vars({
             "key": "edge_point",
             "profile": list(self.config_obj.keys())[0],
@@ -30,35 +73,8 @@ class Migration():
             "force": True,
         })
         self.version_obj = versioning.get_version_obj()
-        
-        self.log = Logging()
-        self.functions.log = self.log
-        self.log.logger.debug("migration process started...")
-        self.errors = Error_codes(self.functions)
-        self.caller = command_obj.get("caller","default")
-        self.ingest = False 
-        self.yaml = "" # initialize 
-    
-    
-    def migrate(self):
-        self.start_migration()
-        verify = self.verify_config_type()
-        if not verify: return
-        self.backup_config()
-        self.create_n_write_yaml()
-        self.final_yaml_write_out()
-        return self.confirm_config()
-        
 
-    def print_config_header(self):
-        self.functions.print_header_title({
-            "line1": "VERSION 2.0",
-            "line2": "Configuration Migration",
-            "clear": True,
-            "upper": False,
-        })
-            
-                
+
     def verify_config_type(self):
         upgrade_error = False
         try:
@@ -147,6 +163,8 @@ class Migration():
             "prompt": f"Attempt update and migrate configuration file?",
             "exit_if": True
         })
+
+        self.do_migrate = True
 
         
     def backup_config(self):
@@ -269,6 +287,13 @@ class Migration():
         # build yaml profile section
         # =======================================================
         self.log.logger.debug('migration module building new configuration skelton')
+
+        # version 2.13 changes environment with hypergraph
+        token_identifier = "disable"
+        token_coin = "global"
+        if self.config_obj["global_elements"]["metagraph_name"] not in ["testnet","mainnet","integrationnet","hypergraph"]:
+            token_identifier = "global"
+
         for profile in self.profiles:
             rebuild_obj = {
                 "nodegarageprofile": profile,
@@ -280,8 +305,8 @@ class Migration():
                 "nodegarageblocklayer": self.config_obj[profile]["layer"],
                 "nodegaragecollateral": self.config_obj[profile]["collateral"],
                 "nodegarageservice": self.config_obj[profile]["service"],
-                "nodegarageedgepointhost": self.config_obj[profile]["edge_point"],
-                "nodegarageedgepointtcpport": self.config_obj[profile]["edge_point_tcp_port"],
+                "nodegarageedgepointhost": self.retention[profile]["ep"], # self.config_obj[profile]["edge_point"],
+                "nodegarageedgepointtcpport": self.retention[profile]["ep_tcp"], # self.config_obj[profile]["edge_point_tcp_port"],
                 "nodegaragepublic": self.config_obj[profile]["public_port"],
                 "nodegaragep2p": self.config_obj[profile]["p2p_port"],
                 "nodegaragecli": self.config_obj[profile]["cli_port"],
@@ -295,8 +320,8 @@ class Migration():
                 "nodegarageml0linkhost": self.config_obj[profile]["ml0_link_host"],
                 "nodegarageml0linkport": self.config_obj[profile]["ml0_link_port"],
                 "nodegarageml0linkprofile": self.config_obj[profile]["ml0_link_profile"],
-                "nodegaragetokenidentifier": self.config_obj[profile]["token_identifier"],
-                "nodegaragemetatokencoinid": "global", # new to v2.13.0
+                "nodegaragetokenidentifier": token_identifier, # new to v2.13.0  # self.config_obj[profile]["token_identifier"],
+                "nodegaragemetatokencoinid": token_coin, # new to v2.13.0
                 "nodegaragedirectorybackups": self.config_obj[profile]["directory_backups"],
                 "nodegaragedirectoryuploads": self.config_obj[profile]["directory_uploads"],
                 "nodegaragexms": self.config_obj[profile]["java_xms"],
@@ -364,6 +389,7 @@ class Migration():
         elif metagraph_name == "dor_metagraph":
             token_coin_id = "dor"
             token_identifier = "default"
+
         rebuild_obj = {
             "nodegaragemetagraphname": metagraph_name,
             "nodegaragemetatokenidentifier": token_identifier,
@@ -376,7 +402,6 @@ class Migration():
             "create_file": "config_yaml_global_elements",
         }
         self.yaml += self.build_yaml(rebuild_obj)
-
 
     def final_yaml_write_out(self):
         # =======================================================
@@ -409,14 +434,12 @@ class Migration():
             ["Ready to continue with upgrade",2,"blue","bold"],
         ])
         
-        verify = self.functions.confirm_action({
+        self.verify_config_request = self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
             "prompt": "Would you like to review your new configuration?",
             "exit_if": False
         })  
-        return verify
-                       
                        
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

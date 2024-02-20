@@ -855,7 +855,7 @@ class Installer():
             "upgrader": True
         }
         self.log.logger.info("Installation populating node service variables for build")
-        self.setup_config.build_yaml_dict()
+        self.setup_config.build_yaml_dict(False,True)
         self.setup_config.setup_config_vars()
         # replace cli and node service config object with newly created obj
         self.cli.functions.config_obj = self.setup_config.config_obj

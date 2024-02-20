@@ -105,7 +105,11 @@ class Download():
                 )
                 file_obj = {
                     **file_obj,
-                    f"{tool}": { "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": download_version, "type": "binary", "profile": "global"} 
+                    f"{tool}": { 
+                        "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": download_version, 
+                        "type": "binary", "profile": "global", 
+                        "dest_path": f"{self.functions.default_tessellation_dir}{tool}",
+                    } 
                 }
 
         if self.auto_restart:
@@ -131,6 +135,7 @@ class Download():
                     "uri": f'{uri}/{self.config_obj[profile]["jar_file"]}',
                     "version": download_version,
                     "profile": profile,
+                    "dest_path": self.set_file_path(self.config_obj[profile]["jar_file"]), 
                     "type": "binary"
                 }
 
@@ -173,7 +178,7 @@ class Download():
             if self.config_obj[profile]["seed_repository"] == "default" and self.environment != "mainnet":
                 # does not matter if the global_elements -> metagraph_name is set, if not mainnet
                 if self.environment == "testnet" or self.environment == "integrationnet":
-                    seed_repo = f"https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{list(path.split(seed_path))[-1]}"
+                    seed_repo = f"https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{self.environment}-seedlist"
             elif seed_repo == "disable":
                 pass
             else:
@@ -189,7 +194,8 @@ class Download():
                     "pos": self.file_pos, 
                     "uri": seed_repo, 
                     "version": download_version,
-                    "profile": profile, 
+                    "profile": profile,
+                    "dest_path": seed_path, 
                     "type": "seedlist",
                 }
             }
@@ -258,7 +264,7 @@ class Download():
 
     def get_download(self,file_name):
         self.log.logger.info(f"{self.log_prefix} -> get_download -> downloading [{self.file_obj[file_name]['type']}] files: {file_name} uri [{self.file_obj[file_name]['uri']}] remote size [{self.file_obj[file_name]['remote_size']}]")
-        file_path = self.set_file_path(file_name)
+        file_path = self.file_obj[file_name]["dest_path"]
 
         if self.file_obj[file_name]["state"] == "disabled":
             self.log.logger.warn(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_name]['type']}] disabled, skipping.")
@@ -315,7 +321,7 @@ class Download():
     # Tests
 
     def test_file_size(self,file_name):
-        file_path = self.set_file_path(file_name)
+        file_path = self.file_obj[file_name]["dest_path"]
         if self.file_obj[file_name]["state"] == "disabled" or self.file_obj[file_name]["remote_size"] < 0: 
             return True # skip test
         if path.exists(file_path):

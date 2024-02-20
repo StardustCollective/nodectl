@@ -2292,7 +2292,7 @@ class CLI():
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-1229",
                     "line_code": "file_not_found",
-                    "extra": "seed-list",
+                    "extra": self.functions.config_obj[profile]["seed_path"],
                     "extra2": None
                 })
             elif test:
