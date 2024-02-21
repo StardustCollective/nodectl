@@ -85,8 +85,8 @@ class Upgrader():
         self.get_node_id()    
         self.request_version()
         
-        # self.leave_cluster() 
-        # self.stop_service() 
+        self.leave_cluster() 
+        self.stop_service() 
 
         self.print_section("Node Internal Configuration")
         self.verify_directories()
@@ -1297,7 +1297,7 @@ class Upgrader():
     def encrypt_passphrase(self):
         # because encryption will change the cn-config.yaml values to avoid processing necessary
         # to rebuild the configuration file after-the-fact, this feature is offered last.
-        
+
         if self.config_obj["global_p12"]["encryption"]:
             self.log.logger.debug("upgrader -> nodectl detected encryption is already enabled, skipping.")
             return

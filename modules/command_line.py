@@ -4645,24 +4645,38 @@ class CLI():
                 })
 
         backup_dir = self.config_obj[self.functions.default_profile]["directory_backups"]
-        restore_dict = self.functions.get_list_of_files({
+        raw_restore_dict = self.functions.get_list_of_files({
             "paths": [backup_dir],
             "files": [f"*{date}*"] if date else ["*"],
         })
 
-        if len(restore_dict) < 1:
+        if len(raw_restore_dict) < 1:
             control_exit(date)
 
-        restore_dict = {key: value.replace("//","/") for key,value in restore_dict.items() if "backup" in value and "cn-config" in value}
-        display_list = []
-        for value in restore_dict.values():
-            value = value.replace("//","/")
-            try:
-                format_replace = value.split(".")[1].split("backup")[0]
-            except:
-                continue
-            display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
-            display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
+        display_list, restore_dict, order  = [], {}, 0
+        for value in raw_restore_dict.values():
+            if date:
+                if date not in value: continue
+            if "backup" in value and "cn-config" in value:
+                value = value.replace("//","/")
+                try:
+                    format_replace = value.split(".")[1].split("backup")[0]
+                except:
+                    continue
+                display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
+                display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
+                order+=1
+                restore_dict[str(order)] = value
+
+        # display_list = []
+        # for value in restore_dict.values():
+        #     value = value.replace("//","/")
+        #     try:
+        #         format_replace = value.split(".")[1].split("backup")[0]
+        #     except:
+        #         continue
+        #     display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
+        #     display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
 
         if len(display_list) < 1:
             control_exit(date)
@@ -4683,19 +4697,27 @@ class CLI():
             ["Please choose a date time option:",2,"yellow"],
         ])
 
+        display_list.append("cancel operation")
         option = self.functions.print_option_menu({
             "options": display_list,
             "press_type": "manual",
             "newline": True,
         })
+
         try: 
             option = int(option)
+            if option == len(display_list):
+                self.functions.print_paragraphs([
+                    ["",1],["nodectl quit by user request",2,"green"],
+                ])
+                raise Exception
             self.functions.print_paragraphs([
                 ["",1],["restore file:",1,"yellow"],
                 [display_list[option-1],1,"green"],
                 [restore_dict[str(option)],2,"green"]
             ])
         except:
+            if option == len(display_list): exit(0)
             self.error_messages.error_code_messages({
                 "error_code": "cli-4664",
                 "line_code": "input_error",
@@ -4713,10 +4735,29 @@ class CLI():
             self.log.logger.warn(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
             new_file = datetime.utcnow().strftime("cn-config.%Y-%m-%d-%H:%M:%SZbackup.yaml")
             self.log.logger.info(f"restore_config is backing up current cn-config.yaml as [{new_file}]")
+            self.functions.print_cmd_status({
+                "text_start": "backing up current config",
+                "status": "running",
+            })
             system(f"cp /var/tessellation/nodectl/cn-config.yaml {backup_dir}{new_file} > /dev/null 2>&1")
+            sleep(.8)
+            self.functions.print_cmd_status({
+                "text_start": "backing up current config",
+                "status": "complete",
+                "newline": True,
+            })
+            self.functions.print_cmd_status({
+                "text_start": "restoring config",
+                "status": "running",
+            })            
             self.log.logger.info(f"restore_config is restoring cn-config.yaml from [{restore_file}]")
             system(f"cp {restore_file} /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
-
+            sleep(.8)
+            self.functions.print_cmd_status({
+                "text_start": "restoring config",
+                "status": "complete",
+                "newline": True,
+            })
         self.functions.print_paragraphs([
             ["configuration restored!",2,"green","bold"],
         ])
@@ -4729,9 +4770,6 @@ class CLI():
         command_obj["functions"] = self.functions
         Cleaner(command_obj)
             
-
-
-
 
     def export_private_key(self,command_list):
         self.functions.check_for_help(command_list,"export_private_key")
