@@ -1157,6 +1157,8 @@ class CLI():
         
         profile_only = True if "-p" in command_list else False
         
+        coins = self.functions.get_local_coin_db()
+
         self.functions.print_clear_line()
         self.functions.print_header_title({
             "line1": "CURRENT LOADED CLUSTERS",
@@ -1186,6 +1188,10 @@ class CLI():
             self.profile = profile
             self.set_profile_api_ports()
 
+            for coin in coins:
+                if coin["id"] == self.functions.config_obj[profile]['token_coin_id']:
+                    ticker = coin["symbol"]
+
             if n > 0:
                 self.functions.print_paragraphs([
                     ["-","half","blue","bold"],["",1],
@@ -1202,7 +1208,7 @@ class CLI():
                 {
                     "SERVICE NAME": profile_services[n],
                     "BLOCKCHAIN LAYER": profile_layers[n],
-                    "TOKEN": f"${self.functions.config_obj[profile]['token_ticker'].upper()}",
+                    "TOKEN": f"${ticker.upper()}",
                 },
                 {
                     "PROFILE DESCRIPTION": profile_descr[n],

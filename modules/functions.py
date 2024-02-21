@@ -136,6 +136,20 @@ class Functions():
     # =============================
     # getter functions
     # =============================
+        
+    def get_local_coin_db(self):
+        coin_list_path = path.join(getcwd(), "modules/data/coingecko_coin_list.json")
+        
+        try:
+            with open(coin_list_path, "r", encoding="utf-8") as file:
+                coins = json.load(file)
+        except Exception as e:
+            self.log.logger.error(f"coingecko response error | {e}")
+            cprint("  Unable to process CoinGecko coin list results...","red") 
+            return False
+        else:
+            return coins
+
     def get_crypto_price(self):
         # The last element is used for balance calculations
         # It is not used by the show prices command
@@ -149,7 +163,7 @@ class Functions():
                     coin_prices[ticker_id]['usd'] = 0.00
 
             return coin_prices
-        
+            
         updated_coin_prices = {}
         # In the circumstance that CoinGecko is down *rare but happens*
         # This is a quick timeout check before attempting to download pricing
@@ -169,14 +183,8 @@ class Functions():
         else:
             # replace pricing list properly
             coin_prices = test_for_api_outage(coin_prices)
-            coin_list_path = path.join(getcwd(), "modules/data/coingecko_coin_list.json")
-            try:
-                with open(coin_list_path, "r", encoding="utf-8") as file:
-                    coins = json.load(file)
-            except Exception as ee:
-                self.log.logger.error(f"coingecko response error | {ee}")
-                cprint("  Unable to process CoinGecko coin list results...","red")  
-            else:
+            coins = self.get_local_coin_db()
+            if coins:
                 updated_coin_prices = deepcopy(coin_prices)
                 for coin in coins:
                     for cid in coin_prices.keys():
