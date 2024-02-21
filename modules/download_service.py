@@ -44,7 +44,6 @@ class Download():
         self.argv_list = command_obj.get("argv_list",[])
         self.backup = command_obj.get("backup", True)
 
-        self.file_list = []
         self.successful = True
         self.retries = 3
         self.file_pos = 1
@@ -140,7 +139,6 @@ class Download():
                     "type": "binary"
                 }
 
-        self.file_list = list(file_obj.keys())
         self.file_obj = file_obj
         self.file_pos = file_pos
 
@@ -200,8 +198,6 @@ class Download():
                     "type": "seedlist",
                 }
             }
-            if state != "disabled":
-                self.file_list.append(seed_file)
 
             # debugging purposes
             # self.file_obj = {
@@ -399,9 +395,21 @@ class Download():
         if self.auto_restart: return
         self.functions.print_header_title({
             "line1": "DOWNLOADING BINARIES",
-            "newline": "top",
+            "newline": "both",
             "single_line": True,
         })
+
+        download_version = "-1"
+        for file in self.file_obj.keys():
+            if download_version != self.file_obj[file]["version"]:
+                download_version = self.file_obj[file]["version"]
+                self.functions.print_cmd_status({
+                    "text_start": "Downloading version",
+                    "status": download_version,
+                    "status_color": "green",
+                    "newline": True,
+                })
+
         for file in list(self.file_obj.keys()):
             self.print_status_handler(file, True)
         print("")
@@ -411,30 +419,38 @@ class Download():
         if not self.backup: 
             self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
             return
-        
-        file_list = []
 
+        action = "restore"
+        file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] == "failed"]
         if backup:
-            self.log.logger.info(f"{self.log_prefix} file_backup_handler -> nodectl backing up the following files | [{self.file_list}]")
             action = "backup" 
-            file_list = self.file_list
-        else:
-            action = "restore"
-            for file in self.file_obj.keys():
-                if self.file_obj[file]["state"] == "failed":
-                    file_list.append(file)
-
+            file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] != "disabled"]
+        
+        self.log.logger.info(f"{self.log_prefix} file_backup_handler -> nodectl executing action [{action}] on the following files | [{file_list}]")
+        
         if len(file_list) > 0:
             if action == "restore":
                 self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
                 self.functions.print_paragraphs([
                     [" NOTE ",0,"yellow,on_red"], ["nodectl will only restore failed files",1,"red"],
                 ])
-            self.functions.backup_restore_files({
-                "file_list": self.file_list,
-                "location": "/var/tessellation",
-                "action": action
-            })        
+
+            for file in file_list:
+                print_start, print_complete = False, False
+                if file == file_list[0]: print_start = True
+                if file == file_list[-1]: print_complete = True
+            
+                location, file_list_single = path.split(self.file_obj[file]["dest_path"])
+                file_list_single = [file_list_single]
+
+                self.functions.backup_restore_files({
+                    "file_list": file_list_single,
+                    "location": location,
+                    "action": action,
+                    "remove": True if action == "backup" else False,
+                    "print_start": print_start,
+                    "print_complete": print_complete,
+                })        
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ from threading import Timer
 from platform import platform
 from urllib.parse import urlparse, urlunparse
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir, getcwd
+from os import system, getenv, path, walk, environ, get_terminal_size, scandir, getcwd, remove
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
@@ -3188,8 +3188,14 @@ class Functions():
         files = file_obj["file_list"]
         location = file_obj["location"]
         action = file_obj["action"]
-        
-        if not self.auto_restart:
+        f_remove = file_obj.get("remove",False)
+        print_start = file_obj.get("print_start",True)
+        print_complete = file_obj.get("print_complete",True)
+
+        if self.auto_restart:
+            print_start, print_complete = False, False
+
+        if print_start:
             self.print_cmd_status({
                 "text_start": f"{action} files",
                 "status": "running",
@@ -3213,8 +3219,13 @@ class Functions():
                     "bashCommand": bashCommand,
                     "proc_action": "run"
                 }) 
-                
-        if not self.auto_restart:           
+
+        if f_remove:
+            for file in files:
+                if path.exists(f"{location}/{file}"):
+                    remove(f"{location}/{file}")
+
+        if print_complete:           
             self.print_cmd_status({
                 "text_start": f"{action} files",
                 "status": "complete",
