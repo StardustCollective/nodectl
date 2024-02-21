@@ -329,7 +329,6 @@ class DownloadStatus():
                 "profile": self.profile,
                 "simple": True
             })                    
-            # self.functions.print_timer(5,"before checking again")
             self.functions.print_timer({
                 "seconds": 5,
                 "phrase": "Pausing",

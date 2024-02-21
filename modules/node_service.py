@@ -417,7 +417,10 @@ class Node():
 
                 if not_ready_option.upper() == "S": break
             if not self.auto_restart:
-                self.functions.print_timer(30,error_str)
+                self.functions.print_timer({
+                    "seconds": 30,
+                    "phrase": error_str,
+                })
 
         return False
         
@@ -688,14 +691,19 @@ class Node():
 
                             if action == "cli":
                                 self.functions.print_clear_line()
-                                # self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
                                 self.functions.print_timer({
                                     "seconds": 12,
-                                    "prhase": f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),
+                                    "phrase": f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),
                                     "start": start
                                 })
                             else:
-                                self.functions.print_timer(12,"Sleeping prior to retry")
+                                self.functions.print_timer({
+                                    "seconds": 12,
+                                    "phrase": "sleeping",
+                                    "end_phrase": "prior to retry",
+                                    "step": -1,
+                                    "p_type": "cmd",
+                                })
                         if link_obj[f"{link_type}_link_ready"] or join_breakout:
                             break
 
@@ -755,7 +763,6 @@ class Node():
                         "status_color": "red",
                         "newline": True
                     })
-                    # self.functions.print_timer(8,"pausing")
                     self.functions.print_timer({
                         "seconds": 8,
                         "phrase": "Pausing",

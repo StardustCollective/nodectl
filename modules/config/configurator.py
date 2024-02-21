@@ -4100,10 +4100,9 @@ class Configurator():
                 "caller": "configurator"
             })
             if s_action == "leave":
-                # self.c.functions.print_timer(40,"to gracefully leave the network")
                 self.c.functions.print_timer({
                     "seconds": 40,
-                    "prhase": "Gracefully",
+                    "phrase": "Gracefully",
                     "step": -1,
                     "end_phrase": "leaving cluster"
                 })

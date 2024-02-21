@@ -727,7 +727,6 @@ class Functions():
                     self.log.logger.error(f"unable to find a Node on the current cluster with [{desired_key}] == [{desired_value}]") 
                     if not self.auto_restart:
                         print(colored("  WARNING:","yellow",attrs=['bold']),colored(f"unable to find node in [{desired_value}]","red"))
-                        # self.print_timer(10,"Pausing 10 seconds",1)
                         self.print_timer({
                             "seconds": 10,
                             "phrase": ""
@@ -2517,7 +2516,6 @@ class Functions():
             print(f'\x1b[{lines}A', end='')        
         
 
-    # def print_timer(self,seconds,phrase="none",start=1):
     def print_timer(self,command_obj):
         seconds = command_obj["seconds"]
         start = command_obj.get("start",1)
@@ -3342,7 +3340,6 @@ class Functions():
                     "newline": True,
                 }
                 self.print_cmd_status(progress)
-                # self.print_timer(seconds,"to allow network to recover",start=1)
                 self.print_timer({
                     "seconds": seconds,
                     "phrase": "to allow network to recover",

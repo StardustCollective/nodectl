@@ -420,8 +420,10 @@ class CLI():
                     if not self.skip_build:
                         if rebuild:
                             if do_wait:
-                                self.functions.print_timer(({"seconds":20}))
-                                
+                                self.functions.print_timer({
+                                    "seconds":20
+                                })
+                                                               
                             sessions["state1"] = self.functions.test_peer_state({
                                 "threaded": threaded,
                                 "spinner": spinner,
@@ -2556,7 +2558,6 @@ class CLI():
             "status": "complete",
         }) 
         
-        # self.functions.print_timer(6,"wait for start",1)
         self.functions.print_timer({
             "p_type": "cmd",
             "seconds": 6,
@@ -4193,7 +4194,7 @@ class CLI():
         self.functions.print_paragraphs([
             ["",1],["UPDATE OUTPUT BOX",1,"blue","bold"],["-","half","bold"],
         ])
-        system("sudo apt update")
+        system("sudo apt -y update")
         self.functions.print_paragraphs([
             ["-","half","bold"],["",1],
         ])
@@ -4207,7 +4208,7 @@ class CLI():
         self.functions.print_paragraphs([
             ["",1],["UPGRADE OUTPUT BOX",1,"blue","bold"],["-","half","bold"],
         ])
-        system("sudo apt upgrade")
+        system("sudo apt -y upgrade")
         self.functions.print_paragraphs([
             ["-","half","bold"],["",1],
         ])
