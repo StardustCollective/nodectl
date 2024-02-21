@@ -33,9 +33,6 @@ class AutoRestart():
         self.rapid_restart = self.config_obj["global_auto_restart"]["rapid_restart"] 
         self.thread_layer = self.config_obj[self.thread_profile]["layer"]
 
-        # self.gl0_link_profile = self.config_obj[self.thread_profile]["gl0_link_profile"]
-        # self.ml0_link_profile = self.config_obj[self.thread_profile]["ml0_link_profile"]
-
         self.sleep_on_critical = 15 if self.rapid_restart else 600
         self.silent_restart_timer = 5 if self.rapid_restart else 30  
         self.join_pause_timer = 5 if self.rapid_restart else 180
@@ -433,9 +430,19 @@ class AutoRestart():
                 self.profile_states[self.node_service.profile]["action"] = "restart_full" 
 
         if self.profile_states[self.node_service.profile]["node_state"] == "Ready":
-            for clear_state_time in ["Observing","WaitingForDownload","WaitingForReady"]:
-                self.profile_states[self.node_service.profile][f"{clear_state_time}_time"] = 0   
+            self.clear_timers_flags("timers")
+        elif self.profile_states[self.node_service.profile]["node_state"] in ["DownloadInProgress","Observing","WaitingForReady","WaitingForObserving"]:
+            self.clear_timers_flags("flags")
     
+
+    def clear_timers_flags(self, tf_type):
+        if tf_type == "timers":
+            for clear_state_time in ["Observing","WaitingForDownload","WaitingForReady"]:
+                self.profile_states[self.node_service.profile][f"{clear_state_time}_time"] = 0  
+        elif tf_type == "flags":
+            for fork_type in ["minority_fork","consensus_fork"]:
+                self.profile_states[self.node_service.profile][fork_type] = False
+
 
     # LOOPERS
     def attempts_looper(self,attempts,action,sec,max_attempts,critical_sleep):
@@ -509,6 +516,10 @@ class AutoRestart():
 
     def silent_restart(self,action):
         self.on_boot_handler()
+        
+        # make sure we don't need to auto_upgrade before we do the restart
+        self.version_check_handler()
+        
         if action != "join_only":
             if not self.profile_states[self.node_service.profile]["minority_fork"] and not self.profile_states[self.node_service.profile]["consensus_fork"]:
                 # double check in case network issue caused a false positive
@@ -678,7 +689,6 @@ class AutoRestart():
                     self.attempts_looper(0,"versioning_update",125,1,False)
                 else:
                     break
-
                     
             versions = [
                 self.version_obj[self.environment][self.thread_profile]["cluster_tess_version"],
@@ -696,7 +706,7 @@ class AutoRestart():
                     if not self.auto_upgrade or auto_upgrade_success:
                         return True
                     elif self.auto_upgrade and not auto_upgrade_success:
-                        self.log.logger.error("auto_restart - auto_upgrade - was unsuccessful downloading new version.")
+                        self.log.logger.error("auto_restart - auto_upgrade - was unsuccessful in attempt to download new version.")
                     warning = True
             except Exception as e:
                 self.log.logger.critical(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - and we received an error [{e}] - sleeping 10m")
@@ -848,8 +858,6 @@ class AutoRestart():
                 self.log.logger.info(f">>>> auto_restart - thread [{self.thread_profile}] -  restart handler - thread [{self.thread_profile}] timer expired [{self.timer}] seconds elapsed, checking sessions.") 
             
                 self.set_test_external_state("ep") # is the cluster up?
-                self.version_check_handler()
-                
                 self.update_profile_states()   
                 action = self.profile_states[self.node_service.profile]["action"]
                 match = self.profile_states[self.node_service.profile]["match"]
@@ -881,7 +889,7 @@ class AutoRestart():
                     sleep(extra_wait_time)
                     if not match:
                         warn_msg = "\n==========================================================================\n"
-                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED - MAJORITY FORK detected | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
                         warn_msg += "=========================================================================="                        
                         self.log.logger.warn(warn_msg)
                     elif consensus_fork:
