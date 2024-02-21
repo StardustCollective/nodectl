@@ -51,6 +51,7 @@ def pull_valid_command():
         "refresh_binaries",
         "restart",
         "restart_only",
+        "restore_config",
 
         "show_service_status",
         "show_service_log",

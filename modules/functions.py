@@ -1058,7 +1058,7 @@ class Functions():
 
     def get_list_of_files(self,command_obj):
         paths = command_obj.get("paths") # list
-        files = command_obj.get("files") # list - *.extention or full file name
+        files = command_obj.get("files") # list - *.extension or full file name
         
         excludes = [command_obj.get("exclude_paths",False)] # list
         excludes.append(command_obj.get("exclude_files",False)) # list
@@ -2781,7 +2781,8 @@ class Functions():
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")
         color = command_obj.get("color","cyan")
-        newline = command_obj.get("newline",False)
+        newline = command_obj.get("newline",False) # top, bottom, both
+        press_type = command_obj.get("press_type","key_press") # manual, key_press
 
         # If r_and_q is set ("r","q" or "both")
         # make sure if using "let" option, "r" and "q" do not conflict
@@ -2818,6 +2819,11 @@ class Functions():
         else:
             print("")
             
+        if press_type == "manual":
+            cprint("  Enter an option and hit the <enter> key",color)
+            option = input("  : ")
+            return option
+        
         option = self.get_user_keypress({
             "prompt": "KEY PRESS an option",
             "prompt_color": "cyan",

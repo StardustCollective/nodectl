@@ -98,7 +98,12 @@ class Configurator():
         self.prepare_configuration("new_config")
         self.error_messages = Error_codes(self.c.functions)
 
-        if "--installer" in argv_list:
+        if "--installer" in argv_list or "--upgrader" in argv_list:
+            if "--installer" in argv_list:
+                self.log.logger.info("installation module creating new configuration object")
+            else:
+                self.log.logger.info("upgrader module creating new configuration object")
+            # upgrader will use same elements as installer
             self.installer = True
             self.action = "install"
             self.detailed = False
@@ -3221,7 +3226,7 @@ class Configurator():
                     ["update/change your passphrase, and, upon completion,",0],
                     ["re-enable",0,"green"], ["the encryption feature.",2],
 
-                    ["Encryption will be turned on globally for all profiles.  Each profile encrypted with a different key.",2],
+                    ["Encryption will be turned on globally for all profiles.  Each unique profile passphrase may be encrypted with a different key.",2],
 
                     ["For security purposes, nodectl will not decrypt the passphrase upon disabling the",0,"red","bold"],
                     ["encryption feature.",2,"red","bold"],
@@ -3305,7 +3310,7 @@ class Configurator():
                         if do_confirm:
                             for attempt in range(0,4):
                                 if attempt > 2:
-                                    self.log.logger.error("configurator -> encrpytion -> passphrase confirmation failed.")
+                                    self.log.logger.error("configurator -> encryption -> passphrase confirmation failed.")
                                     self.encryption_failed = True
                                     cprint("  Cancelling action","red")
                                     sleep(2)

@@ -237,7 +237,7 @@ class Error_codes():
             ])
 
         elif "service" in str(var.line_code):
-            self.log.logger.critical(f"attempt to access the service file seems to have failed. [{extra}]")
+            self.log.logger.critical(f"attempt to access the service file seems to have failed. [{var.extra}]")
             self.functions.print_paragraphs([
                 ["Something isn't quite right?",2,"red","bold"],
                 ["Are you sure the",0,"red","bold"], ["Node",0, "yellow","bold,underline"],
@@ -659,8 +659,12 @@ class Error_codes():
                     ["This error may have been caused by",0,"magenta"], ["manual intervention",0, "red","underline"],
                     ["of the configuration file. Manual editing on the configuration file should be left to advanced Administrators only.",2,"magenta"],
                     ["The configuration file may have been corrupted due to an interruption during configuration by nodectl.",2,"magenta"],
-                    ["Alternatively, it is advised to attempt to correct issues via nodectl's configure option or use nodectl to build a new configuration.",1,"magenta"],
-                    ["Use command:",0,"yellow"], ["sudo nodectl configure",2],
+                    ["Alternatively, it is advised to attempt to correct issues via nodectl's configure option or use nodectl to build a new configuration.",2,"magenta"],
+                    
+                    ["Use command:",0,"yellow"], ["sudo nodectl configure",1],
+                    ["If you are attempting to configure your Node and receive this error...",1,"magenta"],
+                    ["Use command:",0,"yellow"], ["sudo nodectl upgrade",1],
+                    ["Otherwise, seek help in the Constellation Network official Discord or reinstall nodectl.",2,"magenta"],
                 ])
             if var.extra == "configurator":
                 self.log.logger.error(f"configurator error found [{extra2}]")

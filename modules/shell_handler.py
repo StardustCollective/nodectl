@@ -260,6 +260,8 @@ class ShellHandler:
             self.cli.migrate_node(self.argv)
         elif self.called_command == "reboot":
             self.cli.cli_reboot(self.argv)
+        elif self.called_command == "restore_config":
+            self.cli.cli_restore_config(self.argv)
         elif self.called_command in node_id_commands:
             command = "dag" if self.called_command == "dag" else "nodeid"
             self.cli.cli_grab_id({

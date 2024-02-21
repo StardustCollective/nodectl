@@ -11,6 +11,7 @@ from .p12 import P12Class
 from .command_line import CLI
 from .troubleshoot.logger import Logging
 from .config.config import Configuration
+from .config.configurator import Configurator
 
 class Upgrader():
 
@@ -102,6 +103,7 @@ class Upgrader():
                 self.check_for_api_readytojoin(profile)
                 self.re_join_tessellation(profile)
         
+        self.encrypt_passphrase()
         self.complete_process()
     
     
@@ -1292,5 +1294,46 @@ class Upgrader():
         return count+1
     
     
+    def encrypt_passphrase(self):
+        # because encryption will change the cn-config.yaml values to avoid processing necessary
+        # to rebuild the configuration file after-the-fact, this feature is offered last.
+        
+        if self.config_obj["global_p12"]["encryption"]:
+            self.log.logger.debug("upgrader -> nodectl detected encryption is already enabled, skipping.")
+            return
+        
+        self.functions.print_header_title({
+            "line1": "ENCRYPTION SERVICES",
+            "single_line": True,
+            "newline": "both"
+        })
+        self.functions.print_paragraphs([
+            [" NEW ",0,"grey,on_green"], ["to nodectl >2.13.x",2,"green","bold"],
+
+            ["Do you want to encrypt the passphrase in your",0,"magenta"],
+            ["cn-config.yaml",0,"yellow"], ["configuration file?",1,"magenta"],
+        ])
+        if self.non_interactive:
+            self.log.logger.warn("upgrade -> non-interactive mode detected, encryption of passphrase feature skipped.")
+            self.functions.print_paragraphs([
+                ["non-interactive mode detected, nodectl is skipping passphrase an encryption request.",1,"red"]
+            ])
+            return
+
+        if self.functions.confirm_action({
+            "yes_no_default": "y",
+            "return_on": "y",
+            "prompt": "Enable encrypt?",
+            "prompt_color": "cyan",
+            "exit_if": False,
+        }):
+            self.configurator = Configurator(["--upgrader"])
+            self.configurator.detailed = True
+            self.configurator.metagraph_list = self.functions.profile_names
+            self.configurator.c.config_obj = deepcopy(self.config_obj)
+            self.configurator.prepare_configuration("edit_config")
+            self.configurator.passphrase_enable_disable_encryption()
+
+
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")        

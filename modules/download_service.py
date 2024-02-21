@@ -65,6 +65,7 @@ class Download():
         self.profile_names = [self.requested_profile]
         if not self.requested_profile: 
             self.profile_names = self.functions.profile_names
+            self.profile_names = self.functions.clear_global_profiles(self.profile_names)
 
         if not self.environment:
             self.error_messages.error_code_messages({

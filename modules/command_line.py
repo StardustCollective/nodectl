@@ -4620,6 +4620,95 @@ class CLI():
         p12.create_individual_p12(self)  
 
 
+    def cli_restore_config(self,command_list):
+        if "--date" in command_list:
+            date = command_list[command_list.index("--date")+1]
+            try:
+                datetime.strptime(date, '%Y-%m-%d')
+            except ValueError:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-4630",
+                    "line_code": "input_error",
+                    "extra": f"invalid date format or date: {date}",
+                    "extra2": "must use 'YYYY-MM-DD' format with --date option"
+                })
+
+        backup_dir = self.config_obj[self.functions.default_profile]["directory_backups"]
+        restore_dict = self.functions.get_list_of_files({
+            "paths": [backup_dir],
+            "files": [f"*{date}*"] if date else ["*"],
+        })
+
+        if len(restore_dict) < 1:
+            self.functions.print_paragraphs([
+                ["",1],["No backup files were located in",0,"red","bold"],
+                [backup_dir,0,"yellow"],
+                ["exiting.",1,"red","bold"],
+            ])
+
+        restore_dict = {key: value.replace("//","/") for key,value in restore_dict.items()}
+        display_list = []
+        for value in restore_dict.values():
+            value = value.replace("//","/")
+            format_replace = value.split(".")[1].split("backup")[0]
+            display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
+            display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
+
+        self.functions.print_header_title({
+            "line1": "RESTORE CONFIGURATION FILE",
+            "line2": "from backups",
+            "clear": True,
+            "newline": "top",
+        })
+
+        self.functions.print_paragraphs([
+            [" WARNING ",1,"yellow,on_red"],
+            ["Restoring the wrong configuration or a configuration from a previous version of nodectl that is not",0,"red"],
+            ["in the current upgrade path may cause nodectl to malfunction.",2,"red"],
+
+            ["Proceed with caution!",1,"magenta","bold"],
+            ["Please choose a date time option:",2,"yellow"],
+        ])
+
+        option = self.functions.print_option_menu({
+            "options": display_list,
+            "press_type": "manual",
+            "newline": True,
+        })
+        try: 
+            option = int(option)
+            self.functions.print_paragraphs([
+                ["",1],["restore file:",1,"yellow"],
+                [display_list[option-1],1,"green"],
+                [restore_dict[str(option)],2,"green"]
+            ])
+        except:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4664",
+                "line_code": "input_error",
+                "extra": f"invalid option selected: {option}",
+                "extra2": "did you enter valid number option?"                
+            })
+
+        if self.functions.confirm_action({
+            "prompt": "Are you SURE you want to restore?",
+            "return_on": "y",
+            "exit_if": True,
+            "yes_no_default": "n",
+        }):
+            restore_file = restore_dict[str(option)]
+            self.log.logger.warn(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
+            new_file = datetime.utcnow().strftime("cn-config.%Y-%m-%d-%H:%M:%SZbackup.yaml")
+            self.log.logger.info(f"restore_config is backing up current cn-config.yaml as [{new_file}]")
+            system(f"cp /var/tessellation/nodectl/cn-config.yaml {backup_dir}{new_file} > /dev/null 2>&1")
+            self.log.logger.info(f"restore_config is restoring cn-config.yaml from [{restore_file}]")
+            system(f"cp {restore_file} /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
+
+        self.functions.print_paragraphs([
+            ["configuration restored!",2,"green","bold"],
+        ])
+
+
     def clean_files(self,command_obj):
         what = "clear_snapshots" if command_obj["action"] == "snapshots" else "clean_files"
         self.log.logger.info(f"request to {what} inventory by Operator...")
@@ -4627,7 +4716,10 @@ class CLI():
         command_obj["functions"] = self.functions
         Cleaner(command_obj)
             
-                    
+
+
+
+
     def export_private_key(self,command_list):
         self.functions.check_for_help(command_list,"export_private_key")
         profile =  command_list[command_list.index("-p")+1]
