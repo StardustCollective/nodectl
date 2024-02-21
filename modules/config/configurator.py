@@ -285,7 +285,6 @@ class Configurator():
                 ["  - p12 file name",1,"magenta"],
                 ["  - p12 file location",1,"magenta"],
                 ["  - p12 passphrase",1,"magenta"],
-                ["  - p12 wallet alias",2,"magenta"],
                 
                 ["Warning!",0,"red","bold"],["Invalid entries will either be rejected at runtime or flagged as invalid by",0], 
                 ["nodectl",0,"blue","bold"], ["before runtime.",0], ["nodectl",0,"blue","bold"], ["does not validate entries during the configuration entry process.",2]

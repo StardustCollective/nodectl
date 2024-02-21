@@ -440,12 +440,22 @@ class Configuration():
             "priority_source_file": "priority-list",
             "priority_source_location": "/var/tessellation",
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
+            "jar_file": {
+                "hypergraph":  {
+                    "dag-l0": "cl-node.jar",
+                    "dag-l1": "cl-dag-l1.jar",
+                },
+                "dor-metagraph": {
+                    "dor-l0": " metagraph-l0.jar",
+                    "dor-dl1": "data-l1.jar",
+                    "dor-cl1": "currency-l1.jar",
+                },
+            },
             "jar_repository": {
                 "dor-metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
             },
             "edge_point": {
                 "mainnet": "mainnet.constellationnetwork.io",
-                "dor-metagraph": "mainnet.constellationnetwork.io",
                 "testnet": "testnet.constellationnetwork.io",
                 "integrationnet": "integrationnet.constellationnetwork.io",
             },
@@ -579,6 +589,7 @@ class Configuration():
 
             environment = self.config_obj[profile]["environment"]
 
+            layer = int(self.config_obj[profile]["layer"])
             for tdir, def_value in defaults.items():
                 try:
                     if self.config_obj[profile][tdir] == "default":
@@ -600,9 +611,10 @@ class Configuration():
                                 handle_edge_point(profile,environment)
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
+                        elif tdir == "jar_file":
+                            self.config_obj[profile][tdir] = def_value[metagraph_name][profile]
                         elif isinstance(def_value,list):
-                            self.config_obj[profile][tdir] = def_value[0]
-                            if int(self.config_obj[profile]["layer"]) > 0: self.config_obj[profile][tdir] = def_value[1]
+                            self.config_obj[profile][tdir] = def_value[layer]
                         elif tdir == "token_coin_id":
                             try:
                                 self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
