@@ -4621,6 +4621,17 @@ class CLI():
 
 
     def cli_restore_config(self,command_list):
+        date = False
+
+        def control_exit(date):
+            if not date: date = "all"
+            self.functions.print_paragraphs([
+                ["",1],["No backup files were located in:",0,"red","bold"],
+                [backup_dir,1,"yellow"], ["date:",0,"red","bold"],[date,1,"yellow"],
+                ["Exiting...",1,"red","bold"],
+            ])
+            exit(0)
+
         if "--date" in command_list:
             date = command_list[command_list.index("--date")+1]
             try:
@@ -4640,19 +4651,21 @@ class CLI():
         })
 
         if len(restore_dict) < 1:
-            self.functions.print_paragraphs([
-                ["",1],["No backup files were located in",0,"red","bold"],
-                [backup_dir,0,"yellow"],
-                ["exiting.",1,"red","bold"],
-            ])
+            control_exit(date)
 
-        restore_dict = {key: value.replace("//","/") for key,value in restore_dict.items()}
+        restore_dict = {key: value.replace("//","/") for key,value in restore_dict.items() if "backup" in value and "cn-config" in value}
         display_list = []
         for value in restore_dict.values():
             value = value.replace("//","/")
-            format_replace = value.split(".")[1].split("backup")[0]
+            try:
+                format_replace = value.split(".")[1].split("backup")[0]
+            except:
+                continue
             display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
             display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
+
+        if len(display_list) < 1:
+            control_exit(date)
 
         self.functions.print_header_title({
             "line1": "RESTORE CONFIGURATION FILE",
