@@ -415,16 +415,20 @@ class Configuration():
         # sets up the automated values not present in the 
         # yaml file
 
-        def error_found():
+        def error_found(
+                section,missing_keys=False,value=False,
+                profile=False,special=False
+        ):
             self.error_found = True
             self.error_list.append({
                 "title": "section_missing",
-                "section": "global",
-                "profile": None,
+                "section": section,
+                "profile": profile if profile else None,
                 "type": "section",
                 "key": "multiple",
-                "value": "global_p12",
-                "special_case": None
+                "missing_keys": missing_keys if missing_keys else None,
+                "value": value if value else "global_p12",
+                "special_case": special if special else None
             }) 
             
         # default seed_repository setup in node_services -> download_update_seedlist       
@@ -432,18 +436,18 @@ class Configuration():
         # "default" by the Node Operator to obtain the current default values.  
             
         defaults = {
-            "directory_backups": "/var/tessellation/backups/",
-            "directory_uploads": "/var/tessellation/uploads/",
-            "seed_location": "/var/tessellation", # profile will be added to the path during iteration below
+            "directory_backups": f"{self.functions.default_tessellation_dir}backups/",
+            "directory_uploads": f"{self.functions.default_tessellation_dir}uploads/",
+            "seed_location": self.functions.default_seed_location, # profile will be added to the path during iteration below
             "pro_rating_file": "ratings.csv",
-            "pro_rating_location": "/var/tessellation",
+            "pro_rating_location": self.functions.default_pro_rating_location,
             "priority_source_file": "priority-list",
-            "priority_source_location": "/var/tessellation",
+            "priority_source_location": self.functions.default_priority_source_location,
             "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_file": {
                 "hypergraph":  {
-                    "dag-l0": "cl-node.jar",
-                    "dag-l1": "cl-dag-l1.jar",
+                    0: "cl-node.jar",
+                    1: "cl-dag-l1.jar",
                 },
                 "dor-metagraph": {
                     "dor-l0": " metagraph-l0.jar",
@@ -506,7 +510,7 @@ class Configuration():
                 self.config_obj["global_p12"]["key_name"],
             ) 
         except:
-            error_found()
+            error_found(False,"key_store")
 
         metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
         if isinstance(metagraph_name,list):
@@ -525,13 +529,13 @@ class Configuration():
 
         if self.config_obj["global_elements"]["metagraph_token_identifier"] == "default":
             if metagraph_name == "hypergraph":
-                self.config_obj["global_elements"]["metagraph_token_identifier"] = "disable" 
+                self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][environment]
             else:
                 try:
                     self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][metagraph_name]
                 except:
                     self.log.logger.error("config -> during configuration setup, nodectl could not determine the token identifier")
-                    error_found()
+                    error_found("global","metagraph_token_identifier")
 
         for profile in self.metagraph_list:
             self.config_obj[profile]["p12_key_alias"] = "str" # init (updated outside this method)
@@ -542,41 +546,21 @@ class Configuration():
                     self.config_obj[profile]["p12_key_name"]
                 )
             except KeyError:
-                    self.error_list.append({
-                        "title": "section_missing",
-                        "section": "global",
-                        "profile": profile,
-                        "type": "section",
-                        "key": "multiple",
-                        "value": "p12",
-                        "special_case": None
-                    })
+                    error_found("profile","p12_key_store","valid p12 keystore value",profile)
                 
             # does the profile link through itself?
-            link_key_error = False
             try:
                 self.config_obj[profile]["ml0_link_is_self"] = True
                 if self.config_obj[profile]["ml0_link_profile"] == "None":
                     self.config_obj[profile]["ml0_link_is_self"] = False
             except KeyError:
-                link_key_error = True
+                error_found("profile","ml0_link_profile","error with linking section",profile)
             try:
                 self.config_obj[profile]["gl0_link_is_self"] = True
                 if self.config_obj[profile]["gl0_link_profile"] == "None":
                     self.config_obj[profile]["gl0_link_is_self"] = False
             except KeyError:
-                link_key_error = True
-                
-            if link_key_error:
-                    self.error_list.append({
-                        "title": "section_missing",
-                        "section": "global",
-                        "profile": profile,
-                        "type": "section",
-                        "key": "link_profile",
-                        "value": "link_profile",
-                        "special_case": None
-                    })
+                error_found("profile","gl0_link_profile","error with linking section",profile)
 
             self.config_obj[profile]["is_jar_static"] = False        
             if self.config_obj[profile]["jar_repository"] != "default":
@@ -595,11 +579,11 @@ class Configuration():
                     if self.config_obj[profile][tdir] == "default":
                         if tdir == "seed_file": 
                             try:
-                                self.config_obj[profile][tdir] = f"{def_value[metagraph_name][profile]}{environment}-seedlist"
+                                self.config_obj[profile][tdir] = f"{def_value[metagraph_name][profile]}{environment}-{self.functions.default_seed_file}"
                             except:
-                                self.config_obj[profile][tdir] = f'{metagraph_name}-seedlist' # exception
+                                self.config_obj[profile][tdir] = f"{metagraph_name}-{self.functions.default_seed_file}" 
                         elif tdir == "priority_source_file": 
-                            self.config_obj[profile][tdir] = f'{metagraph_name}-prioritysourcelist' # exception
+                            self.config_obj[profile][tdir] = f"{metagraph_name}-{def_value}" 
                         elif tdir == "jar_repository": 
                             try:
                                 self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
@@ -612,7 +596,10 @@ class Configuration():
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
                         elif tdir == "jar_file":
-                            self.config_obj[profile][tdir] = def_value[metagraph_name][profile]
+                            j_key = profile
+                            if metagraph_name == "hypergraph":
+                                j_key = layer
+                            self.config_obj[profile][tdir] = def_value[metagraph_name][j_key]
                         elif isinstance(def_value,list):
                             self.config_obj[profile][tdir] = def_value[layer]
                         elif tdir == "token_coin_id":
@@ -625,7 +612,7 @@ class Configuration():
                             self.config_obj[profile][tdir] = def_value  
                 except Exception as e:
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
-                    error_found()
+                    error_found("profile",tdir,"error setting defaults",profile)
 
             self.config_obj[profile]["jar_github"] = False 
             # if "github.com" in self.config_obj[profile]["jar_repository"] and not self.config_obj[profile]["is_jar_static"]:
@@ -640,15 +627,7 @@ class Configuration():
                 if self.config_obj[profile]["seed_version"] == "default":
                     self.config_obj[profile]["seed_version"] = self.config_obj[profile]["jar_version"]
             except KeyError:
-                self.error_list.append({
-                    "title": "section_missing",
-                    "section": "seed_list",
-                    "profile": profile,
-                    "type": "section",
-                    "key": "multiple",
-                    "value": "seed list access",
-                    "special_case": None
-                })
+                error_found("profile","seed_version","invalid or missing value",profile)
                 
             try:
                 if self.config_obj[profile]["seed_location"] == "disable":
@@ -660,16 +639,8 @@ class Configuration():
                         self.config_obj[profile]["seed_location"],
                         self.config_obj[profile]["seed_file"]
                     )
-            except KeyError:
-                self.error_list.append({
-                    "title": "section_missing",
-                    "section": "pro",
-                    "profile": profile,
-                    "type": "section",
-                    "key": "multiple",
-                    "value": "seed list access",
-                    "special_case": None
-                })
+            except KeyError as e:
+                error_found("profile",e.args[0],"invalid or missing value",profile)
                 
             try:
                 value = "location of filename"
@@ -686,19 +657,11 @@ class Configuration():
                     if not path.exists(self.config_obj[profile]["priority_source_location"]):
                         value = self.config_obj[profile]["priority_source_location"]
                         raise KeyError
-            except KeyError:
-                self.error_list.append({
-                    "title": "section_missing",
-                    "section": "priority_source",
-                    "profile": profile,
-                    "type": "section",
-                    "key": "location",
-                    "value": value,
-                    "special_case": None
-                })
+            except KeyError as e:
+                error_found("profile",e.args[0],"invalid or missing value",profile)
                 
             try:
-                value = "location of filename"
+                value = "invalid location of filename"
                 if self.config_obj[profile]["pro_rating_location"] == "disable":  
                     self.config_obj[profile]["pro_rating_path"] = "disable"
                 elif self.config_obj[profile]["pro_rating_location"] == "default":
@@ -712,16 +675,8 @@ class Configuration():
                     if not path.exists(self.config_obj[profile]["pro_rating_path"]):
                         value = self.config_obj[profile]["pro_rating_path"]
                         raise KeyError
-            except KeyError:
-                self.error_list.append({
-                    "title": "section_missing",
-                    "section": "pro_rating",
-                    "profile": profile,
-                    "type": "section",
-                    "key": "rating_keys",
-                    "value": value,
-                    "special_case": None
-                })
+            except KeyError as e:
+                error_found("profile",e.args[0],value,profile)
                 
             self.config_obj[profile]["p12_validated"] = False # initialize to False
         
@@ -1649,7 +1604,13 @@ class Configuration():
                         hint = error["special_case"]
                 
                     config_key = ""
+                    test_missing = False
                     if error["key"] == None and error["missing_keys"] != None:
+                        test_missing = True
+                    elif error["title"] == "section_missing" and error["missing_keys"] != None:
+                        test_missing = True
+                    
+                    if test_missing:
                         if isinstance(error["missing_keys"],list):
                             for key_str in error["missing_keys"]:
                                 config_key += key_str+", "
@@ -1659,6 +1620,7 @@ class Configuration():
                     else:
                         config_key = error["key"]
 
+                    error = {key:value if value != None else 'n/a' for key, value in error.items()}
                     self.functions.print_paragraphs([
                         ["Error Type:",0,"magenta"], [error["title"],1],
                         ["   Profile:",0,"magenta"], [error["profile"],1],

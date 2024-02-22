@@ -83,7 +83,7 @@ class Functions():
         self.default_upload_location = "/var/tessellation/uploads/"
         
         self.default_seed_location = "/var/tessellation/"
-        self.default_seed_file = "seed-list"
+        self.default_seed_file = "seedlist"
         
         self.default_priority_source_location = "/var/tessellation/"
         self.default_priority_source_file = "priority-source-list"

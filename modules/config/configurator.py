@@ -2954,7 +2954,10 @@ class Configurator():
         })
         
         self.c.functions.print_paragraphs([
-            [" WARNING! ",0,"grey,on_red","bold"], ["This is a dangerous command and should be done with precaution.  It will migrate an entire profile's settings and directory structure.",2],
+            [" WARNING! ",0,"grey,on_red","bold"], ["This is a dangerous command and should be done with precautions.",0],
+            ["It will migrate an entire profile's settings and directory structure.",0],
+            ["Moreover, some",0],["metagraph",0,"blue","bold"], ["default",0,"yellow"], ["settings are reliant on identifying",0],
+            ["predefined static profile names.",2],
             
             ["Please make sure you know what you are doing before continuing...",1],
             ["press ctrl+c to quit at any time",2,"yellow"],     
