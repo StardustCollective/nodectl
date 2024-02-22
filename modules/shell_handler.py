@@ -16,6 +16,7 @@ from .command_line import CLI
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .config.versioning import Versioning
+from .api import API
 from .config.valid_commands import pull_valid_command
 
 class ShellHandler:
@@ -341,6 +342,8 @@ class ShellHandler:
                self.log.logger.error(f"start cli --> invalid request [{self.argv[0]}]")
                exit(0)
             self.auto_restart_handler("service_start",True)
+        elif self.called_command == "api_server":
+            self.api_service_handler()
         elif self.called_command == "log" or self.called_command == "logs":
             return_value = self.cli.show_logs(self.argv)
         elif "install" in self.called_command:
@@ -958,7 +961,19 @@ class ShellHandler:
                 line = " ".join(line.split()).split(" ")
                 self.auto_restart_pid = int(line[1])
 
+
+    def api_service_handler(self):
+        # future development placeholder
+        action = self.argv[0]
+        # if action != "enable":
+        self.error_messages.error_code_messages({
+            "error_code": "sh-967",
+            "line_code": "api_server_error",
+        })
+        api_server = API(self.functions)
+        api_server.run()
        
+
     def auto_restart_handler(self,action,cli=False,manual=False):
         restart_request = warning = False  
         pid_color = "green"

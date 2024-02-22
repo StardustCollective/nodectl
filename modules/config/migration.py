@@ -303,8 +303,8 @@ class Migration():
                 "nodegaragenodetype": self.config_obj[profile]["node_type"],
                 "nodegaragemetatype": self.config_obj[profile]["meta_type"],
                 "nodegarageblocklayer": self.config_obj[profile]["layer"],
-                "nodegaragecollateral": self.config_obj[profile]["collateral"],
-                "nodegarageservice": self.config_obj[profile]["service"],
+                "nodegaragecollateral": "default", # updated in v2.13.0 | self.config_obj[profile]["collateral"],
+                "nodegarageservice": "default", # updated in v2.13.0 | self.config_obj[profile]["service"],
                 "nodegarageedgepointhost": self.retention[profile]["ep"], # self.config_obj[profile]["edge_point"],
                 "nodegarageedgepointtcpport": self.retention[profile]["ep_tcp"], # self.config_obj[profile]["edge_point_tcp_port"],
                 "nodegaragepublic": self.config_obj[profile]["public_port"],
@@ -387,16 +387,17 @@ class Migration():
         if self.config_obj["global_elements"]["metagraph_name"] in ["testnet","mainnet","integrationnet"]:
             metagraph_name = "hypergraph"
         elif metagraph_name == "dor_metagraph":
-            token_coin_id = "dor"
+            token_coin_id = "default"
             token_identifier = "default"
 
         rebuild_obj = {
             "nodegaragemetagraphname": metagraph_name,
             "nodegaragemetatokenidentifier": token_identifier,
             "nodegaragemetagraphtokencoinid": token_coin_id, # new to v2.13.0
-            "nodegaragenodectlyaml": self.version_obj["node_nodectl_yaml_version"],
+            "nodegaragelocalapi": "disable", # new to v2.13.0
             "nodegarageincludes": "False", # new to v2.13.0
             "nodegaragedevelopermode": self.config_obj["global_elements"]["developer_mode"],
+            "nodegaragenodectlyaml": self.version_obj["node_nodectl_yaml_version"],
             "nodegarageloglevel": self.config_obj["global_elements"]["log_level"],
 
             "create_file": "config_yaml_global_elements",

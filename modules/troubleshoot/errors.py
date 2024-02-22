@@ -9,6 +9,7 @@ from .logger import Logging
 # =======================
 
 # api_error
+# api_server_error
 
 # config_error
 #     format
@@ -301,6 +302,16 @@ class Error_codes():
             ])
             
             
+        elif var.line_code == "api_server_error":
+            self.log.logger.critical(f"API service attempted to be accessed outside of normal parameters, nodectl terminating...")
+            self.functions.print_paragraphs([
+                ["The API service was called incorrectly.",2,"red","bold"],
+                ["Possible other reasons could be service related? Are you sure:",1,"red","bold"],
+                [" - The",0,"red","bold"],["Node",0,"yellow"], ["service(s) are running?",1,"red","bold"],
+                [" - The",0,"red","bold"],["Operator of the server",0,"yellow"], ["inaccurately attempted to start the service?",2,"red","bold"],
+            ])
+
+
         elif var.line_code == "api_error":
             extra2 = "unknown" if var.extra2 == None else var.extra2
             self.log.logger.critical(f"API timeout error detected.  url [{extra2}] nodectl terminating...")

@@ -1025,8 +1025,9 @@ nodectl:
     metagraph_name: nodegaragemetagraphname  
     metagraph_token_identifier: nodegaragemetatokenidentifier
     metagraph_token_coin_id: nodegaragemetagraphtokencoinid       
-    nodectl_yaml: nodegaragenodectlyaml
+    local_api: nodegaragelocalapi
     includes: nodegarageincludes
+    nodectl_yaml: nodegaragenodectlyaml
     developer_mode: nodegaragedevelopermode
     log_level: nodegarageloglevel
 '''

@@ -489,6 +489,22 @@ class Configuration():
             "java_xms": "1024M",
             "java_xss": "256K",
             "java_xmx": ["7G","3G"],
+            "collateral": {
+                "hypergraph": 0,
+                "dor_metagraph": 0,
+            },
+            "service": {
+                "hypergraph": {
+                    "mainnet": "node_l",
+                    "testnet": "node_l",
+                    "integrationnet": "intnetserv_l",
+                },
+                "dor_metagraph": {
+                    "dor-l0": "dor_ml",
+                    "dor-dl1": "dor_dl",
+                    "dor-cl1": "dor_cl",
+                }
+            }
         }
         
         def handle_edge_point(o_profile,o_environment):
@@ -595,6 +611,17 @@ class Configuration():
                                 handle_edge_point(profile,environment)
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
+                        elif tdir == "collateral":
+                            self.config_obj[profile][tdir] = def_value[metagraph_name]
+                        elif tdir == "service":
+                            try:
+                                services = def_value[metagraph_name]
+                            except:
+                                raise Exception("invalid service default value")
+                            else:
+                                s_key = profile
+                                if metagraph_name == "hypergraph": s_key = environment
+                                self.config_obj[profile][tdir] = f"{services[s_key]}{layer}"
                         elif tdir == "jar_file":
                             j_key = profile
                             if metagraph_name == "hypergraph":
@@ -627,6 +654,7 @@ class Configuration():
                 if self.config_obj[profile]["seed_version"] == "default":
                     self.config_obj[profile]["seed_version"] = self.config_obj[profile]["jar_version"]
             except KeyError:
+                self.log.logger.error(f"setting up configuration variables error detected [seed_version]")
                 error_found("profile","seed_version","invalid or missing value",profile)
                 
             try:
@@ -640,6 +668,7 @@ class Configuration():
                         self.config_obj[profile]["seed_file"]
                     )
             except KeyError as e:
+                self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                 error_found("profile",e.args[0],"invalid or missing value",profile)
                 
             try:
@@ -658,6 +687,7 @@ class Configuration():
                         value = self.config_obj[profile]["priority_source_location"]
                         raise KeyError
             except KeyError as e:
+                self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                 error_found("profile",e.args[0],"invalid or missing value",profile)
                 
             try:
@@ -676,12 +706,17 @@ class Configuration():
                         value = self.config_obj[profile]["pro_rating_path"]
                         raise KeyError
             except KeyError as e:
+                self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                 error_found("profile",e.args[0],value,profile)
                 
             self.config_obj[profile]["p12_validated"] = False # initialize to False
         
         if "install" in self.action:
             return self.config_obj
+        
+        if self.config_obj["global_elements"]["local_api"] != "enable" and self.config_obj["global_elements"]["local_api"] != "disable":
+            self.log.logger.error(f"setting up configuration variables error detected [local_api]")
+            error_found("global_elements","local API definition invalid",self.config_obj["global_elements"]["local_api"],"global")
         
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
         self.config_obj["global_p12"]["p12_validated"] = False  # init key (used outside of this class)
@@ -1013,6 +1048,7 @@ class Configuration():
                 ["metagraph_name","str"],
                 ["metagraph_token_identifier","wallet"],
                 ["metagraph_token_coin_id","str"],
+                ["local_api","str"],
                 ["nodectl_yaml","str"],
                 ["includes","bool"],
                 ["developer_mode","bool"],  
@@ -1209,7 +1245,6 @@ class Configuration():
                         else:
                             self.config_obj[profile][f"global_{p12_key}"] = False
             self.config_obj[profile]["global_p12_cli_pass"] = False # initialize
-
 
         return self.validated
                   

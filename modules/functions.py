@@ -150,6 +150,7 @@ class Functions():
         else:
             return coins
 
+
     def get_crypto_price(self):
         # The last element is used for balance calculations
         # It is not used by the show prices command
