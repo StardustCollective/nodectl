@@ -55,8 +55,8 @@ nodectl:
     node_type: validator
     meta_type: ml
     layer: 0
-    collateral: 0
-    service: node_l0
+    collateral: default
+    service: default
     edge_point: default
     edge_point_tcp_port: default
     public_port: default
@@ -104,8 +104,8 @@ nodectl:
     node_type: validator
     meta_type: ml
     layer: 1
-    collateral: 0
-    service: node_l1
+    collateral: default
+    service: default
     edge_point: default
     edge_point_tcp_port: default
     public_port: default
@@ -137,7 +137,7 @@ nodectl:
     p12_passphrase: global
     seed_location: disable
     seed_repository: disable
-    seed_version: default
+    seed_version: disable
     seed_file: disable
     pro_rating_location: disable
     pro_rating_file: disable
@@ -158,10 +158,11 @@ nodectl:
     passphrase: blank
     encryption: False
   global_elements:
-    metagraph_name: mainnet
+    metagraph_name: hypergraph
     metagraph_token_identifier: default
     metagraph_token_coin_id: default
-    nodectl_yaml: v2.1.0
+    local_api: disable
     includes: False
     developer_mode: False
+    nodectl_yaml: v2.2.0
     log_level: INFO

@@ -55,13 +55,13 @@ nodectl:
     node_type: validator
     meta_type: ml
     layer: 1
-    collateral: 0
-    service: dor_dl1
+    collateral: default
+    service: default
     edge_point: 54.191.143.191  
     edge_point_tcp_port: 9000
-    public_port: 8018
-    p2p_port: 8019
-    cli_port: 8020
+    public_port: 9000
+    p2p_port: 9010
+    cli_port: 9011
     gl0_link_enable: True
     gl0_link_key: external
     gl0_link_host: 52.53.46.33
@@ -72,16 +72,16 @@ nodectl:
     ml0_link_host: 54.191.143.191
     ml0_link_port: 7000
     ml0_link_profile: None
-    token_identifier: DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM
+    token_identifier: global
     token_coin_id: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
     java_xmx: default
     java_xss: default
-    jar_repository: github.com/Constellation-Labs/dor-metagraph/releases/download/
-    jar_version: v1.2.0
-    jar_file: data-l1.jar
+    jar_repository: default
+    jar_version: default
+    jar_file: default
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
@@ -111,8 +111,9 @@ nodectl:
   global_elements:
     metagraph_name: dor_metagraph
     metagraph_token_identifier: default
-    metagraph_token_coin_id: dor
-    nodectl_yaml: v2.1.0
+    metagraph_token_coin_id: default
+    local_api: disable
     includes: False
     developer_mode: False
+    nodectl_yaml: v2.2.0
     log_level: INFO
