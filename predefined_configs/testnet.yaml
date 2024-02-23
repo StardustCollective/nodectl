@@ -158,7 +158,7 @@ nodectl:
     passphrase: blank
     encryption: False
   global_elements:
-    metagraph_name: testnet
+    metagraph_name: hypergraph
     metagraph_token_identifier: disable
     metagraph_token_coin_id: default
     local_api: disable
