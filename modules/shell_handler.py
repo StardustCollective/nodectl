@@ -16,7 +16,6 @@ from .command_line import CLI
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .config.versioning import Versioning
-from .api import API
 from .config.valid_commands import pull_valid_command
 
 class ShellHandler:
@@ -970,8 +969,8 @@ class ShellHandler:
             "error_code": "sh-967",
             "line_code": "api_server_error",
         })
-        api_server = API(self.functions)
-        api_server.run()
+        # api_server = API(self.functions)
+        # api_server.run()
        
 
     def auto_restart_handler(self,action,cli=False,manual=False):
@@ -1231,7 +1230,6 @@ class ShellHandler:
             self.installer.uninstall()
 
         self.installer.install_process()
-        
         self.functions.print_perftime(performance_start,"installation")
 
 

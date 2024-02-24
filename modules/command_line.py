@@ -1814,7 +1814,7 @@ class CLI():
                 })
             else:
                 self.functions.print_paragraphs([
-                    ["-","half"]
+                    ["-","half","cyan"]
                 ])
 
             mc_key = "METAGRAPH"
@@ -4202,7 +4202,7 @@ class CLI():
         ])
         system("sudo apt -y update")
         self.functions.print_paragraphs([
-            ["-","half","bold"],["",1],
+            ["-","half","cyan","bold"],["",1],
         ])
 
         self.functions.print_cmd_status({
@@ -4216,7 +4216,7 @@ class CLI():
         ])
         system("sudo apt -y upgrade")
         self.functions.print_paragraphs([
-            ["-","half","bold"],["",1],
+            ["-","half","cyan","bold"],["",1],
         ])
 
         self.functions.print_cmd_status({

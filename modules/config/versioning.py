@@ -211,29 +211,24 @@ class Versioning():
           
             # get cluster Tessellation
             self.log.logger.debug(f"versioning - called by [{self.logging_name}] - building new version object.")
+           
             version_obj, env_version_obj = {}, {}
             last_environment = False
-           
+            info_list = ["version"]
+            metagarph = False
+
             for environment in self.functions.environment_names:
                 for profile in self.functions.profile_names:
                     upgrade_path = deepcopy(self.upgrade_path)
                     if self.config_obj[profile]["environment"] != environment: continue
-                    if self.request == "runtime":
-                        api_host = self.config_obj[profile]["edge_point"]
-                        api_port = self.config_obj[profile]["edge_point_tcp_port"]
-                    else:
-                        core = True
-                        if self.config_obj[profile]["environment"] != self.config_obj["global_elements"]["metagraph_name"]:
-                            # does nodectl statically support "this" specific network cluster
-                            try:
-                                api_host = self.functions.lb_urls[self.functions.environment_name][0]
-                                api_port = self.functions.lb_urls[self.functions.environment_name][1]
-                            except: 
-                                self.log.logger.info(f"versioning -> nodectl found network cluster that is not supported, static configuration elements should be used.")
-                            else: core = False
-                        if core:
-                            api_host = self.config_obj[profile]["edge_point"]
-                            api_port = self.config_obj[profile]["edge_point_tcp_port"]
+                    api_endpoint = "/node/info"
+                    api_host = self.config_obj[profile]["edge_point"]
+                    api_port = self.config_obj[profile]["edge_point_tcp_port"]
+                    if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
+                        info_list = ["metagraphVersion"]
+                        api_endpoint = "/metagraph/info"
+                        metagarph = True
+
                         
                     if not last_environment or last_environment != self.config_obj[profile]["environment"]:
                         version_obj = {
@@ -249,11 +244,33 @@ class Versioning():
                             version = self.functions.get_api_node_info({
                                 "api_host": api_host,
                                 "api_port": api_port,
-                                "info_list": ["version"],
+                                "api_endpoint": api_endpoint,
+                                "info_list": info_list,
                                 "tolerance": 2,
-                            })[0]
+                            })
                         except:
                             version = "v0.0.0"
+                            metagraph_version = "v0.0.0"
+                        else:
+                            if metagarph:
+                                metagraph_version = version[0]
+                                if not metagraph_version.startswith("v"): metagraph_version = f"v{metagraph_version}"
+                                try:
+                                    test = self.functions.lb_urls[self.config_obj[profile]["environment"]][0]
+                                    version = self.functions.get_api_node_info({
+                                        "api_host": self.functions.lb_urls[self.config_obj[profile]["environment"]][0],
+                                        "api_port": self.functions.lb_urls[self.config_obj[profile]["environment"]][1],
+                                        "api_endpoint": "/node/info",
+                                        "info_list": ["version"],
+                                        "tolerance": 2,
+                                    })
+                                except:
+                                    version = "v0.0.0"
+                                else:
+                                    version = version[0]
+                            else:
+                                metagraph_version = None
+                                version = version[0]
                     
                     if profile not in env_version_obj.keys():
                         env_version_obj = {
@@ -274,6 +291,7 @@ class Versioning():
                         node_tess_version = f"v{node_tess_version}"
                                                 
                     env_version_obj[profile]["cluster_tess_version"] = version
+                    env_version_obj[profile]["cluster_metagraph_version"] = metagraph_version
                     env_version_obj[profile]["node_tess_version"] = node_tess_version
                     env_version_obj[profile]["node_tess_jar"] = jar
                     
@@ -441,7 +459,7 @@ class Versioning():
             "upgrade","nodectl_uptodate"
         ]
         tess_keys = [
-            "cluster_tess_version","node_tess_version","node_tess_jar","tess_uptodate"           
+            "cluster_tess_version","cluster_metagraph_version","node_tess_version","node_tess_jar","tess_uptodate"           
         ]    
             
         self.functions.version_obj = self.old_version_obj

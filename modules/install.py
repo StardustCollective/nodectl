@@ -1,4 +1,5 @@
 import pwd
+import shutil
 import modules.uninstall as uninstaller
 from os import makedirs, system, path, environ, walk
 from time import sleep
@@ -34,6 +35,7 @@ class Installer():
         self.found_errors = False
 
         self.action = "install"
+        self.metagraph_name = None
 
         self.error_messages = Error_codes(self.functions) 
         self.log = Logging()
@@ -99,8 +101,8 @@ class Installer():
                 ["quick install",0,"blue","bold"], ["option that utilizes all the",0,"white","bold"], ["recommended",0,"green","bold"],
                 ["default settings. This allows for a streamlined process, requiring minimal input from the future Node Operator.",2,"white","bold"],
 
-                ["Alternatively,",0,"yellow"], ["you can choose a step-by-step installation, where nodectl will ask you questions and provide explanations",0,"white","bold"],
-                ["for the necessary elements to customize the installation your node.",2,"white","bold"],
+                ["Alternatively,",0,"yellow"], ["you can choose a customization mode, step-by-step installation, where nodectl will ask you questions and provide explanations",0,"white","bold"],
+                ["for the necessary elements to customize the installation of your node.",2,"white","bold"],
             ])
             self.options.quick_install = self.functions.confirm_action({
                 "yes_no_default": "y",
@@ -145,8 +147,9 @@ class Installer():
         self.options_dict = OrderedDict()
 
         # option list must be in order otherwise values will not properly populate
+        # environment will be used to create global_elements["metagraph_name"]
         option_list = [
-            "--environment",
+            "--environment", "--metagraph",
             "--user", "--p12_path", "--p12_alias",
             "--user_password","--p12_passphrase",
         ]
@@ -177,13 +180,20 @@ class Installer():
                 if option == "p12_path":
                     self.prepare_p12_details("init")
                 elif option == "environment" and not self.options.environment: 
-                    self.setup_environment(True)
                     self.options.environment = self.parent.environment_requested
+                    if self.options.environment is None:
+                        self.setup_environment(True)
+                        self.print_cmd_status("environment","environment",False)
+                        self.metagraph_name = self.options.environment
                 elif self.options.quick_install:
                     self.quick_installer.validate_options(option)
 
             elif option == "environment":
                 self.print_cmd_status("environment","environment",False) 
+                self.metagraph_name = self.options.environment
+            elif option == "metagraph":
+                self.print_cmd_status("metagraph_name","metagraph_name",False)
+                self.metagraph_name = self.options.environment
             elif option == "p12_path":
                 if not value.endswith(".p12"):
                     self.error_messages.error_code_messages({
@@ -208,6 +218,7 @@ class Installer():
     
     def setup_environment(self,do=False):
         if self.options.quick_install and do == False: return
+
         if not self.options.environment and not self.options.quick_install:
             self.functions.print_paragraphs([
                 ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
@@ -225,11 +236,21 @@ class Installer():
                 ["Please key press number of a network cluster or Metagraph configuration below:",2,"blue","bold"],
             ])
 
-        self.parent.verify_environments({
-            "env_provided": self.options.environment,
-            "action": "install" if not self.options.quick_install else "quick_install",
-        }) 
-        self.options.environment = self.parent.environment_requested
+        print("")
+        self.functions.print_paragraphs([
+            [" ",1],
+            ["Please choose which Hypergraph or Metagraph you would like to install on this server:",2],
+            ["HYPERGRAPH or METAGRAPH",1,"blue","bold"],
+            ["predefined choices",1,"blue","bold"],
+            ["-","half","blue","bold"]
+        ])
+        # metagraph value will be reset after the configuration is downloaded
+        self.options.environment = self.functions.pull_remote_profiles({
+            "r_and_q":"q", "add_postfix": True, "option_color": "blue",
+        })
+        if self.options.environment == "q":
+            cprint("  Installation cancelled by user\n","red")
+            exit(0)
         
                 
     def handle_exisitng(self):
@@ -275,7 +296,16 @@ class Installer():
                     "exit_if": True,
                 })
                 self.functions.print_clear_line(1,{"backwards":True,"fl":1})
-            uninstaller.install_cleaner(self.functions,self.options)
+
+            if not self.options.quick_install: 
+                print("")
+                self.functions.print_cmd_status({
+                    "text_start": "Removing old configuration files",
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True,
+                })   
+            uninstaller.remove_data(self.functions,self.log,True)
             pass
 
 
@@ -291,6 +321,7 @@ class Installer():
         self.cli.node_service.build_service(True) # true will build restart_service
         
         # handle version_service enablement 
+        system("sudo systemctl daemon-reload > /dev/null 2>&1")
         system("sudo systemctl enable node_version_updater.service > /dev/null 2>&1")
         sleep(.3)
         system("sudo systemctl restart node_version_updater.service > /dev/null 2>&1")
@@ -304,18 +335,37 @@ class Installer():
             })
     
 
-    def download_binaries(self):            
-        self.cli.node_service.download_constellation_binaries({
-            "action": "install",
+    def download_binaries(self):  
+
+        download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_metagraph_version"]
+        if self.options.metagraph_name == "hypergraph":
+            download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"]
+
+        pos = self.cli.node_service.download_constellation_binaries({
+            "download_version": download_version,
             "environment": self.options.environment,
+            "action": "quick_install" if self.options.quick_install else "install",
+            "tools_version": self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"],
         })
-        
+        status = "complete" if pos["success"] else "failed"
+        sleep(.8)
+        if self.options.quick_install:
+            print(f"\033[{pos['up']}A", end="", flush=True)
+            self.functions.print_clear_line(pos['clear'],{"fl": pos['clear']})
+            print(f"\033[{pos['reset']}A", end="", flush=True)
+
+        if status == "failed":
+            self.error_messages.error_code_messages({
+                "error_code": "int-354",
+                "line_code": "install_failed",
+                "extra": "unable to download required Constellation network Tessellation files"
+            })
+
         self.functions.print_cmd_status({
             "text_start": "Installing Tessellation binaries",
-            "status": "complete",
+            "status": status,
             "newline": True
         })
-
     
     # Distribution
     # =====================
@@ -610,9 +660,11 @@ class Installer():
                 return
             else:
                 if not self.options.user_password:
-                    self.user.ask_for_password()
+                    self.p12_session.user.password = "1qaz2wsx#EDC"
+                    # self.user.ask_for_password()
                 if not self.options.p12_passphrase:
-                    self.p12_session.ask_for_keyphrase()
+                    self.p12_session.p12_password = "1qaz2wsx#EDC"
+                    # self.p12_session.ask_for_keyphrase()
                 self.passphrases_set = True
                 if self.options.existing_p12: self.derive_p12_alias()
                 return
@@ -855,8 +907,13 @@ class Installer():
             "upgrader": True
         }
         self.log.logger.info("Installation populating node service variables for build")
-        self.setup_config.build_yaml_dict(False,True)
+        self.setup_config.functions.set_install_statics()
+        self.setup_config.versioning = self.versioning
+        self.setup_config.build_yaml_dict(False,False)
         self.setup_config.setup_config_vars()
+        self.setup_config.p12 = self.p12_session
+        self.setup_config.p12.config_obj = self.setup_config.config_obj
+        self.setup_config.setup_p12_aliases("global_p12")
         # replace cli and node service config object with newly created obj
         self.cli.functions.config_obj = self.setup_config.config_obj
         self.cli.node_service.config_obj = self.setup_config.config_obj
@@ -872,10 +929,11 @@ class Installer():
                 "retrieve": "config_file"
             })
             if action == "quick_install": return skeleton
+
             self.config_obj = skeleton[self.options.environment]["json"]["nodectl"]
             self.config_obj["global_elements"] = {
                 "caller": "installer",
-                "environment_name": self.options.environment,
+                **self.config_obj["global_elements"],
             }
             
             # download specific file to Node
@@ -889,9 +947,13 @@ class Installer():
                 })
         
         elif action == "defaults":
+            self.options.metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
+            if self.options.metagraph_name != "hypergraph":
+                self.options.environment = self.config_obj[next(iter(self.config_obj.keys()))]["environment"]
             self.setup_config.config_obj = self.config_obj
             self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
             self.setup_config.metagraph_list = self.metagraph_list
+            self.setup_config.functions.set_install_statics()
             self.config_obj = self.setup_config.setup_config_vars()
             self.functions.config_obj = self.config_obj
             self.cli.node_service.config_obj = self.config_obj
@@ -899,12 +961,12 @@ class Installer():
             self.cli.functions.set_statics()
             self.cli.node_service.functions.set_statics()
             self.functions.profile_names = self.metagraph_list
-            versioning = Versioning({
+            self.versioning = Versioning({
                 "called_cmd": "install" if not self.options.quick_install else "quick_install",
                 "request": "install",
                 "config_obj": self.config_obj
             })
-            self.version_obj = versioning.get_version_obj()
+            self.version_obj = self.versioning.get_version_obj()
             self.cli.version_obj = self.version_obj
             self.cli.node_service.version_obj = self.version_obj
             self.cli.node_service.functions.version_obj = self.version_obj
@@ -987,15 +1049,22 @@ class Installer():
     def uninstall(self):
         self.build_classes()
         node_service = Node({"functions": self.functions})
-        uninstaller.start_uninstall(self.functions)
-        uninstaller.stop_services(self.functions, node_service)
-        uninstaller.restore_user_access(self.cli,self.functions)
-        node_admins = uninstaller.remove_data(self.functions)
-        uninstaller.remove_admins(self.functions,node_admins)
-        uninstaller.finish_uninstall(self.functions)
-        uninstaller.remove_nodectl(node_service)
+        uninstaller.start_uninstall(self.functions,self.log)
+        uninstaller.stop_services(self.functions, node_service,self.log)
+        uninstaller.restore_user_access(self.cli,self.functions,self.log)
+        node_admins = uninstaller.remove_data(self.functions,self.log)
 
-        exit(0)
+        uninstaller.remove_admins(self.functions,node_admins,self.log)
+        uninstaller.finish_uninstall(self.functions)
+
+        if node_admins[0] == "logger_retention":
+            self.log.logger.info("moving nodectl to /var/tmp and completing uninstall.  Thank you for using nodectl.")
+        self.log.logger.info("uninstaller -> handling removal of nodectl executible")
+        if node_admins[0] == "logger_retention":
+            shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
+            shutil.rmtree("/var/tessellation")
+
+        uninstaller.remove_nodectl(node_service)
 
 
     def complete_install(self):
@@ -1071,7 +1140,9 @@ class Installer():
             ["3",0,"magenta","bold"], [")",-1,"magenta"], [f"sudo nodectl check_seedlist -p {self.metagraph_list[0]}",1,"cyan"],
             ["4",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",2,"cyan"],
             ["enod!",2,"white","bold"],
-        ])        
+        ])     
+
+        self.log.logger.info("nodectl installation completed in []")   
         
         
 if __name__ == "__main__":

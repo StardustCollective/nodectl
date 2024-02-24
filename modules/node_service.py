@@ -40,7 +40,7 @@ class Node():
         self.p12_password  = None 
         self.wallet_alias = None
         self.environment_name = None
-        
+
         # during installation, the nodeid will be blank
         # until after the p12 is created causing the install
         # to create the cnng bash files and then write over it.
@@ -76,29 +76,6 @@ class Node():
             "req": "service",
             "profile": profile,
         })
-
-
-    def set_download_repository(self,command_obj):
-        repo = command_obj.get("repo", "default")
-        profile = command_obj.get("profile",self.functions.default_profile)
-        download_version = command_obj["download_version"]
-        environment = command_obj.get("environment",None)
-        repo_type = command_obj.get("repo_type","jar")
-
-        return_repo = f'https://{self.config_obj[profile]["jar_repository"]}/releases/download/{download_version}'
-        if repo == "default" or not self.config_obj[profile]["is_jar_static"]:
-            return_repo = f"{self.functions.default_tessellation_repo}/releases/download/{download_version}"
-                
-        if repo_type == "seed":
-            seed_file = self.config_obj[profile]["seed_file"]
-            if repo == "default":
-                _, seed_file = path.split(self.functions.config_obj[profile]["seed_path"])
-            else:
-                return_repo = f'https://{self.config_obj[profile]["seed_repository"]}/releases/download/{download_version}/'
-
-            return_repo = f"{return_repo}/{seed_file}"
-        
-        return self.functions.cleaner(return_repo,"url")
     
     
     def download_constellation_binaries(self,command_obj):
@@ -222,6 +199,7 @@ class Node():
         background_services = command_obj.get("background_services",False)
         create_file_type = command_obj["create_file_type"]
         
+        pass
         for profile in self.profile_names:
             profile = single_profile if single_profile else profile
             template = self.create_files({"file": create_file_type})

@@ -34,6 +34,7 @@ from .logger import Logging
 # invalid_user
 # invalid_file_format
 # invalid_output_file
+# install_failed
 
 # join_error
 # join
@@ -97,7 +98,7 @@ class Error_codes():
         
         self.error_code = var.error_code
         self.print_error("start") if self.error_code else print("")
-                
+
         if self.debug:
             print("error debugs:",var.error_code,var.line_code,var.extra,var.extra2)
             return
@@ -115,7 +116,18 @@ class Error_codes():
                 ["Suggestion:",0,"yellow","bold,underline"], ["Attempt a new installation with a clean image of a",0],
                 ["Debian Based",0,"cyan","underline"],["OS.",2],
             ])
-
+            
+        elif "install_failed" in str(var.line_code):
+            self.log.logger.critical(f"installation failure [{var.line_code}] with message [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["An unrecoverable error occured during the installation.",2,"red","bold"],
+                ["Unable to process some information that is necessary for the installation of Tessellation to be successful.",2,"red","bold"],
+                ["Suggestion:",0,"yellow","bold"], ["Verify network connectivity and proper ports are opened on the Debian server.",0],
+                ["Debian Based",0,"cyan","underline"],["OS.",2],
+                ["Suggestion:",0,"yellow","bold"], ["Attempt a new installation with a clean image of a",0],
+                ["Debian Based",0,"cyan","underline"],["OS.",2],
+                ["Error Message:",0,"yellow","bold"],[var.extra,2,"red"],
+            ])
             
         elif "upgrade_needed" in str(var.line_code):
             self.log.logger.error(f"missing components to the VPS running nodectl.  This may not be a valid configuration? | error code: [{var.line_code}]")
@@ -643,7 +655,7 @@ class Error_codes():
             ])
             
         elif var.line_code == "config_error":
-            self.log.logger.critical(f"unable to load configuration file [cn-config.yaml]")
+            self.log.logger.critical(f"unable to load configuration file, file corrupted, some values invalid, or improperly formatted [cn-config.yaml]")
             if var.extra == "existence":
                 self.functions.print_paragraphs([
                     ["nodectl attempted load a non-existent configuration!",1,"red","bold"],
@@ -693,6 +705,7 @@ class Error_codes():
                       
     def print_error(self,when="end"):
         if when == "start":
+            system("clear")
             self.functions.print_paragraphs([
                 ["",2], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
                 ["Terminating",0], ["nodectl",0,"cyan","underline"], ["utility or current thread process.",2],

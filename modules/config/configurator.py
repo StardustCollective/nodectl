@@ -382,7 +382,8 @@ class Configurator():
         
         environment_details = self.c.functions.pull_remote_profiles({
             "retrieve":"chosen_profile",
-            "return_where": "Previous"
+            "return_where": "Previous",
+            "add_postfix": True,
         })
         
         if environment_details == "r": 

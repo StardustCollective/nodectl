@@ -62,6 +62,8 @@ class Functions():
         
                         
     def set_statics(self):
+        self.set_install_statics()
+        
         self.error_messages = Error_codes(self.config_obj)         
         # versioning
         self.node_nodectl_version = self.version_obj["node_nodectl_version"]
@@ -70,37 +72,6 @@ class Functions():
 
         urllib3.disable_warnings()
 
-        # used for installation 
-        self.lb_urls = {
-            "testnet": ["l0-lb-testnet.constellationnetwork.io",443],
-            "mainnet": ["l0-lb-mainnet.constellationnetwork.io",443],
-            "integrationnet": ["l0-lb-integrationnet.constellationnetwork.io",443],
-            "dor-metagraph": ["54.191.143.191",7000]
-        }
-        
-        self.default_tessellation_dir = "/var/tessellation/"
-        self.default_backup_location = "/var/tessellation/backups/"
-        self.default_upload_location = "/var/tessellation/uploads/"
-        
-        self.default_seed_location = "/var/tessellation/"
-        self.default_seed_file = "seedlist"
-        
-        self.default_priority_source_location = "/var/tessellation/"
-        self.default_priority_source_file = "priority-source-list"
-        
-        self.default_pro_rating_file = "ratings.csv"
-        self.default_pro_rating_location = "/var/tessellation"
-        self.default_tessellation_repo = "https://github.com/Constellation-Labs/tessellation"
-        
-        # constellation specific statics
-        self.be_urls = {
-            "testnet": "be-testnet.constellationnetwork.io",
-            "mainnet": "be-mainnet.constellationnetwork.io",
-            "dor-metagraph": "be-mainnet.constellationnetwork.io",
-            "integrationnet": "be-integrationnet.constellationnetwork.io",
-        }
-        self.snapshot_type = "global-snapshots"
-        
         # constellation nodectl statics
         self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
         self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_github}/predefined_configs"
@@ -131,6 +102,38 @@ class Functions():
         self.auto_restart = True if self.config_obj["global_elements"]["caller"] == "auto_restart" else False
         ignore_defaults = ["config","install","installer","auto_restart","ts","debug"]
         if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
+
+
+    def set_install_statics(self):
+        self.lb_urls = {
+            "testnet": ["l0-lb-testnet.constellationnetwork.io",443],
+            "mainnet": ["l0-lb-mainnet.constellationnetwork.io",443],
+            "integrationnet": ["l0-lb-integrationnet.constellationnetwork.io",443],
+            "dor-metagraph": ["54.191.143.191",9000] 
+        }
+        
+        self.default_tessellation_dir = "/var/tessellation/"
+        self.default_backup_location = "/var/tessellation/backups/"
+        self.default_upload_location = "/var/tessellation/uploads/"
+        
+        self.default_seed_location = "/var/tessellation/"
+        self.default_seed_file = "seedlist"
+        
+        self.default_priority_source_location = "/var/tessellation/"
+        self.default_priority_source_file = "priority-source-list"
+        
+        self.default_pro_rating_file = "ratings.csv"
+        self.default_pro_rating_location = "/var/tessellation"
+        self.default_tessellation_repo = "https://github.com/Constellation-Labs/tessellation"
+        
+        # constellation specific statics
+        self.be_urls = {
+            "testnet": "be-testnet.constellationnetwork.io",
+            "mainnet": "be-mainnet.constellationnetwork.io",
+            "dor-metagraph": "be-mainnet.constellationnetwork.io",
+            "integrationnet": "be-integrationnet.constellationnetwork.io",
+        }
+        self.snapshot_type = "global-snapshots"
 
 
     # =============================
@@ -1825,18 +1828,28 @@ class Functions():
         retrieve = command_obj.get("retrieve","profile_names")
         return_where = command_obj.get("return_where","Main")
         set_in_functions = command_obj.get("set_in_functions",False)
+        add_postfix = command_obj.get("add_postfix",False)
+        options_color = command_obj.get("option_color","green")
         predefined_envs = []
         
         repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
         repo_profiles = repo_profiles["payload"]["tree"]["items"]
         metagraph_name, chosen_profile = None, None
-        
+        ordered_predefined_envs = ["mainnet","integrationnet","testnet"]
+
         predefined_configs = {}
         for repo_profile in repo_profiles:
             if "predefined_configs" in repo_profile["path"] and "yaml" in repo_profile["name"]:
                 f_url = f"{self.nodectl_profiles_url_raw}/{repo_profile['name']}" 
                 details = self.get_from_api(f_url,"yaml")
                 metagraph_name = details["nodectl"]["global_elements"]["metagraph_name"] # readability
+                # clean out legacy configurations (env cannot equal metagraph_name)
+                if details["nodectl"]["global_elements"]["metagraph_name"] in ordered_predefined_envs:
+                    continue
+                # handle hypergraph environment configures 
+                if metagraph_name == "hypergraph":
+                    hyper_env = next(iter(details["nodectl"].values()))
+                    metagraph_name = hyper_env["environment"]
                 predefined_envs.append(metagraph_name)
                 predefined_configs = {
                     **predefined_configs,
@@ -1847,9 +1860,12 @@ class Functions():
                 }
 
         # reorder
-        ordered_predefined_envs = ["mainnet","integrationnet","testnet"]
         for env in predefined_envs:    
-            if env not in ordered_predefined_envs:
+            if env in ordered_predefined_envs and add_postfix:
+                ordered_predefined_envs[ordered_predefined_envs.index(env)] = f"{env} [HyperGraph]"
+            elif env not in ordered_predefined_envs:
+                if add_postfix:
+                    env = f"{env} [Metagraph]"
                 ordered_predefined_envs.append(env)
 
         if retrieve == "profile_names" or retrieve == "chosen_profile":    
@@ -1857,10 +1873,13 @@ class Functions():
                 "options": ordered_predefined_envs,
                 "return_where": return_where,
                 "r_and_q": r_and_q,
-                "color": "green",
+                "color": options_color,
                 "newline": True,
                 "return_value": True,
             })
+
+        if add_postfix:
+            chosen_profile = chosen_profile.replace(" [HyperGraph]","").replace(" [Metagraph]","")
 
         if set_in_functions: 
             self.environment_names = list(predefined_configs.keys())
@@ -2065,11 +2084,13 @@ class Functions():
     
     def is_new_version(self,current,remote):
         if version.parse(current) == version.parse(remote):
-            self.log.logger.warn(f"versions match")
+            self.log.logger.info(f"versions match | current [{current}] remote [{remote}]")
             return False            
         elif version.parse(current) > version.parse(remote):
+            self.log.logger.warn(f"versions do NOT match | current [{current}] remote [{remote}]")
             return "current_greater"
         else:
+            self.log.logger.warn(f"versions do NOT match | current [{current}] remote [{remote}]")
             return "current_less"
     
     
@@ -2500,7 +2521,6 @@ class Functions():
     # print functions
     # =============================  
 
-    # def print_clear_line(self,lines=1,backwards=False,f_extra_line=True,back):
     def print_clear_line(self,lines=1,command_obj=False):
         backwards, fl, bl = False, False, False
         if command_obj:
@@ -3089,6 +3109,7 @@ class Functions():
             total_time = total_time/60
             unit = "minutes"
         
+        self.log.logger.info(f"{action} completed in [{total_time}]")
         self.print_paragraphs([
             ["Total",0], [action,0,"yellow","underline"], ["time:",0],
             [f" {round(total_time,3)} ",0,"grey,on_green","bold"],
@@ -3276,6 +3297,8 @@ class Functions():
             return sub("cnng-","", line)  
         elif action == "double_spaces":
             return sub(r'\s+', ' ', line) 
+        elif action == "fix_double_slash":
+            return sub('//', '/', line) 
         elif action == "trailing_backslash":
             if line[-1] == "/":
                 return line[0:-1]

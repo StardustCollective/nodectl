@@ -12,8 +12,8 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from itertools import cycle
+import random
 import time
-
 
 from .troubleshoot.errors import Error_codes
 
@@ -39,14 +39,23 @@ class Download():
         self.action = command_obj.get("action","normal")
         self.requested_profile = command_obj.get("profile",False)
         self.download_version = command_obj.get("download_version","default")
+        self.tools_version = command_obj.get("tools_version",self.download_version)
         self.install_upgrade = command_obj.get("install_upgrade",False)
         self.environment = command_obj.get("environment",False)
         self.argv_list = command_obj.get("argv_list",[])
         self.backup = command_obj.get("backup", True)
 
         self.successful = True
+        self.skip_asset_check = False
         self.retries = 3
         self.file_pos = 1
+        self.file_count = 0
+        self.cursor_setup = {
+            "up": 6,
+            "clear": 7,
+            "reset": -1,
+            "success": True,
+        }
 
         self.log.logger.info(f"{self.log_prefix} module initiated")
         if self.caller == "refresh_binaries" or self.caller == "_rtb":
@@ -57,7 +66,8 @@ class Download():
             self.log.logger.debug(f"{self.log_prefix} - download seed lists.")
         elif self.action == "upgrade":
             self.log.logger.debug(f"{self.log_prefix} - upgrade module called.")
-
+        elif "install" in self.action:
+            self.log.logger.debug(f"{self.log_prefix} - {self.action} module called.")
 
         if "-v" in self.argv_list: self.download_version = self.argv_list(self.argv_list.index("-v")+1)
         
@@ -82,7 +92,8 @@ class Download():
         self.initialize_output_handler()
         self.threaded_download_handler()
         self.file_backup_handler(False)
-        return self.successful
+
+        return self.cursor_setup
 
     # Setters
         
@@ -100,13 +111,21 @@ class Download():
         # default the wallet and key tools
         if not self.requested_profile:
             for n, tool in enumerate(["cl-keytool.jar","cl-wallet.jar"]):
-                uri, download_version = self.set_download_options(
-                    self.config_obj[self.profile_names[0]]["jar_repository"], download_version, self.profile_names[0]
+                if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
+                    pre_uri = self.config_obj[self.profile_names[0]]["jar_repository"]
+                    tool_verison = download_version
+                else:
+                    pre_uri = self.functions.default_tessellation_repo
+                    tool_verison = self.tools_version
+
+                uri = self.set_download_options(
+                    pre_uri, tool_verison, self.profile_names[0]
                 )
+
                 file_obj = {
                     **file_obj,
                     f"{tool}": { 
-                        "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": download_version, 
+                        "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": tool_verison, 
                         "type": "binary", "profile": "global", 
                         "dest_path": f"{self.functions.default_tessellation_dir}{tool}",
                     } 
@@ -123,10 +142,10 @@ class Download():
             file_pos += n
             if self.config_obj[profile]["is_jar_static"]: 
                 download_version = self.config_obj[profile]["jar_version"]
-            if "-v" in self.argv_list: 
+            elif "-v" in self.argv_list: 
                 download_version = self.argv_list(self.argv_list.index("-v")+1)
-            if self.config_obj[profile]["environment"] == self.environment:
-                uri, download_version = self.set_download_options(
+            elif self.config_obj[profile]["environment"] == self.environment:
+                uri = self.set_download_options(
                     self.config_obj[profile]["jar_repository"], download_version, profile
                 )
                 file_obj[self.config_obj[profile]["jar_file"]] = {
@@ -174,17 +193,19 @@ class Download():
                 self.log.logger.info(f"{self.log_prefix} [{self.environment}] seedlist")   
                 download_version = self.parent.version_obj[self.environment][profile]['cluster_tess_version']
 
-            if self.config_obj[profile]["seed_repository"] == "default" and self.environment != "mainnet":
+            if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph" and self.environment != "mainnet":
                 # does not matter if the global_elements -> metagraph_name is set, if not mainnet
                 if self.environment == "testnet" or self.environment == "integrationnet":
+                    self.skip_asset_check = True
                     seed_repo = f"https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{self.environment}-seedlist"
             elif seed_repo == "disable":
                 pass
             else:
-                    seed_repo = self.set_download_options({
-                        seed_repo, download_version, profile
-                    })
-                    seed_repo = f"{seed_repo}/{seed_file}"
+                seed_repo = self.set_download_options(
+                    seed_repo, download_version, profile, "seed"
+                )
+                seed_repo = f"{seed_repo}/{seed_file}"
+                seed_path = self.functions.cleaner(seed_path,"fix_double_slash")
 
             self.file_obj = {
                 **self.file_obj,
@@ -208,44 +229,49 @@ class Download():
                     makedirs(self.config_obj[profile]['seed_location'])
 
 
-    def set_file_path(self,file_name):
-        tess_dir = self.functions.default_tessellation_dir
-        if not path.exists(tess_dir): 
-            if tess_dir != "disable":
-                makedirs(tess_dir)
-        return f"{tess_dir}{file_name}"
+    def set_file_path(self,file_name,file_path=False):
+        if not file_path:
+            file_path = self.functions.default_tessellation_dir
+        else:
+            file_path = self.functions.cleaner(file_path,"fix_double_slash")  
+
+        if not path.exists(file_path): 
+            if file_path != "disable":
+                makedirs(file_path)
+
+        return f"{file_path}{file_name}"
 
 
-    def set_download_options(self,uri,download_version,profile):
-        if download_version == "default":
-            # retrieved from the edge point
-            if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
-                download_version = self.parent.version_obj[self.environment][profile]["cluster_tess_version"]
-            elif isinstance(self.config_obj["global_elements"]["metagraph_name"],list):
-                # future glean version off of a multi metagraph configuration
-                pass
-            else:
-                # future glean version off of edge_point api for the configured metagraph
-                # download_version = self.functions.get_metagraph_version()
-                pass
+    def set_download_options(self,uri,download_version,profile,dtype="repo"):
+        github = False
+        if isinstance(self.config_obj["global_elements"]["metagraph_name"],list):
+            # future glean version off of a multi metagraph configuration
+            pass
+        else:
+            # future glean version off of edge_point api for the configured metagraph
+            # download_version = self.functions.get_metagraph_version()
+            pass
+
+        if dtype == "seed":
+            if self.config_obj[profile]["seed_github"]: github = True
+            uri = self.config_obj[profile]["seed_repository"]
+        else:
+            if self.config_obj[profile]["jar_github"]: github = True
 
         uri = self.functions.cleaner(uri,"trailing_backslash")
-        if uri[0:3] != "http" and uri != "default": # default to https://
+        if not uri.startswith("http"): # default to https://
             uri = f"https://{uri}"
 
-        uri = self.parent.set_download_repository({
-            "repo": uri,
-            "profile": profile,
-            "download_version": download_version,
-        })
+        if github:
+            return f'{uri}/releases/download/{download_version}'
+        return uri
 
-        return uri, download_version
-    
 
     def set_file_obj_order(self):
         # reorder cursor positions
+        self.cursor_setup["clear"] += len(self.file_obj)
         for n, file in enumerate(self.file_obj):
-            self.file_obj[file]["pos"] = len(self.file_obj)-n
+            self.file_obj[file]["pos"] = n
 
 
     # Getters
@@ -256,7 +282,7 @@ class Download():
             self.get_download(file_name)
             if self.test_file_size(file_name):
                 return file_name
-        return False
+        raise Exception("file did not download properly")
 
 
     def get_download(self,file_name):
@@ -275,13 +301,6 @@ class Download():
             })
             if self.file_obj[file_name]["type"] == "binary":
                 chmod(file_path, 0o755)
-
-            # using requests.get is 80% slower than wget?
-            # response = requests.get(self.file_obj[file_name]["uri"], stream=True)
-            # with open(file_path, "wb") as f:
-            #     for chunk in response.iter_content(chunk_size=8192):
-            #         if chunk:
-            #             f.write(chunk)
 
         except Exception as e:
             self.log.logger.error(f"{self.log_prefix} get_download -> error streaming down [{self.file_obj[file_name]['type']}] requirement | [{e}]")
@@ -318,12 +337,15 @@ class Download():
     # Tests
 
     def test_file_size(self,file_name):
+        if self.skip_asset_check: return True
+        if self.file_obj[file_name]["remote_size"] < 0:
+            raise Exception("file size")
         file_path = self.file_obj[file_name]["dest_path"]
         if self.file_obj[file_name]["state"] == "disabled" or self.file_obj[file_name]["remote_size"] < 0: 
             return True # skip test
         if path.exists(file_path):
             return path.getsize(file_path) == self.file_obj[file_name]["remote_size"]
-        return False
+        raise Exception("file size")
 
     # Handlers
 
@@ -354,15 +376,17 @@ class Download():
             for file_name in list(self.file_obj.keys()):
                 self.get_download_looper(file_name)
 
+        self.cursor_setup["reset"] = self.cursor_setup["clear"]-1
+
 
     def print_status_handler(self, file_name, init=False):
         if self.auto_restart: return
 
-        escape = "\033[F"
-        position = self.file_obj[file_name]["pos"]+1
+        int_position = 7
+        position = self.file_obj[file_name]["pos"]
+        end_position = position+1
         if init:
-            escape = ""
-            position = 1
+            position -= 1
 
         status = self.file_obj[file_name]["state"]
         status_color = "green"
@@ -378,7 +402,7 @@ class Download():
         if status == "disabled": 
             brackets = brackets.replace(file_name,"seedlist for")
 
-        print(f"{escape}" * position)
+        print("\033[B" * position)
         self.functions.print_clear_line()
         self.functions.print_cmd_status({
             "text_start": text_start,
@@ -387,8 +411,7 @@ class Download():
             "status_color": status_color,
             "newline": False
         })
-        if not init:
-            print(f"\033[{position}B", end="", flush=True)
+        print(f"\033[{end_position}A", end="", flush=True)
 
 
     def initialize_output_handler(self):
@@ -400,8 +423,11 @@ class Download():
         })
 
         download_version = "-1"
-        for file in self.file_obj.keys():
+        for n, file in enumerate(self.file_obj.keys()):
             if download_version != self.file_obj[file]["version"]:
+                if n > 0: 
+                    self.cursor_setup = {key: value + 1 for key, value in self.cursor_setup.items() if key != "success"}
+                    self.cursor_setup["success"] = True
                 download_version = self.file_obj[file]["version"]
                 self.functions.print_cmd_status({
                     "text_start": "Downloading version",
@@ -411,8 +437,7 @@ class Download():
                 })
 
         for file in list(self.file_obj.keys()):
-            self.print_status_handler(file, True)
-        print("")
+            self.print_status_handler(file, True if file == list(self.file_obj.keys())[0] else False)
 
 
     def file_backup_handler(self,backup=True):
@@ -430,6 +455,9 @@ class Download():
         
         if len(file_list) > 0:
             if action == "restore":
+                print(f"\033[5B", end="", flush=True)
+                self.cursor_setup = {key: value + 2 for key, value in self.cursor_setup.items() if key != "success"}
+                self.cursor_setup["success"] = False
                 self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
                 self.functions.print_paragraphs([
                     [" NOTE ",0,"yellow,on_red"], ["nodectl will only restore failed files",1,"red"],

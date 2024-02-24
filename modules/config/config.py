@@ -431,7 +431,6 @@ class Configuration():
                 "special_case": special if special else None
             }) 
             
-        # default seed_repository setup in node_services -> download_update_seedlist       
         # The following defaults objects is for config elements that can be set to
         # "default" by the Node Operator to obtain the current default values.  
             
@@ -474,13 +473,11 @@ class Configuration():
                 "mainnet": "constellation-labs",
                 "testnet": "constellation-labs",
                 "integrationnet": "constellation-labs",
-                "dor_metagraph": "dor",
+                "dor-metagraph": "dor",
             },
             "token_identifier": {
-                "mainnet": "disable",
-                "testnet": "disable",
-                "integrationnet": "disable",                
-                "dor_metagraph": "DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM",
+                "hypergraph": "disable",
+                "dor-metagraph": "DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM",
             },
             "edge_point_tcp_port": 443,
             "public_port": [9000,9010],
@@ -491,7 +488,7 @@ class Configuration():
             "java_xmx": ["7G","3G"],
             "collateral": {
                 "hypergraph": 0,
-                "dor_metagraph": 0,
+                "dor-metagraph": 0,
             },
             "service": {
                 "hypergraph": {
@@ -499,7 +496,7 @@ class Configuration():
                     "testnet": "node_l",
                     "integrationnet": "intnetserv_l",
                 },
-                "dor_metagraph": {
+                "dor-metagraph": {
                     "dor-l0": "dor_ml",
                     "dor-dl1": "dor_dl",
                     "dor-cl1": "dor_cl",
@@ -544,14 +541,11 @@ class Configuration():
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs"
 
         if self.config_obj["global_elements"]["metagraph_token_identifier"] == "default":
-            if metagraph_name == "hypergraph":
-                self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][environment]
-            else:
-                try:
-                    self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][metagraph_name]
-                except:
-                    self.log.logger.error("config -> during configuration setup, nodectl could not determine the token identifier")
-                    error_found("global","metagraph_token_identifier")
+            try:
+                self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][metagraph_name]
+            except:
+                self.log.logger.error("config -> during configuration setup, nodectl could not determine the token identifier")
+                error_found("global","metagraph_token_identifier")
 
         for profile in self.metagraph_list:
             self.config_obj[profile]["p12_key_alias"] = "str" # init (updated outside this method)
@@ -594,9 +588,9 @@ class Configuration():
                 try:
                     if self.config_obj[profile][tdir] == "default":
                         if tdir == "seed_file": 
-                            try:
-                                self.config_obj[profile][tdir] = f"{def_value[metagraph_name][profile]}{environment}-{self.functions.default_seed_file}"
-                            except:
+                            if metagraph_name == "hypergraph":
+                                self.config_obj[profile][tdir] = f"{environment}-{self.functions.default_seed_file}"
+                            else:
                                 self.config_obj[profile][tdir] = f"{metagraph_name}-{self.functions.default_seed_file}" 
                         elif tdir == "priority_source_file": 
                             self.config_obj[profile][tdir] = f"{metagraph_name}-{def_value}" 
@@ -612,7 +606,11 @@ class Configuration():
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
                         elif tdir == "collateral":
-                            self.config_obj[profile][tdir] = def_value[metagraph_name]
+                            try:
+                                self.config_obj[profile][tdir] = def_value[metagraph_name]
+                            except:
+                                self.log.logger.error("config -> during configuration setup, nodectl could not determine collateral setting to [0]")
+                                self.config_obj[profile][tdir] = 0                            
                         elif tdir == "service":
                             try:
                                 services = def_value[metagraph_name]
@@ -642,9 +640,11 @@ class Configuration():
                     error_found("profile",tdir,"error setting defaults",profile)
 
             self.config_obj[profile]["jar_github"] = False 
-            # if "github.com" in self.config_obj[profile]["jar_repository"] and not self.config_obj[profile]["is_jar_static"]:
             if "github.com" in self.config_obj[profile]["jar_repository"]:
                 self.config_obj[profile]["jar_github"] = True 
+
+            if self.config_obj[profile]["seed_repository"] == "default": 
+                self.config_obj[profile]["seed_repository"] = self.config_obj[profile]["jar_repository"] 
 
             self.config_obj[profile]["seed_github"] = False 
             if "github.com" in self.config_obj[profile]["seed_repository"]:

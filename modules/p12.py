@@ -59,7 +59,14 @@ class P12Class():
  
         self.debug = debug  # bypass keyphrase checks
   
-  
+
+    def set_p12_alias(self,profile):
+        key = "p12_alias"
+        if profile == "global_p12": key = "key_alias"
+        if isinstance(self.config_obj[profile][key],bool):
+            self.config_obj[profile][key] = self.show_p12_details(["-p",profile,"--return","--alias","--installer",self.p12_password]) 
+
+
     def generate_p12_file(self): 
         # used for install, upgrade, and solo
         self.ask_for_p12name()     
@@ -494,6 +501,15 @@ class P12Class():
             
         try:
             environ["CL_KEYALIAS"] = indiv_p12_obj["key_alias"]
+        except Exception as e:
+            self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "p-368",
+                "line_code": "config_error",
+                "extra": "format"
+            })
+
+        try:
             environ["CL_KEYSTORE"] = indiv_p12_obj["key_store"]
         except Exception as e:
             self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}]")
@@ -535,6 +551,7 @@ class P12Class():
             system(f"chown {self.user.username}:{self.user.username} {self.p12_file_location} > /dev/null 2>&1")
               
         self.log.logger.info(f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
+        # do not use sudo here otherwise the env variables will not be associated
         bashCommand = "java -jar /var/tessellation/cl-keytool.jar generate"
         self.functions.process_command(({
             "bashCommand": bashCommand,
