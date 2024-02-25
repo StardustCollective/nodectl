@@ -109,6 +109,7 @@ nodectl:
     passphrase: blank
     encryption: False
   global_elements:
+    yaml_config_name: dor-metagraph-mainnet
     metagraph_name: dor-metagraph
     metagraph_token_identifier: default
     metagraph_token_coin_id: default

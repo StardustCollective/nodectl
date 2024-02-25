@@ -158,6 +158,7 @@ nodectl:
     passphrase: blank
     encryption: False
   global_elements:
+    yaml_config_name: integrationnet
     metagraph_name: hypergraph
     metagraph_token_identifier: disable
     metagraph_token_coin_id: default
