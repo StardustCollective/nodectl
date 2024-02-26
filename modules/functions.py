@@ -56,6 +56,7 @@ class Functions():
         # set self.version_obj before calling set_statics
         self.config_obj = config_obj
         self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
+        self.nodectl_code_name = "Princess Warrior"
         self.version_obj = False
         self.cancel_event = False
         self.valid_commands = []
@@ -1830,6 +1831,8 @@ class Functions():
         set_in_functions = command_obj.get("set_in_functions",False)
         add_postfix = command_obj.get("add_postfix",False)
         options_color = command_obj.get("option_color","green")
+        required = command_obj.get("required",False)
+
         predefined_envs = []
         
         repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
@@ -1842,14 +1845,9 @@ class Functions():
             if "predefined_configs" in repo_profile["path"] and "yaml" in repo_profile["name"]:
                 f_url = f"{self.nodectl_profiles_url_raw}/{repo_profile['name']}" 
                 details = self.get_from_api(f_url,"yaml")
-                metagraph_name = details["nodectl"]["global_elements"]["metagraph_name"] # readability
-                # clean out legacy configurations (env cannot equal metagraph_name)
-                if details["nodectl"]["global_elements"]["metagraph_name"] in ordered_predefined_envs:
-                    continue
-                # handle hypergraph environment configures 
-                if metagraph_name == "hypergraph":
-                    hyper_env = next(iter(details["nodectl"].values()))
-                    metagraph_name = hyper_env["environment"]
+                if details["nodectl"]["global_elements"]["nodectl_yaml"] != self.version_obj["node_nodectl_yaml_version"]:
+                    continue # do not use old configuration that may not have been updated
+                metagraph_name = details["nodectl"]["global_elements"]["yaml_config_name"] # readability
                 predefined_envs.append(metagraph_name)
                 predefined_configs = {
                     **predefined_configs,
@@ -1858,6 +1856,17 @@ class Functions():
                         "yaml_url": f_url,
                     }
                 }
+
+        if required:
+            for value in predefined_configs.values():
+                _, file = path.split(value["yaml_url"])
+                if file == required:
+                    return value
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-1865",
+                "line_code": "invalid_configuration_request",
+                "extra": required.replace(".yaml","")
+            })
 
         # reorder
         for env in predefined_envs:    
@@ -2640,7 +2649,7 @@ class Functions():
         else:
             header0 = "  ========================================"
             header1 = "  =   CONSTELLATION NETWORK HYPERGRAPH   ="
-            header2 = "  @netmet72\n"
+            header2 = f"  Code Name: {colored(self.nodectl_code_name,'yellow')}\n"
             
             header_length = len(header0)-2
             header_middle = math.ceil(header_length/2)

@@ -698,6 +698,8 @@ class ShellHandler:
             "status_color": "magenta",
             "newline": True
         })
+
+        pass
         
                                                 
     def update_os(self,threading=True,display=True):

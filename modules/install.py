@@ -1,7 +1,7 @@
 import pwd
 import shutil
 import modules.uninstall as uninstaller
-from os import makedirs, system, path, environ, walk
+from os import makedirs, system, path, environ, walk, get_terminal_size, chmod
 from time import sleep
 from termcolor import colored, cprint
 from types import SimpleNamespace
@@ -49,9 +49,9 @@ class Installer():
     def install_process(self):
         self.handle_options()
         self.setup_install()
-        self.setup_environment()
+        self.handle_environment_setup()
         self.build_classes()
-        self.validate_options()
+        self.handle_option_validation()
         if self.options.quick_install:
             self.quick_installer.quick_install()
         else:
@@ -117,7 +117,12 @@ class Installer():
                 [" QUICK INSTALL REQUESTED ",2,"white,on_green"],
                 [" WARNING ",1,"red,on_yellow"], 
                 ["Even though this is the recommended options, nodectl will use all recommended settings without prompting for confirmations, be sure this is acceptiable before continuing",0],
-                ["with this setting.",0], ["This includes removal of existing Tessellation and nodectl configurations if present.",2,"red"],
+                ["with this setting.",2], 
+                
+                ["*","half","red","bold"],
+                ["This includes removal of existing Tessellation and nodectl service, p12, and other configuration files if present.",1,"red"],
+                ["*","half","red","bold"],["",1],
+
                 ["A few mandatory entries may be necessary; hence, nodectl will now prompt a series of questions before proceeding with the",0],
                 ["installation. If these options were already entered through the command line interface (CLI),",0],
                 ["the corresponding questions will be skipped.",2],
@@ -125,6 +130,19 @@ class Installer():
                 ["or read the documentation.",1,"yellow"], 
                 ["https://docs.constellationnetwork.io/validate/",2,"blue","bold"],
             ])
+
+        term_width_test = get_terminal_size()
+        if term_width_test.columns < 85:
+            self.functions.print_paragraphs([
+                [" WARNING ",1,"red,on_yellow"], 
+                ["nodectl has detected that the terminal size WIDTH is too narrow.",0,"red"],
+                ["to properly display the instller's progress indicators. While this",0,"red"],
+                ["won't affect the installation itself, it may impact the user experience.",2,"red"],
+                ["detected column width:",0],[f"{term_width_test.columns}",1,"yellow"],
+                ["To improve the display, you can optionally widen your terminal window by clicking on the terminal emulator window and dragging it out to at",0],
+                ["least",0], ["85",0,"green","bold"], ["columns.",2],
+            ])
+
         else:
             self.functions.print_clear_line(1,{"backwards":True})
 
@@ -143,57 +161,66 @@ class Installer():
     # =====================
         
     def handle_options(self):
-        self.passphrases_set = False
         self.options_dict = OrderedDict()
 
         # option list must be in order otherwise values will not properly populate
-        # environment will be used to create global_elements["metagraph_name"]
+        # metagraph-config will be used to determine config to download if supplied
         option_list = [
-            "--environment", "--metagraph",
-            "--user", "--p12_path", "--p12_alias",
-            "--user_password","--p12_passphrase",
+            "--metagraph-config",
+            "--user", "--p12-path", "--p12-alias",
+            "--user-password","--p12-passphrase",
+            "--p12-migration-path",
         ]
-
-        if "-e" in self.argv_list: 
-            self.argv_list[self.argv_list.index("-e")] = "--environment"
         
+        self.options_dict["quick_install"] = False
+        self.options_dict["configuration_file"] = False
         for option in option_list:
-            self.options_dict[f'{option.replace("-","")}'] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
+            if option.startswith("--"): o_option = option[2::]
+            if o_option == "quick-install" or o_option == "quick_install": 
+                self.options_dict["quick_install"] = True
+                continue
+            self.options_dict[o_option] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
+
+        self.options_dict = { key.replace("-","_"): value for key, value in self.options_dict.items() }
+        self.options_dict["environment"] = False
+        self.options_dict["metagraph_name"] = False
+        self.options_dict["existing_p12"] = False
 
         self.options = SimpleNamespace(**self.options_dict)
+        
+        if self.options.p12_migration_path:
+            self.options.existing_p12 = True
 
-        self.options.quick_install = False
-        if "--quick_install" in self.argv_list:
+        if self.options.metagraph_config:
+            self.options.configuration_file = self.options.metagraph_config+".yaml"
+            self.options.metagraph_name = self.options.metagraph_config
+
+        if self.options.quick_install:
             if self.options.p12_path and not self.options.p12_alias:
+                self.log.logger.error("installer -> unable to proceed because p12 supplied without cooresponding p12 alias option.")
                 self.error_messages.error_code_messages({
                     "error_code": "int-96",
                     "line_code": "input_error",
                     "extra": "p12 alias",
                     "extra2": "p12 cli option supplied without cooresponding p12 alias option."
                 })
-            self.options.quick_install = True
 
 
-    def validate_options(self):
+    def handle_option_validation(self):
         for option, value in self.options_dict.items():
             if isinstance(value,bool):
                 if option == "p12_path":
                     self.prepare_p12_details("init")
-                elif option == "environment" and not self.options.environment: 
-                    self.options.environment = self.parent.environment_requested
-                    if self.options.environment is None:
-                        self.setup_environment(True)
-                        self.print_cmd_status("environment","environment",False)
-                        self.metagraph_name = self.options.environment
+                elif option == "metagraph_config" and not self.options.metagraph_config: 
+                    if not self.options.metagraph_config:
+                        self.handle_environment_setup(True)
+                        self.options.metagraph_name = self.options.metagraph_config
+                        self.print_cmd_status("metagraph_name","metagraph_name",False)
                 elif self.options.quick_install:
-                    self.quick_installer.validate_options(option)
+                    self.quick_installer.handle_option_validation(option)
 
-            elif option == "environment":
-                self.print_cmd_status("environment","environment",False) 
-                self.metagraph_name = self.options.environment
-            elif option == "metagraph":
-                self.print_cmd_status("metagraph_name","metagraph_name",False)
-                self.metagraph_name = self.options.environment
+            elif option == "metagraph_name":
+                self.print_cmd_status("metagraph","metagraph_name",False) 
             elif option == "p12_path":
                 if not value.endswith(".p12"):
                     self.error_messages.error_code_messages({
@@ -201,25 +228,28 @@ class Installer():
                         "line_code": "invalid_file_format",
                         "extra": value,
                         "extra2": "p12 file must end with the '.p12' extension."
-                    })                       
+                    })    
+                self.print_cmd_status("P12 file",path.split(value)[1],False,False)   
+
+            elif option == "p12_migration_path":                  
                 if not path.exists(value):
                     self.error_messages.error_code_messages({
                         "error_code": "int-140",
                         "line_code": "file_not_found",
                         "extra": value,
-                        "extra2": "Please verify the exact full path to your p12 file and try again."
+                        "extra2": "Please verify the exact full path to your p12 file to be migrated and try again."
                     })    
                 self.print_cmd_status("P12 path",path.split(value)[0],False,False)   
-                self.print_cmd_status("P12 file",path.split(value)[1],False,False)   
-                self.options.p12_path = value  
             elif option == "p12_alias":
-                self.print_cmd_status("P12 alias","p12_alias",False)     
+                self.print_cmd_status("P12 alias","p12_alias",False)
+
+        return     
     
-    
-    def setup_environment(self,do=False):
+
+    def handle_environment_setup(self,do=False):
         if self.options.quick_install and do == False: return
 
-        if not self.options.environment and not self.options.quick_install:
+        if not self.options.metagraph_config and not self.options.quick_install:
             self.functions.print_paragraphs([
                 ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
                 ["on various network clusters or Metagraph pre-defined configurations.",2,"green"],
@@ -236,25 +266,30 @@ class Installer():
                 ["Please key press number of a network cluster or Metagraph configuration below:",2,"blue","bold"],
             ])
 
-        print("")
-        self.functions.print_paragraphs([
-            [" ",1],
-            ["Please choose which Hypergraph or Metagraph you would like to install on this server:",2],
-            ["HYPERGRAPH or METAGRAPH",1,"blue","bold"],
-            ["predefined choices",1,"blue","bold"],
-            ["-","half","blue","bold"]
+        if not self.options.configuration_file:
+            print("")
+            self.functions.print_paragraphs([
+                [" ",1],
+                ["Please choose which Hypergraph or Metagraph you would like to install on this server:",2],
+                ["HYPERGRAPH or METAGRAPH",1,"yellow","bold"],
+                ["predefined choices",1,"blue","bold"],
+                ["-","half","blue","bold"]
         ])
-        # metagraph value will be reset after the configuration is downloaded
-        self.options.environment = self.functions.pull_remote_profiles({
-            "r_and_q":"q", "add_postfix": True, "option_color": "blue",
+
+        self.options.metagraph_config = self.functions.pull_remote_profiles({
+            "r_and_q":"q", 
+            "add_postfix": True, 
+            "option_color": "blue",
+            "required": self.options.configuration_file
         })
-        if self.options.environment == "q":
+        if self.options.metagraph_config == "q":
             cprint("  Installation cancelled by user\n","red")
             exit(0)
         
                 
     def handle_exisitng(self):
-        if not self.options.quick_install: self.parent.print_ext_ip()
+        if not self.options.quick_install: 
+            self.parent.print_ext_ip()
 
         found_files = self.functions.get_list_of_files({
             "paths": ["var/tessellation/","home/nodeadmin/tessellation/"],
@@ -282,11 +317,17 @@ class Installer():
                     [" RECOMMENDED ",0,"green,on_yellow"], ["Attempt an uninstall first.",1,"white"],
                     ["sudo nodectl uninstall",2],
                     
+                    ["*","half","red","bold"],
                     [" IMPORTANT ",0,"yellow,on_red"], ["Any existing tessellation",0,"red"],
-                    ["configuration",0,"yellow","bold"], ["files will be removed from this server.",2,"red"],
+                    ["configuration",0,"yellow","bold"], [",",-1,"red"],
+                    ["p12",0,"yellow","bold"], [", and/or",-1,"red"],
+                    ["sevice",0,"yellow","bold"],
+                    ["files will be removed from this server.",1,"red"],
+                    ["*","half","red","bold"],["",1],
+
                     ["This installation cannot continue unless the old configuration file is removed.",2,"red"],
 
-                    ["You can exit here and uninstall first or continue.  If you continue, nodectl will first remove existing configurations.",1]
+                    ["You can exit here, backup important files and use the uninstall first or continue.  If you continue, nodectl will first remove existing configurations and  elements.",2]
                 ])
                 self.functions.confirm_action({
                     "yes_no_default": "n",
@@ -306,7 +347,8 @@ class Installer():
                     "newline": True,
                 })   
             uninstaller.remove_data(self.functions,self.log,True)
-            pass
+
+            return
 
 
     def populate_node_service(self):
@@ -385,12 +427,27 @@ class Installer():
 
 
     def setup_user(self,quick_ssh=False):
+        if self.options.user:
+            self.user.username = self.options.user
+        if self.options.user_password:
+            self.user.password = self.options.user_password
+        
         if self.options.quick_install:
-            if quick_ssh: self.user.transfer_ssh_key()
+            if quick_ssh: 
+                # second element of quick install
+                self.user.transfer_ssh_key()
             else: self.user.create_debian_user()
         else:
             self.functions.print_any_key({"newline":"top"})
-            self.user.setup_user()  
+            if not self.options.user and not self.options.user_password:
+                self.user.setup_user()
+            else:
+                if not self.options.user:
+                    self.user.ask_for_username()
+                if not self.options.user_password:
+                    self.user.ask_for_password()
+                self.user.create_debian_user()
+                self.user.transfer_ssh_key()
         
 
     def create_dynamic_elements(self):
@@ -630,55 +687,60 @@ class Installer():
     # p12 elements
     # ===================
         
-    def generate_p12_from_install(self):
-        generate = False
-        if isinstance(self.options.p12_path,bool):
-            if self.options.existing_p12: self.migrate_existing_p12()
+    def generate_p12_from_install(self,generate=False):
+        if self.options.existing_p12: 
+            self.migrate_existing_p12()
 
-        if not self.passphrases_set:
+        if not generate:
             self.log.logger.info("installer - generating p12 file")
             action_obj = {
-                "action": "generate",
                 "process": "install",
-                "app_env": self.options.environment,
                 "user_obj": self.user,
                 "cli_obj": self.cli,
                 "functions": self.functions,
                 "existing_p12": self.options.p12_path
             }
             self.p12_session = P12Class(action_obj)
+            self.p12_session.solo = True
             if self.options.quick_install: 
                 self.p12_session.quick_install = True
-        else:
-            generate = True
 
         if self.options.quick_install:
-            if generate:
+            if generate and not self.options.existing_p12:
                 self.p12_session.p12_file_location, self.p12_session.p12_filename = path.split(self.options.p12_path) 
                 self.p12_session.key_alias = self.options.p12_alias
                 self.p12_session.generate()
+                self.options.existing_p12 = True
                 return
             else:
                 if not self.options.user_password:
-                    self.p12_session.user.password = "1qaz2wsx#EDC"
-                    # self.user.ask_for_password()
+                    self.p12_session.user.password = "1qaz2wsx#EDC"  # comment out before production
+                    self.options.user_password = "1qaz2wsx#EDC"      # comment out before production
+                    if not self.options.user_password:
+                       self.user.ask_for_password()
+                    self.options.user_password = self.p12_session.user.password
                 if not self.options.p12_passphrase:
-                    self.p12_session.p12_password = "1qaz2wsx#EDC"
-                    # self.p12_session.ask_for_keyphrase()
-                self.passphrases_set = True
+                    self.p12_session.p12_password = "1qaz2wsx#EDC"  # comment out before production
+                    self.options.p12_passphrase = "1qaz2wsx#EDC"    # comment out before production
+                    if not self.options.p12_passphrase:
+                        self.p12_session.ask_for_keyphrase()
+                    self.options.p12_passphrase = self.p12_session.p12_password
                 if self.options.existing_p12: self.derive_p12_alias()
                 return
 
         self.p12_session.generate_p12_file()     
        
 
-    def derive_p12_alias(self):
-        self.functions.print_cmd_status({
-            "text_start": "Deriving p12 alias",
-            "brackets": self.options.p12_path.split("/")[-1],
-            "status": "running",
-            "status_color": "yellow",
-        })
+    def derive_p12_alias(self,verify=False):
+        self.log.logger.info("installer -> attemptign to derive p12 alias...")
+        if not self.options.quick_install:
+            self.functions.print_cmd_status({
+                "text_start": "Deriving p12 alias",
+                "brackets": self.options.p12_path.split("/")[-1],
+                "status": "running",
+                "status_color": "yellow",
+            })
+
         try:
             self.options.p12_alias = self.p12_session.show_p12_details(
                 ["--file",self.options.p12_path,"--installer",self.options.p12_passphrase,"--alias","--return"]
@@ -688,6 +750,13 @@ class Installer():
             self.options.p12_alias = "error"
             self.found_errors = True
 
+        if verify:
+            if verify != self.options.p12_alias:
+                self.log.logger.error(f"installer -> found requested option alias [{verify}] but found [{self.options.p12_alias}] error found [{self.found_errors}]")
+                self.log.logger.warn(f"installer ->  using invalid [{verify}] which might cause errors")
+                self.options.p12_alias = verify
+            return
+
         self.functions.print_cmd_status({
             "text_start": "Derived p12 alias",
             "status": self.options.p12_alias,
@@ -696,7 +765,7 @@ class Installer():
         })
 
 
-    def migrate_existing_p12(self):
+    def display_exiting_p12_list(self):
         try:
             current_user = "root" if not self.user.installing_user else self.user.installing_user
         except:
@@ -733,6 +802,8 @@ class Installer():
             self.functions.print_paragraphs([
                 [f"{verb}:",0,"magenta","bold"], [possible_found[0],2]
             ])
+        elif self.options.p12_migration_path:
+            location = self.options.p12_migration_path
         else:
             try:
                 for option, value in possible_found.items():
@@ -767,65 +838,97 @@ class Installer():
         
         if not path.exists(f"/home/{self.user.username}/tessellation/"):
             makedirs(f"/home/{self.user.username}/tessellation/")
-            
+
+        return location
+    
+    
+    def migrate_existing_p12(self):
+        if not self.options.p12_migration_path:
+            self.options.p12_migration_path = self.display_exiting_p12_list()
+
+        is_migration_path_error = False
         try:
-            p12name = location.split("/")
-            p12name_only = p12name[-1]
-            p12name = p12name_only.split(".")
-            p12name = p12name[0]
-        except Exception as e:
+            _ , p12file = path.split(self.options.p12_migration_path)
+        except:
+            is_migration_path_error = True
+        else:
+            if not path.exists(self.options.p12_migration_path):
+                is_migration_path_error = True
+
+        if is_migration_path_error:
             self.error_messages.error_code_messages({
-                "error_code": "int-507",
+                "error_code": "int-827",
                 "line_code": "file_not_found",
-                "extra": location if isinstance(location,str) else "unknown",
+                "extra": self.options.p12_migration_path if isinstance(self.options.p12_migration_path,str) else "unknown",
                 "extra2": "Are you sure your uploaded the proper p12 file?"
             })
-        
-        system(f"sudo mv {location} /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
-        system(f"sudo chmod 600 /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
-        system(f"sudo chown root:root /home/{self.user.username}/tessellation/{p12name_only} > /dev/null 2>&1")
+
+        if p12file.endswith(".p12"):
+            p12name = p12file.replace(".p12","")
+        else:
+            self.error_messages.error_code_messages({
+                "error_code": "int-837",
+                "line_code": "invalid_file_format",
+                "extra": self.options.p12_migration_path if isinstance(self.options.p12_migration_path,str) else "unknown",
+                "extra2": "Are you sure your uploaded the proper p12 file?"
+            })     
+
+        dest_p12_path = f"/home/{self.user.username}/tessellation/{p12name}"
+        if self.options.p12_path:
+            dest_p12_path = self.options.p12_path
+
+        dest_p12_path_only, _ = path.split(dest_p12_path)
+        if not path.exists(dest_p12_path_only):
+            makedirs(dest_p12_path_only)
+
+        shutil.move(self.options.p12_migration_path, dest_p12_path)
+        chmod(dest_p12_path, 0o400)
+        system(f"sudo chown root:root {dest_p12_path} > /dev/null 2>&1")
         
         if self.options.quick_install:
-            self.functions.print_clear_line(5,{"backwards":True})
+            return
+            # self.functions.print_clear_line(5,{"backwards":True})
 
         self.functions.print_cmd_status({
             "text_start": "Migrate p12",
-            "brackets": p12name_only,
+            "brackets": p12file,
             "status": "complete",
             "status_color": "green",
             "newline": True,
         })
-        self.options.p12_path = f"/home/{self.user.username}/tessellation/{p12name_only}"
         
 
     def prepare_p12_details(self,action=None):
         if action == "init":
             if not self.options.quick_install:
-                print("")
-                self.functions.print_header_title({
-                    "line1": "P12 MIGRATION CHECK",
-                    "single_line": True,
-                    "show_titles": False,
-                    "newline": "both",
+                if not self.options.existing_p12:
+                    print("")
+                    self.functions.print_header_title({
+                        "line1": "P12 MIGRATION CHECK",
+                        "single_line": True,
+                        "show_titles": False,
+                        "newline": "both",
+                    })
+                    self.functions.print_paragraphs([
+                        ["If you choose",0,"white"], ["y",0,"yellow"], ["at the next prompt, later in the installation process;",0,"white"],
+                        ["nodectl will search for existing p12 file(s) uploaded to your VPS prior to the installation. It will offer",0,"white"],
+                        ["an option menu of found p12 file(s)",0,"white"], ["or",0], 
+                        ["allow you to manually supply a full path to your existing p12 file.",2,"white"],
+                    ])
+
+            if not self.options.existing_p12:
+                self.options.existing_p12 = self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": "Are you migrating an existing p12 private key to this Node?",
+                    "exit_if": False,
                 })
-                self.functions.print_paragraphs([
-                    ["If you choose",0,"white"], ["y",0,"yellow"], ["at the next prompt, later in the installation process;",0,"white"],
-                    ["nodectl will search for existing p12 file(s) uploaded to your VPS prior to the installation. It will offer",0,"white"],
-                    ["an option menu of found p12 file(s)",0,"white"], ["or",0], 
-                    ["allow you to manually supply a full path to your existing p12 file.",2,"white"],
-                ])
-            self.options.existing_p12 = self.functions.confirm_action({
-                "yes_no_default": "n",
-                "return_on": "y",
-                "prompt": "Are you migrating an existing p12 private key to this Node?",
-                "exit_if": False,
-            })
-            self.functions.print_clear_line(1,{"backwards":True})
+                self.functions.print_clear_line(1,{"backwards":True})
+
             if self.options.quick_install and not self.options.existing_p12:
                 self.print_cmd_status("p12 file name","nodeadmin-node.p12",False,False) 
             else:
                 if self.options.existing_p12:
-                    self.options.p12_path = True
                     if self.options.quick_install:
                         print("")
                         self.migrate_existing_p12()
@@ -925,12 +1028,16 @@ class Installer():
     def build_config_file(self,action):
         skeleton = None
         if action == "skeleton" or action == "quick_install":
+            if isinstance(self.options.metagraph_config,dict):
+                skeleton = self.options.metagraph_config["json"]["nodectl"]
             skeleton = self.functions.pull_remote_profiles({
                 "retrieve": "config_file"
             })
+
             if action == "quick_install": return skeleton
 
-            self.config_obj = skeleton[self.options.environment]["json"]["nodectl"]
+            self.config_obj = skeleton[self.options.metagraph_config]["json"]["nodectl"]
+
             self.config_obj["global_elements"] = {
                 "caller": "installer",
                 **self.config_obj["global_elements"],
@@ -938,9 +1045,9 @@ class Installer():
             
             # download specific file to Node
             try:
-                system(f'sudo wget {skeleton[self.options.environment]["yaml_url"]} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
+                system(f'sudo wget {skeleton[self.options.metagraph_config]["yaml_url"]} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
             except Exception as e:
-                self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton[self.options.environment]["nodectl"]["yaml_url"]}] with error [{e}]')
+                self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton[self.options.metagraph_config]["nodectl"]["yaml_url"]}] with error [{e}]')
                 self.error_messages.error_code_messages({
                     "error_code": "int-149",
                     "line_code": "download_yaml",
@@ -948,8 +1055,7 @@ class Installer():
         
         elif action == "defaults":
             self.options.metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
-            if self.options.metagraph_name != "hypergraph":
-                self.options.environment = self.config_obj[next(iter(self.config_obj.keys()))]["environment"]
+            self.options.environment = self.config_obj[next(iter(self.config_obj.keys()))]["environment"]
             self.setup_config.config_obj = self.config_obj
             self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
             self.setup_config.metagraph_list = self.metagraph_list
@@ -974,7 +1080,15 @@ class Installer():
 
         elif action == "p12":
             if self.options.p12_path:
-                self.p12_session.p12_file_location = self.options.p12_path.rsplit('/', 1)[0]+"/"
+                # self.p12_session.p12_file_location = self.options.p12_path.rsplit('/', 1)[0]+"/"
+                self.p12_session.p12_file_location, self.p12_session.p12_filename  = path.split(self.options.p12_path)
+
+            try:
+                _ = self.p12_session.key_alias
+            except:
+                self.derive_p12_alias(self.options.p12_alias)
+                self.p12_session.key_alias = self.options.p12_alias
+
             p12_replace_list = [
                 ("passphrase", f'"{self.p12_session.p12_password}"'),
                 ("key_location",self.p12_session.p12_file_location),
@@ -1037,6 +1151,7 @@ class Installer():
 
     def print_cmd_status(self,chosen,var,gen=True,lookup=True):
         if lookup: var = getattr(self.options,var)
+        if chosen == "metagraph_name": chosen = "hypergraph/metagraph"
         start = "Generated" if gen else "Chosen" 
         self.functions.print_cmd_status({
             "text_start": f"{start} {chosen}",
@@ -1085,6 +1200,12 @@ class Installer():
         ])
 
         self.functions.print_cmd_status({
+            "text_start": "HyperGraph/Metagraph",
+            "status": self.options.metagraph_name,
+            "status_color": "yellow",
+            "newline": True,
+        })      
+        self.functions.print_cmd_status({
             "text_start": "Environment",
             "status": self.options.environment,
             "status_color": "yellow",
@@ -1111,33 +1232,46 @@ class Installer():
 
         print("")
 
+        def print_error():
+            self.functions.print_paragraphs([
+                ["",1],[" WARNING ",1,"red,on_yellow"], 
+                ["p12 file may have incorrect parameters or is corrupted.",0,"red"],
+                ["Unable to derive nodeid.",2,"red","bold"],
+                ["Please update your",0,"red"], ["p12",0,"yellow"], ["details:",2,"red"],
+
+                ["step 1)",0,"magenta","bold"], ["verify your p12 passphrase",1],
+                ["step 2)",0,"magenta","bold"], ["verify your p12 alias",1],
+                [" - sudo nodectl show_p12_details --alias",1], 
+                ["step 3)",0,"magenta","bold"], ["update your configuration",1],
+                [" - sudo nodectl configure",1], 
+                ["step 4",0,"magenta","bold"], ["follow steps to update global p12 parameters",1],
+                ["step 5)",0,"magenta","bold"], ["obtain node id for submission",1],
+                [" - sudo nodectl id -p <profile_name>",1], 
+            ])
+
+        nodeid_derived = True
+        metagraph_list = self.functions.clear_global_profiles(self.metagraph_list)
+
         success = self.cli.cli_grab_id({
             "command":"nodeid",
             "return_success": True,
             "skip_display": True,
         })
-        
         if not success:
-            self.functions.print_paragraphs([
-                ["",1],[" WARNING ",1,"red,on_yellow"], 
-                ["p12 file may have incorrect parameters or is corrupted.",0,"red"],
-                ["Unable to derive nodeid.",2,"red","bold"],
-                ["Please update your",0,"magenta"], ["p12",0,"yellow"], ["details",1,"magenta"],
-                ["sudo nodectl configure",2,"cyan"]
-            ])
+            print_error()
         else:
-            for profile in self.functions.clear_global_profiles(self.metagraph_list):
+            for profile in metagraph_list:
                 if self.config_obj[profile]["seed_location"] != "disable":
                     self.cli.check_seed_list(["-p",profile,"-id",self.cli.nodeid])
 
         self.functions.print_paragraphs([
-            ["",1], [f"Please review the next Steps in order to gain access to the {self.options.environment} environment.",0],
+            ["",1], [f"Please review the next Steps in order to gain access to the {self.options.metagraph_name}->{self.options.environment} environment.",0],
             ["If your Node is found as",0], ["False",0,"red","bold"], ["on the",0],
             ["check seed list(s)",0,"blue","bold"], ["output above, you will need to submit your NodeID for acceptance.",2],
             ["Please follow the instructions below, as indicated.",2],
             ["1",0,"magenta","bold"], [")",-1,"magenta"], ["Submit your NodeID to Constellation Admins.",1,"cyan"],
             ["2",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node.",1,"cyan"],
-            ["3",0,"magenta","bold"], [")",-1,"magenta"], [f"sudo nodectl check_seedlist -p {self.metagraph_list[0]}",1,"cyan"],
+            ["3",0,"magenta","bold"], [")",-1,"magenta"], [f"sudo nodectl check_seedlist -p {metagraph_list[0]}",1,"cyan"],
             ["4",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",2,"cyan"],
             ["enod!",2,"white","bold"],
         ])     

@@ -1045,6 +1045,7 @@ class Configuration():
                 ["p12_validated","bool"], # automated value [not part of yaml]
             ],
             "global_elements": [
+                ["yaml_config_name","str"],
                 ["metagraph_name","str"],
                 ["metagraph_token_identifier","wallet"],
                 ["metagraph_token_coin_id","str"],

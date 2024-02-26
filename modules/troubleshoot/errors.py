@@ -35,6 +35,7 @@ from .logger import Logging
 # invalid_file_format
 # invalid_output_file
 # install_failed
+# invalid_configuration_request
 
 # join_error
 # join
@@ -582,9 +583,20 @@ class Error_codes():
                 ["System detected an attempt to output data to an invalid output location.",0,"red","bold"],
                 ["nodectl is setup to output files to the default uploads directory.  If an alternate directory location is desired, please modified the",0,"red","bold"],
                 ["nodectl configuration via:",0,"red","bold"],["sudo nodectl configure",2],
-                [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
+                [" File: ",0,"yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
             ])            
+            
+            
+        elif var.line_code == "invalid_configuration_request":
+            self.log.logger.warn(f"invalid profile configuration requested [{var.extra}], exited program. remote configuration did not exist or could not be processed")
+            self.functions.print_paragraphs([
+                ["nodectl unsuccessfully attempted to import data from a configuration file.",0,"red","bold"],
+                ["The remote configruation file does not exist, may be spelled wrong, incorrectly formatted, or incorrectly entered.",2,"red","bold"],
+
+                ["If you feel this is an invalid error, please contact a System Administrator for assistance:",1,"red","bold"],["sudo nodectl configure",2],
+                ["Configuration Request Name:",0], [var.extra,2,"yellow","bold"],
+            ]) 
             
             
         elif var.line_code == "invalid_file_format":
@@ -706,8 +718,12 @@ class Error_codes():
     def print_error(self,when="end"):
         if when == "start":
             system("clear")
+            self.functions.print_header_title({
+                "line1": "error detected",
+                "upper": False,
+            })
             self.functions.print_paragraphs([
-                ["",2], [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
+                [" OOPS! CRITICAL ERROR ",1,"red,on_yellow"], 
                 ["Terminating",0], ["nodectl",0,"cyan","underline"], ["utility or current thread process.",2],
                 ["Error Code:",0,"white","bold"], [self.error_code,2,"yellow","bold"],
             ])

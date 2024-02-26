@@ -1000,6 +1000,7 @@ nodectl:
         
         if var.file == "config_yaml_global_elements":
             cur_file = '''  global_elements:
+    yaml_config_name: nodegarageyamlconfigname
     metagraph_name: nodegaragemetagraphname  
     metagraph_token_identifier: nodegaragemetatokenidentifier
     metagraph_token_coin_id: nodegaragemetagraphtokencoinid       

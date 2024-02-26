@@ -2284,6 +2284,8 @@ class CLI():
                
         if nodeid:
             if not self.functions.is_valid_address("nodeid",True,nodeid):
+                if self.primary_command == "install":
+                    return False
                 self.error_messages.error_code_messages({
                     "error_code": "cli-2121",
                     "line_code": "input_error",
@@ -3645,11 +3647,14 @@ class CLI():
                 "action": command,
                 "functions": self.functions,
             }
-            p12 = P12Class(action_obj,False)
-            p12.extract_export_config_env({
+            p12 = P12Class(action_obj)
+            success = p12.extract_export_config_env({
                 "is_global": is_global,
                 "profile": profile,
+                "return_success": True if self.primary_command == "install" else False
             }) 
+            if not success and return_success: 
+                return False
         
         if ip_address != "127.0.0.1":
             if target:
@@ -4787,7 +4792,7 @@ class CLI():
             "action": "private_key",
             "functions": self.functions,
         }
-        p12 = P12Class(action_obj,False)
+        p12 = P12Class(action_obj)
         p12.export_private_key_from_p12()
         
     

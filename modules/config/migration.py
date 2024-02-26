@@ -385,12 +385,15 @@ class Migration():
         token_coin_id = "default"
         token_identifier = "disable"
         if self.config_obj["global_elements"]["metagraph_name"] in ["testnet","mainnet","integrationnet"]:
+            config_name = metagraph_name
             metagraph_name = "hypergraph"
-        elif metagraph_name == "dor_metagraph":
+        elif metagraph_name == "dor-metagraph":
+            config_name = "dor-metagraph-mainnet"
             token_coin_id = "default"
             token_identifier = "default"
 
         rebuild_obj = {
+            "nodegarageyamlconfigname": config_name,
             "nodegaragemetagraphname": metagraph_name,
             "nodegaragemetatokenidentifier": token_identifier,
             "nodegaragemetagraphtokencoinid": token_coin_id, # new to v2.13.0
@@ -403,6 +406,7 @@ class Migration():
             "create_file": "config_yaml_global_elements",
         }
         self.yaml += self.build_yaml(rebuild_obj)
+
 
     def final_yaml_write_out(self):
         # =======================================================

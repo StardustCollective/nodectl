@@ -13,7 +13,7 @@ from .config.versioning import Versioning
 
 class P12Class():
         
-    def __init__(self,command_obj,debug=False):
+    def __init__(self,command_obj):
 
         self.log = Logging()
         
@@ -33,13 +33,14 @@ class P12Class():
         self.config_obj = self.functions.config_obj 
         self.profile = self.functions.default_profile
         self.quick_install = False
+        self.solo = False # part of install or solo request to create p12
 
         self.error_messages = Error_codes(self.functions) 
         
         if "profile" in command_obj:
             self.profile = command_obj["profile"]
 
-        if not self.app_env:                  
+        if not self.app_env and self.process != "install":                  
             try:
                 self.app_env = self.config_obj[self.profile]["environment"]
             except Exception as e:
@@ -52,12 +53,6 @@ class P12Class():
                         "extra": "format",
                         "extra2": f"config keys missing | {e} | {ee}"
                     })
-        
-        self.solo = False # part of install or solo request to create p12?
-        if self.process == "install":
-            self.solo = True
- 
-        self.debug = debug  # bypass keyphrase checks
   
 
     def set_p12_alias(self,profile):
@@ -456,6 +451,7 @@ class P12Class():
         is_global = command_obj.get("global",True)
         profile = command_obj.get("profile",False)
         env_vars = command_obj.get("env_vars",False)
+        return_success = command_obj.get("return_success",False)
 
         pass1 = None
         enc = False
@@ -502,9 +498,10 @@ class P12Class():
         try:
             environ["CL_KEYALIAS"] = indiv_p12_obj["key_alias"]
         except Exception as e:
-            self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}]")
+            self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}] error_code [p-504]")
+            if return_success: return False
             self.error_messages.error_code_messages({
-                "error_code": "p-368",
+                "error_code": "p-504",
                 "line_code": "config_error",
                 "extra": "format"
             })
@@ -512,15 +509,18 @@ class P12Class():
         try:
             environ["CL_KEYSTORE"] = indiv_p12_obj["key_store"]
         except Exception as e:
-            self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}]")
+            self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}] error_code [p-514]")
+            if return_success: return False
             self.error_messages.error_code_messages({
-                "error_code": "p-368",
+                "error_code": "p-514",
                 "line_code": "config_error",
                 "extra": "format"
             })
         self.path_to_p12 = indiv_p12_obj["key_location"]
         self.p12_username = indiv_p12_obj["nodeadmin"]
         self.p12_file = indiv_p12_obj["key_name"]
+
+        return True # if command is not looking for bool, will be ignored.
 
                   
     def generate(self):
