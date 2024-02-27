@@ -54,6 +54,7 @@ class Download():
             "up": 6,
             "clear": 7,
             "reset": -1,
+            "down": -1,
             "success": True,
         }
 
@@ -270,6 +271,7 @@ class Download():
     def set_file_obj_order(self):
         # reorder cursor positions
         self.cursor_setup["clear"] += len(self.file_obj)
+        self.cursor_setup["down"] = len(self.file_obj)+1
         for n, file in enumerate(self.file_obj):
             self.file_obj[file]["pos"] = n
 
@@ -382,7 +384,6 @@ class Download():
     def print_status_handler(self, file_name, init=False):
         if self.auto_restart: return
 
-        int_position = 7
         position = self.file_obj[file_name]["pos"]
         end_position = position+1
         if init:

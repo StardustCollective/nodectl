@@ -569,7 +569,7 @@ def build_help(functions,command_obj):
   username will be used by default
   
   optional:
-  {colored('--file <p12_file_name>','green')}
+  {colored('--file <p12_filename>','green')}
   
   optional:
   {colored('--location <full_path_to_file>','green')}

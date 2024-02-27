@@ -1049,7 +1049,7 @@ class ShellHandler:
                     verb = "of next" if manual else "of"
                     if self.auto_restart_enabled:
                         cprint(f"  Auto Restart will reengage at completion {verb} requested task","green")
-                    else:
+                    elif self.called_command != "uninstall":
                         cprint("  This will need to restarted manually...","red")
                     self.log.logger.debug(f"auto_restart process pid: [{self.auto_restart_pid}] killed") 
                     self.auto_restart_pid = False # reset 

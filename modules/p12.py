@@ -105,7 +105,7 @@ class P12Class():
 
     def ask_for_p12name(self):
         if self.existing_p12:
-            self.p12_file_location, self.p12_file = path.split(self.existing_p12)
+            self.p12_file_location, self.p12_filename = path.split(self.existing_p12)
             return
             
         if not self.quick_install:
@@ -333,7 +333,7 @@ class P12Class():
                 
 
     def unlock(self):
-        bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_file}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
+        bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
         
         # check p12 against method 1
         results = self.functions.process_command({
@@ -346,7 +346,7 @@ class P12Class():
             return True
         
         # check p12 against method 2
-        bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_file} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
+        bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
         results = self.functions.process_command({
             "bashCommand": bashCommand2,
             "proc_action": "wait"
@@ -386,10 +386,10 @@ class P12Class():
         self.log.logger.info("p12 file importing variables.")
         if is_global:
             self.path_to_p12 = self.config_obj["global_p12"]["key_location"]
-            self.p12_file = self.config_obj["global_p12"]["key_name"]
+            self.p12_filename = self.config_obj["global_p12"]["key_name"]
         else:
             self.path_to_p12 = self.config_obj[profile]["p12_key_location"]
-            self.p12_file = self.config_obj[profile]["p12_key_name"]
+            self.p12_filename = self.config_obj[profile]["p12_key_name"]
 
         if not self.path_to_p12.endswith("/"):
             self.path_to_p12 = f"{self.path_to_p12}/"
@@ -433,7 +433,7 @@ class P12Class():
             ["DO NOT EXPOSE TO ANYONE, AS YOUR",0,"red"], ["HOT WALLET",0,"red","underline"],
             ["AND NODE CAN BE COMPROMISED!",2,"red"],
             
-            ["PRIVATE KEY FOR [",0], [self.p12_file,-1,"yellow","bold"], ["]",-1], ["",1],
+            ["PRIVATE KEY FOR [",0], [self.p12_filename,-1,"yellow","bold"], ["]",-1], ["",1],
             ["=","full","white","bold"],
             [hex_result,1,"green","bold"],
             ["=","full","white", "bold"], ["",1],
@@ -521,7 +521,7 @@ class P12Class():
             })
         self.path_to_p12 = indiv_p12_obj["key_location"]
         self.p12_username = indiv_p12_obj["nodeadmin"]
-        self.p12_file = indiv_p12_obj["key_name"]
+        self.p12_filename = indiv_p12_obj["key_name"]
 
         return True # if command is not looking for bool, will be ignored.
 

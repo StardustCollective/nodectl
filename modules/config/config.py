@@ -64,6 +64,9 @@ class Configuration():
         skip_validation = ["configure","new_config","install","quick_install","uninstall"]
         self.do_validation = False if self.action in skip_validation else True
         if self.action == "new_config_init": self.action = "edit_config"
+        if self.called_command == "uninstall": 
+            self.action = "edit_config"
+            self.skip_final_report = True
 
         self.requested_configuration = False
         self.current_layer = None

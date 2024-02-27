@@ -61,8 +61,8 @@ class Installer():
             self.handle_exisitng()
             self.build_config_file("skeleton")
             self.build_config_file("defaults")
-            self.update_os()
-            self.process_distro_dependencies()
+            # self.update_os()
+            # self.process_distro_dependencies()
             self.download_binaries()
             self.make_swap_file()
             self.setup_user()
@@ -97,7 +97,9 @@ class Installer():
             ["background.",2],
         ])
 
-        if not self.options.quick_install:
+        if self.options.normal_install:
+            self.log.logger.info("installer -> long normal option choosen by Node Operator option input.")
+        elif not self.options.quick_install:
             self.functions.print_paragraphs([
                 [" QUICK INSTALL ",0,"yellow,on_blue"], ["nodectl's installer provides a",0,"white","bold"], 
                 ["quick install",0,"blue","bold"], ["option that utilizes all the",0,"white","bold"], ["recommended",0,"green","bold"],
@@ -171,15 +173,20 @@ class Installer():
             "--metagraph-config",
             "--user", "--p12-path", 
             "--user-password","--p12-passphrase",
-            "--p12-migration-path", "--p12-alias"
+            "--p12-migration-path", "--p12-alias",
+            "--quick_install", "--normal",
         ]
         
         self.options_dict["quick_install"] = False
         self.options_dict["configuration_file"] = False
+        self.options_dict["normal_install"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
-            if o_option == "quick-install" or o_option == "quick_install": 
+            if (o_option == "quick-install" or o_option == "quick_install") and "--quick_install" in self.argv_list: 
                 self.options_dict["quick_install"] = True
+                continue
+            if (o_option == "normal" or o_option == "normal") and "--normal" in self.argv_list: 
+                self.options_dict["normal_install"] = True
                 continue
             self.options_dict[o_option] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
 
@@ -220,6 +227,7 @@ class Installer():
                 self.print_cmd_status("metagraph","metagraph_name",False) 
             elif option == "p12_path":
                 if not value.endswith(".p12"):
+                    self.close_threads()
                     self.error_messages.error_code_messages({
                         "error_code": "int-133",
                         "line_code": "invalid_file_format",
@@ -239,8 +247,8 @@ class Installer():
 
         if self.options.quick_install:
             if not self.options.user_password:
-                self.user.password = "1qaz2wsx#EDC"  # comment out before production
-                self.options.user_password = "1qaz2wsx#EDC"      # comment out before production
+                # self.user.password = "1qaz2wsx#EDC"  # comment out before production
+                # self.options.user_password = "1qaz2wsx#EDC"      # comment out before production
                 if not self.options.user_password:
                     self.user.username = self.options.user
                     print("")
@@ -349,9 +357,25 @@ class Installer():
                     "prompt_color": "red",
                     "exit_if": True,
                 })
-                self.functions.print_clear_line(1,{"backwards":True,"fl":1})
+                if self.options.quick_install:
+                    self.functions.print_clear_line(1,{"backwards":True,"fl":1})
 
+            if not self.options.quick_install:
+                self.print_main_title()
+                self.functions.print_header_title({
+                    "line1": "HANDLE EXISTING DATA",
+                    "single_line": True,
+                    "show_titles": False,
+                    "newline": "bottom",
+                })
             uninstaller.remove_data(self.functions,self.log,True)
+            if not self.options.quick_install:
+                self.functions.print_cmd_status({
+                    "text_start": "Clean up old configuration data",
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True,
+                })
 
             return
 
@@ -404,10 +428,10 @@ class Installer():
             self.functions.print_clear_line(pos['clear'],{"fl": pos['clear']})
             print(f"\033[{pos['reset']}A", end="", flush=True)
         else:
-            print(f"\033[{pos['clear']}B", end="", flush=True)
-            print("")
+            print(f"\033[{pos['down']}B", end="", flush=True)
 
         if status == "failed":
+            self.close_threads()
             self.error_messages.error_code_messages({
                 "error_code": "int-354",
                 "line_code": "install_failed",
@@ -722,9 +746,9 @@ class Installer():
         else:
             if self.options.p12_path:
                 self.p12_session.p12_file_location = path.split(self.options.p12_path)[0]
-                self.p12_session.p12_file = path.split(self.options.p12_path)[1]
+                self.p12_session.p12_filename = path.split(self.options.p12_path)[1]
             elif self.options.p12_migration_path:
-                self.p12_session.p12_file = path.split(self.options.p12_migration_path)[1]
+                self.p12_session.p12_filename = path.split(self.options.p12_migration_path)[1]
                 self.p12_session.ask_for_location()
             else:
                 self.p12_session.ask_for_p12name()
@@ -741,7 +765,7 @@ class Installer():
                 self.p12_session.ask_for_file_alias() 
 
         if not self.options.p12_path:
-            self.options.p12_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_file}"
+            self.options.p12_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
             self.options.p12_path = self.functions.cleaner(self.options.p12_path,"fix_double_slash")
         if not self.options.p12_passphrase:
             self.options.p12_passphrase = self.p12_session.p12_password
@@ -794,6 +818,7 @@ class Installer():
             if self.options.user:
                 current_user = self.options.user
             else:
+                self.close_threads()
                 self.error_messages.error_code_messages({
                     "error_code": "int-785",
                     "line_code": "invalid_user",
@@ -844,6 +869,7 @@ class Installer():
                 })  
                 location = possible_found[location]
             except:
+                self.close_threads()
                 self.error_messages.error_code_messages({
                     "error_code": "int-484",
                     "line_code": "invalid_search",
@@ -880,6 +906,7 @@ class Installer():
                 is_migration_path_error = True
 
         if is_migration_path_error:
+            self.close_threads()
             self.error_messages.error_code_messages({
                 "error_code": "int-827",
                 "line_code": "file_not_found",
@@ -888,6 +915,7 @@ class Installer():
             })
 
         if not p12file.endswith(".p12"):
+            self.close_threads()
             self.error_messages.error_code_messages({
                 "error_code": "int-837",
                 "line_code": "invalid_file_format",
@@ -965,9 +993,9 @@ class Installer():
 
         # This is done first to save the end user time if they have
         # to upload their p12 on migration 
-        if self.options.p12_path:        
+        if self.options.p12_path or self.options.p12_migration_path:        
             self.functions.print_paragraphs([
-                [" BEFORE WE BEGIN ",2,"grey,on_yellow"], 
+                ["",1], [" BEFORE WE BEGIN ",2,"grey,on_yellow"], 
                 ["If",0,"cyan","bold,underline"], ["this Node will be using",0],
                 ["an existing",0], ["p12 private key",0,"yellow","bold"], [", the installation should be exited and the",-1],
                 ["existing",0,"yellow","bold"], ["p12 private key uploaded to a known secure local directory on this server.",0],
@@ -977,7 +1005,9 @@ class Installer():
                 
                 ["Later in the installation, the Node Operator will be given the opportunity to migrate over the existing p12 private key.",0],
                 ["At the necessary time, a request for the",0], ["p12 name",0,"yellow","bold"], ["and",0], ["directory location",0,"yellow","bold"],
-                ["will be given.",0], ["Once nodectl understands where the p12 file is located and necessary credentials, it will then be migrated by the installation to the proper location.",2]
+                ["will be given.",0], ["Once nodectl understands where the p12 file is located and necessary credentials, it will then be migrated by the installation to the proper location.",2],
+
+                ["Alternatively, you can pause here, open a new terminal, upload the p12 private key to this VPS, then return to this terminal and continue the installation.",2]
             ])
             
             prompt_str = f"Exit now to upload existing p12?"
@@ -1059,16 +1089,24 @@ class Installer():
 
     def build_config_file(self,action):
         skeleton = None
+
         if action == "skeleton" or action == "quick_install":
-            if isinstance(self.options.metagraph_config,dict):
-                skeleton = self.options.metagraph_config["json"]["nodectl"]
-            skeleton = self.functions.pull_remote_profiles({
-                "retrieve": "config_file"
-            })
+            if not isinstance(self.options.metagraph_config,dict):
+                skeleton = self.functions.pull_remote_profiles({
+                    "retrieve": "config_file"
+                })
+                skeleton_yaml = skeleton[self.options.metagraph_config]["yaml_url"]
 
             if action == "quick_install": return skeleton
 
-            self.config_obj = skeleton[self.options.metagraph_config]["json"]["nodectl"]
+            if not self.options.metagraph_name:
+                self.config_obj = skeleton[self.options.metagraph_config]["json"]["nodectl"]
+            else:
+                try:
+                    self.config_obj = skeleton[self.options.metagraph_name]["json"]["nodectl"]
+                except:
+                    self.config_obj = self.options.metagraph_config["json"]["nodectl"]
+                    skeleton_yaml = self.options.metagraph_config["yaml_url"]
 
             self.config_obj["global_elements"] = {
                 "caller": "installer",
@@ -1077,9 +1115,10 @@ class Installer():
             
             # download specific file to Node
             try:
-                system(f'sudo wget {skeleton[self.options.metagraph_config]["yaml_url"]} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
+                system(f'sudo wget {skeleton_yaml} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
             except Exception as e:
-                self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton[self.options.metagraph_config]["nodectl"]["yaml_url"]}] with error [{e}]')
+                self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton_yaml}] with error [{e}]')
+                self.close_threads()
                 self.error_messages.error_code_messages({
                     "error_code": "int-149",
                     "line_code": "download_yaml",
@@ -1219,6 +1258,7 @@ class Installer():
         node_service = Node({"functions": self.functions})
         uninstaller.start_uninstall(self.functions,self.log)
         uninstaller.stop_services(self.functions, node_service,self.log)
+        self.parent.auto_restart_handler("disable","cli")
         uninstaller.restore_user_access(self.cli,self.functions,self.log)
         node_admins = uninstaller.remove_data(self.functions,self.log)
 
@@ -1233,6 +1273,11 @@ class Installer():
             shutil.rmtree("/var/tessellation")
 
         uninstaller.remove_nodectl(node_service)
+
+
+    def close_threads(self):
+        self.functions.status_dots = False
+        self.functions.event = False
 
 
     def print_cluster_config_details(self):

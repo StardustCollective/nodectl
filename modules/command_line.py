@@ -3821,7 +3821,7 @@ class CLI():
                 print_out_list = [
                     {
                         "header_elements" : {
-                            "P12 FILENAME": p12.p12_file,
+                            "P12 FILENAME": p12.p12_filename,
                             "P12 LOCATION": p12.path_to_p12,
                         },
                         "spacing": 30
