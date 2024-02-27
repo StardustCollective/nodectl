@@ -214,7 +214,7 @@ class Versioning():
             version_obj, env_version_obj = {}, {}
             last_environment = False
             info_list = ["version"]
-            metagarph = False
+            metagraph = False
 
             for environment in self.functions.environment_names:
                 for profile in self.functions.profile_names:
@@ -223,10 +223,13 @@ class Versioning():
                     api_endpoint = "/node/info"
                     api_host = self.config_obj[profile]["edge_point"]
                     api_port = self.config_obj[profile]["edge_point_tcp_port"]
-                    if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
-                        info_list = ["metagraphVersion"]
-                        api_endpoint = "/metagraph/info"
-                        metagarph = True
+
+                    # migration only version by-pass
+                    if self.config_obj["global_elements"]["nodectl_yaml"] == self.nodectl_static_versions["node_nodectl_yaml_version"]: # migration only version by-pass
+                        if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
+                            info_list = ["metagraphVersion"]
+                            api_endpoint = "/metagraph/info"
+                            metagraph = True
 
                         
                     if not last_environment or last_environment != self.config_obj[profile]["environment"]:
@@ -251,7 +254,7 @@ class Versioning():
                             version = "v0.0.0"
                             metagraph_version = "v0.0.0"
                         else:
-                            if metagarph:
+                            if metagraph:
                                 metagraph_version = version[0]
                                 if not metagraph_version.startswith("v"): metagraph_version = f"v{metagraph_version}"
                                 try:
