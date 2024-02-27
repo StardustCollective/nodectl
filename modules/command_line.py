@@ -1729,8 +1729,9 @@ class CLI():
         if "-v" in argv_list:
             download_obj["download_version"] = argv_list[argv_list.index("-v")+1]
 
-        self.node_service.download_constellation_binaries(download_obj)
+        pos = self.node_service.download_constellation_binaries(download_obj)
 
+        print("\n"*(pos["down"]-1))
         self.functions.print_cmd_status({
             "text_start": print_status,
             "status": "complete",
@@ -2569,6 +2570,7 @@ class CLI():
         self.functions.print_timer({
             "p_type": "cmd",
             "seconds": 6,
+            "step": -1,
             "phrase": "Waiting",
             "end_phrase": "before starting",
         })

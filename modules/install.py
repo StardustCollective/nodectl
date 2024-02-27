@@ -61,8 +61,8 @@ class Installer():
             self.handle_exisitng()
             self.build_config_file("skeleton")
             self.build_config_file("defaults")
-            # self.update_os()
-            # self.process_distro_dependencies()
+            self.update_os()
+            self.process_distro_dependencies()
             self.download_binaries()
             self.make_swap_file()
             self.setup_user()
@@ -247,21 +247,15 @@ class Installer():
 
         if self.options.quick_install:
             if not self.options.user_password:
-                # self.user.password = "1qaz2wsx#EDC"  # comment out before production
-                # self.options.user_password = "1qaz2wsx#EDC"      # comment out before production
-                if not self.options.user_password:
-                    self.user.username = self.options.user
-                    print("")
-                    self.user.ask_for_password()
-                    self.options.user_password = self.user.password
+                self.user.username = self.options.user
+                print("")
+                self.user.ask_for_password()
+                self.options.user_password = self.user.password
                 self.p12_session.user.password = self.options.user_password
 
             if not self.options.p12_passphrase:
-                # self.p12_session.p12_password = "1qaz2wsx#EDC"  # comment out before production
-                # self.options.p12_passphrase = "1qaz2wsx#EDC"    # comment out before production
-                if not self.options.p12_passphrase:
-                    self.p12_session.ask_for_keyphrase()
-                    self.options.p12_passphrase = self.p12_session.p12_password
+                self.p12_session.ask_for_keyphrase()
+                self.options.p12_passphrase = self.p12_session.p12_password
                 self.p12_session.p12_password = self.options.p12_passphrase
 
         return     
@@ -407,10 +401,6 @@ class Installer():
     
 
     def download_binaries(self):  
-
-        # if not self.options.quick_install:
-        #     self.print_main_title()
-
         download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_metagraph_version"]
         if self.options.metagraph_name == "hypergraph":
             download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"]
@@ -938,7 +928,6 @@ class Installer():
 
         if self.options.quick_install:
             return
-            # self.functions.print_clear_line(5,{"backwards":True})
 
         if not self.options.quick_install and self.options.p12_path:
             self.options.p12_path = dest_p12_path

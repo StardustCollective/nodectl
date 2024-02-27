@@ -86,6 +86,7 @@ class Download():
 
 
     def execute_downloads(self):
+        self.set_default_version()
         self.set_file_objects()
         self.set_seedfile_object()
         self.set_file_obj_order()
@@ -179,12 +180,16 @@ class Download():
         else: profiles = self.functions.profile_names
 
         download_version = self.download_version
+
         for n, profile in enumerate(profiles):
             self.file_pos += n+1
             seed_path = self.config_obj[profile]["seed_path"]    
             seed_repo = self.config_obj[profile]['seed_repository']
             seed_file = self.config_obj[profile]["seed_file"]
 
+            if self.action == "upgrade":
+                download_version = self.download_version[profile]["download_version"]
+                
             state = "fetching"
             if "disable" in seed_path:
                 state = "disabled"
@@ -243,6 +248,15 @@ class Download():
         return f"{file_path}{file_name}"
 
 
+    def set_default_version(self):
+        if self.download_version != "default": return
+
+        # readability
+        env = self.functions.environment_name
+        profile = self.functions.profile_names[0]
+        self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+        return
+    
     def set_download_options(self,uri,download_version,profile,dtype="repo"):
         github = False
         if isinstance(self.config_obj["global_elements"]["metagraph_name"],list):

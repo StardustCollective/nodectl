@@ -340,6 +340,18 @@ class Upgrader():
                 })
                 result = 1
 
+                core_file_error = False
+                if not path.isfile("/var/tessellation/cl-wallet.jar"):
+                    core_file_error = True
+                if self.functions.get_size("/var/tessellation/cl-wallet.jar","single") < 1:
+                    core_file_error = True
+                if core_file_error:
+                    self.error_messages({
+                        "error_code": "upg-345",
+                        "line_code": "file_not_found",
+                        "extra": "/var/tessellation/cl-wallet.jar",
+                    })
+
                 while True:
                     cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
                     self.node_id = self.functions.process_command({
@@ -953,12 +965,13 @@ class Upgrader():
             "newline": True
         })
 
-        self.cli.node_service.download_constellation_binaries({
+        pos = self.cli.node_service.download_constellation_binaries({
             "download_version": self.profile_progress,
             "environment": self.environment,
             "print_version": False,
             "action": "upgrade",
         })
+        print("\n"*(pos["down"]))
 
 
     def get_update_core_statuses(self, action, process, profile, status=None):
