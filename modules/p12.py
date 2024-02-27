@@ -390,6 +390,9 @@ class P12Class():
         else:
             self.path_to_p12 = self.config_obj[profile]["p12_key_location"]
             self.p12_file = self.config_obj[profile]["p12_key_name"]
+
+        if not self.path_to_p12.endswith("/"):
+            self.path_to_p12 = f"{self.path_to_p12}/"
         
         
     def export_private_key_from_p12(self):
@@ -723,6 +726,7 @@ class P12Class():
 
             if "keytool error" in item:
                 self.log.logger.error(f"p12 -> show_p12_details p12 authentication issue: error [{value}] p12 file [{p12_location}]") 
+                if self.process == "install": return
                 self.error_messages.error_code_messages({
                     "error_code": "p-603",
                     "line_code": "invalid_passphrase",

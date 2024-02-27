@@ -27,6 +27,8 @@ class UserClass:
         
         self.username = None
         self.password = None
+
+        self.keep_user = False
         self.migrating_p12 = False
         self.quick_install = False
         
@@ -39,7 +41,6 @@ class UserClass:
 
   
     def ask_for_username(self):
-        self.keep_user = False
         print("")
         self.functions.print_header_title({
           "line1": "CREATE USER",
@@ -157,7 +158,8 @@ class UserClass:
         if self.keep_user: return
         
         self.functions.print_paragraphs([
-            ["",1], [f"We need to create a password for {self.username} user.",1],
+            ["",1], ["We need to create a password for",0],
+            [self.username,0,"yellow"], ["user:",1],
         ])
         if not self.quick_install:
             self.print_password_descriptions(10,"password")

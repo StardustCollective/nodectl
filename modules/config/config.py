@@ -1068,7 +1068,7 @@ class Configuration():
         
         
     def setup_path_formats(self,profile):
-        def check_slash(st_val,path_value):
+        def check_slash(st_val,path_value,s_type):
             if "def" in st_val and path_value == "default": return
             if "dis" in st_val and path_value == "disable": return
             try:
@@ -1087,7 +1087,7 @@ class Configuration():
                     for s_type, st_val in section_types:
                         if "path" not in s_type and "path" in st_val:
                             path_value = self.config_obj[profile][s_type]
-                            check_slash(st_val,path_value)
+                            check_slash(st_val,path_value,s_type)
         except Exception as e:
             self.log.logger.error(f"setup_path_formats -> p12 issue found - may have a configuration file error - check for trailing slash in p12 path file.")
             self.error_messages.error_code_messages({
@@ -1098,7 +1098,8 @@ class Configuration():
                         
         if profile == "global_p12":
             path_value = self.config_obj[profile]["key_location"]
-            check_slash("key_location",path_value)
+            s_type = "key_location"
+            check_slash("key_location",path_value,s_type)
                 
 
     def validate_yaml_keys(self):
