@@ -464,7 +464,7 @@ class P12Class():
             profile = "global_p12"
             p_sub_key = "passphrase"
 
-        if self.process != "install":
+        if self.process != "install" and not self.solo:
             if self.config_obj["global_p12"]["encryption"]:
                 enc = True
                 if env_vars: pass1 = self.p12_password
@@ -692,7 +692,7 @@ class P12Class():
             pass_ask = colored(f'  Please enter your p12 passphrase to validate: ','cyan')
             p12_passwd = getpass(pass_ask,)
 
-        if self.config_obj["global_p12"]["encryption"]:
+        if self.config_obj["global_p12"]["encryption"] and not self.solo:
             enc_profile = "Unknown"
             if self.config_obj["global_elements"]["all_global"]: enc_profile = "global"
             else: enc_profile = profile
@@ -873,7 +873,7 @@ class P12Class():
             })
 
         from .user import UserClass
-        self.user = UserClass(cli,True)
+        self.user = UserClass(cli)
         self.user.username = p12_username
         
         self.cli = {"command_obj": {"caller": "create_p12"}}
