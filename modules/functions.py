@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 import base64
 
-from psutil import Process, cpu_percent, virtual_memory, process_iter
+from psutil import Process, cpu_percent, virtual_memory, process_iter, AccessDenied, NoSuchProcess
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
@@ -512,18 +512,46 @@ class Functions():
         self.config_obj["global_elements"]["node_service_status"]["service_list"] = service_names
 
         for service in service_names:
+            service_name = service+".service"
             if service in self.profile_names:
                 service_name = f"cnng-{self.config_obj[service]['service']}"
-            service_status = system(f'systemctl is-active --quiet {service_name}')
+            service_status = system(f'systemctl is-active --quiet {service_name} > /dev/null 2>&1')
             if service_status == 0:
                 self.config_obj["global_elements"]["node_service_status"][service] = "active (running)"
             elif service_status == 768:
                 self.config_obj["global_elements"]["node_service_status"][service] = "inactive (dead)"
             else:
                 self.config_obj["global_elements"]["node_service_status"][service] = "error (exit code)"
-            self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] = service_status   
-            self.log.logger.debug(f'get_service_status -> [{service}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][service]}]')
-        
+            self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] = service_status  
+
+            for process in process_iter():
+                if service in self.profile_names:
+                    find_string = self.config_obj[service]["jar_file"]
+                elif "node_version_updater" in service:
+                    find_string = "uvos"
+                elif "restart" in service:
+                    find_string = "service_restart"
+                try:
+                    cmdline = process.cmdline()[1:]
+                except IndexError:
+                    continue
+                except AccessDenied:
+                    continue
+                except NoSuchProcess:
+                    continue
+                for item in cmdline:
+                    if find_string in item:
+                        self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = process.pid
+
+            try:
+                _ = self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"]
+            except KeyError:
+                self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = "??"
+            if self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] > 0:
+                self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = "n/a"
+
+        self.log.logger.debug(f'get_service_status -> [{service}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][service]}]')
+
 
     def get_date_time(self,command_obj):
         action = command_obj.get("action",False)

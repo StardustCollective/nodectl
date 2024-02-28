@@ -545,6 +545,7 @@ class CLI():
         for service in service_elements["service_list"]:
             service_status = service_elements[service]
             service_code = service_elements[f"{service}_service_return_code"]
+            service_pid = service_elements[f"{service}_service_pid"]
 
             if service in self.functions.profile_names:
                 title_name = service
@@ -561,20 +562,24 @@ class CLI():
             else:
                 service_status = colored(service_status,"yellow")
 
-            print_out_list.append({
-                "OWNER": title_name,
-                "SERVICE": service_name,
-                "STATUS CODE": service_code,
-                "STATUS": service_status,
-            })
+            single_list = [
+                {
+                    "-BLANK-":None,
+                    "OWNER": title_name,
+                    "SERVICE": service_name,
+                    "PID": service_pid,
+                },
+                {
+                    "STATUS CODE": service_code,
+                    "STATUS": service_status,
+                },
+            ]
+            print_out_list += single_list
 
         for header_elements in print_out_list:
             self.functions.print_show_output({
                 "header_elements" : header_elements,
-                "spacing": 10,
-        })
-
-        pass
+            })
 
 
     def show_service_log(self,command_list):

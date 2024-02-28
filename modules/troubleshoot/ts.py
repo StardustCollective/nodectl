@@ -49,7 +49,7 @@ class Troubleshooter():
                             "error_msg": "upgrade_needed",
                         },
                         {
-                            "find":"NodeNotPresentOnSeedlist",
+                            "find":"not in seedlist",
                             "user_msg": "This Node is not authorized to join the cluster. Seed list issue.",
                             "error_msg": "join_error",
                         },
