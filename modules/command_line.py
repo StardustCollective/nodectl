@@ -1188,21 +1188,24 @@ class CLI():
             self.profile = profile
             self.set_profile_api_ports()
 
-            for coin in coins:
-                if coin["id"] == self.functions.config_obj[profile]['token_coin_id']:
-                    ticker = coin["symbol"]
+            try:
+                for coin in coins:
+                    if coin["id"] == self.functions.config_obj[profile]['token_coin_id']:
+                        ticker = coin["symbol"]
+            except:
+                ticker = " --"
 
             if n > 0:
                 self.functions.print_paragraphs([
                     ["-","half","blue","bold"],["",1],
                 ])
                 
-            mc_key = "CLUSTER" if self.functions.config_obj[profile]["environment"] == metagraph_name else "METAGRAPH"
+            mc_key = "CLUSTER" if metagraph_name == "hypergraph" else "METAGRAPH"
 
             print_out_list = [
                 {
                     f"{mc_key}": metagraph_name,
-                    "ENIVRONMENT": self.functions.config_obj[profile]["environment"],
+                    "ENVIRONMENT": self.functions.config_obj[profile]["environment"],
                     "PROFILE NAME": profile,
                 },
                 {
@@ -1862,6 +1865,7 @@ class CLI():
                     "header_elements" : {
                     "NODECTL LATEST STABLE": self.version_obj[environment]["nodectl"]["current_stable"],
                     "NODECTL PRERELEASE": prerelease,
+                    "NODECTL CODE NAME": self.functions.nodectl_code_name,
                     },
                     "spacing": spacing
                 },

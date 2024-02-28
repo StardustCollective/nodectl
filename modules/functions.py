@@ -33,7 +33,7 @@ from threading import Timer
 from platform import platform
 from urllib.parse import urlparse, urlunparse
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir, getcwd, remove
+from os import system, getenv, path, walk, environ, get_terminal_size, scandir, getcwd, remove, chdir
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
@@ -142,13 +142,14 @@ class Functions():
     # =============================
         
     def get_local_coin_db(self):
-        coin_list_path = path.join(getcwd(), "modules/data/coingecko_coin_list.json")
-        
+        chdir(path.dirname(path.abspath(__file__)))
+        coin_list_path =  path.join("data", "coingecko_coin_list.json")
+
         try:
             with open(coin_list_path, "r", encoding="utf-8") as file:
                 coins = json.load(file)
         except Exception as e:
-            self.log.logger.error(f"coingecko response error | {e}")
+            self.log.logger.error(f"functions -> get_local_coin_db -> path issue attempting to load coin database -> error | {e} - trying secondary method")
             cprint("  Unable to process CoinGecko coin list results...","red") 
             return False
         else:
