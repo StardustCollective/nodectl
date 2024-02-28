@@ -24,7 +24,7 @@ class ShellHandler:
 
         try:
             self.log = Logging() # install exception
-        except Exception as e:
+        except:
             print(colored("Are you sure your are running with 'sudo'","red",attrs=["bold"]))
             print(colored("nodectl unrecoverable error","red",attrs=["bold"]))
             print(colored("nodectl may not be installed?","red"),colored("hint:","cyan"),"use sudo")
@@ -175,7 +175,9 @@ class ShellHandler:
         elif self.called_command in service_change_commands:
             if not self.help_requested:
                 try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
-                except: exit(0) # profile error caught by fnt-998
+                except: 
+                    self.log.logger.error("shell_handler -> profile error caught by fnt-998")
+                    exit(0) # profile error caught by fnt-998
             if not self.help_requested:            
                 if self.called_command == "start":
                     self.cli.cli_start({
@@ -562,7 +564,7 @@ class ShellHandler:
 
         need_profile_list = [
             "find","quick_check","logs",
-            "start","stop","restart",
+            "start","stop","restart","leave",
             "slow_restart","_sr","restart_only",
             "peers","check_source_connection","_csc",
             "check_connection","_cc",
