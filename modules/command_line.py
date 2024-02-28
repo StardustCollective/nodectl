@@ -2753,6 +2753,13 @@ class CLI():
             "status_color": "yellow",
             "newline": True,
         })
+
+        self.functions.print_cmd_status({
+            "text_start": "Node IP address",
+            "status": self.functions.get_ext_ip(),
+            "status_color": "green",
+            "newline": True,
+        }) 
         
         self.functions.set_default_variables({
             "profile": called_profile,
@@ -2842,17 +2849,20 @@ class CLI():
                 "status_color": "green",
                 "newline": True,
             })        
-
-        self.print_title("UPDATING SEED LIST")
         
+        # seed list title printed in download_service class
         for n, profile in enumerate(profile_order):
             self.node_service.set_profile(profile)
             self.log.logger.debug(f"cli_restart -> handling seed list updates against profile [{profile}]")
-            self.node_service.download_update_seedlist({
-                "action": "normal",
-                "install_upgrade": False,
+            pos = self.node_service.download_constellation_binaries({
+                "caller": "update_seedlist",
+                "profile": profile,
+                "environment": self.config_obj[profile]["environment"],
             })
             sleep(.5)    
+        print(f"\033[{pos['down']}B", end="", flush=True)
+        print("")
+            
             
         # ====================
         # CONTROLLED START & JOIN OPERATIONS
@@ -3473,7 +3483,7 @@ class CLI():
                 self.functions.print_cmd_status({
                     "text_start": "Node going",
                     "brackets": "Offline",
-                    "text_end": "Please be patient",
+                    "text_end": "please be patient",
                     "status": profile,
                     "newline": True,
                 })
@@ -3520,6 +3530,7 @@ class CLI():
                         "status_color": "yellow",
                         "newline": True
                     })  
+                
                 if start > 4:
                     self.log.logger.warn(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
                     if print_timer:
@@ -3537,7 +3548,7 @@ class CLI():
                         self.log.logger.debug(f"cli_leave -> leave process waiting for | profile [{profile}] state to be [leaving] | ip [127.0.0.1]")
                         leave_obj = self.send.scrap_log({
                             "profile": profile,
-                            "msg": "Wait for Node to go offline",
+                            "msg": "Wait for Node to transition to leaving",
                             "value": "Node state changed to=Leaving",
                             "key": "message",
                             "thread": False,
@@ -3579,7 +3590,7 @@ class CLI():
                                 "msg": "Wait for Node to go offline",
                                 "value": "Node state changed to=Offline",
                                 "key": "message",
-                                "timeout": 40,
+                                "timeout": 20,
                                 "timestamp": timestamp if timestamp else False,
                                 "parent": self,
                             })

@@ -431,8 +431,13 @@ class Download():
 
     def initialize_output_handler(self):
         if self.auto_restart: return
+
+        title = "DOWNLOADING BINARIES"
+        if self.caller == "update_seedlist":
+            title = "UPDATING SEEDLISTS"
+            
         self.functions.print_header_title({
-            "line1": "DOWNLOADING BINARIES",
+            "line1": title,
             "newline": "both",
             "single_line": True,
         })

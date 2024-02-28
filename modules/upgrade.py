@@ -25,32 +25,20 @@ class Upgrader():
         self.version_obj = self.parent.version_obj
         self.argv_list = command_obj["argv_list"]
         self.environment = command_obj.get("environment",False)
-
-        # self.ip_address = command_obj.get("ip_address")
-        # self.called_command = command_obj.get("called_command")
         
         self.debug = command_obj.get("debug",False)
-        
+        self.cli_global_pass = False
         self.step = 1
         self.status = "" #empty
         self.node_id = ""
         
+        self.link_types = ["gl0","ml0"]
         self.final_upgrade_status_list = []
         self.api_ready_list = {}
         self.profile_progress = {}     
         
         self.error_messages = Error_codes(self.functions) 
-        self.link_types = ["gl0","ml0"]
-                
-        # self.command_obj = {
-        #     **command_obj,
-        #     "caller": "upgrader",
-        #     "command": "upgrade",
-        # }
-        # self.cli = CLI(self.command_obj)
-
-        self.cli_global_pass = False
-        
+    
 
     def build_p12_obj(self):
         p12_obj = {
@@ -83,6 +71,7 @@ class Upgrader():
 
         self.build_p12_obj()
         self.get_node_id()    
+        self.get_ip_address()
         self.request_version()
         
         self.leave_cluster() 
@@ -321,6 +310,15 @@ class Upgrader():
         })
 
    
+    def get_ip_address(self):
+        self.functions.print_cmd_status({
+            "text_start": "Node IP address",
+            "status": self.functions.get_ext_ip(),
+            "status_color": "green",
+            "newline": True,
+        })  
+
+
     def get_node_id(self):
 
         def pull_node_id(profile):
@@ -374,7 +372,7 @@ class Upgrader():
                     "status": brief_node_id,
                     "newline": True
                 })
-
+        
         p_color = "cyan"
         for profile in self.profiles_by_env:
             if self.functions.config_obj[profile]["global_p12_passphrase"]:

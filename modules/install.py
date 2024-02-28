@@ -1,7 +1,6 @@
-import pwd
 import shutil
 import modules.uninstall as uninstaller
-from os import makedirs, system, path, environ, walk, get_terminal_size, chmod
+from os import makedirs, system, path, environ, get_terminal_size, chmod
 from time import sleep
 from termcolor import colored, cprint
 from types import SimpleNamespace
@@ -18,8 +17,6 @@ from .config.configurator import Configurator
 from .config.versioning import Versioning
 from .quick_install import QuickInstaller
 from .node_service import Node
-from .upgrade import Upgrader
-
 
 class Installer():
 
