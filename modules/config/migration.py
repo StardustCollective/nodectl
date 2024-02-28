@@ -87,7 +87,9 @@ class Migration():
         try:
             yaml_version = str(self.functions.is_new_version(
                 self.config_obj["global_elements"]["nodectl_yaml"],
-                self.version_obj["node_upgrade_path_yaml_version"]
+                self.version_obj["node_upgrade_path_yaml_version"],
+                "migration module",
+                "nodectl yaml version"
             ))
             if yaml_version == "current_less":
                 # This version of nodectl needs to follow an upgrade path to migrate properly

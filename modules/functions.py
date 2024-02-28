@@ -2091,15 +2091,15 @@ class Functions():
     # is functions
     # =============================      
     
-    def is_new_version(self,current,remote):
+    def is_new_version(self,current,remote,caller,version_type):
         if version.parse(current) == version.parse(remote):
-            self.log.logger.info(f"versions match | current [{current}] remote [{remote}]")
+            self.log.logger.info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
             return False            
         elif version.parse(current) > version.parse(remote):
-            self.log.logger.warn(f"versions do NOT match | current [{current}] remote [{remote}]")
+            self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
             return "current_greater"
         else:
-            self.log.logger.warn(f"versions do NOT match | current [{current}] remote [{remote}]")
+            self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
             return "current_less"
     
     

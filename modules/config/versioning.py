@@ -318,12 +318,12 @@ class Versioning():
                         except: pass
 
                     up_to_date = [
-                        ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["current_stable"]],
-                        ["nodectl_yaml_uptodate", self.version_obj["node_nodectl_yaml_version"],upgrade_path["nodectl_config"]],
-                        ["tess_uptodate", node_tess_version, version],
+                        ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["current_stable"],"nodectl version"],
+                        ["nodectl_yaml_uptodate", self.version_obj["node_nodectl_yaml_version"],upgrade_path["nodectl_config"],"nodectl yaml version"],
+                        ["tess_uptodate", node_tess_version, version,"tessellation version"],
                     ]
                     for versions in up_to_date:
-                        test = self.functions.is_new_version(versions[1],versions[2])
+                        test = self.functions.is_new_version(versions[1],versions[2],"versioning module",versions[3])
                         if not test: test = True
                         if versions[0] == "nodectl_uptodate": version_obj[environment]["nodectl"]["nodectl_uptodate"] = test
                         else: env_version_obj[profile][f"{versions[0]}"] = test

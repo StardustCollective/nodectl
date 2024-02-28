@@ -2352,7 +2352,7 @@ class CLI():
             else: next_upgrade_path = upgrade_path[0]   
         
         for test_version in reversed(upgrade_path):
-            test = self.functions.is_new_version(versions.node_nodectl_version,test_version)
+            test = self.functions.is_new_version(versions.node_nodectl_version,test_version,called_command,"nodectl version")
             if test == "current_less":
                 next_upgrade_path = test_version
                 break
