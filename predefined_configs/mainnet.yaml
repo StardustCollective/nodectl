@@ -13,7 +13,7 @@
 # documentation hub for details on how to configure
 # this file.
 # =========================================================
-# Network cluster sections isolated by profile key name
+# Metagraph sections isolated by profile key name
 # =========================================================
 # Custom Options and Environment Variables
 # ---------------------------------------------------------
@@ -55,8 +55,8 @@ nodectl:
     node_type: validator
     meta_type: ml
     layer: 0
-    collateral: default
-    service: default
+    collateral: 0
+    service: node_l0
     edge_point: default
     edge_point_tcp_port: default
     public_port: default
@@ -73,22 +73,20 @@ nodectl:
     ml0_link_port: None
     ml0_link_profile: None
     token_identifier: disable
-    token_coin_id: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
     java_xmx: default
     java_xss: default
     jar_repository: default
-    jar_version: default
     jar_file: default
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
+    p12_key_alias: global
     p12_passphrase: global
     seed_location: default
     seed_repository: default
-    seed_version: default
     seed_file: default
     pro_rating_location: disable
     pro_rating_file: disable
@@ -104,8 +102,8 @@ nodectl:
     node_type: validator
     meta_type: ml
     layer: 1
-    collateral: default
-    service: default
+    collateral: 0
+    service: node_l1
     edge_point: default
     edge_point_tcp_port: default
     public_port: default
@@ -122,22 +120,20 @@ nodectl:
     ml0_link_port: self
     ml0_link_profile: dag-l0
     token_identifier: disable
-    token_coin_id: global
     directory_backups: default
     directory_uploads: default
     java_xms: default
     java_xmx: default
     java_xss: default
     jar_repository: default
-    jar_version: default
     jar_file: default
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
+    p12_key_alias: global
     p12_passphrase: global
     seed_location: disable
     seed_repository: disable
-    seed_version: disable
     seed_file: disable
     pro_rating_location: disable
     pro_rating_file: disable
@@ -155,15 +151,10 @@ nodectl:
     nodeadmin: blank
     key_location: blank
     key_name: blank
+    key_alias: blank
     passphrase: blank
-    encryption: False
   global_elements:
-    yaml_config_name: mainnet
-    metagraph_name: hypergraph
-    metagraph_token_identifier: default
-    metagraph_token_coin_id: default
-    local_api: disable
-    includes: False
+    metagraph_name: mainnet
+    nodectl_yaml: v2.1.0
     developer_mode: False
-    nodectl_yaml: v2.2.0
     log_level: INFO
