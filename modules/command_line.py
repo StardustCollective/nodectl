@@ -1876,6 +1876,15 @@ class CLI():
                 },
             ]
             
+            if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
+                meta_list = [{
+                    "header_elements" : {
+                    "METAGRAPH VERSION": self.version_obj[environment][self.profile_names[0]]["cluster_metagraph_version"],
+                    },
+                    "spacing": spacing                    
+                }]
+                print_out_list += meta_list
+
             for header_elements in print_out_list:
                 self.functions.print_show_output({
                     "header_elements" : header_elements
