@@ -25,6 +25,7 @@ def pull_valid_command():
         "find",
 
         "help",
+        "health",
 
         "id",
         "install",

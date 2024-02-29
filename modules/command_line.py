@@ -76,22 +76,7 @@ class CLI():
         if not self.skip_services:
             # try:
             # review and change to spread operator if able
-            command_obj = {
-                "caller": "cli",
-                "profile": self.profile,
-                "command": self.primary_command,
-                "argv": self.command_list,
-                "ip_address": self.ip_address,
-                "profile_names": self.profile_names,
-                "functions": self.functions
-            }
-            # self.log.logger.debug(f"cli - calling node Obj - [{command_obj}]")
-            self.functions.print_cmd_status({
-                "text_start": "Acquiring Node details"
-            })
-            self.node_service = Node(command_obj)
-            self.node_service.log = self.functions.log
-            self.node_service.functions.set_statics()
+            self.build_node_class()
             
         elif not self.auto_restart:
             self.functions.print_clear_line()
@@ -109,6 +94,25 @@ class CLI():
     # set commands
     # ==========================================
     
+    def build_node_class(self):
+        command_obj = {
+            "caller": "cli",
+            "profile": self.profile,
+            "command": self.primary_command,
+            "argv": self.command_list,
+            "ip_address": self.ip_address,
+            "profile_names": self.profile_names,
+            "functions": self.functions
+        }
+        # self.log.logger.debug(f"cli - calling node Obj - [{command_obj}]")
+        self.functions.print_cmd_status({
+            "text_start": "Acquiring Node details"
+        })
+        self.node_service = Node(command_obj)
+        self.node_service.log = self.functions.log
+        self.node_service.functions.set_statics()
+
+
     def set_default_profile(self,node_service):
         profiles = self.functions.pull_profile({
             "req": "list",
@@ -1831,7 +1835,7 @@ class CLI():
 
             mc_key = "METAGRAPH"
             metagraph = f'{self.config_obj["global_elements"]["metagraph_name"]}/{self.config_obj[profile]["environment"]}'
-            if self.config_obj["global_elements"]["metagraph_name"] == self.config_obj[profile]["environment"]:
+            if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
                 metagraph = self.config_obj[profile]["environment"]
                 mc_key = "CLUSTER"
                 
@@ -1871,9 +1875,8 @@ class CLI():
                 },
                 {
                     "header_elements" : {
-                    "NODECTL LATEST STABLE": self.version_obj[environment]["nodectl"]["current_stable"],
-                    "NODECTL PRERELEASE": prerelease,
                     "NODECTL CODE NAME": self.functions.nodectl_code_name,
+                    "NODECTL PRERELEASE": prerelease,
                     },
                     "spacing": spacing
                 },
@@ -3039,6 +3042,8 @@ class CLI():
         
         on_boot = self.config_obj["global_auto_restart"]["on_boot"]
         
+        interactive = False if "--ni" in command_list else True
+
         self.functions.print_header_title({
             "line1": "REBOOT REQUEST",
             "line2": "nodectl",
@@ -3066,12 +3071,15 @@ class CLI():
                 ["command:",0,"white","bold"], ["sudo nodectl restart -p all",2,"yellow"]
             ])
         
-        if self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "y",
-            "prompt": "Are you SURE you want to leave and reboot?",
-            "exit_if": True
-        }):
+        confirm = True
+        if interactive:
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": "Are you SURE you want to leave and reboot?",
+                "exit_if": True
+            })
+        if confirm:
             for profile in reversed(self.profile_names):
                 self.set_profile(profile)
                 self.cli_leave({
@@ -3079,6 +3087,15 @@ class CLI():
                     "reboot_flag": True,
                     "skip_msg": True
                 })
+
+            self.functions.print_timer({
+                "p_type": "cmd",
+                "seconds": 15,
+                "step": -1,
+                "phrase": "Waiting",
+                "end_phrase": "gracefully leave",
+            })
+
             self.functions.print_paragraphs([
                 ["Leave complete",1,"green","bold"],
                 ["Preparing to reboot.  You will lose access after this message appears.  Please reconnect to your Node after a few moments of patience, to allow your server to reboot, initialize, and restart the SSH daemon.",2]
@@ -3086,12 +3103,15 @@ class CLI():
             sleep(2)
             system(f"sudo reboot > /dev/null 2>&1")  
                     
-        confirm = input(f"\n  Are you SURE you want to leave and reboot? [n] : ")
+        confirm ="y"
+        if interactive:
+            confirm = input(f"\n  Are you SURE you want to leave and reboot? [n] : ")
+
         if confirm.lower() == "y" or confirm.lower() == "yes":
             for profile in reversed(self.profile_names):
                 self.set_profile(profile)
                 self.cli_leave({
-                    "secs": 0,
+                    "secs": 30,
                     "reboot_flag": True,
                     "skip_msg": True
                 })
@@ -4199,6 +4219,8 @@ class CLI():
     def cli_upgrade_vps(self,argv_list):
         self.log.logger.info("command_line -> request to upgrade VPS issued")
 
+        interactive = True if not "--ni" in argv_list else False
+
         self.functions.print_header_title({
             "line1": "UPGRADE VPS or SERVER",
             "clear": True,
@@ -4223,12 +4245,13 @@ class CLI():
             ["Advanced users have the flexibility to select any options required for customized or non-Node operations being completed simultaneously on this VPS.",2,"red"],
         ])
 
-        self.functions.confirm_action({
-            "prompt": "Start VPS update and upgrade?",
-            "yes_no_default": "n",
-            "return_on": "y",
-            "exit_if": True,
-        })
+        if interactive:
+            self.functions.confirm_action({
+                "prompt": "Start VPS update and upgrade?",
+                "yes_no_default": "n",
+                "return_on": "y",
+                "exit_if": True,
+            })
         print("")
 
         self.functions.print_cmd_status({
@@ -4277,12 +4300,35 @@ class CLI():
             "newline": True,
         })            
 
-        self.functions.print_paragraphs([
-            ["",1],["If a message has been presented requesting a system reboot, please gracefully",0,"yellow"],
-            ["exit any clusters that this Node is currently participating in before proceeding with the reboot.",0,"yellow"],
-            ["The following command will accomplish this for you.",2,"yellow"],
-            ["command:",0], ["sudo nodectl reboot",2,"blue","bold"],
-        ])
+        if reboot_status == "YES":
+            self.functions.print_paragraphs([
+                ["",1],["If a message has been presented requesting a system reboot, please gracefully",0,"yellow"],
+                ["exit any clusters that this Node is currently participating in before proceeding with the reboot.",0,"yellow"],
+                ["The following command will accomplish this for you.",2,"yellow"],
+            ])
+            self.build_node_class()
+
+            if interactive:
+                self.functions.confirm_action({
+                    "prompt": "Reboot the VPS now?",
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "exit_if": True,
+                }) 
+            else:
+                self.functions.print_clear_line()
+                self.functions.print_timer({
+                    "p_type": "cmd",
+                    "seconds": 10,
+                    "step": -1,
+                    "phrase": "Reboot in",
+                    "end_phrase": "ctrl+c to abort",
+                })
+            self.cli_reboot(argv_list)
+        else:
+            self.functions.print_paragraphs([
+                ["",1],["nodectl did not detect that the VPS needs to be restart/rebooted.",2,"green"],
+            ])           
 
 
     def cli_minority_fork_detection(self,command_obj):
@@ -4726,18 +4772,10 @@ class CLI():
                 order+=1
                 restore_dict[str(order)] = value
 
-        # display_list = []
-        # for value in restore_dict.values():
-        #     value = value.replace("//","/")
-        #     try:
-        #         format_replace = value.split(".")[1].split("backup")[0]
-        #     except:
-        #         continue
-        #     display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
-        #     display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
-
         if len(display_list) < 1:
             control_exit(date)
+
+        display_list.sort()
 
         self.functions.print_header_title({
             "line1": "RESTORE CONFIGURATION FILE",
