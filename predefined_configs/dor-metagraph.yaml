@@ -57,11 +57,11 @@ nodectl:
     layer: 1
     collateral: default
     service: default
-    edge_point: 54.191.143.191  
-    edge_point_tcp_port: 9000
-    public_port: 9000
-    p2p_port: 9010
-    cli_port: 9011
+    edge_point: default 
+    edge_point_tcp_port: default
+    public_port: default
+    p2p_port: default
+    cli_port: default
     gl0_link_enable: True
     gl0_link_key: external
     gl0_link_host: 52.53.46.33
