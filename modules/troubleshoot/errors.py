@@ -215,7 +215,18 @@ class Error_codes():
                         
                         
         elif "upgrade_failure" in str(var.line_code):
-            self.log.logger.critical(f"Upgrade cannot continue because nodectl found issue with node or architecture that is not supported by nodectl.")
+            self.log.logger.critical(f"Upgrade cannot continue because nodectl found issue with node or architecture that is not supported by nodectl. error [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["THIS UPGRADE WAS UNABLE TO COMPLETE DUE TO AN UNKNOWN ERROR",2,"red","bold"],
+            ])
+            if var.extra2 == "stop":
+                self.functions.print_paragraphs([
+                    ["The issue corresponded to an attempt to stop the services on this Node.",2],
+                ])
+            elif var.extra2 == "leave":
+                self.functions.print_paragraphs([
+                    ["The issue corresponded to an attempt to leave one or more of the cluster on this Node.",2],
+                ])
             self.functions.print_paragraphs([
                 ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
 

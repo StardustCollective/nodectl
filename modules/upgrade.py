@@ -605,7 +605,7 @@ class Upgrader():
                             executor.submit(self.cli.cli_leave, leave_obj): item,
                         }
                         sleep(1.5)
-            self.futures_error_checking(futures,"upg-594")
+            self.futures_error_checking(futures,"upg-594","leave")
 
     
     def stop_service(self):
@@ -634,20 +634,23 @@ class Upgrader():
                                 ["unable to find [",0,"red"], [item['service'],-1,"yellow","bold"],
                                 ["] on this Node.",-1,"red"],["",1],
                             ])
-            self.futures_error_checking(futures,"upg-622")    
+            self.futures_error_checking(futures,"upg-622","stop")    
             self.functions.print_clear_line()
             
  
-    def futures_error_checking(self, futures, error_code):
+    def futures_error_checking(self, futures, error_code, what):
         for future in as_completed(futures):
             try:
                 future.result()
             except Exception as e:
+                self.functions.event = False
+                self.functions.status_dots = False
                 self.log.logger.error(f"upgrader -> threaded leave request failed with [{e}]")
                 self.error_messages.error_code_messages({
-                    "error_code": "upg-596",
+                    "error_code": error_code,
                     "line_code": "upgrade_failure",
                     "extra": e,
+                    "extra2": what,
                 })
 
 

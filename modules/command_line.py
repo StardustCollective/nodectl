@@ -4263,6 +4263,17 @@ class CLI():
             "newline": True,
         })
 
+        reboot_status = "NO"
+        if path.exists('/var/run/reboot-required'):
+            reboot_status = "YES"
+
+        self.functions.print_cmd_status({
+            "text_start": "Does this server need to rebooted?",
+            "status": reboot_status,
+            "status_color": "green" if reboot_status == "NO" else "red",
+            "newline": True,
+        })            
+
         self.functions.print_paragraphs([
             ["",1],["If a message has been presented requesting a system reboot, please gracefully",0,"yellow"],
             ["exit any clusters that this Node is currently participating in before proceeding with the reboot.",0,"yellow"],
