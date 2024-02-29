@@ -3321,6 +3321,10 @@ class Functions():
         elif action == "ansi_escape":
             ansi_escape = compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
             return ansi_escape.sub('', line)  
+        elif action == "ansi_escape_colors":
+            ansi_escape = compile(r'\x1b\[[0-9;]+m')
+            ansi_escape = ansi_escape.sub('', line)  
+            return ansi_escape.strip()
         elif action == "spaces":
             return sub(' ', '', line)                 
         elif action == "commas":

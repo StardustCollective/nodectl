@@ -259,6 +259,7 @@ class CLI():
                                 "command": "nodeid",
                                 "argv_list": ["-p",called_profile],
                                 "dag_addr_only": True,
+                                "ready_state": True if self.config_obj["global_elements"]["node_profile_states"][profile] == "Ready" else False
                             })
                             node_id = self.functions.cleaner(node_id,"new_line")
                             node_id = f"{node_id[:8]}...{node_id[-8:]}"
@@ -415,7 +416,8 @@ class CLI():
                         }
                         
                     output = setup_output()
-                    self.config_obj["global_elements"]["node_profile_states"][called_profile] = output["join_state"].strip()  # to speed up restarts and upgrades
+                    clean_state = self.functions.cleaner(output["join_state"],"ansi_escape_colors")
+                    self.config_obj["global_elements"]["node_profile_states"][called_profile] = clean_state  # to speed up restarts and upgrades
                     
                     if not self.skip_build:
                         if rebuild:
@@ -3640,7 +3642,8 @@ class CLI():
         skip_display = command_obj.get("skip_display",False)
         outside_node_request = command_obj.get("outside_node_request",False)
         dag_address_only = command_obj.get("dag_addr_only",False)
-        
+        ready_state = command_obj.get("ready_state",False)
+
         profile = self.profile # default
         nodeid = ""
         ip_address = "127.0.0.1" # default
@@ -3688,8 +3691,8 @@ class CLI():
             if not success and return_success: 
                 return False
         
-        if ip_address != "127.0.0.1":
-            if target:
+        if ip_address != "127.0.0.1" or ready_state:
+            if target or ready_state:
                 t_ip = self.functions.get_info_from_edge_point({
                     "profile": self.profile,
                     "caller": "cli_grab_id",

@@ -126,7 +126,8 @@ class Versioning():
             if self.called_cmd != "uvos":
                 self.print_error("ver-126","invalid_file_format")
         
-        self.verify_version_object()
+        if not self.force: self.verify_version_object()
+
         if self.new_creation:
             self.log.logger.debug(f"versioning - called by [{self.logging_name}] - new versioning json object file creation.")
             self.write_version_obj_file()
@@ -151,6 +152,9 @@ class Versioning():
                 self.update_file_only = True
                 self.write_version_obj_file()
             self.version_obj = version_obj
+
+        if self.force: # if forced verify object after new write
+            self.verify_version_object()
         self.force = False # do not leave forced on
         
         
@@ -431,6 +435,7 @@ class Versioning():
         except:
             return "Unknown"  
 
+
     def write_file(self):
         if not path.exists(self.version_obj_path):
             mkdir(self.version_obj_path)
@@ -454,7 +459,7 @@ class Versioning():
         root_keys = [
             "node_nodectl_version","node_nodectl_yaml_version","nodectl_github_version",
             "upgrade_path","last_updated","next_updated",
-            "node_upgrade_path_yaml_version","remote_yaml_version",
+            "node_upgrade_path_yaml_version",
         ]    
         nodectl_keys = [
             "latest_nodectl_version","nodectl_prerelease","nodectl_remote_config",
@@ -521,8 +526,4 @@ class Versioning():
                 print(json.dumps(self.functions.version_obj,indent=4))
                 print("")
             exit(0)
-            
-
-
-
         
