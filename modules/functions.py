@@ -142,18 +142,11 @@ class Functions():
     # =============================
         
     def get_local_coin_db(self):
-        chdir(path.dirname(path.abspath(__file__)))
-        coin_list_path =  path.join("data", "coingecko_coin_list.json")
-
-        try:
-            with open(coin_list_path, "r", encoding="utf-8") as file:
-                coins = json.load(file)
-        except Exception as e:
-            self.log.logger.error(f"functions -> get_local_coin_db -> path issue attempting to load coin database -> error | {e} - trying secondary method")
-            cprint("  Unable to process CoinGecko coin list results...","red") 
-            return False
-        else:
-            return coins
+        # https://www.coingecko.com/api/documentation
+        # curl -X 'GET' \ 'https://api.coingecko.com/api/v3/coins/list?include_platform=false' \ -H 'accept: application/json'
+        # https://api.coingecko.com/api/v3/coins/list?include_platform=false
+        from .data.coingecko_coin_list import coin_gecko_db
+        return coin_gecko_db
 
 
     def get_crypto_price(self):
