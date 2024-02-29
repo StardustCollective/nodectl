@@ -647,6 +647,19 @@ class P12Class():
         version, value, entry_number = "unknown", "unknown", "unknown"
         return_alias, alias_only = False, False
 
+
+        def attempt_decrypt(profile,p12_passwd):
+            enc_profile = "Unknown"
+            if self.config_obj["global_elements"]["all_global"]: enc_profile = "global"
+            else: enc_profile = profile
+            p12_passwd = self.functions.get_persist_hash({
+                "pass1": p12_passwd,
+                "profile": enc_profile,
+                "enc_data": True,
+            })
+            return p12_passwd 
+        
+
         if "--alias" in command_list:
             if "--return" in command_list: return_alias = True
             alias_only = True
@@ -693,22 +706,18 @@ class P12Class():
             p12_passwd = getpass(pass_ask,)
 
         if self.config_obj["global_p12"]["encryption"] and not self.solo:
-            enc_profile = "Unknown"
-            if self.config_obj["global_elements"]["all_global"]: enc_profile = "global"
-            else: enc_profile = profile
-            p12_passwd = self.functions.get_persist_hash({
-                "pass1": p12_passwd,
-                "profile": enc_profile,
-                "enc_data": True,
-            }) 
+            p12_passwd = attempt_decrypt(profile,p12_passwd)
 
-        bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"
-    
-        results = self.functions.process_command({
-            "bashCommand": bashCommand,
-            "proc_action": "wait",
-        })
-        results = results.split("\n")
+        for _ in range(0,2):
+            bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"
+            result_str = self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "wait",
+            })
+            results = result_str.split("\n")
+            if not "keytool error" in result_str:
+                break
+            p12_passwd = attempt_decrypt(profile,p12_passwd)
 
         if not results or results == "":
             if "--config" in command_list:
