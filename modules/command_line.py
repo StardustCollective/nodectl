@@ -2318,8 +2318,9 @@ class CLI():
                     "extra2": "invalid nodeid; use -t for node ip address",
                 })
             nodeid = self.functions.cleaner(nodeid,"new_line")
+            seed_path = self.functions.cleaner(self.functions.config_obj[profile]["seed_path"],"fix_double_slash")
             test = self.functions.test_or_replace_line_in_file({
-              "file_path": self.functions.config_obj[profile]["seed_path"],
+              "file_path": seed_path,
               "search_line": nodeid
             })
 
@@ -2327,7 +2328,7 @@ class CLI():
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-1229",
                     "line_code": "file_not_found",
-                    "extra": self.functions.config_obj[profile]["seed_path"],
+                    "extra": seed_path,
                     "extra2": None
                 })
             elif test:

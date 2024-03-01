@@ -171,7 +171,7 @@ class Installer():
             "--user", "--p12-path", 
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
-            "--quick_install", "--normal",
+            "--quick-install", "--normal",
         ]
         
         self.options_dict["quick_install"] = False
@@ -195,13 +195,16 @@ class Installer():
         self.options = SimpleNamespace(**self.options_dict)
         
         if self.options.p12_migration_path:
+            self.log.logger.info(f"installer found --p12-migration-path request [{self.options.p12_migration_path}]")
             self.options.existing_p12 = True
 
         if self.options.metagraph_config:
+            self.log.logger.info(f"installer found --migration-request request [{self.options.metagraph_config}]")
             self.options.configuration_file = self.options.metagraph_config+".yaml"
             self.options.metagraph_name = self.options.metagraph_config
 
         if self.options.quick_install:
+            self.log.logger.info("installer identified quick installation")
             if self.options.p12_path and not self.options.p12_alias:
                 self.log.logger.warn("installer -> p12 alias not supplied - will try to derive it dynamically.")
 
@@ -261,6 +264,8 @@ class Installer():
     def handle_environment_setup(self,do=False):
         if self.options.quick_install and do == False: return
 
+        self.log.logger.info("installer -> setting up cluster environment details.")
+
         if not self.options.metagraph_config and not self.options.quick_install:
             self.functions.print_paragraphs([
                 ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
@@ -302,6 +307,8 @@ class Installer():
     def handle_exisitng(self):
         if not self.options.quick_install: 
             self.parent.print_ext_ip()
+
+        self.log.logger.info("installer -> review future node for invalid old Node install or data.")
 
         found_files = self.functions.get_list_of_files({
             "paths": ["var/tessellation/","home/nodeadmin/tessellation/"],
@@ -372,6 +379,7 @@ class Installer():
 
 
     def populate_node_service(self):
+        self.log.logger.info("installer -> populating node services module")
         if not self.options.quick_install:                
             progress = {
                 "text_start": "Creating Services",
@@ -398,6 +406,7 @@ class Installer():
     
 
     def download_binaries(self):  
+        self.log.logger.info("installer -> installing binaries")
         download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_metagraph_version"]
         if self.options.metagraph_name == "hypergraph":
             download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"]
@@ -435,6 +444,7 @@ class Installer():
     # =====================
 
     def update_os(self):
+        self.log.logger.info("installer -> updating distribution packages list prior to attempting to install dependencies")
         threading, display = False, False
         if not self.options.quick_install:
             threading, display = True, True
@@ -449,6 +459,7 @@ class Installer():
 
 
     def setup_user(self,quick_ssh=False):
+        self.log.logger.info("installer -> setting up user details.")
         if self.options.user:
             self.user.username = self.options.user
         if self.options.user_password:
@@ -475,6 +486,8 @@ class Installer():
 
 
     def create_dynamic_elements(self):
+        self.log.logger.info("installer -> Node structural requirements.")
+
         if not self.options.quick_install:
             print("")
             self.functions.print_header_title({
@@ -549,7 +562,7 @@ class Installer():
         
            
     def process_distro_dependencies(self):
-        self.log.logger.info("installer - downloading binaries")
+        self.log.logger.info("installer -> downloading and installing dependency binaries")
 
         if not self.options.quick_install:
             print("")
@@ -618,7 +631,7 @@ class Installer():
 
 
     def make_swap_file(self):
-        self.log.logger.info("installer - preparing to create swapfile")
+        self.log.logger.info("installer -> preparing to create swapfile")
         if not self.options.quick_install:
             self.functions.print_clear_line()
             progress = {
@@ -631,7 +644,7 @@ class Installer():
             self.functions.print_cmd_status(progress)
 
         if path.isfile("/swapfile"):
-            self.log.logger.warn("installer - swap file already exists - install skipping action")
+            self.log.logger.warn("installer -> swap file already exists - install skipping action")
             result = "already exists"
             color = "magenta"
             self.log.logger.warn("Installation making swap file skipped because already detected")
@@ -712,6 +725,7 @@ class Installer():
     # ===================
         
     def generate_p12_from_install(self,generate=False):
+        self.log.logger.info("installer -> handle p12 generation if required.")
         if self.options.existing_p12 and not self.p12_migrated: 
             self.migrate_existing_p12()
 
@@ -724,32 +738,33 @@ class Installer():
             if generate and not self.options.existing_p12:
                 self.p12_session.p12_file_location, self.p12_session.p12_filename = path.split(self.options.p12_path) 
                 self.p12_session.key_alias = self.options.p12_alias
+                self.p12_session.p12_password = self.options.p12_passphrase
                 self.p12_session.generate()
                 self.options.existing_p12 = True
             return
 
-        if not self.options.existing_p12:
-            self.p12_session.generate_p12_file()   
+        if self.options.p12_path:
+            self.p12_session.p12_file_location = path.split(self.options.p12_path)[0]
+            self.p12_session.p12_filename = path.split(self.options.p12_path)[1]
+        elif self.options.p12_migration_path:
+            self.p12_session.p12_filename = path.split(self.options.p12_migration_path)[1]
+            self.p12_session.ask_for_location()
         else:
-            if self.options.p12_path:
-                self.p12_session.p12_file_location = path.split(self.options.p12_path)[0]
-                self.p12_session.p12_filename = path.split(self.options.p12_path)[1]
-            elif self.options.p12_migration_path:
-                self.p12_session.p12_filename = path.split(self.options.p12_migration_path)[1]
-                self.p12_session.ask_for_location()
-            else:
-                self.p12_session.ask_for_p12name()
-                self.p12_session.ask_for_location() 
+            self.p12_session.ask_for_p12name()
+            self.p12_session.ask_for_location() 
 
-            if self.options.p12_passphrase:
-                self.p12_session.p12_password = self.options.p12_passphrase
-            else:
-                self.p12_session.ask_for_keyphrase()
+        if self.options.p12_passphrase:
+            self.p12_session.p12_password = self.options.p12_passphrase
+        else:
+            self.p12_session.ask_for_keyphrase()
 
-            if self.options.p12_alias:
-                self.p12_session.key_alias = self.options.p12_alias
-            elif not self.options.existing_p12:
-                self.p12_session.ask_for_file_alias() 
+        if self.options.p12_alias:
+            self.p12_session.key_alias = self.options.p12_alias
+        elif not self.options.existing_p12:
+            self.p12_session.ask_for_file_alias() 
+
+        if not self.options.existing_p12:
+            self.p12_session.generate()   
 
         if not self.options.p12_path:
             self.options.p12_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
@@ -761,7 +776,7 @@ class Installer():
        
 
     def derive_p12_alias(self,verify=False):
-        self.log.logger.info("installer -> attemptign to derive p12 alias...")
+        self.log.logger.info("installer -> attempting to derive p12 alias...")
         if not self.options.quick_install:
             self.functions.print_cmd_status({
                 "text_start": "Deriving p12 alias",
@@ -880,6 +895,7 @@ class Installer():
     
     
     def migrate_existing_p12(self):
+        self.log.logger.info("installer -> migrating p12.")
         if not self.options.p12_migration_path:
             self.options.p12_migration_path = self.display_exiting_p12_list()
 
@@ -939,6 +955,7 @@ class Installer():
         
 
     def prepare_p12_details(self,action=None):
+        self.log.logger.info("installer -> preparing p12 details.")
         if action == "init":
             if not self.options.quick_install:
                 if not self.options.existing_p12:
@@ -1011,6 +1028,7 @@ class Installer():
 
 
     def encrypt_passprhase(self):
+        self.log.logger.info("installer -> encrypting p12 passphrase.")
         if self.options.quick_install:
             self.configurator.quick_install = True
             self.configurator.detailed = False
@@ -1050,14 +1068,14 @@ class Installer():
     # ===================
                     
     def setup_new_configuration(self):
-        # rebuild node service with config
+        self.log.logger.info("installer -> rebuild node and services configurations.")
         self.setup_config.config_obj = {
             **self.config_obj,
             **self.setup_config.config_obj,
             **self.functions.config_obj,
             "upgrader": True
         }
-        self.log.logger.info("Installation populating node service variables for build")
+        self.log.logger.info("installer -> populating node service variables for build")
         self.setup_config.functions.set_install_statics()
         self.setup_config.versioning = self.versioning
         self.setup_config.build_yaml_dict(False,False)
@@ -1074,6 +1092,7 @@ class Installer():
     
 
     def build_config_file(self,action):
+        self.log.logger.info("installer -> rebuild node and services configurations.")
         skeleton = None
 
         if action == "skeleton" or action == "quick_install":
@@ -1174,7 +1193,7 @@ class Installer():
 
     def build_classes(self,p12=False):
         if p12:
-            self.log.logger.info("installer - generating p12 file object")
+            self.log.logger.info("installer -> generating p12 file object")
             action_obj = {
                 "process": "install",
                 "user_obj": self.user,
@@ -1240,8 +1259,10 @@ class Installer():
     
     
     def uninstall(self):
+        self.log.logger.info("installer -> executing uninstall process.")
         self.build_classes()
         node_service = Node({"functions": self.functions})
+        node_service.log = self.log
         uninstaller.start_uninstall(self.functions,self.log)
         uninstaller.stop_services(self.functions, node_service,self.log)
         self.parent.auto_restart_handler("disable","cli")
@@ -1300,7 +1321,7 @@ class Installer():
 
 
     def complete_install(self):
-        self.log.logger.info("Installation complete ******")
+        self.log.logger.info("Installation complete !!!")
         self.print_main_title()
 
         self.functions.print_header_title({
@@ -1342,19 +1363,24 @@ class Installer():
                 ["is correct and tested; following, you can then attempt to encrypt using the following command:",1,"red"],
                 ["sudo nodectl configure",2],
             ])
+
         metagraph_list = self.functions.clear_global_profiles(self.metagraph_list)
 
+        print("")
         success = self.cli.cli_grab_id({
             "command":"nodeid",
             "return_success": True,
             "skip_display": True,
         })
+        print(f"\033[1A", end="", flush=True)
+
         if not success:
             print_error()
         else:
-            for profile in metagraph_list:
+            for profile in metagraph_list: # make sure 
                 if self.config_obj[profile]["seed_location"] != "disable":
                     self.cli.check_seed_list(["-p",profile,"-id",self.cli.nodeid])
+                    break # only need to check once for an installation
 
         self.functions.print_paragraphs([
             ["",1], [f"Please review the next Steps in order to gain access to the",0],

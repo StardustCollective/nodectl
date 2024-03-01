@@ -1,19 +1,6 @@
-import json
-
-from re import search
-from time import sleep, perf_counter
-from sys import exit
-from os import system, path, get_terminal_size, makedirs, chmod
-from termcolor import colored
-from re import sub
-from copy import deepcopy 
-from types import SimpleNamespace
-from collections import defaultdict
+from os import path, makedirs, chmod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
-from itertools import cycle
-import random
-import time
 
 from .troubleshoot.errors import Error_codes
 
@@ -126,7 +113,7 @@ class Download():
 
                 file_obj = {
                     **file_obj,
-                    f"{tool}": { 
+                    f"{tool}-cnngglobal": { 
                         "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": tool_verison, 
                         "type": "binary", "profile": "global", 
                         "dest_path": f"{self.functions.default_tessellation_dir}{tool}",
@@ -150,7 +137,7 @@ class Download():
                 uri = self.set_download_options(
                     self.config_obj[profile]["jar_repository"], download_version, profile
                 )
-                file_obj[self.config_obj[profile]["jar_file"]] = {
+                file_obj[f'{self.config_obj[profile]["jar_file"]}-cnng{profile}'] = {
                     "state": "fetching",
                     "pos": file_pos,
                     "uri": f'{uri}/{self.config_obj[profile]["jar_file"]}',
@@ -165,10 +152,11 @@ class Download():
 
         # debugging purposes
         # self.file_obj = {
-        #     "cl-keytool.jar": {'state': 'fetching', 'pos': 4, 'uri': 'https://github.com/Constellation-Labs/tessellation/releases/download/v2.3.0/cl-keytool.jar', 'version': 'v2.3.0'}
+        #     "cl-keytool.jar-cnngglobal": {
+        #         'state': 'fetching', 'pos': 4, 'uri': 'https://github.com/Constellation-Labs/tessellation/releases/download/v2.3.0/cl-keytool.jar', 
+        #         'version': 'v2.3.0', 'profile': 'global', 'dest_path': '/var/tessellation/cl-keytool.jar', 'type': 'binary',
+        #     }
         # }
-
-        # self.handle_backups()
 
 
     def set_seedfile_object(self):
@@ -211,24 +199,24 @@ class Download():
                     seed_repo, download_version, profile, "seed"
                 )
                 seed_repo = f"{seed_repo}/{seed_file}"
-                seed_path = self.functions.cleaner(seed_path,"fix_double_slash")
 
             self.file_obj = {
                 **self.file_obj,
-                f"{seed_file}": { 
+                f"{seed_file}-cnng{profile}": {
+                    "file_name": seed_file, 
                     "state": state, 
                     "pos": self.file_pos, 
                     "uri": seed_repo, 
                     "version": download_version,
                     "profile": profile,
-                    "dest_path": seed_path, 
+                    "dest_path": self.functions.cleaner(seed_path,"fix_double_slash"), 
                     "type": "seedlist",
                 }
             }
 
             # debugging purposes
             # self.file_obj = {
-            #     "testnet-seedlist": {'state': 'fetching', 'pos': 5, 'uri': 'https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist', 'version': 'v2.3.0', 'profile': 'dag-l0', 'type': 'seedlist'}
+            #     "testnet-seedlist-cnngdag-l0": {'state': 'fetching', 'pos': 5, 'uri': 'https://constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet-seedlist', 'version': 'v2.3.0', 'profile': 'dag-l0', 'type': 'seedlist'}
             # }
             if not path.exists(self.config_obj[profile]['seed_location']):
                 if self.config_obj[profile]['seed_location'] != "disable": 
@@ -241,11 +229,10 @@ class Download():
         else:
             file_path = self.functions.cleaner(file_path,"fix_double_slash")  
 
-        if not path.exists(file_path): 
-            if file_path != "disable":
-                makedirs(file_path)
+        if not path.exists(file_path) and file_path != "disable":
+            makedirs(file_path)
 
-        return f"{file_path}{file_name}"
+        return self.functions.cleaner(f"{file_path}{file_name}","fix_double_slash")  
 
 
     def set_default_version(self):
@@ -257,6 +244,7 @@ class Download():
         self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
         return
     
+
     def set_download_options(self,uri,download_version,profile,dtype="repo"):
         github = False
         if isinstance(self.config_obj["global_elements"]["metagraph_name"],list):
@@ -292,48 +280,53 @@ class Download():
 
     # Getters
 
-    def get_download_looper(self,file_name):
-        self.get_file_size(file_name)
+    def get_download_looper(self,file_key):
+        file_name = self.get_file_from_fileobj(file_key)
+        self.get_file_size(file_key, file_name)
         for _ in range(0,self.retries):
-            self.get_download(file_name)
-            if self.test_file_size(file_name):
-                return file_name
+            self.get_download(file_key, file_name)
+            if self.test_file_size(file_key, file_name):
+                return file_key
         raise Exception("file did not download properly")
 
 
-    def get_download(self,file_name):
-        self.log.logger.info(f"{self.log_prefix} -> get_download -> downloading [{self.file_obj[file_name]['type']}] files: {file_name} uri [{self.file_obj[file_name]['uri']}] remote size [{self.file_obj[file_name]['remote_size']}]")
-        file_path = self.file_obj[file_name]["dest_path"]
+    def get_download(self,file_key, file_name):
+        self.log.logger.info(f"{self.log_prefix} -> get_download -> downloading [{self.file_obj[file_key]['type']}] file: {file_name} uri [{self.file_obj[file_key]['uri']}] remote size [{self.file_obj[file_key]['remote_size']}]")
+        file_path = self.file_obj[file_key]["dest_path"]
 
-        if self.file_obj[file_name]["state"] == "disabled":
-            self.log.logger.warn(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_name]['type']}] disabled, skipping.")
+        file_path_only = path.split(file_path)[0]
+        if not path.exists(file_path_only):
+            makedirs(file_path_only)
+        
+        if self.file_obj[file_key]["state"] == "disabled":
+            self.log.logger.warn(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_key]['type']}] disabled, skipping.")
             return
 
         try:
-            bashCommand = f'sudo wget {self.file_obj[file_name]["uri"]} -O {file_path} -o /dev/null'
+            bashCommand = f'sudo wget {self.file_obj[file_key]["uri"]} -O {file_path} -o /dev/null'
             self.functions.process_command({
                 "bashCommand": bashCommand,
                 "proc_action": "timeout"
             })
-            if self.file_obj[file_name]["type"] == "binary":
+            if self.file_obj[file_key]["type"] == "binary":
                 chmod(file_path, 0o755)
 
         except Exception as e:
-            self.log.logger.error(f"{self.log_prefix} get_download -> error streaming down [{self.file_obj[file_name]['type']}] requirement | [{e}]")
+            self.log.logger.error(f"{self.log_prefix} get_download -> error streaming down [{self.file_obj[file_key]['type']}] requirement | [{e}]")
 
-        return file_name # return to the futures executor to print results.
+        return file_key # return to the futures executor to print results.
     
 
-    def get_file_size(self,file_name):
+    def get_file_size(self,file_key,file_name):
         # get size of the file from remote
         # https://api.github.com/repos/Constellation-Labs/tessellation/releases/tags/{version}
 
-        uri = f"{self.file_obj[file_name]['uri']}"
+        uri = f"{self.file_obj[file_key]['uri']}"
 
         if "https://github.com" in uri or "http://github.com" in uri:
             uri = uri.split("github.com")[1]
             uri = uri.split("download")[0]
-            artifact_uri = f"https://api.github.com/repos{uri}tags/{self.file_obj[file_name]['version']}"
+            artifact_uri = f"https://api.github.com/repos{uri}tags/{self.file_obj[file_key]['version']}"
             
             response = requests.get(artifact_uri)
             if response.status_code == 200:
@@ -342,25 +335,31 @@ class Download():
                     assets = response["assets"]
                     for asset in assets:
                         if asset["name"] == file_name:
-                            self.file_obj[file_name]["remote_size"] = asset["size"]
+                            self.file_obj[file_key]["remote_size"] = asset["size"]
                             return
-                self.file_obj[file_name]["remote_size"] = False
+                self.file_obj[file_key]["remote_size"] = False
                 return 
                
-        self.file_obj[file_name]["remote_size"] = -1
+        self.file_obj[file_key]["remote_size"] = -1
         return           
 
     # Tests
 
-    def test_file_size(self,file_name):
+    def test_file_size(self,file_key,file_name):
         if self.skip_asset_check: return True
-        if self.file_obj[file_name]["remote_size"] < 0:
+
+        if self.file_obj[file_key]["remote_size"] < 0:
+            self.log.logger.error(f"download_service -> test_file_size -> {file_name} remote size did not return a | remote value: {self.file_obj[file_key]['remote_size']}")
             raise Exception("file size")
-        file_path = self.file_obj[file_name]["dest_path"]
-        if self.file_obj[file_name]["state"] == "disabled" or self.file_obj[file_name]["remote_size"] < 0: 
+        
+        file_path = self.file_obj[file_key]["dest_path"]
+        if self.file_obj[file_key]["state"] == "disabled": 
+            self.log.logger.warn(f"download_service -> test_file_size -> {file_name} -> was determined to be [disabled] -> skipping")
             return True # skip test
+        
         if path.exists(file_path):
-            return path.getsize(file_path) == self.file_obj[file_name]["remote_size"]
+            self.log.logger.info(f"download_service -> test_file_size -> {file_name} ->  local size: [{path.getsize(file_path)}] remote size [{self.file_obj[file_key]['remote_size']}]")
+            return path.getsize(file_path) == self.file_obj[file_key]["remote_size"]
         raise Exception("file size")
 
     # Handlers
@@ -395,8 +394,21 @@ class Download():
         self.cursor_setup["reset"] = self.cursor_setup["clear"]-1
 
 
+    def get_file_from_fileobj(self,file_name):
+        s_file = file_name.replace("-cnngglobal","")
+        
+        try:
+            s_file = file_name.replace(f"-cnng{self.file_obj[file_name]['profile']}","")
+        except:
+            pass
+        
+        return s_file
+
+
     def print_status_handler(self, file_name, init=False):
         if self.auto_restart: return
+
+        s_file = self.get_file_from_fileobj(file_name)
 
         position = self.file_obj[file_name]["pos"]
         end_position = position+1
@@ -413,9 +425,9 @@ class Download():
             status_color = "magenta"
 
         text_start = "Fetch"
-        brackets = f'{file_name} -> {self.file_obj[file_name]["profile"]}'
+        brackets = f'{s_file} -> {self.file_obj[file_name]["profile"]}'
         if status == "disabled": 
-            brackets = brackets.replace(file_name,"seedlist for")
+            brackets = brackets.replace(s_file,"seedlist for")
 
         print("\033[B" * position)
         self.functions.print_clear_line()
@@ -442,6 +454,7 @@ class Download():
             "single_line": True,
         })
 
+        # display the download version ( may be different versions per file )
         download_version = "-1"
         for n, file in enumerate(self.file_obj.keys()):
             if download_version != self.file_obj[file]["version"]:

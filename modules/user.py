@@ -395,19 +395,23 @@ class UserClass:
             if self.quick_install:
                 confirm, warning = True, False
             else:
-                self.functions.print_paragraphs([
-                    ["",1],["Found the root user ssh key file was disabled?",0,"red"],
-                    ["Are you sure this is a new installation?",1,"red"],
-                    
-                    [f"Do you want to install disabled SSH key from the root user to the new {self.username}?",1],
-                ])
-                    
-                confirm = self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt": "Confirm:",
-                    "exit_if": False
-                })  
+                if self.quick_install:
+                    confirm = True
+                else:
+                    self.functions.print_paragraphs([
+                        ["",1],["Found the root user ssh key file was disabled?",0,"red"],
+                        ["Are you sure this is a new installation?",1,"red"],
+                        
+                        [f"Do you want to install disabled SSH key from the root user to the new {self.username}?",1],
+                    ])
+                        
+                    confirm = self.functions.confirm_action({
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "prompt": "Confirm:",
+                        "exit_if": False
+                    })  
+
                 status = "skipped"
                 status_color = "red"
                 progress = {
@@ -419,9 +423,12 @@ class UserClass:
                 self.functions.print_cmd_status(progress)    
 
             if confirm:
-                copyfile(f"/root/.ssh/backup_{self.file}",dest_dir_file) 
-                status = "complete"
-                status_color = "green"
+                try:
+                    copyfile(f"/root/.ssh/backup_{self.file}",dest_dir_file) 
+                    status = "complete"
+                    status_color = "green"
+                except:
+                    self.log.logger.error("transfer ssh key -> unable to copy file -> skipping")
 
             if not self.quick_install:
                 self.functions.print_cmd_status({
@@ -432,7 +439,7 @@ class UserClass:
                 })  
                 warning = True if status == "skipped" else warning
             
-        if warning:
+        if warning and not self.quick_install:
             self.functions.print_paragraphs([
                 ["",2], [" WARNING ",0,"white,on_magenta"], ["Installation was not able to find an",0,"red"],
                 ["'authorized keys'",0,"yellow","bold"], ["file. Skipping step!",2,"red"],
@@ -447,12 +454,15 @@ class UserClass:
             with open(dest_dir_file, 'r') as cur_file:
                 filedata = cur_file.read()
         except:
-            self.error_messages.error_code_messages({
-                "error_code": "u-211",
-                "line_code": "not_new_install",
-                "extra": None,
-                "extra2": None
-            })  
+            if not self.quick_install:
+                self.error_messages.error_code_messages({
+                    "error_code": "u-211",
+                    "line_code": "not_new_install",
+                    "extra": None,
+                    "extra2": None
+                }) 
+            else:
+                self.log.logger.error(f"transfer_ssh_key -> quick installer -> unable to read file [{dest_dir_file}]") 
         
         index = filedata.find('ssh-rsa')
         filedata = filedata[index:]

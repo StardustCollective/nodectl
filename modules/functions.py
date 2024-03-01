@@ -1132,6 +1132,7 @@ class Functions():
         enc_data = command_obj.get("enc_data",False)
         salt2 = command_obj.get("salt2",False)
         profile = command_obj.get("profile",False)
+
         ekf = "/etc/security/cnngsenc.conf"
 
         if not enc_data:
@@ -1170,6 +1171,7 @@ class Functions():
                 "line_code": "system_error",
                 "extra": "encryption issue found, unable to decrypt",
             })
+
         with open(ekf,"r") as f:
             for line in f.readlines():
                 if profile in line:

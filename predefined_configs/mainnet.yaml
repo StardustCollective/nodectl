@@ -135,10 +135,10 @@ nodectl:
     p12_key_location: global
     p12_key_name: global
     p12_passphrase: global
-    seed_location: default
-    seed_repository: default
-    seed_version: default
-    seed_file: default
+    seed_location: disable
+    seed_repository: disable
+    seed_version: disable
+    seed_file: disable
     pro_rating_location: disable
     pro_rating_file: disable
     priority_source_location: default

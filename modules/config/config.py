@@ -47,6 +47,8 @@ class Configuration():
 
         try:
             self.called_command = self.argv_list[1]
+            if "--installer" in self.argv_list:
+                self.called_command = "install"
         except:
             self.called_command = "exit"
         
@@ -929,13 +931,8 @@ class Configuration():
 
 
     def setup_p12_aliases(self,profile):
-
-        p12_alias = self.p12.show_p12_details(
-            [
-                "-p", profile,
-                "--alias", "--return", "--config",
-            ]
-        )
+        argv_list = ["-p", profile,"--alias", "--return", "--config"]
+        p12_alias = self.p12.show_p12_details(argv_list)
 
         if not p12_alias:
             self.validated = False
