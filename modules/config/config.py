@@ -542,7 +542,7 @@ class Configuration():
                 try:
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = defaults["token_coin_id"][metagraph_name]
                 except:
-                    self.log.logger.error("config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
+                    self.log.logger.warn("config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs"
 
         if self.config_obj["global_elements"]["metagraph_token_identifier"] == "default":

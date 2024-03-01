@@ -2686,7 +2686,7 @@ class CLI():
                 
         progress = {
             "status": "running",
-            "text_start": "Stop request initiated",
+            "text_start": "stop request initiated",
             "brackets": self.functions.cleaner(self.service_name,'service_prefix'),
             "newline": True,
         }
@@ -2709,13 +2709,16 @@ class CLI():
                     "newline": False,
                 })
 
-            result = self.node_service.change_service_state({
-                "profile": profile,
-                "action": "stop",
-                "service_name": self.service_name,
-                "caller": "cli_stop"
-            })
-            self.functions.event = False
+            try:
+                result = self.node_service.change_service_state({
+                    "profile": profile,
+                    "action": "stop",
+                    "service_name": self.service_name,
+                    "caller": "cli_stop"
+                })
+                self.functions.event = False
+            except Exception as e:
+                self.log.logger.error(f"cli_stop -> found issue with stop request [{e}]")
 
         if result == "skip_timer":
             show_timer = False

@@ -339,7 +339,7 @@ class Migration():
                 "nodegarageseedlocation": self.config_obj[profile]["seed_location"],
                 "nodegarageseedrepository": self.config_obj[profile]["seed_repository"],
                 "nodegarageseedfile": self.config_obj[profile]["seed_file"],
-                "nodegarageseedversion": "default", # new to v2.13.0,
+                "nodegarageseedversion": "disable" if self.config_obj[profile]["seed_file"] == "disable" else "default", # new to v2.13.0,
                 "nodegarageprioritysourcelocation": self.config_obj[profile]["priority_source_location"],
                 "nodegarageprioritysourcerepository": self.config_obj[profile]["priority_source_repository"],
                 "nodegarageprioritysourcefile": self.config_obj[profile]["priority_source_file"],

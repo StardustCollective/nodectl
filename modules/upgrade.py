@@ -628,7 +628,7 @@ class Upgrader():
                                 **futures,
                                 executor.submit(self.cli.cli_stop,stop_obj): item,
                             }
-                            sleep(1.5)
+                            sleep(3.3)
                         else:
                             self.functions.print_paragraphs([
                                 ["unable to find [",0,"red"], [item['service'],-1,"yellow","bold"],
@@ -641,7 +641,7 @@ class Upgrader():
     def futures_error_checking(self, futures, error_code, what):
         for future in as_completed(futures):
             try:
-                future.result()
+                _ = future.result()
             except Exception as e:
                 self.functions.event = False
                 self.functions.status_dots = False

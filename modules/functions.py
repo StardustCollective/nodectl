@@ -1197,7 +1197,7 @@ class Functions():
             decrypt_data = enc_key.decrypt(pass1)
             return decrypt_data.decode()
         except Exception as e:  # Catch any exceptions during decryption
-            self.log.logger.critical(f"Decryption failed: {e}")
+            self.log.logger.critical(f"Decryption failed: [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1108",
                 "line_code": "system_error",
