@@ -74,13 +74,13 @@ class Upgrader():
         self.get_ip_address()
         self.request_version()
         
-        # self.leave_cluster() 
-        # self.stop_service() 
+        self.leave_cluster() 
+        self.stop_service() 
 
-        # self.print_section("Node Internal Configuration")
-        # self.verify_directories()
-        # self.modify_dynamic_elements()
-        # self.upgrade_log_archive()  # must be done after modify to accept new config dir
+        self.print_section("Node Internal Configuration")
+        self.verify_directories()
+        self.modify_dynamic_elements()
+        self.upgrade_log_archive()  # must be done after modify to accept new config dir
                 
         self.update_dependencies()      
         self.reload_node_service()
@@ -448,7 +448,7 @@ class Upgrader():
             self.functions.print_paragraphs([
                 ["PROFILE:     ",0], [profile,1,"yellow","bold"], 
                 ["ENVIRONMENT: ",0],[self.environment,1,"yellow","bold"],
-                [f"{meta_title.upper()}   ",0],[meta_type,2,"yellow","bold"],
+                [f"{meta_title.upper()}  ",0],[meta_type,2,"yellow","bold"],
             ])
             
             if do_continue:
