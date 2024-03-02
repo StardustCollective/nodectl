@@ -1281,6 +1281,11 @@ class Installer():
 
         uninstaller.remove_nodectl(node_service)
 
+        try:
+            exit(0)
+        except:
+            return
+
 
     def close_threads(self):
         self.functions.status_dots = False
