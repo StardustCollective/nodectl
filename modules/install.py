@@ -1062,6 +1062,9 @@ class Installer():
             else:
                 self.configurator.prepare_configuration("edit_config")
                 self.configurator.passphrase_enable_disable_encryption()
+        else:
+            # user requested to skip encryption
+            self.encryption_performed = True # avoid user error message
     
 
     # configuration
@@ -1280,11 +1283,6 @@ class Installer():
             shutil.rmtree("/var/tessellation")
 
         uninstaller.remove_nodectl(node_service)
-
-        try:
-            exit(0)
-        except:
-            return
 
 
     def close_threads(self):

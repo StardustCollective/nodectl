@@ -465,6 +465,7 @@ class Configuration():
                 "mainnet": "mainnet.constellationnetwork.io",
                 "testnet": "testnet.constellationnetwork.io",
                 "integrationnet": "integrationnet.constellationnetwork.io",
+                "dor-metagraph": "54.218.46.24",
             },
             "seed_file": {
                 "dor-metagraph": {
@@ -483,7 +484,10 @@ class Configuration():
                 "hypergraph": "disable",
                 "dor-metagraph": "DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM",
             },
-            "edge_point_tcp_port": 443,
+            "edge_point_tcp_port": {
+                "hypergraph": 443,
+                "dor-metagraph": 9000
+            },
             "public_port": [9000,9010],
             "p2p_port": [9001,9011],
             "cli_port": [9002,9012],
@@ -509,11 +513,13 @@ class Configuration():
         }
         
         def handle_edge_point(o_profile,o_environment):
-            if self.config_obj[o_profile]["edge_point"] == "default":
+            if self.config_obj[o_profile]["edge_point"] == "default" and metagraph_name == "hypergraph":
                 prefix_layer = f'l{self.config_obj[o_profile]["layer"]}-lb-'
                 self.config_obj[o_profile]["edge_point"] = f'{prefix_layer}{defaults["edge_point"][o_environment]}'
+            elif self.config_obj[o_profile]["edge_point"] == "default":
+                self.config_obj[o_profile]["edge_point"] = defaults["edge_point"][metagraph_name]
             if self.config_obj[o_profile]["edge_point_tcp_port"] == "default":
-                self.config_obj[o_profile]["edge_point_tcp_port"] = defaults["edge_point_tcp_port"]
+                self.config_obj[o_profile]["edge_point_tcp_port"] = defaults["edge_point_tcp_port"][metagraph_name]
             return
         
         if isinstance(one_off,dict):

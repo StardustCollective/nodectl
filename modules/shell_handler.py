@@ -1232,9 +1232,9 @@ class ShellHandler:
         if self.called_command == "uninstall":
             self.installer.action = "uninstall"
             self.installer.uninstall()
-
-        self.installer.install_process()
-        self.functions.print_perftime(performance_start,"installation")
+        else:
+            self.installer.install_process()
+            self.functions.print_perftime(performance_start,"installation")
 
 
     def handle_exit(self,value):
