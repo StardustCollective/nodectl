@@ -55,7 +55,7 @@ class Installer():
         else:
             self.handle_option_validation()
             self.prepare_p12_details()
-            self.handle_exisitng()
+            self.handle_existing()
             self.build_config_file("skeleton")
             self.build_config_file("defaults")
             self.update_os()
@@ -67,7 +67,7 @@ class Installer():
             self.generate_p12_from_install()
             self.build_config_file("p12")
             self.setup_new_configuration()
-            self.encrypt_passprhase()
+            self.encrypt_passphrase()
             self.populate_node_service()
         self.complete_install()
     
@@ -95,7 +95,7 @@ class Installer():
         ])
 
         if self.options.normal_install:
-            self.log.logger.info("installer -> long normal option choosen by Node Operator option input.")
+            self.log.logger.info("installer -> long normal option chosen by Node Operator option input.")
         elif not self.options.quick_install:
             self.functions.print_paragraphs([
                 [" QUICK INSTALL ",0,"yellow,on_blue"], ["nodectl's installer provides a",0,"white","bold"], 
@@ -304,7 +304,7 @@ class Installer():
             exit(0)
         
                 
-    def handle_exisitng(self):
+    def handle_existing(self):
         if not self.options.quick_install: 
             self.parent.print_ext_ip()
 
@@ -1027,7 +1027,7 @@ class Installer():
             self.functions.print_clear_line(1,{"backwards":True}) 
 
 
-    def encrypt_passprhase(self):
+    def encrypt_passphrase(self):
         self.log.logger.info("installer -> encrypting p12 passphrase.")
         if self.options.quick_install:
             self.configurator.quick_install = True
@@ -1274,7 +1274,7 @@ class Installer():
 
         if node_admins[0] == "logger_retention":
             self.log.logger.info("moving nodectl to /var/tmp and completing uninstall.  Thank you for using nodectl.")
-        self.log.logger.info("uninstaller -> handling removal of nodectl executible")
+        self.log.logger.info("uninstaller -> handling removal of nodectl executable ")
         if node_admins[0] == "logger_retention":
             shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
             shutil.rmtree("/var/tessellation")
