@@ -557,10 +557,14 @@ class CLI():
                 title_name = service
                 service_name = self.config_obj[service]["service"]
             else:
-                if "node_restart" in service: title_name = "auto_restart"
-                elif "version_updater" in service: title_name = "version_service"
-                service_name = service.replace("@","")
-            
+                if "node_restart" in service: 
+                    title_name = "auto_restart"
+                    continue # disable showing service due to false negatives
+                elif "version_updater" in service: 
+                    title_name = "version_service"
+                    #service_name = service.replace("@","")
+                    continue # disable showing service due to false negatives
+
             if service_code < 1:
                 service_status = colored(service_status,"green",attrs=["bold"])
             elif service_code == 768:

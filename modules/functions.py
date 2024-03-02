@@ -1555,7 +1555,7 @@ class Functions():
             self.print_paragraphs([
                 [" NOTICE ",0,"red,on_yellow"], 
                 [f"Wallet balances on {environment} are fictitious",0],["$TOKENS",0,"green"], 
-                ["and will not be redeemable or spendable.",2],
+                ["and will not be redeemable, transferable, or spendable.",2],
             ])
             
         with ThreadPoolExecutor() as executor:

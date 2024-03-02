@@ -94,27 +94,22 @@ class Download():
 
         download_version = self.download_version
 
-        if self.action == "upgrade":
-            download_version = download_version[self.profile_names[0]]["download_version"]
-
         # default the wallet and key tools
         if not self.requested_profile:
             for n, tool in enumerate(["cl-keytool.jar","cl-wallet.jar"]):
                 if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
                     pre_uri = self.config_obj[self.profile_names[0]]["jar_repository"]
-                    tool_verison = download_version
                 else:
                     pre_uri = self.functions.default_tessellation_repo
-                    tool_verison = self.tools_version
 
                 uri = self.set_download_options(
-                    pre_uri, tool_verison, self.profile_names[0]
+                    pre_uri, self.tools_version, self.profile_names[0]
                 )
 
                 file_obj = {
                     **file_obj,
                     f"{tool}-cnngglobal": { 
-                        "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": tool_verison, 
+                        "state": "fetching", "pos": n+1, "uri": f"{uri}/{tool}", "version": self.tools_version, 
                         "type": "binary", "profile": "global", 
                         "dest_path": f"{self.functions.default_tessellation_dir}{tool}",
                     } 
@@ -129,23 +124,28 @@ class Download():
 
         for n, profile in enumerate(self.profile_names):
             file_pos += n
+
             if self.config_obj[profile]["is_jar_static"]: 
                 download_version = self.config_obj[profile]["jar_version"]
+                uri = self.config_obj[profile]["jar_repo"]
+
             elif "-v" in self.argv_list: 
                 download_version = self.argv_list(self.argv_list.index("-v")+1)
+                
             elif self.config_obj[profile]["environment"] == self.environment:
                 uri = self.set_download_options(
                     self.config_obj[profile]["jar_repository"], download_version, profile
                 )
-                file_obj[f'{self.config_obj[profile]["jar_file"]}-cnng{profile}'] = {
-                    "state": "fetching",
-                    "pos": file_pos,
-                    "uri": f'{uri}/{self.config_obj[profile]["jar_file"]}',
-                    "version": download_version,
-                    "profile": profile,
-                    "dest_path": self.set_file_path(self.config_obj[profile]["jar_file"]), 
-                    "type": "binary"
-                }
+
+            file_obj[f'{self.config_obj[profile]["jar_file"]}-cnng{profile}'] = {
+                "state": "fetching",
+                "pos": file_pos,
+                "uri": f'{uri}/{self.config_obj[profile]["jar_file"]}',
+                "version": download_version,
+                "profile": profile,
+                "dest_path": self.set_file_path(self.config_obj[profile]["jar_file"]), 
+                "type": "binary"
+            }
 
         self.file_obj = file_obj
         self.file_pos = file_pos
@@ -167,25 +167,20 @@ class Download():
         if self.requested_profile: profiles = [self.requested_profile]
         else: profiles = self.functions.profile_names
 
-        download_version = self.download_version
-
         for n, profile in enumerate(profiles):
             self.file_pos += n+1
             seed_path = self.config_obj[profile]["seed_path"]    
             seed_repo = self.config_obj[profile]['seed_repository']
             seed_file = self.config_obj[profile]["seed_file"]
-
-            if self.action == "upgrade":
-                download_version = self.download_version[profile]["download_version"]
                 
             state = "fetching"
             if "disable" in seed_path:
                 state = "disabled"
                 seed_file = "seed-disabled"
 
-            if download_version == "default":
+            if self.download_version == "default":
                 self.log.logger.info(f"{self.log_prefix} [{self.environment}] seedlist")   
-                download_version = self.parent.version_obj[self.environment][profile]['cluster_tess_version']
+                self.download_version = self.parent.version_obj[self.environment][profile]['cluster_tess_version']
 
             if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph" and self.environment != "mainnet":
                 # does not matter if the global_elements -> metagraph_name is set, if not mainnet
@@ -196,7 +191,7 @@ class Download():
                 pass
             else:
                 seed_repo = self.set_download_options(
-                    seed_repo, download_version, profile, "seed"
+                    seed_repo, self.download_version, profile, "seed"
                 )
                 seed_repo = f"{seed_repo}/{seed_file}"
 
@@ -207,7 +202,7 @@ class Download():
                     "state": state, 
                     "pos": self.file_pos, 
                     "uri": seed_repo, 
-                    "version": download_version,
+                    "version": self.download_version,
                     "profile": profile,
                     "dest_path": self.functions.cleaner(seed_path,"fix_double_slash"), 
                     "type": "seedlist",
@@ -236,12 +231,19 @@ class Download():
 
 
     def set_default_version(self):
-        if self.download_version != "default": return
-
+        
         # readability
         env = self.functions.environment_name
         profile = self.functions.profile_names[0]
-        self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+
+        if self.tools_version == "default":
+            self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+
+        if self.download_version == "default":
+            if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
+                self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+            else:
+                self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
         return
     
 

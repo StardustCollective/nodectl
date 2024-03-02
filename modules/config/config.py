@@ -447,7 +447,6 @@ class Configuration():
             "pro_rating_location": self.functions.default_pro_rating_location,
             "priority_source_file": "priority-list",
             "priority_source_location": self.functions.default_priority_source_location,
-            "jar_file": ["cl-node.jar","cl-dag-l1.jar"],
             "jar_file": {
                 "hypergraph":  {
                     0: "cl-node.jar",

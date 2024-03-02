@@ -74,13 +74,13 @@ class Upgrader():
         self.get_ip_address()
         self.request_version()
         
-        self.leave_cluster() 
-        self.stop_service() 
+        # self.leave_cluster() 
+        # self.stop_service() 
 
-        self.print_section("Node Internal Configuration")
-        self.verify_directories()
-        self.modify_dynamic_elements()
-        self.upgrade_log_archive()  # must be done after modify to accept new config dir
+        # self.print_section("Node Internal Configuration")
+        # self.verify_directories()
+        # self.modify_dynamic_elements()
+        # self.upgrade_log_archive()  # must be done after modify to accept new config dir
                 
         self.update_dependencies()      
         self.reload_node_service()
@@ -427,10 +427,18 @@ class Upgrader():
         self.print_section("Handle Node Versioning")
         ml_version_found = False
 
+        meta_type = self.config_obj["global_elements"]["metagraph_name"]
+        meta_title = "metagraph: "
+        is_meta = True
+        if meta_type == "hypergraph:":
+            meta_title = "cluster"
+            is_meta = False
+
         # all profiles with the ml type should be the same version
         for profile in self.profile_order:
             do_continue, dynamic_uri = False, True
             env = self.config_obj[profile]["environment"]
+            
             if self.profile_progress[profile]["download_version"]:
                 download_version = self.profile_progress[profile]["download_version"]
             elif ml_version_found and self.config_obj[profile]["meta_type"] == "ml": 
@@ -438,8 +446,9 @@ class Upgrader():
                 do_continue = True
             
             self.functions.print_paragraphs([
-                ["PROFILE:   ",0], [profile,1,"yellow","bold"], 
-                ["ENVIRONMENT: ",0],[self.environment,2,"yellow","bold"],
+                ["PROFILE:     ",0], [profile,1,"yellow","bold"], 
+                ["ENVIRONMENT: ",0],[self.environment,1,"yellow","bold"],
+                [f"{meta_title.upper()}   ",0],[meta_type,2,"yellow","bold"],
             ])
             
             if do_continue:
@@ -462,13 +471,16 @@ class Upgrader():
             try:
                 found_tess_version = self.version_obj[env][profile]['cluster_tess_version']
                 running_tess_version = self.version_obj[env][profile]["node_tess_version"]
+                metagraph_version = self.version_obj[env][profile]["cluster_metagraph_version"]
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "upg-298",
                     "line_code": "version_fetch"
                 })
                 
-            self.log.logger.info(f"upgrade handling versioning: profile [{profile}] latest [{found_tess_version}] current: [{running_tess_version}]")
+            self.log.logger.info(f"upgrade handling versioning: profile [{profile}] tessellation latest [{found_tess_version}] current: [{running_tess_version}]")
+            if is_meta:
+                self.log.logger.info(f"upgrade handling versioning: profile [{profile}] {meta_type} latest [{metagraph_version}]")
             
             self.functions.print_paragraphs([
                 ["Tess",0,"yellow"],["short hand for",0], 
@@ -478,21 +490,34 @@ class Upgrader():
             if dynamic_uri:
                 self.functions.print_cmd_status({
                     "status": found_tess_version,
-                    "text_start": "The latest Tess version",
-                    "brackets": profile,
+                    "text_start": "The latest",
+                    "brackets": "Tess", 
+                    "text_end": "version",
                     "result_color": "green",
                     "newline": True
                 })
+                if is_meta:
+                    self.functions.print_cmd_status({
+                        "status": metagraph_version,
+                        "text_start": "The latest",
+                        "brackets": meta_type, 
+                        "text_end": "version",
+                        "result_color": "green",
+                        "newline": True
+                    })
             
             if running_tess_version.lower() == "v":
                 self.version_obj[env][profile]['node_tess_version'] = "unavailable" 
                 
+            meta_title = meta_title.replace(":","").rstrip()
             self.functions.print_cmd_status({
                 "status": running_tess_version,
-                "text_start": "Current Global Tess version",
+                "text_start": f"Current {meta_title}",
+                "brackets": "Tess",
+                "text_end": f"version",
                 "status_color": "red",
                 "newline": True
-            })  
+            }) 
             
             if found_tess_version == running_tess_version:
                 self.functions.print_paragraphs([
@@ -507,12 +532,26 @@ class Upgrader():
                     ["Press enter to accept the default value between",0], ["[]",0,"white"], ["brackets.",1]
                 ])
                 
+            new_version = metagraph_version
+            if meta_type == "hypergraph":
+                new_version = found_tess_version
+
             while True:
                 if not self.profile_progress[profile]["download_version"] and dynamic_uri:
-                    version_str = colored("  Please enter version to upgrade to".ljust(45,"."),"cyan")+"["+colored(found_tess_version,"yellow",attrs=['bold'])+"] : "
-                    download_version = False if "-ni" in self.argv_list or "--ni" in self.argv_list else input(version_str) # cannot use self.non_interactive because of developer mode
+                    self.functions.print_cmd_status({
+                        "text_start": "Please enter", 
+                        "brackets": meta_type, 
+                        "text_end": "version to upgrade to:",
+                        "newline": False,
+                    })
+                    if "-ni" in self.argv_list or "--ni" in self.argv_list: # cannot use self.non_interactive because of developer mode
+                        download_version = False 
+                    else:
+                        version_str = colored("  Please enter version to upgrade to".ljust(45,"."),"cyan")+"["+colored(new_version,"yellow",attrs=['bold'])+"] : "
+                        download_version = input(version_str) # cannot use self.non_interactive because of developer mode
+
                 if not download_version:
-                    download_version = found_tess_version
+                    download_version = new_version
                     break
                 else:
                     if not self.forced:
@@ -564,11 +603,17 @@ class Upgrader():
                 
             self.functions.print_cmd_status({
                 "status": download_version,
-                "text_start": "Using Global Tess",
+                "text_start": "Using",
+                "brackets": meta_type,
+                "text_end": "version",
                 "result_color": "green",
                 "newline": True
             })  
+
             self.profile_progress[profile]["download_version"] = download_version
+            self.profile_progress[profile]["tools_version"] = download_version
+            if meta_type != "hypergraph":
+                self.profile_progress[profile]["tools_version"] = found_tess_version
             
             if self.config_obj[profile]["meta_type"] == "ml": 
                 ml_version_found = True # only need once
@@ -966,8 +1011,12 @@ class Upgrader():
             "newline": True
         })
 
+        download_version = self.profile_progress[list(self.profile_progress.keys())[0]]["download_version"]
+        tools_version = self.profile_progress[list(self.profile_progress.keys())[0]]["tools_version"]
+
         pos = self.cli.node_service.download_constellation_binaries({
-            "download_version": self.profile_progress,
+            "download_version": download_version,
+            "tools_version": tools_version,
             "environment": self.environment,
             "print_version": False,
             "action": "upgrade",
@@ -1010,7 +1059,7 @@ class Upgrader():
         self.functions.print_cmd_status(progress)
 
         system("sudo systemctl enable node_version_updater.service > /dev/null 2>&1")
-        sleep(.3)
+        sleep(.8)
         system("sudo systemctl restart node_version_updater.service > /dev/null 2>&1")
         sleep(1)
         self.functions.print_cmd_status({
