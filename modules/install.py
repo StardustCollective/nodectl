@@ -1422,7 +1422,8 @@ class Installer():
             [f"{next_step}",0,"magenta","bold"], [")",-1,"magenta"], ["Submit your NodeID to Constellation Admins.",1,"cyan"],
             [f"{next_step+1}",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node.",1,"cyan"],
             [f"{next_step+2}",0,"magenta","bold"], [")",-1,"magenta"], [f"sudo nodectl check_seedlist -p {metagraph_list[0]}",1,"cyan"],
-            [f"{next_step+3}",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",2,"cyan"],
+            [f"{next_step+3}",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",1,"cyan"],
+            [f"{next_step+4}",0,"magenta","bold"], [")",-1,"magenta"], [f"Log out and log back in with as {self.options.user} with your new {self.options.user} password.",2,"cyan"],
             ["enod!",2,"white","bold"],
         ])     
 
