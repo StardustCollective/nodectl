@@ -117,7 +117,7 @@ class Installer():
             self.functions.print_paragraphs([
                 [" QUICK INSTALL REQUESTED ",2,"white,on_green"],
                 [" WARNING ",1,"red,on_yellow"], 
-                ["Even though this is the recommended options, nodectl will use all recommended settings without prompting for confirmations, be sure this is acceptiable before continuing",0],
+                ["Even though this is the recommended options, nodectl will use all recommended settings without prompting for confirmations, be sure this is acceptable before continuing",0],
                 ["with this setting.",2], 
                 
                 ["*","half","red","bold"],
@@ -127,7 +127,7 @@ class Installer():
                 ["A few mandatory entries may be necessary; hence, nodectl will now prompt a series of questions before proceeding with the",0],
                 ["installation. If these options were already entered through the command line interface (CLI),",0],
                 ["the corresponding questions will be skipped.",2],
-                ["nodectl",0,"yellow"], ["quick install",0,"yellow","bold"], ["will not offer detailed explaination for various prompt requests, please use the normal installation",0,"yellow"],
+                ["nodectl",0,"yellow"], ["quick install",0,"yellow","bold"], ["will not offer detailed explanation for various prompt requests, please use the normal installation",0,"yellow"],
                 ["or read the documentation.",1,"yellow"], 
                 ["https://docs.constellationnetwork.io/validate/",2,"blue","bold"],
             ])
@@ -137,7 +137,7 @@ class Installer():
             self.functions.print_paragraphs([
                 [" WARNING ",1,"red,on_yellow"], 
                 ["nodectl has detected that the terminal size WIDTH is too narrow.",0,"red"],
-                ["to properly display the instller's progress indicators. While this",0,"red"],
+                ["to properly display the installer's progress indicators. While this",0,"red"],
                 ["won't affect the installation itself, it may impact the user experience.",2,"red"],
                 ["detected column width:",0],[f"{term_width_test.columns}",1,"yellow"],
                 ["To improve the display, you can optionally widen your terminal window by clicking on the terminal emulator window and dragging it out to at",0],
@@ -1058,7 +1058,7 @@ class Installer():
             self.configurator.c.config_obj = self.setup_config.config_obj
             if self.found_errors:
                 self.encryption_performed = False
-                self.log.logger.error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private key store passphrase.  Please fix any issues and use the configure modulte to encrypt later if desired.")
+                self.log.logger.error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private key store passphrase.  Please fix any issues and use the configure module to encrypt later if desired.")
             else:
                 self.configurator.prepare_configuration("edit_config")
                 self.configurator.passphrase_enable_disable_encryption()

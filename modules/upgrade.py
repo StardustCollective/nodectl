@@ -430,8 +430,8 @@ class Upgrader():
         meta_type = self.config_obj["global_elements"]["metagraph_name"]
         meta_title = "metagraph: "
         is_meta = True
-        if meta_type == "hypergraph:":
-            meta_title = "cluster"
+        if meta_type == "hypergraph":
+            meta_title = "cluster:   "
             is_meta = False
 
         # all profiles with the ml type should be the same version
@@ -443,6 +443,7 @@ class Upgrader():
                 download_version = self.profile_progress[profile]["download_version"]
             elif ml_version_found and self.config_obj[profile]["meta_type"] == "ml": 
                 self.profile_progress[profile]["download_version"] = ml_download_version
+                self.profile_progress[profile]["tools_version"] = ml_tools_version
                 do_continue = True
             
             self.functions.print_paragraphs([
@@ -618,6 +619,7 @@ class Upgrader():
             if self.config_obj[profile]["meta_type"] == "ml": 
                 ml_version_found = True # only need once
                 ml_download_version = download_version
+                ml_tools_version = self.profile_progress[profile]["tools_version"]
                 
             self.functions.print_paragraphs([
                 ["",1], ["=","full","blue","bold"],["",1],

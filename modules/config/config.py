@@ -335,7 +335,7 @@ class Configuration():
             self.setup_config_vars({
                 "key": "edge_point",
                 "profile": list(self.config_obj.keys())[0],
-                "environment": self.config_obj[list(self.config_obj.keys())[0]]["environment"]
+                "environment": self.config_obj[list(self.config_obj.keys())[0]]["environment"],
             })
         
 
@@ -417,6 +417,7 @@ class Configuration():
 
 
     def setup_config_vars(self,one_off=False):
+        # one_off: called from migrator to find edge_point* ( introduced >v2.13.0 )
         # sets up the automated values not present in the 
         # yaml file
 
@@ -512,7 +513,10 @@ class Configuration():
             }
         }
         
-        def handle_edge_point(o_profile,o_environment):
+        def handle_edge_point(o_profile, o_environment, metagraph_name):
+            if metagraph_name in ["mainnet","testnet","integrationnet"]: metagraph_name = "hypergraph" # < v2.13.0
+            if "dor" in o_environment: metagraph_name = "dor_metagraph" # < v2.13.0
+            
             if self.config_obj[o_profile]["edge_point"] == "default" and metagraph_name == "hypergraph":
                 prefix_layer = f'l{self.config_obj[o_profile]["layer"]}-lb-'
                 self.config_obj[o_profile]["edge_point"] = f'{prefix_layer}{defaults["edge_point"][o_environment]}'
@@ -524,7 +528,7 @@ class Configuration():
         
         if isinstance(one_off,dict):
             if one_off["key"] == "edge_point":
-                handle_edge_point(one_off["profile"], one_off["environment"])
+                handle_edge_point(one_off["profile"], one_off["environment"], one_off["environment"])
                 return
 
         try:
@@ -612,7 +616,7 @@ class Configuration():
                                 self.config_obj[profile][tdir] = "github.com/Constellation-Labs/tessellation/"
                         elif tdir == "edge_point":
                             if tdir == "edge_point": 
-                                handle_edge_point(profile,environment)
+                                handle_edge_point(profile,environment, metagraph_name)
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
                         elif tdir == "collateral":
