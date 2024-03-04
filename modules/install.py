@@ -54,7 +54,7 @@ class Installer():
             self.quick_installer.quick_install()
         else:
             self.handle_option_validation()
-            self.prepare_p12_details()
+            self.p12_prepare_details()
             self.handle_existing()
             self.build_config_file("skeleton")
             self.build_config_file("defaults")
@@ -64,10 +64,10 @@ class Installer():
             self.make_swap_file()
             self.setup_user()
             self.create_dynamic_elements()
-            self.generate_p12_from_install()
+            self.p12_generate_from_install()
             self.build_config_file("p12")
             self.setup_new_configuration()
-            self.encrypt_passphrase()
+            self.p12_encrypt_passphrase()
             self.populate_node_service()
         self.complete_install()
     
@@ -96,7 +96,7 @@ class Installer():
 
         if self.options.normal_install:
             self.log.logger.info("installer -> long normal option chosen by Node Operator option input.")
-        elif not self.options.quick_install:
+        elif not self.options.quick_install and not self.options.confirm_install:
             self.functions.print_paragraphs([
                 [" QUICK INSTALL ",0,"yellow,on_blue"], ["nodectl's installer provides a",0,"white","bold"], 
                 ["quick install",0,"blue","bold"], ["option that utilizes all the",0,"white","bold"], ["recommended",0,"green","bold"],
@@ -112,7 +112,7 @@ class Installer():
                 "prompt": "Install using quick install option?",                
             })
 
-        if self.options.quick_install:
+        if self.options.quick_install and not self.options.confirm_install:
             self.functions.print_clear_line(10,{"backwards":True, "bl":-1})
             self.functions.print_paragraphs([
                 [" QUICK INSTALL REQUESTED ",2,"white,on_green"],
@@ -147,7 +147,8 @@ class Installer():
         else:
             self.functions.print_clear_line(1,{"backwards":True})
 
-        self.parent.confirm_int_upg()
+        if not self.options.confirm_install:
+            self.parent.confirm_int_upg()
 
         self.print_main_title()
         self.functions.print_header_title({
@@ -165,18 +166,19 @@ class Installer():
         self.options_dict = OrderedDict()
 
         # option list must be in order otherwise values will not properly populate
-        # metagraph-config will be used to determine config to download if supplied
+        # cluster-config will be used to determine config to download if supplied
         option_list = [
-            "--metagraph-config",
+            "--cluster-config",
             "--user", "--p12-path", 
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
-            "--quick-install", "--normal",
+            "--quick-install", "--normal","--confirm"
         ]
         
         self.options_dict["quick_install"] = False
         self.options_dict["configuration_file"] = False
         self.options_dict["normal_install"] = False
+        self.options_dict["confirm_install"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
             if (o_option == "quick-install" or o_option == "quick_install") and "--quick_install" in self.argv_list: 
@@ -184,6 +186,9 @@ class Installer():
                 continue
             if (o_option == "normal" or o_option == "normal") and "--normal" in self.argv_list: 
                 self.options_dict["normal_install"] = True
+                continue
+            if (o_option == "confirm" or o_option == "confirm") and "--confirm" in self.argv_list: 
+                self.options_dict["confirm_install"] = True
                 continue
             self.options_dict[o_option] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
 
@@ -198,10 +203,10 @@ class Installer():
             self.log.logger.info(f"installer found --p12-migration-path request [{self.options.p12_migration_path}]")
             self.options.existing_p12 = True
 
-        if self.options.metagraph_config:
-            self.log.logger.info(f"installer found --migration-request request [{self.options.metagraph_config}]")
-            self.options.configuration_file = self.options.metagraph_config+".yaml"
-            self.options.metagraph_name = self.options.metagraph_config
+        if self.options.cluster_config:
+            self.log.logger.info(f"installer found --migration-request request [{self.options.cluster_config}]")
+            self.options.configuration_file = self.options.cluster_config+".yaml"
+            self.options.metagraph_name = self.options.cluster_config
 
         if self.options.quick_install:
             self.log.logger.info("installer identified quick installation")
@@ -213,11 +218,11 @@ class Installer():
         for option, value in self.options_dict.items():
             if isinstance(value,bool):
                 if option == "p12_path":
-                    self.prepare_p12_details("init")
-                elif option == "metagraph_config" and not self.options.metagraph_config: 
-                    if not self.options.metagraph_config:
+                    self.p12_prepare_details("init")
+                elif option == "cluster_config" and not self.options.cluster_config: 
+                    if not self.options.cluster_config:
                         self.handle_environment_setup(True)
-                        self.options.metagraph_name = self.options.metagraph_config
+                        self.options.metagraph_name = self.options.cluster_config
                         print("")
                         self.print_cmd_status("metagraph_name","metagraph_name",False)
                 elif self.options.quick_install:
@@ -266,7 +271,7 @@ class Installer():
 
         self.log.logger.info("installer -> setting up cluster environment details.")
 
-        if not self.options.metagraph_config and not self.options.quick_install:
+        if not self.options.cluster_config and not self.options.quick_install:
             self.functions.print_paragraphs([
                 ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
                 ["on various network clusters or Metagraph pre-defined configurations.",2,"green"],
@@ -293,13 +298,13 @@ class Installer():
                 ["-","half","blue","bold"]
         ])
 
-        self.options.metagraph_config = self.functions.pull_remote_profiles({
+        self.options.cluster_config = self.functions.pull_remote_profiles({
             "r_and_q":"q", 
             "add_postfix": True, 
             "option_color": "blue",
             "required": self.options.configuration_file
         })
-        if self.options.metagraph_config == "q":
+        if self.options.cluster_config == "q":
             cprint("  Installation cancelled by user\n","red")
             exit(0)
         
@@ -724,10 +729,10 @@ class Installer():
     # p12 elements
     # ===================
         
-    def generate_p12_from_install(self,generate=False):
+    def p12_generate_from_install(self,generate=False):
         self.log.logger.info("installer -> handle p12 generation if required.")
         if self.options.existing_p12 and not self.p12_migrated: 
-            self.migrate_existing_p12()
+            self.p12_migrate_existing()
 
         if not self.p12_session:
             self.build_classes("p12")
@@ -741,41 +746,41 @@ class Installer():
                 self.p12_session.p12_password = self.options.p12_passphrase
                 self.p12_session.generate()
                 self.options.existing_p12 = True
-            return
-
-        if self.options.p12_path:
-            self.p12_session.p12_file_location = path.split(self.options.p12_path)[0]
-            self.p12_session.p12_filename = path.split(self.options.p12_path)[1]
-        elif self.options.p12_migration_path:
-            self.p12_session.p12_filename = path.split(self.options.p12_migration_path)[1]
-            self.p12_session.ask_for_location()
         else:
-            self.p12_session.ask_for_p12name()
-            self.p12_session.ask_for_location() 
+            if self.options.p12_path:
+                self.p12_session.p12_file_location = path.split(self.options.p12_path)[0]
+                self.p12_session.p12_filename = path.split(self.options.p12_path)[1]
+            elif self.options.p12_migration_path:
+                self.p12_session.p12_filename = path.split(self.options.p12_migration_path)[1]
+                self.p12_session.ask_for_location()
+            else:
+                self.p12_session.ask_for_p12name()
+                self.p12_session.ask_for_location() 
 
-        if self.options.p12_passphrase:
-            self.p12_session.p12_password = self.options.p12_passphrase
-        else:
-            self.p12_session.ask_for_keyphrase()
+            if self.options.p12_passphrase:
+                self.p12_session.p12_password = self.options.p12_passphrase
+            else:
+                self.p12_session.ask_for_keyphrase()
 
-        if self.options.p12_alias:
-            self.p12_session.key_alias = self.options.p12_alias
-        elif not self.options.existing_p12:
-            self.p12_session.ask_for_file_alias() 
+            if self.options.p12_alias:
+                self.p12_session.key_alias = self.options.p12_alias
+            elif not self.options.existing_p12:
+                self.p12_session.ask_for_file_alias() 
 
-        if not self.options.existing_p12:
-            self.p12_session.generate()   
+            if not self.options.existing_p12:
+                self.p12_session.generate()   
 
-        if not self.options.p12_path:
-            self.options.p12_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
-            self.options.p12_path = self.functions.cleaner(self.options.p12_path,"fix_double_slash")
-        if not self.options.p12_passphrase:
-            self.options.p12_passphrase = self.p12_session.p12_password
-        if not self.options.p12_alias and not self.options.existing_p12:
-            self.options.p12_alias = self.p12_session.key_alias
+        if generate:
+            if not self.options.p12_path:
+                self.options.p12_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
+                self.options.p12_path = self.functions.cleaner(self.options.p12_path,"fix_double_slash")
+            if not self.options.p12_passphrase:
+                self.options.p12_passphrase = self.p12_session.p12_password
+            if not self.options.p12_alias and not self.options.existing_p12:
+                self.options.p12_alias = self.p12_session.key_alias
        
 
-    def derive_p12_alias(self,verify=False):
+    def p12_derive_alias(self,verify=False):
         self.log.logger.info("installer -> attempting to derive p12 alias...")
         if not self.options.quick_install:
             self.functions.print_cmd_status({
@@ -813,7 +818,7 @@ class Installer():
         })
 
 
-    def display_exiting_p12_list(self):
+    def p12_display_existing_list(self):
         try:
             current_user = "root" if not self.user.installing_user else self.user.installing_user
         except:
@@ -894,10 +899,10 @@ class Installer():
         return location
     
     
-    def migrate_existing_p12(self):
+    def p12_migrate_existing(self):
         self.log.logger.info("installer -> migrating p12.")
         if not self.options.p12_migration_path:
-            self.options.p12_migration_path = self.display_exiting_p12_list()
+            self.options.p12_migration_path = self.p12_display_existing_list()
 
         is_migration_path_error = False
         try:
@@ -954,7 +959,7 @@ class Installer():
         })
         
 
-    def prepare_p12_details(self,action=None):
+    def p12_prepare_details(self,action=None):
         self.log.logger.info("installer -> preparing p12 details.")
         if action == "init":
             if not self.options.quick_install:
@@ -983,13 +988,20 @@ class Installer():
                 if self.options.quick_install:
                     self.functions.print_clear_line(1,{"backwards":True})
 
+            if not self.options.p12_path:
+                post_fix_p12 = "nodeadmin.p12"
+                if self.options.p12_migration_path:
+                    post_fix_p12 = path.split(self.options.p12_migration_path)[1]
+                self.options.p12_path = f"/home/{self.options.user}/tessellation/{post_fix_p12}"
+                self.print_cmd_status("p12 destination path",path.split(self.options.p12_path)[0],False,False)
+                
             if self.options.quick_install and not self.options.existing_p12:
                 self.print_cmd_status("p12 file name","nodeadmin-node.p12",False,False) 
             else:
                 if self.options.existing_p12:
                     if self.options.quick_install:
                         print("")
-                        self.migrate_existing_p12()
+                        self.p12_migrate_existing()
             return
         
         if self.options.quick_install: return
@@ -1027,7 +1039,7 @@ class Installer():
             self.functions.print_clear_line(1,{"backwards":True}) 
 
 
-    def encrypt_passphrase(self):
+    def p12_encrypt_passphrase(self):
         self.log.logger.info("installer -> encrypting p12 passphrase.")
         if self.options.quick_install:
             self.configurator.quick_install = True
@@ -1099,22 +1111,22 @@ class Installer():
         skeleton = None
 
         if action == "skeleton" or action == "quick_install":
-            if not isinstance(self.options.metagraph_config,dict):
+            if not isinstance(self.options.cluster_config,dict):
                 skeleton = self.functions.pull_remote_profiles({
                     "retrieve": "config_file"
                 })
-                skeleton_yaml = skeleton[self.options.metagraph_config]["yaml_url"]
+                skeleton_yaml = skeleton[self.options.cluster_config]["yaml_url"]
 
             if action == "quick_install": return skeleton
 
             if not self.options.metagraph_name:
-                self.config_obj = skeleton[self.options.metagraph_config]["json"]["nodectl"]
+                self.config_obj = skeleton[self.options.cluster_config]["json"]["nodectl"]
             else:
                 try:
                     self.config_obj = skeleton[self.options.metagraph_name]["json"]["nodectl"]
                 except:
-                    self.config_obj = self.options.metagraph_config["json"]["nodectl"]
-                    skeleton_yaml = self.options.metagraph_config["yaml_url"]
+                    self.config_obj = self.options.cluster_config["json"]["nodectl"]
+                    skeleton_yaml = self.options.cluster_config["yaml_url"]
 
             self.config_obj["global_elements"] = {
                 "caller": "installer",
@@ -1165,7 +1177,7 @@ class Installer():
             try:
                 _ = self.p12_session.key_alias
             except:
-                self.derive_p12_alias(self.options.p12_alias)
+                self.p12_derive_alias(self.options.p12_alias)
                 self.p12_session.key_alias = self.options.p12_alias
 
             if self.p12_session.p12_password == "blank" or self.p12_session.p12_password == "":

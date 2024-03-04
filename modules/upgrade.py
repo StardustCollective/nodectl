@@ -92,7 +92,7 @@ class Upgrader():
                 self.check_for_api_readytojoin(profile)
                 self.re_join_tessellation(profile)
         
-        self.encrypt_passphrase()
+        self.p12_encrypt_passphrase()
         self.complete_process()
     
     
@@ -1359,7 +1359,7 @@ class Upgrader():
         return count+1
     
     
-    def encrypt_passphrase(self):
+    def p12_encrypt_passphrase(self):
         # because encryption will change the cn-config.yaml values to avoid processing necessary
         # to rebuild the configuration file after-the-fact, this feature is offered last.
 
