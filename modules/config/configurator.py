@@ -2762,7 +2762,12 @@ class Configurator():
                     restart_error = True
 
             if not restart_error:
-                shell = ShellHandler(self.c.config_obj,False)
+                try:
+                    shell = ShellHandler(self.c.config_obj,False)
+                except:
+                    from ..shell_handler import ShellHandler
+                    shell = ShellHandler(self.c.config_obj,False)
+
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 # auto restart
@@ -3156,7 +3161,11 @@ class Configurator():
             })
             
             if self.c.config_obj["global_auto_restart"]["auto_restart"] == True:
-                shell = ShellHandler(self.c.config_obj,False)
+                try:
+                    shell = ShellHandler(self.c.config_obj,False)
+                except:
+                    from ..shell_handler import ShellHandler
+                    shell = ShellHandler(self.c.config_obj,False)
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 self.c.functions.print_cmd_status({
