@@ -466,7 +466,7 @@ class Configuration():
                 "mainnet": "mainnet.constellationnetwork.io",
                 "testnet": "testnet.constellationnetwork.io",
                 "integrationnet": "integrationnet.constellationnetwork.io",
-                "dor-metagraph": "54.218.46.24",
+                "dor-metagraph": "54.191.143.191",
             },
             "seed_file": {
                 "dor-metagraph": {
@@ -602,10 +602,9 @@ class Configuration():
                 try:
                     if self.config_obj[profile][tdir] == "default":
                         if tdir == "seed_file": 
-                            if metagraph_name == "hypergraph":
-                                self.config_obj[profile][tdir] = f"{environment}-{self.functions.default_seed_file}"
-                            else:
-                                self.config_obj[profile][tdir] = f"{metagraph_name}-{self.functions.default_seed_file}" 
+                            self.config_obj[profile][tdir] = f"{environment}-{self.functions.default_seed_file}"
+                            if metagraph_name != "hypergraph":
+                                self.config_obj[profile][tdir] = f"{defaults[tdir][metagraph_name][profile]}{self.config_obj[profile][tdir]}" 
                         elif tdir == "priority_source_file": 
                             self.config_obj[profile][tdir] = f"{metagraph_name}-{def_value}" 
                         elif tdir == "jar_repository": 

@@ -989,19 +989,22 @@ class Installer():
                     self.functions.print_clear_line(1,{"backwards":True})
 
             if not self.options.p12_destination_path:
-                post_fix_p12 = "nodeadmin.p12"
+                post_fix_p12 = "nodeadmin-node.p12"
                 if self.options.p12_migration_path:
                     post_fix_p12 = path.split(self.options.p12_migration_path)[1]
                 self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{post_fix_p12}"
-                self.print_cmd_status("p12 destination path",path.split(self.options.p12_destination_path)[0],False,False)
                 
             if self.options.quick_install and not self.options.existing_p12:
-                self.print_cmd_status("p12 file name","nodeadmin-node.p12",False,False) 
-            else:
-                if self.options.existing_p12:
-                    if self.options.quick_install:
-                        print("")
-                        self.p12_migrate_existing()
+                if not self.options.p12_destination_path:
+                    self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{self.options.user}.p12"
+                
+            self.print_cmd_status("p12 file name",path.split(self.options.p12_destination_path)[1],False,False)
+            self.print_cmd_status("p12 destination path",path.split(self.options.p12_destination_path)[0],False,False) 
+
+            if self.options.existing_p12:
+                if self.options.quick_install:
+                    print("")
+                    self.p12_migrate_existing()
             return
         
         if self.options.quick_install: return
