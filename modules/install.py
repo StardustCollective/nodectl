@@ -766,6 +766,7 @@ class Installer():
                 self.p12_session.key_alias = self.options.p12_alias
             elif not self.options.existing_p12:
                 self.p12_session.ask_for_file_alias() 
+                self.options.p12_alias = self.p12_session.key_alias
 
             if not self.options.existing_p12:
                 self.p12_session.generate()   
