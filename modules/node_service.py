@@ -603,6 +603,16 @@ class Node():
         self.log.logger.info(f"join cluster -> joining via [{data}]")
 
         if not self.auto_restart:
+            if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
+                token_identifier = self.config_obj[self.profile]["token_identifier"][:5] + ".." + self.config_obj[self.profile]["token_identifier"][-5:]
+                self.functions.print_cmd_status({
+                    "text_start": "Token identifier",
+                    "status": token_identifier,
+                    "brackets": self.profile,
+                    "status_color": "yellow",
+                    "newline": True,
+                })
+
             self.functions.print_cmd_status({
                 "text_start": "Joining with peer",
                 "status": self.source_node_choice["ip"],

@@ -3953,6 +3953,8 @@ class CLI():
                             "IN CONSENSUS": consensus,
                         }
                     ]
+                    if self.config_obj[profile]["layer"] > 0:
+                        print_out_list[0].pop("IN CONSENSUS", None)
                 
                     for header_elements in print_out_list:
                         self.functions.print_show_output({
@@ -4225,6 +4227,7 @@ class CLI():
                      
 
     def cli_upgrade_vps(self,argv_list):
+        self.functions.check_for_help(argv_list, "upgrade_vps")
         self.log.logger.info("command_line -> request to upgrade VPS issued")
 
         interactive = True if not "--ni" in argv_list else False

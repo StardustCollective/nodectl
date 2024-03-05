@@ -55,7 +55,7 @@ class Status():
     def find_log_file(self):
         # removed due to version update
         # however may need to use this function repurposed
-        # in future releases to navigate through rolled/archieved
+        # in future releases to navigate through rolled/archived
         # logs
         bashCommand = "ls -l /var/log"
         ps = Popen(bashCommand.split(), 

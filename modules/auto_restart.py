@@ -167,9 +167,9 @@ class AutoRestart():
                             
     def set_ep(self):  
          # ep: def: edge_point
-         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  setup ep - pulling ep details | profile [{self.node_service.profile}]")
+         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - setup ep - pulling ep details | profile [{self.node_service.profile}]")
          self.edge_device = self.functions.pull_edge_point(self.node_service.profile)
-         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  setup ep - pulling ep details | remote [{self.edge_device}]")
+         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - setup ep - pulling ep details | remote [{self.edge_device}]")
         
 
     # PROFILE MANIPULATE
@@ -533,11 +533,12 @@ class AutoRestart():
             self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  silent restart [stop] initiating | profile [{self.node_service.profile}]")
             self.stop_start_handler("stop")
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - updating [seed_list]")
-            _ = self.node_service.download_constellation_binaries({
-                "caller": "update_seedlist",
-                "profile": self.thread_profile,
-                "environment": self.environment,
-            })
+            if self.config_obj[self.thread_profile]["seed_repository"] != "disable":
+                _ = self.node_service.download_constellation_binaries({
+                    "caller": "update_seedlist",
+                    "profile": self.thread_profile,
+                    "environment": self.environment,
+                })
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [{self.silent_restart_timer}]")
             sleep(self.silent_restart_timer)   # not truly necessary but adding more delay
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart [start] initiating | profile [{self.node_service.profile}]")

@@ -47,7 +47,7 @@ class Logging():
             '%b %d %H:%M:%S')
         formatter.converter = time.gmtime  # if you want UTC time
 
-        log_handler = RotatingFileHandler(self.full_log_path, maxBytes=8*1024*1024, backupCount=4)
+        log_handler = RotatingFileHandler(self.full_log_path, maxBytes=8*1024*1024, backupCount=8)
       
         log_handler.setFormatter(formatter)
         self.logger.addHandler(log_handler)

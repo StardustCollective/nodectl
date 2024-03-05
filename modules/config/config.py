@@ -558,7 +558,7 @@ class Configuration():
             try:
                 self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][metagraph_name]
             except:
-                self.log.logger.error("config -> during configuration setup, nodectl could not determine the token identifier")
+                self.log.logger.warn("config -> during configuration setup, nodectl could not determine the token identifier")
                 error_found("global","metagraph_token_identifier")
 
         for profile in self.metagraph_list:

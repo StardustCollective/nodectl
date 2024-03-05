@@ -22,7 +22,7 @@ def build_help(functions,command_obj):
       "reboot","disable_root_ssh","enable_root_ssh",
       "clean_snapshots","update_seedlist", "check_source_connection",
       "health","sec","price","markets", "upgrade_path", 
-      "check_seedlist_participation", "check_version", "uptime",
+      "check_seedlist_participation", "check_version", "uptime","uninstall",
     ]
     
     functions.print_paragraphs([
@@ -62,6 +62,9 @@ def build_help(functions,command_obj):
     upgrade    | upgrade Tessellation version
     install    | install Tessellation - Turn your bare metal or
                  VPS into a Validator Node
+
+    uninstall  | restore your VPS to default state before nodectl
+                 was installed.
                  
     configure            | setup your Node's configuration via
                            pre-configured profiles, advanced user setup,
@@ -142,6 +145,9 @@ def build_help(functions,command_obj):
     
     restart_only | - restart node services on Node but don't join.
     
+    upgrade_vps | - more simple verbose method of updating and upgrading
+                    your VPS.
+
     check_seedlist | - check the seed list access to see if 
                              your nodeid is present on the seed list
     
@@ -2166,6 +2172,71 @@ def build_help(functions,command_obj):
   
   {extended} for configured environment
   # {colored(f'sudo nodectl {extended} -e <profile_name>','cyan')}  
+        ''' 
+        
+        
+    if extended == "show_service_status":
+        help_text += title("show service status")
+        help_text += f'''
+  
+  {colored("show_service_status","cyan")} will review the processes
+  running on the Node, and display their current known state.
+
+  OWNER: What profile on the Node owns the process being displayed.
+  SERVICE: Name of the service that the OWNER of the process is using.
+  PID = Process ID of the service as assigned by the Debian systemd system 
+        manager, used to handle the logging and various utilities for the 
+        assigned process.
+  STATUS CODE: The code returned by the systemd manager.  These codes can
+               be standard codes or custom codes for a particular 
+               process in use.   
+               0 = Healthy
+               256 = Process exited with error
+               768 = Process not running
+  STATUS: Human friendly translation of the STATUS CODE
+      - active (running)
+      - inactive (dead)
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}  
+  
+  {extended} for configured environment
+  # {colored(f'sudo nodectl {extended}','cyan')}  
+        ''' 
+        
+        
+    if extended == "upgrade_vps":
+        help_text += title("upgrade the VPS")
+        help_text += f'''
+  
+  {colored("upgrade_vps","cyan")} will simply perform a
+  more non-technical user friendly method of making sure 
+  your VPS (or bare metal server) is up-to-date with the
+  most recent packages, utilities, security requirements,
+  and core distribution elements (kernels, services, etc.)
+
+  The feature will offer you instructions on how to handle
+  any interactive requirements, including handling purple
+  boxes.
+
+  The feature will update the package lists to make sure the
+  VPS's Linux distribution knows that is the latest and
+  available packages; followed by, issuing an upgrade to
+  install and update any necessary elements.
+
+  The command an 'apt' update and 'apt' upgrade from nodectl
+  instead of the user having to do it directly from the
+  Linux distribution. 
+  
+  Example Usage
+  -------------
+  show this help screen
+  # {colored(f'sudo nodectl {extended} help','cyan')}  
+  
+  {extended} for configured environment
+  # {colored(f'sudo nodectl {extended}','cyan')}  
         ''' 
         
         

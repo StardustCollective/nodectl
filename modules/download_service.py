@@ -1,5 +1,6 @@
 from os import path, makedirs, chmod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from copy import copy, deepcopy
 import requests
 
 from .troubleshoot.errors import Error_codes
@@ -284,7 +285,7 @@ class Download():
 
     def get_download_looper(self,file_key):
         file_name = self.get_file_from_fileobj(file_key)
-        self.get_file_size(file_key, file_name)
+        self.get_remote_file_size(file_key, file_name)
         for _ in range(0,self.retries):
             self.get_download(file_key, file_name)
             if self.test_file_size(file_key, file_name):
@@ -319,7 +320,7 @@ class Download():
         return file_key # return to the futures executor to print results.
     
 
-    def get_file_size(self,file_key,file_name):
+    def get_remote_file_size(self,file_key,file_name):
         # get size of the file from remote
         # https://api.github.com/repos/Constellation-Labs/tessellation/releases/tags/{version}
 
@@ -481,6 +482,8 @@ class Download():
             return
 
         action = "restore"
+        if not backup: self.redundant_check()
+
         file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] == "failed"]
         if backup:
             action = "backup" 
@@ -513,7 +516,19 @@ class Download():
                     "remove": True if action == "backup" else False,
                     "print_start": print_start,
                     "print_complete": print_complete,
-                })        
+                })    
+
+
+    def redundant_check(self):
+        self.log.logger.debug(f"{self.log_prefix} extra redundant check imitated")
+        for file in self.file_obj.keys():
+            if self.file_obj[file]["state"] == "disabled": continue
+            file_size = self.functions.get_size(self.file_obj[file]["dest_path"],True)
+            if file_size < 1 and file_size != self.file_obj[file]['remote_size']:
+                file_name = file.replace(f'-cnng{self.file_obj[file]["profile"]}',"")
+                self.log.logger.error(f"{self.log_prefix} redundant check method found possible file size issue [{file_name}] file size [{file_size}] remote size [{self.file_obj[file]['remote_size']}]")
+                self.file_obj[file]['state'] = "failed"
+
 
 
 if __name__ == "__main__":
