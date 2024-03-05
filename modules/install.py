@@ -169,7 +169,7 @@ class Installer():
         # cluster-config will be used to determine config to download if supplied
         option_list = [
             "--cluster-config",
-            "--user", "--p12-path", 
+            "--user", "--p12-destination-path", 
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
             "--quick-install", "--normal","--confirm"
@@ -210,14 +210,14 @@ class Installer():
 
         if self.options.quick_install:
             self.log.logger.info("installer identified quick installation")
-            if self.options.p12_path and not self.options.p12_alias:
+            if self.options.p12_destination_path and not self.options.p12_alias:
                 self.log.logger.warn("installer -> p12 alias not supplied - will try to derive it dynamically.")
 
 
     def handle_option_validation(self):
         for option, value in self.options_dict.items():
             if isinstance(value,bool):
-                if option == "p12_path":
+                if option == "p12_destination_path":
                     self.p12_prepare_details("init")
                 elif option == "cluster_config" and not self.options.cluster_config: 
                     if not self.options.cluster_config:
@@ -230,7 +230,7 @@ class Installer():
 
             elif option == "metagraph_name":
                 self.print_cmd_status("metagraph","metagraph_name",False) 
-            elif option == "p12_path":
+            elif option == "p12_destination_path":
                 if not value.endswith(".p12"):
                     self.close_threads()
                     self.error_messages.error_code_messages({
@@ -741,15 +741,15 @@ class Installer():
         
         if self.options.quick_install:
             if generate and not self.options.existing_p12:
-                self.p12_session.p12_file_location, self.p12_session.p12_filename = path.split(self.options.p12_path) 
+                self.p12_session.p12_file_location, self.p12_session.p12_filename = path.split(self.options.p12_destination_path) 
                 self.p12_session.key_alias = self.options.p12_alias
                 self.p12_session.p12_password = self.options.p12_passphrase
                 self.p12_session.generate()
                 self.options.existing_p12 = True
         else:
-            if self.options.p12_path:
-                self.p12_session.p12_file_location = path.split(self.options.p12_path)[0]
-                self.p12_session.p12_filename = path.split(self.options.p12_path)[1]
+            if self.options.p12_destination_path:
+                self.p12_session.p12_file_location = path.split(self.options.p12_destination_path)[0]
+                self.p12_session.p12_filename = path.split(self.options.p12_destination_path)[1]
             elif self.options.p12_migration_path:
                 self.p12_session.p12_filename = path.split(self.options.p12_migration_path)[1]
                 self.p12_session.ask_for_location()
@@ -771,9 +771,9 @@ class Installer():
                 self.p12_session.generate()   
 
         if generate:
-            if not self.options.p12_path:
-                self.options.p12_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
-                self.options.p12_path = self.functions.cleaner(self.options.p12_path,"fix_double_slash")
+            if not self.options.p12_destination_path:
+                self.options.p12_destination_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
+                self.options.p12_destination_path = self.functions.cleaner(self.options.p12_destination_path,"fix_double_slash")
             if not self.options.p12_passphrase:
                 self.options.p12_passphrase = self.p12_session.p12_password
             if not self.options.p12_alias and not self.options.existing_p12:
@@ -785,17 +785,17 @@ class Installer():
         if not self.options.quick_install:
             self.functions.print_cmd_status({
                 "text_start": "Deriving p12 alias",
-                "brackets": self.options.p12_path.split("/")[-1],
+                "brackets": self.options.p12_destination_path.split("/")[-1],
                 "status": "running",
                 "status_color": "yellow",
             })
 
         try:
             self.options.p12_alias = self.p12_session.show_p12_details(
-                ["--file",self.options.p12_path,"--installer",self.options.p12_passphrase,"--alias","--return"]
+                ["--file",self.options.p12_destination_path,"--installer",self.options.p12_passphrase,"--alias","--return"]
             )
         except:
-            self.log.logger.critical(f"installer was unable to derive the p12 alias from the p12 keystore [{self.options.p12_path}].  Please manually update the configuration in order to properly join the necessary cluster(s).")
+            self.log.logger.critical(f"installer was unable to derive the p12 alias from the p12 keystore [{self.options.p12_destination_path}].  Please manually update the configuration in order to properly join the necessary cluster(s).")
             self.options.p12_alias = "error"
             self.found_errors = True
         else:
@@ -931,24 +931,24 @@ class Installer():
                 "extra2": "Are you sure your uploaded the proper p12 file?"
             })     
 
-        dest_p12_path = f"/home/{self.user.username}/tessellation/{p12file}"
-        if self.options.p12_path:
-            dest_p12_path = self.options.p12_path
+        dest_p12_destination_path = f"/home/{self.user.username}/tessellation/{p12file}"
+        if self.options.p12_destination_path:
+            dest_p12_destination_path = self.options.p12_destination_path
 
-        dest_p12_path_only = path.split(dest_p12_path)[0]
-        if not path.exists(dest_p12_path_only):
-            makedirs(dest_p12_path_only)
+        dest_p12_destination_path_only = path.split(dest_p12_destination_path)[0]
+        if not path.exists(dest_p12_destination_path_only):
+            makedirs(dest_p12_destination_path_only)
 
-        shutil.move(self.options.p12_migration_path, dest_p12_path)
-        chmod(dest_p12_path, 0o400)
-        system(f"sudo chown root:root {dest_p12_path} > /dev/null 2>&1")
+        shutil.move(self.options.p12_migration_path, dest_p12_destination_path)
+        chmod(dest_p12_destination_path, 0o400)
+        system(f"sudo chown root:root {dest_p12_destination_path} > /dev/null 2>&1")
         self.p12_migrated = True
 
         if self.options.quick_install:
             return
 
-        if not self.options.quick_install and self.options.p12_path:
-            self.options.p12_path = dest_p12_path
+        if not self.options.quick_install and self.options.p12_destination_path:
+            self.options.p12_destination_path = dest_p12_destination_path
 
         self.functions.print_cmd_status({
             "text_start": "Migrate p12",
@@ -988,12 +988,12 @@ class Installer():
                 if self.options.quick_install:
                     self.functions.print_clear_line(1,{"backwards":True})
 
-            if not self.options.p12_path:
+            if not self.options.p12_destination_path:
                 post_fix_p12 = "nodeadmin.p12"
                 if self.options.p12_migration_path:
                     post_fix_p12 = path.split(self.options.p12_migration_path)[1]
-                self.options.p12_path = f"/home/{self.options.user}/tessellation/{post_fix_p12}"
-                self.print_cmd_status("p12 destination path",path.split(self.options.p12_path)[0],False,False)
+                self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{post_fix_p12}"
+                self.print_cmd_status("p12 destination path",path.split(self.options.p12_destination_path)[0],False,False)
                 
             if self.options.quick_install and not self.options.existing_p12:
                 self.print_cmd_status("p12 file name","nodeadmin-node.p12",False,False) 
@@ -1008,7 +1008,7 @@ class Installer():
 
         # This is done first to save the end user time if they have
         # to upload their p12 on migration 
-        if self.options.p12_path or self.options.p12_migration_path:        
+        if self.options.p12_destination_path or self.options.p12_migration_path:        
             self.functions.print_paragraphs([
                 ["",1], [" BEFORE WE BEGIN ",2,"grey,on_yellow"], 
                 ["If",0,"cyan","bold,underline"], ["this Node will be using",0],
@@ -1170,9 +1170,9 @@ class Installer():
             self.cli.version_obj = self.version_obj
 
         elif action == "p12":
-            if self.options.p12_path:
-                # self.p12_session.p12_file_location = self.options.p12_path.rsplit('/', 1)[0]+"/"
-                self.p12_session.p12_file_location, self.p12_session.p12_filename  = path.split(self.options.p12_path)
+            if self.options.p12_destination_path:
+                # self.p12_session.p12_file_location = self.options.p12_destination_path.rsplit('/', 1)[0]+"/"
+                self.p12_session.p12_file_location, self.p12_session.p12_filename  = path.split(self.options.p12_destination_path)
 
             try:
                 _ = self.p12_session.key_alias
@@ -1214,7 +1214,7 @@ class Installer():
                 "user_obj": self.user,
                 "cli_obj": self.cli,
                 "functions": self.functions,
-                "existing_p12": self.options.p12_path
+                "existing_p12": self.options.p12_destination_path
             }
             self.p12_session = P12Class(action_obj)
             self.p12_session.solo = True
@@ -1317,13 +1317,13 @@ class Installer():
         })      
         self.functions.print_cmd_status({
             "text_start": "P12 Location",
-            "status": path.dirname(self.options.p12_path),
+            "status": path.dirname(self.options.p12_destination_path),
             "status_color": "yellow",
             "newline": True,
         })  
         self.functions.print_cmd_status({
             "text_start": "P12 Name",
-            "status": path.basename(self.options.p12_path),
+            "status": path.basename(self.options.p12_destination_path),
             "status_color": "yellow",
             "newline": True,
         })  
