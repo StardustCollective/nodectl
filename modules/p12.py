@@ -717,7 +717,14 @@ class P12Class():
             results = result_str.split("\n")
             if not "keytool error" in result_str:
                 break
-            p12_passwd = attempt_decrypt(profile,p12_passwd)
+            try:
+                p12_passwd = attempt_decrypt(profile,p12_passwd)
+            except:
+                self.log.logger.critical("p12 module was unable to process this p12 file")
+                self.error_messages.error_code_messages({
+                    "error_code": "p-725",
+                    "line_code": "invalid_passphrase",
+                })
 
         if not results or results == "":
             if "--config" in command_list:

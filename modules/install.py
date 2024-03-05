@@ -59,9 +59,9 @@ class Installer():
             self.build_config_file("skeleton")
             self.build_config_file("defaults")
             self.update_os()
-            self.process_distro_dependencies()
+            # self.process_distro_dependencies()
             self.download_binaries()
-            self.make_swap_file()
+            # self.make_swap_file()
             self.setup_user()
             self.create_dynamic_elements()
             self.p12_generate_from_install()
@@ -433,11 +433,11 @@ class Installer():
 
         if status == "failed":
             self.close_threads()
-            self.error_messages.error_code_messages({
-                "error_code": "int-354",
-                "line_code": "install_failed",
-                "extra": "unable to download required Constellation network Tessellation files"
-            })
+            # self.error_messages.error_code_messages({
+            #     "error_code": "int-354",
+            #     "line_code": "install_failed",
+            #     "extra": "unable to download required Constellation network Tessellation files"
+            # })
 
         self.functions.print_cmd_status({
             "text_start": "Installing Tessellation binaries",
@@ -750,13 +750,15 @@ class Installer():
             if self.options.p12_destination_path:
                 self.p12_session.p12_file_location = path.split(self.options.p12_destination_path)[0]
                 self.p12_session.p12_filename = path.split(self.options.p12_destination_path)[1]
-            elif self.options.p12_migration_path:
-                self.p12_session.p12_filename = path.split(self.options.p12_migration_path)[1]
-                self.p12_session.ask_for_location()
             else:
-                self.p12_session.ask_for_p12name()
-                self.p12_session.ask_for_location() 
-
+                if self.options.p12_migration_path:
+                    self.p12_session.p12_filename = path.split(self.options.p12_migration_path)[1]
+                    self.p12_session.ask_for_location()
+                else:
+                    self.p12_session.ask_for_p12name()
+                    self.p12_session.ask_for_location() 
+                self.options.p12_destination_path = f"{self.p12_session.p12_file_location}{self.p12_session.p12_filename}"
+                
             if self.options.p12_passphrase:
                 self.p12_session.p12_password = self.options.p12_passphrase
             else:
@@ -791,6 +793,12 @@ class Installer():
                 "status_color": "yellow",
             })
 
+        if not self.options.p12_passphrase:
+            try:
+                self.options.p12_passphrase = self.p12_session.p12_password
+            except:
+                self.log.logger.warn("installer unable to obtain p12 passphrase, unexpected results on the installer may be presented, but may not affect the installation.")
+                
         try:
             self.options.p12_alias = self.p12_session.show_p12_details(
                 ["--file",self.options.p12_destination_path,"--installer",self.options.p12_passphrase,"--alias","--return"]
@@ -989,18 +997,13 @@ class Installer():
                 if self.options.quick_install:
                     self.functions.print_clear_line(1,{"backwards":True})
 
-            if not self.options.p12_destination_path:
-                post_fix_p12 = "nodeadmin-node.p12"
-                if self.options.p12_migration_path:
-                    post_fix_p12 = path.split(self.options.p12_migration_path)[1]
-                self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{post_fix_p12}"
+            # note: if there is not a p12_destination_path, it will be formulated after the Node Operator
+            #       chooses a username, later in the installation.
                 
             if self.options.quick_install and not self.options.existing_p12:
                 if not self.options.p12_destination_path:
                     self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{self.options.user}.p12"
-                
-            self.print_cmd_status("p12 file name",path.split(self.options.p12_destination_path)[1],False,False)
-            self.print_cmd_status("p12 destination path",path.split(self.options.p12_destination_path)[0],False,False) 
+                self.print_cmd_status("p12 file name",path.split(self.options.p12_destination_path)[1],False,False)
 
             if self.options.existing_p12:
                 if self.options.quick_install:
@@ -1012,7 +1015,7 @@ class Installer():
 
         # This is done first to save the end user time if they have
         # to upload their p12 on migration 
-        if self.options.p12_destination_path or self.options.p12_migration_path:        
+        if self.options.p12_migration_path or self.options.existing_p12:        
             self.functions.print_paragraphs([
                 ["",1], [" BEFORE WE BEGIN ",2,"grey,on_yellow"], 
                 ["If",0,"cyan","bold,underline"], ["this Node will be using",0],
@@ -1186,6 +1189,9 @@ class Installer():
 
             if self.p12_session.p12_password == "blank" or self.p12_session.p12_password == "":
                 self.p12_session.p12_password = self.options.p12_passphrase
+
+            if not self.options.p12_destination_path:
+                self.options.p12_destination_path = f"{self.p12_session.p12_file_location}{self.p12_session.p12_filename}"
 
             p12_replace_list = [
                 ("passphrase", f'"{self.p12_session.p12_password}"'),
