@@ -132,20 +132,30 @@ class Installer():
                 ["https://docs.constellationnetwork.io/validate/",2,"blue","bold"],
             ])
 
-        term_width_test = get_terminal_size()
-        if term_width_test.columns < 85:
-            self.functions.print_paragraphs([
-                [" WARNING ",1,"red,on_yellow"], 
-                ["nodectl has detected that the terminal size WIDTH is too narrow.",0,"red"],
-                ["to properly display the installer's progress indicators. While this",0,"red"],
-                ["won't affect the installation itself, it may impact the user experience.",2,"red"],
-                ["detected column width:",0],[f"{term_width_test.columns}",1,"yellow"],
-                ["To improve the display, you can optionally widen your terminal window by clicking on the terminal emulator window and dragging it out to at",0],
-                ["least",0], ["85",0,"green","bold"], ["columns.",2],
-            ])
+        while True:
+            term_width_test = get_terminal_size()
+            if term_width_test.columns < 85:
+                self.functions.print_paragraphs([
+                    [" WARNING ",1,"red,on_yellow"], 
+                    ["nodectl has detected that the terminal size WIDTH is too narrow.",0,"red"],
+                    ["to properly display the installer's progress indicators. While this",0,"red"],
+                    ["won't affect the installation itself, it may impact the user experience.",2,"red"],
+                    ["detected column width:",0],[f"{term_width_test.columns}",1,"yellow"],
+                    ["To improve the display, you can optionally widen your terminal window by clicking on the terminal emulator window and dragging it out to at",0],
+                    ["least",0], ["85",0,"green","bold"], ["columns.",2],
+                ])
+                next_step = self.functions.print_any_key({
+                    "quit_option": True,
+                    "return_key": True,
+                })
+                if next_step == "q": 
+                    cprint("  Installation existed by Node Operator request","green",attrs="bold")
+                    exit(0)
 
-        else:
-            self.functions.print_clear_line(1,{"backwards":True})
+                print("")
+            else:
+                self.functions.print_clear_line(1,{"backwards":True})
+                break
 
         if not self.options.confirm_install:
             self.parent.confirm_int_upg()
@@ -902,16 +912,15 @@ class Installer():
         
         if not path.exists(f"/home/{self.user.username}/tessellation/"):
             makedirs(f"/home/{self.user.username}/tessellation/")
-        if not self.options.quick_install:
-            self.options.p12_migration_path = location
 
-        return location
+        self.options.p12_migration_path = location
+
     
     
     def p12_migrate_existing(self):
         self.log.logger.info("installer -> migrating p12.")
         if not self.options.p12_migration_path:
-            self.options.p12_migration_path = self.p12_display_existing_list()
+            self.p12_display_existing_list()
 
         is_migration_path_error = False
         try:
@@ -1004,7 +1013,7 @@ class Installer():
                 
             if self.options.quick_install and not self.options.existing_p12:
                 if not self.options.p12_destination_path:
-                    self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{self.options.user}.p12"
+                    self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{self.options.user}-node.p12"
                 self.print_cmd_status("p12 file name",path.split(self.options.p12_destination_path)[1],False,False)
 
             if self.options.existing_p12:
