@@ -181,7 +181,7 @@ class Installer():
         self.options_dict["confirm_install"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
-            if (o_option == "quick-install" or o_option == "quick_install") and "--quick_install" in self.argv_list: 
+            if (o_option == "quick-install" or o_option == "quick_install") and "--quick-install" in self.argv_list: 
                 self.options_dict["quick_install"] = True
                 continue
             if (o_option == "normal" or o_option == "normal") and "--normal" in self.argv_list: 
@@ -246,14 +246,14 @@ class Installer():
             elif option == "p12_alias":
                 self.print_cmd_status("P12 alias","p12_alias",False)
             elif option == "user":
+                if self.options.quick_install and self.options.user:
+                    self.user.username = self.options.user
                 self.print_cmd_status("Node admin user","user",False)
 
         self.build_classes("p12")
 
         if self.options.quick_install:
             if not self.options.user_password:
-                self.user.username = self.options.user
-                print("")
                 self.user.ask_for_password()
                 self.options.user_password = self.user.password
                 self.p12_session.user.password = self.options.user_password
@@ -943,6 +943,8 @@ class Installer():
         dest_p12_destination_path = f"/home/{self.user.username}/tessellation/{p12file}"
         if self.options.p12_destination_path:
             dest_p12_destination_path = self.options.p12_destination_path
+        else:
+            self.options.p12_destination_path = dest_p12_destination_path
 
         dest_p12_destination_path_only = path.split(dest_p12_destination_path)[0]
         if not path.exists(dest_p12_destination_path_only):
@@ -1047,6 +1049,10 @@ class Installer():
 
 
     def p12_encrypt_passphrase(self):
+        if self.options.p12_alias == "error": 
+            self.log.logger.error("installer -> unable to encrypt passphrase because the p12 file associated with this installation was unble to be authenticated, passphrase could be incorrect")
+            return
+        
         self.log.logger.info("installer -> encrypting p12 passphrase.")
         if self.options.quick_install:
             self.configurator.quick_install = True
@@ -1104,7 +1110,8 @@ class Installer():
         self.setup_config.setup_config_vars()
         self.setup_config.p12 = self.p12_session
         self.setup_config.p12.config_obj = self.setup_config.config_obj
-        self.setup_config.setup_p12_aliases("global_p12")
+        if self.options.p12_alias != "error": # most likely passphrase invalid
+            self.setup_config.setup_p12_aliases("global_p12")
         # replace cli and node service config object with newly created obj
         self.cli.functions.config_obj = self.setup_config.config_obj
         self.cli.node_service.config_obj = self.setup_config.config_obj
@@ -1369,35 +1376,40 @@ class Installer():
                 ["",1],[" WARNING ",1,"red,on_yellow"], 
                 ["p12 file may have incorrect parameters or is corrupted.",0,"red"],
                 ["Unable to derive nodeid.",2,"red","bold"],
-                ["Please update your",0,"red"], ["p12",0,"yellow"], ["details:",2,"red"],
 
+                ["Please update your",0,"red"], ["p12",0,"yellow"], ["details:",1,"red"],
                 ["step 1)",0,"magenta","bold"], ["verify your p12 passphrase",1],
                 ["step 2)",0,"magenta","bold"], ["verify your p12 alias",1],
-                [" - sudo nodectl show_p12_details --alias",1], 
+                [" - sudo nodectl show_p12_details --alias",1,"magenta"], 
                 ["step 3)",0,"magenta","bold"], ["update your configuration",1],
-                [" - sudo nodectl configure",1], 
+                [" - sudo nodectl configure",1,"magenta"], 
                 ["step 4",0,"magenta","bold"], ["follow steps to update global p12 parameters",1],
                 ["step 5)",0,"magenta","bold"], ["obtain node id for submission",1],
-                [" - sudo nodectl id -p <profile_name>",1], 
+                [" - sudo nodectl id -p <profile_name>",2,"magenta"],
             ])
 
         if not self.encryption_performed:
             self.functions.print_paragraphs([
-                ["",1], [" ENCRYPTION FAILURE ",0,"red,on_yellow"], ["There was an issue detected with the p12 private key store",0,"red"],
-                ["In order to encrypt the passphrase, you will need to make sure the passphrase",0,"red"],
-                ["is correct and tested; following, you can then attempt to encrypt using the following command:",1,"red"],
-                ["sudo nodectl configure",2],
+                ["",1], [" ENCRYPTION FAILURE ",0,"red,on_yellow"], 
+                ["An issue was detected with the p12 private key store. To encrypt the passphrase, ensure that the passphrase",0,"red"],
+                ["is correct and tested. After confirming the passphrase, you can attempt to encrypt it again.",2,"red"],
+
+                ["You may use the configurator to update the p12 settings and attempt encryption by following",0,"red"],
+                ["the prompts via the following command:",1,"red"],
+                ["sudo nodectl configure",1],
             ])
+            success = False
 
         metagraph_list = self.functions.clear_global_profiles(self.metagraph_list)
 
-        print("")
-        success = self.cli.cli_grab_id({
-            "command":"nodeid",
-            "return_success": True,
-            "skip_display": True,
-        })
-        print(f"\033[1A", end="", flush=True)
+        if self.encryption_performed:
+            print("")
+            success = self.cli.cli_grab_id({
+                "command":"nodeid",
+                "return_success": True,
+                "skip_display": True,
+            })
+            print(f"\033[1A", end="", flush=True)
 
         if not success:
             print_error()

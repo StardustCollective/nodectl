@@ -721,6 +721,7 @@ class P12Class():
                 p12_passwd = attempt_decrypt(profile,p12_passwd)
             except:
                 self.log.logger.critical("p12 module was unable to process this p12 file")
+                if "--installer" in command_list: raise Exception
                 self.error_messages.error_code_messages({
                     "error_code": "p-725",
                     "line_code": "invalid_passphrase",
