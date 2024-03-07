@@ -854,88 +854,96 @@ class Configuration():
         if not self.auto_restart and not self.versioning_service:
             self.functions.print_clear_line()
         
-        for profile in self.metagraph_list:
-            if profile_obj[profile]["profile_enable"] and self.action != "edit_config":
-                for m_or_g in ["ml0","gl0"]:
-                    if profile_obj[profile][f"{m_or_g}_link_host"] == "self":
-                        print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
-                        sleep(.8) # allow user to see
-                        profile_obj[profile][f"{m_or_g}_link_host"] = self.functions.get_ext_ip() 
+        try:
+            for profile in self.metagraph_list:
+                if profile_obj[profile]["profile_enable"] and self.action != "edit_config":
+                    for m_or_g in ["ml0","gl0"]:
+                        if profile_obj[profile][f"{m_or_g}_link_host"] == "self":
+                            print(f"{print_str}{colored('link host ip','yellow')}",end="\r")
+                            sleep(.8) # allow user to see
+                            profile_obj[profile][f"{m_or_g}_link_host"] = self.functions.get_ext_ip() 
 
-                    if profile_obj[profile][f"{m_or_g}_link_port"] == "self":
-                        print(f"{print_str}{colored('link public port','yellow')}",end="\r")
-                        sleep(.8) # allow user to see
-                        link_profile_port = self.config_obj[self.config_obj[profile][f"{m_or_g}_link_profile"]]["public_port"]
-                        profile_obj[profile][f"{m_or_g}_link_port"] = link_profile_port 
+                        if profile_obj[profile][f"{m_or_g}_link_port"] == "self":
+                            print(f"{print_str}{colored('link public port','yellow')}",end="\r")
+                            sleep(.8) # allow user to see
+                            link_profile_port = self.config_obj[self.config_obj[profile][f"{m_or_g}_link_profile"]]["public_port"]
+                            profile_obj[profile][f"{m_or_g}_link_port"] = link_profile_port 
 
-                    if profile_obj[profile][f"{m_or_g}_link_key"] == "self":
-                        self.setup_passwd(True)
-                        while True:
-                            print(f"{print_str}{colored('link host public key','yellow')}",end="\r")
-                            if not write_out:
-                                write_out = True
-                                if not success:
-                                    success = grab_nodeid(profile)
-                            if success:
-                                self.nodeid = self.nodeid.strip("\n")
-                                profile_obj[profile][f"{m_or_g}_link_key"] = self.nodeid
-                                break
-                            sleep(2)
-                            attempts += 1
-                            if attempts > 2:
-                                self.error_messages.error_code_messages({
-                                    "error_code": "cfg-337",
-                                    "line_code": "node_id_issue",
-                                    "extra": "config"
-                                })
-                    if profile_obj[profile][f"{m_or_g}_link_key"] == "external":
-                        node_id = self.functions.get_api_node_info({
-                            "api_host": profile_obj[profile][f"{m_or_g}_link_host"],
-                            "api_port": profile_obj[profile][f"{m_or_g}_link_port"],
-                            "info_list": ["id"],
-                        })[0]
-                        self.log.logger.info(f"config -> external [{m_or_g}] link key found, acquired: nodeid [{node_id}]")
-                        profile_obj[profile][f"{m_or_g}_link_key"] = node_id
+                        if profile_obj[profile][f"{m_or_g}_link_key"] == "self":
+                            self.setup_passwd(True)
+                            while True:
+                                print(f"{print_str}{colored('link host public key','yellow')}",end="\r")
+                                if not write_out:
+                                    write_out = True
+                                    if not success:
+                                        success = grab_nodeid(profile)
+                                if success:
+                                    self.nodeid = self.nodeid.strip("\n")
+                                    profile_obj[profile][f"{m_or_g}_link_key"] = self.nodeid
+                                    break
+                                sleep(2)
+                                attempts += 1
+                                if attempts > 2:
+                                    self.error_messages.error_code_messages({
+                                        "error_code": "cfg-337",
+                                        "line_code": "node_id_issue",
+                                        "extra": "config"
+                                    })
+                        if profile_obj[profile][f"{m_or_g}_link_key"] == "external":
+                            node_id = self.functions.get_api_node_info({
+                                "api_host": profile_obj[profile][f"{m_or_g}_link_host"],
+                                "api_port": profile_obj[profile][f"{m_or_g}_link_port"],
+                                "info_list": ["id"],
+                            })[0]
+                            self.log.logger.info(f"config -> external [{m_or_g}] link key found, acquired: nodeid [{node_id}]")
+                            profile_obj[profile][f"{m_or_g}_link_key"] = node_id
 
-            if write_out:  
-                g_done_ip, g_done_key, g_done_port, current_profile, skip_write = False, False, False, False, False
-                m_done_ip, m_done_key, m_done_port = False, False, False
-                self.log.logger.warn("config -> found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
-                f = open(f"{self.functions.nodectl_path}cn-config.yaml")
-                with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
-                    for line in f:
-                        skip_write = False
-                        if f"{profile}:" in line:
-                            current_profile = True
-                        if current_profile:
-                            if "ml0_link_key: self" in line and not m_done_key:
-                                newfile.write(f"    ml0_link_key: {self.nodeid}\n")
-                                self.log.logger.info(f"config -> self [ml0] link key found, updating config [{self.nodeid}]")
-                                m_done_key,skip_write = True, True
-                            elif "ml0_link_host: self" in line and not m_done_ip:
-                                newfile.write(f"    ml0_link_host: {self.functions.get_ext_ip()}\n")
-                                m_done_ip, skip_write = True, True
-                            elif "ml0_link_port: self" in line and not m_done_port:
-                                newfile.write(f"    ml0_link_port: {link_profile_port}\n")
-                                m_done_port, skip_write = True, True
+                if write_out:  
+                    g_done_ip, g_done_key, g_done_port, current_profile, skip_write = False, False, False, False, False
+                    m_done_ip, m_done_key, m_done_port = False, False, False
+                    self.log.logger.warn("config -> found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
+                    f = open(f"{self.functions.nodectl_path}cn-config.yaml")
+                    with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
+                        for line in f:
+                            skip_write = False
+                            if f"{profile}:" in line:
+                                current_profile = True
+                            if current_profile:
+                                if "ml0_link_key: self" in line and not m_done_key:
+                                    newfile.write(f"    ml0_link_key: {self.nodeid}\n")
+                                    self.log.logger.info(f"config -> self [ml0] link key found, updating config [{self.nodeid}]")
+                                    m_done_key,skip_write = True, True
+                                elif "ml0_link_host: self" in line and not m_done_ip:
+                                    newfile.write(f"    ml0_link_host: {self.functions.get_ext_ip()}\n")
+                                    m_done_ip, skip_write = True, True
+                                elif "ml0_link_port: self" in line and not m_done_port:
+                                    newfile.write(f"    ml0_link_port: {link_profile_port}\n")
+                                    m_done_port, skip_write = True, True
 
-                            elif "gl0_link_key: self" in line and not g_done_key:
-                                newfile.write(f"    gl0_link_key: {self.nodeid}\n")
-                                g_done_key,skip_write = True, True
-                            elif "gl0_link_host: self" in line and not g_done_ip:
-                                newfile.write(f"    gl0_link_host: {self.functions.get_ext_ip()}\n")
-                                g_done_ip, skip_write = True, True
-                            elif "gl0_link_port: self" in line and not g_done_port:
-                                newfile.write(f"    gl0_link_port: {link_profile_port}\n")
-                                g_done_port, skip_write = True, True
+                                elif "gl0_link_key: self" in line and not g_done_key:
+                                    newfile.write(f"    gl0_link_key: {self.nodeid}\n")
+                                    g_done_key,skip_write = True, True
+                                elif "gl0_link_host: self" in line and not g_done_ip:
+                                    newfile.write(f"    gl0_link_host: {self.functions.get_ext_ip()}\n")
+                                    g_done_ip, skip_write = True, True
+                                elif "gl0_link_port: self" in line and not g_done_port:
+                                    newfile.write(f"    gl0_link_port: {link_profile_port}\n")
+                                    g_done_port, skip_write = True, True
 
-                        if not skip_write:
-                            newfile.write(line)
-                newfile.close()
-                f.close()
-                system(f"mv /var/tmp/cn-config-temp.yaml {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
+                            if not skip_write:
+                                newfile.write(line)
+                    newfile.close()
+                    f.close()
+                    system(f"mv /var/tmp/cn-config-temp.yaml {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
 
-            self.setup_p12_aliases(profile)
+                self.setup_p12_aliases(profile)
+        except Exception as e:
+            self.error_messages.error_code_messages({
+                "error_code": "cfg-942",
+                "line_code": "unknown_error",
+                "extra": e,
+            })
+    
 
 
     def setup_p12_aliases(self,profile):

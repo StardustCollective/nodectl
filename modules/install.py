@@ -443,11 +443,11 @@ class Installer():
 
         if status == "failed":
             self.close_threads()
-            # self.error_messages.error_code_messages({
-            #     "error_code": "int-354",
-            #     "line_code": "install_failed",
-            #     "extra": "unable to download required Constellation network Tessellation files"
-            # })
+            self.error_messages.error_code_messages({
+                "error_code": "int-354",
+                "line_code": "install_failed",
+                "extra": "unable to download required Constellation network Tessellation files"
+            })
 
         self.functions.print_cmd_status({
             "text_start": "Installing Tessellation binaries",
@@ -914,7 +914,6 @@ class Installer():
             makedirs(f"/home/{self.user.username}/tessellation/")
 
         self.options.p12_migration_path = location
-
     
     
     def p12_migrate_existing(self):

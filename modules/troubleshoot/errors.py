@@ -74,6 +74,7 @@ from .logger import Logging
 # upgrade_path_needed
 # upgrade_incompatibility
 # upgrade_failure
+# unknown_error
 
 # version_fetch
 # verification_failure
@@ -423,6 +424,13 @@ class Error_codes():
                 ["Address Entered:",0,"yellow","bold"],[var.extra2,2],
             ])            
             
+        elif var.line_code == "unknown_error":
+            self.log.logger.critical(f"during execution of nodectl an unknown error was encountered | error [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["An unknown error has occured?  Please try the previous commmand request again.  If you continue to encounter",0,"red","bold"],
+                ["this error message, please join the Constellation Offical Discord channel for additional help.",0,"red","bold"],
+            ])            
+                        
         elif var.line_code == "possible404":
             self.log.logger.critical(f"attempt to access an invalid URI failed with error code [{var.extra.text} uri/url [{var.extra2}]")
             self.functions.print_paragraphs([
