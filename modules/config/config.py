@@ -622,7 +622,7 @@ class Configuration():
                             try:
                                 self.config_obj[profile][tdir] = def_value[metagraph_name]
                             except:
-                                self.log.logger.error("config -> during configuration setup, nodectl could not determine collateral setting to [0]")
+                                self.log.logger.warn("config -> during configuration setup, nodectl could not determine collateral setting to [0]")
                                 self.config_obj[profile][tdir] = 0                            
                         elif tdir == "service":
                             try:
@@ -644,7 +644,7 @@ class Configuration():
                             try:
                                 self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
                             except:
-                                self.log.logger.error("config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
+                                self.log.logger.warn("config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
                                 self.config_obj[profile][tdir] = "constellation-labs"                            
                         else: 
                             self.config_obj[profile][tdir] = def_value  

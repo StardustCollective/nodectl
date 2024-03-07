@@ -642,9 +642,13 @@ class P12Class():
         
         
     def show_p12_details(self, command_list):
-        alias, owner, owner_cn, iowner = "unknown", "unknown", "unknown", "unknown"
-        sha1, sha256, sig_alg, pub_alg = "unknown", "unknown", "unknown", "unknown"
-        version, value, entry_number = "unknown", "unknown", "unknown"
+            
+        # Define the keys for the dictionary
+        p12_values = [
+            "alias", "owner", "owner_cn", "iowner", "iowner_cn", "sha1", "sha256", "sig_alg", 
+            "pub_alg", "version", "value", "entry_number", "creation_date", "entry_type"
+        ]
+        p12_output_dict = {key: "unknown" for key in p12_values}
         return_alias, alias_only = False, False
 
 
@@ -737,7 +741,7 @@ class P12Class():
       
         for item in results:
             if "keystore contains" in item:
-                entry_number = item.split(" ")[-2].strip()
+                p12_output_dict["entry_number"] = item.split(" ")[-2].strip()
                 continue
             value = item.split(":")[-1].strip()
 
@@ -751,31 +755,31 @@ class P12Class():
                 })
 
             elif "Alias name" in item: 
-                alias = item.split(":")[-1].strip()
+                p12_output_dict["alias"] = item.split(":")[-1].strip()
             elif "Creation date" in item:
-                creation_date = item.split(":")[-1].strip()
+                p12_output_dict["creation_date"] = item.split(":")[-1].strip()
             elif "Entry type" in item:
-                entry_type = item.split(":")[-1].strip()
+                p12_output_dict["entry_type"] = item.split(":")[-1].strip()
             elif "Owner" in item:
                 owner = value.split(",")[0]
-                owner = owner.split("=")[-1]
+                p12_output_dict["owner"] = owner.split("=")[-1]
                 owner_cn = value.split(",")[-1]
-                owner_cn = owner_cn.split("=")[-1]
+                p12_output_dict["owner_cn"] = owner_cn.split("=")[-1]
             elif "Issuer" in item:
                 iowner = value.split(",")[0]
-                iowner = iowner.split("=")[-1]
+                p12_output_dict["iowner"] = iowner.split("=")[-1]
                 iowner_cn = value.split(",")[-1]
-                iowner_cn = iowner_cn.split("=")[-1]
+                p12_output_dict["iowner_cn"] = iowner_cn.split("=")[-1]
             elif "SHA1" in item:
-                sha1 = item.split(":",1)[-1].strip()
+                p12_output_dict["sha1"] = item.split(":",1)[-1].strip()
             elif "SHA256" in item:
-                sha256 = item.split(":",1)[-1].strip()
+                p12_output_dict["sha256"] = item.split(":",1)[-1].strip()
             elif "Signature algorithm" in item:
-                sig_alg = value
+                p12_output_dict["sig_alg"] = value
             elif "Public Key" in item:
-                pub_alg = value
+                p12_output_dict["pub_alg"] = value
             elif "Version" in item:
-                version = value
+                p12_output_dict["version"] = value
                 
         p12_dir = path.dirname(p12_location)
         if p12_dir == "": p12_dir = getcwd()
@@ -785,14 +789,14 @@ class P12Class():
                 ["",1],["  P12 FILE DETAILS  ",2,"blue,on_yellow","bold"],
             ])
 
-        if return_alias: return alias
+        if return_alias: return p12_output_dict["alias"]
 
         if alias_only:
             print_out_list = [
                 {
                     "header_elements": {
                         "P12 NAME": path.basename(p12_location),
-                        "P12 ALIAS": colored(alias,"green"),
+                        "P12 ALIAS": colored(p12_output_dict["alias"],"green"),
                     },
                 },                
             ]
@@ -806,41 +810,41 @@ class P12Class():
                     "spacing": 25,
                 },                
                 {
-                    "SHA1 FINGER PRINT": sha1,
+                    "SHA1 FINGER PRINT": p12_output_dict["sha1"],
                 },                
                 {
-                    "SHA256 FINGER PRINT": sha256,
+                    "SHA256 FINGER PRINT": p12_output_dict["sha256"],
                 },                
                 {
-                    "P12 ALIAS": colored(alias,"green"),
+                    "P12 ALIAS": colored(p12_output_dict["alias"],"green"),
                 },                
                 {
                     "header_elements": {
-                        "CREATED": creation_date,
-                        "VERSION": version,
-                        "KEYS FOUND": entry_number,
+                        "CREATED": p12_output_dict["creation_date"],
+                        "VERSION": p12_output_dict["version"],
+                        "KEYS FOUND": p12_output_dict["entry_number"],
                     },
                     "spacing": 18,
                 },                
                 {
                     "header_elements": {
-                        "ENTRY TYPE": entry_type,
-                        "SIGNATURE ALGO": sig_alg,
-                        "PUBLIC ALGO": pub_alg,
+                        "ENTRY TYPE": p12_output_dict["entry_type"],
+                        "SIGNATURE ALGO": p12_output_dict["sig_alg"],
+                        "PUBLIC ALGO": p12_output_dict["pub_alg"],
                     },
                     "spacing": 18,
                 },                
                 {
                     "header_elements": {
-                        "OWNER": owner,
-                        "COMMON NAME": owner_cn,
+                        "OWNER": p12_output_dict["owner"],
+                        "COMMON NAME": p12_output_dict["owner_cn"],
                     },
                     "spacing": 25,
                 },                
                 {
                     "header_elements": {
-                        "ISSUER": iowner,
-                        "COMMON NAME": iowner_cn,
+                        "ISSUER": p12_output_dict["iowner"],
+                        "COMMON NAME": p12_output_dict["iowner_cn"],
                     },
                     "spacing": 25,
                 },                
