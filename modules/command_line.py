@@ -538,6 +538,7 @@ class CLI():
                     self.functions.print_timer({
                         "p_type": "cmd",
                         "seconds": watch_seconds,
+                        "step": -1,
                         "phrase": "Waiting",
                         "end_phrase": "before updating",
                     })

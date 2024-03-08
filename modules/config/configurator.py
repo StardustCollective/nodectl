@@ -3374,6 +3374,7 @@ class Configurator():
                     f.write(enc_key+"\n")
 
                 sleep(.4)
+                fe = fe.strip()
                 if profile == "global_p12":
                     self.config_obj_apply = {
                         **self.config_obj_apply,
