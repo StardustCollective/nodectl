@@ -4483,6 +4483,12 @@ class CLI():
         elif "--file" in argv_list:
             file = argv_list[argv_list.index("--file")+1]
         
+        if self.config_obj[profile]["layer"] > 0 and not self.auto_restart:
+            self.functions.print_paragraphs([
+                ["Currently, Nodes participating in layer1 clusters do not participate in consensus rounds.",1,"red"],
+            ])
+            exit(0)
+
         if nodeid and not self.functions.is_valid_address("nodeid",True,nodeid):
             self.error_messages.error_code_messages({
                 "error_code": "cli-4079",
