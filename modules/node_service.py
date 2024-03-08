@@ -841,7 +841,7 @@ WantedBy=multi-user.target
 # to run your Node's debian service.
 #
 # Node Operators should not alter this file;
-# rather, utilize the: 'sudo nodectl configure' command to  
+# rather, utilize the: 'sudo nodectl configure' command to
 # alter this file and avoid undesired affects.
 # =========================================================
 
@@ -911,10 +911,10 @@ WantedBy=multi-user.target
 #
 # Failure to do so may create undesired results from
 # nodectl (especially the configurator) the Node Operator
-# should use the configurator over manually updating this 
+# should use the configurator over manually updating this
 # config file.
 # ---------------------------------------------------------
-# Required arguments 
+# Required arguments
 # ---------------------------------------------------------
 # custom_args_enable: True (or False)
 # custom_env_vars_enable: True (or False)
@@ -925,7 +925,7 @@ WantedBy=multi-user.target
 # MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
 # ---------------------------------------------------------
 # MANUAL ENTRY MUST BE IN CORRECT ORDER FOR CONFIGURATOR
-# TO WORK PROPERLY.  
+# TO WORK PROPERLY.
 # custom_args_enable followed by all custom_args
 # custom_env_vars_enabled followed by all custom_env_var
 # Failure to do so will lead to unexpected behavior
@@ -988,7 +988,7 @@ nodectl:
     priority_source_repository: nodegarageprioritysourcerepository
     priority_source_file: nodegarageprioritysourcefile
     custom_args_enable: nodegaragecustomargsenable
-    custom_env_vars_enable: nodegaragecustomenvvarsenable      
+    custom_env_vars_enable: nodegaragecustomenvvarsenable
 '''
         
         if var.file == "config_yaml_autorestart":
@@ -1011,9 +1011,9 @@ nodectl:
         if var.file == "config_yaml_global_elements":
             cur_file = '''  global_elements:
     yaml_config_name: nodegarageyamlconfigname
-    metagraph_name: nodegaragemetagraphname  
+    metagraph_name: nodegaragemetagraphname
     metagraph_token_identifier: nodegaragemetatokenidentifier
-    metagraph_token_coin_id: nodegaragemetagraphtokencoinid       
+    metagraph_token_coin_id: nodegaragemetagraphtokencoinid     
     local_api: nodegaragelocalapi
     includes: nodegarageincludes
     nodectl_yaml: nodegaragenodectlyaml
@@ -1100,4 +1100,4 @@ exit 0
     
     
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")            
+    print("This class module is not designed to be run independently, please refer to the documentation")

@@ -2,7 +2,7 @@ import random
 from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
-from os import system, path, environ, makedirs, listdir, chmod
+from os import system, path, environ, makedirs, listdir, chmod, remove
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
@@ -3244,19 +3244,10 @@ class Configurator():
                     ["decrypt the passphrase upon disabling the",0,"red","bold"],
                     ["encryption feature.",2,"red","bold"],
 
-                    ["You will be prompted to input a",0], ["seed phrase",0,"yellow"], ["to assist in encrypting your passphrase.",0],
-                    ["The resulting encrypted hash value will be securely stored by the root admin user of your Node, accessible",0],
-                    ["exclusively to the root user. You can opt for a straightforward seed word or enhance",0],
-                    ["complexity as preferred, ensuring the seed phrase is longer than",0], ["4",0,"green","bold"],
-                    ["characters.",2], ["Do",0], ["not",0,"red","bold"], 
-                    ["include numbers or special characters.",2],
-                    
-                    ["For security purposes you will not see your seed phrase while entering.",2,"blue","bold"],
-
                     [" WARNING ",1,"yellow,on_red"], 
                     ["If the configuration file was manually updated, any updated encryption elements [or other] will be",0,"red","bold"],
                     ["overwritten",0,"magenta","bold"], ["causing old encryption data that may be allowing nodectl to handle previously encrypted",0,"red","bold"],
-                    ["elements to stop working, to be overwritten, and removed!",2,"red","bold"],
+                    ["elements to stop working, to be overwritten, and removed!",1,"red","bold"],
                 ])
                 if not self.action == "install":
                     self.c.functions.confirm_action({
@@ -3266,21 +3257,25 @@ class Configurator():
                         "exit_if":  True
                     })
 
-            if not path.exists(efp):
+            efp_error = False if path.exists(efp) else True
+            if not efp_error: 
+                try: remove(effp)  
+                except:
+                    self.log.logger.warn("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
+            if efp_error:
+                self.log.logger.error("configurator -> encryption service -> unable to find necessary file system distribution file security. Is this a Debian OS?")
                 self.error_messages.error_code_messages({
                     "error_code": "cfr-3150",
                     "line_code": "system_error",
                     "extra": "invalid file system",
                 })  
 
-            system(f"rm -f {effp} > /dev/null 2>&1")  
-
             for profile in encryption_list:
                 if profile != "global_p12":
                     pass_key = "p12_passphrase"
                     if self.c.config_obj[profile][pass_key] == "global":
                         continue 
-                enc_pass = self.c.config_obj[profile][pass_key]
+                enc_pass = self.c.config_obj[profile][pass_key].strip()
                 if enc_pass == "None":
                     self.error_messages.error_code_messages({
                         "error_code": "cfr-3092",
@@ -3294,62 +3289,42 @@ class Configurator():
                         "single_line": True,
                     })
 
-                r_default_seed = ''.join(choice(ascii_letters) for _ in range(12))
-                if self.quick_install:
-                    default_seed = r_default_seed
+                default_seed = ''.join(choice(ascii_letters) for _ in range(16))
+                if self.quick_install or self.action == "install":
                     pass3 = enc_pass
                 else:
-                    for ptype in ["P12 passphrase","Seed Phrase"]:
-                        do_confirm = True
-                        if ptype == "Seed Phrase": 
+                    pass_correct = False
+                    self.c.functions.print_paragraphs([
+                        ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
+                    ])
+                    for attempt in range(1,4):
+                        pass1 = getpass(f"          p12 passphrase: ")
+                        if pass1 != self.c.config_obj[profile][pass_key]:
                             self.c.functions.print_paragraphs([
-                                ["",],["Press enter a simple seed phrase that is at least 4 alphanumeric",0,"white","bold"],
-                                ["ONLY",0,"red","bold"], ["characters.",1,"white","bold"],
-                                ["Press <enter> to accept suggestion seed phrase",2,"yellow"],
-                            ])
-                            if self.detailed:
-                                self.c.functions.print_paragraphs([
-                                    ["This seed phrase does not need to be remembered and will not be asked for again.",2,"white","bold"]
-                                ])
+                                ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
+                                ["retry:",0], [str(attempt+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
+                            ]) 
                         else:
-                            if self.action == "install": # set in installer
-                                do_confirm = False
-                                pass3 = enc_pass
-                            else:
-                                self.c.functions.print_paragraphs([
-                                    ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
-                                ])
-
-                        if do_confirm:
-                            for attempt in range(0,4):
-                                if attempt > 2:
-                                    self.log.logger.error("configurator -> encryption -> passphrase confirmation failed.")
-                                    self.encryption_failed = True
-                                    cprint("  Cancelling action","red")
-                                    sleep(2)
-                                    return
-                                
-                                # if attempt > 0: 
-                                #     # second try requires confirmation
-                                if ptype == "Seed Phrase":
-                                    pass1 = getpass(f"          {ptype} [{r_default_seed}]: ")
-                                    if pass1 == "" or pass1 == None: pass1 = r_default_seed
-                                else:
-                                    pass1 = getpass(f"          {ptype}: ")
-
-                                if ptype == "Seed Phrase":
-                                    if pass1 == r_default_seed: pass2 = r_default_seed
-                                    else: pass2 = getpass(f"  Confirm {ptype}: ")
-                                else:
-                                    pass2 = enc_pass
-                                if pass1 == pass2 and len(pass1) > 3: 
-                                    if ptype == "P12 passphrase": pass3 = pass1
-                                    else: default_seed = pass1
-                                    break
-                                self.c.functions.print_paragraphs([
-                                    ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
-                                    ["retry:",0], [str(attempt+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
-                                ])   
+                            pass3 = pass1.strip()
+                            pass_correct = True
+                            break
+                    if not pass_correct:
+                        self.error_messages.error_code_messages({
+                            "error_code": "cfr-3309",
+                            "line_code": "invalid_passphrase",
+                        })                        
+                
+                if not self.quick_install:
+                    for s_status in ["deriving","redacting","forgetting","finished"]:
+                        self.c.functions.print_cmd_status({
+                            "text_start": "Encryption",
+                            "text_start": "seed phrase",
+                            "brackets": s_status,
+                            "status_color": "green" if s_status == "finished" else "magenta",
+                            "status": "complete" if s_status == "finished" else "preparing",
+                            "newline": True if s_status == "finished" else False,
+                        })
+                        sleep(1)
 
                     print("")
                     self.c.functions.print_cmd_status({
@@ -3448,7 +3423,7 @@ class Configurator():
             })  
 
             sleep(1)
-            if  path.exists(effp): system(f"rm -f {effp} > /dev/null 2>&1")     
+            if path.exists(effp): remove(effp)     
             for profile in encryption_list:
                 if profile == "global_p12":
                     self.config_obj_apply = {
