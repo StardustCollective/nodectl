@@ -3202,7 +3202,13 @@ class Configurator():
         self.log.logger.info("configurator -> encryption method envoked.")
 
         if self.action != "install": system("clear")
+
         enable = False if self.c.config_obj["global_p12"]["encryption"] else True
+
+        if self.action == "install" and not enable:
+            self.log.logger.warn("configurator -> During install or upgrade -> encryption found enabled already.")
+            return
+        
         efp = "/etc/security/"
         eff = "cnngsenc.conf"
         effp = f"{efp}{eff}"
@@ -3276,6 +3282,8 @@ class Configurator():
                     if self.c.config_obj[profile][pass_key] == "global":
                         continue 
                 enc_pass = self.c.config_obj[profile][pass_key].strip()
+                enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+
                 if enc_pass == "None":
                     self.error_messages.error_code_messages({
                         "error_code": "cfr-3092",
@@ -3298,7 +3306,7 @@ class Configurator():
                         ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
                     ])
                     for attempt in range(1,4):
-                        pass1 = getpass(f"          p12 passphrase: ")
+                        pass1 = getpass(f"  p12 passphrase: ")
                         if pass1 != self.c.config_obj[profile][pass_key]:
                             self.c.functions.print_paragraphs([
                                 ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
@@ -3345,6 +3353,8 @@ class Configurator():
                     })
 
                 enc_list, enc_de, enc_h = self.build_uuid_mangle(len(hashed))
+                sleep(.8)
+
                 enc_str = ""
                 for n, i in enumerate(enc_list):
                     if n < 1: enc_str += hashed[:i]
@@ -3363,6 +3373,7 @@ class Configurator():
                 with open(f"{effp}","a") as f:
                     f.write(enc_key+"\n")
 
+                sleep(.4)
                 if profile == "global_p12":
                     self.config_obj_apply = {
                         **self.config_obj_apply,
@@ -3422,8 +3433,9 @@ class Configurator():
                 **encryption_obj,
             })  
 
-            sleep(1)
-            if path.exists(effp): remove(effp)     
+            if path.exists(effp): remove(effp)    
+            sleep(.4) 
+
             for profile in encryption_list:
                 if profile == "global_p12":
                     self.config_obj_apply = {

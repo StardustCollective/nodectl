@@ -185,6 +185,7 @@ class Configuration():
                     else:
                         continue_to_error = False
 
+
             if continue_to_error:
                 self.error_messages.error_code_messages({
                     "error_code": "cfg-32",
