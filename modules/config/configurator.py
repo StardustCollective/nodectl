@@ -2785,6 +2785,7 @@ class Configurator():
                         "newline": True,
                     })
                 elif restart == "disable" and enable_answers["auto_restart"] == "y":
+                    shell.called_command = "configurator"
                     shell.auto_restart_handler("disable",True)
                     self.c.functions.print_cmd_status({
                         "text_start": "Stopping auto_restart service",

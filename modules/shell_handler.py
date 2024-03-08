@@ -43,6 +43,7 @@ class ShellHandler:
         self.correct_permissions = True
         self.auto_restart_enabled = False
         self.environment_requested = None
+        self.called_command = None
         
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.node_service = "" #empty
