@@ -2276,7 +2276,7 @@ class Configurator():
 
                 # options = ["E","A","G","R","L","M","Q"]
                 options = ["E","G","R","L","P","M","Q","T","I"]
-                if return_option not in options:
+                if return_option.upper() not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
                         # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
@@ -2484,8 +2484,12 @@ class Configurator():
             prompt = colored("  Enter an option: ","magenta",attrs=["bold"])
             option = input(prompt)
         
-            if option == "m": return "m"
-            elif option == "p": return "e"
+            if option == "m": 
+                self.action = "edit"
+                return "m"
+            elif option == "p": 
+                self.action = "edit_profile"
+                return "e"
             elif option == "h": 
                 self.move_config_backups()
                 self.c.functions.config_obj = deepcopy(self.c.config_obj)

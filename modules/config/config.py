@@ -119,6 +119,7 @@ class Configuration():
                 self.prepare_p12()
                 if self.action != "edit_config":
                     self.setup_passwd()
+                self.setup_p12_aliases("global_p12")
                 self.setup_self_settings()
         
         if self.do_validation:
@@ -751,8 +752,6 @@ class Configuration():
         }
         self.p12 = P12Class(p12_obj)
         self.p12.functions = self.functions
-        
-        self.setup_p12_aliases("global_p12")
                         
     
     def remove_disabled_profiles(self):
@@ -780,7 +779,7 @@ class Configuration():
             return True
         return False
     
-                
+
     def setup_passwd(self,force=False):
         def verify_passwd(passwd, profile):
             clear, top_new_line, show_titles = False, False, True 
