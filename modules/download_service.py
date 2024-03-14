@@ -235,7 +235,9 @@ class Download():
         
         # readability
         env = self.functions.environment_name
-        profile = self.functions.profile_names[0]
+
+        if self.requested_profile: profile = self.requested_profile
+        else: profile = self.functions.profile_names[0]
 
         if self.tools_version == "default":
             self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]

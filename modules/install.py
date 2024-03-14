@@ -182,13 +182,15 @@ class Installer():
             "--user", "--p12-destination-path", 
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
-            "--quick-install", "--normal","--confirm"
+            "--quick-install", "--normal",
+            "--confirm","--override",
         ]
         
         self.options_dict["quick_install"] = False
         self.options_dict["configuration_file"] = False
         self.options_dict["normal_install"] = False
         self.options_dict["confirm_install"] = False
+        self.options_dict["override"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
             if (o_option == "quick-install" or o_option == "quick_install") and "--quick-install" in self.argv_list: 
@@ -199,6 +201,9 @@ class Installer():
                 continue
             if (o_option == "confirm" or o_option == "confirm") and "--confirm" in self.argv_list: 
                 self.options_dict["confirm_install"] = True
+                continue
+            if (o_option == "override" or o_option == "override") and "--override" in self.argv_list: 
+                self.options_dict["override"] = True
                 continue
             self.options_dict[o_option] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
 
@@ -225,6 +230,14 @@ class Installer():
 
 
     def handle_option_validation(self):
+        if self.options.override and not self.options.quick_install:
+            self.error_messages.error_code_messages({
+                "error_code": "int-235",
+                "line_code": "invalid_option",
+                "extra": "--override",
+                "extra2": "The '--override' option can only be used in conjunction with the '--quick-install' option."
+            })
+
         for option, value in self.options_dict.items():
             if isinstance(value,bool):
                 if option == "p12_destination_path":
@@ -320,6 +333,8 @@ class Installer():
         
                 
     def handle_existing(self):
+        if self.options.override: return
+
         if not self.options.quick_install: 
             self.parent.print_ext_ip()
 
@@ -615,6 +630,7 @@ class Installer():
                         "text_start": "Installing dependency",
                         "brackets": package,
                         "dotted_animation": True,
+                        "timeout": False,
                         "status": "installing",
                         "status_color": "yellow",
                     })

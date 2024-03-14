@@ -36,6 +36,7 @@ from .logger import Logging
 # invalid_output_file
 # install_failed
 # invalid_configuration_request
+# invalid_option
 
 # join_error
 # join
@@ -606,6 +607,20 @@ class Error_codes():
                 ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
             ])            
             
+            
+        elif var.line_code == "invalid_option":
+            self.log.logger.critical(f"invalid option value [{var.extra}], you reached this error because nodectl cannot use this option in the current command request.")
+            self.functions.print_paragraphs([
+                ["System detected an attempt to use an invalid command line option.",0,"red","bold"],
+                ["Additionally, the option [or combination of options] may cause harm to the Node",0,"red","bold"],
+                ["running on this server or VPS.  nodectl terminated.",2,"red","bold"],
+                [" Option: ",0,"yellow","bold"], [var.extra,2],
+                ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
+            ])            
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    [" Hint: ",0,"blue","bold"], [var.extra2,2,"yellow"],
+                ])             
             
         elif var.line_code == "invalid_configuration_request":
             self.log.logger.warn(f"invalid profile configuration requested [{var.extra}], exited program. remote configuration did not exist or could not be processed")

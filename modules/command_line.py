@@ -2274,7 +2274,7 @@ class CLI():
         
         if not "skip_seedlist_title" in command_list: self.print_title("CHECK SEED LIST REQUEST")
         
-        target = []
+        argv_list = []
         if "-t" in command_list:
             target = command_list[command_list.index("-t")+1]
             if not self.functions.is_valid_address("ip_address",True,target):
@@ -2284,8 +2284,11 @@ class CLI():
                     "extra": "invalid ip address",
                     "extra2": "An invalid ip address was entered; use -id for node id",
                 })
-            target = ["-t",target,"-l"]
+            argv_list = ["-t",target,"-l"]
         nodeid = command_list[command_list.index("-id")+1] if "-id" in command_list else False
+
+        if "-p" in command_list:
+            argv_list += ["-p",profile]
 
         if self.functions.config_obj[profile]["seed_location"] == "disable":
             if skip:
@@ -2304,9 +2307,7 @@ class CLI():
         else:
             self.cli_grab_id({
                 "command":"nodeid",
-                "is_global": False,
-                "profile": profile,
-                "argv_list": target,
+                "argv_list": argv_list,
                 "skip_display": skip,
                 "return_success": "set_value",
             })
@@ -2319,7 +2320,7 @@ class CLI():
                 self.error_messages.error_code_messages({
                     "error_code": "cli-2121",
                     "line_code": "input_error",
-                    "extra": "invalid nodeid entere with -t",
+                    "extra": "invalid nodeid entered with -t",
                     "extra2": "invalid nodeid; use -t for node ip address",
                 })
             nodeid = self.functions.cleaner(nodeid,"new_line")
@@ -2481,15 +2482,14 @@ class CLI():
         self.functions.get_service_status()
         if caller in ["upgrade_nodectl","main_error","uninstall"]: return
         
+        environments = self.functions.pull_profile({"req": "environments"})
+
         profile_names = self.profile_names
         if profile != "default":
             profile_names = [profile]
-            
-        environments = self.functions.pull_profile({"req": "environments"})
 
-        # pull_profiles now has environments added as option
-        # switch this check to by environment not profile!
-        for env in environments["environment_names"]:
+        for i_profile in profile_names:
+            env = self.config_obj[i_profile]["environment"]
             nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
                 if nodectl_version_check == "current_greater" and not self.skip_warning_messages:
@@ -2522,8 +2522,7 @@ class CLI():
                     ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",2,"green"]
                 ])
 
-        for i_profile in profile_names:
-            tess_version_check = self.version_obj[env][profile_names[0]]["tess_uptodate"]
+            tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
             if tess_version_check == "current_less" and not self.check_versions_called:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
@@ -3677,14 +3676,17 @@ class CLI():
         nodeid = ""
         ip_address = "127.0.0.1" # default
         is_global = True
-        api_port = nodeid_to_ip = target = is_self = cmd = print_out_list = False
+        api_port, nodeid_to_ip, target, is_self, cmd, print_out_list = False, False, False, False, False, False
         wallet_only = True if "-w" in argv_list else False
         title = "NODE ID" if command == "nodeid" else "DAG ADDRESS"
-        create_csv = False
+        file, create_csv = False, False
         
         self.functions.check_for_help(argv_list,command)
-                
-        if "-p" in argv_list:  # profile
+
+        # --file check must be checked first
+        if "--file" in argv_list:
+            file = argv_list[argv_list.index("--file")+1]
+        elif "-p" in argv_list:  # profile
             profile = argv_list[argv_list.index("-p")+1] 
             is_global = False
 
@@ -3712,11 +3714,15 @@ class CLI():
                 "functions": self.functions,
             }
             p12 = P12Class(action_obj)
-            success = p12.extract_export_config_env({
-                "is_global": is_global,
+            extract_obj = {
+                "global": is_global,
                 "profile": profile,
                 "return_success": True if self.primary_command == "install" else False
-            }) 
+            }  
+            if file:
+                extract_obj["ext_p12"] = file          
+
+            success = p12.extract_export_config_env(extract_obj) 
             if not success and return_success: 
                 return False
         
@@ -3881,7 +3887,7 @@ class CLI():
             ]
         if not skip_display:
             if not outside_node_request and not create_csv:            
-                self.show_ip([None])
+                if not file: self.show_ip([None])
                 print_out_list = [
                     {
                         "header_elements" : {

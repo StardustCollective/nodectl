@@ -26,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
 from copy import copy, deepcopy
-from time import sleep, perf_counter
+from time import sleep, perf_counter, time
 from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
@@ -2784,11 +2784,15 @@ class Functions():
         status = command_obj.get("status","")
         brackets = command_obj.get('brackets',False)
         delay = command_obj.get('delay',0)
+        timeout = command_obj.get('timeout',True)
         dotted_animation = command_obj.get('dotted_animation',False)
         
         newline = command_obj.get('newline',False)  # because of use of spread operator this should be declared consistently 
         status_color = command_obj.get('status_color',"default")
         bold = command_obj.get('bold',False)
+
+        error_out_timer = time()
+        error_out_threshold = 20
         
         if status_color == "default":
             status_color = "yellow" if status == "running" else "green"
@@ -2816,6 +2820,8 @@ class Functions():
         def print_dots(text_start):
             dots = ["",".","..","..."]
             while True:
+                if time() - error_out_timer > error_out_threshold and timeout:
+                    raise Exception
                 for dot in dots: 
                     yield f"  {text_start} {dot}"
                                            

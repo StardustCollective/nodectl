@@ -5,7 +5,7 @@ from termcolor import colored
 from time import sleep, time
 from random import randint
 from re import match
-from os import system, path, get_terminal_size
+from os import system, path, get_terminal_size, makedirs
 from sys import exit
 
 from .migration import Migration
@@ -414,6 +414,8 @@ class Configuration():
             path = f"{path}/{file}" if path[-1] != "/" else f"{path}{file}"
         except:
             return False
+        
+        path = self.functions.cleaner(path,"fix_double_slash")
         return path
 
 
@@ -619,6 +621,7 @@ class Configuration():
                                 handle_edge_point(profile,environment, metagraph_name)
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
+                            self.config_obj[profile][tdir] = self.functions.cleaner(self.config_obj[profile][tdir],"fix_double_slash")
                         elif tdir == "collateral":
                             try:
                                 self.config_obj[profile][tdir] = def_value[metagraph_name]
@@ -834,7 +837,7 @@ class Configuration():
             self.p12.set_variables(False,profile)
             for _ in range(0,3):
                 self.p12.extract_export_config_env({
-                    "is_global": False,
+                    "global": False,
                 })
                 cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
                 self.nodeid = self.functions.process_command({
@@ -1200,11 +1203,12 @@ class Configuration():
         self.config_obj["global_elements"]["all_global"] = True
         # global_p12_keys = ["key_name","passphrase","key_alias"] # test to make sure if one key is global all must be
         global_p12_keys = ["key_name","passphrase"] # test to make sure if one key is global all must be
-            
+
+        default_globals = ["global_p12_all_global", "global_p12_encryption", 
+                            "global_p12_key_alias", "global_p12_key_location"]
         try:
             for profile in self.metagraph_list:
-                self.config_obj[profile]["global_p12_all_global"] = False
-                self.config_obj[profile]["global_p12_encryption"] = False
+                self.config_obj[profile].update({key: False for key in default_globals})
                 g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x in global_p12_keys]
                 self.config_obj[profile] = {
                     **self.config_obj[profile],
@@ -1227,10 +1231,7 @@ class Configuration():
                 g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x != "encryption"]
                 if g_tests.count("global") == len(self.config_obj["global_p12"])-1: # ignore encryption element
                     # test if everything is set to global
-                    self.config_obj[profile]["global_p12_all_global"] = True
-                    self.config_obj[profile]["global_p12_key_name"] = True
-                    self.config_obj[profile]["global_p12_key_location"] = True
-                    self.config_obj[profile]["global_p12_key_alias"] = True
+                    self.config_obj[profile].update({key: True for key in default_globals})
 
                 if self.config_obj[profile]["p12_nodeadmin"] == "global":
                     self.config_obj[profile]["global_p12_nodeadmin"] = True
@@ -1619,6 +1620,7 @@ class Configuration():
             "host": "must be a valid host or ip address",
             "host_def": "must be a valid host or ip address",
             "pro": "must be a valid existing path or file",
+            "path_def_dis": "must be a valid existing path or file",
             "cluster": "There is a misconfigured element in your cluster profile",
             "log_level": "Log level of INFO (recommended) or NOTSET, DEBUG, INFO, WARN, ERROR, CRITICAL required"
         }

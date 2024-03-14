@@ -257,7 +257,7 @@ class P12Class():
                 self.set_variables(True,None)      
                 if self.config_obj["global_p12"]["encryption"]: de = True
             else:
-                if not self.config_obj[profile]["global_p12_password"] and ["profile_p12_encryption"]: de = True
+                if not self.config_obj[profile]["global_p12_passphrase"] and self.config_obj[profile]["global_p12_encryption"]: de = True
                 self.set_variables(False,profile)   
             
             try:
@@ -455,26 +455,36 @@ class P12Class():
         profile = command_obj.get("profile",False)
         env_vars = command_obj.get("env_vars",False)
         return_success = command_obj.get("return_success",False)
+        ext_p12 = command_obj.get("ext_p12",False)
 
         pass1 = None
         enc = False
+        
+        if ext_p12:
+            self.p12_file_location = self.path_to_p12 = path.split(ext_p12)[0]
+            self.p12_filename = path.split(ext_p12)[1]
+            self.functions.print_paragraphs([
+                [f"File:",0,"yellow"],[self.p12_filename,1],
+            ])
+            self.key_alias, self.p12_password = self.show_p12_details(["--file",ext_p12,"--return","--alias","--passphrase"])
+            env_vars = True
+        else:    
+            p_sub_key = "p12_passphrase"
+            if is_global: 
+                profile = "global_p12"
+                p_sub_key = "passphrase"
 
-        p_sub_key = "p12_passprhase"
-        if is_global: 
-            profile = "global_p12"
-            p_sub_key = "passphrase"
-
-        if self.process != "install" and not self.solo:
-            if self.config_obj["global_p12"]["encryption"]:
-                enc = True
-                if env_vars: pass1 = self.p12_password
-                else: pass1 = self.config_obj[profile][p_sub_key]
-                pass1 = self.functions.get_persist_hash({
-                    "pass1": pass1,
-                    "profile": profile,
-                    "enc_data": True,
-                }) 
-            else: pass1 = self.config_obj[profile][p_sub_key]   
+            if self.process != "install" and not self.solo:
+                if self.config_obj["global_p12"]["encryption"]:
+                    enc = True
+                    if env_vars: pass1 = self.p12_password
+                    else: pass1 = self.config_obj[profile][p_sub_key]
+                    pass1 = self.functions.get_persist_hash({
+                        "pass1": pass1,
+                        "profile": profile,
+                        "enc_data": True,
+                    }) 
+                else: pass1 = self.config_obj[profile][p_sub_key]   
 
         if env_vars:
             environ['CL_STOREPASS'] = f"{pass1}" if enc else f"{self.p12_password}"
@@ -649,7 +659,7 @@ class P12Class():
             "pub_alg", "version", "value", "entry_number", "creation_date", "entry_type"
         ]
         p12_output_dict = {key: "unknown" for key in p12_values}
-        return_alias, alias_only = False, False
+        return_alias, return_pass, alias_only = False, False, False
 
 
         def attempt_decrypt(profile,p12_passwd):
@@ -664,6 +674,8 @@ class P12Class():
             return p12_passwd 
         
 
+        if "--passphrase" in command_list:
+            return_pass = True
         if "--alias" in command_list:
             if "--return" in command_list: return_alias = True
             alias_only = True
@@ -789,7 +801,10 @@ class P12Class():
                 ["",1],["  P12 FILE DETAILS  ",2,"blue,on_yellow","bold"],
             ])
 
-        if return_alias: return p12_output_dict["alias"]
+        if return_alias and return_pass:
+            return (p12_output_dict["alias"],p12_passwd)
+        elif return_alias: return p12_output_dict["alias"]
+        elif return_pass: return p12_passwd
 
         if alias_only:
             print_out_list = [

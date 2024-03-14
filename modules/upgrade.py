@@ -206,7 +206,7 @@ class Upgrader():
                     ["the number correlating to the environment you wish to upgrade.",2],  
                     ["PLEASE CHOOSE AN ENVIRONMENT TO UPGRADE",2,"magenta","bold"]                      
                 ])
-            environment = self.functions.print_option_menu({
+            self.environment = self.functions.print_option_menu({
                 "options": list(environments["environment_names"]),
                 "return_value": True,
                 "color": "magenta"
@@ -333,7 +333,7 @@ class Upgrader():
                 _ = executor.submit(self.functions.print_cmd_status,progress)
 
                 self.p12.extract_export_config_env({
-                    "is_global": False,
+                    "global": True if profile == "global" else False,
                     "profile": profile,
                 })
                 result = 1

@@ -3468,7 +3468,7 @@ class Configurator():
     # =====================================================
     # OTHER
     # =====================================================
-    
+
     def backup_config(self):
         print("")
         if not self.is_file_backedup:
