@@ -329,6 +329,7 @@ class Migration():
                 "nodegaragexms": self.config_obj[profile]["java_xms"],
                 "nodegaragexmx": self.config_obj[profile]["java_xmx"],
                 "nodegaragexss": self.config_obj[profile]["java_xss"],
+                "nodegaragejarlocation": "default", # new to v2.13.0,
                 "nodegaragejarrepository": self.config_obj[profile]["jar_repository"],
                 "nodeagaragejarversion": "default", # new to v2.13.0
                 "nodegaragejarfile": self.config_obj[profile]["jar_file"],

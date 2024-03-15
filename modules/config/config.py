@@ -638,6 +638,8 @@ class Configuration():
                                 s_key = profile
                                 if metagraph_name == "hypergraph": s_key = environment
                                 self.config_obj[profile][tdir] = f"{services[s_key]}{layer}"
+                        elif tdir == "jar_location":
+                            self.config_obj[profile][tdir] = f"{self.functions.default_tessellation_dir}{profile}/"
                         elif tdir == "jar_file":
                             j_key = profile
                             if metagraph_name == "hypergraph":
@@ -674,6 +676,15 @@ class Configuration():
             except KeyError:
                 self.log.logger.error(f"setting up configuration variables error detected [seed_version]")
                 error_found("profile","seed_version","invalid or missing value",profile)
+                
+            try:
+                self.config_obj[profile]["jar_path"] = self.create_path_variable(
+                    self.config_obj[profile]["jar_location"],
+                    self.config_obj[profile]["jar_file"]
+                )
+            except KeyError as e:
+                self.log.logger.error(f"setting up configuration variables error detected [{e}]")
+                error_found("profile",e.args[0],"invalid or missing value",profile)
                 
             try:
                 if self.config_obj[profile]["seed_location"] == "disable":
@@ -948,7 +959,6 @@ class Configuration():
             })
     
 
-
     def setup_p12_aliases(self,profile):
         argv_list = ["-p", profile,"--alias", "--return", "--config"]
         p12_alias = self.p12.show_p12_details(argv_list)
@@ -1011,6 +1021,8 @@ class Configuration():
                 ["java_xms","mem_size"],
                 ["java_xmx","mem_size"],
                 ["java_xss","mem_size"],
+                ["jar_location","path_def"],
+                ["jar_path","path_def"], # automated value [not part of yaml]
                 ["jar_repository","host_def"], 
                 ["jar_version","str"],
                 ["jar_file","str"],
@@ -1126,7 +1138,7 @@ class Configuration():
         not_in_list = [
             "seed_path","pro_rating_path",
             "gl0_link_is_self","ml0_link_is_self",
-            "p12_key_store","jar_github"
+            "p12_key_store","jar_github", "jar_path",
         ]
 
         for config_key, config_value in self.config_obj.items():

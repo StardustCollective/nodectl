@@ -971,6 +971,7 @@ nodectl:
     java_xms: nodegaragexms
     java_xmx: nodegaragexmx
     java_xss: nodegaragexss
+    jar_location: nodegaragejarlocation
     jar_repository: nodegaragejarrepository
     jar_version: nodeagaragejarversion
     jar_file: nodegaragejarfile
