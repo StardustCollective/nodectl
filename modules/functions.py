@@ -1132,6 +1132,7 @@ class Functions():
         enc_data = command_obj.get("enc_data",False)
         salt2 = command_obj.get("salt2",False)
         profile = command_obj.get("profile",False)
+        test_only = command_obj.get("test_only",False)
 
         ekf = "/etc/security/cnngsenc.conf"
 
@@ -1190,7 +1191,7 @@ class Functions():
                 index += length        
             pass1 = ''.join(de_list).encode()
         except:
-            self.log.logger.critical("unabled to decrypt passphrase, please verify settings.")
+            self.log.logger.critical("unable to decrypt passphrase, please verify settings.")
             return None
 
         try:
@@ -1198,6 +1199,7 @@ class Functions():
             return decrypt_data.decode()
         except Exception as e:  # Catch any exceptions during decryption
             self.log.logger.critical(f"Decryption failed: [{e}]")
+            if test_only: return False
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1108",
                 "line_code": "system_error",
@@ -2373,6 +2375,7 @@ class Functions():
         file_path = command_obj["file_path"]
         search_line = command_obj["search_line"]
         replace_line = command_obj.get("replace_line",False)
+        remove_line = command_obj.get("remove_line",False)
         skip_backup = command_obj.get("skip_backup",False)
         all_first_last = command_obj.get("all_first_last","all")
         skip_line_list = command_obj.get("skip_line_list",[])
@@ -2396,6 +2399,8 @@ class Functions():
                     done = True
                 if replace_line:
                     temp_file.write(replace_line)
+                    return done, line_position
+                if remove_line:
                     return done, line_position
             temp_file.write(line)  
             return done, line_position

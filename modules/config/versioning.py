@@ -199,7 +199,7 @@ class Versioning():
             self.log.logger.debug(f"versioning - version test obj | [{test_obj}]")
             state = self.functions.test_peer_state(test_obj)
             
-            if (state == "ApiNotReady" or state == "ApiNotResponding") and self.called_cmd == "uvos": 
+            if state == "ApiNotResponding" and self.called_cmd == "uvos": 
                 # after installation there should be a version obj already created
                 # no need to update file while Node is not online.
                 self.log.logger.warn(f"versioning - versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")

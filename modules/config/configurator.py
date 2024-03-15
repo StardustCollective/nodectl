@@ -3203,6 +3203,125 @@ class Configurator():
         })
         
 
+    def perform_encryption(self,profile,encryption_obj,effp,pass3):
+        pass_key = "passphrase"
+        first_run, write_append = False, True
+
+        if profile != "global_p12":
+            pass_key = "p12_passphrase"
+            if self.c.config_obj[profile][pass_key] == "global":
+                return "skip","skip"
+            
+        enc_pass = self.c.config_obj[profile][pass_key].strip()
+        enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+
+        if enc_pass == "None":
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-3092",
+                "line_code": "invalid_passphrase",
+                "extra": "Must be present in configuration",
+            })
+        if not self.quick_install and not pass3:
+            self.c.functions.print_header_title({
+                "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
+                "newline": "both",
+                "single_line": True,
+            })
+
+        default_seed = ''.join(choice(ascii_letters) for _ in range(16))
+        if self.quick_install or self.action == "install":
+            pass3 = enc_pass
+        else:
+            pass_correct = False
+            if not pass3:
+                first_run = True
+                self.c.functions.print_paragraphs([
+                    ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
+                ])
+                for attempt in range(1,4):
+                    pass1 = getpass(f"  p12 passphrase: ")
+                    if pass1 != self.c.config_obj[profile][pass_key]:
+                        self.c.functions.print_paragraphs([
+                            ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
+                            ["retry:",0], [str(attempt+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
+                        ]) 
+                    else:
+                        pass3 = pass1.strip()
+                        pass_correct = True
+                        break
+                if not pass_correct:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cfr-3309",
+                        "line_code": "invalid_passphrase",
+                    })                        
+        
+        if not self.quick_install and first_run:
+            for s_status in ["deriving","redacting","forgetting","finished"]:
+                self.c.functions.print_cmd_status({
+                    "text_start": "Encryption",
+                    "text_start": "seed phrase",
+                    "brackets": s_status,
+                    "status_color": "green" if s_status == "finished" else "magenta",
+                    "status": "complete" if s_status == "finished" else "preparing",
+                    "newline": True if s_status == "finished" else False,
+                })
+                sleep(1)
+
+            print("")
+            self.c.functions.print_cmd_status({
+                **encryption_obj,
+                "brackets": "global" if profile == "global_p12" else profile,
+            })    
+
+        try:
+            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": default_seed})
+            if not hashed: raise Exception("hashing issue")
+            if not enc_key: raise Exception("encryption generation issue")
+        except Exception as e:
+            self.log.logger.critical(f"configurator --> [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-3110",
+                "line_code": "system_error",
+                "extra": e,
+            })
+
+        enc_list, enc_de, enc_h = self.build_uuid_mangle(len(hashed))
+        sleep(.8)
+
+        enc_str = ""
+        for n, i in enumerate(enc_list):
+            if n < 1: enc_str += hashed[:i]
+            elif n == len(enc_list): hashed[enc_list.index(i)-1:]
+            else: enc_str += hashed[enc_list.index(i)-1:i]
+            
+        fe, fe_list = "", []
+        fe_list = []
+        index = 0
+        for length in enc_list:
+            fe_list.append(hashed[index:index + length])
+            index += length
+        for pi, _ in enc_de: fe += fe_list[pi]  
+        enc_key = f"{profile}::{enc_key}{enc_h}"
+    
+        sleep(.4)
+        if path.isfile(effp):
+            elp = self.c.functions.test_or_replace_line_in_file({
+                "file_path": effp,
+                "search_line": profile,
+                "replace_line": enc_key+"\n",
+                "allow_dups": False,
+            })[1]
+            if elp > 0: # a line was replaced
+                write_append = False
+        if write_append:
+            with open(f"{effp}","a") as f:
+                f.write(enc_key+"\n")
+
+        fe = fe.strip()
+
+        return fe, pass3
+
+
     def passphrase_enable_disable_encryption(self):
         self.log.logger.info("configurator -> encryption method envoked.")
 
@@ -3238,7 +3357,6 @@ class Configurator():
         encryption_list = self.metagraph_list
         encryption_list.insert(0,"global_p12")
         if enable:
-            pass_key = "passphrase"
             if self.detailed:
                 self.c.functions.print_paragraphs([
                     ["",1],[" IMPORTANT ",1,"yellow,on_red"], 
@@ -3261,12 +3379,14 @@ class Configurator():
                     ["elements to stop working, to be overwritten, and removed!",1,"red","bold"],
                 ])
                 if not self.action == "install":
+                    print("")
                     self.c.functions.confirm_action({
                         "yes_no_default": "y",
                         "return_on": "y",
                         "prompt": "Do you want to enable encryption?",
                         "exit_if":  True
                     })
+                    print("")
 
             efp_error = False if path.exists(efp) else True
             if not efp_error: 
@@ -3281,105 +3401,52 @@ class Configurator():
                     "extra": "invalid file system",
                 })  
 
+            pass3 = False
             for profile in encryption_list:
-                if profile != "global_p12":
-                    pass_key = "p12_passphrase"
-                    if self.c.config_obj[profile][pass_key] == "global":
-                        continue 
-                enc_pass = self.c.config_obj[profile][pass_key].strip()
-                enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
 
-                if enc_pass == "None":
-                    self.error_messages.error_code_messages({
-                        "error_code": "cfr-3092",
-                        "line_code": "invalid_passphrase",
-                        "extra": "Must be present in configuration",
-                    })
-                if not self.quick_install:
-                    self.c.functions.print_header_title({
-                        "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
-                        "newline": "both",
-                        "single_line": True,
-                    })
+                for n in range(0,3):
+                    fe, pass3 = self.perform_encryption(profile,encryption_obj,effp,pass3)
+                    if fe == "skip": break
 
-                default_seed = ''.join(choice(ascii_letters) for _ in range(16))
-                if self.quick_install or self.action == "install":
-                    pass3 = enc_pass
+                    sleep(.8)
+                    test_p = self.c.functions.get_persist_hash({
+                        "pass1": fe, 
+                        "enc_data": True,
+                        "profile": profile,
+                        "test_only": True,
+                    })
+                    if test_p: break
+                    else:
+                        if not self.quick_install:
+                            cprint("\n  please wait...","magenta")
+                            self.log.logger.warn(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
+
+                if fe == "skip": continue
+
+                if test_p == pass3:
+                    self.log.logger.info(f"configurator -> profile [{profile}] encryption tests passed, continuing")
                 else:
-                    pass_correct = False
-                    self.c.functions.print_paragraphs([
-                        ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
-                    ])
-                    for attempt in range(1,4):
-                        pass1 = getpass(f"  p12 passphrase: ")
-                        if pass1 != self.c.config_obj[profile][pass_key]:
-                            self.c.functions.print_paragraphs([
-                                ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
-                                ["retry:",0], [str(attempt+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
-                            ]) 
-                        else:
-                            pass3 = pass1.strip()
-                            pass_correct = True
-                            break
-                    if not pass_correct:
-                        self.error_messages.error_code_messages({
-                            "error_code": "cfr-3309",
-                            "line_code": "invalid_passphrase",
-                        })                        
-                
-                if not self.quick_install:
-                    for s_status in ["deriving","redacting","forgetting","finished"]:
-                        self.c.functions.print_cmd_status({
-                            "text_start": "Encryption",
-                            "text_start": "seed phrase",
-                            "brackets": s_status,
-                            "status_color": "green" if s_status == "finished" else "magenta",
-                            "status": "complete" if s_status == "finished" else "preparing",
-                            "newline": True if s_status == "finished" else False,
+                    self.log.logger.error(f"configurator -> profile [{profile}] unable to properly encrypt, aborting encryption")
+                    if not self.quick_install:
+                        self.c.functions.print_paragraphs([
+                            [" ERROR ",0,"yellow,on_red"], ["During attempts to encrypt the passphrase and invalid SHA hash produced and nodectl was",0,"red"],
+                            ["unable to be verified. The encryption operation was cancelled to avoid disabling nodectl's ability to validate the",0,"red"],
+                            ["p12 file on this Node. You can try again or change your p12 passphrase. The passphrase should not contain:",1,"red"],
+                            ["  - spaces",1,"yellow"],
+                            ["  - $ (dollar signs)",1,"yellow"],
+                            ["  - single or double quotes",1,"yellow"],
+                            ["  - section signs",2,"yellow"],
+                            ["sudo nodectl passwd12",2],
+                        ])
+                        try: remove(effp)
+                        except: pass
+                        self.c.functions.print_timer({
+                            "seconds": 6,
+                            "step": -1,
+                            "phrase": "",
+                            "end_phrase": "pausing",
                         })
-                        sleep(1)
-
-                    print("")
-                    self.c.functions.print_cmd_status({
-                        **encryption_obj,
-                        "brackets": "global" if profile == "global_p12" else profile,
-                    })    
-
-                try:
-                    hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": default_seed})
-                    if not hashed: raise Exception("hashing issue")
-                    if not enc_key: raise Exception("encryption generation issue")
-                except Exception as e:
-                    self.log.logger.critical(f"configurator --> [{e}]")
-                    self.error_messages.error_code_messages({
-                        "error_code": "cfr-3110",
-                        "line_code": "system_error",
-                        "extra": e,
-                    })
-
-                enc_list, enc_de, enc_h = self.build_uuid_mangle(len(hashed))
-                sleep(.8)
-
-                enc_str = ""
-                for n, i in enumerate(enc_list):
-                    if n < 1: enc_str += hashed[:i]
-                    elif n == len(enc_list): hashed[enc_list.index(i)-1:]
-                    else: enc_str += hashed[enc_list.index(i)-1:i]
-                    
-                fe, fe_list = "", []
-                fe_list = []
-                index = 0
-                for length in enc_list:
-                    fe_list.append(hashed[index:index + length])
-                    index += length
-                for pi, _ in enc_de: fe += fe_list[pi]  
-                enc_key = f"{profile}::{enc_key}{enc_h}"
-            
-                with open(f"{effp}","a") as f:
-                    f.write(enc_key+"\n")
-
-                sleep(.4)
-                fe = fe.strip()
+                
                 if profile == "global_p12":
                     self.config_obj_apply = {
                         **self.config_obj_apply,
@@ -3403,6 +3470,7 @@ class Configurator():
                         "status": "completed",
                         "status_color": "green",
                     }) 
+
         else:
             if self.detailed:
                 if self.profile_to_edit:
@@ -3458,7 +3526,7 @@ class Configurator():
                             "p12_passphrase": "None",
                         }
                     } 
-                                
+                        
         self.apply_vars_to_config()
         if not self.quick_install:
             self.c.functions.print_cmd_status({

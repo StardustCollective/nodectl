@@ -575,7 +575,11 @@ class ShellHandler:
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf",
-        ]                
+        ]  
+
+        option_exceptions = [
+            ("nodeid","--file"),
+        ]              
 
         if "-p" in self.argv:
             called_profile = self.argv[self.argv.index("-p")+1]
@@ -605,6 +609,11 @@ class ShellHandler:
             elif len(self.argv) == 0 or ("-e" not in self.argv or called_profile == "empty"):
                 env_hint = True
         
+        for t in option_exceptions:
+            if t[0] == self.called_command:
+                if t[1] in self.argv:
+                    need_profile, profile_hint = False, False
+
         if env_hint and profile_hint and either_or_hint:
             send_to_help_method("profile_env")
         elif profile_hint and not either_or_hint:

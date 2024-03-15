@@ -621,7 +621,7 @@ class AutoRestart():
                     "profile": self.thread_profile,
                 })
             elif fork_type == "consensus_fork":
-                # false == consensus_fork
+                # if false there is a consensus_fork
                 consensus_match = self.cli.cli_check_consensus({
                     "profile": self.thread_profile,
                     "caller": "auto_restart",

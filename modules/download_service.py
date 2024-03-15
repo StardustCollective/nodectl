@@ -96,6 +96,12 @@ class Download():
         download_version = self.download_version
 
         # default the wallet and key tools
+        if self.auto_restart:
+            # auto_restart avoid race condition if same file is downloaded at the same time only
+            # download tool jars if root profile.
+            root_profile = self.functions.test_for_root_ml_type(self.environment)
+            if self.requested_profile != root_profile: 
+                 file_obj, file_pos = {}, 0  # initialize only
         if not self.requested_profile:
             for n, tool in enumerate(["cl-keytool.jar","cl-wallet.jar"]):
                 if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
@@ -115,13 +121,6 @@ class Download():
                         "dest_path": f"{self.functions.default_tessellation_dir}{tool}",
                     } 
                 }
-
-        if self.auto_restart:
-            # auto_restart avoid race condition if same file is downloaded at the same time only
-            # download tool jars if root profile.
-            root_profile = self.functions.test_for_root_ml_type(self.environment)
-            if self.requested_profile != root_profile: 
-                 file_obj, file_pos = {}, 0  # initialize only
 
         for n, profile in enumerate(self.profile_names):
             file_pos += n
