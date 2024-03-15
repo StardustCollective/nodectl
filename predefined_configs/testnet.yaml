@@ -79,6 +79,7 @@ nodectl:
     java_xms: default
     java_xmx: default
     java_xss: default
+    jar_location: default
     jar_repository: default
     jar_version: default
     jar_file: default
@@ -128,6 +129,7 @@ nodectl:
     java_xms: default
     java_xmx: default
     java_xss: default
+    jar_location: default
     jar_repository: default
     jar_version: default
     jar_file: default
