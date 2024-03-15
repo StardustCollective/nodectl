@@ -848,6 +848,7 @@ class Configuration():
             for _ in range(0,3):
                 self.p12.extract_export_config_env({
                     "global": False,
+                    "profile": profile,
                 })
                 cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
                 self.nodeid = self.functions.process_command({
@@ -856,20 +857,20 @@ class Configuration():
                 })
                 if match(pattern,self.nodeid):
                     return True
-                sleep(2)
+                sleep(1)
             return False
 
         write_out, success = False, False
         attempts = 0
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
         profile_obj = self.config_obj; self.profile_obj = profile_obj
-        ext_nodeids = {}
 
         if not self.auto_restart and not self.versioning_service:
             self.functions.print_clear_line()
         
         try:
             for profile in self.metagraph_list:
+                self.setup_p12_aliases(profile)
                 if profile_obj[profile]["profile_enable"] and self.action != "edit_config":
                     for m_or_g in ["ml0","gl0"]:
                         if profile_obj[profile][f"{m_or_g}_link_host"] == "self":
@@ -950,7 +951,6 @@ class Configuration():
                     f.close()
                     system(f"mv /var/tmp/cn-config-temp.yaml {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
 
-                self.setup_p12_aliases(profile)
         except Exception as e:
             self.error_messages.error_code_messages({
                 "error_code": "cfg-942",

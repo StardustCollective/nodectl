@@ -1905,6 +1905,7 @@ class Configurator():
                 defaults = {
                     f"{file_repo_type}_{one_off}": "default",
                     f"{file_repo_type}_file": "default",
+                    f"{file_repo_type}_location": "default",
                     f"{file_repo_type}_repository": "default",
                 }
                 if file_repo_type == "jar" or file_repo_type == "seed":
@@ -1914,6 +1915,7 @@ class Configurator():
                 defaults = {
                     f"{file_repo_type}_{one_off}": "disable",
                     f"{file_repo_type}_file": "disable",
+                    f"{file_repo_type}_location": "disable",
                     f"{file_repo_type}_repository": "disable",
                 } 
                 if file_repo_type == "jar" or file_repo_type == "seed":
@@ -1926,16 +1928,17 @@ class Configurator():
             
         else:
             if profile:
-                if one_off == "version": location_default = "default"
-                else: location_default = self.c.config_obj[profile][f"{file_repo_type}_{one_off}"]
+                if one_off == "version": loc_default = "default"
+                else: loc_default = self.c.config_obj[profile][f"{file_repo_type}_{one_off}"]
                 file_default = self.c.config_obj[profile][f"{file_repo_type}_file"]
                 if file_repo_type != "pro_rating":
                     repo_default = self.c.config_obj[profile][f"{file_repo_type}_repository"]
                 if file_repo_type == "jar" or file_repo_type == "seed":
                     repo_version_default = self.c.config_obj[profile][f"{file_repo_type}_version"]
+                    repo_local_location_default = self.c.config_obj[profile][f"{file_repo_type}_location"]
             else:
                 def_value = "default" if int(self.c.config_obj[profile]["layer"]) < 1 else "disable"
-                location_default, file_default, repo_default = def_value, def_value, def_value
+                loc_default, file_default, repo_default = def_value, def_value, def_value
             
             defaultdescr = "Alternatively, the Node Operator can enter the string \"default\" to allow nodectl to use default values. "
             if allow_disable: defaultdescr += "Enter the string \"disable\" to disable this feature for this profile."
@@ -1986,6 +1989,10 @@ class Configurator():
             description3 += "from the administrators. "
             description3 += defaultdescr
             
+            description5 = f"The {verb} location is the location on the local VPS/Server where nodectl should place and can access "
+            description5 += f"the {verb} binary file ( identified by the {verb}_file ) to access to run the Tessellation Node protocol services. "
+            description5 += defaultdescr
+
             one_off2 = "directory"
             if file_repo_type == "jar":
                 description4 = f"The jar repository needs to have a version associated with it.  This will make sure that that correction version "
@@ -1997,7 +2004,13 @@ class Configurator():
                     "question": f"  {colored(f'Enter a valid {verb} {one_off2}','cyan')}",
                     "description": description1,
                     "required": False,
-                    "default": location_default,
+                    "default": loc_default,
+                },
+                f"{file_repo_type}_location": {
+                    "question": f"  {colored(f'Enter a valid {verb} location name','cyan')}",
+                    "description": description5, 
+                    "required": False,
+                    "default": repo_local_location_default
                 },
                 f"{file_repo_type}_file": {
                     "question": f"  {colored(f'Enter a valid {verb} file name','cyan')}",
