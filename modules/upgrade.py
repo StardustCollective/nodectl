@@ -815,20 +815,40 @@ class Upgrader():
         confirm = True if self.non_interactive else False
 
         progress = {
-            "text_start": "Removing old default seed file",
+            "text_start": "Removing old default seed files",
             "status": "running",
             "status_color": "yellow",
+            "newline": True,
+        }
+        progress2 = {
+            "text_start": "Removing old default jar files",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
         }
         self.functions.print_cmd_status(progress)
+        self.functions.print_cmd_status(progress2)
         
         if path.exists("/var/tessellation/seed-list"):
             remove("/var/tessellation/seed-list")
-        for seed_file in ["dag-l0","dag-l1","intnet-l0","intnet-l1"]:
-            if path.exists(f"/var/tessellation/{seed_file}-seedlist"):
-                remove(f"/var/tessellation/{seed_file}-seedlist")
-                
+
+        for profile in self.functions.profile_names:
+            if path.exists(f"/var/tessellation/{profile}-seedlist"):
+                remove(f"/var/tessellation/{profile}-seedlist")
+            if path.exists(f"/var/tessellation/{self.config_obj[profile]['jar_file']}"):
+                 remove(f"/var/tessellation/{self.config_obj[profile]['jar_file']}")
+
+        sleep(.5)
+        print(f'\x1b[1A', end='')    
         self.functions.print_cmd_status({
             **progress,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+        sleep(.5)
+        self.functions.print_cmd_status({
+            **progress2,
             "status": "complete",
             "status_color": "green",
             "newline": True,
@@ -873,7 +893,7 @@ class Upgrader():
         # legacy service files
         progress = {
             "status": "running",
-            "text_start": "Removing older Tessellation",
+            "text_start": "Removing older",
             "brackets": "Tessellation",
             "text_end": "files",
         }
