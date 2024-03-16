@@ -402,7 +402,7 @@ class UserClass:
                         ["",1],["Found the root user ssh key file was disabled?",0,"red"],
                         ["Are you sure this is a new installation?",1,"red"],
                         
-                        [f"Do you want to install disabled SSH key from the root user to the new {self.username}?",1],
+                        [f"Do you want to transfer SSH key from the root user to the new {self.username} user?",1],
                     ])
                         
                     confirm = self.functions.confirm_action({
@@ -498,7 +498,7 @@ class UserClass:
             verb = "unchanged"
             
             confirm = self.functions.confirm_action({
-                "yes_no_default": "n",
+                "yes_no_default": "y",
                 "return_on": "y",
                 "prompt": "Disable username/password access?",
                 "exit_if": False
