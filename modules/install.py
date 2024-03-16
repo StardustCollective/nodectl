@@ -802,7 +802,7 @@ class Installer():
         if generate:
             if not self.options.p12_destination_path:
                 self.options.p12_destination_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
-                self.options.p12_destination_path = self.functions.cleaner(self.options.p12_destination_path,"fix_double_slash")
+                self.options.p12_destination_path = self.functions.cleaner(self.options.p12_destination_path,"double_slash")
             if not self.options.p12_passphrase:
                 self.options.p12_passphrase = self.p12_session.p12_password
             if not self.options.p12_alias and not self.options.existing_p12:

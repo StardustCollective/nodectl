@@ -2375,7 +2375,7 @@ class CLI():
                     "extra2": "invalid nodeid; use -t for node ip address",
                 })
             nodeid = self.functions.cleaner(nodeid,"new_line")
-            seed_path = self.functions.cleaner(self.functions.config_obj[profile]["seed_path"],"fix_double_slash")
+            seed_path = self.functions.cleaner(self.functions.config_obj[profile]["seed_path"],"double_slash")
             test = self.functions.test_or_replace_line_in_file({
               "file_path": seed_path,
               "search_line": nodeid
@@ -4806,6 +4806,19 @@ class CLI():
             command_list.append("help")
         self.functions.check_for_help(command_list,"execute_starchiver")
 
+        try:
+            local_path = self.config_obj["global_elements"]["starchiver"]["local_dir"]+"starchiver"
+            repo = self.config_obj["global_elements"]["starchiver"]["remote_uri"]
+        except:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4814",
+                "line_code": "input_error",
+                "extra": "unknown values",
+                "extra2": "make sure you have the proper include file in the includes directory [/var/tessellation/nodectl/includes/]."
+            })
+
+        local_path = self.functions.cleaner(local_path,"double_slash")
+
         self.functions.print_header_title({
             "line1": "COMMUNITY STARCHIVER",
             "single_line": True,
@@ -4838,7 +4851,7 @@ class CLI():
         sleep(.5)
         self.log.logger.debug("cli -> execute_starchiver -> removing existing starchiver if exists.")
         try:
-            remove("/var/tmp/starchiver")
+            remove(local_path)
         except:
             self.log.logger.debug("cli -> execute_starchiver -> did not find an existing starchiver script.")
         self.functions.print_cmd_status({
@@ -4855,7 +4868,7 @@ class CLI():
             "newline": False,
         })
         sleep(.5)
-        bashCommand = f'sudo wget https://techware.net/metagraph/starchiver -O /var/tmp/starchiver -o /dev/null'
+        bashCommand = f'sudo wget {repo} -O {local_path} -o /dev/null'
         self.log.logger.debug(f"cli -> execute_starchiver -> fetching starchiver -> [{bashCommand}]")
         system(bashCommand)
         self.functions.print_cmd_status({
@@ -4873,7 +4886,7 @@ class CLI():
         })
         sleep(.5)
         self.log.logger.debug(f"cli -> execute_starchiver -> changing starchiver permissions to +x -> [/var/tmp/starchiver]")
-        chmod("/var/tmp/starchiver", 0o755)
+        chmod(local_path, 0o755)
         self.functions.print_cmd_status({
             "text_start": "Setting starchiver permissions",
             "status": "complete",
@@ -4891,7 +4904,7 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         data_path = f"/var/tessellation/{profile}/data/"
         cluster = self.config_obj[profile]["environment"]
-        bashCommand = f"/var/tmp/starchiver --data_path {data_path} --cluster {cluster}"
+        bashCommand = f"{local_path} --data_path {data_path} --cluster {cluster}"
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
         system(bashCommand)
 

@@ -3352,7 +3352,7 @@ class Functions():
             return sub("cnng-","", line)  
         elif action == "double_spaces":
             return sub(r'\s+', ' ', line) 
-        elif action == "fix_double_slash":
+        elif action == "double_slash":
             return sub('//', '/', line) 
         elif action == "trailing_backslash":
             if line[-1] == "/":

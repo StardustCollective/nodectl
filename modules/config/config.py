@@ -5,7 +5,7 @@ from termcolor import colored
 from time import sleep, time
 from random import randint
 from re import match
-from os import system, path, get_terminal_size, makedirs
+from os import system, path, get_terminal_size, makedirs, listdir
 from sys import exit
 
 from .migration import Migration
@@ -140,6 +140,7 @@ class Configuration():
                 self.validated = False
             self.print_report()
 
+        self.handle_includes()
         if self.action not in continue_list:
             exit(0)
         if self.action == "edit_on_error":
@@ -213,7 +214,29 @@ class Configuration():
         self.functions.version_obj = self.versioning.get_version_obj()
         self.functions.set_statics()
         
-        
+
+    def handle_includes(self):
+        if not self.config_obj["global_elements"]["includes"]: return   
+
+        if not path.exists("/var/tessellation/nodectl/includes"):
+            self.log.logger.info(f'configuration -> no includes directory found; however, includes has been found as [{self.config_obj["global_elements"]["includes"]}] skipping includes.')     
+            return
+    
+        directory = '/var/tessellation/nodectl/includes/'
+        yaml_data = {}
+        for filename in listdir(directory):
+            if filename.endswith('.yaml'):
+                filepath = path.join(directory, filename)
+                with open(filepath, 'r') as file:
+                    yaml_data = yaml.safe_load(file)
+                    self.config_obj["global_elements"] = {
+                        **self.config_obj["global_elements"],
+                        **yaml_data,
+                    }
+
+        return
+
+
     def check_for_migration(self,check_only=False):
         nodectl_version = self.functions.version_obj["node_nodectl_version"]
         nodectl_yaml_version = self.functions.version_obj["node_nodectl_yaml_version"]
@@ -416,7 +439,7 @@ class Configuration():
         except:
             return False
         
-        path = self.functions.cleaner(path,"fix_double_slash")
+        path = self.functions.cleaner(path,"double_slash")
         return path
 
 
@@ -622,7 +645,7 @@ class Configuration():
                                 handle_edge_point(profile,environment, metagraph_name)
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
-                            self.config_obj[profile][tdir] = self.functions.cleaner(self.config_obj[profile][tdir],"fix_double_slash")
+                            self.config_obj[profile][tdir] = self.functions.cleaner(self.config_obj[profile][tdir],"double_slash")
                         elif tdir == "collateral":
                             try:
                                 self.config_obj[profile][tdir] = def_value[metagraph_name]

@@ -204,7 +204,7 @@ class Download():
                     "uri": seed_repo, 
                     "version": self.download_version,
                     "profile": profile,
-                    "dest_path": self.functions.cleaner(seed_path,"fix_double_slash"), 
+                    "dest_path": self.functions.cleaner(seed_path,"double_slash"), 
                     "type": "seedlist",
                 }
             }
@@ -222,12 +222,12 @@ class Download():
         if not file_path:
             file_path = self.functions.default_tessellation_dir
         else:
-            file_path = self.functions.cleaner(file_path,"fix_double_slash")  
+            file_path = self.functions.cleaner(file_path,"double_slash")  
 
         if not path.exists(file_path) and file_path != "disable":
             makedirs(file_path)
 
-        return self.functions.cleaner(f"{file_path}{file_name}","fix_double_slash")  
+        return self.functions.cleaner(f"{file_path}{file_name}","double_slash")  
 
 
     def set_default_version(self):
