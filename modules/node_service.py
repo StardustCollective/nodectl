@@ -137,8 +137,8 @@ class Node():
                     template = template.rstrip()
                     
                 template = template.replace(
-                    "nodegaragetessbinaryfile",
-                    self.config_obj[profile]["jar_file"]
+                    "nodegaragetessbinaryfilepath",
+                    self.config_obj[profile]["jar_path"]
                 )   
                 template = template.rstrip()                   
                     
@@ -845,7 +845,7 @@ WantedBy=multi-user.target
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' nodegaragetessbinaryfilepath run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
 '''
         
         if var.file == "service_restart":

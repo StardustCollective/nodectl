@@ -638,8 +638,6 @@ class Configuration():
                                 s_key = profile
                                 if metagraph_name == "hypergraph": s_key = environment
                                 self.config_obj[profile][tdir] = f"{services[s_key]}{layer}"
-                        elif tdir == "jar_location":
-                            self.config_obj[profile][tdir] = f"{self.functions.default_tessellation_dir}{profile}/"
                         elif tdir == "jar_file":
                             j_key = profile
                             if metagraph_name == "hypergraph":
@@ -665,6 +663,9 @@ class Configuration():
 
             if self.config_obj[profile]["seed_repository"] == "default": 
                 self.config_obj[profile]["seed_repository"] = self.config_obj[profile]["jar_repository"] 
+
+            if self.config_obj[profile]["jar_location"] == "default": 
+                self.config_obj[profile]["jar_location"] = f"{self.functions.default_tessellation_dir}{profile}/"
 
             self.config_obj[profile]["seed_github"] = False 
             if "github.com" in self.config_obj[profile]["seed_repository"]:

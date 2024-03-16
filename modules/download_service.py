@@ -143,7 +143,7 @@ class Download():
                 "uri": f'{uri}/{self.config_obj[profile]["jar_file"]}',
                 "version": download_version,
                 "profile": profile,
-                "dest_path": self.set_file_path(self.config_obj[profile]["jar_file"]), 
+                "dest_path": self.config_obj[profile]["jar_path"], 
                 "type": "binary"
             }
 

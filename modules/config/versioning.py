@@ -158,9 +158,9 @@ class Versioning():
         self.force = False # do not leave forced on
         
         
-    def pull_from_jar(self,jar):
-        self.log.logger.debug(f"versioning - called by [{self.logging_name}] - pulling tessellation version for jar file.")
-        bashCommand = f"/usr/bin/java -jar /var/tessellation/{jar} --version"
+    def pull_from_jar(self,jar_path):
+        self.log.logger.debug(f"versioning - called by [{self.logging_name}] - pulling tessellation version for jar file [{jar_path}].")
+        bashCommand = f"/usr/bin/java -jar {jar_path} --version"
         node_tess_version = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "wait"
@@ -285,8 +285,9 @@ class Versioning():
                         }
                     
                     jar = self.config_obj[profile]["jar_file"]
+                    jar_path = self.config_obj[profile]["jar_path"]
                     try:
-                        node_tess_version = self.pull_from_jar(jar)            
+                        node_tess_version = self.pull_from_jar(jar_path)            
                     except Exception as e:
                         self.log.logger.error(f"attempting to pull node version from jar failed with [{e}]")
                         node_tess_version = "v0.0.0"
