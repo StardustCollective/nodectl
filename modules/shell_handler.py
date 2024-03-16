@@ -366,6 +366,8 @@ class ShellHandler:
             })
         elif self.called_command == "health":
             self.cli.show_health(self.argv)
+        elif self.called_command == "execute_starchiver":
+            self.cli.cli_execute_starchiver(self.argv)
         elif self.called_command == "show_service_log" or self.called_command == "_ssl":
             self.cli.show_service_log(self.argv)
         elif self.called_command == "show_service_status" or self.called_command == "_sss":
@@ -577,6 +579,7 @@ class ShellHandler:
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf",
+            "execute_starchiver",
         ]  
 
         option_exceptions = [

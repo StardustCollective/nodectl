@@ -23,7 +23,7 @@ def build_help(functions,command_obj):
       "clean_snapshots","update_seedlist", "check_source_connection",
       "health","sec","price","markets", "upgrade_path", 
       "check_seedlist_participation", "check_version", "uptime","uninstall",
-      "show_cpu_memory",
+      "show_cpu_memory","execute_starchiver",
     ]
     
     functions.print_paragraphs([

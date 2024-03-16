@@ -22,7 +22,7 @@ def pull_valid_command():
         "export_private_key",
 
         "find",
-        "fetch_starchiver",
+        "execute_starchiver",
 
         "help",
         "health",

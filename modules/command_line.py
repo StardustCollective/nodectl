@@ -7,7 +7,7 @@ from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, remove, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, remove, chmod, SEEK_END, SEEK_CUR
 from pathlib import Path
 from sys import exit, stdout, stdin
 from types import SimpleNamespace
@@ -4933,6 +4933,102 @@ class CLI():
         self.functions.print_paragraphs([
             ["configuration restored!",2,"green","bold"],
         ])
+
+
+    def cli_execute_starchiver(self,command_list):
+        self.log.logger.info("cli -> execute_starchiver initiated.")
+        if not self.config_obj["global_elements"]["developer_mode"]:
+            command_list.append("help")
+        self.functions.check_for_help(command_list,"execute_starchiver")
+
+        self.functions.print_header_title({
+            "line1": "COMMUNITY STARCHIVER",
+            "single_line": True,
+            "newline": "both",
+        })
+
+        self.functions.print_paragraphs([
+            [" WARNING ",0,"red,on_yellow"], ["This will execute the starchiver external community",0],
+            ["supported script.",2],
+            ["USE AT YOUR OWN RISK!",1,"red"], ["The",0], ["starchiver",0,"yellow"], 
+            ["script is not supported by Constellation Network; however,",0],
+            ["it is a useful script included in nodectl's tool set to help expedite a Node's ability to",0],
+            ["join the Constellation cluster of choice.",2]
+        ])
+
+        self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt_color": "magenta",
+            "prompt": f"Execute the starchiver script?",
+            "exit_if": True,
+        })
+
+        self.functions.print_cmd_status({
+            "text_start": "Remove existing starchivers",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+        sleep(.5)
+        self.log.logger.debug("cli -> execute_starchiver -> removing existing starchiver if exists.")
+        try:
+            remove("/var/tmp/starchiver")
+        except:
+            self.log.logger.debug("cli -> execute_starchiver -> did not find an existing starchiver script.")
+        self.functions.print_cmd_status({
+            "text_start": "Remove existing starchivers",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })    
+
+        self.functions.print_cmd_status({
+            "text_start": "Fetching starchiver",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+        sleep(.5)
+        bashCommand = f'sudo wget https://techware.net/metagraph/starchiver -O /var/tmp/starchiver -o /dev/null'
+        self.log.logger.debug(f"cli -> execute_starchiver -> fetching starchiver -> [{bashCommand}]")
+        system(bashCommand)
+        self.functions.print_cmd_status({
+            "text_start": "Fetching starchiver",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
+        self.functions.print_cmd_status({
+            "text_start": "Setting starchiver permissions",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+        sleep(.5)
+        self.log.logger.debug(f"cli -> execute_starchiver -> changing starchiver permissions to +x -> [/var/tmp/starchiver]")
+        chmod("/var/tmp/starchiver", 0o755)
+        self.functions.print_cmd_status({
+            "text_start": "Setting starchiver permissions",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
+        self.functions.print_cmd_status({
+            "text_start": "Executing starchiver",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+        sleep(.5)
+        profile = command_list[command_list.index("-p")+1]
+        data_path = f"/var/tessellation/{profile}/data/"
+        cluster = self.config_obj[profile]["environment"]
+        bashCommand = f"/var/tmp/starchiver --data_path {data_path} --cluster {cluster}"
+        self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
+        system(bashCommand)
 
 
     def clean_files(self,command_obj):
