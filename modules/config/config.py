@@ -63,7 +63,7 @@ class Configuration():
         self.validated = True
         self.profile_check = False
 
-        skip_validation = ["configure","new_config","install","quick_install","uninstall"]
+        skip_validation = ["configure","new_config","install","quick_install","uninstall","restore_config"]
         self.do_validation = False if self.action in skip_validation else True
         if self.action == "new_config_init": self.action = "edit_config"
         if self.called_command == "uninstall": 

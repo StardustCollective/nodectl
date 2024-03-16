@@ -119,6 +119,9 @@ class ShellHandler:
             self.functions.auto_restart = False
             self.digital_signature(argv)
             exit(0)
+        elif self.called_command == "restore_config":
+            self.restore_config(self.argv)
+            exit(0)
 
         self.handle_versioning()
         self.check_valid_command()
@@ -263,8 +266,6 @@ class ShellHandler:
             self.cli.migrate_node(self.argv)
         elif self.called_command == "reboot":
             self.cli.cli_reboot(self.argv)
-        elif self.called_command == "restore_config":
-            self.cli.cli_restore_config(self.argv)
         elif self.called_command in node_id_commands:
             command = "dag" if self.called_command == "dag" else "nodeid"
             self.cli.cli_grab_id({
@@ -964,6 +965,142 @@ class ShellHandler:
             "prompt": prompt_str,
         })
 
+
+    def restore_config(self,command_list):
+        date = False
+
+        def control_exit(date):
+            if not date: date = "all"
+            self.functions.print_paragraphs([
+                ["",1],["No backup files were located in:",0,"red","bold"],
+                [backup_dir,1,"yellow"], ["date:",0,"red","bold"],[date,1,"yellow"],
+                ["Exiting...",1,"red","bold"],
+            ])
+            exit(0)
+
+        if "--date" in command_list:
+            date = command_list[command_list.index("--date")+1]
+            try:
+                datetime.strptime(date, '%Y-%m-%d')
+            except ValueError:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-4630",
+                    "line_code": "input_error",
+                    "extra": f"invalid date format or date: {date}",
+                    "extra2": "must use 'YYYY-MM-DD' format with --date option"
+                })
+
+        self.functions.set_install_statics()
+        backup_dir = self.functions.default_backup_location
+        raw_restore_dict = self.functions.get_list_of_files({
+            "paths": [backup_dir],
+            "files": [f"*{date}*"] if date else ["*"],
+        })
+
+        if len(raw_restore_dict) < 1:
+            control_exit(date)
+
+        display_list, restore_dict, order  = [], {}, 0
+        for value in raw_restore_dict.values():
+            if date:
+                if date not in value: continue
+            if "backup" in value and "cn-config" in value:
+                value = value.replace("//","/")
+                try:
+                    format_replace = value.split(".")[1].split("backup")[0]
+                except:
+                    continue
+                display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
+                display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
+                order+=1
+                restore_dict[str(order)] = value
+
+        if len(display_list) < 1:
+            control_exit(date)
+
+        display_list.sort()
+
+        self.functions.print_header_title({
+            "line1": "RESTORE CONFIGURATION FILE",
+            "line2": "from backups",
+            "clear": True,
+            "newline": "top",
+        })
+
+        self.functions.print_paragraphs([
+            [" WARNING ",1,"yellow,on_red"],
+            ["Restoring the wrong configuration or a configuration from a previous version of nodectl that is not",0,"red"],
+            ["in the current upgrade path may cause nodectl to malfunction.",2,"red"],
+
+            ["Proceed with caution!",1,"magenta","bold"],
+            ["Please choose a date time option:",2,"yellow"],
+        ])
+
+        display_list.append("cancel operation")
+        option = self.functions.print_option_menu({
+            "options": display_list,
+            "press_type": "manual",
+            "newline": True,
+        })
+
+        try: 
+            option = int(option)
+            if option == len(display_list):
+                self.functions.print_paragraphs([
+                    ["",1],["nodectl quit by user request",2,"green"],
+                ])
+                raise Exception
+            self.functions.print_paragraphs([
+                ["",1],["restore file:",1,"yellow"],
+                [display_list[option-1],1,"green"],
+                [restore_dict[str(option)],2,"green"]
+            ])
+        except:
+            if option == len(display_list): exit(0)
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4664",
+                "line_code": "input_error",
+                "extra": f"invalid option selected: {option}",
+                "extra2": "did you enter valid number option?"                
+            })
+
+        if self.functions.confirm_action({
+            "prompt": "Are you SURE you want to restore?",
+            "return_on": "y",
+            "exit_if": True,
+            "yes_no_default": "n",
+        }):
+            restore_file = restore_dict[str(option)]
+            self.log.logger.warn(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
+            new_file = datetime.utcnow().strftime("cn-config.%Y-%m-%d-%H:%M:%SZbackup.yaml")
+            self.log.logger.info(f"restore_config is backing up current cn-config.yaml as [{new_file}]")
+            self.functions.print_cmd_status({
+                "text_start": "backing up current config",
+                "status": "running",
+            })
+            system(f"cp /var/tessellation/nodectl/cn-config.yaml {backup_dir}{new_file} > /dev/null 2>&1")
+            time.sleep(.8)
+            self.functions.print_cmd_status({
+                "text_start": "backing up current config",
+                "status": "complete",
+                "newline": True,
+            })
+            self.functions.print_cmd_status({
+                "text_start": "restoring config",
+                "status": "running",
+            })            
+            self.log.logger.info(f"restore_config is restoring cn-config.yaml from [{restore_file}]")
+            system(f"cp {restore_file} /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
+            time.sleep(.8)
+            self.functions.print_cmd_status({
+                "text_start": "restoring config",
+                "status": "complete",
+                "newline": True,
+            })
+        self.functions.print_paragraphs([
+            ["configuration restored!",2,"green","bold"],
+        ])
+        
 
     def get_auto_restart_pid(self):
         cmd = "ps -ef"
