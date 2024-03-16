@@ -393,7 +393,8 @@ class Download():
                         self.print_status_handler(file_name)
         else: 
             for file_name in list(self.file_obj.keys()):
-                self.get_download_looper(file_name)
+                if self.file_obj[file_name]["state"] != "disabled":
+                    self.get_download_looper(file_name)
 
         self.cursor_setup["reset"] = self.cursor_setup["clear"]-1
 
