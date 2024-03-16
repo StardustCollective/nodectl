@@ -808,7 +808,7 @@ class Node():
         
         
     def create_files(self,command_obj):
-        # file=(str), environment_name=(str) default "mainnet", upgrade_required=(bool) default False
+        # file=(str), environment_name=(str) default "mainnet", upgrade_required=('full' or bool) default False
         # messy method so placed at the end of file for readability.
         
         var = SimpleNamespace(**command_obj)
@@ -1097,6 +1097,7 @@ echo "  ${yellow}This version of nodectl ${pink}DOES NOT ${yellow}require an upg
 read -e -p "  ${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
 exit 0
 '''
+
         return cur_file+cur_file2
     
     

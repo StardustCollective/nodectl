@@ -5423,7 +5423,7 @@ class CLI():
         upgrade_file = self.node_service.create_files({
             "file": "upgrade",
             "environment_name": environment_name,
-            "upgrade_required": True if version_obj["nodectl"]["upgrade"] == "True" else False,
+            "upgrade_required": True if version_obj["nodectl"]["upgrade"] != "False" else False,
             "pre_release": version_obj["nodectl"]["nodectl_prerelease"],
         })
 
@@ -5432,6 +5432,8 @@ class CLI():
             upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
             upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
             upgrade_file = upgrade_file.replace("ARCH",self.arch)
+            if version_obj["nodectl"]["upgrade"] == "full":
+                upgrade_file = upgrade_file.replace("sudo nodectl upgrade --nodectl_only","sudo nodectl upgrade")
         except Exception as e:
             self.log.logger.debug(f"nodectl binary updater was unable to build the upgrade file path | upgrade chosen [{upgrade_chosen}] old [{node_nodectl_version}] backup location [{backup_location}] arch [{self.arch}] | error [{e}]")
             self.error_messages.error_code_messages({
