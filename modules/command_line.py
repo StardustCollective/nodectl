@@ -799,6 +799,57 @@ class CLI():
         })
         
 
+    def show_cpu_memory(self, command_list):
+        self.functions.check_for_help(command_list,"show_cpu_memory")
+            
+        self.log.logger.info(f"show cpu and memory stats")
+        cpu_ok, memory_ok, details = self.functions.check_cpu_memory_thresholds()
+        details = SimpleNamespace(**details)
+
+        cpu_status = colored("PROBLEM","red")
+        cpu_percent = colored(f"{details.thresholds['cpu_percent']}%","red")
+        if cpu_ok:
+            cpu_status = colored("OK","green")
+            cpu_percent = colored(f"{details.thresholds['cpu_percent']}%","green")
+
+        memory_status = colored("PROBLEM","red")
+        memory_percent = colored(f"{details.thresholds['mem_percent']}%","red")  
+        if memory_ok:
+            memory_status = colored("OK","green")
+            memory_percent = colored(f"{details.thresholds['mem_percent']}%","green")
+
+        self.functions.print_header_title({
+            "line1": "NODE MEMORY AND CPU",
+            "single_line": True,
+            "newline": "both",
+        })
+
+        print_out_list = [
+            {
+                "header_elements": {
+                    "CURRENT CPU": f"{cpu_percent: <25}",
+                    "THRESHOLD": f"{details.thresholds['cpu_threshold']}%",
+                    "CPU": cpu_status,
+                },
+                "spacing": 16,
+            },
+            {
+                "header_elements": {
+                    "CURRENT MEMORY":f"{memory_percent: <25}",
+                    "THRESHOLD": f"{details.thresholds['mem_threshold']}%",
+                    "MEMORY": memory_status,
+                },
+                "spacing": 16,
+            },
+        ]
+
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })
+        print("")
+
+
     def show_peers(self,command_list):
         self.functions.check_for_help(command_list,"peers")
         self.log.logger.info(f"show peers requested")

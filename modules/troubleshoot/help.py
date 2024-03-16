@@ -23,6 +23,7 @@ def build_help(functions,command_obj):
       "clean_snapshots","update_seedlist", "check_source_connection",
       "health","sec","price","markets", "upgrade_path", 
       "check_seedlist_participation", "check_version", "uptime","uninstall",
+      "show_cpu_memory",
     ]
     
     functions.print_paragraphs([
@@ -504,6 +505,24 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl send_logs -p <profile_name>','cyan')}  
      or
   # {colored('sudo nodectl -sl -p <profile_name>','cyan')}  
+      '''
+  
+    if extended == "show_cpu_memory":
+      help_text += title("Show CPU and MEMORY")
+      help_text += f'''
+  The command {colored(extended,"cyan")} will review the VPS system that
+  this Node is running on and display the current CPU
+  and memory percentages, and the determined status
+  of the CPU and memory based on a statically set threshold.
+
+  {colored('current','cyan')}:    CPU usage percent found
+              at the time of the execution
+              of this command.  
+  {colored('threshold','cyan')}:  Statically defined
+              percentage before status will be
+              deemed not OK.  
+  {colored('CPU/MEMORY','cyan')}: green OK
+              red PROBLEM  
       '''
   
     if extended == "check_consensus":

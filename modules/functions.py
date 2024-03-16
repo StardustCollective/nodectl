@@ -2072,11 +2072,11 @@ class Functions():
         # is present.  Future modifications should include the results of the pid process
         # as calculated below [future feature updates]
         # =====================================================
-        process_memory = {}
+        cpu_mem_details = {}
         for profile in self.profile_names:
             find_pid_for = self.config_obj[profile]["jar_file"]
-            process_memory = {
-                **process_memory,
+            cpu_mem_details = {
+                **cpu_mem_details,
                 f"{profile}": {
                     "jar_file": find_pid_for,
                     "RSS": -1,
@@ -2090,11 +2090,18 @@ class Functions():
                             found_pid = process.pid
                             process = Process(found_pid)
                             pid_memory = process.memory_info()
-                            process_memory[profile]["RSS"] = pid_memory.rss
-                            process_memory[profile]["VMS"] = pid_memory.vms
+                            cpu_mem_details[profile]["RSS"] = pid_memory.rss
+                            cpu_mem_details[profile]["VMS"] = pid_memory.vms
                             break
 
-        self.log.logger.info(f"functions -> cpu_memory_thresholds -> checked memory and cpu pid values [{process_memory}]")
+            cpu_mem_details["thresholds"] = {
+                "mem_threshold": memory_threshold,
+                "cpu_threshold": cpu_threshold,
+                "mem_percent": memory_found_percent,
+                "cpu_percent": cpu_found_percent
+            }
+
+        self.log.logger.info(f"functions -> cpu_memory_thresholds -> checked memory and cpu pid values [{cpu_mem_details}]")
         # ======================================================
 
         if cpu_found_percent > cpu_threshold:
@@ -2110,7 +2117,7 @@ class Functions():
         elif cpu_ok and memory_ok:
             self.log.logger.info(f"functions -> cpu_memory_thresholds -> checked memory and cpu found [OK] | memory % [{memory_found_percent}] cpu % [{cpu_found_percent}]")
 
-        return cpu_ok, memory_ok, process_memory
+        return cpu_ok, memory_ok, cpu_mem_details
     
 
     # =============================

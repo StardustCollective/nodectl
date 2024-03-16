@@ -90,6 +90,7 @@ class Status():
                 self.parse_memory(memory)
                 _ , _ , self.process_memory = self.functions.check_cpu_memory_thresholds()
                 for key, value in self.process_memory.items():
+                    if key == "thresholds": continue
                     self.process_memory[key]["RSS"] = size(value["RSS"],system=alternative)
                     self.process_memory[key]["VMS"] = size(value["VMS"],system=alternative)
             elif key == "uptime":

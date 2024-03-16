@@ -22,7 +22,7 @@ def pull_valid_command():
         "export_private_key",
 
         "find",
-        "find",
+        "fetch_starchiver",
 
         "help",
         "health",
@@ -66,6 +66,7 @@ def pull_valid_command():
         "show_node_states",
         "show_p12_details",
         "show_node_proofs",
+        "show_cpu_memory",
         "sec",
 
         "upgrade",
