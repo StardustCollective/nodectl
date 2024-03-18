@@ -1,15 +1,13 @@
 import re
 import base58
 import psutil
-import fileinput
 
 from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
 from os import system, path, get_terminal_size, remove, chmod, SEEK_END, SEEK_CUR
-from pathlib import Path
-from sys import exit, stdout, stdin
+from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
@@ -4894,6 +4892,23 @@ class CLI():
             "newline": True,
         })
 
+        profile = command_list[command_list.index("-p")+1]
+
+        self.build_node_class()
+        self.set_profile(profile)
+        self.cli_leave({
+            "secs": 30,
+            "reboot_flag": False,
+            "skip_msg": False,
+            "print_timer": True,
+            "threaded": False,
+        })
+        self.cli_stop({
+            "show_timer": False,
+            "static_nodeid": False,
+            "argv_list": []
+        })
+
         self.functions.print_cmd_status({
             "text_start": "Executing starchiver",
             "status": "running",
@@ -4901,7 +4916,6 @@ class CLI():
             "newline": False,
         })
         sleep(.5)
-        profile = command_list[command_list.index("-p")+1]
         data_path = f"/var/tessellation/{profile}/data/"
         cluster = self.config_obj[profile]["environment"]
         bashCommand = f"{local_path} --data_path {data_path} --cluster {cluster}"

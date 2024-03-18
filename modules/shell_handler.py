@@ -471,6 +471,7 @@ class ShellHandler:
             "restart_only","slow_restart","-sr",
             "leave","start","stop","restart","join", 
             "nodectl_upgrade","upgrade_nodectl_testnet",
+            "execute_starchiver"
         ]
             
         if self.called_command not in ["help","install"]:    
@@ -1329,45 +1330,6 @@ class ShellHandler:
             "argv_list": argv_list,
         }) 
         self.upgrader.upgrade_process()
-
-        # self.functions.print_header_title({
-        #   "line1": f"{self.called_command.upper()} REQUEST",
-        #   "line2": "TESSELLATION VALIDATOR NODE",
-        #   "clear": True,
-        # })
-        
-        # self.install_upgrade = "upgrade"
-        # if "-ni" not in argv_list and not "--ni" in argv_list:
-        #     self.confirm_int_upg()
-
-        # self.functions.print_header_title({
-        #     "line1": "Handle OS System Upgrades",
-        #     "single_line": True,
-        #     "newline": "both",
-        # })
-        
-        # command_obj = {
-        #     "force": True if "-f" in argv_list else False,
-        #     "show_list": True if "-l" in argv_list else False,
-        #     "env_provided": argv_list[argv_list.index("-e")+1] if "-e" in argv_list else False,
-        #     "action": "normal"
-        # }
-        
-        # # -e gets converted into self.environment_requested
-        # self.functions.print_clear_line()
-        # self.functions.check_sudo()
-        # self.verify_environments(command_obj)
-        # self.print_ext_ip()     
-        # self.upgrader = Upgrader({
-        #     "ip_address": self.ip_address,
-        #     "functions": self.functions,
-        #     "called_command": self.called_command,
-        #     "environment": self.environment_requested,
-        #     "argv_list": argv_list,
-        # }) 
-        # self.update_os()
-        # self.upgrader.upgrade_process()
-
         self.functions.print_perftime(performance_start,self.install_upgrade)
         
     
