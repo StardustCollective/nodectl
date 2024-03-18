@@ -166,6 +166,6 @@ nodectl:
     metagraph_token_coin_id: default
     local_api: disable
     includes: False
-    nodectl_yaml: v2.2.0
+    nodectl_yaml: v2.1.1
     developer_mode: False
     log_level: INFO

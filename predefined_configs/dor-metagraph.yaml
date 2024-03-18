@@ -117,5 +117,5 @@ nodectl:
     local_api: disable
     includes: False
     developer_mode: False
-    nodectl_yaml: v2.2.0
+    nodectl_yaml: v2.1.1
     log_level: INFO
