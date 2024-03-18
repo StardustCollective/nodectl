@@ -2532,8 +2532,8 @@ class CLI():
         if caller in ["upgrade_nodectl","main_error","uninstall"]: return
         
         environments = self.functions.pull_profile({"req": "environments"})
-
         profile_names = self.profile_names
+
         if profile != "default":
             profile_names = [profile]
 
