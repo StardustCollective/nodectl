@@ -53,6 +53,7 @@ class Configurator():
         self.restart_needed = True
         self.is_new_config = False
         self.skip_prepare = False
+        self.override = False
         self.is_file_backedup = False
         self.backup_file_found = False
         self.node_service = False
@@ -293,7 +294,9 @@ class Configurator():
         self.build_config_obj()
         self.get_predefined_configs()
         self.handle_global_p12()
-        self.request_p12_details({})
+        self.request_p12_details({
+            "get_existing_global": True if self.override else False,
+        })
         self.config_obj_apply = {}      
         
         self.metagraph_list = self.c.functions.clear_global_profiles(self.config_obj)
@@ -372,16 +375,15 @@ class Configurator():
                 ["",1], ["In some cases, Node Operators may be using the",0], ["new configuration",0,"yellow"], 
                 ["feature to override an existing configuration. In most cases,",0],
                 ["this would be done to attempt to fix an unknown error or possible corrupted configuration.",2],
-            ])
-        override = False
-        override = self.c.functions.confirm_action({
+            ])            
+        self.override = self.c.functions.confirm_action({
             "prompt": "Are you overriding an existing configuration file only? ",
             "yes_no_default": "n",
             "return_on": "y",
             "exit_if": False
         })
 
-        if override: 
+        if self.override: 
             self.prepare_configuration(action="edit_config")
             self.old_last_cnconfig = deepcopy(self.c.config_obj)
 
@@ -470,10 +472,15 @@ class Configurator():
             ptype = "global"
         else:
             blank_found = False
-            for p12_key in self.config_obj["global_p12"].keys():
-                if self.config_obj["global_p12"][p12_key] == "blank":
-                    blank_found = True
-                    break
+            if get_existing_global:
+                for p12_key in self.c.config_obj["global_p12"].keys():
+                    try:
+                        if self.c.config_obj["global_p12"][p12_key] == "blank":
+                            blank_found = True
+                            break
+                    except: 
+                        pass
+
             if get_existing_global and not blank_found and self.backup_file_found and not self.preserve_pass:
                 self.c.functions.print_paragraphs([
                     ["An existing configuration file was found on the system.",0,"white","bold"],
