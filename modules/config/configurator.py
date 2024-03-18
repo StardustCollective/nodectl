@@ -359,12 +359,31 @@ class Configurator():
 
                 ["If you building a brand new and unique configuration, or you are overwriting a corrupted configuration only, you do",0],["not",0,"green"], ["need to remove the snapshots when requested.",2],
             ]) 
-            self.c.functions.confirm_action({
-                "prompt": "Exit new configuration build to stop profiles? ",
-                "yes_no_default": "y",
-                "return_on": "n",
-                "exit_if": True,            
-            })
+
+        self.c.functions.confirm_action({
+            "prompt": "Exit new configuration build to stop profiles? ",
+            "yes_no_default": "y",
+            "return_on": "n",
+            "exit_if": True,            
+        })
+
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1], ["In some cases, Node Operators may be using the",0], ["new configuration",0,"yellow"], 
+                ["feature to override an existing configuration. In most cases,",0],
+                ["this would be done to attempt to fix an unknown error or possible corrupted configuration.",2],
+            ])
+        override = False
+        override = self.c.functions.confirm_action({
+            "prompt": "Are you overriding an existing configuration file only? ",
+            "yes_no_default": "n",
+            "return_on": "y",
+            "exit_if": False
+        })
+
+        if override: 
+            self.prepare_configuration(action="edit_config")
+            self.old_last_cnconfig = deepcopy(self.c.config_obj)
 
         self.c.functions.print_header_title({
             "line1": "BUILD NEW CONFIGURATION",
@@ -388,9 +407,9 @@ class Configurator():
         })
         
         environment_details = self.c.functions.pull_remote_profiles({
-            "retrieve":"chosen_profile",
-            "return_where": "Previous",
-            "add_postfix": True,
+            "r_and_q":"q", 
+            "add_postfix": True, 
+            "retrieve": "chosen_profile",
         })
         
         if environment_details == "r": 
@@ -408,7 +427,6 @@ class Configurator():
         system(f'sudo wget {environment_details[0]["yaml_url"]} -O {self.yaml_path} -o /dev/null')
         self.metagraph_list = self.c.functions.clear_global_profiles(environment_details[0]["json"]["nodectl"])
         self.config_obj = environment_details[0]["json"]["nodectl"]
-
 
         self.c.functions.print_cmd_status({
             "text_start": "building configuration skeleton",
@@ -451,7 +469,12 @@ class Configurator():
         if ptype == "global_edit_prepare":
             ptype = "global"
         else:
-            if get_existing_global and self.backup_file_found and not self.preserve_pass:
+            blank_found = False
+            for p12_key in self.config_obj["global_p12"].keys():
+                if self.config_obj["global_p12"][p12_key] == "blank":
+                    blank_found = True
+                    break
+            if get_existing_global and not blank_found and self.backup_file_found and not self.preserve_pass:
                 self.c.functions.print_paragraphs([
                     ["An existing configuration file was found on the system.",0,"white","bold"],
                     ["nodectl will attempt to validate the existing configuration, you can safely ignore any errors.",2,"white","bold"],
@@ -493,7 +516,7 @@ class Configurator():
                 nodeadmin_default = self.config_obj["global_p12"]["nodeadmin"]
                 location_default = self.config_obj["global_p12"]["key_location"]
                 p12_default = self.config_obj["global_p12"]["key_name"]
-                # alias_default = self.config_obj["global_p12"]["key_alias"]   
+
             else:
                 try:
                     self.sudo_user = environ["SUDO_USER"] 
@@ -506,10 +529,8 @@ class Configurator():
                 nodeadmin_default = self.sudo_user
                 location_default = f"/home/{self.sudo_user}/tessellation/"
                 p12_default = ""
-                # alias_default = ""
             
             p12_required = False if set_default else True
-            # alias_required = False if set_default else True  
             
             questions = {
                 "nodeadmin": {
@@ -530,12 +551,6 @@ class Configurator():
                     "default": p12_default,
                     "required": p12_required,
                 },
-                # "key_alias": {
-                #     "question": f"  {colored('Enter in p12 wallet alias name: ','cyan')}",
-                #     "description": "This should be a single string (word) [connect multiple words with snake_case or dashes eg) 'my alias' becomes 'my_alias' or 'my-alias']. This is the alias (simple name) given to your p12 private key file; also known as, your wallet. SAVE THIS ALIAS IN A SAFE SECURE PLACE! If you forget your alias you made not be able to authenticate to the a cluster.",
-                #     "default": alias_default,
-                #     "required": alias_required,
-                # },
             }
             
             if self.keep_pass_visible:
@@ -659,7 +674,7 @@ class Configurator():
         if self.detailed:
             paragraphs = [
 
-                ["A",0], ["Validator Node",0,"blue","bold"], ["cannot access the Constellation Network Hypergraph",0],
+                ["A",0], ["Node",0,"blue","bold"], ["cannot access the Constellation Network Hypergraph",0],
                 ["without a",0,"cyan"], ["p12 private key file",0,"yellow","bold"], ["that is used to authenticate against network access regardless of PRO score or seedlist.",2],
                 ["This same p12 key file is used as your Node’s wallet and derives the DAG address from the p12 file's",0],
                 ["public key file, which Constellation Network uses as your node ID.",2],
@@ -683,7 +698,7 @@ class Configurator():
             
             text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the Node to have clusters that uses dedicated (individual) wallets, per cluster."
             print(wrapper.fill(f"{colored('3','magenta',attrs=['bold'])}{colored(text3,'magenta')}"))
-        
+
         self.is_all_global = self.c.functions.confirm_action({
             "prompt": f"\n  Set {colored('ALL','yellow','on_blue',attrs=['bold'])} {colored('profile p12 wallets to Global?','cyan')}",
             "yes_no_default": "y",
@@ -3847,14 +3862,15 @@ class Configurator():
             "newline": "both"
         })
         
-        # if self.print_old_file_warning("profiles"): return
-        # if not self.clean_profiles:
-        #     verb, color = "not necessary", "green"
-        #     if self.skip_clean_profiles_manual:
-        #         verb, color = "declined", "red"
-        #     cprint(f"  service cleanup {verb}, skipping...",color,attrs=["bold"])
-        #     return
-            
+        if self.print_old_file_warning("services"): return
+        
+        if not self.old_last_cnconfig:
+            self.c.functions.print_cmd_status({
+                "text_start": "skipping cleanup",
+                "newline": True,
+            })
+            return
+        
         for old_profile in self.old_last_cnconfig.keys():
             if old_profile not in self.config_obj.keys():
                 if "global" not in old_profile:
@@ -3966,7 +3982,7 @@ class Configurator():
                             ["directory structure exists",1], 
                             ["profile:",0], [profile,1,"yellow"],
                             ["snapshot dir:",0], [lookup_path_abbrv,1,"yellow"],
-                            [f"Existing old {lookup_path_abbrv} may cause unexpected errors and conflicts, nodectl will remove snapshot contents from this directory",2,"red","bold"],
+                            [f"Existing old {lookup_path_abbrv} may cause unexpected errors and conflicts with new clusters, nodectl will remove snapshot contents from this directory",2,"red","bold"],
                         ])
                         user_confirm = self.c.functions.confirm_action({
                             "yes_no_default": "y",
