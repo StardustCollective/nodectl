@@ -345,12 +345,19 @@ class Configurator():
                 ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
                 ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
                 
-                [" WARNING ",0,"red,on_yellow"], ["If you are writing a new configuration over an existing configuration for a cluster",0,"red"],
-                ["with the",0,"red"], ["same",0,"red","bold"], ["profile name, during the installation you will be requested to remove",0,"red"],
-                ["the existing",0,"red"], ["snapshots.",0,"red","bold"], ["Please make sure your existing profiles are",0,"red"],
+                [" WARNING ",0,"red,on_yellow"], ["In the",0,"red"], ["unlikely event",0,"yellow"], 
+                ["you are writing a new configuration over an existing configuration for a Metagraph",0,"red"],
+                ["with the",0,"red"], ["same",0,"yellow","bold"], ["profile name, but for a",0,"red"], ["different",0,"yellow"],["Metagraph,",0,"red"], 
+                ["during the installation you will be requested to remove",0,"red"],
+                ["the existing",0,"red"], ["snapshots.",2,"red","bold"], 
+                
+                ["If this is a new Metagraph, please make sure your existing profile clusters are",0,"red"],
                 ["stopped",0,"red","bold"], ["and",0,"red"], ["off",0,"red","bold"],["the cluster before continuing; otherwise, the protocol",0,"red"],
-                ["may attempt to write or handle snapshots during the new installation, creating unstable or undesirable results.",1,"red"],
+                ["may attempt to write or handle snapshots during the new installation, creating unstable or undesirable results.",2,"red"],
+
                 ["command:",0], ["sudo nodectl stop -p <profile_name>",2,"yellow"],
+
+                ["If you building a brand new and unique configuration, or you are overwriting a corrupted configuration only, you do",0],["not",0,"green"], ["need to remove the snapshots when requested.",2],
             ]) 
             self.c.functions.confirm_action({
                 "prompt": "Exit new configuration build to stop profiles? ",

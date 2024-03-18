@@ -430,7 +430,11 @@ class Configuration():
         # grab cli passphrase if present
         if "--pass" in self.argv_list:
             self.config_obj["global_elements"]["global_cli_pass"] = True
-            self.config_obj["global_p12"]["passphrase"] = self.argv_list[self.argv_list.index("--pass")+1]
+            try:
+                self.config_obj["global_p12"]["passphrase"] = self.argv_list[self.argv_list.index("--pass")+1]
+            except:
+                self.functions.check_for_help(["help"],"configure")
+
 
         
     def create_path_variable(self, path, file):

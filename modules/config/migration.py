@@ -13,7 +13,7 @@ class Migration():
         if self.parent:
             self.functions = self.parent.functions
         else:
-            self.functions = self.config_obj["functions"]
+            self.functions = command_obj["functions"]
 
         self.config_obj = self.functions.config_obj
         
