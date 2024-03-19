@@ -105,7 +105,7 @@ class Configuration():
         
                 
     def implement_config(self):
-        continue_list = ["normal","edit_config","edit_on_error"]
+        continue_list = ["normal","edit_config","edit_on_error","edit_config_from_new"]
         
         self.setup_schemas()
         self.build_yaml_dict(True,True)
@@ -119,9 +119,11 @@ class Configuration():
                 self.prepare_p12()
                 if self.action != "edit_config":
                     self.setup_passwd()
-                self.setup_p12_aliases("global_p12")
-                self.setup_self_settings()
+                if self.action != "edit_config_from_new":
+                    self.setup_p12_aliases("global_p12")
+                    self.setup_self_settings()
         
+        if self.action == "edit_config_from_new": return
         if self.do_validation:
             if len(self.error_list) < 1:
                 result = self.validate_profiles()
@@ -435,7 +437,6 @@ class Configuration():
             except:
                 self.functions.check_for_help(["help"],"configure")
 
-
         
     def create_path_variable(self, path, file):
         try:
@@ -451,6 +452,8 @@ class Configuration():
         # one_off: called from migrator to find edge_point* ( introduced >v2.13.0 )
         # sets up the automated values not present in the 
         # yaml file
+
+        if self.action == "edit_config_from_new": return # updating defaults not necessary
 
         def error_found(
                 section,missing_keys=False,value=False,
@@ -621,10 +624,17 @@ class Configuration():
             if self.config_obj[profile]["jar_repository"] != "default":
                 self.config_obj[profile]["is_jar_static"] = True
 
-            if self.config_obj[profile]["token_coin_id"] == "global":
-                self.config_obj[profile]["token_coin_id"] = self.config_obj["global_elements"]["metagraph_token_coin_id"]  
-            if self.config_obj[profile]["token_identifier"] == "global":
-                self.config_obj[profile]["token_identifier"] = self.config_obj["global_elements"]["metagraph_token_identifier"]
+            try:
+                if self.config_obj[profile]["token_coin_id"] == "global":
+                    self.config_obj[profile]["token_coin_id"] = self.config_obj["global_elements"]["metagraph_token_coin_id"] 
+            except KeyError:
+                error_found("profile","token_coin_id","error with profile section",profile)
+
+            try:         
+                if self.config_obj[profile]["token_identifier"] == "global":
+                    self.config_obj[profile]["token_identifier"] = self.config_obj["global_elements"]["metagraph_token_identifier"]
+            except KeyError:
+                error_found("profile","token_identifier","error with profile section",profile)
 
             environment = self.config_obj[profile]["environment"]
 
@@ -1244,9 +1254,10 @@ class Configuration():
         global_p12_keys = ["key_name","passphrase"] # test to make sure if one key is global all must be
 
         default_globals = ["global_p12_all_global", "global_p12_encryption", 
-                            "global_p12_key_alias", "global_p12_key_location"]
-        try:
-            for profile in self.metagraph_list:
+                           "global_p12_key_alias", "global_p12_key_location"]
+        
+        for profile in self.metagraph_list:
+            try:
                 self.config_obj[profile].update({key: False for key in default_globals})
                 g_tests = [self.config_obj[profile][f"p12_{x}"] for x in self.config_obj["global_p12"] if x in global_p12_keys]
                 self.config_obj[profile] = {
@@ -1285,9 +1296,15 @@ class Configuration():
                 if self.config_obj[profile]["token_coin_id"] == "global":
                     self.config_obj[profile]["token_coin_id"] = self.config_obj["global_elements"]["metagraph_token_coin_id"]
 
-        except Exception as e:
-            self.log.logger.critical(f"configuration format failure detected | exception [{e}]")
-            self.send_error("cfg-705","format","existence")
+            except Exception as e:
+                self.log.logger.critical(f"configuration format failure detected | exception [{e}]")
+                if self.action == "edit_config_from_new":
+                    self.log.logger.warn("configuration -> configuration override detected, ignoring error and continuing.")
+                    # since we have an error, we will bypass the p12 details and assume they are global
+                    self.config_obj[profile]["global_p12_all_global"] = True
+                    continue
+                else:
+                    self.send_error("cfg-705","format","existence")
             
         for profile in self.metagraph_list:
             if not self.config_obj[profile]["global_p12_all_global"]:

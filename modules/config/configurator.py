@@ -320,7 +320,7 @@ class Configurator():
         
         self.cleanup_old_profiles()
         self.cleanup_service_files(False)
-        self.cleanup_create_snapshot_dirs() 
+        if not self.override: self.cleanup_create_snapshot_dirs() 
         self.prepare_configuration("edit_config",False)
         self.move_config_backups()
         
@@ -342,50 +342,104 @@ class Configurator():
             "upper": False,
         })  
 
-        self.c.functions.print_header_title({
-            "line1": "BUILD NEW CONFIGURATION",
-            "single_line": True,
-            "newline": "bottom"
-        })
-
-        if self.detailed:        
+        def print_scenarios():
+            self.c.functions.print_header_title({
+                "line1": "BUILD NEW CONFIGURATION",
+                "single_line": True,
+                "newline": "bottom"
+            })
             self.c.functions.print_paragraphs([
-                ["If this is a",0,"red"], ["brand new",0,"red","bold"], ["network cluster, being added to a running and existing Node,",0,"red"], 
-                ["of the same cluster [profile] name;",0,"red","bold"], ["please make sure your existing profile clusters are",0,"red"],
-                ["stopped",0,"red","bold"], ["and",0,"red"], ["off",0,"red","bold"],["their respective cluster before continuing; otherwise, the protocol",0,"red"],
-                ["may attempt to write or handle snapshots during the new installation, creating unstable or undesirable results.",2,"red"],
+                ["Scenario One:",1,"cyan","bold"], ["This entails setting up a brand new Node. In this case, it is highly recommended that you",0,"green"],
+                ["exit here",0,"red"], ["and utilize the installer to build your new Node. Refer to the documentation for full details and options on how to use the installer.",1,"green"],
+                ["recommended:",0,"yellow"], ["sudo nodectl install –quick-install",2],
 
-                ["command:",0], ["sudo nodectl stop -p <profile_name>",2,"yellow"],
+                ["Scenario Two:",1,"cyan","bold"], ["This involves an existing Node where you need to apply a new configuration to handle new features or add",0,"green"],
+                ["secondary profiles that",0,"green"], ["do not",0,"yellow"], 
+                ["share the same profile name and",0,"green"], ["will not",0,"yellow"], ["interfere with the existing configuration (clusters and profiles)",0,"green"],
+                ["already on this Node.",2,"green"],
 
-                ["If you building a brand new and unique configuration, or you are overwriting a corrupted configuration only, you do",0],["not",0,"green"], ["need to remove the snapshots when requested.",2],
-            ]) 
+                ["Scenario Three:",1,"cyan","bold"], ["You are here for in reference to",0,"green"],["scenario two",0,], ["but",0,"red","bold"],
+                ["the new configuration",0,"green"], ["is going to conflict",0,"red"], ["with an existing profile of a different cluster on this Node.",2,"green"],
 
-        self.c.functions.confirm_action({
-            "prompt": "Exit new configuration build to stop profiles? ",
-            "yes_no_default": "y",
-            "return_on": "n",
-            "exit_if": True,            
-        })
+                ["Scenario Four:",1,"cyan","bold"], ["You have encountered a configuration error that is preventing you from continuing to use nodectl",0,"red"],
+                ["and would like to attempt to overwrite your configuration, preserve as much information as possible, and avoid losing any data.",2,"red"],
 
-        if self.detailed:
+                ["-","half"],["",1],
+            ])
+
+        if self.detailed:   
             self.c.functions.print_paragraphs([
-                ["",1], [" WARNING ",0,"red,on_yellow"], ["In the event",0,"yellow"], 
-                ["you are writing a new configuration over an existing configuration for a cluster",0,"red"],
-                ["with the",0,"red"], ["same",0,"yellow","bold"], ["profile name, but for a",0,"red"], ["different",0,"yellow"],["cluster,",0,"red"], 
-                ["during the installation you will be requested to remove",0,"red"],
-                ["the existing",0,"red"], ["snapshots.",2,"red","bold"], 
+                ["Welcome to the new configuration nodectl configurator feature. While in detailed mode, nodectl will",0,"green"],
+                ["strive to assist you in creating your new configuration as straightforwardly as possible.  However, if you are unsure",0,"green"],
+                ["of any concepts presented, utilizing the documentation website is recommended.",1,"green"],
+                ["https://docs.constellationnetwork.io/validate",2,"blue","bold"],
 
-                ["In",0], ["some",0,"cyan","bold"], ["cases, Node Operators may be using the",0], ["new configuration",0,"yellow"], 
-                ["feature to override an existing configuration, and not changing to a new cluster. In",0], ["most",0,"cyan","bold"], ["cases,",0],
-                ["this would be done to attempt to fix an unknown error or possible corrupted configuration.",2],
-            ])           
+                ["The first step is to determine the true purpose of your intentions that brought you to the new configuration configurator section.",2,"green"],
 
-        self.override = self.c.functions.confirm_action({
-            "prompt": "Are you overriding an existing configuration file only? ",
-            "yes_no_default": "n",
-            "return_on": "y",
-            "exit_if": False
-        })
+                ["Definitions",1,"cyan","bold"],
+                ["Cluster:",0,"yellow"],["A network of connected Nodes.",1],
+                ["Hypergraph:",0,"yellow"],["Constellation's main cluster.",1],
+                ["Metagraph:",0,"yellow"],["Business or non-constellation owned cluster, that links to the Hypergraph layer0 cluster.",2],
+            ])
+
+            print_scenarios()  
+
+            self.c.functions.confirm_action({
+                "prompt": "Continue? ",
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": True,            
+            })
+
+            system("clear")
+            print_scenarios()
+            self.c.functions.print_paragraphs([
+                ["Most likely you are continuing because you decided that scenario",0,"green"],
+                ["two, three, or four",0,"yellow"], ["fit your requirements.",2,"green"],
+                ["Are you here because of scenario",0,"green"], ["FOUR",0,"yellow"], 
+                ["(overriding an existing or corrupt configuration)?",2,"green"],
+            ])
+            self.override = self.c.functions.confirm_action({
+                "prompt": "Yes? ",
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": False,            
+            })
+            if self.override:
+                self.c.functions.print_paragraphs([
+                    ["",1],[" WARNING ",0,"red,on_yellow"], ["nodectl will attempt to pull information from your current",0],
+                    ["configuration in order to persist data. However, you may encounter various nodectl errors during this process",0],
+                    ["if the configuration is not recoverable.",2],
+                    
+                    ["The purpose of this attempt to override the existing configuration is to persist data.",0],
+                    ["If errors occur, nodectl will automatically exit.",2], 
+
+                    ["You can restart the configurator,",0], ["decline",0,"red"], ["the override configuration option, proceed with the next steps,",0],
+                    ["and then after the process is completed, use the configurator to update your various",0],
+                    ["non-default information, such as private key [p12] details.",2],
+
+                    ["See the documentation for further details:",1],
+                    ["https://docs.constellationnetwork.io/validate",2,"blue","bold"],
+                ])
+                self.c.functions.print_any_key({"prompt":"Press any key to continue"})
+            else:
+                system("clear")
+                print_scenarios()
+                self.c.functions.print_paragraphs([
+                    ["If you are here because of scenario",0,"green"], ["THREE",0,"red"], ["there may be a situation where you are migrating your node to",0,"green"],
+                    ["another (new) cluster that happens to share the same profile name as the existing profile name already on this Node. If",0,"green"],
+                    ["and only if you are joining a new cluster that shares the same profile name, it is important to stop your Node’s original",0,"green"],
+                    ["profile by issuing a leave and stop command to remove your Node from the old cluster. Failure to do so can lead",0,"green"],
+                    ["to undesired and unknown results or errors.",1,"green"],
+                    ["Command:",0,"yellow"], ["sudo nodectl stop -p <profile_name>",2,"cyan"],
+                ])
+
+                self.c.functions.confirm_action({
+                    "prompt": "Exit new configuration build to stop profiles? ",
+                    "yes_no_default": "y",
+                    "return_on": "n",
+                    "exit_if": True,            
+                })
 
         self.c.functions.print_header_title({
             "line1": "CHOOSING NEW PROFILE DEFINITION",
@@ -400,7 +454,7 @@ class Configurator():
                 ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
             ]) 
         if self.override: 
-            self.prepare_configuration(action="edit_config")
+            self.prepare_configuration(action="edit_config_from_new")
             self.old_last_cnconfig = deepcopy(self.c.config_obj)
     
         if path.isfile(self.yaml_path):
@@ -510,7 +564,9 @@ class Configurator():
             
             if self.preserve_pass and get_existing_global:
                 if not self.skip_prepare:
-                    self.prepare_configuration(f"new_config_init")
+                    prepare_action = "new_config_init"
+                    if self.override: prepare_action = "edit_config_from_new"
+                    self.prepare_configuration(prepare_action)
                 self.config_obj["global_p12"] = self.c.config_obj["global_p12"]
                 if self.c.error_found:
                     self.log.logger.critical("Attempting to pull existing p12 information for the configuration file failed.  Valid inputs did not exist.")
@@ -524,8 +580,7 @@ class Configurator():
                     "status_color": "green",
                 })
                 
-                if self.is_all_global:
-                    return
+                if self.is_all_global: return
                 skip_to_end = True
         
         if not skip_to_end:
@@ -650,6 +705,7 @@ class Configurator():
         
         if not self.is_all_global and profile == "None":
             self.is_all_global = False
+            p12_value = {} # reset
             for profile in self.metagraph_list:
                 self.c.functions.print_header_title({
                     "line1": f"{profile} PROFILE P12 ENTRY",
@@ -662,11 +718,12 @@ class Configurator():
                     "return_on": "y",
                     "exit_if": False                
                 }):                
-                    self.request_p12_details({
+                    self.request_p12_details({ 
                         "ptype": "single",
                         "profile": profile,
                         "get_existing_global": False
                     })
+                
             ptype = "Done"
             
         if ptype == "single":
@@ -674,7 +731,8 @@ class Configurator():
             for p12key, p12value in p12_values.items():
                 self.config_obj[profile][f"p12_{p12key}"] = p12value
             
-        return p12_values
+        if ptype != "Done": return p12_values
+        return
 
 
     def handle_global_p12(self):
