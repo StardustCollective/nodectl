@@ -342,20 +342,17 @@ class Configurator():
             "upper": False,
         })  
 
+        self.c.functions.print_header_title({
+            "line1": "BUILD NEW CONFIGURATION",
+            "single_line": True,
+            "newline": "bottom"
+        })
+
         if self.detailed:        
             self.c.functions.print_paragraphs([
-                ["Please choose the",0], ["profile",0,"blue","bold"], ["below that matches the configuration you are seeking to build.",2],
-                ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
-                ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
-                
-                [" WARNING ",0,"red,on_yellow"], ["In the",0,"red"], ["unlikely event",0,"yellow"], 
-                ["you are writing a new configuration over an existing configuration for a Metagraph",0,"red"],
-                ["with the",0,"red"], ["same",0,"yellow","bold"], ["profile name, but for a",0,"red"], ["different",0,"yellow"],["Metagraph,",0,"red"], 
-                ["during the installation you will be requested to remove",0,"red"],
-                ["the existing",0,"red"], ["snapshots.",2,"red","bold"], 
-                
-                ["If this is a new Metagraph, please make sure your existing profile clusters are",0,"red"],
-                ["stopped",0,"red","bold"], ["and",0,"red"], ["off",0,"red","bold"],["the cluster before continuing; otherwise, the protocol",0,"red"],
+                ["If this is a",0,"red"], ["brand new",0,"red","bold"], ["network cluster, being added to a running and existing Node,",0,"red"], 
+                ["of the same cluster [profile] name;",0,"red","bold"], ["please make sure your existing profile clusters are",0,"red"],
+                ["stopped",0,"red","bold"], ["and",0,"red"], ["off",0,"red","bold"],["their respective cluster before continuing; otherwise, the protocol",0,"red"],
                 ["may attempt to write or handle snapshots during the new installation, creating unstable or undesirable results.",2,"red"],
 
                 ["command:",0], ["sudo nodectl stop -p <profile_name>",2,"yellow"],
@@ -372,10 +369,17 @@ class Configurator():
 
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["In some cases, Node Operators may be using the",0], ["new configuration",0,"yellow"], 
-                ["feature to override an existing configuration. In most cases,",0],
+                ["",1], [" WARNING ",0,"red,on_yellow"], ["In the event",0,"yellow"], 
+                ["you are writing a new configuration over an existing configuration for a cluster",0,"red"],
+                ["with the",0,"red"], ["same",0,"yellow","bold"], ["profile name, but for a",0,"red"], ["different",0,"yellow"],["cluster,",0,"red"], 
+                ["during the installation you will be requested to remove",0,"red"],
+                ["the existing",0,"red"], ["snapshots.",2,"red","bold"], 
+
+                ["In",0], ["some",0,"cyan","bold"], ["cases, Node Operators may be using the",0], ["new configuration",0,"yellow"], 
+                ["feature to override an existing configuration, and not changing to a new cluster. In",0], ["most",0,"cyan","bold"], ["cases,",0],
                 ["this would be done to attempt to fix an unknown error or possible corrupted configuration.",2],
-            ])            
+            ])           
+
         self.override = self.c.functions.confirm_action({
             "prompt": "Are you overriding an existing configuration file only? ",
             "yes_no_default": "n",
@@ -383,16 +387,22 @@ class Configurator():
             "exit_if": False
         })
 
-        if self.override: 
-            self.prepare_configuration(action="edit_config")
-            self.old_last_cnconfig = deepcopy(self.c.config_obj)
-
         self.c.functions.print_header_title({
-            "line1": "BUILD NEW CONFIGURATION",
+            "line1": "CHOOSING NEW PROFILE DEFINITION",
             "single_line": True,
             "newline": "both"
         })
-        
+
+        if self.detailed:        
+            self.c.functions.print_paragraphs([
+                ["Please choose the",0], ["profile",0,"blue","bold"], ["below that matches the configuration you are seeking to build.",2],
+                ["If not found, please consult the Constellation Network Doc Hub for details or contact Constellation Network Administration on Discord.",2],
+                ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
+            ]) 
+        if self.override: 
+            self.prepare_configuration(action="edit_config")
+            self.old_last_cnconfig = deepcopy(self.c.config_obj)
+    
         if path.isfile(self.yaml_path):
             # clean up old file
             system(f"sudo rm -f {self.yaml_path}")
@@ -1289,7 +1299,7 @@ class Configurator():
         description = "The distributed ledger technology 'DLT' generally called the blockchain "
         description += "($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid "
         description += "integer (number) between 0 and 4, for the 5 available layers. Constellation Network or Metagraph clusters are generally always layer 0 or 1. "
-        description += "Metagraph Layer 0 can be referred to as ML0, Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description += "Hypergraph/Metagraph Layer 0 can be referred to as ML0, Hypergraph/Metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0.  ML0 and ML1 should link to GL0.  ML1 should link to ML0. "
         description += "See the linking section for link options and details."
         
@@ -1341,7 +1351,7 @@ class Configurator():
         
         self.manual_section_header(profile,"ENVIRONMENT")  
           
-        description = "Metagraph Layer 0 can be referred to as ML0, Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description = "Hypergraph/Metagraph Layer 0 can be referred to as ML0, Hypergraph/Metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0. "
         description += "This networks require an environment identifier used internally; by the network, to define certain " 
         description += "operational variables. Depending on the Metagraph, this is used to define " 
@@ -1450,9 +1460,9 @@ class Configurator():
         layer_types = ["gl0","ml0"]
         
         def print_header():
-            link_description = "Generally, a Metagraph Layer0 (ML0) and/or Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
+            link_description = "Generally, a Hypergraph/Metagraph Layer0 (ML0) and/or Hypergraph/Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
             link_description += "(GL0) network to transmit consensus information between the local Node and the Validator Nodes on the Layer0 network. "
-            link_description += "The Node Operator should consult with your Metagraph Administrators for further details. "
+            link_description += "The Node Operator should consult with your Constellation Network or Metagraph Administrators for further details. "
             link_description += "Also, a ML1 will be required to link to the ML0 thereby creating to separate links. "
             link_description += "IMPORTANT: If you plan to use the recommended process of linking to ML1 to GL0, ML1 to ML0, and/or ML0 to GL0 "
             link_description += "through another profile residing on this Node, it is required to answer \"yes\" to the link to self question, "
@@ -1465,8 +1475,8 @@ class Configurator():
                 ["",1],
                 ["Terminology",1,"yellow","bold"],
                 ["GL0",0,"blue","bold"],[":",-1,"blue"], ["Global Layer0 Hypergraph",1,"cyan"],
-                ["ML0",0,"blue","bold"],[":",-1,"blue"], ["Metagraph Layer0",1,"cyan"],
-                ["ML1",0,"blue","bold"],[":",-1,"blue"], ["Metagraph Layer1",2,"cyan"],
+                ["ML0",0,"blue","bold"],[":",-1,"blue"], ["Cluster Layer0",1,"cyan"],
+                ["ML1",0,"blue","bold"],[":",-1,"blue"], ["Cluster Layer1",2,"cyan"],
                 [link_description,1,"white","bold"],
             ]) 
             self.print_quit_option()
@@ -1748,7 +1758,7 @@ class Configurator():
         description += "list until you find your 'Coin' and click on it.  On the LEFT side of the details for your 'Coin' you will see 'API ID'. Enter that "
         description += "value here, when requested."
         
-        description2 = "Handle Metagraph cryptocurrency token symbol identification."
+        description2 = "Handle Hypergraph/Metagraph cryptocurrency token symbol identification."
 
         if self.detailed:
             self.c.functions.print_paragraphs([
@@ -1788,9 +1798,9 @@ class Configurator():
                 manual = True  
 
         if manual:
-            question = f"  {colored(f'Enter the Metagraph token coin api id for this Metagraph profile = {profile}','cyan')}"
+            question = f"  {colored(f'Enter the network cluster token coin api id for this profile = {profile}','cyan')}"
             if profile == "global_elements":
-                question = f"  {colored(f'Enter the Metagraph token coin api id to use for all profiles','cyan')}"
+                question = f"  {colored(f'Enter the network cluster token coin api id to use for all profiles','cyan')}"
             questions = {
                 f"{key_name}": {
                     "question": question,
