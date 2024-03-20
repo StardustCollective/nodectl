@@ -119,7 +119,7 @@ class Configuration():
                 self.prepare_p12()
                 if self.action != "edit_config":
                     self.setup_passwd()
-                if self.action != "edit_config_from_new":
+                if "edit_config" not in self.action:
                     self.setup_p12_aliases("global_p12")
                     self.setup_self_settings()
         

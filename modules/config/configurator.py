@@ -3447,7 +3447,9 @@ class Configurator():
         eff = "cnngsenc.conf"
         effp = f"{efp}{eff}"
 
-        if not self.quick_install:
+        if self.quick_install:
+            encryption_obj = {} 
+        else:
             print("\n"*2)
             self.c.functions.print_header_title({
                 "line1": f"PASSPHRASE ENCRYPTION",
