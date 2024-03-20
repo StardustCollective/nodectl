@@ -2695,7 +2695,7 @@ class CLI():
         profile = command_obj.get("profile",self.profile)
         static_nodeid = command_obj.get("static_nodeid",False)
         check_for_leave = command_obj.get("check_for_leave",False)
-        rebuild = True
+        rebuild, result = True, False
     
         sleep(command_obj.get("delay",0))
         
