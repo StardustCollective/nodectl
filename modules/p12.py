@@ -470,7 +470,7 @@ class P12Class():
             env_vars = True
         else:    
             p_sub_key = "p12_passphrase"
-            if is_global: 
+            if is_global or self.config_obj[profile]["global_p12_passphrase"]: 
                 profile = "global_p12"
                 p_sub_key = "passphrase"
 
@@ -497,10 +497,18 @@ class P12Class():
 
         indiv_p12_obj = {"passphrase": pass1}
         skeys = ["nodeadmin","key_location","key_name","key_alias","key_store"]
-        for skey in skeys:
-            p12_key = skey
-            if profile != "global_p12": skey = f"p12_{skey}"
-            indiv_p12_obj[p12_key] = self.config_obj[profile][skey] 
+
+        try:
+            for skey in skeys:
+                p12_key = skey
+                if profile != "global_p12": skey = f"p12_{skey}"
+                indiv_p12_obj[p12_key] = self.config_obj[profile][skey] 
+        except:
+            self.error_messages.error_code_messages({
+                "error_code": "p-508",
+                "line_code": "invalid_passphrase",
+                "extra2": "wrong",
+            })
 
         self.log.logger.info("p12 file exporting p12 details into env variables.")
             

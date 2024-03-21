@@ -4923,6 +4923,31 @@ class CLI():
         system(bashCommand)
 
 
+    def cli_enable_remote_access(self,command_list):
+        if "help" in command_list:
+            pass
+        elif "disable" in command_list:
+            pass
+        elif "enable" in command_list:
+            self.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], 
+                ["This will allow temporary access to your VPS and Node by an external entity",0,"red","bold"],
+                ["In order to administer your Node this remote access will have",0,"red"],
+                ["sudo",0,"yellow"], ["rights to your VPS which will offer unfeathered access to your Node",0,"red","bold"],
+                ["including:",1,"red","bold"],
+                ["  - access to root",1],
+                ["  - access to your p12 hot wallet",1],
+                ["  - access to your key files",1],
+                ["  - access to your encryption keys",1],
+                ["  - access to everything",2],
+                ["Make sure to disable access when the external entity has completed their working session with you.",0,"yellow","bold"],
+                ["command:",0,"yellow"], ["sudo nodectl remote_access disable",2],
+            ])
+        else:
+            command_list.append("help")
+        self.functions.check_for_help(command_list,"remote_access")        
+            
+
     def clean_files(self,command_obj):
         what = "clear_snapshots" if command_obj["action"] == "snapshots" else "clean_files"
         self.log.logger.info(f"request to {what} inventory by Operator...")

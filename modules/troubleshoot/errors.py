@@ -398,13 +398,22 @@ class Error_codes():
             
         elif var.line_code == "invalid_passphrase":
             self.log.logger.critical("p12 passphrase entered incorrectly too many times!")
-            self.functions.print_paragraphs([
-                ["P12",0,"yellow","bold"], ["passphrase",0,"red","bold,underline"], ["was incorrectly entered.",2,"red","bold"],
-                ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["these passphrase attempts were made by an authorized Node Operator.",2,"red","bold"],
-                ["Please be diligent and review your Node's security, and other settings!",2,"magenta","bold"],
-                ["Try issuing command:",1,"yellow"],
-                ["sudo nodectl sec",2],
-            ])  
+            if var.extra2 == "wrong":
+                self.functions.print_paragraphs([
+                    ["P12",0,"yellow","bold"], ["passphrase",0,"red","bold,underline"], ["was incorrectly entered.",2,"red","bold"],
+                    ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], 
+                    ["the passphrase entered in the configuration or at the CLI was correct.",2,"red","bold"],
+                    ["To reset passprahase in the configuration:",1,"yellow"],
+                    ["sudo nodectl configure",2],
+                ])
+            else:  
+                self.functions.print_paragraphs([
+                    ["P12",0,"yellow","bold"], ["passphrase",0,"red","bold,underline"], ["was incorrectly entered.",2,"red","bold"],
+                    ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["these passphrase attempts were made by an authorized Node Operator.",2,"red","bold"],
+                    ["Please be diligent and review your Node's security, and other settings!",2,"magenta","bold"],
+                    ["Try issuing command:",1,"yellow"],
+                    ["sudo nodectl sec",2],
+                ])  
             if var.extra:
                 self.functions.print_paragraphs([
                     ["Error Code:",0], [var.extra,2,"yellow"],

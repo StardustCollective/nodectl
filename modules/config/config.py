@@ -703,12 +703,18 @@ class Configuration():
             if "github.com" in self.config_obj[profile]["jar_repository"]:
                 self.config_obj[profile]["jar_github"] = True 
 
-            if self.config_obj[profile]["seed_repository"] == "default": 
-                self.config_obj[profile]["seed_repository"] = self.config_obj[profile]["jar_repository"] 
-
-            if self.config_obj[profile]["jar_location"] == "default": 
-                self.config_obj[profile]["jar_location"] = f"{self.functions.default_tessellation_dir}{profile}/"
-
+            try:
+                if self.config_obj[profile]["seed_repository"] == "default": 
+                    self.config_obj[profile]["seed_repository"] = self.config_obj[profile]["jar_repository"] 
+            except KeyError:
+                error_found("profile","seed_repository","error with profile section",profile)
+            
+            try:
+                if self.config_obj[profile]["jar_location"] == "default": 
+                    self.config_obj[profile]["jar_location"] = f"{self.functions.default_tessellation_dir}{profile}/"
+            except KeyError:
+                error_found("profile","jar_location","error with profile section",profile)
+            
             self.config_obj[profile]["seed_github"] = False 
             if "github.com" in self.config_obj[profile]["seed_repository"]:
                 self.config_obj[profile]["seed_github"] = True 

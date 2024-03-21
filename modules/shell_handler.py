@@ -266,6 +266,8 @@ class ShellHandler:
             self.cli.migrate_node(self.argv)
         elif self.called_command == "reboot":
             self.cli.cli_reboot(self.argv)
+        elif self.called_command == "remote_access" or self.called_command == "_ra":
+            self.cli.enable_remote_access(self.argv)
         elif self.called_command in node_id_commands:
             command = "dag" if self.called_command == "dag" else "nodeid"
             self.cli.cli_grab_id({
