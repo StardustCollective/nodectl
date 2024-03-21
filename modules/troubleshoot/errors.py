@@ -708,7 +708,10 @@ class Error_codes():
                     ["Please verify that your configuration file is located in the proper directory.",2,"red"],
                     ["directory location:",0,"white","bold"], ["/var/tessellation/nodectl",2],
                     ["This is important to allow the file to properly load.",2,"red","bold"],
-                    ["To correct error, issue:",0,"magenta"], ["sudo nodectl configure",2]
+                    ["To correct specific errors",1,"magenta"],
+                    ["issue:",0,"magenta"], ["sudo nodectl configure",1],
+                    ["If unable to access the configure command",1,"magenta"],
+                    ["issue:",0,"magenta"], ["sudo nodectl restore_config",2]
                 ])
             if var.extra == "install":
                 self.functions.print_paragraphs([

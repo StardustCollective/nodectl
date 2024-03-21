@@ -412,6 +412,12 @@ class Migration():
             
         # version 2.13 changes environment with hypergraph
         metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
+        
+        try:
+            config_name = self.config_obj["global_elements"]["yaml_config_name"]
+        except:
+            config_name =  self.config_obj[self.profiles[0]]["environment"]
+
         token_coin_id = "default"
         token_identifier = "disable"
         if self.config_obj["global_elements"]["metagraph_name"] in ["testnet","mainnet","integrationnet"]:

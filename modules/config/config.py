@@ -161,7 +161,7 @@ class Configuration():
             if path.isfile("/usr/local/bin/cn-node") and not path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
                 if self.called_command != "upgrade":
                     self.error_messages.error_code_messages({
-                        "error_code": "cfg-99",
+                        "error_code": "cfg-164",
                         "line_code": "upgrade_path_needed"
                     })
                 self.error_messages.error_code_messages({
@@ -264,7 +264,12 @@ class Configuration():
             self.log.logger.debug(f"configuration module found {self.called_command} request, skipping migration attempts.")
         elif not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             self.log.logger.info(f"configuration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
-            if self.called_command != "upgrade":
+            if self.called_command == "auto_restart":
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"yellow,on_red"], ["upgrade may be required!",1,"yellow"],
+                ])
+                exit(0)
+            elif self.called_command != "upgrade":
                 self.error_messages.error_code_messages({
                     "error_code": "cfg-199",
                     "line_code": "upgrade_needed",

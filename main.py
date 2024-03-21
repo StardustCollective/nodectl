@@ -18,7 +18,7 @@ def cli_commands(argv_list):
         
     while True:
         try:
-            skip_config_list = ["install","verify_nodectl","-vn"]
+            skip_config_list = ["install","verify_nodectl","-vn","restore_config"]
             exception_list = [
                 "configure",
                 "validate_config","validate-config","-val",
