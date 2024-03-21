@@ -3577,5 +3577,9 @@ class Functions():
             return    
     
 
+    def handle_spinner_kill(self):
+        raise TerminateFunctionsException("spinner cancel")
+    
+    
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

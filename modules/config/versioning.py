@@ -349,9 +349,10 @@ class Versioning():
             
             self.write_file()
             
-            sleep(.8) # allow system time to catch up              
+            sleep(.8) # allow system time to catch up  
+            self.functions.cancel_event = True            
             self.functions.event = False
-            
+
 
     def pull_upgrade_path(self):
         do_update = False

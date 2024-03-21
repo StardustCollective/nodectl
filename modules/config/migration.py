@@ -17,6 +17,9 @@ class Migration():
 
         self.config_obj = self.functions.config_obj
         
+        self.profiles = self.functions.pull_profile({
+            "req": "list",
+        })
         self.log = Logging()
         self.functions.log = self.log
         self.log.logger.debug("migration process started...")
@@ -59,12 +62,41 @@ class Migration():
                 } 
 
 
+    def setup_profiles(self):
+        upgrade_error = False
+        try:
+            self.profiles = self.functions.clear_global_profiles(list(self.config_obj.keys()))
+        except:
+            self.log.logger.error("migration module unable to pull profiles from the configuration")
+            upgrade_error = True
+
+        return upgrade_error
+
+
     def setup_versioning(self):
         self.parent.setup_config_vars({
             "key": "edge_point",
             "profile": list(self.config_obj.keys())[0],
             "environment": self.functions.environment_name,
         })
+
+        upgrade_error = self.setup_profiles()
+        if upgrade_error:
+            self.errors.error_code_messages({
+                "error_code": "mig-86",
+                "line_code": "upgrade_path_needed",
+            })
+
+        # versioning exceptions
+        # handle any new configuration elements that have
+        # been added to the versioning class but may not
+        # be present in the old configuration
+        # v2.13.0
+        for profile in self.profiles:
+            try:
+                _ = self.config_obj[profile]["jar_path"]
+            except:
+                self.config_obj[profile]["jar_path"] = "/var/tessellation/"
 
         versioning = Versioning({
             "config_obj": self.config_obj,
@@ -77,12 +109,7 @@ class Migration():
 
     def verify_config_type(self):
         upgrade_error = False
-        try:
-            self.profiles = self.functions.clear_global_profiles(list(self.config_obj.keys()))
-        except:
-            self.log.logger.error("migration module unable to pull profiles from the configuration")
-            upgrade_error = True
-        
+        upgrade_error = self.setup_profiles()
 
         try:
             yaml_version = str(self.functions.is_new_version(
