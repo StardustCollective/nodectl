@@ -1,4 +1,0 @@
----
-starchiver:
-   remote_uri: "https://techware.net/metagraph/starchiver"
-   local_dir: "/var/tmp/"
