@@ -91,13 +91,11 @@ class Configurator():
         elif "-n" in argv_list:
             self.requested_profile = None
             self.action = "new"
-        elif "--developer_mode" in argv_list:
-            if argv_list[argv_list.index("--developer_mode")+1] == "enable" or argv_list[argv_list.index("--developer_mode")+1] == "disable":
-                self.dev_enable_disable = argv_list[argv_list.index("--developer_mode")+1]
-                self.action = "dev_mode"
-        
+
         self.prepare_configuration("new_config")
         self.error_messages = Error_codes(self.c.functions)
+
+        self.handle_single_options(argv_list)
 
         if "--installer" in argv_list or "--upgrader" in argv_list:
             if "--installer" in argv_list:
@@ -112,6 +110,36 @@ class Configurator():
 
         self.setup()
         
+
+    def handle_single_options(self,argv_list):
+        send_error = False
+        if "--developer_mode" in argv_list:
+            try:
+                if argv_list[argv_list.index("--developer_mode")+1] == "enable" or argv_list[argv_list.index("--developer_mode")+1] == "disable":
+                    self.dev_enable_disable = argv_list[argv_list.index("--developer_mode")+1]
+                    self.action = "dev_mode"
+                else:
+                    send_error = "developer_mode"
+            except:
+                send_error = "developer_mode"
+        if "--includes" in argv_list:
+            try:
+                if argv_list[argv_list.index("--includes")+1] == "enable" or argv_list[argv_list.index("--includes")+1] == "disable":
+                    self.dev_enable_disable = argv_list[argv_list.index("--includes")+1]
+                    self.action = "includes_section"
+                else:
+                    send_error = "includes"
+            except:
+                send_error = "includes"
+
+        if send_error:
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-131",
+                "line_code": "invalid_option",
+                "extra": send_error,
+                "extra2": "valid options are 'enable' or 'disable'"
+            })
+
 
     def prepare_node_service_obj(self):
         self.node_service = Node({"functions": self.c.functions}) 
@@ -231,7 +259,9 @@ class Configurator():
                 "newline": top_newline
             })
             
-            if (self.action == "edit" or self.action == "help" or self.action == "edit_profile" or self.action == "dev_mode") and option != "reset":
+
+            if ( self.action == "edit" or self.action == "help" or self.action == "includes_section" or
+                 self.action == "edit_profile" or self.action == "dev_mode") and option != "reset":
                 option = "e"
             elif self.action == "new" and option != "reset":
                 option = "n"
@@ -2357,7 +2387,7 @@ class Configurator():
             
             if self.action == "edit_profile" or self.action == "edit_change_profile":
                 option = "e"
-            elif self.action == "dev_mode":
+            elif self.action == "dev_mode" or self.action == "includes_section":
                 option = "de"
             else:
                 self.c.functions.print_header_title({
@@ -3299,14 +3329,21 @@ class Configurator():
                 
                 
     def developer_enable_disable(self):
+        if self.action == "dev_mode":
+            key = "developer_mode"
+            start = "Developer Mode"
+        if self.action == "includes_section":
+            start = "Includes Section"
+            key = "includes"
+
         self.config_obj_apply = {
             "global_elements": 
-                {"developer_mode": "True" if self.dev_enable_disable == "enable" else "False"}
+                {f"{key}": "True" if self.dev_enable_disable == "enable" else "False"}
             }
         self.apply_vars_to_config()
         
         self.c.functions.print_cmd_status({
-            "text_start": "Developer Mode",
+            "text_start": start,
             "status": "enabled" if self.dev_enable_disable == "enable" else "disabled",
             "status_color": "green" if self.dev_enable_disable == "enable" else "red",
             "newline": True,

@@ -641,7 +641,6 @@ class Error_codes():
                 ["Configuration Request Name:",0], [var.extra,2,"yellow","bold"],
             ]) 
             
-            
         elif var.line_code == "invalid_file_format":
             self.log.logger.warn(f"invalid file format for file [{var.extra}], exited program. file could not be processed")
             self.functions.print_paragraphs([
