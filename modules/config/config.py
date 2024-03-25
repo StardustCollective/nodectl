@@ -142,7 +142,7 @@ class Configuration():
                 self.validated = False
             self.print_report()
 
-        self.handle_includes()
+        self.functions.get_includes()
         if self.action not in continue_list:
             exit(0)
         if self.action == "edit_on_error":
@@ -215,28 +215,6 @@ class Configuration():
             })
         self.functions.version_obj = self.versioning.get_version_obj()
         self.functions.set_statics()
-        
-
-    def handle_includes(self):
-        if not self.config_obj["global_elements"]["includes"]: return   
-
-        if not path.exists("/var/tessellation/nodectl/includes"):
-            self.log.logger.info(f'configuration -> no includes directory found; however, includes has been found as [{self.config_obj["global_elements"]["includes"]}] skipping includes.')     
-            return
-    
-        directory = '/var/tessellation/nodectl/includes/'
-        yaml_data = {}
-        for filename in listdir(directory):
-            if filename.endswith('.yaml'):
-                filepath = path.join(directory, filename)
-                with open(filepath, 'r') as file:
-                    yaml_data = yaml.safe_load(file)
-                    self.config_obj["global_elements"] = {
-                        **self.config_obj["global_elements"],
-                        **yaml_data,
-                    }
-
-        return
 
 
     def check_for_migration(self,check_only=False):

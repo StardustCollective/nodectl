@@ -4800,20 +4800,27 @@ class CLI():
 
     def cli_execute_starchiver(self,command_list):
         self.log.logger.info("cli -> execute_starchiver initiated.")
-        if not self.config_obj["global_elements"]["developer_mode"]:
-            command_list.append("help")
         self.functions.check_for_help(command_list,"execute_starchiver")
 
-        try:
+        def set_key_pairs():
             local_path = self.config_obj["global_elements"]["starchiver"]["local_dir"]+"starchiver"
             repo = self.config_obj["global_elements"]["starchiver"]["remote_uri"]
+            return local_path, repo
+
+        try:
+            local_path, repo = set_key_pairs()
+            raise Exception
         except:
-            self.error_messages.error_code_messages({
-                "error_code": "cli-4814",
-                "line_code": "input_error",
-                "extra": "unknown values",
-                "extra2": "make sure you have the proper include file in the includes directory [/var/tessellation/nodectl/includes/]."
-            })
+            self.functions.get_includes("remote_only")
+            try:
+                local_path, repo = set_key_pairs()
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-4814",
+                    "line_code": "input_error",
+                    "extra": "unknown values",
+                    "extra2": "make sure you have the proper include file in the includes directory [/var/tessellation/nodectl/includes/]."
+                })
 
         local_path = self.functions.cleaner(local_path,"double_slash")
 

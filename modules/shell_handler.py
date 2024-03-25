@@ -125,6 +125,7 @@ class ShellHandler:
 
         self.handle_versioning()
         self.check_valid_command()
+        self.check_developer_only_commands()
 
         self.setup_profiles()
         self.check_auto_restart()
@@ -521,6 +522,16 @@ class ShellHandler:
             return False
         return True
     
+
+    def check_developer_only_commands(self):
+        if self.config_obj["global_elements"]["includes"]: return   
+
+        develop_commands = [
+            "execute_starchiver",
+        ]
+        if self.called_command not in develop_commands:
+            self.called_command = "help_only"
+
 
     def check_valid_command(self):
         cmds = pull_valid_command()

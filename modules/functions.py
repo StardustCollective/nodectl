@@ -33,7 +33,7 @@ from threading import Timer
 from platform import platform
 from urllib.parse import urlparse, urlunparse
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir, getcwd, remove, chdir
+from os import system, getenv, path, walk, environ, get_terminal_size, scandir, listdir, remove
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
@@ -75,7 +75,12 @@ class Functions():
 
         # constellation nodectl statics
         self.nodectl_profiles_url = f'https://github.com/StardustCollective/nodectl/tree/{self.node_nodectl_version_github}/predefined_configs'
+        # https://github.com/StardustCollective/nodectl/tree/nodectl_v2130/predefined_configs
         self.nodectl_profiles_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/{self.node_nodectl_version_github}/predefined_configs"
+        
+        # nodectl metagraph custom statics (main branch only) 
+        self.nodectl_includes_url = f'https://github.com/StardustCollective/nodectl/tree/main/predefined_configs/includes'
+        self.nodectl_includes_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs/includes"
         
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
@@ -125,6 +130,7 @@ class Functions():
         
         self.default_pro_rating_file = "ratings.csv"
         self.default_pro_rating_location = "/var/tessellation"
+        self.default_includes_path = '/var/tessellation/nodectl/includes/'
         self.default_tessellation_repo = "https://github.com/Constellation-Labs/tessellation"
         
         # constellation specific statics
@@ -836,23 +842,25 @@ class Functions():
 
     def get_from_api(self,url,utype,tolerance=5):
         
-        for n in range(1,tolerance):
+        for n in range(1,tolerance+2):
             try:
-                session = self.set_request_session()
+                session = self.set_request_session(True if utype == "json" else False)
                 session.timeout = 2
                 if utype == "json":
                     response = session.get(url, timeout=self.session_timeout).json()
                 else:
                     response = session.get(url, timeout=self.session_timeout)
             except Exception as e:
+                print(response.text)
                 self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
-                if n > tolerance-1:
+                if n > tolerance:
                     self.error_messages.error_code_messages({
                         "error_code": "fnt-876",
                         "line_code": "api_error",
                         "extra2": url,
                         "extra": None
                     })
+                sleep(.5)
             else:
                 if utype == "yaml_raw":
                     return response.content.decode("utf-8").replace("\n","").replace(" ","")
@@ -1206,6 +1214,49 @@ class Functions():
                 "extra": "encryption generation issue.",
             })
 
+
+    def get_includes(self,remote=False):
+
+        if remote:
+            include_params = self.get_from_api(
+                self.nodectl_includes_url,
+                "json",
+            )["payload"]["tree"]["items"]
+
+            # this code can be reused via pull_remote_profiles
+            for file in include_params:
+                if "includes" in file["path"] and "yaml" in file["name"]:
+                    f_url = f"{self.nodectl_includes_url_raw}/{file['name']}" 
+                    details = self.get_from_api(f_url,"yaml")
+                    main_key = list(details.keys())
+                    if len(main_key) > 1:
+                        self.log.logger.warn(f"config --> while handling includes, an invalid include file was loaded and ignored. [{main_key}]")
+                    else:
+                        self.config_obj["global_elements"][main_key[0]] = {}
+                        for key, value in details[main_key[0]].items():
+                            self.config_obj["global_elements"][main_key[0]][key] = value                       
+
+        if remote == "remote_only": return
+
+        if not path.exists(self.default_includes_path):
+            self.log.logger.info(f'configuration -> no includes directory found; however, includes has been found as [{self.config_obj["global_elements"]["includes"]}] skipping local includes.')     
+            return
+
+        self.log.logger.warn("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
+        yaml_data = {}
+        for filename in listdir(self.default_includes_path):
+            if filename.endswith('.yaml'):
+                filepath = path.join(self.default_includes_path, filename)
+                self.log.logger.info(f"config --> loading local [{filepath}] data into configuration.")
+                with open(filepath, 'r') as file:
+                    yaml_data = yaml.safe_load(file)
+                    self.config_obj["global_elements"] = {
+                        **self.config_obj["global_elements"],
+                        **yaml_data,
+                    }
+
+        return
+    
 
     # =============================
     # setter functions
