@@ -1347,7 +1347,8 @@ class Functions():
         except ValueError: pass
         
         for i_profile in self.profile_names:
-            self.environment_names.append(self.config_obj[i_profile]["environment"])
+            if self.config_obj[i_profile]["profile_enable"]:
+                self.environment_names.append(self.config_obj[i_profile]["environment"])
         self.environment_names = list(set(self.environment_names))
         
         self.ip_address = self.get_ext_ip()

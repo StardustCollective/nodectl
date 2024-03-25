@@ -102,7 +102,7 @@ class Migration():
             "config_obj": self.config_obj,
             "print_messages": True,
             "called_cmd": "migrator",
-            "force": True,
+            "force": False,
         })
         self.version_obj = versioning.get_version_obj()
 

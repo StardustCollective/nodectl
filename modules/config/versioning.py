@@ -4,6 +4,7 @@ from time import sleep
 from os import path, mkdir
 from requests import get
 from sys import exit
+from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy, deepcopy
 
@@ -132,11 +133,15 @@ class Versioning():
             self.log.logger.debug(f"versioning - called by [{self.logging_name}] - new versioning json object file creation.")
             self.write_version_obj_file()
         else:
-            elapsed = self.functions.get_date_time({
-                "action": "get_elapsed",
-                "old_time": version_obj["last_updated"],
-            })
-            if (self.force or elapsed.seconds > self.seconds) and (not self.auto_restart or self.service_uvos):
+            try:
+                elapsed = self.functions.get_date_time({
+                    "action": "get_elapsed",
+                    "old_time": version_obj["last_updated"],
+                })
+            except:
+                elapsed = {"seconds": -1}
+                elapsed = SimpleNamespace(**elapsed)
+            if (self.force or elapsed.seconds > self.seconds) and (not self.auto_restart or self.service_uvos) and self.called_cmd != "migrator":
                 self.log.logger.debug(f"versioning - called by [{self.logging_name}] - out of date - updating.")
                 self.write_version_obj_file()
             else:
