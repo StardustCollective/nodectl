@@ -6,7 +6,7 @@ from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, remove, chmod, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, remove, walk, chmod, stat, SEEK_END, SEEK_CUR
 from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
@@ -4796,6 +4796,92 @@ class CLI():
         p12 = P12Class({"functions": self.functions})  
         p12.solo = True    
         p12.create_individual_p12(self)  
+
+
+    def cli_remove_snapshots(self,command_list):
+        self.log.logger.info("cli -> remove_snapshots initiated.")
+
+        self.functions.print_header_title({
+            "line1": "Developer Mode - Remove snapshots",
+            "single_line": True,
+            "newline": "both",
+        })
+
+        self.functions.print_paragraphs([
+            [" WARNING ",0,"red,on_yellow"], ["This is an advanced feature and should not",0,"red"],
+            ["be used unless",0,"red"], ["ABSOLUTELY",0,"yellow","bold"],
+            ["necessary.  This feature can lead to unpredictable and undesired affects on your existing Node.",2,"red"],
+        ])
+
+        found = False
+        start = input(colored("  Please enter the start snapshot: ","cyan"))
+        end = input(colored("  Please enter the end snapshot: ","cyan"))
+        try:
+            start = int(start)
+            end = int(end)
+        except:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4823",
+                "line_code": "input_error",
+                "extra": "start or end snapshot integer",
+                "extra2": "Must enter a valid integer for start and end snapshots."
+            })
+
+        print("")
+
+        profile = command_list[command_list.index("-p")+1]
+        snapshot_dir = f"{self.functions.default_tessellation_dir}{profile}/data/incremental_snapshot"
+
+        self.build_node_class()
+        self.set_profile(profile)
+        self.cli_leave({
+            "secs": 30,
+            "reboot_flag": False,
+            "skip_msg": False,
+            "print_timer": True,
+            "threaded": False,
+        })
+        self.cli_stop({
+            "show_timer": False,
+            "static_nodeid": False,
+            "argv_list": []
+        })
+
+        inode_snaps_set = set()
+        for current_snap in range(start,end):
+            file_path = path.join(snapshot_dir, str(current_snap))
+            if path.exists(file_path):
+                inode_snaps_set.add(stat(file_path).st_ino)
+
+        for root, _, files in walk(snapshot_dir):
+            for snapshot in files:
+                snap_to_remove = path.join(root, snapshot)
+                if stat(snap_to_remove).st_ino in inode_snaps_set:
+                    self.functions.print_paragraphs([
+                        ["Removing",0,"red"], [str(snap_to_remove),1,"red","bold"],
+                    ])
+                    remove(snap_to_remove)
+
+        # for current_snap in range(start, end):
+        #     file_path = path.join(snapshot_dir, str(current_snap))
+        #     if path.exists(file_path):
+        #         found = True
+        #         inode = stat(file_path).st_ino
+        #         for root, dirs, files in walk(snapshot_dir):
+        #             for name in files:
+        #                 if stat(path.join(root, name)).st_ino == inode:
+        #                     snap_to_remove = path.join(root, name)
+        #                     print(colored(f"  Removing {snap_to_remove}","red"))
+        #                     remove(snap_to_remove)
+
+        if not found:
+            self.functions.print_paragraphs([
+                ["",1], [f"No snapshots found between [{start}] and [{end}]",1],
+            ])
+        self.functions.print_paragraphs([
+            [f"Removal operations complete, please restart profile [{profile}]",0],
+            ["to return your Node to operational status.",2],
+        ])
 
 
     def cli_execute_starchiver(self,command_list):

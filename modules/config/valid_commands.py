@@ -53,6 +53,7 @@ def pull_valid_command():
         "restart",
         "restart_only",
         "restore_config",
+        "remove_snapshots",
 
         "show_service_status",
         "show_service_log",

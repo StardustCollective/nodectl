@@ -318,6 +318,8 @@ class ShellHandler:
             return_value = self.cli.show_current_snapshot_proofs(self.argv)
         elif self.called_command == "check_connection" or self.called_command == "_cc":
             self.cli.check_connection(self.argv)
+        elif self.called_command == "remove_snapshots":
+            self.cli.cli_remove_snapshots(self.argv)
         elif self.called_command == "send_logs" or self.called_command == "_sl":
             self.cli.prepare_and_send_logs(self.argv)
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
@@ -474,7 +476,7 @@ class ShellHandler:
             "restart_only","slow_restart","-sr",
             "leave","start","stop","restart","join", 
             "nodectl_upgrade","upgrade_nodectl_testnet",
-            "execute_starchiver"
+            "execute_starchiver", "remove_snapshots",
         ]
             
         if self.called_command not in ["help","install"]:    
@@ -527,7 +529,7 @@ class ShellHandler:
         if self.config_obj["global_elements"]["includes"]: return   
 
         develop_commands = [
-            "execute_starchiver",
+            "execute_starchiver","remove_snapshots",
         ]
         if self.called_command not in develop_commands:
             self.called_command = "help_only"
@@ -594,7 +596,7 @@ class ShellHandler:
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf",
-            "execute_starchiver",
+            "execute_starchiver","remove_snapshots"
         ]  
 
         option_exceptions = [
