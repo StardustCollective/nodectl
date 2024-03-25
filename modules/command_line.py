@@ -5011,7 +5011,7 @@ class CLI():
         sleep(.5)
         data_path = f"/var/tessellation/{profile}/data/"
         cluster = self.config_obj[profile]["environment"]
-        bashCommand = f"{local_path} --data_path {data_path} --cluster {cluster}"
+        bashCommand = f"{local_path} --data-path {data_path} --cluster {cluster}"
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
         system(bashCommand)
 

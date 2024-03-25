@@ -832,6 +832,9 @@ class Upgrader():
         if path.exists("/var/tessellation/seed-list"):
             remove("/var/tessellation/seed-list")
 
+        if not path.exists("/var/tessellation/nodectl/includes"):
+            makedirs("/var/tessellation/nodectl/includes")
+            
         for profile in self.functions.profile_names:
             if path.exists(f"/var/tessellation/{profile}-seedlist"):
                 remove(f"/var/tessellation/{profile}-seedlist")

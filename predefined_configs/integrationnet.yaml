@@ -52,6 +52,7 @@ nodectl:
     profile_enable: True
     environment: integrationnet
     description: Constellation Network IntegrationNet Global layer0 gl0
+    node_type: validator
     meta_type: ml
     layer: 0
     collateral: default
