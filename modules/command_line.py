@@ -4893,22 +4893,31 @@ class CLI():
             repo = self.config_obj["global_elements"]["starchiver"]["remote_uri"]
             return local_path, repo
 
+        def send_error(extra2):
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4814",
+                "line_code": "input_error",
+                "extra": "unknown values",
+                "extra2": extra2
+            })
+
         try:
             local_path, repo = set_key_pairs()
-            raise Exception
         except:
             self.functions.get_includes("remote_only")
             try:
                 local_path, repo = set_key_pairs()
             except:
-                self.error_messages.error_code_messages({
-                    "error_code": "cli-4814",
-                    "line_code": "input_error",
-                    "extra": "unknown values",
-                    "extra2": "make sure you have the proper include file in the includes directory [/var/tessellation/nodectl/includes/]."
-                })
+                send_error("make sure you have the proper include file in the includes directory [/var/tessellation/nodectl/includes/].")
 
         local_path = self.functions.cleaner(local_path,"double_slash")
+
+        profile = command_list[command_list.index("-p")+1]
+        if profile not in self.functions.profile_names:
+            send_error(f"is this a valid profile? [{profile}]")
+
+        if "-d" in command_list and "-o" in command_list:
+            send_error("invalid options requested together")
 
         self.functions.print_header_title({
             "line1": "COMMUNITY STARCHIVER",
@@ -4985,8 +4994,6 @@ class CLI():
             "newline": True,
         })
 
-        profile = command_list[command_list.index("-p")+1]
-
         self.build_node_class()
         self.set_profile(profile)
         self.cli_leave({
@@ -5012,6 +5019,8 @@ class CLI():
         data_path = f"/var/tessellation/{profile}/data/"
         cluster = self.config_obj[profile]["environment"]
         bashCommand = f"{local_path} --data-path {data_path} --cluster {cluster}"
+        if "-d" in command_list: bashCommand += " -d"
+        if "-o" in command_list: bashCommand += " -o"
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
         system(bashCommand)
 
