@@ -799,10 +799,47 @@ class CLI():
 
     def show_cpu_memory(self, command_list):
         self.functions.check_for_help(command_list,"show_cpu_memory")
-            
+        
+        ave_cpu_list = []
+        ave_mem_list = []
+
         self.log.logger.info(f"show cpu and memory stats")
-        cpu_ok, memory_ok, details = self.functions.check_cpu_memory_thresholds()
-        details = SimpleNamespace(**details)
+        self.functions.print_cmd_status({
+            "text_start": "Gathering stats over",
+            "brackets": "5",
+            "text_end": "iterations",
+            "newline": True,
+        })
+        with ThreadPoolExecutor() as executor:
+            self.functions.status_dots = True
+            status_obj = {
+                "text_start": f"Calculating cpu/memory stats",
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor.submit(self.functions.print_cmd_status,status_obj)
+            for _ in range(0,5):
+                cpu_ok, memory_ok, details = self.functions.check_cpu_memory_thresholds()
+                details = SimpleNamespace(**details)
+                ave_cpu_list.append(details.thresholds['cpu_percent'])
+                ave_mem_list.append(details.thresholds['mem_percent'])
+                sleep(1)
+
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                **status_obj,
+                "status": "completed",
+                "status_color": "green",
+                "dotted_animation": False,
+                "newline": True,
+            })
+
+        details.thresholds['cpu_percent'] = round(sum(ave_cpu_list) / len(ave_cpu_list),2)
+        details.thresholds['mem_percent'] = round(sum(ave_mem_list) / len(ave_mem_list),2)
+        cpu_ok = True if details.thresholds['cpu_percent'] < details.thresholds['cpu_threshold'] else False
+        memory_ok = True if details.thresholds['mem_percent'] < details.thresholds['mem_threshold'] else False
 
         cpu_status = colored("PROBLEM","red")
         cpu_percent = colored(f"{details.thresholds['cpu_percent']}%","red")
@@ -845,7 +882,6 @@ class CLI():
             self.functions.print_show_output({
                 "header_elements" : header_elements
             })
-        print("")
 
 
     def show_peers(self,command_list):
