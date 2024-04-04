@@ -987,7 +987,7 @@ class Configuration():
     
 
     def setup_p12_aliases(self,profile):
-        argv_list = ["-p", profile,"--alias", "--return", "--config"]
+        argv_list = ["-p", profile, "--alias", "--return", "--config"]
         p12_alias = self.p12.show_p12_details(argv_list)
 
         if not p12_alias:

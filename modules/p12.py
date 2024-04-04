@@ -680,7 +680,6 @@ class P12Class():
                 "enc_data": True,
             })
             return p12_passwd 
-        
 
         if "--passphrase" in command_list:
             return_pass = True
@@ -692,6 +691,8 @@ class P12Class():
             p12_location = command_list[command_list.index("--file")+1]
         elif "-p" in command_list:
             profile = command_list[command_list.index("-p")+1]
+            if profile != "global_p12" and self.config_obj[profile]["global_p12_passphrase"]: 
+                profile = "global_p12"
             if profile == "global_p12":
                 p12_location = self.config_obj[profile]["key_store"]    
                 p12_passwd = self.config_obj[profile]["passphrase"]
@@ -730,7 +731,7 @@ class P12Class():
             p12_passwd = getpass(pass_ask,)
 
         if self.config_obj["global_p12"]["encryption"] and not self.solo:
-            p12_passwd = attempt_decrypt(profile,p12_passwd)
+            p12_passwd = attempt_decrypt(profile,p12_passwd.strip())
 
         for _ in range(0,2):
             bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"

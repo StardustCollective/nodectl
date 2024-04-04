@@ -508,6 +508,7 @@ class Functions():
         except: self.set_default_variables({"skip_error":True})
         
         service_names = self.profile_names + ["node_restart@","node_version_updater"]
+        service_names = self.clear_global_profiles(service_names)
         self.config_obj["global_elements"]["node_service_status"]["service_list"] = service_names
 
         for service in service_names:
@@ -2125,6 +2126,7 @@ class Functions():
         # as calculated below [future feature updates]
         # =====================================================
         cpu_mem_details = {}
+        self.profile_names = self.clear_global_profiles(self.profile_names)
         for profile in self.profile_names:
             find_pid_for = self.config_obj[profile]["jar_file"]
             cpu_mem_details = {
