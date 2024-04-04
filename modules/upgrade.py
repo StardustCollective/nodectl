@@ -83,6 +83,7 @@ class Upgrader():
         self.upgrade_log_archive()  # must be done after modify to accept new config dir
                 
         self.update_dependencies()      
+        self.p12_encrypt_passphrase()
         self.reload_node_service()
   
         if not self.nodectl_only:
@@ -92,7 +93,6 @@ class Upgrader():
                 self.check_for_api_readytojoin(profile)
                 self.re_join_tessellation(profile)
         
-        self.p12_encrypt_passphrase()
         self.complete_process()
     
     

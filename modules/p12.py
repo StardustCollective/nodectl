@@ -149,7 +149,7 @@ class P12Class():
                 })
                 if not confirm:
                     self.functions.print_paragraphs([
-                      [" WARNING ",0,"white,on_red"], ["exising p12 not removed",0,"red"],
+                      [" WARNING ",0,"white,on_red"], ["existing p12 not removed",0,"red"],
                       ["unexpected results may ensue...",1,"red"],  
                     ])
                 

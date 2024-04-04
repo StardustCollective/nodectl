@@ -3155,7 +3155,7 @@ class CLI():
         if on_boot:
             self.functions.print_paragraphs([
                 ["nodectl has detected that you have",0],["on_boot",0,"yellow"], ["enabled!",0],
-                ["Once your VPS completes it startup, the Node should automatically rejoin the network clsuters configured.",2],
+                ["Once your VPS completes it startup, the Node should automatically rejoin the network clusters configured.",2],
             ])
         else:
             self.functions.print_paragraphs([
@@ -5071,7 +5071,7 @@ class CLI():
                 [" WARNING ",0,"red,on_yellow"], 
                 ["This will allow temporary access to your VPS and Node by an external entity",0,"red","bold"],
                 ["In order to administer your Node this remote access will have",0,"red"],
-                ["sudo",0,"yellow"], ["rights to your VPS which will offer unfeathered access to your Node",0,"red","bold"],
+                ["sudo",0,"yellow"], ["rights to your VPS which will offer unfettered access to your Node",0,"red","bold"],
                 ["including:",1,"red","bold"],
                 ["  - access to root",1],
                 ["  - access to your p12 hot wallet",1],

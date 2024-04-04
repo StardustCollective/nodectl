@@ -403,7 +403,7 @@ class Error_codes():
                     ["P12",0,"yellow","bold"], ["passphrase",0,"red","bold,underline"], ["was incorrectly entered.",2,"red","bold"],
                     ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], 
                     ["the passphrase entered in the configuration or at the CLI was correct.",2,"red","bold"],
-                    ["To reset passprahase in the configuration:",1,"yellow"],
+                    ["To reset passphrase in the configuration:",1,"yellow"],
                     ["sudo nodectl configure",2],
                 ])
             else:  
@@ -437,8 +437,8 @@ class Error_codes():
         elif var.line_code == "unknown_error":
             self.log.logger.critical(f"during execution of nodectl an unknown error was encountered | error [{var.extra}]")
             self.functions.print_paragraphs([
-                ["An unknown error has occured?  Please try the previous commmand request again.  If you continue to encounter",0,"red","bold"],
-                ["this error message, please join the Constellation Offical Discord channel for additional help.",0,"red","bold"],
+                ["An unknown error has occurred?  Please try the previous command request again.  If you continue to encounter",0,"red","bold"],
+                ["this error message, please join the Constellation Official Discord channel for additional help.",0,"red","bold"],
             ])            
                         
         elif var.line_code == "possible404":
@@ -596,9 +596,9 @@ class Error_codes():
                         
             
         elif var.line_code == "dependency":
-            self.log.logger.critical(f"an error processig a command outside the realm of nodectl was encounted [{var.extra2}], exited program.")
+            self.log.logger.critical(f"an error processing a command outside the realm of nodectl was encountered [{var.extra2}], exited program.")
             self.functions.print_paragraphs([
-                ["An error has occured while attempting to process a distribution system command.",2,"red","bold"],
+                ["An error has occurred while attempting to process a distribution system command.",2,"red","bold"],
                 [" Missing Component: ",0,"blue,on_yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
                 ["Try installing the dependency and try again",1],
@@ -635,7 +635,7 @@ class Error_codes():
             self.log.logger.warn(f"invalid profile configuration requested [{var.extra}], exited program. remote configuration did not exist or could not be processed")
             self.functions.print_paragraphs([
                 ["nodectl unsuccessfully attempted to import data from a configuration file.",0,"red","bold"],
-                ["The remote configruation file does not exist, may be spelled wrong, incorrectly formatted, or incorrectly entered.",2,"red","bold"],
+                ["The remote configuration file does not exist, may be spelled wrong, incorrectly formatted, or incorrectly entered.",2,"red","bold"],
 
                 ["If you feel this is an invalid error, please contact a System Administrator for assistance:",1,"red","bold"],["sudo nodectl configure",2],
                 ["Configuration Request Name:",0], [var.extra,2,"yellow","bold"],
@@ -728,7 +728,7 @@ class Error_codes():
                     ["properly.",2,"red"],
                     
                     ["Please try the installation again",2,"magenta"],
-                    ["If the error persists, please seek help in the offical Constellation Discord server.",2,"yellow"], 
+                    ["If the error persists, please seek help in the official Constellation Discord server.",2,"yellow"], 
                 ])
             if var.extra == "format" or var.extra2 == "existence":
                 self.functions.print_paragraphs([
