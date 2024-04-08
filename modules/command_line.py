@@ -994,9 +994,14 @@ class CLI():
             if not is_basic:
                 nodeid = self.cli_grab_id({
                     "dag_addr_only": True,
+                    "command": "peers",
                     "argv_list": ["-p",profile,"-t",peer,"--port",public_port,"-l"]
                 })
-                wallet = self.cli_nodeid2dag([nodeid, "return_only"])
+                if isinstance(nodeid,list):
+                    nodeid = "error"
+                    wallet = "error"
+                else:
+                    wallet = self.cli_nodeid2dag([nodeid, "return_only"])
                 
             if do_more and item % more_break == 0 and item > 0:
                 more = self.functions.print_any_key({
@@ -1030,8 +1035,8 @@ class CLI():
                 status_results = f"  {print_peer: <{spacing}}"                        
             else:
                 spacing = 23
-                nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
-                wallet = f"{wallet[0:8]}....{wallet[-8:]}"
+                if nodeid != "error": nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
+                if nodeid != "error": wallet = f"{wallet[0:8]}....{wallet[-8:]}"
                 status_results = f"  {print_peer: <{spacing}}"                      
                 status_results += f"{nodeid: <{spacing}}"                      
                 status_results += f"{wallet: <{spacing}}"        
@@ -3765,7 +3770,8 @@ class CLI():
         wallet_only = True if "-w" in argv_list else False
         title = "NODE ID" if command == "nodeid" else "DAG ADDRESS"
         file, create_csv = False, False
-        
+        false_lookups = []
+
         self.functions.check_for_help(argv_list,command)
 
         # --file check must be checked first
@@ -3838,7 +3844,7 @@ class CLI():
                     "color": "magenta",
                 })                     
                 if outside_node_request:
-                    for n in range(0,4):
+                    for n in range(0,1):
                         cluster_ips = self.functions.get_cluster_info_list({
                             "ip_address": ip_address,
                             "port": api_port,
@@ -3850,7 +3856,9 @@ class CLI():
                         try:
                             cluster_ips.pop()   
                         except:
-                            if n > 2:
+                            if ip_address not in false_lookups:
+                                false_lookups.append(ip_address)
+                            if n > 2 and command != "peers":
                                 self.error_messages.error_code_messages({
                                     "error_code": "cmd-2484",
                                     "line_code": "node_id_issue",
@@ -3858,7 +3866,12 @@ class CLI():
                                 })
                             sleep(1)
                         else:
+                            if ip_address in false_lookups:
+                                false_lookups.remove(ip_address)
                             break
+
+                    if command == "peers" and len(false_lookups) > 0:
+                        return false_lookups
                             
                     for desired_ip in cluster_ips:
                         if desired_ip["id"] == nodeid:     
