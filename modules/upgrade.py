@@ -13,7 +13,6 @@ from .command_line import CLI
 from .troubleshoot.logger import Logging
 from .config.config import Configuration
 from .config.configurator import Configurator
-from .config.auto_complete import *
 from .config.valid_commands import pull_valid_command
 
 class Upgrader():
