@@ -402,7 +402,7 @@ class AutoRestart():
                     continue_checking = False
                     break
             
-        if continue_checking:  
+        if continue_checking:                                        
             stuck_in_state_list = ["Observing","WaitingForDownload","WaitingForReady"]  
             if session_list["session0"] > session_list["session1"] and session_list['session1'] > 0:
                 self.profile_states[self.node_service.profile]["match"] = False

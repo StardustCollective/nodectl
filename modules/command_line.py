@@ -1357,6 +1357,10 @@ class CLI():
                 ["METAGRAPH CUSTOM VALUES",1,"blue","bold"],
             ])
 
+            self.functions.print_paragraphs([
+                ["developer mode:",0,"cyan","bold"], ["enabled:",0], [str(self.config_obj['global_elements']['developer_mode']),1,"yellow"],
+            ])
+
             for n, args_envs in enumerate(["custom_args","custom_env_vars"]):
                     print_enabled = True
                     a_type = "arguments" if n < 1 else "environment variables"
@@ -4423,8 +4427,9 @@ class CLI():
                 ["The following command will accomplish this for you.",2,"yellow"],
             ])
             self.build_node_class()
-
+            print("")
             if interactive:
+                
                 self.functions.confirm_action({
                     "prompt": "Reboot the VPS now?",
                     "yes_no_default": "n",
