@@ -1,5 +1,6 @@
+import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from os import system, path, makedirs, remove, environ
+from os import system, path, makedirs, remove, environ, chmod
 from time import sleep
 from termcolor import colored, cprint
 from re import match
@@ -12,6 +13,8 @@ from .command_line import CLI
 from .troubleshoot.logger import Logging
 from .config.config import Configuration
 from .config.configurator import Configurator
+from .config.auto_complete import *
+from .config.valid_commands import pull_valid_command
 
 class Upgrader():
 
@@ -888,6 +891,8 @@ class Upgrader():
             "newline": True,
         })
 
+        self.handle_auto_complete()
+
              
     def service_file_manipulation(self):
         # version older than 0.15.0 only
@@ -1254,7 +1259,10 @@ class Upgrader():
         shell.handle_versioning()
         
         self.log.logger.info("Upgrade completed!")
-        cprint("  Upgrade has completed\n","green",attrs=["bold"])
+        self.functions.print_paragraphs([
+            ["Upgrade has completed!",2,"green","bold"],
+            ["Optionally, please log out and back in in order to update your environment to teach nodectl about any new auto_completion tasks.",2,"yellow"]
+        ])
         
         
     def print_warning_for_old_code(self):
@@ -1421,6 +1429,58 @@ class Upgrader():
             self.configurator.c.config_obj = deepcopy(self.config_obj)
             self.configurator.prepare_configuration("edit_config")
             self.configurator.passphrase_enable_disable_encryption()
+
+
+    def handle_auto_complete(self):
+        self.log.logger.info("upgrader -> updating/creating auto_complete script")
+
+        progress = {
+            "text_start": "Applying auto_complete updates",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        }
+        self.functions.print_cmd_status({
+            **progress,
+            "delay": .8,
+        })
+
+        auto_path = "/etc/bash_completion.d/nodectl_auto_complete.sh"
+        if not path.exists(path.split(auto_path)[0]):
+            self.error_messages.error_code_messages({
+                "error_code": "upg-1431",
+                "line_code": "system_error",
+                "extra": "possible invalid Linux distro",
+                "extra2": "nodectl requires bash 4 to be installed.",
+            })
+        auto_complete_file = self.cli.node_service.create_files({
+            "file": "auto_complete",
+        })
+        valid_commands = pull_valid_command()
+        valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
+
+        install_options = "--normal --quick-install --user --p12-destination-path --user-password " 
+        install_options += "--p12-passphrase --p12-migration-path --p12-alias"
+        
+        upgrade_options = "--ni --nodectl_only --pass -v -f"
+
+        auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
+        auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)
+        auto_complete_file = auto_complete_file.replace("nodegarageupgradeoptions",upgrade_options)
+        auto_complete_file = auto_complete_file.replace('\\n', '\n')
+
+        with open(auto_path,"w") as auto_complete:
+            auto_complete.write(auto_complete_file)
+
+        chmod(auto_path,0o644)
+
+        self.functions.print_cmd_status({
+            **progress,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
 
 
 if __name__ == "__main__":

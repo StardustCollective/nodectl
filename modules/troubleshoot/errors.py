@@ -707,7 +707,12 @@ class Error_codes():
                 ["nodectl attempted to issue an invalid, or non-executable command.",0,"red"],
                 ["This could be due to a customized configuration on your Debian Linux distro or other non-default setup?",2,"red"],
             ])
-            
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    ["hint:",0,"red"],
+                    [extra2,2,"yellow"],
+                ])  
+
         elif var.line_code == "config_error":
             self.log.logger.critical(f"unable to load configuration file, file corrupted, some values invalid, or improperly formatted [cn-config.yaml]")
             if var.extra == "existence":

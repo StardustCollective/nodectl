@@ -1098,6 +1098,93 @@ read -e -p "  ${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
 exit 0
 '''
 
+        if var.file == "auto_complete":
+            cur_file = '''_nodectl_complete()
+{
+    local cur prev words cword opts
+    _get_comp_words_by_ref -n : cur prev words cword
+
+    # Only proceed if 'nodectl' is the command or follows 'sudo'
+    if [[ ! " ${words[@]} " =~ " nodectl " ]]; then
+        return 0
+    fi
+
+    # Commands for 'nodectl'
+    local commands="nodegaragelocalcommands"
+
+    # Options for each command
+    local install_opts="nodegarageinstalloptions"
+    local upgrade_opts="nodegarageupgradeoptions"
+
+    # Determine the current command
+    local current_command=""
+    for word in ${words[@]}; do
+        if [[ " ${commands} " == *" ${word} "* ]]; then
+            current_command=${word}
+            break
+        fi
+    done
+
+    case "${current_command}" in
+        install)
+            case "${prev}" in
+                --user)
+                    COMPREPLY=($(compgen -W "<user_name>" -- ${cur}))
+                    return 0
+                    ;;
+                --p12-destination-path)
+                    COMPREPLY=($(compgen -W "<path_to_where_p12_lives>" -- ${cur}))
+                    return 0
+                    ;;
+                --user-password)
+                    COMPREPLY=($(compgen -W "<user_password>" -- ${cur}))
+                    return 0
+                    ;;
+                --p12-passphrase)
+                    COMPREPLY=($(compgen -W "<p12_passphrase>" -- ${cur}))
+                    return 0
+                    ;;
+                --p12-migration-path)
+                    COMPREPLY=($(compgen -W "<path_to_file_p12_being_migrated>" -- ${cur}))
+                    return 0
+                    ;;
+                --p12-alias)
+                    COMPREPLY=($(compgen -W "<p12_alias_name>" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${install_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        upgrade)
+            case "${prev}" in
+                --pass)
+                    COMPREPLY=($(compgen -W "<password>" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${upgrade_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+    esac
+
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=($(compgen -W "${upgrade_opts} ${configure_opts}" -- ${cur}))
+        return 0
+    fi
+
+    if [[ $cword -eq 2 ]]; then
+        COMPREPLY=($(compgen -W "${commands}" -- ${cur}))
+        return 0
+    fi
+}
+
+complete -F _nodectl_complete sudo
+'''
         return cur_file+cur_file2
     
     

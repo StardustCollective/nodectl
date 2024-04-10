@@ -17,7 +17,7 @@ from .config.configurator import Configurator
 from .config.versioning import Versioning
 from .quick_install import QuickInstaller
 from .node_service import Node
-
+from .config.valid_commands import pull_valid_command
 class Installer():
 
     def __init__(self,parent,argv_list):
@@ -408,6 +408,56 @@ class Installer():
             return
 
 
+    def handle_auto_complete(self):
+        self.log.logger.info("installer -> creating auto_complete script")
+
+        if not self.options.quick_install: 
+            progress = {
+                "text_start": "Creating auto_complete updates",
+                "status": "running",
+                "status_color": "yellow",
+                "newline": False,
+            }
+            self.functions.print_cmd_status({
+                **progress,
+                "delay": .8,
+            })
+
+        auto_path = "/etc/bash_completion.d/nodectl_auto_complete.sh"
+        if not path.exists(path.split(auto_path)[0]):
+            self.log.logger.warn("This distro may not be compatible with auto_complete, skipping.")
+            return
+        
+        auto_complete_file = self.cli.node_service.create_files({
+            "file": "auto_complete",
+        })
+        valid_commands = pull_valid_command()
+        valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
+
+        install_options = "--normal --quick-install --user --p12-destination-path --user-password " 
+        install_options += "--p12-passphrase --p12-migration-path --p12-alias"
+        
+        upgrade_options = "--ni --nodectl_only --pass -v -f"
+
+        auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
+        auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)
+        auto_complete_file = auto_complete_file.replace("nodegarageupgradeoptions",upgrade_options)
+        auto_complete_file = auto_complete_file.replace('\\n', '\n')
+
+        with open(auto_path,"w") as auto_complete:
+            auto_complete.write(auto_complete_file)
+
+        chmod(auto_path,0o644)
+
+        if not self.options.quick_install: 
+            self.functions.print_cmd_status({
+                **progress,
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+            })
+
+
     def populate_node_service(self):
         self.log.logger.info("installer -> populating node services module")
         if not self.options.quick_install:                
@@ -470,6 +520,7 @@ class Installer():
             "newline": True
         })
     
+
     # Distribution
     # =====================
 
@@ -1375,7 +1426,7 @@ class Installer():
             "newline": True,
         })  
 
-
+    
     def complete_install(self):
         self.log.logger.info("Installation complete !!!")
         self.print_main_title()
