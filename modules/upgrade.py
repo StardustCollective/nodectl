@@ -346,7 +346,7 @@ class Upgrader():
                 if self.functions.get_size("/var/tessellation/cl-wallet.jar","single") < 1:
                     core_file_error = True
                 if core_file_error:
-                    self.error_messages({
+                    self.error_messages.error_code_messages({
                         "error_code": "upg-345",
                         "line_code": "file_not_found",
                         "extra": "/var/tessellation/cl-wallet.jar",
