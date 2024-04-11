@@ -2,6 +2,8 @@ def pull_valid_command():
     valid_commands = [
         "auto_restart",
 
+        "backup_config",
+        
         "check_versions",
         "change_ssh_port",
         "check_seedlist",

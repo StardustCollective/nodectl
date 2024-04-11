@@ -6,7 +6,7 @@ from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, remove, walk, chmod, stat, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, remove, walk, chmod, stat, makedirs, SEEK_END, SEEK_CUR
 from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
@@ -50,7 +50,8 @@ class CLI():
         self.skip_build = False
         self.check_versions_called = False
         self.invalid_version = False
-                
+        self.caller = "cli"
+
         self.current_try = 0
         self.max_try = 2
         
@@ -5347,6 +5348,53 @@ class CLI():
         if "scrap" in command_list: self.send = send
         else:
             send.prepare_and_send_logs()
+
+
+    def backup_config(self,command_list):
+        self.log.logger.info("command_line --> backup configuration")
+        self.functions.check_for_help(command_list,"backup_config")
+
+        progress = {
+            "text_start": "Backing up configuration",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        }
+        self.functions.print_cmd_status({
+            **progress
+        })
+
+        backup_dir = self.config_obj[self.functions.default_profile]["directory_backups"]
+        config_file_path = "/var/tessellation/nodectl/cn-config.yaml"
+
+        c_time = self.functions.get_date_time({"action":"datetime"})
+        if not path.isdir(backup_dir):
+            makedirs(backup_dir)
+        
+        dest = f"{backup_dir}backup_cn-config_{c_time}"
+        system(f"cp {config_file_path} {dest} > /dev/null 2>&1")
+
+        self.functions.print_cmd_status({
+            **progress,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })        
+
+        title1 = "     Backup Date:"
+        title2 = " Backup Location:"
+        if self.caller == "upgrader":
+            title1 = "Backup Date:"
+            title2 = "Backup Location:"
+        else:
+            print()
+
+        self.functions.print_paragraphs([
+            [title1,0], [c_time,1,"yellow"],
+            [title2,0], [backup_dir,1,"yellow"],
+            ["Backup File Name:",0], [f"backup_cn-config_{c_time}",1,"yellow"],
+        ])
+
 
     # ==========================================
     # upgrade command

@@ -58,6 +58,7 @@ class Upgrader():
         self.cli.caller = "upgrader"
         self.cli.command = "upgrade"
         self.cli.profile_name = self.functions.profile_names
+        self.cli.backup_config([])
                 
                 
     def upgrade_process(self):
