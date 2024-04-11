@@ -239,7 +239,6 @@ class Versioning():
                             info_list = ["metagraphVersion"]
                             api_endpoint = "/metagraph/info"
                             metagraph = True
-
                         
                     if not last_environment or last_environment != self.config_obj[profile]["environment"]:
                         version_obj = {

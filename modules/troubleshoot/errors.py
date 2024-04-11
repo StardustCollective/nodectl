@@ -751,6 +751,11 @@ class Error_codes():
                     ["Use command:",0,"yellow"], ["sudo nodectl upgrade",1],
                     ["Otherwise, seek help in the Constellation Network official Discord or reinstall nodectl.",2,"magenta"],
                 ])
+                if var.extra2 != "existence":
+                    self.functions.print_paragraphs([
+                        ["Hint:",0], [var.extra2,1,"yellow"],
+                    ])
+
             if var.extra == "configurator":
                 self.log.logger.error(f"configurator error found [{extra2}]")
                 self.functions.print_paragraphs([

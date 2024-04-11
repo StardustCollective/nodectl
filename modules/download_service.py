@@ -67,7 +67,7 @@ class Download():
 
         if not self.environment:
             self.error_messages.error_code_messages({
-                "error_code": "ns-95",
+                "error_code": "ds-95",
                 "line_code": "environment_error",
                 "extra": "binary downloads",
             })
@@ -126,8 +126,16 @@ class Download():
             file_pos += n
 
             if self.config_obj[profile]["is_jar_static"]: 
-                download_version = self.config_obj[profile]["jar_version"]
-                uri = self.config_obj[profile]["jar_repo"]
+                try:
+                    download_version = self.config_obj[profile]["jar_version"]
+                    uri = self.config_obj[profile]["jar_repo"]
+                except:
+                    self.error_messages.error_code_messages({
+                        "error_code": "ds-134",
+                        "line_code": "config_error",
+                        "extra": "format",
+                        "extra2": "static jar value issue."
+                    })
 
             elif "-v" in self.argv_list: 
                 download_version = self.argv_list(self.argv_list.index("-v")+1)
