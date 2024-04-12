@@ -109,12 +109,10 @@ class Status():
  
             
     def check_dev_device(self):
-        cmds = ["dev/vda1","/dev/xvda1","dev/sda1","dev/root","/dev/nvme0n1p1"]
-        for cmd in cmds:
-            device = popen(f"df -h | grep '{cmd} ' | awk "+"'{print $5\" of \"$3}'")
-            device = device.read()
-            if device:
-                return device
+        cmd = 'df -h | awk \'$NF=="/"{print $5 " of " $2}\''
+        device = popen(cmd)
+        device = device.read()
+        if device: return device
         return "unknown"
       
         

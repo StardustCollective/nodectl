@@ -965,9 +965,9 @@ class Configurator():
             })
         
                         
-    # # =====================================================
-    # # MANUAL BUILD METHODS
-    # # =====================================================
+    # =====================================================
+    # MANUAL BUILD METHODS
+    # =====================================================
     
     def manual_section_header(self, profile, header):
         self.c.functions.print_header_title(self.header_title)
@@ -1066,6 +1066,15 @@ class Configurator():
 
     def manual_log_level(self):
         profile = "global_elements"
+
+        self.header_title = {
+            "line1": "EDIT GLOBAL SECTION",
+            "line2": "Log Details",
+            "show_titles": False,
+            "clear": True,
+            "newline": "both",
+        }
+
         self.manual_section_header(profile,"SET LOGGING LEVEL")
         
         if self.detailed:
@@ -2284,9 +2293,9 @@ class Configurator():
         return
 
 
-#     # =====================================================
-#     # COMMON BUILD METHODS  
-#     # =====================================================
+    # =====================================================
+    # COMMON BUILD METHODS  
+    # =====================================================
 
       
     def ask_confirm_questions(self, command_obj):
@@ -2373,9 +2382,9 @@ class Configurator():
             if user_confirm:
                 return value_dict
             
-#     # =====================================================
-#     # EDIT CONFIG METHODS  
-#     # =====================================================
+    # =====================================================
+    # EDIT CONFIG METHODS  
+    # =====================================================
     
     def edit_config(self):
         # self.action = "edit"
@@ -2420,10 +2429,10 @@ class Configurator():
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
                         # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
-                        ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
-                        ["I",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Cluster",0,"magenta"],["T",0,"magenta","underline"], ["oken Identifier",-1,"magenta"], ["",1],
+                        ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Configuration",-1,"magenta"], ["",1],
+                        ["I",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Cluster",0,"magenta"],["Token",0,"magenta"], ["I",0,"magenta","underline"], ["dentifier",-1,"magenta"],["",1],
                         ["T",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Cluster",0,"magenta"],["T",0,"magenta","underline"], ["oken Coin Id",-1,"magenta"], ["",1],
-                        ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
+                        ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Configuration",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
                         ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
                         ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
@@ -2467,12 +2476,9 @@ class Configurator():
                 self.quit_configurator(False)
             elif option == "r": self.edit_auto_restart()
             elif option == "p": self.passphrase_enable_disable_encryption()
-            elif option == "l": 
-                self.edit_append_profile_global("log_level")
-            elif option == "i": 
-                self.manual_define_token_identifier("global_elements")
-            elif option == "t": 
-                self.manual_define_token_coin("global_elements")
+            elif option == "l": self.manual_log_level()
+            elif option == "i": self.manual_define_token_identifier("global_elements")
+            elif option == "t": self.manual_define_token_coin("global_elements")
             elif option == "m":
                 self.action = False
                 self.setup()
@@ -3010,10 +3016,6 @@ class Configurator():
             })
 
             self.config_obj_apply["global_p12"] = self.config_obj["global_p12"]
-
-        if s_type == "log_level": 
-            self.manual_log_level()
-            return
                     
         self.apply_vars_to_config()    
 
@@ -3023,7 +3025,7 @@ class Configurator():
                 "action": "Create",
                 "rebuild": True,
             })   
-                 
+
     
     def delete_profile(self,profile):
         self.c.functions.print_header_title({
