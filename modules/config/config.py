@@ -1454,7 +1454,9 @@ class Configuration():
                             if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
                                 skip_validation = True
                             if "passphrase" in key and test_value != "none" and req_type != "bool":
-                                if "'" in test_value or '"' in test_value:
+                                if test_value == None:
+                                    title = "invalid passphrase format entered as blank"
+                                elif "'" in test_value or '"' in test_value:
                                     title = "invalid single and or double quotes in passphrase"
                             if (key == "gl0_link_port" or key == "ml0_link_port") and test_value == "self":
                                 validated = True
