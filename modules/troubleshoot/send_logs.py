@@ -1,7 +1,7 @@
 import json
 
 from re import match
-from os import system, path, mkdir, listdir
+from os import system, path, mkdir, listdir, popen
 from sys import exit
 from termcolor import colored, cprint
 from hurry.filesize import size, alternative
@@ -32,6 +32,7 @@ class Send():
             self.nodectl_logs = True
             self.profile = list(self.config_obj.keys())[0]
         
+
     def prepare_and_send_logs(self):
         changed_ip = self.ip_address.replace(".","-")
         date = self.functions.get_date_time({"action":"datetime"})
@@ -243,19 +244,25 @@ class Send():
 
         if confirm:
             self.functions.print_paragraphs([
-                ["",1], ["Depending on the size of the tarball, this may take some time to upload,",0],
-                ["please be patient.",2,"red"]
+                ["",1], ["Depending on the size of the tarball, this may take some time to upload",1],
+                ["please be patient...",2,"red"]
             ])
             
-            cmd = f"sudo curl --upload-file {tar_dest}{tar_file_name} https://transfer.sh/{tar_file_name}"
-            cmd_results = self.functions.process_command({
-                "bashCommand": cmd,
-                "proc_action": "poll"
-            })
+            cmd = f'sudo curl -F "file=@{tar_dest}{tar_file_name}" https://0x0.st'
+            cmd_results = popen(cmd)
+            cmd_results = cmd_results.read()
+
+            # transfer.sh is unstable...
+            # cmd = f"sudo curl --upload-file {tar_dest}{tar_file_name} https://transfer.sh/{tar_file_name}"
+            # cmd_results = self.functions.process_command({
+            #     "bashCommand": cmd,
+            #     "proc_action": "poll"
+            # })
+
             self.functions.print_paragraphs([
-                ["log tarball transferred to developers",1,"magenta"],
+                ["",1], ["log tarball transferred to developers",1,"magenta"],
                 ["Please provide the following link to the developers for download and analysis.",1,"white","bold"],
-                [cmd_results,2],
+                [cmd_results,1],
             ])
 
         # clean up

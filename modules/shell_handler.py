@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
-from os import geteuid, getgid, environ, system, walk, remove, path
+from os import geteuid, getgid, environ, system, walk, remove, path, makedirs
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -824,6 +824,7 @@ class ShellHandler:
             "upper": False,
         })   
         
+        short = True if "-s" in command_list else False
         version_obj = Versioning({"called_cmd": self.called_command})
         node_arch = self.functions.get_arch()
         nodectl_version_github = version_obj.version_obj["nodectl_github_version"]
@@ -886,30 +887,33 @@ class ShellHandler:
                     "newline": True
                 })   
         
-        for n, cmd in enumerate(cmds[:-1]):   
-            if cmd[2] == "PUBLIC KEY": 
-                extra1, extra2 = "-----BEGIN PUBLIC KEY-----", "-----END PUBLIC KEY-----" 
-                extra1s, main = 1,1
-            else:
-                extra1, extra2 = "", "" 
-                extra1s, main = 0,-1   
-                            
-            self.functions.print_paragraphs([
-                ["",1],[cmd[2],1,"blue","bold"],
-                ["=","half","blue","bold"],
-                [extra1,extra1s,"yellow"],
-                [outputs[n],main,"yellow"],
-                [extra2,2,"yellow"],
-                ["To further secure that you have the correct binary that was authenticated with a matching",0,"magenta"],
-                [f"{cmd[2]} found in yellow [above].",0,"yellow"],["Please open the following",0,"magenta"],["url",0,"yellow"], 
-                ["in our local browser to compare to the authentic repository via",0,"magenta"], ["https",0,"green","bold"],
-                ["secure hypertext transport protocol.",2,"magenta"],
-                [urls[n],2,"blue","bold"],
-            ])
+        if not short:
+            for n, cmd in enumerate(cmds[:-1]):   
+                if cmd[2] == "PUBLIC KEY": 
+                    extra1, extra2 = "-----BEGIN PUBLIC KEY-----", "-----END PUBLIC KEY-----" 
+                    extra1s, main = 1,1
+                else:
+                    extra1, extra2 = "", "" 
+                    extra1s, main = 0,-1   
+                                
+                self.functions.print_paragraphs([
+                    ["",1],[cmd[2],1,"blue","bold"],
+                    ["=","half","blue","bold"],
+                    [extra1,extra1s,"yellow"],
+                    [outputs[n],main,"yellow"],
+                    [extra2,2,"yellow"],
+                    ["To further secure that you have the correct binary that was authenticated with a matching",0,"magenta"],
+                    [f"{cmd[2]} found in yellow [above].",0,"yellow"],["Please open the following",0,"magenta"],["url",0,"yellow"], 
+                    ["in our local browser to compare to the authentic repository via",0,"magenta"], ["https",0,"green","bold"],
+                    ["secure hypertext transport protocol.",2,"magenta"],
+                    [urls[n],2,"blue","bold"],
+                ])
 
         self.functions.print_cmd_status({
             "text_start": "verifying signature match",
-            "newline": True
+            "newline": False,
+            "status": "verifying",
+            "status_color": "yellow",
         })   
         
         self.log.logger.info("copy binary nodectl to nodectl dir for verification via rename")
@@ -940,7 +944,14 @@ class ShellHandler:
             self.log.logger.critical(f"digital signature did NOT verified successfully | {result_sig}")
         self.log.logger.info(f"digital signature - local file hash | {result_nodectl_current_hash}")
         self.log.logger.info(f"digital signature - remote file hash | {outputs[1]}")
-        
+
+        self.functions.print_cmd_status({
+            "text_start": "verifying signature match",
+            "newline": True,
+            "status": "complete",
+            "status_color": "green" if bg == "on_green" else "red",
+        })   
+
         self.functions.print_paragraphs([
             ["",1],["VERIFICATION RESULT",1,"blue","bold"],
             [f" {verb} ",1,f"blue,{bg}","bold"],
@@ -1028,7 +1039,10 @@ class ShellHandler:
                 try:
                     format_replace = value.split(".")[1].split("backup")[0]
                 except:
-                    continue
+                    try:
+                        format_replace = value.split("_")[-1]
+                    except:
+                        continue
                 display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
                 display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
                 order+=1
@@ -1091,13 +1105,23 @@ class ShellHandler:
         }):
             restore_file = restore_dict[str(option)]
             self.log.logger.warn(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
-            new_file = datetime.utcnow().strftime("cn-config.%Y-%m-%d-%H:%M:%SZbackup.yaml")
-            self.log.logger.info(f"restore_config is backing up current cn-config.yaml as [{new_file}]")
+            try:
+                backup_dir = self.config_obj[self.functions.default_profile]["directory_backups"]
+            except:
+                backup_dir = "/var/tessellation/backups/"
+            
+            if backup_dir[-1] != "/": backup_dir = backup_dir+"/"
+            c_time = self.functions.get_date_time({"action":"datetime"})
+            if not path.isdir(backup_dir):
+                 makedirs(backup_dir)
+            secondary_backup = f"{backup_dir}backup_cn-config_{c_time}"
+
+            self.log.logger.info(f"restore_config is backing up current in place cn-config.yaml to [{secondary_backup}]")
             self.functions.print_cmd_status({
                 "text_start": "backing up current config",
                 "status": "running",
             })
-            system(f"cp /var/tessellation/nodectl/cn-config.yaml {backup_dir}{new_file} > /dev/null 2>&1")
+            system(f"cp /var/tessellation/nodectl/cn-config.yaml {secondary_backup} > /dev/null 2>&1")
             time.sleep(.8)
             self.functions.print_cmd_status({
                 "text_start": "backing up current config",

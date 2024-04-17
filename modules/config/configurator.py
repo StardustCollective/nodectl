@@ -3515,12 +3515,12 @@ class Configurator():
                     ["linked to",0], ["nodectl",0,"yellow"], ["functionality.",2],
                     ["In the unlikely event the encrypted hash stops working [for whatever reason],",0],
                     ["you can simply",0],["disable",0,"red"], ["this functionality,",0],
-                    ["update/change your passphrase, and, upon completion,",0],
+                    ["update/change your passphrase, and upon completion,",0],
                     ["re-enable",0,"green"], ["the encryption feature.",2],
 
                     ["Encryption will be turned on globally for all profiles. Each unique profile passphrase may be encrypted with a different key.",2],
 
-                    ["For security purposes, nodectl will",0,"red","bold"], ["not",0,"yellow"], 
+                    ["For security purposes nodectl will",0,"red","bold"], ["not",0,"yellow"], 
                     ["decrypt the passphrase upon disabling the",0,"red","bold"],
                     ["encryption feature.",2,"red","bold"],
 

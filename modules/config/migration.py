@@ -206,15 +206,21 @@ class Migration():
             "status_color": "yellow",
         }
         self.functions.print_cmd_status(progress)
-                        
-        backup_dir = "/var/tessellation/backups"
-        datetime = self.functions.get_date_time({"action":"datetime"})
-        backup_dir = self.config_obj[self.profiles[0]]["directory_backups"]
-        if backup_dir == "default":
-            backup_dir = "/var/tessellation/backups"
 
-        self.log.logger.debug(f'migration module backing up the configuration to [/var/tessellation/backups/cn-config.{datetime}backup.yaml]')
-        system(f"mv {self.functions.nodectl_path}cn-config.yaml /var/tessellation/backups/cn-config.{datetime}backup.yaml > /dev/null 2>&1")        
+        try:
+            backup_dir = self.config_obj[self.profiles[0]]["directory_backups"]
+            if backup_dir == "default":
+                backup_dir = "/var/tessellation/backups/"
+        except:
+            backup_dir = "/var/tessellation/backups/"
+
+        if backup_dir[-1] != "/": backup_dir = backup_dir+"/"
+
+        datetime = self.functions.get_date_time({"action":"datetime"})
+        dest = f"{backup_dir}backup_cn-config_{datetime}"
+
+        self.log.logger.debug(f'migration module backing up the configuration to [{dest}]')
+        system(f"mv {self.functions.nodectl_path}cn-config.yaml {dest} > /dev/null 2>&1")        
 
         self.functions.print_cmd_status({
             **progress,
@@ -237,8 +243,8 @@ class Migration():
             ["If you choose to empty the contents",0,"yellow"],
             ["of this directory, you will remove the backup",0,"yellow"], ["configuration YAML file",0,"cyan"], ["file.",2,"yellow"],
             
-            ["backup filename:",0], [f"cn-config.{datetime}backup.yaml",1,"magenta"],
-            ["backup location:",0], ["/var/tessellation/backups/",1,"magenta"],
+            ["backup filename:",0], [f"{path.split(dest)[1]}",1,"magenta"],
+            ["backup location:",0], [f"{path.split(dest)[0]}",1,"magenta"],
         ])
 
 
