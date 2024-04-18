@@ -2475,7 +2475,13 @@ class Configurator():
                 self.developer_enable_disable()
                 self.quit_configurator(False)
             elif option == "r": self.edit_auto_restart()
-            elif option == "p": self.passphrase_enable_disable_encryption()
+            elif option == "p": 
+                self.passphrase_enable_disable_encryption("configurator")
+                self.c.functions.print_cmd_status({
+                    "text_start": "Resetting global configuration",
+                    "newline": True,
+                })
+                self.edit_append_profile_global("p12")
             elif option == "l": self.manual_log_level()
             elif option == "i": self.manual_define_token_identifier("global_elements")
             elif option == "t": self.manual_define_token_coin("global_elements")
@@ -3352,7 +3358,7 @@ class Configurator():
         })
         
 
-    def perform_encryption(self,profile,encryption_obj,effp,pass3):
+    def perform_encryption(self,profile,encryption_obj,effp,pass3,caller):
         pass_key = "passphrase"
         first_run, write_append = False, True
 
@@ -3364,12 +3370,13 @@ class Configurator():
         enc_pass = self.c.config_obj[profile][pass_key].strip()
         enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
 
-        if enc_pass == "None":
+        if caller != "configurator" and enc_pass == "None":
             self.error_messages.error_code_messages({
                 "error_code": "cfr-3092",
                 "line_code": "invalid_passphrase",
                 "extra": "Must be present in configuration",
             })
+
         if not self.quick_install and not pass3:
             self.c.functions.print_header_title({
                 "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
@@ -3387,24 +3394,16 @@ class Configurator():
                 self.c.functions.print_paragraphs([
                     ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
                 ])
-                for attempt in range(1,4):
-                    pass1 = getpass(f"  p12 passphrase: ")
-                    if pass1 != self.c.config_obj[profile][pass_key]:
-                        self.c.functions.print_paragraphs([
-                            ["",1],[" ERROR ",0,"yellow,on_red"], ["seed phrase + confirmation did not match or not greater than 3 in length, try again.",1],
-                            ["retry:",0], [str(attempt+1),0,"yellow"], ["of",0], ["3",2,"yellow"],
-                        ]) 
-                    else:
-                        pass3 = pass1.strip()
-                        pass_correct = True
-                        break
-                if not pass_correct:
-                    self.error_messages.error_code_messages({
-                        "error_code": "cfr-3309",
-                        "line_code": "invalid_passphrase",
-                    })                        
+                pass1 = getpass(f"  p12 passphrase: ")
+                pass1 = self.c.p12.keyphrase_validate({
+                    "profile": "global" if profile == "global_p12" else profile,
+                    "passwd": pass1,
+                    "operation": "encryption",
+                })
+                pass3 = pass1.strip()
         
         if not self.quick_install and first_run:
+            print("")
             for s_status in ["deriving","redacting","forgetting","finished"]:
                 self.c.functions.print_cmd_status({
                     "text_start": "Encryption",
@@ -3471,7 +3470,7 @@ class Configurator():
         return fe, pass3
 
 
-    def passphrase_enable_disable_encryption(self):
+    def passphrase_enable_disable_encryption(self,caller):
         self.log.logger.info("configurator -> encryption method envoked.")
 
         if self.action != "install": system("clear")
@@ -3556,7 +3555,7 @@ class Configurator():
             for profile in encryption_list:
 
                 for n in range(0,3):
-                    fe, pass3 = self.perform_encryption(profile,encryption_obj,effp,pass3)
+                    fe, pass3 = self.perform_encryption(profile,encryption_obj,effp,pass3,caller)
                     if fe == "skip": break
 
                     sleep(.8)
@@ -3624,23 +3623,23 @@ class Configurator():
 
         else:
             if self.detailed:
-                if self.profile_to_edit:
-                    verb1, verb2 = "this", "profile's" 
-                else:
-                    verb1, verb2 = "the", "global"
                 self.c.functions.print_paragraphs([
                     ["",1],[" WARNING ",0,"yellow,on_red"], 
-                    ["Disabling encryption will remove any existing seed phrase permanently.",2],
+                    ["Disabling encryption is permanent.",2],
 
-                    ["Your passphrase will",0,"red"], ["NOT",0,"red","bold"], 
-                    ["be restored in your Node's configuration file.",1,"red"],
-                    ["Passphrase will be set to",0,"red"], ["None",2,"yellow","bold"],
+                    ["Profile specific",0,"red"], ["non-global",0,"yellow"], ["passphrases will",0,"red"], 
+                    ["NOT",0,"red","bold"], ["be restored in your Node's configuration file.",0,"red"],
+                    ["Each specific p12 configurations will be reset to",0,"red"], ["None",2,"yellow","bold"],
 
-                    [f"Please reset {verb1}",0,"red"], [verb2,0,"yellow"], ["passphrase via the configurator to",0,"red"],
+                    [f"Please reset specific",0,"red"], ["dedicated profile",0,"yellow"], 
+                    ["passphrases via the configurator to",0,"red"],
                     ["resume nodectl's ability to automate processes that require the",0,"red"],
                     ["p12",0,"yellow"], ["key store elements to function.",2,"red"],
+
                     ["Alternatively, you can resume using",0,"red"],
                     ["--pass <passphrase>",0], ["at the command prompt.",2,"red"],
+
+                    ["You will be redirected automatically to reset your global p12 passphrase.",2,"green"],
                 ])
 
             self.c.functions.confirm_action({
@@ -3670,7 +3669,7 @@ class Configurator():
                             "passphrase": "None",
                         }
                     } 
-                elif self.c.config_obj[profile]["p12_passphrase"] == "global":
+                elif self.c.config_obj[profile]["p12_passphrase"] != "global":
                     self.config_obj_apply = {
                         **self.config_obj_apply,
                         f"{profile}": {

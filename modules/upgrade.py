@@ -1428,7 +1428,7 @@ class Upgrader():
             self.configurator.metagraph_list = self.functions.profile_names
             self.configurator.c.config_obj = deepcopy(self.config_obj)
             self.configurator.prepare_configuration("edit_config")
-            self.configurator.passphrase_enable_disable_encryption()
+            self.configurator.passphrase_enable_disable_encryption("upgrade")
 
 
     def handle_auto_complete(self):

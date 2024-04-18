@@ -1161,7 +1161,7 @@ class Installer():
                 self.log.logger.error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private key store passphrase.  Please fix any issues and use the configure module to encrypt later if desired.")
             else:
                 self.configurator.prepare_configuration("edit_config")
-                self.configurator.passphrase_enable_disable_encryption()
+                self.configurator.passphrase_enable_disable_encryption("install")
         else:
             # user requested to skip encryption
             self.encryption_performed = True # avoid user error message

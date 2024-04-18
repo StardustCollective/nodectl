@@ -316,6 +316,22 @@ class Migration():
             self.preform_migration()
         
         
+    def persist_key_value_pair(self, profile, key, default="error"):
+        try:
+            key_value = self.config_obj[profile][key]
+        except Exception as e:
+            if default == "error": 
+                self.log.logger.error(f"migrator --> configuration key [{key}] not found but required. | [{e}]")
+                self.errors.error_code_messages({
+                    "error_code": "mig-86",
+                    "line_code": "config_error",
+                    "extra": "format",
+                    "extra2": f"key/value pair [{key}] not found",
+                })
+            return default
+        return str(key_value)
+    
+    
     def preform_migration(self):
 
         # =======================================================
@@ -332,55 +348,55 @@ class Migration():
         for profile in self.profiles:
             rebuild_obj = {
                 "nodegarageprofile": profile,
-                "nodegarageenable": self.config_obj[profile]["profile_enable"],
-                "nodegarageenvironment": self.config_obj[profile]["environment"],
-                "nodegaragedescription": self.config_obj[profile]["description"],
-                "nodegaragenodetype": self.config_obj[profile]["node_type"],
-                "nodegaragemetatype": self.config_obj[profile]["meta_type"],
-                "nodegarageblocklayer": self.config_obj[profile]["layer"],
-                "nodegaragecollateral": "default", # updated in v2.13.0 | self.config_obj[profile]["collateral"],
-                "nodegarageservice": "default", # updated in v2.13.0 | self.config_obj[profile]["service"],
-                "nodegarageedgepointhost": self.retention[profile]["ep"], # self.config_obj[profile]["edge_point"],
-                "nodegarageedgepointtcpport": self.retention[profile]["ep_tcp"], # self.config_obj[profile]["edge_point_tcp_port"],
-                "nodegaragepublic": self.config_obj[profile]["public_port"],
-                "nodegaragep2p": self.config_obj[profile]["p2p_port"],
-                "nodegaragecli": self.config_obj[profile]["cli_port"],
-                "nodegaragegl0linkenable": self.config_obj[profile]["gl0_link_enable"],
-                "nodegaragegl0linkkey": self.config_obj[profile]["gl0_link_key"],
-                "nodegaragegl0linkhost": self.config_obj[profile]["gl0_link_host"],
-                "nodegaragegl0linkport": self.config_obj[profile]["gl0_link_port"],
-                "nodegaragegl0linkprofile": self.config_obj[profile]["gl0_link_profile"],
-                "nodegarageml0linkenable": self.config_obj[profile]["ml0_link_enable"],
-                "nodegarageml0linkkey": self.config_obj[profile]["ml0_link_key"],
-                "nodegarageml0linkhost": self.config_obj[profile]["ml0_link_host"],
-                "nodegarageml0linkport": self.config_obj[profile]["ml0_link_port"],
-                "nodegarageml0linkprofile": self.config_obj[profile]["ml0_link_profile"],
-                "nodegaragetokenidentifier": token_identifier, # new to v2.13.0  # self.config_obj[profile]["token_identifier"],
-                "nodegaragemetatokencoinid": token_coin, # new to v2.13.0
-                "nodegaragedirectorybackups": self.config_obj[profile]["directory_backups"],
-                "nodegaragedirectoryuploads": self.config_obj[profile]["directory_uploads"],
-                "nodegaragexms": self.config_obj[profile]["java_xms"],
-                "nodegaragexmx": self.config_obj[profile]["java_xmx"],
-                "nodegaragexss": self.config_obj[profile]["java_xss"],
-                "nodegaragejarlocation": "default", # new to v2.13.0,
-                "nodegaragejarrepository": self.config_obj[profile]["jar_repository"],
-                "nodeagaragejarversion": "default", # new to v2.13.0
-                "nodegaragejarfile": self.config_obj[profile]["jar_file"],
-                "nodegaragep12nodeadmin": self.config_obj[profile]["p12_nodeadmin"],
-                "nodegaragep12keylocation": self.config_obj[profile]["p12_key_location"],
-                "nodegaragep12keyname": self.config_obj[profile]["p12_key_name"],
-                "nodegaragep12passphrase": self.config_obj[profile]["p12_passphrase"],
-                "nodegarageseedlocation": self.config_obj[profile]["seed_location"],
-                "nodegarageseedrepository": self.config_obj[profile]["seed_repository"],
-                "nodegarageseedfile": self.config_obj[profile]["seed_file"],
-                "nodegarageseedversion": "disable" if self.config_obj[profile]["seed_file"] == "disable" else "default", # new to v2.13.0,
-                "nodegarageprioritysourcelocation": self.config_obj[profile]["priority_source_location"],
-                "nodegarageprioritysourcerepository": self.config_obj[profile]["priority_source_repository"],
-                "nodegarageprioritysourcefile": self.config_obj[profile]["priority_source_file"],
-                "nodegaragecustomargsenable": self.config_obj[profile]["custom_args_enable"],
-                "nodegaragecustomenvvarsenable": self.config_obj[profile]["custom_env_vars_enable"], 
-                "nodegarageratingfile": self.config_obj[profile]["pro_rating_file"], 
-                "nodegarageratinglocation": self.config_obj[profile]["pro_rating_location"], 
+                "nodegarageenable": self.persist_key_value_pair(profile,"profile_enable"),
+                "nodegarageenvironment": self.persist_key_value_pair(profile,"environment"),
+                "nodegaragedescription": self.persist_key_value_pair(profile,"description"),
+                "nodegaragenodetype": self.persist_key_value_pair(profile,"node_type"),
+                "nodegaragemetatype": self.persist_key_value_pair(profile,"meta_type"),
+                "nodegarageblocklayer": self.persist_key_value_pair(profile,"layer"),
+                "nodegaragecollateral": self.persist_key_value_pair(profile,"collateral","default"), # updated in v2.13.0 
+                "nodegarageservice": self.persist_key_value_pair(profile,"service","default"), # updated in v2.13.0 
+                "nodegarageedgepointhost": self.persist_key_value_pair(profile,"edge_point",self.retention[profile]["ep"]),
+                "nodegarageedgepointtcpport": self.persist_key_value_pair(profile,"edge_point_tcp_port",self.retention[profile]["ep_tcp"]), 
+                "nodegaragepublic": self.persist_key_value_pair(profile,"public_port"),
+                "nodegaragep2p": self.persist_key_value_pair(profile,"p2p_port"),
+                "nodegaragecli": self.persist_key_value_pair(profile,"cli_port"),
+                "nodegaragegl0linkenable": self.persist_key_value_pair(profile,"gl0_link_enable"),
+                "nodegaragegl0linkkey": self.persist_key_value_pair(profile,"gl0_link_key"),
+                "nodegaragegl0linkhost": self.persist_key_value_pair(profile,"gl0_link_host"),
+                "nodegaragegl0linkport": self.persist_key_value_pair(profile,"gl0_link_port"),
+                "nodegaragegl0linkprofile": self.persist_key_value_pair(profile,"gl0_link_profile"),
+                "nodegarageml0linkenable": self.persist_key_value_pair(profile,"ml0_link_enable"),
+                "nodegarageml0linkkey": self.persist_key_value_pair(profile,"ml0_link_key"),
+                "nodegarageml0linkhost": self.persist_key_value_pair(profile,"ml0_link_host"),
+                "nodegarageml0linkport": self.persist_key_value_pair(profile,"ml0_link_port"),
+                "nodegarageml0linkprofile": self.persist_key_value_pair(profile,"ml0_link_profile"),
+                "nodegaragetokenidentifier": self.persist_key_value_pair(profile,"token_identifier",token_identifier), # new to v2.13.0
+                "nodegaragemetatokencoinid": self.persist_key_value_pair(profile,"token_coin_id",token_coin), # new to v2.13.0
+                "nodegaragedirectorybackups": self.persist_key_value_pair(profile,"directory_backups"),
+                "nodegaragedirectoryuploads": self.persist_key_value_pair(profile,"directory_uploads"),
+                "nodegaragexms": self.persist_key_value_pair(profile,"java_xms"),
+                "nodegaragexmx": self.persist_key_value_pair(profile,"java_xmx"),
+                "nodegaragexss": self.persist_key_value_pair(profile,"java_xss"),
+                "nodegaragejarlocation": self.persist_key_value_pair(profile,"jar_location","default"), # new to v2.13.0,
+                "nodegaragejarrepository": self.persist_key_value_pair(profile,"jar_repository"),
+                "nodeagaragejarversion": self.persist_key_value_pair(profile,"jar_version","default"), # new to v2.13.0
+                "nodegaragejarfile": self.persist_key_value_pair(profile,"jar_file"),
+                "nodegaragep12nodeadmin": self.persist_key_value_pair(profile,"p12_nodeadmin"),
+                "nodegaragep12keylocation": self.persist_key_value_pair(profile,"p12_key_location"),
+                "nodegaragep12keyname": self.persist_key_value_pair(profile,"p12_key_name"),
+                "nodegaragep12passphrase": self.persist_key_value_pair(profile,"p12_passphrase"),
+                "nodegarageseedlocation": self.persist_key_value_pair(profile,"seed_location"),
+                "nodegarageseedrepository": self.persist_key_value_pair(profile,"seed_repository"),
+                "nodegarageseedfile": self.persist_key_value_pair(profile,"seed_file"),
+                "nodegarageseedversion": "disable" if self.persist_key_value_pair(profile,"seed_file") == "disable" else "default", # new to v2.13.0,
+                "nodegarageprioritysourcelocation": self.persist_key_value_pair(profile,"priority_source_location"),
+                "nodegarageprioritysourcerepository": self.persist_key_value_pair(profile,"priority_source_repository"),
+                "nodegarageprioritysourcefile": self.persist_key_value_pair(profile,"priority_source_file"),
+                "nodegaragecustomargsenable": self.persist_key_value_pair(profile,"custom_args_enable"),
+                "nodegaragecustomenvvarsenable": self.persist_key_value_pair(profile,"custom_env_vars_enable"), 
+                "nodegarageratingfile": self.persist_key_value_pair(profile,"pro_rating_file"), 
+                "nodegarageratinglocation": self.persist_key_value_pair(profile,"pro_rating_location"), 
                 "create_file": "config_yaml_profile",
             }
             self.yaml += self.build_yaml(rebuild_obj)
@@ -390,10 +406,10 @@ class Migration():
         # =======================================================
         
         rebuild_obj = {
-            "nodegarageeautoenable": self.config_obj["global_auto_restart"]["auto_restart"],
-            "nodegarageautoupgrade": self.config_obj["global_auto_restart"]["auto_upgrade"],
-            "nodegarageonboot": self.config_obj["global_auto_restart"]["on_boot"],
-            "nodegaragerapidrestart": self.config_obj["global_auto_restart"]["rapid_restart"],
+            "nodegarageeautoenable": self.persist_key_value_pair("global_auto_restart","auto_restart","False"), 
+            "nodegarageautoupgrade": self.persist_key_value_pair("global_auto_restart","auto_upgrade","False"), 
+            "nodegarageonboot": self.persist_key_value_pair("global_auto_restart","on_boot","False"),  
+            "nodegaragerapidrestart": self.persist_key_value_pair("global_auto_restart","rapid_restart","False"),
             "create_file": "config_yaml_autorestart",
         }
         self.yaml += self.build_yaml(rebuild_obj)
@@ -402,12 +418,22 @@ class Migration():
         # build yaml p12 and global var section
         # =======================================================
         
+        passphrase_name = self.persist_key_value_pair('global_p12','passphrase')
+        if passphrase_name.startswith('"'): passphrase_name = passphrase_name[1:]
+        if passphrase_name.endswith('"'): passphrase_name = passphrase_name[:-1]
+
+        try:
+            if not self.config_obj["global_p12"]["encryption"]:
+                passphrase_name = f'"{passphrase_name}"'
+        except:
+            pass
+
         rebuild_obj = {
-            "nodegaragep12nodeadmin": self.config_obj["global_p12"]["nodeadmin"],
-            "nodegaragep12keylocation": self.config_obj["global_p12"]["key_location"],
-            "nodegaragep12keyname": self.config_obj["global_p12"]["key_name"],
-            "nodegaragep12passphrase": f'"{self.config_obj["global_p12"]["passphrase"]}"',
-            "nodegaragep12encryption": "False", # new to v2.13.0
+            "nodegaragep12nodeadmin": self.persist_key_value_pair("global_p12","nodeadmin"),
+            "nodegaragep12keylocation": self.persist_key_value_pair("global_p12","key_location"),
+            "nodegaragep12keyname": self.persist_key_value_pair("global_p12","key_name"),
+            "nodegaragep12passphrase": passphrase_name,
+            "nodegaragep12encryption": self.persist_key_value_pair("global_p12","encryption","False"), # new to v2.13.0
             "create_file": "config_yaml_p12",
         }
         self.yaml += self.build_yaml(rebuild_obj)
@@ -417,10 +443,10 @@ class Migration():
         # =======================================================    
             
         # version 2.13 changes environment with hypergraph
-        metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
+        metagraph_name =  self.persist_key_value_pair("global_elements","metagraph_name")
         
         try:
-            config_name = self.config_obj["global_elements"]["yaml_config_name"]
+            config_name = self.persist_key_value_pair("global_elements","yaml_config_name")
         except:
             config_name =  self.config_obj[self.profiles[0]]["environment"]
 
@@ -441,10 +467,9 @@ class Migration():
             "nodegaragemetagraphtokencoinid": token_coin_id, # new to v2.13.0
             "nodegaragelocalapi": "disable", # new to v2.13.0
             "nodegarageincludes": "False", # new to v2.13.0
-            "nodegaragedevelopermode": self.config_obj["global_elements"]["developer_mode"],
+            "nodegaragedevelopermode": self.persist_key_value_pair("global_elements","developer_mode","False"),
             "nodegaragenodectlyaml": self.version_obj["node_nodectl_yaml_version"],
-            "nodegarageloglevel": self.config_obj["global_elements"]["log_level"],
-
+            "nodegarageloglevel": self.persist_key_value_pair("global_elements","log_level","INFO"), 
             "create_file": "config_yaml_global_elements",
         }
         self.yaml += self.build_yaml(rebuild_obj)
