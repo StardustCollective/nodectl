@@ -4590,23 +4590,38 @@ class CLI():
         argv_list = command_obj.get("argv_list",[])   
         ip_address = command_obj.get("ip_address",self.ip_address)   
         state = command_obj.get("state",False)
+
         base_indent = 38
+        watch_passes = 0
         self.functions.check_for_help(argv_list,"check_consensus")
-        nodeid, file = False, False
+        nodeid, file, seconds, get_help, range_error = False, False, False, False, False
         check_node_list = []
         
         if "-p" in argv_list:
             profile = argv_list[argv_list.index("-p")+1]
         if "-s" in argv_list:
             ip_address = argv_list[argv_list.index("-s")+1]
-            
+
+        if "-w" in argv_list:
+            seconds = argv_list[argv_list.index("-w")+1]
+            try: seconds = int(seconds) # covers making sure not other options
+            except: get_help = True
+            if seconds < 15: 
+                seconds = 15
+                range_error = True
+
         if "-id" in argv_list:
             nodeid = argv_list[argv_list.index("-id")+1]
         elif "--id" in argv_list:
             nodeid = argv_list[argv_list.index("--id")+1]
         elif "--file" in argv_list:
-            file = argv_list[argv_list.index("--file")+1]
+            if "-w" in argv_list: get_help = True
+            else:
+                file = argv_list[argv_list.index("--file")+1]
         
+        if get_help:
+            self.check_for_help("help","check_consensus")
+
         if self.config_obj[profile]["layer"] > 0 and caller == "check_consensus" and not self.auto_restart:
             self.functions.print_paragraphs([
                 ["Currently, Nodes participating in layer1 clusters do not participate in consensus rounds.",2,"red"],
@@ -4622,92 +4637,138 @@ class CLI():
                 "extra2": "Is the nodeid format correct?",
             })
             
-        if not state:
-            state = self.functions.test_peer_state({
-                "profile": profile,
-                "spinner": True if not self.auto_restart else False,
-                "simple": True,
-            })   
-                     
-        if nodeid or file:
-            ip_address = self.functions.get_info_from_edge_point({
-                "profile": profile,
-                "caller": "status",
-                "api_endpoint_type": "consensus",
-            })   
-            node_list = self.functions.get_cluster_info_list({
-                "ip_address": ip_address["ip"],
-                "port": ip_address["publicPort"],
-                "attempt_range": 3,
-                "api_endpoint": "/consensus/latest/peers",
-            })  
-            _ = node_list.pop() # clean off counter
-            if file:
-                if path.exists(file):
-                    with open(file) as f:
-                        for line in f.readlines():
-                            if self.functions.is_valid_address("nodeid",True,line):
-                                check_node_list.append(line.strip("\n"))
-                else:
-                    self.error_messages.error_code_messages({
-                        "error_code": "cli-4099",
-                        "line_code": "file_not_found",
-                        "extra": file,
-                        "extra2": "requires full path to file, or change directory to file location before executing command."
+        with ThreadPoolExecutor() as executor:
+            if seconds:
+                try:
+                    executor.submit(self.functions.get_user_keypress,{
+                        "prompt": None,
+                        "prompt_color": "magenta",
+                        "options": ["Q"],
+                        "quit_option": "Q",
+                        "quit_with_exception": True,
                     })
-            else:
-                check_node_list = [nodeid]
-        else:
-            check_node_list = ["localhost"]
-                
-        exists = True
-        for n, check_nodeid in enumerate(check_node_list):
-            if check_nodeid != "localhost":
-                exists = any(check_nodeid == node["id"] for node in node_list)
-                ip_address = "unable to derive" # invalid in case doesn't exist to force a False
-                if exists:
-                    ip_address = next((node for node in node_list if node.get("id") == check_nodeid), False)["ip"]
-                                        
-            consensus = self.functions.get_info_from_edge_point({
-                "profile": profile,
-                "caller": "status",
-                "api_endpoint_type": "consensus",
-                "threaded": True if not self.auto_restart else False,
-                "specific_ip": ip_address,
-            })
+                except self.functions.exception:
+                    self.functions.cancel_event = True
+                    self.functions.print_paragraphs([
+                        ["Action cancelled by user",1,"green"]
+                    ])
+                    exit(0)
 
-            consensus_match = colored("False","red")
-            if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
-                consensus_match = colored("True","green") if not self.auto_restart else True
-            if state in self.functions.pre_consensus_list:
-                consensus_match = colored("Preparing","yellow") if not self.auto_restart else False
-                
-            self.log.logger.debug(f"cli_check_consensus -> caller [{caller}] -> participating in consensus rounds [{consensus_match}]")
-            if caller != "check_consensus": 
-                return consensus_match
-            
-            c_node_id = f'{consensus["id"][:7]}...{consensus["id"][-7::]}'
-            
-            if n < 1:
-                print_out_list = [
-                    {
-                        "PROFILE": profile,
-                        "ENVIRONMENT": self.config_obj[profile]["environment"],
-                    },
-                    {
-                        "IP ADDRESS": ip_address,
-                        "NODE ID": c_node_id,
-                        "IN CONSENSUS": consensus_match,
-                    },
-                ] 
-                for header_elements in print_out_list:
-                    self.functions.print_show_output({
-                        "header_elements" : header_elements
-                    })     
-            else:  
-                indent = base_indent-len(ip_address)  
-                indent2 = 17 if "True" in consensus_match else 18
-                print(f"  {ip_address} {f'{c_node_id}': >{indent}} {f'{consensus_match}': >{indent2}}")
+            while True:
+                if self.functions.cancel_event: exit(0)
+                if seconds:
+                    watch_passes += 1
+                    system("clear")
+                    self.functions.print_paragraphs([
+                        ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
+                        ["Do not use",0],["ctrl",0,"yellow"],["and",0],["c",2,"yellow"],
+                    ])
+                    if range_error:
+                        self.functions.print_paragraphs([
+                            [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
+                        ])              
+                if not state:
+                    state = self.functions.test_peer_state({
+                        "profile": profile,
+                        "spinner": True if not self.auto_restart else False,
+                        "simple": True,
+                    })   
+                            
+                if nodeid or file:
+                    ip_address = self.functions.get_info_from_edge_point({
+                        "profile": profile,
+                        "caller": "status",
+                        "api_endpoint_type": "consensus",
+                    })   
+                    node_list = self.functions.get_cluster_info_list({
+                        "ip_address": ip_address["ip"],
+                        "port": ip_address["publicPort"],
+                        "attempt_range": 3,
+                        "api_endpoint": "/consensus/latest/peers",
+                    })  
+                    _ = node_list.pop() # clean off counter
+                    if file:
+                        if path.exists(file):
+                            with open(file) as f:
+                                for line in f.readlines():
+                                    if self.functions.is_valid_address("nodeid",True,line):
+                                        check_node_list.append(line.strip("\n"))
+                        else:
+                            self.error_messages.error_code_messages({
+                                "error_code": "cli-4099",
+                                "line_code": "file_not_found",
+                                "extra": file,
+                                "extra2": "requires full path to file, or change directory to file location before executing command."
+                            })
+                    else:
+                        check_node_list = [nodeid]
+                else:
+                    check_node_list = ["localhost"]
+                        
+                exists = True
+                for n, check_nodeid in enumerate(check_node_list):
+                    if check_nodeid != "localhost":
+                        exists = any(check_nodeid == node["id"] for node in node_list)
+                        ip_address = "unable to derive" # invalid in case doesn't exist to force a False
+                        if exists:
+                            ip_address = next((node for node in node_list if node.get("id") == check_nodeid), False)["ip"]
+                                                
+                    consensus = self.functions.get_info_from_edge_point({
+                        "profile": profile,
+                        "caller": "status",
+                        "api_endpoint_type": "consensus",
+                        "threaded": True if not self.auto_restart else False,
+                        "specific_ip": ip_address,
+                    })
+
+                    consensus_match = colored("False","red")
+                    if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
+                        consensus_match = colored("True","green") if not self.auto_restart else True
+                    if state in self.functions.pre_consensus_list:
+                        consensus_match = colored("Preparing","yellow") if not self.auto_restart else False
+                        
+                    self.log.logger.debug(f"cli_check_consensus -> caller [{caller}] -> participating in consensus rounds [{consensus_match}]")
+                    if caller != "check_consensus": 
+                        return consensus_match
+                    
+                    c_node_id = f'{consensus["id"][:7]}...{consensus["id"][-7::]}'
+                    
+                    if n < 1:
+                        print_out_list = [
+                            {
+                                "PROFILE": profile,
+                                "ENVIRONMENT": self.config_obj[profile]["environment"],
+                            },
+                            {
+                                "IP ADDRESS": ip_address,
+                                "NODE ID": c_node_id,
+                                "IN CONSENSUS": consensus_match,
+                            },
+                        ] 
+                        for header_elements in print_out_list:
+                            self.functions.print_show_output({
+                                "header_elements" : header_elements
+                            })     
+                    else:  
+                        indent = base_indent-len(ip_address)  
+                        indent2 = 17 if "True" in consensus_match else 18
+                        print(f"  {ip_address} {f'{c_node_id}': >{indent}} {f'{consensus_match}': >{indent2}}")
+
+                if seconds:
+                    if self.functions.cancel_event: exit(0)
+                    self.functions.print_paragraphs([
+                        ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
+                        ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
+                        ["Intervals:",0,"magenta"], [f"{seconds}s",1,"yellow"],
+                    ])
+                    self.functions.print_timer({
+                        "p_type": "cmd",
+                        "seconds": seconds,
+                        "status": "waiting",
+                        "step": -1,
+                        "phrase": "Waiting",
+                        "end_phrase": "before updating",
+                    })
                   
                              
     def passwd12(self,command_list):

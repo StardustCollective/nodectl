@@ -2651,6 +2651,7 @@ class Functions():
         end_phrase = command_obj.get("end_phrase",None)
         p_type = command_obj.get("p_type","trad")
         step = command_obj.get("step",1)
+        status = command_obj.get("status","preparing")
 
         if step > 0: 
             end_range = start+seconds
@@ -2678,7 +2679,7 @@ class Functions():
                         "text_start": phrase,
                         "brackets": str(s),
                         "text_end": end_phrase,
-                        "status": "preparing",
+                        "status": status,
                     })
             sleep(1) 
 
