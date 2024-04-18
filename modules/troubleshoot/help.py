@@ -537,21 +537,33 @@ def build_help(functions,command_obj):
   required:
   {colored('-p <profile_name>','green')}
   
+  shortcut:
+  {colored('-con ','green')}
+
   optional:
   {colored('-s <ip_address>','green')}
   {colored('--id <ip_address>','green')}
+  {colored('-w <seconds>)','green')}
   {colored('--file <full_file_path>','green')}
   
-  Is the {colored('-s','cyan')} option is requested the
+  If the {colored('-s','cyan')} option is requested the
   consensus will be checked against the IP address inputted.
   
-  Is the {colored('--id','cyan')} option is requested the
+  If the {colored('--id','cyan')} option is requested the
   consensus will be checked against the nodeid public key inputted.
   
-  Is the {colored('--file','cyan')} option is requested the
+  If the watch {colored('-w','cyan')} option is requested followed by
+  a number greater than 15.  nodectl will watch the Node's 
+  consensus status, updating every X seconds (as defined by the -w). You
+  may q)uit this the watch feature at any time using by pressing the 
+  q key on the keyboard.  Node Operators should not use the ctrl+c to
+  quit this functions.
+
+  If the {colored('--file','cyan')} option is requested the
   consensus will be checked against the file that contains at least
   one nodeid public key or multiple nodeids formatted in one line
-  per nodeid public key.
+  per nodeid public key.  The '--file' command cannot coincide with
+  the -w option.
   
   Example Usage
   -------------
