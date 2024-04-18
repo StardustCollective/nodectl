@@ -2476,12 +2476,13 @@ class Configurator():
                 self.quit_configurator(False)
             elif option == "r": self.edit_auto_restart()
             elif option == "p": 
-                self.passphrase_enable_disable_encryption("configurator")
-                self.c.functions.print_cmd_status({
-                    "text_start": "Resetting global configuration",
-                    "newline": True,
-                })
-                self.edit_append_profile_global("p12")
+                enc = self.passphrase_enable_disable_encryption("configurator")
+                if not enc:
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Resetting global configuration",
+                        "newline": True,
+                    })
+                    self.edit_append_profile_global("p12")
             elif option == "l": self.manual_log_level()
             elif option == "i": self.manual_define_token_identifier("global_elements")
             elif option == "t": self.manual_define_token_coin("global_elements")
@@ -3619,8 +3620,7 @@ class Configurator():
                         "newline": True,
                         "status": "completed",
                         "status_color": "green",
-                    }) 
-
+                    })
         else:
             if self.detailed:
                 self.c.functions.print_paragraphs([
@@ -3686,6 +3686,9 @@ class Configurator():
                 "status_color": "green",
             })  
             sleep(1)
+
+        return enable
+    
 
     # =====================================================
     # OTHER

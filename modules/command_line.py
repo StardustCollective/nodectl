@@ -884,6 +884,19 @@ class CLI():
                 "header_elements" : header_elements
             })
 
+        self.functions.print_paragraphs([
+            ["",1],["Individual Iterations Results:",1,"blue","bold"],
+        ])
+        for n, value in enumerate(ave_mem_list):
+            self.functions.print_cmd_status({
+                "text_start": "Pass",
+                "brackets": str(n+1),
+                "text_end": "cpu / mem",
+                "status": f"{str(ave_cpu_list[n])}% / {str(value)}%",
+                "status_color": "yellow",
+                "newline": True,
+            })
+
 
     def show_peers(self,command_list):
         self.functions.check_for_help(command_list,"peers")
