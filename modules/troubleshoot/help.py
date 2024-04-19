@@ -584,8 +584,8 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl -con -p dag-l0 -s 10.10.10.10','cyan')}  
   
   execute consensus check against list of node ids with 
-  profile name dag-l0 and file containing node id list called test.csv
-  locationed in the the /tmp/ directory on the Node.
+  profile name dag-l0 and file containing the nodeid list called 'test.csv'
+  located in the the '/tmp/' directory on the Node.
   # {colored('sudo nodectl check_consensus -p dag-l0 --file /tmp/test.csv','cyan')}  
      or
   # {colored('sudo nodectl -con -p dag-l0 --file /tmp/test.csv','cyan')}  

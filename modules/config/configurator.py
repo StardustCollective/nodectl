@@ -2476,13 +2476,7 @@ class Configurator():
                 self.quit_configurator(False)
             elif option == "r": self.edit_auto_restart()
             elif option == "p": 
-                enc = self.passphrase_enable_disable_encryption("configurator")
-                if not enc:
-                    self.c.functions.print_cmd_status({
-                        "text_start": "Resetting global configuration",
-                        "newline": True,
-                    })
-                    self.edit_append_profile_global("p12")
+                self.passphrase_enable_disable_encryption("configurator")
             elif option == "l": self.manual_log_level()
             elif option == "i": self.manual_define_token_identifier("global_elements")
             elif option == "t": self.manual_define_token_coin("global_elements")
@@ -3531,12 +3525,13 @@ class Configurator():
                 ])
                 if not self.action == "install":
                     print("")
-                    self.c.functions.confirm_action({
+                    confirm = self.c.functions.confirm_action({
                         "yes_no_default": "y",
                         "return_on": "y",
                         "prompt": "Do you want to enable encryption?",
-                        "exit_if":  True
+                        "exit_if": False,
                     })
+                    if not confirm: return
                     print("")
 
             efp_error = False if path.exists(efp) else True
@@ -3642,12 +3637,13 @@ class Configurator():
                     ["You will be redirected automatically to reset your global p12 passphrase.",2,"green"],
                 ])
 
-            self.c.functions.confirm_action({
+            confirm = self.c.functions.confirm_action({
                 "yes_no_default": "n",
                 "return_on": "y",
                 "prompt": "Do you want to remove encryption?",
-                "exit_if": True
+                "exit_if": False
             })
+            if not confirm: return
 
             self.c.functions.print_paragraphs([
                 ["",1], ["This is permanent...",1,"red","bold"],
@@ -3676,6 +3672,8 @@ class Configurator():
                             "p12_passphrase": "None",
                         }
                     } 
+                else:
+                    encryption_list.remove(profile)
                         
         self.apply_vars_to_config()
         if not self.quick_install:
@@ -3687,7 +3685,19 @@ class Configurator():
             })  
             sleep(1)
 
-        return enable
+        if not enable:
+            for profile in encryption_list:
+                self.c.functions.print_cmd_status({
+                    "text_start": "Resetting",
+                    "brackets": "global" if profile == "global_p12" else profile,
+                    "text_end": "configuration",
+                    "newline": True,
+                })
+                if profile == "global_p12": 
+                    self.edit_append_profile_global("p12")
+                else: 
+                    self.metagraph_list.remove("global_p12")
+                    self.manual_build_p12(profile)
     
 
     # =====================================================
