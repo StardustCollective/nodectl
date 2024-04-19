@@ -807,7 +807,7 @@ class CLI():
         self.log.logger.info(f"show cpu and memory stats")
         self.functions.print_cmd_status({
             "text_start": "Gathering stats over",
-            "brackets": "5",
+            "brackets": "10",
             "text_end": "iterations",
             "newline": True,
         })
@@ -821,12 +821,12 @@ class CLI():
                 "newline": False,
             }
             _ = executor.submit(self.functions.print_cmd_status,status_obj)
-            for _ in range(0,5):
+            for _ in range(0,10):
                 cpu_ok, memory_ok, details = self.functions.check_cpu_memory_thresholds()
                 details = SimpleNamespace(**details)
                 ave_cpu_list.append(details.thresholds['cpu_percent'])
                 ave_mem_list.append(details.thresholds['mem_percent'])
-                sleep(1)
+                sleep(.5)
 
             self.functions.status_dots = False
             self.functions.print_cmd_status({
@@ -837,8 +837,15 @@ class CLI():
                 "newline": True,
             })
 
-        details.thresholds['cpu_percent'] = round(sum(ave_cpu_list) / len(ave_cpu_list),2)
-        details.thresholds['mem_percent'] = round(sum(ave_mem_list) / len(ave_mem_list),2)
+        lowest = min(ave_cpu_list)
+        highest = max(ave_cpu_list)
+        cpu_thresholds = [x for x in ave_cpu_list if x != lowest and x != highest]
+        lowest = min(ave_mem_list)
+        highest = max(ave_mem_list)
+        mem_thresholds = [x for x in ave_cpu_list if x != lowest and x != highest]
+
+        details.thresholds['cpu_percent'] = round(sum(cpu_thresholds) / len(cpu_thresholds),2)
+        details.thresholds['mem_percent'] = round(sum(mem_thresholds) / len(mem_thresholds),2)
         cpu_ok = True if details.thresholds['cpu_percent'] < details.thresholds['cpu_threshold'] else False
         memory_ok = True if details.thresholds['mem_percent'] < details.thresholds['mem_threshold'] else False
 
@@ -887,12 +894,12 @@ class CLI():
         self.functions.print_paragraphs([
             ["",1],["Individual Iterations Results:",1,"blue","bold"],
         ])
-        for n, value in enumerate(ave_mem_list):
+        for n, value in enumerate(ave_mem_list,1):
             self.functions.print_cmd_status({
                 "text_start": "Pass",
-                "brackets": str(n+1),
+                "brackets": f"0{n}" if n < 10 else str(n),
                 "text_end": "cpu / mem",
-                "status": f"{str(ave_cpu_list[n])}% / {str(value)}%",
+                "status": f"{str(ave_cpu_list[n-1])}% / {str(value)}%",
                 "status_color": "yellow",
                 "newline": True,
             })
