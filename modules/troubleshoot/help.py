@@ -544,6 +544,7 @@ def build_help(functions,command_obj):
   {colored('-s <ip_address>','green')}
   {colored('--id <ip_address>','green')}
   {colored('-w <seconds>)','green')}
+  {colored('--brief','green')}
   {colored('--file <full_file_path>','green')}
   
   If the {colored('-s','cyan')} option is requested the
@@ -558,6 +559,11 @@ def build_help(functions,command_obj):
   may q)uit this the watch feature at any time using by pressing the 
   q key on the keyboard.  Node Operators should not use the ctrl+c to
   quit this functions.
+
+  If the {colored('--brief','cyan')} option is requested the
+  consensus will be checked and will display minimal output.
+  This output will include no headers and values in a single
+  line:  ip_address, brief nodeid, and True/False.
 
   If the {colored('--file','cyan')} option is requested the
   consensus will be checked against the file that contains at least
@@ -589,6 +595,11 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl check_consensus -p dag-l0 --file /tmp/test.csv','cyan')}  
      or
   # {colored('sudo nodectl -con -p dag-l0 --file /tmp/test.csv','cyan')}  
+  
+  execute consensus in brief format.
+  # {colored('sudo nodectl check_consensus -p dag-l0 --brief','cyan')}  
+     or with a watch of 120 seconds
+  # {colored('sudo nodectl check_consensus -p dag-l0 --brief -w 120','cyan')}  
       '''
   
     if extended == "cli_create_p12":

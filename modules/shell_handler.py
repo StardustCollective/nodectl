@@ -42,6 +42,7 @@ class ShellHandler:
         self.debug = debug
         self.correct_permissions = True
         self.auto_restart_enabled = False
+        self.auto_restart_quiet = False
         self.environment_requested = None
         self.called_command = None
         
@@ -480,6 +481,13 @@ class ShellHandler:
             "execute_starchiver", "remove_snapshots",
         ]
             
+        print_quiet_auto_restart = [
+            "check_consensus",
+        ]
+
+        if self.called_command in print_quiet_auto_restart:
+            self.auto_restart_quiet = True
+
         if self.called_command not in ["help","install"]:    
             if self.functions.config_obj["global_auto_restart"]["auto_restart"]:
                 self.auto_restart_enabled = True
@@ -670,6 +678,7 @@ class ShellHandler:
 
         self.check_developer_only_commands()
      
+
     # =============  
 
     def handle_versioning(self):
@@ -1336,14 +1345,14 @@ class ShellHandler:
             exit("  auto restart passphrase error")
                         
         if self.auto_restart_pid != "disabled":
-            if self.auto_restart_enabled:
+            if self.auto_restart_enabled and not self.auto_restart_quiet:
                 self.functions.print_paragraphs([
                     ["",1], ["Node restart service",0,"green"], 
                     ["does not",0,"green","underline"], ["need to be restarted because pid [",0,"green"],
                     [str(self.auto_restart_pid),-1,"yellow","bold"],
                     ["] was found already.",-1,"green"],["",1]
                 ])
-            else:
+            elif not self.auto_restart_quiet:
                 self.functions.print_paragraphs([
                     ["",1], ["Node restart service not started because pid [",0,"yellow"],
                     [str(self.auto_restart_pid),-1,"green","bold"],

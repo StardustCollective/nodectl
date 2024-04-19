@@ -4619,6 +4619,8 @@ class CLI():
             else:
                 file = argv_list[argv_list.index("--file")+1]
         
+        brief = True if "--brief" in argv_list else False
+        
         if get_help:
             self.check_for_help("help","check_consensus")
 
@@ -4659,14 +4661,15 @@ class CLI():
                 if seconds:
                     watch_passes += 1
                     system("clear")
-                    self.functions.print_paragraphs([
-                        ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
-                        ["Do not use",0],["ctrl",0,"yellow"],["and",0],["c",2,"yellow"],
-                    ])
-                    if range_error:
+                    if not brief:
                         self.functions.print_paragraphs([
-                            [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
-                        ])              
+                            ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
+                            ["Do not use",0],["ctrl",0,"yellow"],["and",0],["c",2,"yellow"],
+                        ])
+                        if range_error:
+                            self.functions.print_paragraphs([
+                                [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
+                            ])              
                 if not state:
                     state = self.functions.test_peer_state({
                         "profile": profile,
@@ -4733,7 +4736,7 @@ class CLI():
                     
                     c_node_id = f'{consensus["id"][:7]}...{consensus["id"][-7::]}'
                     
-                    if n < 1:
+                    if n < 1 and not brief:
                         print_out_list = [
                             {
                                 "PROFILE": profile,
@@ -4756,19 +4759,21 @@ class CLI():
 
                 if seconds:
                     if self.functions.cancel_event: exit(0)
-                    self.functions.print_paragraphs([
-                        ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
-                        ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
-                        ["Intervals:",0,"magenta"], [f"{seconds}s",1,"yellow"],
-                    ])
+                    if not brief: 
+                        self.functions.print_paragraphs([
+                            ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
+                            ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
+                            ["Intervals:",0,"magenta"], [f"{seconds}s",1,"yellow"],
+                        ])
                     self.functions.print_timer({
                         "p_type": "cmd",
                         "seconds": seconds,
-                        "status": "waiting",
+                        "status": "Q)uit" if brief else "waiting",
                         "step": -1,
                         "phrase": "Waiting",
                         "end_phrase": "before updating",
                     })
+                else: break
                   
                              
     def passwd12(self,command_list):
