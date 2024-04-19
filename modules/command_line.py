@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
+from copy import copy
 
 from modules.p12 import P12Class
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
@@ -805,44 +806,63 @@ class CLI():
         ave_mem_list = []
 
         self.log.logger.info(f"show cpu and memory stats")
+
+        def remove_highest_lowest(value_list):
+            lowest = min(value_list)
+            highest = max(value_list)
+            lowest_index = value_list.index(lowest)
+            highest_index = value_list.index(highest)
+
+            # Remove one occurrence of the lowest and highest values
+            if lowest_index < highest_index:
+                value_list.pop(highest_index)
+                value_list.pop(lowest_index)
+            else:
+                value_list.pop(lowest_index)
+                value_list.pop(highest_index)
+
+            return value_list
+
+        status_obj = {
+            "text_start": f"Calculating cpu/memory stats",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": True,
+        }
+        self.functions.print_cmd_status(status_obj)
+        for n in range(1,11):
+            self.functions.print_cmd_status({
+                "text_start": "Gathering stats over",
+                "brackets": f"0{n} of 10" if n < 10 else f"{n} of 10",
+                "text_end": "iterations",
+                "newline": False,
+                "status": "calculating",
+                "status_color": "yellow",
+            })
+            cpu_ok, memory_ok, details = self.functions.check_cpu_memory_thresholds()
+            details = SimpleNamespace(**details)
+            ave_cpu_list.append(details.thresholds['cpu_percent'])
+            ave_mem_list.append(details.thresholds['mem_percent'])
+            sleep(.5)
+
+        print(f"\033[1A", end="", flush=True)
         self.functions.print_cmd_status({
-            "text_start": "Gathering stats over",
-            "brackets": "10",
-            "text_end": "iterations",
+            **status_obj,
+            "status": "completed",
+            "status_color": "green",
             "newline": True,
         })
-        with ThreadPoolExecutor() as executor:
-            self.functions.status_dots = True
-            status_obj = {
-                "text_start": f"Calculating cpu/memory stats",
-                "status": "running",
-                "status_color": "yellow",
-                "dotted_animation": True,
-                "newline": False,
-            }
-            _ = executor.submit(self.functions.print_cmd_status,status_obj)
-            for _ in range(0,10):
-                cpu_ok, memory_ok, details = self.functions.check_cpu_memory_thresholds()
-                details = SimpleNamespace(**details)
-                ave_cpu_list.append(details.thresholds['cpu_percent'])
-                ave_mem_list.append(details.thresholds['mem_percent'])
-                sleep(.5)
+        self.functions.print_clear_line()
 
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                **status_obj,
-                "status": "completed",
-                "status_color": "green",
-                "dotted_animation": False,
-                "newline": True,
-            })
+        cpu_thresholds = copy(ave_cpu_list)
+        ave_cpu_set = set(ave_cpu_list)
+        if len(ave_cpu_set) > 3:
+            cpu_thresholds = remove_highest_lowest(cpu_thresholds)
 
-        lowest = min(ave_cpu_list)
-        highest = max(ave_cpu_list)
-        cpu_thresholds = [x for x in ave_cpu_list if x != lowest and x != highest]
-        lowest = min(ave_mem_list)
-        highest = max(ave_mem_list)
-        mem_thresholds = [x for x in ave_cpu_list if x != lowest and x != highest]
+        mem_thresholds = copy(ave_mem_list)
+        ave_mem_set = set(ave_mem_list)
+        if len(ave_mem_set) > 3:
+            mem_thresholds = remove_highest_lowest(mem_thresholds)
 
         details.thresholds['cpu_percent'] = round(sum(cpu_thresholds) / len(cpu_thresholds),2)
         details.thresholds['mem_percent'] = round(sum(mem_thresholds) / len(mem_thresholds),2)
@@ -894,12 +914,12 @@ class CLI():
         self.functions.print_paragraphs([
             ["",1],["Individual Iterations Results:",1,"blue","bold"],
         ])
-        for n, value in enumerate(ave_mem_list,1):
+        for n, value in enumerate(ave_mem_list):
             self.functions.print_cmd_status({
                 "text_start": "Pass",
-                "brackets": f"0{n}" if n < 10 else str(n),
+                "brackets": f"0{n+1}" if n < 10 else str(n),
                 "text_end": "cpu / mem",
-                "status": f"{str(ave_cpu_list[n-1])}% / {str(value)}%",
+                "status": f"{str(ave_cpu_list[n])}% / {str(value)}%",
                 "status_color": "yellow",
                 "newline": True,
             })
