@@ -3656,6 +3656,7 @@ class Configurator():
             if path.exists(effp): remove(effp)    
             sleep(.4) 
 
+            new_encryption_list = copy(encryption_list)
             for profile in encryption_list:
                 if profile == "global_p12":
                     self.config_obj_apply = {
@@ -3673,7 +3674,9 @@ class Configurator():
                         }
                     } 
                 else:
-                    encryption_list.remove(profile)
+                    new_encryption_list.remove(profile)
+
+            encryption_list = copy(new_encryption_list)
                         
         self.apply_vars_to_config()
         if not self.quick_install:

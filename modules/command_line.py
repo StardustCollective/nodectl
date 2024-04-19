@@ -4630,9 +4630,9 @@ class CLI():
             ip_address = argv_list[argv_list.index("-s")+1]
 
         if "-w" in argv_list:
-            seconds = argv_list[argv_list.index("-w")+1]
-            try: seconds = int(seconds) # covers making sure not other options
-            except: get_help = True
+            try: seconds = int(argv_list[argv_list.index("-w")+1])
+            except: seconds = 16
+            if not isinstance(seconds,int): seconds = 16
             if seconds < 15: 
                 seconds = 15
                 range_error = True
@@ -4642,9 +4642,7 @@ class CLI():
         elif "--id" in argv_list:
             nodeid = argv_list[argv_list.index("--id")+1]
         elif "--file" in argv_list:
-            if "-w" in argv_list: get_help = True
-            else:
-                file = argv_list[argv_list.index("--file")+1]
+            file = argv_list[argv_list.index("--file")+1]
         
         brief = True if "--brief" in argv_list else False
         
