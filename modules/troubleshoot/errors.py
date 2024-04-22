@@ -100,6 +100,7 @@ class Error_codes():
         var.extra2 = command_obj.get("extra2",False)
         
         self.error_code = var.error_code
+        self.line_code = var.line_code
         self.print_error("start") if self.error_code else print("")
 
         if self.debug:
@@ -586,7 +587,7 @@ class Error_codes():
             self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program.")
             self.functions.print_paragraphs([
                 ["System has attempted to access a file that does not exist.",2,"red","bold"],
-                [" File: ",0,"blue,on_yellow","bold"], [var.extra,2],
+                [" File Name: ",0,"blue,on_yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
             ])     
             if var.extra2:

@@ -4643,7 +4643,13 @@ class CLI():
             nodeid = argv_list[argv_list.index("--id")+1]
         elif "--file" in argv_list:
             file = argv_list[argv_list.index("--file")+1]
-        
+            if not path.exists(file):
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-4099",
+                    "line_code": "file_not_found",
+                    "extra": file,
+                    "extra2": "requires full path to file, or change directory to file location before executing command."
+                })        
         brief = True if "--brief" in argv_list else False
         
         if get_help:
@@ -4716,18 +4722,10 @@ class CLI():
                     })  
                     _ = node_list.pop() # clean off counter
                     if file:
-                        if path.exists(file):
-                            with open(file) as f:
-                                for line in f.readlines():
-                                    if self.functions.is_valid_address("nodeid",True,line):
-                                        check_node_list.append(line.strip("\n"))
-                        else:
-                            self.error_messages.error_code_messages({
-                                "error_code": "cli-4099",
-                                "line_code": "file_not_found",
-                                "extra": file,
-                                "extra2": "requires full path to file, or change directory to file location before executing command."
-                            })
+                        with open(file) as f:
+                            for line in f.readlines():
+                                if self.functions.is_valid_address("nodeid",True,line):
+                                    check_node_list.append(line.strip("\n"))
                     else:
                         check_node_list = [nodeid]
                 else:
