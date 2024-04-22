@@ -1477,7 +1477,8 @@ class Upgrader():
             auto_complete.write(auto_complete_file)
 
         chmod(auto_path,0o644)
-
+        system("source /etc/bash_completion > /dev/null 2>&1")
+        
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",

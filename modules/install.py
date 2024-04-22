@@ -453,6 +453,7 @@ class Installer():
             auto_complete.write(auto_complete_file)
 
         chmod(auto_path,0o644)
+        system("source /etc/bash_completion > /dev/null 2>&1")
 
         if not self.options.quick_install: 
             self.functions.print_cmd_status({
