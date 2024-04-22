@@ -358,9 +358,10 @@ class Configuration():
         if self.called_command == "view_config" or self.called_command == "-vc":
             self.build_function_obj({
                 "global_elements": {"caller":"config"},
-                "sudo_rights": False,
+                "sudo_rights": True if "help" in self.argv_list else False,
             })
         
+        self.functions.check_for_help(["help","special_case"],"view_config")
         self.functions.print_header_title({
             "line1": "YAML CONFIGURATION",
             "line2": "cn-config.yaml review",

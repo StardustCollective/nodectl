@@ -11,6 +11,7 @@ def title(command):
 def build_help(functions,command_obj):
       
     extended = command_obj.get("extended",False)
+    special_case = command_obj.get("special_case",False)
     extended_option = None
     help_text = "" # initialize
     
@@ -44,13 +45,14 @@ def build_help(functions,command_obj):
       "sub_indent": f"{' ' * spacing}",
     })
 
-    functions.print_paragraphs([
-      ["optional:",0],["--pass",0,"yellow"],["<passphrase>",1],
-      ["    note:",0],["--pass will override the configuration's passphrase entry",2,"magenta"],
-      ["See extended help for more details including",0],["required",0,"blue","bold"], 
-      ["parameters per command.",2],
-      ["command: ",0], ["sudo nodectl <command> help",2,"yellow","bold"],
-    ])
+    if not special_case:
+      functions.print_paragraphs([
+        ["optional:",0],["--pass",0,"yellow"],["<passphrase>",1],
+        ["    note:",0],["--pass will override the configuration's passphrase entry",2,"magenta"],
+        ["See extended help for more details including",0],["required",0,"blue","bold"], 
+        ["parameters per command.",2],
+        ["command: ",0], ["sudo nodectl <command> help",2,"yellow","bold"],
+      ])
     
 
     if not extended and not usage_only and not nodectl_version_only:
@@ -1133,8 +1135,23 @@ def build_help(functions,command_obj):
   the contents of this YAML file {colored('cn-config.yaml','cyan')}.
   
   options:
-  {colored('-np','cyan')} : no pagination
-  
+  {colored(' -np','cyan')} : no pagination
+  {colored('--passphrase','cyan')} : view passphrase details
+  {colored('--basics','cyan')} : view basic configuration details
+  {colored('--directory','cyan')} : view directory setting details
+  {colored('--ports','cyan')} : view port setting details
+  {colored('--tcp','cyan')} : view port setting details (alt)
+  {colored('--seed','cyan')} : view seed list setting details
+  {colored('--jar','cyan')} : view jar file setting details
+  {colored('--java','cyan')} : view java setting details
+  {colored('--token','cyan')} : view token setting details
+  {colored('--link','cyan')} : view link setting details
+  {colored('--edge','cyan')} : view edge device details
+  {colored('--custom','cyan')} : view custom setting details
+  {colored('--priority','cyan')} : view priority source node details
+  {colored('--pro','cyan')} : view PRO score details
+  {colored('--json','cyan')} : view config in json format + internal flags
+
   optional option:
   {colored('-vc','green')} 
   

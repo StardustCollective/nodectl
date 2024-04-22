@@ -2096,6 +2096,7 @@ class Functions():
             self.print_help({
                 "extended": extended,
                 "nodectl_version_only": nodectl_version_only,
+                "special_case": True if "special_case" in argv_list else False
             })  
     
     
@@ -3228,6 +3229,8 @@ class Functions():
         hint = command_obj.get("hint","None")
         title = command_obj.get("title",False)
         usage_only = command_obj.get("usage_only",False)
+        special_case = command_obj.get("special_case",False)
+        extended = command_obj.get("extended",False)
 
         command_obj = {
             **command_obj,
@@ -3245,29 +3248,32 @@ class Functions():
                 "upper": False,
             })
             
-        if not self.version_obj:
-            self.print_paragraphs([
-                [" WARNING/ERROR ",0,"red,on_yellow"],
-                ["nodectl was initialized without a command request, or something went wrong?",2,"red"],
-                ["command:",0],["sudo nodectl help",2,"yellow","bold"],
-            ])
-            exit(0)
-            
-        self.help_text = f"  NODECTL INSTALLED: [{colored(self.version_obj['node_nodectl_version'],'yellow')}]"
+        if special_case:
+            command_obj["valid_commands"] = [extended]
+        else:
+            if not self.version_obj:
+                self.print_paragraphs([
+                    [" WARNING/ERROR ",0,"red,on_yellow"],
+                    ["nodectl was initialized without a command request, or something went wrong?",2,"red"],
+                    ["command:",0],["sudo nodectl help",2,"yellow","bold"],
+                ])
+                exit(0)
+                
+            self.help_text = f"  NODECTL INSTALLED: [{colored(self.version_obj['node_nodectl_version'],'yellow')}]"
 
-        if not nodectl_version_only:
-            install_profiles = self.pull_profile({"req":"one_profile_per_env"})
-            old_env = None
-            for profile in install_profiles:
-                env = self.config_obj[profile]["environment"]
-                node_tess_version = self.version_obj[env][profile]['node_tess_version']
-                if old_env != env:
-                    self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
-                old_env = env
+            if not nodectl_version_only:
+                install_profiles = self.pull_profile({"req":"one_profile_per_env"})
+                old_env = None
+                for profile in install_profiles:
+                    env = self.config_obj[profile]["environment"]
+                    node_tess_version = self.version_obj[env][profile]['node_tess_version']
+                    if old_env != env:
+                        self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
+                    old_env = env
 
         self.help_text += build_help(self,command_obj)
-        
         print(self.help_text)
+
         if usage_only: exit(0)
 
         if "profile" in hint:

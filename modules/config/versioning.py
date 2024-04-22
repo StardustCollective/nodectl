@@ -228,7 +228,10 @@ class Versioning():
             for environment in self.functions.environment_names:
                 for profile in self.functions.profile_names:
                     upgrade_path = deepcopy(self.upgrade_path)
+
                     if self.config_obj[profile]["environment"] != environment: continue
+                    if not self.config_obj[profile]["profile_enable"]: continue
+
                     api_endpoint = "/node/info"
                     api_host = self.config_obj[profile]["edge_point"]
                     api_port = self.config_obj[profile]["edge_point_tcp_port"]

@@ -2624,8 +2624,11 @@ class CLI():
             profile_names = [profile]
 
         for i_profile in profile_names:
+            if not self.config_obj[i_profile]["profile_enable"]: continue
+
             env = self.config_obj[i_profile]["environment"]
             nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
+
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
                 if nodectl_version_check == "current_greater" and not self.skip_warning_messages:
                     self.functions.print_paragraphs([
@@ -2661,8 +2664,9 @@ class CLI():
             if tess_version_check == "current_less" and not self.check_versions_called:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
-                        [f" {i_profile} ",0,"green,on_blue"],["A",0], ["new",0,"green"], ["version of",0], ["Tessellation",0,"cyan"], ["was detected:",0],
-                        [self.version_obj[env][i_profile]['cluster_tess_version'],1,"yellow","bold"],
+                        [f" {i_profile} ",0,"green,on_blue"],["A",0], ["new",0,"green"], ["version of",0], 
+                        ["Tessellation",0,"cyan"], ["was detected:",0],
+                        [f"{self.version_obj[env][i_profile]['cluster_tess_version']}",1,"yellow","bold"],
                     ])
                     if i_profile == profile_names[-1]:
                         self.functions.print_paragraphs([
