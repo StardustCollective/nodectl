@@ -439,7 +439,7 @@ class Installer():
         
         upgrade_options = "--ni --nodectl_only --pass -v -f"
 
-        viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory"
+        viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory "
         viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json"
         
         auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
