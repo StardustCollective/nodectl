@@ -354,6 +354,7 @@ class Configuration():
         
 
     def view_yaml_config(self,action):
+        print_req = "all"
         if self.called_command == "view_config" or self.called_command == "-vc":
             self.build_function_obj({
                 "global_elements": {"caller":"config"},
@@ -368,7 +369,22 @@ class Configuration():
             "upper": False,
         })
         
-        if "--json" in self.argv_list:
+        if "--section" in self.argv_list:
+            print_req = ("section",self.argv_list[self.argv_list.index("--section")+1])
+        elif "--passphrase" in self.argv_list: print_req = "pass"
+        elif "--jar" in self.argv_list: print_req = "jar"
+        elif "--custom" in self.argv_list: print_req = "custom"
+        elif "--seed" in self.argv_list: print_req = "seed"
+        elif "--priority" in self.argv_list: print_req = "priority"
+        elif "--java" in self.argv_list: print_req = "java"
+        elif "--directory" in self.argv_list: print_req = "directory"
+        elif "--token" in self.argv_list: print_req = "token"
+        elif "--link" in self.argv_list: print_req = "link"
+        elif "--edge" in self.argv_list: print_req = "edge"
+        elif "--basics" in self.argv_list: print_req = "basics"
+        elif "--ports" in self.argv_list or "--tcp" in self.argv_list: print_req = "port"
+        elif "--pro" in self.argv_list: print_req = "pro_"
+        elif "--json" in self.argv_list:
             self.validated, self.do_validation = True, False
             self.action = "normal"
             self.implement_config()
@@ -377,14 +393,55 @@ class Configuration():
             exit("  view config yaml in json format")
             
         do_more = False if "-np" in self.argv_list else True
-        console_size = get_terminal_size()
-        more_break = round(console_size.lines)-15
-        more = False
+        section_start, more = False, False
+        n = 1
+        
+        def execute_print(line,req,n): 
+            if "global_p12" in line:
+                pass
+            if req != "all" and req != "section":
+                do_print = False
+                if line.startswith("#") or line.startswith("-"): return n 
+                elif req not in line and (not match(r'^  [^\s].*:$', line) and n > 1) or "global" in line: 
+                    if req == "pass":
+                        if "global" in line and "p12" in line or "encryption" in line: 
+                            do_print = True
+                    if req == "token" and line.startswith("  global_elements") or req in line: 
+                        do_print = True
+                    if req == "basics":
+                        basics = ["profile_enable","environment","description",
+                                  "node_type","meta_type","layer","collateral","service",
+                                  "yaml_config_name","metagraph_name","local_api","includes",
+                                  "developer_mode","log_level","nodectl_yaml"]
+                        for key in basics:
+                            if key in line:
+                                do_print = True
+                                break
+                        if match(r'^  [^\s].*:$', line) and (not "global_p12" in line and not "global_auto_restart" in line):
+                                 do_print = True
+                    
+                    if not do_print: return n
+
+            print(colored(line.strip("\n"),"blue",attrs=['bold']))
+            return n+1
         
         if path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
             with open(f"{self.functions.nodectl_path}cn-config.yaml","r") as file:
-                for n,line in enumerate(file):
-                    print(colored(line.strip("\n"),"blue",attrs=['bold']))
+                for line in file:
+                    console_size = get_terminal_size()
+                    more_break = round(console_size.lines)-15
+
+                    if isinstance(print_req,tuple):
+                        if print_req[0] == "section" or section_start:
+                            if section_start or match(r'^  [^\s].*:$', line):
+                                if section_start or print_req[1] in line:
+                                    if section_start and match(r'^  [^\s].*:$', line):
+                                        break
+                                    section_start = True
+                                    n = execute_print(line,"section",n)
+                    else:
+                        n = execute_print(line,print_req,n)
+                    
                     if do_more and n % more_break == 0 and n > 0:
                         more = self.functions.print_any_key({
                             "quit_option": "q",

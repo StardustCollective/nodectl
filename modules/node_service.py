@@ -1115,7 +1115,8 @@ exit 0
     # Options for each command
     local install_opts="nodegarageinstalloptions"
     local upgrade_opts="nodegarageupgradeoptions"
-
+    local viewconfig_opts="nodegarageviewconfigoptions"
+    
     # Determine the current command
     local current_command=""
     for word in ${words[@]}; do
@@ -1170,6 +1171,15 @@ exit 0
                     ;;
             esac
             ;;
+        view_config|-vc)
+            case "${prev}" in
+                *)
+                    COMPREPLY=($(compgen -W "${viewconfig_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        
     esac
 
     if [[ ${cur} == -* ]] ; then
