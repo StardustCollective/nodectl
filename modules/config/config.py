@@ -361,7 +361,8 @@ class Configuration():
                 "sudo_rights": True if "help" in self.argv_list else False,
             })
         
-        self.functions.check_for_help(["help","special_case"],"view_config")
+        self.argv_list.append("special_case")
+        self.functions.check_for_help(self.argv_list,"view_config")
         self.functions.print_header_title({
             "line1": "YAML CONFIGURATION",
             "line2": "cn-config.yaml review",
