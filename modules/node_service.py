@@ -91,6 +91,7 @@ class Node():
         # background_build=(bool) # default True;  build the auto_restart service?
         
         def replace_service_file_items(profile,template,create_file_type):
+            chmod = "755" # default
             if create_file_type in ["service_file","version_service"]:
                 chmod = "644"
                 template = template.replace(
@@ -107,8 +108,6 @@ class Node():
                 ) 
 
             elif create_file_type == "service_bash":
-                chmod = "755"
-                
                 template = template.replace(
                     "nodegarageservicename",
                     profile
@@ -198,8 +197,7 @@ class Node():
         single_profile = command_obj.get("single_profile",False)
         background_services = command_obj.get("background_services",False)
         create_file_type = command_obj["create_file_type"]
-        
-        pass
+
         for profile in self.profile_names:
             profile = single_profile if single_profile else profile
             template = self.create_files({"file": create_file_type})
@@ -209,6 +207,9 @@ class Node():
                 service_dir_file = f"/etc/systemd/system/node_version_updater.service"
             elif create_file_type == "service_file":
                 service_dir_file = f"/etc/systemd/system/cnng-{self.config_obj[profile]['service']}.service"
+            elif create_file_type == "auto_restart_service_log":
+                service_dir_file = "/var/tessellation/nodectl/auto_restart_logger.sh"
+                single_profile = True
             elif create_file_type == "service_bash":
                 profile_service = self.config_obj[profile]['service']
                 if single_profile:
@@ -236,7 +237,7 @@ class Node():
 
     def build_service(self,background_build=False):
         self.log.logger.debug("build services method called [build services]")
-        build_files = ["service_file","service_bash","version_service"]
+        build_files = ["service_file","service_bash","version_service","auto_restart_service_log"]
         for b_file in build_files:
             self.create_service_bash_file({
                 "create_file_type": b_file,
@@ -847,7 +848,14 @@ WantedBy=multi-user.target
 
 /usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' nodegaragetessbinaryfilepath run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
 '''
-        
+
+        if var.file == "auto_restart_service_log":
+            cur_file = '''#!/bin/bash
+formatted_date=$(date "+%b %d %H:%M:%S")
+pid=$$
+echo "$formatted_date [$pid]: INFO : systemd saw auto_restart service has been started or restarted." >> /var/tessellation/nodectl/nodectl.log
+'''        
+
         if var.file == "service_restart":
             cur_file = '''[Unit]
 Description=Constellation Node auto_restart service
@@ -859,6 +867,7 @@ After=multi-user.target
 Type=Simple
 WorkingDirectory=/usr/local/bin
 Environment="SCRIPT_ARGS=%I"
+ExecStartPre=/var/tessellation/nodectl/auto_restart_logger.sh
 ExecStart=nodectl service_restart $SCRIPT_ARGS
 Restart=always
 RestartSec=15
@@ -1116,7 +1125,7 @@ exit 0
     local install_opts="nodegarageinstalloptions"
     local upgrade_opts="nodegarageupgradeoptions"
     local viewconfig_opts="nodegarageviewconfigoptions"
-    
+
     # Determine the current command
     local current_command=""
     for word in ${words[@]}; do

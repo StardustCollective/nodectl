@@ -1459,8 +1459,8 @@ class Upgrader():
         valid_commands = pull_valid_command()
         valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
 
-        install_options = "--normal --quick-install --user --p12-destination-path --user-password " 
-        install_options += "--p12-passphrase --p12-migration-path --p12-alias"
+        install_options = "--normal --quick-install --user --p12-destination-path --user-password " # make sure ends with a space
+        install_options += "--p12-passphrase --p12-migration-path --p12-alias" 
         
         upgrade_options = "--ni --nodectl_only --pass -v -f"
 
@@ -1478,7 +1478,7 @@ class Upgrader():
 
         chmod(auto_path,0o644)
         system("source /etc/bash_completion > /dev/null 2>&1")
-        
+
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",

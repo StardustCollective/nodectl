@@ -530,7 +530,7 @@ class Download():
 
 
     def redundant_check(self):
-        self.log.logger.debug(f"{self.log_prefix} extra redundant check imitated")
+        self.log.logger.debug(f"{self.log_prefix} extra redundant check initiated")
         for file in self.file_obj.keys():
             if self.file_obj[file]["state"] == "disabled": continue
             file_size = self.functions.get_size(self.file_obj[file]["dest_path"],True)
