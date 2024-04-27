@@ -1467,7 +1467,7 @@ class Upgrader():
         upgrade_options = "--ni --nodectl_only --pass -v -f"
 
         viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory "
-        viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json"
+        viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json --section"
 
         auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
         auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)

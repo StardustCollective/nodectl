@@ -42,7 +42,7 @@ def start_uninstall(functions,log):
         ["Please make sure you have a backup of any and all important files before continuing.",1,"red"],
         ["nodectl will not remove SSH keys and non-specific Constellation applications, these will need to be done manually.",1,"red"],
         ["This execution cannot be undone.",1,"yellow","bold"],
-        ["*You will be offered the option to backup the p12 files, during uninstallation.",2,"grey"],
+        ["*You will be offered the option to backup the p12 files, during un-installation.",2,"grey"],
 
         ["Must type",0], ["CONSTELLATION",0,"yellow","bold"], ["exactly to confirm or",0], 
         ["n",0,"yellow"], ["to cancel this uninstall execution.",1],
@@ -123,7 +123,7 @@ def remove_data(functions,log,install=False):
     else:
         functions.print_paragraphs([
             ["",1],[" WARNING ",0,"red,on_yellow"],["Retaining the Node's",0],
-            ["p12 files",0,"yellow"], ["can introduce security vunerablities because",0],
+            ["p12 files",0,"yellow"], ["can introduce security vulnerabilities because",0],
             ["your p12 files will be remain on this VPS.",1],
         ])
         retain_p12 = functions.confirm_action({

@@ -1183,11 +1183,17 @@ exit 0
             ;;
         view_config|-vc)
             case "${prev}" in
+                --section)
+                    COMPREPLY=($(compgen -W "<section_name>" -- ${cur}))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=($(compgen -W "${viewconfig_opts}" -- ${cur}))
                     return 0
                     ;;
             esac
+            ;;
+        *)
             ;;
         
     esac
