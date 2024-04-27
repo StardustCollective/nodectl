@@ -1447,12 +1447,14 @@ class Upgrader():
 
         auto_path = "/etc/bash_completion.d/nodectl_auto_complete.sh"
         if not path.exists(path.split(auto_path)[0]):
-            self.error_messages.error_code_messages({
-                "error_code": "upg-1431",
-                "line_code": "system_error",
-                "extra": "possible invalid Linux distro",
-                "extra2": "nodectl requires bash 4 to be installed.",
-            })
+            self.log.logger.error(f"upgrader -> unable to determine auto complete BASH 4 path?  Are you sure bash is installed?")
+            makedirs("/etc/bash_completion.d/")
+            # self.error_messages.error_code_messages({
+            #     "error_code": "upg-1431",
+            #     "line_code": "system_error",
+            #     "extra": "possible invalid Linux distro",
+            #     "extra2": "nodectl requires bash 4 to be installed.",
+            # })
         auto_complete_file = self.cli.node_service.create_files({
             "file": "auto_complete",
         })

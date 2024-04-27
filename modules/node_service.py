@@ -1125,6 +1125,7 @@ exit 0
     local install_opts="nodegarageinstalloptions"
     local upgrade_opts="nodegarageupgradeoptions"
     local viewconfig_opts="nodegarageviewconfigoptions"
+    local default_opts="help"
 
     # Determine the current command
     local current_command=""
@@ -1192,7 +1193,7 @@ exit 0
     esac
 
     if [[ ${cur} == -* ]] ; then
-        COMPREPLY=($(compgen -W "${upgrade_opts} ${configure_opts}" -- ${cur}))
+        COMPREPLY=($(compgen -W "${default_opts}))
         return 0
     fi
 

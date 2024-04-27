@@ -446,7 +446,7 @@ class Migration():
         metagraph_name =  self.persist_key_value_pair("global_elements","metagraph_name")
         
         try:
-            config_name = self.persist_key_value_pair("global_elements","yaml_config_name")
+            config_name = self.persist_key_value_pair("global_elements","yaml_config_name",self.config_obj[self.profiles[0]]["environment"])
         except:
             config_name =  self.config_obj[self.profiles[0]]["environment"]
 

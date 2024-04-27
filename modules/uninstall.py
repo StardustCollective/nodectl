@@ -21,7 +21,7 @@ def start_uninstall(functions,log):
         ["Node.",2,"red"],
 
         ["Including:",1,"red"],
-        ["   - All p12 files",1],
+        ["   - All p12 files*",1],
         ["   - Constellation Binaries",1],
         ["   - Backups",1],
         ["   - Configurations",1],
@@ -41,7 +41,8 @@ def start_uninstall(functions,log):
 
         ["Please make sure you have a backup of any and all important files before continuing.",1,"red"],
         ["nodectl will not remove SSH keys and non-specific Constellation applications, these will need to be done manually.",1,"red"],
-        ["This execution cannot be undone.",2,"yellow","bold"],
+        ["This execution cannot be undone.",1,"yellow","bold"],
+        ["*You will be offered the option to backup the p12 files, during uninstallation.",2,"grey"],
 
         ["Must type",0], ["CONSTELLATION",0,"yellow","bold"], ["exactly to confirm or",0], 
         ["n",0,"yellow"], ["to cancel this uninstall execution.",1],
@@ -97,9 +98,9 @@ def remove_data(functions,log,install=False):
         log.logger.warn(f"{install_type} -> did not find any existing Node admins")
 
     if install:
-        retain = True
+        retain_log = True
     else:
-        retain = functions.confirm_action({
+        retain_log = functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
             "strict": True,
@@ -107,21 +108,44 @@ def remove_data(functions,log,install=False):
             "prompt": "Would you like to retain the nodectl log file?", 
             "exit_if": False
         })
-    if retain:
-        log.logger.info("retaining nodectl.log in /var/tmp/ as [nodectl.log]")
+    if retain_log:
+        log.logger.info("retaining nodectl.log in [/var/tmp/] as [nodectl.log]")
         if not install:
             functions.print_paragraphs([
-                ["nodectl logs will be located in the here:",1],
+                ["nodectl logs will be located here:",1],
                 ["location:",0], ["/var/tmp/nodectl.log",1,"yellow"],
             ])
-        shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
         if not install:
             node_admins.insert(0, "logger_retention")
+
+    if install:
+        retain_p12 = False
+    else:
+        functions.print_paragraphs([
+            ["",1],[" WARNING ",0,"red,on_yellow"],["Retaining the Node's",0],
+            ["p12 files",0,"yellow"], ["can introduce security vunerablities because",0],
+            ["your p12 files will be remain on this VPS.",1],
+        ])
+        retain_p12 = functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "strict": True,
+            "prompt_color": "cyan",
+            "prompt": "Would you like to retain the node p12 files?", 
+            "exit_if": False
+        })
+    if retain_p12:
+        log.logger.info("retaining node p12 files in [/var/tmp/]")
+        if not install:
+            functions.print_paragraphs([
+                ["nodectl p12s will be located here:",1],
+                ["location:",0], ["/var/tmp/",2,"yellow"],
+            ])
 
     if install:  # installer will just use the default dirs, services lists
         print(colored("  Handling removal of existing Node data","cyan"),end="\r")
         if path.isdir("/home/nodeadmin"):
-            log.logger.warn(f"{install_type} -> found nodeadmin user, removing... ")
+            log.logger.warn(f"{install_type} -> found nodeadmin user, removed")
             remove_admins(functions,["nodeadmin"],log,True)
     else:
         for profile in functions.profile_names:
@@ -136,7 +160,7 @@ def remove_data(functions,log,install=False):
                     if value not in node_admins:
                         node_admins.append(value)
 
-    for sdir in ["/etc","/root","/home","/tmp","/var/tmp"]:
+    for sdir in ["/etc","/root","/home","/tmp","/var"]:
         for root, _, ftypes in walk(sdir):
             for ftype in ftypes:
                 if ftype.startswith("cnng") and ftype not in services:
@@ -154,9 +178,32 @@ def remove_data(functions,log,install=False):
             "status_color": "yellow",
             "newline": False,
         })
+
     for remove_list in remove_lists:
+        if retain_p12:
+            retain_p12 = False
+            for values in remove_lists:
+                if values[0] == "key stores":
+                    move_values = values[1:]
+                    for p12_file_path in move_values:
+                        if path.isfile(p12_file_path):
+                            copy_no = 0
+                            p12_file_tmp = f"/var/tmp/{path.split(p12_file_path)[1]}"
+                            if path.isfile(p12_file_tmp):
+                                while True:
+                                    copy_no += 1
+                                    p12_file_tmp_copy = f"{p12_file_tmp}.{copy_no}"
+                                    if not path.isfile(p12_file_tmp_copy):
+                                        p12_file_tmp = p12_file_tmp_copy
+                                        break
+                            log.logger.info(f"{install_type} -> moving p12 [{path.split(p12_file_tmp)[1]}] to [{path.split(p12_file_tmp)[0]}].")
+                            shutil.copy2(p12_file_path, p12_file_tmp)
+
         command = f"Removing Node related data"
         log_list = []
+        if retain_log and remove_list == remove_lists[0]: # only once
+            shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
+
         if install: # redraw install of blank screen
             functions.print_cmd_status({
                 "text_start": "Removing existing Node Data",
@@ -171,13 +218,14 @@ def remove_data(functions,log,install=False):
             if len(remove_list) > 0:
                 for d_f in remove_list:
                     if not d_f.startswith("/"): d_f = f"/etc/systemd/system/{d_f}"
+                    log_list.append(["info",f"{install_type} -> removing [{d_f}]"])
                     try:
                         if path.isdir(d_f):
                             shutil.rmtree(d_f)
                         else:
                             remove(d_f)
                     except Exception as e:
-                        log_list.append(f"{install_type} -> did not remove [{d_f}] reason [{e}] trying th")
+                        log_list.append(["warn",f"{install_type} -> did not remove [{d_f}] reason [{e}] trying th"])
                     # system(f"sudo rm -rf {d_f} > /dev/null 2>&1")
 
             sleep(1)
@@ -189,17 +237,18 @@ def remove_data(functions,log,install=False):
     try:
         remove("/etc/bash_completion.d/nodectl_auto_complete.sh")
     except:
-        log.logger.warn(f"{install_type} -> did not find any existing auto_complete file on system, skipping.")
+        log_list.append(["warn",f"{install_type} -> did not find any existing auto_complete file on system, skipping."])
     else:
-        log.logger.warn(f"{install_type} -> removed auto_complete configuration [/etc/bash_completion.d/nodectl_auto_complete.sh]")
+        log_list.append(["info",f"{install_type} -> removed auto_complete configuration [/etc/bash_completion.d/nodectl_auto_complete.sh]"])
 
-    if retain:
+    if retain_log:
         if not path.exists("/var/tessellation/nodectl/"):
             makedirs("/var/tessellation/nodectl")
         shutil.copy2("/var/tmp/nodectl.log","/var/tessellation/nodectl/nodectl.log")
 
     for log_item in log_list:
-        log.logger.warn(log_item)
+        if log_item[0] == "info": log.logger.info(log_item[1])
+        if log_item[0] == "warn": log.logger.warn(log_item[1])
 
     if not install:
         return node_admins # for remove_admins function

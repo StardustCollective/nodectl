@@ -327,7 +327,7 @@ class Installer():
             "option_color": "blue",
             "required": self.options.configuration_file
         })
-        if self.options.cluster_config == "q":
+        if self.options.cluster_config.lower() == "q":
             cprint("  Installation cancelled by user\n","red")
             exit(0)
         
@@ -928,7 +928,7 @@ class Installer():
         location = False
         
         possible_found = self.functions.get_list_of_files({
-            "paths": ["root","home","/var/tessellation/"],
+            "paths": ["root","home","var/tessellation/","var/tmp","tmp"],
             "files": ["*.p12"],
         })
         
@@ -948,7 +948,8 @@ class Installer():
             self.functions.print_paragraphs([
                 [f"{verb}:",0,"magenta","bold"], [possible_found[0],2]
             ])
-        elif self.options.p12_migration_path:
+        
+        if self.options.p12_migration_path:
             location = self.options.p12_migration_path
         else:
             try:
@@ -956,32 +957,51 @@ class Installer():
                     self.functions.print_paragraphs([
                         [f"{option}",0,"magenta","bold"], [")",-1,"magenta"], [value,1,"green"]
                     ])
+            except:
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"],["Unable to location existing p12 files on this VPS.",1,"red"],
+                ])
+            else:
                 self.functions.print_paragraphs([
                     [f"{len(possible_found)+1}",0,"magenta","bold"], [")",-1,"magenta"], ["input manual entry",2,"green"]
                 ])
                 possible_found[f"{len(possible_found)+1}"] = "custom"
-                
-                location = self.functions.get_user_keypress({
-                    "prompt": "KEY PRESS an option",
-                    "prompt_color": "magenta",
-                    "options": list(possible_found.keys())
-                })  
-                location = possible_found[location]
-            except:
-                self.close_threads()
-                self.error_messages.error_code_messages({
-                    "error_code": "int-484",
-                    "line_code": "invalid_search",
-                    "extra": "Did you properly upload a p12 file?"
-                })
+            
+            location = "custom" # set default to custom 
+            if len(possible_found) > 1:
+                try:
+                    location = self.functions.get_user_keypress({
+                        "prompt": "KEY PRESS an option",
+                        "prompt_color": "magenta",
+                        "options": list(possible_found.keys())
+                    })  
+                    location = possible_found[location]
+                except:
+                    self.close_threads()
+                    self.error_messages.error_code_messages({
+                        "error_code": "int-484",
+                        "line_code": "invalid_search",
+                        "extra": "Did you properly upload a p12 file?"
+                    })
                 
         if verb == "example" or location == "custom": 
+            self.functions.print_paragraphs([
+                ["a",0,"yellow"],[") to abort",-1],["",1],
+            ])
             exist_location_str = colored("  Please enter full path including p12 file key: ","cyan")
             while True:
                 location = input(exist_location_str)
                 if path.exists(location):
                     break
-                cprint("  invalid location or file name, try again","red",attrs=["bold"])
+                if location.lower() == "a":
+                    cprint("  Aborting migration...","yellow")
+                    location = False
+                    self.options.existing_p12 = False
+                    self.p12_migrated = False
+                    break
+                self.functions.print_paragraphs([
+                    ["invalid location of file name, please try again.",1,"bold"],
+                ])
         
         if not path.exists(f"/home/{self.user.username}/tessellation/"):
             makedirs(f"/home/{self.user.username}/tessellation/")
@@ -990,11 +1010,14 @@ class Installer():
     
     
     def p12_migrate_existing(self):
-        self.log.logger.info("installer -> migrating p12.")
+        self.log.logger.info("installer -> migrating p12.") 
         if not self.options.p12_migration_path:
             self.p12_display_existing_list()
-
+        if not self.options.existing_p12:
+            return  # user aborted manual p12
+        
         is_migration_path_error = False
+        
         try:
             p12file = path.split(self.options.p12_migration_path)[1]
         except:
@@ -1390,6 +1413,7 @@ class Installer():
         self.log.logger.info("uninstaller -> handling removal of nodectl executable ")
         if node_admins[0] == "logger_retention":
             shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
+            sleep(.5)
             shutil.rmtree("/var/tessellation")
 
         uninstaller.remove_nodectl(node_service)
