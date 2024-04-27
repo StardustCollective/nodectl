@@ -1199,7 +1199,7 @@ exit 0
     esac
 
     if [[ ${cur} == -* ]] ; then
-        COMPREPLY=($(compgen -W "${default_opts}))
+        COMPREPLY=($(compgen -W "${default_opts}"))
         return 0
     fi
 
