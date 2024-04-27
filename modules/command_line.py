@@ -2795,7 +2795,8 @@ class CLI():
         self.log.logger.info(f"cli_stop -> stop process commencing | profile [{profile}]")
         self.functions.print_cmd_status({
             "status": "stop",
-            "text_start": "Issuing system service manipulation",
+            "status_color": "magenta",
+            "text_start": "Issuing system service",
             "brackets": profile,
             "newline": False,
         })
@@ -2805,14 +2806,16 @@ class CLI():
                 "profile": profile,
                 "skip_thread": True,
                 "spinner": spinner,
-                "simple": True
+                "simple": True,
+                "current_source_node": "127.0.0.1",
+                "caller": "cli_stop",
             })     
             self.log.logger.info(f"cli_stop -> found state | profile [{profile}] | state [{state}]")
-            if state == "Ready" or state == "DownloadInProgress":
+            states = ["Ready","WaitingForReady","Observing","WaitingForObserving","DownloadInProgress"]
+            if state in states:
                 self.functions.print_paragraphs([
-                    [" WARNING ",0,"white,on_red"], ["This profile [",0],
-                    [profile,-1,"yellow","bold"], ["] is in [",-1], [state,-1,"yellow","bold"],
-                    ["] state.",-1], ["",2]
+                    ["",1],[" WARNING ",0,"white,on_red"], ["This profile",0],
+                    [profile,0,"yellow","bold"], ["is in state:",0], [state,2,"yellow","bold"],
                 ]) 
                 if self.functions.confirm_action({
                     "yes_no_default": "y",
@@ -2829,10 +2832,12 @@ class CLI():
                 
         progress = {
             "status": "running",
+            "status_color": "yellow",
             "text_start": "stop request initiated",
             "brackets": self.functions.cleaner(self.service_name,'service_prefix'),
             "newline": True,
         }
+        print("")
         self.functions.print_cmd_status(progress)
         self.log.logger.info(f"Stop service request initiated. [{self.service_name}]")
         
@@ -3653,7 +3658,8 @@ class CLI():
                 "threaded": threaded,
                 "profile": profile,
                 "secs": secs,
-                "cli_flag": True    
+                "cli_flag": True,
+                "current_source_node": "127.0.0.1",   
             })
             return state
 
