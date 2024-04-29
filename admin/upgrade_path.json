@@ -11,8 +11,8 @@
     "upgrade": "False"
   },
   "integrationnet": {
-    "version": "v2.12.11",
-    "upgrade": "False"
+    "version": "v2.13.0",
+    "upgrade": "True"
   },
   "nodectl_config": "v2.1.0"
 }
