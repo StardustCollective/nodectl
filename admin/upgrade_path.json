@@ -12,7 +12,7 @@
   },
   "integrationnet": {
     "version": "v2.13.0",
-    "upgrade": "True"
+    "upgrade": "False"
   },
   "nodectl_config": "v2.1.0"
 }
