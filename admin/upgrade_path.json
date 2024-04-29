@@ -13,9 +13,9 @@
     "current_stable": "v2.12.11"
   },
   "integrationnet": {
-    "version": "v2.12.11",
-    "upgrade": "False",
-    "current_stable": "v2.12.11"
+    "version": "v2.13.0",
+    "upgrade": "full",
+    "current_stable": "v2.13.0"
   },
   "nodectl_config": "v2.1.1"
 }
