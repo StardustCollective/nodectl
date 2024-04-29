@@ -172,7 +172,7 @@ def build_help(functions,command_obj):
                             will clean snapshots older than 30 days only.
                             see extended help (sudo nodectl -cs help)
     
-    clean_files    | - clear files types older than 7 or 30 days, or all 
+    clean_files    | - clear/clean files types older than 7 or 30 days, or all 
                             -t ["logs","backups","uploads"]
                            
     check_source_connection | - checks the debug api for peer on both the
@@ -1950,11 +1950,11 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The command {colored(extended,"cyan")} will offers the Node Operator the
-  ability to clear specified logs or special stored files 
+  ability to clean specified logs or special stored files 
   that may not be needed anymore.
 
   Syntax:
-  # {colored("sudo nodectl clear_logs -t <log_type>","cyan")}
+  # {colored("sudo nodectl clean_files -t <log_type>","cyan")}
   
   Optional Shorthand:
   {colored("-cf","yellow")}
