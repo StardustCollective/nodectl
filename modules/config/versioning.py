@@ -4,6 +4,7 @@ from time import sleep
 from os import path, mkdir
 from requests import get
 from sys import exit
+from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy, deepcopy
 
@@ -17,16 +18,18 @@ class Versioning():
         self.log = Logging()
         
         # important
-        # migration -> verify_config_type -> simple verification value counts
-        #                                    may need to adjusted if new key/pair 
+        # migration -> verify_config_type -> simple verification value counters
+        #                                    may need to be adjusted if new key/pair 
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.12.8"
-        nodectl_yaml_version = "v2.1.0"
-        node_upgrade_path_yaml_version = "v2.0.0" # if previous is 'current_less'; upgrade path needed (for migration module)
+        nodectl_version = "v2.13.0"
+        nodectl_yaml_version = "v2.1.1"
+                
+        node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
 
         self.upgrade_path_path = f'https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_{nodectl_version.replace(".","")}/admin/upgrade_path.json'
+        # self.upgrade_path_path = f'https://raw.githubusercontent.com/StardustCollective/nodectl/main/admin/upgrade_path.json'
                 
         self.print_messages = command_obj.get("print_messages",True)
         self.show_spinner = command_obj.get("show_spinner",True)
@@ -42,9 +45,9 @@ class Versioning():
     
         self.auto_restart = False
 
-        exception_cmds = ["auto_restart","uvos","service_restart"]
+        exception_cmds = ["auto_restart","uvos","service_restart","quick_install"]
         if self.called_cmd in exception_cmds:
-            self.auto_restart = True
+            if self.called_cmd != "quick_install": self.auto_restart = True
             self.print_messages = False 
             self.show_spinner = False 
         
@@ -59,7 +62,8 @@ class Versioning():
         self.update_file_only = False
         self.version_valid_cache = False
         self.date_time = None
-        
+        self.session_timeout = 2
+
         self.nodectl_static_versions = {
             "node_nodectl_version": nodectl_version,
             "node_nodectl_yaml_version": nodectl_yaml_version,  
@@ -70,7 +74,7 @@ class Versioning():
         self.version_obj_path = "/var/tessellation/nodectl/"
         self.version_obj_file = f"{self.version_obj_path}version_obj.json"
 
-        init_only = ["verify_nodectl","_vn","-vn"]
+        init_only = ["verify_nodectl","_vn","-vn","uninstall"]
         if self.called_cmd in init_only: return
         
         self.execute_versioning()
@@ -79,13 +83,14 @@ class Versioning():
     def execute_versioning(self):
         self.log.logger.debug(f"versioning - called [{self.logging_name}] - executing versioning update request.")
         if self.called_cmd == "show_version": return # nodectl only
-        if self.called_cmd == "upgrade": self.force = True
+        if self.called_cmd in ["upgrade","install","quick_install"]: self.force = True
 
         self.functions = Functions(self.config_obj)
         self.error_messages = Error_codes(self.functions) 
         self.functions.log = self.log # avoid embedded circular reference errors
 
-        if self.auto_restart: return  # relies on service updater
+        if self.auto_restart and not self.service_uvos: 
+            return  # relies on service updater
                         
         self.get_cached_version_obj()
         
@@ -119,18 +124,24 @@ class Versioning():
             self.new_creation = True
         except json.JSONDecodeError:
             self.log.logger.error(f"Versioning Failed to decode JSON in [{self.version_obj_file}].")
-            self.print_error()
+            if self.called_cmd != "uvos":
+                self.print_error("ver-126","invalid_file_format")
         
-        self.verify_version_object()
+        if not self.force: self.verify_version_object()
+
         if self.new_creation:
             self.log.logger.debug(f"versioning - called by [{self.logging_name}] - new versioning json object file creation.")
             self.write_version_obj_file()
         else:
-            elapsed = self.functions.get_date_time({
-                "action": "get_elapsed",
-                "old_time": version_obj["last_updated"],
-            })
-            if (self.force or elapsed.seconds > self.seconds) and not self.auto_restart:
+            try:
+                elapsed = self.functions.get_date_time({
+                    "action": "get_elapsed",
+                    "old_time": version_obj["last_updated"],
+                })
+            except:
+                elapsed = {"seconds": -1}
+                elapsed = SimpleNamespace(**elapsed)
+            if (self.force or elapsed.seconds > self.seconds) and (not self.auto_restart or self.service_uvos) and self.called_cmd != "migrator":
                 self.log.logger.debug(f"versioning - called by [{self.logging_name}] - out of date - updating.")
                 self.write_version_obj_file()
             else:
@@ -146,12 +157,15 @@ class Versioning():
                 self.update_file_only = True
                 self.write_version_obj_file()
             self.version_obj = version_obj
+
+        if self.force: # if forced verify object after new write
+            self.verify_version_object()
         self.force = False # do not leave forced on
         
         
-    def pull_from_jar(self,jar):
-        self.log.logger.debug(f"versioning - called by [{self.logging_name}] - pulling tessellation version for jar file.")
-        bashCommand = f"/usr/bin/java -jar /var/tessellation/{jar} --version"
+    def pull_from_jar(self,jar_path):
+        self.log.logger.debug(f"versioning - called by [{self.logging_name}] - pulling tessellation version for jar file [{jar_path}].")
+        bashCommand = f"/usr/bin/java -jar {jar_path} --version"
         node_tess_version = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "wait"
@@ -181,6 +195,7 @@ class Versioning():
 
             test_obj = {
                 "threaded": False,
+                "caller": "versioning",
                 "spinner": False,
                 "print_output": False,
                 "profile": self.functions.default_profile,
@@ -189,7 +204,7 @@ class Versioning():
             self.log.logger.debug(f"versioning - version test obj | [{test_obj}]")
             state = self.functions.test_peer_state(test_obj)
             
-            if state == "ApiNotReady" and self.called_cmd == "uvos": 
+            if state == "ApiNotResponding" and self.called_cmd == "uvos": 
                 # after installation there should be a version obj already created
                 # no need to update file while Node is not online.
                 self.log.logger.warn(f"versioning - versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")
@@ -204,19 +219,29 @@ class Versioning():
           
             # get cluster Tessellation
             self.log.logger.debug(f"versioning - called by [{self.logging_name}] - building new version object.")
+           
             version_obj, env_version_obj = {}, {}
             last_environment = False
-           
+            info_list = ["version"]
+            metagraph = False
+
             for environment in self.functions.environment_names:
                 for profile in self.functions.profile_names:
                     upgrade_path = deepcopy(self.upgrade_path)
+
                     if self.config_obj[profile]["environment"] != environment: continue
-                    if self.request == "runtime":
-                        api_host = self.config_obj[profile]["edge_point"]
-                        api_port = self.config_obj[profile]["edge_point_tcp_port"]
-                    else:
-                        api_host = self.functions.lb_urls[self.functions.environment_name][0]
-                        api_port = self.functions.lb_urls[self.functions.environment_name][1]
+                    if not self.config_obj[profile]["profile_enable"]: continue
+
+                    api_endpoint = "/node/info"
+                    api_host = self.config_obj[profile]["edge_point"]
+                    api_port = self.config_obj[profile]["edge_point_tcp_port"]
+
+                    # migration only version by-pass
+                    if self.config_obj["global_elements"]["nodectl_yaml"] == self.nodectl_static_versions["node_nodectl_yaml_version"]: # migration only version by-pass
+                        if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
+                            info_list = ["metagraphVersion"]
+                            api_endpoint = "/metagraph/info"
+                            metagraph = True
                         
                     if not last_environment or last_environment != self.config_obj[profile]["environment"]:
                         version_obj = {
@@ -232,11 +257,33 @@ class Versioning():
                             version = self.functions.get_api_node_info({
                                 "api_host": api_host,
                                 "api_port": api_port,
-                                "info_list": ["version"],
+                                "api_endpoint": api_endpoint,
+                                "info_list": info_list,
                                 "tolerance": 2,
-                            })[0]
+                            })
                         except:
                             version = "v0.0.0"
+                            metagraph_version = "v0.0.0"
+                        else:
+                            if metagraph:
+                                metagraph_version = version[0]
+                                if not metagraph_version.startswith("v"): metagraph_version = f"v{metagraph_version}"
+                                try:
+                                    test = self.functions.lb_urls[self.config_obj[profile]["environment"]][0]
+                                    version = self.functions.get_api_node_info({
+                                        "api_host": self.functions.lb_urls[self.config_obj[profile]["environment"]][0],
+                                        "api_port": self.functions.lb_urls[self.config_obj[profile]["environment"]][1],
+                                        "api_endpoint": "/node/info",
+                                        "info_list": ["version"],
+                                        "tolerance": 2,
+                                    })
+                                except:
+                                    version = "v0.0.0"
+                                else:
+                                    version = version[0]
+                            else:
+                                metagraph_version = None
+                                version = version[0]
                     
                     if profile not in env_version_obj.keys():
                         env_version_obj = {
@@ -245,8 +292,9 @@ class Versioning():
                         }
                     
                     jar = self.config_obj[profile]["jar_file"]
+                    jar_path = self.config_obj[profile]["jar_path"]
                     try:
-                        node_tess_version = self.pull_from_jar(jar)            
+                        node_tess_version = self.pull_from_jar(jar_path)            
                     except Exception as e:
                         self.log.logger.error(f"attempting to pull node version from jar failed with [{e}]")
                         node_tess_version = "v0.0.0"
@@ -257,25 +305,37 @@ class Versioning():
                         node_tess_version = f"v{node_tess_version}"
                                                 
                     env_version_obj[profile]["cluster_tess_version"] = version
+                    env_version_obj[profile]["cluster_metagraph_version"] = metagraph_version
                     env_version_obj[profile]["node_tess_version"] = node_tess_version
                     env_version_obj[profile]["node_tess_jar"] = jar
                     
                     if not last_environment or last_environment != self.config_obj[profile]["environment"]:
-                        version_obj["upgrade_path"] = upgrade_path["path"]
-                        version_obj[environment]["nodectl"]["latest_nodectl_version"] = upgrade_path[environment]["version"]
-                        version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
-                        version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
-                        version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
+                        try:
+                            version_obj["upgrade_path"] = upgrade_path["path"]
+                            version_obj[environment]["nodectl"]["latest_nodectl_version"] = upgrade_path[environment]["version"]
+                            version_obj[environment]["nodectl"]["current_stable"] = upgrade_path[environment]["current_stable"]
+                            version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
+                            version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
+                            version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
+                            version_obj[environment]["remote_yaml_version"] = upgrade_path["nodectl_config"]
+                        except Exception as e:
+                            self.log.logger.error(f"versioning --> building object issue encountered | [{e}]")
+                            self.functions.event = False
+                            if self.called_cmd != "uvos":
+                                self.print_error("ver-278","invalid_file_format","sudo nodectl update_version_object")
+                            return
+
                         
                         try: del version_obj[environment]["nodectl"]["version"]
                         except: pass
 
                     up_to_date = [
-                        ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["version"]],
-                        ["tess_uptodate", node_tess_version, version]
+                        ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["current_stable"],"nodectl version"],
+                        ["nodectl_yaml_uptodate", self.version_obj["node_nodectl_yaml_version"],upgrade_path["nodectl_config"],"nodectl yaml version"],
+                        ["tess_uptodate", node_tess_version, version,"tessellation version"],
                     ]
                     for versions in up_to_date:
-                        test = self.functions.is_new_version(versions[1],versions[2])
+                        test = self.functions.is_new_version(versions[1],versions[2],"versioning module",versions[3])
                         if not test: test = True
                         if versions[0] == "nodectl_uptodate": version_obj[environment]["nodectl"]["nodectl_uptodate"] = test
                         else: env_version_obj[profile][f"{versions[0]}"] = test
@@ -287,7 +347,7 @@ class Versioning():
                     
                     last_environment = environment
                     
-                if self.request == "install": break
+                if "install" in self.request: break
 
             self.version_obj = {**self.version_obj, **version_obj}
             self.version_obj["last_updated"] = self.date_time
@@ -296,9 +356,10 @@ class Versioning():
             
             self.write_file()
             
-            sleep(.8) # allow system time to catch up              
+            sleep(.8) # allow system time to catch up  
+            self.functions.cancel_event = True            
             self.functions.event = False
-            
+
 
     def pull_upgrade_path(self):
         do_update = False
@@ -314,7 +375,7 @@ class Versioning():
         if do_update or self.force:
             try:
                 session = self.functions.set_request_session()
-                upgrade_path = session.get(self.upgrade_path_path)
+                upgrade_path = session.get(self.upgrade_path_path, timeout=self.session_timeout)
             except:
                 # only trying once (not that important)
                 
@@ -350,8 +411,10 @@ class Versioning():
                     **self.upgrade_path,
                     "nodectl_config": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
                     "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
+                    "remote_yaml_version": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
                     f"{environment}": {
                         "version": self.old_version_obj[environment]["nodectl"]["latest_nodectl_version"],
+                        "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],
                         "upgrade": self.old_version_obj[environment]["nodectl"]["upgrade"]
                     }
                 }
@@ -360,10 +423,11 @@ class Versioning():
     def is_nodectl_pre_release(self):
         p_version = self.upgrade_path[self.functions.environment_names[0]]["version"]
         pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
+        pre_release = {"prerelease":"Unknown"}
 
         try:
             session = self.functions.set_request_session()
-            pre_release = session.get(pre_release_uri).json()
+            pre_release = session.get(pre_release_uri, timeout=self.session_timeout).json()
         except Exception as e:
             self.log.logger.warn(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
         else:
@@ -376,9 +440,9 @@ class Versioning():
             session.close()
             
         try:
-            return pre_release["prerelease"]  # this will be true or false
+            return pre_release["prerelease"] # this will be true or false
         except:
-            return "Unknown"
+            return "Unknown"  
 
 
     def write_file(self):
@@ -388,12 +452,13 @@ class Versioning():
             json.dump(self.version_obj,file,indent=4)
             
     
-    def print_error(self):
+    def print_error(self,ver,code,hint=None):
         self.error_messages.error_code_messages({
-            "error_code": "ver-83",
-            "line_code": "invalid_file_format",
+            "error_code": ver,
+            "line_code": code,
             "extra": self.version_obj_file,
-        })         
+            "hint": hint,
+        })
         
          
     def verify_version_object(self):
@@ -402,14 +467,15 @@ class Versioning():
         
         root_keys = [
             "node_nodectl_version","node_nodectl_yaml_version","nodectl_github_version",
-            "upgrade_path","last_updated","next_updated","node_upgrade_path_yaml_version",
+            "upgrade_path","last_updated","next_updated",
+            "node_upgrade_path_yaml_version",
         ]    
         nodectl_keys = [
             "latest_nodectl_version","nodectl_prerelease","nodectl_remote_config",
             "upgrade","nodectl_uptodate"
         ]
         tess_keys = [
-            "cluster_tess_version","node_tess_version","node_tess_jar","tess_uptodate"           
+            "cluster_tess_version","cluster_metagraph_version","node_tess_version","node_tess_jar","tess_uptodate"           
         ]    
             
         self.functions.version_obj = self.old_version_obj
@@ -469,8 +535,4 @@ class Versioning():
                 print(json.dumps(self.functions.version_obj,indent=4))
                 print("")
             exit(0)
-            
-
-
-
         

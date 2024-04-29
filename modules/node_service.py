@@ -6,11 +6,10 @@ from termcolor import colored, cprint
 from requests import Session
 from types import SimpleNamespace
 
-from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .troubleshoot.ts import Troubleshooter
-from .config.versioning import Versioning
+from .download_service import Download
 
 class Node():
         
@@ -41,7 +40,7 @@ class Node():
         self.p12_password  = None 
         self.wallet_alias = None
         self.environment_name = None
-        
+
         # during installation, the nodeid will be blank
         # until after the p12 is created causing the install
         # to create the cnng bash files and then write over it.
@@ -77,323 +76,14 @@ class Node():
             "req": "service",
             "profile": profile,
         })
-
-
-    def set_github_repository(self,repo,profile,download_version):
-        if repo == "default":
-            repo = "https://github.com/Constellation-Labs/tessellation"
-            
-        if self.config_obj[profile]["jar_github"]:
-            repo = f"{repo}/releases/download/{download_version}"
-        
-        return repo
     
     
     def download_constellation_binaries(self,command_obj):
-        # download_version=(bool) "default"
-        # print_version=(bool) True
-        download_version = command_obj.get("download_version","default")
-        print_version = command_obj.get("print_version",True)
-        action = command_obj.get("action","normal")
-        requested_profile = command_obj.get("profile",False)
-        environment = command_obj.get("environment",False)
-        argv_list = command_obj.get("argv_list",[])
-        backup = command_obj.get("backup", True)
-        
-        if "-v" in argv_list: download_version = argv_list(argv_list.index("-v")+1)
-        
-        if self.auto_restart: profile_names = [requested_profile]
-        else: profile_names = self.functions.profile_names
-        
-        def screen_print_download_results(file,first=False):
-            backup = ""
-            
-            if file != "cur_pos":
-                i_file = file_obj[file] # readability
-                colors = {"fetching": "magenta", "complete": "green", "failed": "red"}
-                color = colors.get(i_file['state'])
-                state_str = colored(i_file['state'],color,attrs=['bold'])
-                
-                new_pos = i_file['pos']+2
-                old_pos = file_obj["cur_pos"]
-                print_pos = new_pos-old_pos if file_obj["cur_pos"] is not None else 1
-                for _ in range(0,print_pos):
-                    backup += "\033[F"
-                    
-                if not first:
-                    print(backup)
-                    
-                self.functions.print_cmd_status({
-                    "text_start": "Fetch Tessellation binary",
-                    "brackets": file,
-                    "status": state_str,
-                    "newline": True
-                })
-                return i_file['pos']
-            
-        def threaded_download(download_list):
-            file_obj_copy = download_list[0]
-            file = download_list[1]
-            auto_restart = download_list[2]
-            copy_state = "complete"
-            tess_dir = "/var/tessellation/"
-            
-            try:
-                profile = file_obj_copy[file]["profile"]
-            except:
-                profile = first_profile
-            
-            download_version = file_obj_copy[file]["version"]
-            
-            uri = file_obj_copy[file]["location"]
-            uri = self.functions.cleaner(uri,"trailing_backslash")
-            if uri[0:3] != "http" and uri != "default":
-                # default to https://
-                uri = f"https://{uri}"
-                
-            if download_version == "default":
-                # retrieved from the edge point
-                download_version = self.version_obj[environment][profile]["cluster_tess_version"]
-            uri = self.set_github_repository(uri,profile,download_version)
-
-            attempts = 0
-            if not path.exists(tess_dir):
-                makedirs(tess_dir)
-                
-            self.log.logger.info(f"downloading binary jar files: {file}")
-            while True:
-                if file != "cur_pos":
-                    if file_obj_copy[file]["state"] != "complete":
-                        bashCommand = f"sudo wget {uri}/{file} -O /var/tessellation/{file} -o /dev/null"
-                        self.functions.process_command({
-                            "bashCommand": bashCommand,
-                            "proc_action": "timeout"
-                        })
-                        if self.functions.get_size(f'{tess_dir}{file}',True) == 0:
-                            copy_state = "failed"
-                            
-                        system(f"sudo chmod 755 {tess_dir}{file} > /dev/null 2>&1")
-                
-                    file_obj_copy[file]["state"] = copy_state
-
-                if auto_restart:
-                    if copy_state == "complete":
-                        self.log.logger.debug(f"auto_restart - auto_upgrade - node_service - completed successfully [{file}]")
-                        return True
-                    sleep(2)
-                    attempts = attempts + 1
-                    if attempts > 3:
-                        self.log.logger.critical(f"auto_restart - auto_upgrade - node service is unable to download [{file}]")
-                        return False
-                    self.log.logger.error(f"auto_restart - auto_upgrade - node service is unable to download [{file}] trying again attempt [{attempts}]")
-                else:
-                    cur_pos = screen_print_download_results(file)
-                    file_obj_copy["cur_pos"] = cur_pos
-                    return file_obj_copy
-
-        if not environment:
-            self.error_messages.error_code_messages({
-                "error_code": "ns-95",
-                "line_code": "environment_error",
-                "extra": "binary downloads",
-            })
-        
-        # if download_version == "default":
-        #     self.version_obj["cluster_tess_version"] = self.functions.get_version({
-        #         "which": "cluster_tess",
-        #         "print_version": print_version,
-        #         "action": action
-        #     })
-        
-        file_pos = 3
-        if action == "upgrade":
-            download_version = download_version[profile_names[0]]["download_version"]
-        file_obj = {
-            "cl-keytool.jar": { "state": "fetching", "pos": 1, "location": "default", "version": download_version},
-            "cl-wallet.jar":  { "state": "fetching", "pos": 2, "location": "default", "version": download_version},
-        }
-        
-        if self.auto_restart:
-            # avoid race condition if same file is downloaded at the same time only
-            # download tool jars if root profile.
-            root_profile = self.functions.test_for_root_ml_type(environment)
-            if requested_profile != root_profile: file_obj, file_pos = {}, 0
-
-        for n, profile in enumerate(profile_names):
-            # version = download_version
-            if self.config_obj[profile]["environment"] == environment:
-                first_profile = profile if n < 1 else first_profile
-                file_obj[self.config_obj[profile]["jar_file"]] = {
-                    "state": "fetching",
-                    "pos": n+file_pos,
-                    "location": self.config_obj[profile]["jar_repository"],
-                    "version": download_version,
-                    "profile": profile
-                }
-                
-        # reorder cursor positions
-        for n, file in enumerate(file_obj):
-            file_obj[file]["pos"] = len(file_obj)-n
-        file_obj["cur_pos"] = 1
-        files = list(file_obj.keys())
-        
-        if backup:
-            self.functions.backup_restore_files({
-                "file_list": files,
-                "location": "/var/tessellation",
-                "action": "backup"
-            })
-        
-        if self.auto_restart:
-            result = True
-            for file in files:
-                if file != "cur_pos": 
-                    single_result = threaded_download([file_obj,file,self.auto_restart]) # not threaded with auto_restart
-                    if not single_result: 
-                        result = False # once set to false, don't update again
-            return result
-        else:
-            for file in files:
-                screen_print_download_results(file,True)
-            
-        with ThreadPoolExecutor() as executor:
-            for file in files:
-                if file != "cur_pos": 
-                    return_obj = executor.submit(threaded_download,[file_obj,file,self.auto_restart])
-                    file_obj = return_obj.result()
-        
-        for _ in range(0,file_obj['cur_pos']-1):
-            print("") # return to bottom of screen
-            
-        for n in range(0,5):
-            fail_count = 0
-            for file in file_obj.keys():
-                if file != "cur_pos":
-                    if file_obj[file]["state"] == "failed":
-                        fail_count += 1
-                    file_obj[file]["pos"] = file_obj[file]["pos"]+1
-            if fail_count > 0 and n < 4:
-                cprint("  Possible corrupt files downloaded, trying again","red")
-                with ThreadPoolExecutor() as executor:
-                    for file in file_obj.keys():
-                        if file != "cur_pos": 
-                            return_obj = executor.submit(threaded_download,[file_obj,file,self.auto_restart])
-                            file_obj = return_obj.result()
-            elif fail_count > 0 and n > 3:
-                self.functions.print_paragraphs([
-                    ["Possible network issues downloading files, please try again later.",1,"red"],
-                    ["Original binaries will be automatically restored if they were present before the download process initiated.",1,"yellow"]
-                ])
-                self.functions.backup_restore_files({
-                    "file_list": files,
-                    "location": "/var/tessellation",
-                    "action": "restore"
-                })
-            elif fail_count == 0:
-                break
-            
-        # if action != "install":
-        for profile in profile_names:
-            command_obj = {
-                **command_obj,
-                "profile": profile,
-                "global_elements": {"metagraph_name": self.functions.config_obj[profile]["environment"]},
-                "download_version": download_version,
-            }
-            self.download_update_seedlist(command_obj)
-           
-
-    def download_update_seedlist(self,command_obj):
-        # ===============================
-        # NOTE
-        # Since seed lists will be removed for PRO score in
-        # the future releases of Tessellation, nodectl will use
-        # hardcoded seed-list download locations.
-        # 
-        # This method can be either removed or refactored
-        # after new Metagraph Channel requirements are identified
-        # ===============================
-        
-        self.log.logger.debug("node service - download seed list initiated...")
-        profile = command_obj.get("profile",self.profile)
-        # install_upgrade = command_obj.get("install_upgrade",True)
-        download_version = command_obj.get("download_version","default")
-        environment_name = self.functions.config_obj[profile]["environment"]
-        seed_path = self.functions.config_obj[profile]["seed_path"]    
-        seed_file = self.config_obj[profile]['seed_file']
-        seed_repo = self.config_obj[profile]['seed_repository']
-        
-        if download_version == None: download_version = "default"
-        
-        if not self.auto_restart:
-            progress = {
-                "text_start": "Fetching cluster seed file",
-                "brackets": f"{environment_name}->{profile}",
-                "status": "fetching",
-            }
-        
-        if "disable" in seed_path:
-            if not self.auto_restart:
-                self.functions.print_cmd_status({
-                    **progress,
-                    "status": "disabled/skipped",
-                    "status_color": "red",
-                    "newline": True,
-                })
-            return
-        
-        # includes seed-list access-list  
-        if download_version == "default":
-            self.log.logger.info(f"downloading seed list [{environment_name}] seedlist]")   
-            download_version = self.version_obj[environment_name][profile]['cluster_tess_version']
-
-        if self.config_obj[profile]["seed_repository"] == "default":
-            if environment_name == "testnet":
-                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{environment_name}-seedlist -O {seed_path} -o /dev/null"
-            elif environment_name == "integrationnet":
-                bashCommand = f"sudo wget https://constellationlabs-dag.s3.us-west-1.amazonaws.com/{environment_name}-seedlist -O {seed_path} -o /dev/null"
-            elif environment_name == "mainnet":
-                if download_version == "default":
-                    download_version = self.version_obj[environment_name][self.functions.default_profile]["cluster_tess_version"]
-                bashCommand = f"sudo wget https://github.com/Constellation-Labs/tessellation/releases/download/{download_version}/{environment_name}-seedlist -O {seed_path} -o /dev/null"
-        else:
-            # makes ability to not include https or http
-            if "http://" not in seed_repo and "https://" not in seed_repo:
-                seed_repo = f"https://{seed_repo}"
-            bashCommand = f"sudo wget {seed_repo}/{seed_file} -O {seed_path} -o /dev/null"
-            
-        if not self.auto_restart:
-            self.functions.print_cmd_status(progress)
-        
-        # execute download and test for zero file size   
-        for n in range(0,4):
-            self.functions.process_command({
-                "bashCommand": bashCommand,
-                "proc_action": "timeout"
-            })
-            self.log.logger.debug(f"Attempting to download seedlist with command: [{bashCommand}]")
-            system(bashCommand)
-            if path.exists(seed_path):
-                if self.functions.get_size(seed_path,True) > 0:
-                    system(f"chmod 644 {seed_path} > /dev/null 2>&1")
-                    break
-            if n == 3:
-                if self.auto_restart:
-                    self.log.logger.critical("unable to obtain seed-list, please check configuration?")
-                else:
-                    self.error_messages.error_code_messages({
-                        "error_code": "ns-241",
-                        "line_code": "seed-list"
-                    })
-            sleep(1)
-        
-        self.log.logger.debug(f"node service - download seed list completed")
-        if not self.auto_restart:
-            self.functions.print_cmd_status({
-                **progress,
-                "status": "complete",
-                "newline": True,
-            })
+        download_service = Download({
+            "parent": self,
+            "command_obj": command_obj,
+        })
+        return download_service.execute_downloads()
 
 
     def create_service_bash_file(self,command_obj):
@@ -401,6 +91,7 @@ class Node():
         # background_build=(bool) # default True;  build the auto_restart service?
         
         def replace_service_file_items(profile,template,create_file_type):
+            chmod = "755" # default
             if create_file_type in ["service_file","version_service"]:
                 chmod = "644"
                 template = template.replace(
@@ -417,8 +108,6 @@ class Node():
                 ) 
 
             elif create_file_type == "service_bash":
-                chmod = "755"
-                
                 template = template.replace(
                     "nodegarageservicename",
                     profile
@@ -447,8 +136,8 @@ class Node():
                     template = template.rstrip()
                     
                 template = template.replace(
-                    "nodegaragetessbinaryfile",
-                    self.config_obj[profile]["jar_file"]
+                    "nodegaragetessbinaryfilepath",
+                    self.config_obj[profile]["jar_path"]
                 )   
                 template = template.rstrip()                   
                     
@@ -508,7 +197,7 @@ class Node():
         single_profile = command_obj.get("single_profile",False)
         background_services = command_obj.get("background_services",False)
         create_file_type = command_obj["create_file_type"]
-        
+
         for profile in self.profile_names:
             profile = single_profile if single_profile else profile
             template = self.create_files({"file": create_file_type})
@@ -518,6 +207,9 @@ class Node():
                 service_dir_file = f"/etc/systemd/system/node_version_updater.service"
             elif create_file_type == "service_file":
                 service_dir_file = f"/etc/systemd/system/cnng-{self.config_obj[profile]['service']}.service"
+            elif create_file_type == "auto_restart_service_log":
+                service_dir_file = "/var/tessellation/nodectl/auto_restart_logger.sh"
+                single_profile = True
             elif create_file_type == "service_bash":
                 profile_service = self.config_obj[profile]['service']
                 if single_profile:
@@ -545,7 +237,7 @@ class Node():
 
     def build_service(self,background_build=False):
         self.log.logger.debug("build services method called [build services]")
-        build_files = ["service_file","service_bash","version_service"]
+        build_files = ["service_file","service_bash","version_service","auto_restart_service_log"]
         for b_file in build_files:
             self.create_service_bash_file({
                 "create_file_type": b_file,
@@ -599,7 +291,16 @@ class Node():
             for key, value in self.functions.config_obj[profile].items():
                 for env_key_value in p12_keys:
                     if key == env_key_value[1]:
-                        f.write(f'{env_key_value[0]}="{self.functions.config_obj[profile][key]}"\n')
+                        epass = self.functions.config_obj[profile][key]
+                        if self.config_obj["global_p12"]["encryption"] and "PASS" in env_key_value[0]:
+                            eprofile = profile
+                            if self.functions.config_obj[profile]["global_p12_passphrase"]: eprofile = "global"
+                            epass = self.functions.get_persist_hash({
+                                "pass1": epass,
+                                "profile": eprofile,
+                                "enc_data": True,
+                            })                             
+                        f.write(f'{env_key_value[0]}="{epass}"\n')
         f.close()
 
         if not self.auto_restart:        
@@ -630,44 +331,76 @@ class Node():
             })   
         
 
-    def build_remote_link(self,link_type):
+    def build_remote_link(self,link_type,interactive):
+        not_ready_option = None
         for n in range(0,4):
             source_node_list = self.functions.get_api_node_info({
                 "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
                 "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
-            if source_node_list[3] == "Ready":
+
+            if source_node_list == None: 
+                if n < 3:                    
+                    self.error_messages.error_code_messages({
+                        "error_code": "ns-634",
+                        "line_code": "config_error",
+                        "extra": "format",
+                    })
+                self.log.logger.error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{source_node_list}]")
+                continue # try again... 
+
+            if not self.auto_restart:
+                self.functions.print_cmd_status({
+                    "text_start": f"{link_type.upper()} Link Node in",
+                    "brackets": source_node_list[3],
+                    "text_end": "state" if source_node_list[3] == "Ready" else "state | not",
+                    "status": "Ready",
+                    "status_color": "green" if source_node_list[3] == "Ready" else "red",
+                    "newline": True
+                })
+
+            ready_list = ["Ready","WaitingForReady","Observing","WaitingForObserving"]
+            ready_list = ["Ready"]
+            if source_node_list[3] in ready_list:
+                self.log.logger.debug(f"node_service -> build_remote_link -> source node [{source_node_list[3]}] in state [{source_node_list[3]}].")
                 return True
 
-            self.functions.print_cmd_status({
-                "text_start": f"{link_type.upper()} Link Node in",
-                "brackets": source_node_list[3],
-                "text_end": "state | not",
-                "status": "Ready",
-                "status_color": "red"
-            })
             if n > 2:
-                self.functions.print_paragraphs([
-                    [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
-                    ["Exiting join process, please try again later or check Node configuration.",2,"red"],
-                ])
-                self.functions.print_auto_restart_warning()
+                self.log.logger.error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
+                if not self.auto_restart:
+                    self.functions.print_paragraphs([
+                        [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
+                        ["Exiting join process, please try again later or check Node configuration.",2,"red"],
+                    ])
+                    self.functions.print_auto_restart_warning()
                 return False
             
             error_str = colored("before trying again ","red")+colored(n,"yellow",attrs=["bold"])
             error_str += colored(" of ","red")+colored("3","yellow",attrs=["bold"])
-            with ProcessPoolExecutor() as executor:
-                early_quit = executor.submit(self.functions.key_pressed({
-                    "quit_option": "quit_only",
-                    "newline": True,    
-                }))
-                if early_quit:
+
+            if interactive and not self.auto_restart:
+                self.functions.print_paragraphs([
+                    ["Press",0],["w",0,"yellow"], ["to wait 30 seconds",1],
+                    ["Press",0],["s",0,"yellow"], ["to skip join",1],
+                    ["Press",0],["q",0,"yellow"], ["to quit",1],
+                ])
+                not_ready_option =self.functions.get_user_keypress({
+                    "prompt": "KEY press and OPTION",
+                    "prompt_color": "magenta",
+                    "options": ["W","S","Q"],
+                })
+                if not_ready_option.upper() == "Q":
                     cprint("  Node Operator requested to quit operations","green")
                     exit(0)
-            self.functions.print_timer(5,error_str)
-        
-        executor.shutdown(wait=False,cancel_futures=True)
+
+                if not_ready_option.upper() == "S": break
+            if not self.auto_restart:
+                self.functions.print_timer({
+                    "seconds": 30,
+                    "phrase": error_str,
+                })
+
         return False
         
                                
@@ -792,20 +525,22 @@ class Node():
         static_peer = command_obj.get("static_peer",False)
         
         final = False  # only allow 2 non_interactive attempts
-        
+        clear_to_join, join_breakout, exception_found = True, False, False 
+        state = None        
+
         self.set_profile_api_ports()
-        
         self.log.logger.info(f"joining cluster profile [{self.profile}]")
-        layer_zero_ready = False
-        join_breakout = False
-        exception_found = False
-        state = None
         
         # profile is set by cli.set_profile method
-        gl0_link_profile = self.functions.config_obj[self.profile]["gl0_link_profile"]
-        gl0_linking_enabled = self.functions.config_obj[self.profile]["gl0_link_enable"]
-        ml0_link_profile = self.functions.config_obj[self.profile]["ml0_link_profile"]
-        ml0_linking_enabled = self.functions.config_obj[self.profile]["ml0_link_enable"]
+        link_obj = {
+            "gl0_linking_enabled": self.functions.config_obj[self.profile]["gl0_link_enable"],
+            "ml0_linking_enabled": self.functions.config_obj[self.profile]["ml0_link_enable"],
+            "gl0_link_ready": False,
+            "ml0_link_ready": False,
+            "gl0_link_profile": self.functions.config_obj[self.profile]["gl0_link_profile"],
+            "ml0_link_profile": self.functions.config_obj[self.profile]["ml0_link_profile"]         
+        }
+
         profile_layer = self.functions.config_obj[self.profile]["layer"]
         link_types = ["gl0","ml0"]
         headers = {
@@ -815,24 +550,26 @@ class Node():
         if caller: self.log.logger.debug(f"join_cluster called from [{caller}]")
         
         found_link_types = []
-        if gl0_linking_enabled or ml0_linking_enabled:
+        if link_obj["gl0_linking_enabled"] or link_obj["ml0_linking_enabled"]:
             self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
-            if not self.auto_restart:
-                for link_type in link_types:
-                    verb = "profile" if eval(f"{link_type}_link_profile") != "None" else ""
-                    link_word = eval(f"{link_type}_link_profile") if verb == "profile" else "Remote Link"
-                    graph_type = "Hypergraph" if link_type == "gl0" else "Metagraph"
-                    if eval(f"{link_type}_linking_enabled"):
+            for link_type in link_types:
+                if not self.auto_restart:
+                    verb = " profile" if link_obj[f"{link_type}_link_profile"] != "None" else ""
+                    link_word = link_obj[f"{link_type}_link_profile"] if verb == " profile" else f"Remote Link [{self.functions.config_obj[self.profile][f'{link_type}_link_host']}:{self.functions.config_obj[self.profile][f'{link_type}_link_port']}]"
+                    if verb == " profile":
+                        link_word = link_obj[f"{link_type}_link_profile"] 
+                    else:
+                        f"Remote Link [{self.functions.config_obj[self.profile][f'{link_type}_link_host']}:{self.functions.config_obj[self.profile][f'{link_type}_link_port']}]"
+                    graph_type = "Hypergraph" if self.functions.config_obj[self.profile]['meta_type'] == "gl" else "cluster"
+                if link_obj[f"{link_type}_linking_enabled"]:
+                    if not self.auto_restart:
                         self.functions.print_paragraphs([
-                            [f"Waiting on {verb}",0,"yellow"],[link_word,0,"green"],["state to be",0,"yellow"],
+                            [f"Waiting on{verb}",0,"yellow"],[link_word,0,"green"],["state to be",0,"yellow"],
                             ["Ready",0,"green"], [f"before initiating {graph_type} join.",1,"yellow"]
                         ])
-                        found_link_types.append(link_type)
-                    if eval(f"{link_type}_linking_enabled") and eval(f"{link_type}_link_profile") == "None":
-                        layer_zero_ready = self.build_remote_link(link_type)
-                        if not layer_zero_ready:
-                            if link_type == "gl0": gl0_linking_enabled = False
-                            elif link_type == "ml0": ml0_linking_enabled = False
+                    found_link_types.append(link_type)
+                if link_obj[f"{link_type}_linking_enabled"]: 
+                    link_obj[f"{link_type}_link_ready"] = self.build_remote_link(link_type,interactive)
 
         get_info_obj = {
                 "caller": f"{caller} -> join_cluster",
@@ -867,6 +604,16 @@ class Node():
         self.log.logger.info(f"join cluster -> joining via [{data}]")
 
         if not self.auto_restart:
+            if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
+                token_identifier = self.config_obj[self.profile]["token_identifier"][:5] + ".." + self.config_obj[self.profile]["token_identifier"][-5:]
+                self.functions.print_cmd_status({
+                    "text_start": "Token identifier",
+                    "status": token_identifier,
+                    "brackets": self.profile,
+                    "status_color": "yellow",
+                    "newline": True,
+                })
+
             self.functions.print_cmd_status({
                 "text_start": "Joining with peer",
                 "status": self.source_node_choice["ip"],
@@ -876,14 +623,22 @@ class Node():
             })
         
         join_session = Session()  # this is a requests Session external library
-                
-        if gl0_linking_enabled or ml0_linking_enabled:
+        
+        # are we clear to join?
+        for link_type in link_types:
+            if profile_layer == 0 and not link_obj["gl0_linking_enabled"]:
+                break
+            if link_obj[f"{link_type}_linking_enabled"] and not link_obj[f"{link_type}_link_ready"]:
+                clear_to_join = False
+
+        if clear_to_join:
             for link_type in link_types:
-                if eval(f"{link_type}_link_profile") != "None":  # if None should be static
+                gl0ml0 = link_obj[f"{link_type}_link_profile"]
+                if gl0ml0 != "None":  # if None should be static
                     try:
                         _ = self.functions.pull_profile({
                             "req": "ports",
-                            "profile": eval(f"{link_type}_link_profile")
+                            "profile": gl0ml0
                         })  
                     except:
                         self.log.logger.error(f"node_service -> join link to profile error for profile [{self.profile}] link type [{link_type}]")
@@ -893,9 +648,9 @@ class Node():
                             "error_code": "ser-357",
                             "line_code": "link_to_profile",
                             "extra": self.profile,
-                            "extra2": eval(f"{link_type}_link_profile")
+                            "extra2": gl0ml0
                     })
-            
+                
                     while True:
                         for n in range(1,10):
                             start = n*12-12
@@ -903,35 +658,45 @@ class Node():
                                 start = 1
 
                             state = self.functions.test_peer_state({
-                                "profile": eval(f"{link_type}_link_profile"),
+                                "profile": gl0ml0,
                                 "simple": True
                             })
 
                             if not self.auto_restart:
                                 self.functions.print_cmd_status({
                                     "text_start": "Current Found State",
-                                    "brackets": eval(f"{link_type}_link_profile"),
+                                    "brackets": gl0ml0,
                                     "status": state,
                                     "newline": True,
                                 })
                                 
                             if state == "Ready":
-                                layer_zero_ready = True
+                                link_obj[f"{link_type}_link_ready"] = True
                                 break
                             if state != "Observing" and state != "WaitingForReady":
-                                layer_zero_ready = False
+                                link_obj[f"{link_type}_link_ready"] = False
                                 join_breakout = True
                                 break
 
                             if action == "cli":
                                 self.functions.print_clear_line()
-                                self.functions.print_timer(12,f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),start)
+                                self.functions.print_timer({
+                                    "seconds": 12,
+                                    "phrase": f"out of [{colored('108s','yellow')}{colored(']','magenta')}, {colored('for L0 to move to Ready','magenta')}".ljust(42),
+                                    "start": start
+                                })
                             else:
-                                self.functions.print_timer(12,"Sleeping prior to retry")
-                        if layer_zero_ready or join_breakout:
+                                self.functions.print_timer({
+                                    "seconds": 12,
+                                    "phrase": "sleeping",
+                                    "end_phrase": "prior to retry",
+                                    "step": -1,
+                                    "p_type": "cmd",
+                                })
+                        if link_obj[f"{link_type}_link_ready"] or join_breakout:
                             break
 
-                        if not self.auto_restart and not layer_zero_ready:
+                        if not self.auto_restart and not link_obj[f"{link_type}_link_ready"]:
                             self.functions.print_paragraphs([
                                 ["",1], [" ERROR ",0,"red,on_yellow"],
                                 [f"nodectl was unable to find the {link_type.upper()} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
@@ -957,7 +722,6 @@ class Node():
                                     break
                                 final = True  # only allow one retry
                     
-        if (profile_layer == 0 and not gl0_linking_enabled) or layer_zero_ready:
             if not self.auto_restart:
                 self.functions.print_cmd_status({
                     "text_start": "Join cluster status",
@@ -988,7 +752,13 @@ class Node():
                         "status_color": "red",
                         "newline": True
                     })
-                    self.functions.print_timer(8,"pausing")
+                    self.functions.print_timer({
+                        "seconds": 8,
+                        "phrase": "Pausing",
+                        "p_type": "cmd",
+                        "step": -1,
+                        "end_phrase": f"of {cprint('8','cyan',attr=['bold'])} seconds"
+                    })
             
             if exception_found and action == "auto_join":
                 # needs to be first
@@ -1026,11 +796,12 @@ class Node():
                 
             result = "done".ljust(32)
         else:
+            self.log.logger.warn("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
             try: return_str = found_link_types.pop()
-            except: return_str == self.profile
+            except: return_str = self.profile
             else:
                 for link_type in found_link_types:
-                    return_str += f" and {link_type}"
+                    return_str += f" and/or {link_type}"
             result = f"{return_str} not Ready".ljust(32)
                 
         if action == "cli":
@@ -1038,7 +809,7 @@ class Node():
         
         
     def create_files(self,command_obj):
-        # file=(str), environment_name=(str) default "mainnet", upgrade_required=(bool) default False
+        # file=(str), environment_name=(str) default "mainnet", upgrade_required=('full' or bool) default False
         # messy method so placed at the end of file for readability.
         
         var = SimpleNamespace(**command_obj)
@@ -1071,13 +842,20 @@ WantedBy=multi-user.target
 # to run your Node's debian service.
 #
 # Node Operators should not alter this file;
-# rather, utilize the: 'sudo nodectl configure' command to  
+# rather, utilize the: 'sudo nodectl configure' command to
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' /var/tessellation/nodegaragetessbinaryfile run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
+/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' nodegaragetessbinaryfilepath run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
 '''
-        
+
+        if var.file == "auto_restart_service_log":
+            cur_file = '''#!/bin/bash
+formatted_date=$(date "+%b %d %H:%M:%S")
+pid=$$
+echo "$formatted_date [$pid]: INFO : systemd saw auto_restart service has been started or restarted." >> /var/tessellation/nodectl/nodectl.log
+'''        
+
         if var.file == "service_restart":
             cur_file = '''[Unit]
 Description=Constellation Node auto_restart service
@@ -1089,6 +867,7 @@ After=multi-user.target
 Type=Simple
 WorkingDirectory=/usr/local/bin
 Environment="SCRIPT_ARGS=%I"
+ExecStartPre=/var/tessellation/nodectl/auto_restart_logger.sh
 ExecStart=nodectl service_restart $SCRIPT_ARGS
 Restart=always
 RestartSec=15
@@ -1132,7 +911,7 @@ WantedBy=multi-user.target
 # documentation hub for details on how to configure
 # this file.
 # =========================================================
-# Metagraph sections isolated by profile key name
+# Network cluster sections isolated by profile key name
 # =========================================================
 # Custom Options and Environment Variables
 # ---------------------------------------------------------
@@ -1141,10 +920,10 @@ WantedBy=multi-user.target
 #
 # Failure to do so may create undesired results from
 # nodectl (especially the configurator) the Node Operator
-# should use the configurator over manually updating this 
+# should use the configurator over manually updating this
 # config file.
 # ---------------------------------------------------------
-# Required arguments 
+# Required arguments
 # ---------------------------------------------------------
 # custom_args_enable: True (or False)
 # custom_env_vars_enable: True (or False)
@@ -1155,7 +934,7 @@ WantedBy=multi-user.target
 # MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
 # ---------------------------------------------------------
 # MANUAL ENTRY MUST BE IN CORRECT ORDER FOR CONFIGURATOR
-# TO WORK PROPERLY.  
+# TO WORK PROPERLY.
 # custom_args_enable followed by all custom_args
 # custom_env_vars_enabled followed by all custom_env_var
 # Failure to do so will lead to unexpected behavior
@@ -1195,20 +974,23 @@ nodectl:
     ml0_link_port: nodegarageml0linkport
     ml0_link_profile: nodegarageml0linkprofile
     token_identifier: nodegaragetokenidentifier
+    token_coin_id: nodegaragemetatokencoinid
     directory_backups: nodegaragedirectorybackups
     directory_uploads: nodegaragedirectoryuploads
     java_xms: nodegaragexms
     java_xmx: nodegaragexmx
     java_xss: nodegaragexss
+    jar_location: nodegaragejarlocation
     jar_repository: nodegaragejarrepository
+    jar_version: nodeagaragejarversion
     jar_file: nodegaragejarfile
     p12_nodeadmin: nodegaragep12nodeadmin
     p12_key_location: nodegaragep12keylocation
     p12_key_name: nodegaragep12keyname
-    p12_key_alias: nodegaragep12keyalias
     p12_passphrase: nodegaragep12passphrase
     seed_location: nodegarageseedlocation
     seed_repository: nodegarageseedrepository
+    seed_version: nodegarageseedversion
     seed_file: nodegarageseedfile
     pro_rating_location: nodegarageratinglocation
     pro_rating_file: nodegarageratingfile
@@ -1216,7 +998,7 @@ nodectl:
     priority_source_repository: nodegarageprioritysourcerepository
     priority_source_file: nodegarageprioritysourcefile
     custom_args_enable: nodegaragecustomargsenable
-    custom_env_vars_enable: nodegaragecustomenvvarsenable      
+    custom_env_vars_enable: nodegaragecustomenvvarsenable
 '''
         
         if var.file == "config_yaml_autorestart":
@@ -1232,16 +1014,38 @@ nodectl:
     nodeadmin: nodegaragep12nodeadmin
     key_location: nodegaragep12keylocation
     key_name: nodegaragep12keyname
-    key_alias: nodegaragep12keyalias
     passphrase: nodegaragep12passphrase
+    encryption: nodegaragep12encryption
 '''
         
         if var.file == "config_yaml_global_elements":
             cur_file = '''  global_elements:
-    metagraph_name: nodegaragemetagraphname         
+    yaml_config_name: nodegarageyamlconfigname
+    metagraph_name: nodegaragemetagraphname
+    metagraph_token_identifier: nodegaragemetatokenidentifier
+    metagraph_token_coin_id: nodegaragemetagraphtokencoinid     
+    local_api: nodegaragelocalapi
+    includes: nodegarageincludes
     nodectl_yaml: nodegaragenodectlyaml
     developer_mode: nodegaragedevelopermode
     log_level: nodegarageloglevel
+'''
+        
+        if var.file == "uninstall_nodectl":
+            cur_file = '''#!/bin/bash
+sleep 1
+red='\033[1;31m'
+blue='\033[1;36m'
+green='\033[1;32m'
+clr='\033[0m'
+
+if [ -f "/usr/local/bin/nodectl" ]; then
+  rm -f /usr/local/bin/nodectl
+  echo "  ${blue}Removing nodectl binary........................ ${green}complete${clr}"
+else
+  echo "  ${blue}Removing nodectl binary........................ ${red}failed${clr}"
+fi
+rm -f "$0"
 '''
 
         elif var.file == "upgrade":
@@ -1302,8 +1106,113 @@ echo "  ${yellow}This version of nodectl ${pink}DOES NOT ${yellow}require an upg
 read -e -p "  ${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
 exit 0
 '''
+
+        if var.file == "auto_complete":
+            cur_file = '''_nodectl_complete()
+{
+    local cur prev words cword opts
+    _get_comp_words_by_ref -n : cur prev words cword
+
+    # Only proceed if 'nodectl' is the command or follows 'sudo'
+    if [[ ! " ${words[@]} " =~ " nodectl " ]]; then
+        return 0
+    fi
+
+    # Commands for 'nodectl'
+    local commands="nodegaragelocalcommands"
+
+    # Options for each command
+    local install_opts="nodegarageinstalloptions"
+    local upgrade_opts="nodegarageupgradeoptions"
+    local viewconfig_opts="nodegarageviewconfigoptions"
+    local default_opts="help"
+
+    # Determine the current command
+    local current_command=""
+    for word in ${words[@]}; do
+        if [[ " ${commands} " == *" ${word} "* ]]; then
+            current_command=${word}
+            break
+        fi
+    done
+
+    case "${current_command}" in
+        install)
+            case "${prev}" in
+                --user)
+                    COMPREPLY=($(compgen -W "<user_name>" -- ${cur}))
+                    return 0
+                    ;;
+                --p12-destination-path)
+                    COMPREPLY=($(compgen -W "<path_to_where_p12_lives>" -- ${cur}))
+                    return 0
+                    ;;
+                --user-password)
+                    COMPREPLY=($(compgen -W "<user_password>" -- ${cur}))
+                    return 0
+                    ;;
+                --p12-passphrase)
+                    COMPREPLY=($(compgen -W "<p12_passphrase>" -- ${cur}))
+                    return 0
+                    ;;
+                --p12-migration-path)
+                    COMPREPLY=($(compgen -W "<path_to_file_p12_being_migrated>" -- ${cur}))
+                    return 0
+                    ;;
+                --p12-alias)
+                    COMPREPLY=($(compgen -W "<p12_alias_name>" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${install_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        upgrade)
+            case "${prev}" in
+                --pass)
+                    COMPREPLY=($(compgen -W "<password>" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${upgrade_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        view_config|-vc)
+            case "${prev}" in
+                --section)
+                    COMPREPLY=($(compgen -W "<section_name>" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${viewconfig_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        *)
+            ;;
+        
+    esac
+
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=($(compgen -W "${default_opts}"))
+        return 0
+    fi
+
+    if [[ $cword -eq 2 ]]; then
+        COMPREPLY=($(compgen -W "${commands}" -- ${cur}))
+        return 0
+    fi
+}
+
+complete -F _nodectl_complete sudo
+'''
         return cur_file+cur_file2
     
     
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")            
+    print("This class module is not designed to be run independently, please refer to the documentation")

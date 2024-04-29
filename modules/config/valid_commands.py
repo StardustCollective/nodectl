@@ -1,62 +1,90 @@
 def pull_valid_command():
     valid_commands = [
-        "restart",
-        "slow_restart",
-        "restart_only",
-        "join",
-        "start",
-        "stop",
-        "leave",
-        "status",
-        "quick_status",
-        "uptime",
-        "id",
-        "nodeid",
-        "dag",
+        "auto_restart",
+
+        "backup_config",
+        
         "check_versions",
-        "disable_root_ssh",
-        "enable_root_ssh",
         "change_ssh_port",
-        "view_config",
-        "validate_config",
-        "clean_files",
-        "verify_nodectl",
-        "list",
-        "show_current_rewards",
-        "find",
-        "peers",
-        "whoami",
-        "nodeid2dag",
-        "show_node_states",
-        "passwd12",
-        "reboot",
-        "upgrade_nodectl",
-        "help",
         "check_seedlist",
         "check_source_connection",
         "check_minority_fork",
-        "show_p12_details",
         "create_p12",
-        "show_node_proofs",
-        "check_connection",
-        "send_logs",
-        "check_seedlist_participation",
-        "download_status",
-        "auto_restart",
-        "install",
-        "upgrade",
-        "upgrade_path",
-        "refresh_binaries",
-        "show_service_log",
+        "check_versions",
         "check_consensus",
-        "health",
-        "price",
-        "sec",
-        "market",
-        "show_dip_error",
-        "update_seedlist",
+        "clean_files",
+        "check_connection",
+        "check_seedlist_participation",
+        
+        "dag",
+        "disable_root_ssh",
+        "download_status",
+
+        "enable_root_ssh",     
         "export_private_key",
+
+        "find",
+        "execute_starchiver",
+
+        "help",
+        "health",
+
+        "id",
+        "install",
+
+        "join",
+
+        "leave",
+        "list",
         "logs",
+
+        "market",
+        "migrate_node",
+
+        "nodeid",
+        "nodeid2dag",
+        
+        "peers",
+        "passwd12",
+        "price",
+
+        "quick_status",
+
+        "reboot",
+        "refresh_binaries",
+        "restart",
+        "restart_only",
+        "restore_config",
+        "remove_snapshots",
+
+        "show_service_status",
+        "show_service_log",
+        "send_logs",
+        "show_dip_error",
+        "start",
+        "stop",
+        "show_current_rewards",
+        "slow_restart",
+        "status",
+        "show_node_states",
+        "show_p12_details",
+        "show_node_proofs",
+        "show_cpu_memory",
+        "sec",
+
+        "upgrade",
+        "upgrade_nodectl",
+        "upgrade_path",
+        "upgrade_vps",
+        "uninstall",
+        "uptime",
+        "update_seedlist",
+
+        "view_config",
+        "validate_config",
+        "verify_nodectl",
+
+        "whoami",
     ]
 
     service_cmds = [
@@ -68,7 +96,7 @@ def pull_valid_command():
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
         "_sde","_usl","_con","_cmf","_spd",
-        "log","prices","markets"
+        "log","prices","markets","_sss",
     ]
     
     removed_cmds = [

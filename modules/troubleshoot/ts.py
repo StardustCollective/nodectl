@@ -49,6 +49,11 @@ class Troubleshooter():
                             "error_msg": "upgrade_needed",
                         },
                         {
+                            "find":"not in seedlist",
+                            "user_msg": "This Node is not authorized to join the cluster. Seed list issue.",
+                            "error_msg": "join_error",
+                        },
+                        {
                             "find":"Address already in use",
                             "user_msg": "Connection Issue - Server reboot may be required.",
                             "error_msg": "Unhandled Exception during runtime",
@@ -65,7 +70,7 @@ class Troubleshooter():
                         }
                     ]
                     for n, line in enumerate(reversed(list(file))):
-                        if "ERROR" in line:
+                        if "ERROR" in line or "WARN" in line:
                             try:
                                 ERROR_list.append(json.loads(line))
                             except json.JSONDecodeError as e:

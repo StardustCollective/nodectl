@@ -1,24 +1,34 @@
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import random
+from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
-from os import system, path, environ, makedirs, listdir
+from os import system, path, environ, makedirs, listdir, chmod, remove
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
 from copy import deepcopy, copy
-from secrets import compare_digest
+from string import ascii_letters
+from secrets import compare_digest, choice
 from time import sleep
 from requests import get
+from re import search, compile
 from itertools import chain
-	
+from zlib import compress
+
 from .migration import Migration
 from .config import Configuration
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
 from ..troubleshoot.errors import Error_codes
-from ..shell_handler import ShellHandler
 from ..troubleshoot.errors import Error_codes
 from .versioning import Versioning
+
+try:
+    from ..shell_handler import ShellHandler
+except ImportError:
+    # installation may be calling this Class which will not need
+    # the ShellHandler which would also cause a circular reference
+    pass
 
 class Configurator():
     
@@ -43,6 +53,7 @@ class Configurator():
         self.restart_needed = True
         self.is_new_config = False
         self.skip_prepare = False
+        self.override = False
         self.is_file_backedup = False
         self.backup_file_found = False
         self.node_service = False
@@ -50,14 +61,14 @@ class Configurator():
         self.dev_enable_disable = False
         self.requested_profile = None
         self.header_title = None
-        
+        self.installer = False
+        self.quick_install = False
+        self.encryption_failed = True
+
         self.edit_error_msg = ""
         self.detailed = "init"
-        if "-a" in argv_list:
-            self.detailed = False
-        elif "-d" in argv_list:
-            self.detailed = True
-
+        if "-a" in argv_list: self.detailed = False
+        elif "-d" in argv_list: self.detailed = True
 
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
@@ -80,15 +91,55 @@ class Configurator():
         elif "-n" in argv_list:
             self.requested_profile = None
             self.action = "new"
-        elif "--developer_mode" in argv_list:
-            if argv_list[argv_list.index("--developer_mode")+1] == "enable" or argv_list[argv_list.index("--developer_mode")+1] == "disable":
-                self.dev_enable_disable = argv_list[argv_list.index("--developer_mode")+1]
-                self.action = "dev_mode"
 
         self.prepare_configuration("new_config")
         self.error_messages = Error_codes(self.c.functions)
+
+        self.handle_single_options(argv_list)
+
+        if "--installer" in argv_list or "--upgrader" in argv_list:
+            if "--installer" in argv_list:
+                self.log.logger.info("installation module creating new configuration object")
+            else:
+                self.log.logger.info("upgrader module creating new configuration object")
+            # upgrader will use same elements as installer
+            self.installer = True
+            self.action = "install"
+            self.detailed = False
+            return
+
         self.setup()
         
+
+    def handle_single_options(self,argv_list):
+        send_error = False
+        if "--developer_mode" in argv_list:
+            try:
+                if argv_list[argv_list.index("--developer_mode")+1] == "enable" or argv_list[argv_list.index("--developer_mode")+1] == "disable":
+                    self.dev_enable_disable = argv_list[argv_list.index("--developer_mode")+1]
+                    self.action = "dev_mode"
+                else:
+                    send_error = "developer_mode"
+            except:
+                send_error = "developer_mode"
+        if "--includes" in argv_list:
+            try:
+                if argv_list[argv_list.index("--includes")+1] == "enable" or argv_list[argv_list.index("--includes")+1] == "disable":
+                    self.dev_enable_disable = argv_list[argv_list.index("--includes")+1]
+                    self.action = "includes_section"
+                else:
+                    send_error = "includes"
+            except:
+                send_error = "includes"
+
+        if send_error:
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-131",
+                "line_code": "invalid_option",
+                "extra": send_error,
+                "extra2": "valid options are 'enable' or 'disable'"
+            })
+
 
     def prepare_node_service_obj(self):
         self.node_service = Node({"functions": self.c.functions}) 
@@ -208,7 +259,9 @@ class Configurator():
                 "newline": top_newline
             })
             
-            if (self.action == "edit" or self.action == "help" or self.action == "edit_profile" or self.action == "dev_mode") and option != "reset":
+
+            if ( self.action == "edit" or self.action == "help" or self.action == "includes_section" or
+                 self.action == "edit_profile" or self.action == "dev_mode") and option != "reset":
                 option = "e"
             elif self.action == "new" and option != "reset":
                 option = "n"
@@ -246,12 +299,14 @@ class Configurator():
             "line1": "NODECTL",
             "line2": "create new configuration",
             "clear": True,
+            "upper": False,
         })  
         
         if self.detailed:
             self.c.functions.print_paragraphs([
                 ["nodectl",0,"blue","bold"], ["can build a configuration for you based on",0], ["predefined",0,"blue","bold"],
-                ["profiles. These profiles are setup by the Metagraph Administrators (or Layer0) companies that plan to ride on the Hypergraph.",2],
+                ["profiles. These profiles are setup by the Constellation Network or Metagraph Administrators",0],
+                ["(or Layer0) companies that plan to ride on the Hypergraph.",2],
 
                 ["Before continuing, please make sure you have the following checklist completed, to save time.",2,"yellow"],
                 
@@ -261,7 +316,6 @@ class Configurator():
                 ["  - p12 file name",1,"magenta"],
                 ["  - p12 file location",1,"magenta"],
                 ["  - p12 passphrase",1,"magenta"],
-                ["  - p12 wallet alias",2,"magenta"],
                 
                 ["Warning!",0,"red","bold"],["Invalid entries will either be rejected at runtime or flagged as invalid by",0], 
                 ["nodectl",0,"blue","bold"], ["before runtime.",0], ["nodectl",0,"blue","bold"], ["does not validate entries during the configuration entry process.",2]
@@ -270,7 +324,9 @@ class Configurator():
         self.build_config_obj()
         self.get_predefined_configs()
         self.handle_global_p12()
-        self.request_p12_details({})
+        self.request_p12_details({
+            "get_existing_global": True if self.override else False,
+        })
         self.config_obj_apply = {}      
         
         self.metagraph_list = self.c.functions.clear_global_profiles(self.config_obj)
@@ -294,7 +350,7 @@ class Configurator():
         
         self.cleanup_old_profiles()
         self.cleanup_service_files(False)
-        self.cleanup_create_snapshot_dirs() 
+        if not self.override: self.cleanup_create_snapshot_dirs() 
         self.prepare_configuration("edit_config",False)
         self.move_config_backups()
         
@@ -313,34 +369,124 @@ class Configurator():
             "line1": "NODECTL",
             "line2": "profile based configuration",
             "clear": True,
+            "upper": False,
         })  
+
+        def print_scenarios():
+            self.c.functions.print_header_title({
+                "line1": "BUILD NEW CONFIGURATION",
+                "single_line": True,
+                "newline": "bottom"
+            })
+            self.c.functions.print_paragraphs([
+                ["Scenario One:",1,"cyan","bold"], ["This entails setting up a brand new Node. In this case, it is highly recommended that you",0,"green"],
+                ["exit here",0,"red"], ["and utilize the installer to build your new Node. Refer to the documentation for full details and options on how to use the installer.",1,"green"],
+                ["recommended:",0,"yellow"], ["sudo nodectl install –quick-install",2],
+
+                ["Scenario Two:",1,"cyan","bold"], ["This involves an existing Node where you need to apply a new configuration to handle new features or add",0,"green"],
+                ["secondary profiles that",0,"green"], ["do not",0,"yellow"], 
+                ["share the same profile name and",0,"green"], ["will not",0,"yellow"], ["interfere with the existing configuration (clusters and profiles)",0,"green"],
+                ["already on this Node.",2,"green"],
+
+                ["Scenario Three:",1,"cyan","bold"], ["You are here for in reference to",0,"green"],["scenario two",0,], ["but",0,"red","bold"],
+                ["the new configuration",0,"green"], ["is going to conflict",0,"red"], ["with an existing profile of a different cluster on this Node.",2,"green"],
+
+                ["Scenario Four:",1,"cyan","bold"], ["You have encountered a configuration error that is preventing you from continuing to use nodectl",0,"red"],
+                ["and would like to attempt to overwrite your configuration, preserve as much information as possible, and avoid losing any data.",2,"red"],
+
+                ["-","half"],["",1],
+            ])
+
+        if self.detailed:   
+            self.c.functions.print_paragraphs([
+                ["Welcome to the new configuration nodectl configurator feature. While in detailed mode, nodectl will",0,"green"],
+                ["strive to assist you in creating your new configuration as straightforwardly as possible.  However, if you are unsure",0,"green"],
+                ["of any concepts presented, utilizing the documentation website is recommended.",1,"green"],
+                ["https://docs.constellationnetwork.io/validate",2,"blue","bold"],
+
+                ["The first step is to determine the true purpose of your intentions that brought you to the new configuration configurator section.",2,"green"],
+
+                ["Definitions",1,"cyan","bold"],
+                ["Cluster:",0,"yellow"],["A network of connected Nodes.",1],
+                ["Hypergraph:",0,"yellow"],["Constellation's main cluster.",1],
+                ["Metagraph:",0,"yellow"],["Business or non-constellation owned cluster, that links to the Hypergraph layer0 cluster.",2],
+            ])
+
+            print_scenarios()  
+
+            self.c.functions.confirm_action({
+                "prompt": "Continue? ",
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": True,            
+            })
+
+            system("clear")
+            print_scenarios()
+            self.c.functions.print_paragraphs([
+                ["Most likely you are continuing because you decided that scenario",0,"green"],
+                ["two, three, or four",0,"yellow"], ["fit your requirements.",2,"green"],
+                ["Are you here because of scenario",0,"green"], ["FOUR",0,"yellow"], 
+                ["(overriding an existing or corrupt configuration)?",2,"green"],
+            ])
+            self.override = self.c.functions.confirm_action({
+                "prompt": "Yes? ",
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": False,            
+            })
+            if self.override:
+                self.c.functions.print_paragraphs([
+                    ["",1],[" WARNING ",0,"red,on_yellow"], ["nodectl will attempt to pull information from your current",0],
+                    ["configuration in order to persist data. However, you may encounter various nodectl errors during this process",0],
+                    ["if the configuration is not recoverable.",2],
+                    
+                    ["The purpose of this attempt to override the existing configuration is to persist data.",0],
+                    ["If errors occur, nodectl will automatically exit.",2], 
+
+                    ["You can restart the configurator,",0], ["decline",0,"red"], ["the override configuration option, proceed with the next steps,",0],
+                    ["and then after the process is completed, use the configurator to update your various",0],
+                    ["non-default information, such as private key [p12] details.",2],
+
+                    ["See the documentation for further details:",1],
+                    ["https://docs.constellationnetwork.io/validate",2,"blue","bold"],
+                ])
+                self.c.functions.print_any_key({"prompt":"Press any key to continue"})
+            else:
+                system("clear")
+                print_scenarios()
+                self.c.functions.print_paragraphs([
+                    ["If you are here because of scenario",0,"green"], ["THREE",0,"red"], ["there may be a situation where you are migrating your node to",0,"green"],
+                    ["another (new) cluster that happens to share the same profile name as the existing profile name already on this Node. If",0,"green"],
+                    ["and only if you are joining a new cluster that shares the same profile name, it is important to stop your Node’s original",0,"green"],
+                    ["profile by issuing a leave and stop command to remove your Node from the old cluster. Failure to do so can lead",0,"green"],
+                    ["to undesired and unknown results or errors.",1,"green"],
+                    ["Command:",0,"yellow"], ["sudo nodectl stop -p <profile_name>",2,"cyan"],
+                ])
+
+                self.c.functions.confirm_action({
+                    "prompt": "Exit new configuration build to stop profiles? ",
+                    "yes_no_default": "y",
+                    "return_on": "n",
+                    "exit_if": True,            
+                })
+
+        self.c.functions.print_header_title({
+            "line1": "CHOOSING NEW PROFILE DEFINITION",
+            "single_line": True,
+            "newline": "both"
+        })
 
         if self.detailed:        
             self.c.functions.print_paragraphs([
                 ["Please choose the",0], ["profile",0,"blue","bold"], ["below that matches the configuration you are seeking to build.",2],
-                ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
+                ["If not found, please consult the Constellation Network Doc Hub for details or contact Constellation Network Administration on Discord.",2],
                 ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
-                
-                [" WARNING ",0,"red,on_yellow"], ["If you are writing a new configuration over an existing configuration for a Metagraph",0,"red"],
-                ["with the",0,"red"], ["same",0,"red","bold"], ["profile name, during the installation you will be requested to remove",0,"red"],
-                ["the existing",0,"red"], ["snapshots.",0,"red","bold"], ["Please make sure your existing profiles are",0,"red"],
-                ["stopped",0,"red","bold"], ["and",0,"red"], ["off",0,"red","bold"],["the cluster before continuing; otherwise, the protocol",0,"red"],
-                ["may attempt to write or handle snapshots during the new installation, creating unstable or undesirable results.",1,"red"],
-                ["command:",0], ["sudo nodectl stop -p <profile_name>",2,"yellow"],
             ]) 
-            self.c.functions.confirm_action({
-                "prompt": "Exit new configuration build to stop profiles? ",
-                "yes_no_default": "y",
-                "return_on": "n",
-                "exit_if": True,            
-            })
-
-        self.c.functions.print_header_title({
-            "line1": "BUILD NEW CONFIGURATION",
-            "single_line": True,
-            "newline": "both"
-        })
-        
+        if self.override: 
+            self.prepare_configuration(action="edit_config_from_new")
+            self.old_last_cnconfig = deepcopy(self.c.config_obj)
+    
         if path.isfile(self.yaml_path):
             # clean up old file
             system(f"sudo rm -f {self.yaml_path}")
@@ -357,8 +503,9 @@ class Configurator():
         })
         
         environment_details = self.c.functions.pull_remote_profiles({
-            "retrieve":"chosen_profile",
-            "return_where": "Previous"
+            "r_and_q":"q", 
+            "add_postfix": True, 
+            "retrieve": "chosen_profile",
         })
         
         if environment_details == "r": 
@@ -376,7 +523,6 @@ class Configurator():
         system(f'sudo wget {environment_details[0]["yaml_url"]} -O {self.yaml_path} -o /dev/null')
         self.metagraph_list = self.c.functions.clear_global_profiles(environment_details[0]["json"]["nodectl"])
         self.config_obj = environment_details[0]["json"]["nodectl"]
-
 
         self.c.functions.print_cmd_status({
             "text_start": "building configuration skeleton",
@@ -419,7 +565,17 @@ class Configurator():
         if ptype == "global_edit_prepare":
             ptype = "global"
         else:
-            if get_existing_global and self.backup_file_found and not self.preserve_pass:
+            blank_found = False
+            if get_existing_global:
+                for p12_key in self.c.config_obj["global_p12"].keys():
+                    try:
+                        if self.c.config_obj["global_p12"][p12_key] == "blank":
+                            blank_found = True
+                            break
+                    except: 
+                        pass
+
+            if get_existing_global and not blank_found and self.backup_file_found and not self.preserve_pass:
                 self.c.functions.print_paragraphs([
                     ["An existing configuration file was found on the system.",0,"white","bold"],
                     ["nodectl will attempt to validate the existing configuration, you can safely ignore any errors.",2,"white","bold"],
@@ -438,7 +594,9 @@ class Configurator():
             
             if self.preserve_pass and get_existing_global:
                 if not self.skip_prepare:
-                    self.prepare_configuration(f"new_config_init")
+                    prepare_action = "new_config_init"
+                    if self.override: prepare_action = "edit_config_from_new"
+                    self.prepare_configuration(prepare_action)
                 self.config_obj["global_p12"] = self.c.config_obj["global_p12"]
                 if self.c.error_found:
                     self.log.logger.critical("Attempting to pull existing p12 information for the configuration file failed.  Valid inputs did not exist.")
@@ -452,8 +610,7 @@ class Configurator():
                     "status_color": "green",
                 })
                 
-                if self.is_all_global:
-                    return
+                if self.is_all_global: return
                 skip_to_end = True
         
         if not skip_to_end:
@@ -461,7 +618,7 @@ class Configurator():
                 nodeadmin_default = self.config_obj["global_p12"]["nodeadmin"]
                 location_default = self.config_obj["global_p12"]["key_location"]
                 p12_default = self.config_obj["global_p12"]["key_name"]
-                alias_default = self.config_obj["global_p12"]["key_alias"]   
+
             else:
                 try:
                     self.sudo_user = environ["SUDO_USER"] 
@@ -474,10 +631,8 @@ class Configurator():
                 nodeadmin_default = self.sudo_user
                 location_default = f"/home/{self.sudo_user}/tessellation/"
                 p12_default = ""
-                alias_default = ""
             
             p12_required = False if set_default else True
-            alias_required = False if set_default else True  
             
             questions = {
                 "nodeadmin": {
@@ -497,12 +652,6 @@ class Configurator():
                     "description": "This is the name of your p12 private key file.  It should have a '.p12' extension.",
                     "default": p12_default,
                     "required": p12_required,
-                },
-                "key_alias": {
-                    "question": f"  {colored('Enter in p12 wallet alias name: ','cyan')}",
-                    "description": "This should be a single string (word) [connect multiple words with snake_case or dashes eg) 'my alias' becomes 'my_alias' or 'my-alias']. This is the alias (simple name) given to your p12 private key file; also known as, your wallet. SAVE THIS ALIAS IN A SAFE SECURE PLACE! If you forget your alias you made not be able to authenticate to the Hypergraph or Metagraph.",
-                    "default": alias_default,
-                    "required": alias_required,
                 },
             }
             
@@ -531,7 +680,7 @@ class Configurator():
             print("")
             
             self.c.functions.print_header_title({
-                "line1": f"{ptype.upper()} PROFILE P12 ENTRY",
+                "line1": f"{ptype} PROFILE P12 ENTRY",
                 "single_line": True,
                 "newline": False if self.detailed else "bottom"
             })
@@ -586,9 +735,10 @@ class Configurator():
         
         if not self.is_all_global and profile == "None":
             self.is_all_global = False
+            p12_value = {} # reset
             for profile in self.metagraph_list:
                 self.c.functions.print_header_title({
-                    "line1": f"{profile.upper()} PROFILE P12 ENTRY",
+                    "line1": f"{profile} PROFILE P12 ENTRY",
                     "single_line": True,
                     "newline": "both",
                 })
@@ -598,11 +748,12 @@ class Configurator():
                     "return_on": "y",
                     "exit_if": False                
                 }):                
-                    self.request_p12_details({
+                    self.request_p12_details({ 
                         "ptype": "single",
                         "profile": profile,
                         "get_existing_global": False
                     })
+                
             ptype = "Done"
             
         if ptype == "single":
@@ -610,7 +761,8 @@ class Configurator():
             for p12key, p12value in p12_values.items():
                 self.config_obj[profile][f"p12_{p12key}"] = p12value
             
-        return p12_values
+        if ptype != "Done": return p12_values
+        return
 
 
     def handle_global_p12(self):
@@ -627,7 +779,7 @@ class Configurator():
         if self.detailed:
             paragraphs = [
 
-                ["A",0], ["Validator Node",0,"blue","bold"], ["cannot access the Constellation Network Hypergraph",0],
+                ["A",0], ["Node",0,"blue","bold"], ["cannot access the Constellation Network Hypergraph",0],
                 ["without a",0,"cyan"], ["p12 private key file",0,"yellow","bold"], ["that is used to authenticate against network access regardless of PRO score or seedlist.",2],
                 ["This same p12 key file is used as your Node’s wallet and derives the DAG address from the p12 file's",0],
                 ["public key file, which Constellation Network uses as your node ID.",2],
@@ -635,10 +787,10 @@ class Configurator():
                 ["The p12 key file should have been created during installation:",1,'yellow'],  
                 ["sudo nodectl install",2], 
                 
-                # ["If you need to create a p12 private key file:",1,"yellow"],
-                # ["sudo nodectl generate_p12",2],
+                ["If you need to create a p12 private key file:",1,"yellow"],
+                ["sudo nodectl generate_p12",2],
 
-                ["nodectl",0,"blue","bold"], ["has three configuration options for access into various Metagraphs or Layer0 channels via a user defined configuration profile.",2],
+                ["nodectl",0,"blue","bold"], ["has three configuration options for access into various network clusters via a user defined configuration profile.",2],
 
             ]
             self.c.functions.print_paragraphs(paragraphs)
@@ -649,9 +801,9 @@ class Configurator():
             print(wrapper.fill(f"{colored('1','magenta',attrs=['bold'])}{colored(': Global     - Setup a global wallet that will work with all profiles.','magenta')}"))
             print(wrapper.fill(f"{colored('2','magenta',attrs=['bold'])}{colored(': Dedicated  – Setup a unique p12 file per profile.','magenta')}"))
             
-            text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the Node to have Metagraphs that uses dedicated (individual) wallets, per Metagraph or Layer0 network."
+            text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the Node to have clusters that uses dedicated (individual) wallets, per cluster."
             print(wrapper.fill(f"{colored('3','magenta',attrs=['bold'])}{colored(text3,'magenta')}"))
-        
+
         self.is_all_global = self.c.functions.confirm_action({
             "prompt": f"\n  Set {colored('ALL','yellow','on_blue',attrs=['bold'])} {colored('profile p12 wallets to Global?','cyan')}",
             "yes_no_default": "y",
@@ -659,6 +811,8 @@ class Configurator():
             "exit_if": False
         })
         
+        print("")
+
         self.c.functions.print_header_title({
             "line1": "GLOBAL P12 DETAILS",
             "single_line": True,
@@ -727,10 +881,7 @@ class Configurator():
         ignore_list = []
         search_dup_only = False
         
-        #for key,values in self.config_obj_apply.items():
         for profile, values in self.config_obj_apply.items():
-            # for profile in self.metagraph_list:
-            #     if key == profile:
             if "do_not_change" in self.config_obj_apply[profile]:
                 search_dup_only = True
             for p_key, p_value in values.items():
@@ -758,15 +909,18 @@ class Configurator():
                     
         system(f"sudo cp {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
         system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
-        print("")
-        self.c.functions.print_cmd_status({
-            "text_start": "Configuration changes applied",
-            "status": "successfully",
-            "status_color": "green",
-            "newline": True,
-            "delay": 1.5,
-        })
-        if self.action != "new": self.prepare_configuration("edit_config",True)
+
+        if not self.quick_install:
+            print("")
+            self.c.functions.print_cmd_status({
+                "text_start": "Configuration changes applied",
+                "status": "successfully",
+                "status_color": "green",
+                "newline": True,
+                "delay": 1.5,
+            })
+
+        if self.action not in ["new","install"]: self.prepare_configuration("edit_config",True)
 
 
     def build_service_file(self,command_obj):
@@ -811,14 +965,14 @@ class Configurator():
             })
         
                         
-    # # =====================================================
-    # # MANUAL BUILD METHODS
-    # # =====================================================
+    # =====================================================
+    # MANUAL BUILD METHODS
+    # =====================================================
     
     def manual_section_header(self, profile, header):
         self.c.functions.print_header_title(self.header_title)
         self.c.functions.print_header_title({
-            "line1": f"{profile.upper()} PROFILE {header}",
+            "line1": f"{profile} PROFILE {header}",
             "show_titles": False,
             "single_line": True,
             "newline": False if self.detailed else "bottom"
@@ -832,7 +986,7 @@ class Configurator():
         
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["There are only two options: 'validator' and 'genesis'. Unless you are an advanced Metagraph ",0,"white","bold"],
+                ["",1], ["There are only two options: 'validator' and 'genesis'. Unless you are an advanced",0,"white","bold"],
                 ["administrator, the 'validator' option should be chosen.",2,"white","bold"],
             ])
             
@@ -868,7 +1022,7 @@ class Configurator():
     def manual_define_meta(self,profile=False):
         profile = self.profile_to_edit if not profile else profile
 
-        self.manual_section_header(profile,"METAGRAPH TYPE")
+        self.manual_section_header(profile,"CLUSTER TYPE")
         
         if self.detailed:
             self.c.functions.print_paragraphs([
@@ -882,7 +1036,7 @@ class Configurator():
             ])
             
         self.c.functions.print_paragraphs([
-            ["Metagraph Types",1,"yellow,on_blue"],
+            ["Cluster Types",1,"yellow,on_blue"],
             ["=","half","blue","bold"],
         ])
 
@@ -912,6 +1066,15 @@ class Configurator():
 
     def manual_log_level(self):
         profile = "global_elements"
+
+        self.header_title = {
+            "line1": "EDIT GLOBAL SECTION",
+            "line2": "Log Details",
+            "show_titles": False,
+            "clear": True,
+            "newline": "both",
+        }
+
         self.manual_section_header(profile,"SET LOGGING LEVEL")
         
         if self.detailed:
@@ -935,7 +1098,7 @@ class Configurator():
 
 
     def manual_build_description(self,profile=False):
-        default = "none" if not profile else self.c.config_obj[profile]["description"]
+        default = "None" if not profile else self.c.config_obj[profile]["description"]
         profile = self.profile_to_edit if not profile else profile
 
         self.manual_section_header(profile,"DESCRIPTION") 
@@ -1004,7 +1167,7 @@ class Configurator():
                 description = "Custom environment variables are key pairs (name of a distribution shell environment variable and its value) "
                 description += "that will be added to the shell environment prior to the start of the Node's process "
             description += "that runs on your Node to allow it to prepare to join a cluster.  This value should be added only "
-            description += "as instructed or required by the Administrators of a Metagraph." 
+            description += "as instructed or required by the Administrators of a cluster." 
             self.c.functions.print_paragraphs([
                 ["",1], [description,2,"white","bold"],
                 ["If you enter a key value that already exists, it will be overwritten in the configuration",0,"yellow"],
@@ -1112,16 +1275,16 @@ class Configurator():
         self.manual_section_header(profile,"EDGE POINTS") 
         
         default_desc = "You can use the word \"default\" to allow nodectl to use known default values."
-        description1 = "Generally a layer0 or Metagraph (layer1) network should have a device on the network (most likely a load balancer type "
+        description1 = "Generally a layer0 or layer1 network should have a device on the network (most likely a load balancer type "
         description1 += "device/system/server) where API (application programming interface) calls can be directed.  These calls will hit the "
         description1 += "edge device and direct those API requests into the network.  This value can be a FQDN (full qualified domain name) hostname " 
-        description1 += "or IP address.  Do not enter a URL/URI (should not include http:// or https://).  Please contact your layer0 or Metagraph Administrator for "
+        description1 += "or IP address.  Do not enter a URL/URI (should not include http:// or https://).  Please contact your Administrator for "
         description1 += "this information. "
         description1 += default_desc
         
         description2 = f"When listening on the network, a network connected server (edge point server entered for this profile {profile}) "
         description2 += "will listen for incoming connections on a specific TCP (Transport Control Protocol) port.  You should consult with the "
-        description2 += "Layer0 or Metagraph Administrators to obtain this port value. "
+        description2 += "Administrators to obtain this port value. "
         description2 += default_desc
         
         questions = {
@@ -1151,43 +1314,47 @@ class Configurator():
         defaults = command_obj.get("defaults",False)
         confirm = command_obj.get("confirm",True)
         apply = command_obj.get("apply",True)
+        is_global = command_obj.get("is_global",False)
         custom = False
         
         no_change_list = []
-        if questions: no_change_list.append(command_obj.get("no_change_list_questions",list(questions.keys())))
-        if defaults: no_change_list.append(command_obj.get("no_change_list_defaults",list(defaults.keys())))
+        if questions: 
+            no_change_list.append(command_obj.get("no_change_list_questions",list(questions.keys())))
+        if defaults: 
+            no_change_list.append(command_obj.get("no_change_list_defaults",list(defaults.keys())))
         if len(no_change_list) > 0:
             no_change_list = list(chain(*no_change_list))
         append_obj = {}
         
         # identify profiles that do not change
-        for i_profile in self.metagraph_list:
-            if i_profile == profile: continue
+        if not is_global:
+            for i_profile in self.metagraph_list:
+                if i_profile == profile: continue
 
-            for item in no_change_list:
-                if i_profile not in append_obj: append_obj[i_profile] = {}
-                try: append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
-                except Exception as e:
-                    if "custom_" in item: 
-                        custom = True
-                        self.log.logger.debug(f"Did not find custom variable in config, skipping [{item}]")
-                    else:
-                        self.error_messages.error_code_messages({
-                            "error_code": "cfr-1046",
-                            "line_code": "config_error",
-                            "extra": "format"
-                        })
-                append_obj[i_profile]["do_not_change"] = True
-
-        # append and add to the append_obj
-        for i_profile in self.metagraph_list:
-            if i_profile != profile: 
-                i_append_obj = {}
                 for item in no_change_list:
-                    try: i_append_obj[f"{item}"] = self.c.config_obj[i_profile][item]
-                    except: 
-                        if custom: continue
-                append_obj[f"{i_profile}"] = {**i_append_obj, "do_not_change": True}
+                    if i_profile not in append_obj: append_obj[i_profile] = {}
+                    try: append_obj[i_profile][item] = self.c.config_obj[i_profile][item]
+                    except Exception as e:
+                        if "custom_" in item: 
+                            custom = True
+                            self.log.logger.debug(f"Did not find custom variable in config, skipping [{item}] | [{e}]")
+                        else:
+                            self.error_messages.error_code_messages({
+                                "error_code": "cfr-1046",
+                                "line_code": "config_error",
+                                "extra": "format"
+                            })
+                    append_obj[i_profile]["do_not_change"] = True
+
+            # append and add to the append_obj
+            for i_profile in self.metagraph_list:
+                if i_profile != profile: 
+                    i_append_obj = {}
+                    for item in no_change_list:
+                        try: i_append_obj[f"{item}"] = self.c.config_obj[i_profile][item]
+                        except: 
+                            if custom: continue
+                    append_obj[f"{i_profile}"] = {**i_append_obj, "do_not_change": True}
                 
         # append the changing items to the append obj
         if not defaults: defaults = {}
@@ -1212,9 +1379,10 @@ class Configurator():
         self.config_obj_apply = {**self.config_obj_apply, **append_obj} 
         
         # reorder search so that replacement happens
-        # at the correct lines in the correct order
-        for i_profile in reversed(self.metagraph_list):
-            self.config_obj_apply = {f"{i_profile}": self.config_obj_apply.pop(i_profile), **self.config_obj_apply }
+        # at the correct lines in the correct order if not global section
+        if not is_global:
+            for i_profile in reversed(self.metagraph_list):
+                self.config_obj_apply = {f"{i_profile}": self.config_obj_apply.pop(i_profile), **self.config_obj_apply }
         
         if apply: self.apply_vars_to_config() 
         
@@ -1227,8 +1395,8 @@ class Configurator():
         
         description = "The distributed ledger technology 'DLT' generally called the blockchain "
         description += "($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid "
-        description += "integer (number) between 0 and 4, for the 5 available layers. Metagraphs are generally always layer 0 or 1. "
-        description += "Metagraph Layer 0 can be referred to as ML0, Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description += "integer (number) between 0 and 4, for the 5 available layers. Constellation Network or Metagraph clusters are generally always layer 0 or 1. "
+        description += "Hypergraph/Metagraph Layer 0 can be referred to as ML0, Hypergraph/Metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0.  ML0 and ML1 should link to GL0.  ML1 should link to ML0. "
         description += "See the linking section for link options and details."
         
@@ -1253,9 +1421,9 @@ class Configurator():
         
         self.manual_section_header(profile,"COLLATERAL")
         
-        description = "In order to participate on a Metagraph or Hypergraph a Node may be required to hold collateral within the "
+        description = "In order to participate on a cluster a Node may be required to hold collateral within the "
         description += "active (hot) wallet located on this Node.  In the event that collateral is waved or there is not a requirement "
-        description += "to hold collateral, this value can be set to 0. Please contact the Metagraph or Hypergraph administration to "
+        description += "to hold collateral, this value can be set to 0. Please contact administration to "
         description += "define this requirement. "
         
         questions = {
@@ -1280,7 +1448,7 @@ class Configurator():
         
         self.manual_section_header(profile,"ENVIRONMENT")  
           
-        description = "Metagraph Layer 0 can be referred to as ML0, Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description = "Hypergraph/Metagraph Layer 0 can be referred to as ML0, Hypergraph/Metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0. "
         description += "This networks require an environment identifier used internally; by the network, to define certain " 
         description += "operational variables. Depending on the Metagraph, this is used to define " 
@@ -1303,7 +1471,7 @@ class Configurator():
             
     def manual_build_tcp(self,profile=False):
         port_start = "You must define a TCP (Transport Control Protocol) port that your Node will run on, to accept"
-        port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your layer0 or Metagraph administrator for recommended port values."
+        port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your network cluster administrator for recommended port values."
         
         if profile:
             public_default = self.c.config_obj[profile]["public_port"]  
@@ -1389,9 +1557,9 @@ class Configurator():
         layer_types = ["gl0","ml0"]
         
         def print_header():
-            link_description = "Generally, a Metagraph Layer0 (ML0) and/or Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
+            link_description = "Generally, a Hypergraph/Metagraph Layer0 (ML0) and/or Hypergraph/Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
             link_description += "(GL0) network to transmit consensus information between the local Node and the Validator Nodes on the Layer0 network. "
-            link_description += "The Node Operator should consult with your Metagraph Administrators for further details. "
+            link_description += "The Node Operator should consult with your Constellation Network or Metagraph Administrators for further details. "
             link_description += "Also, a ML1 will be required to link to the ML0 thereby creating to separate links. "
             link_description += "IMPORTANT: If you plan to use the recommended process of linking to ML1 to GL0, ML1 to ML0, and/or ML0 to GL0 "
             link_description += "through another profile residing on this Node, it is required to answer \"yes\" to the link to self question, "
@@ -1404,8 +1572,8 @@ class Configurator():
                 ["",1],
                 ["Terminology",1,"yellow","bold"],
                 ["GL0",0,"blue","bold"],[":",-1,"blue"], ["Global Layer0 Hypergraph",1,"cyan"],
-                ["ML0",0,"blue","bold"],[":",-1,"blue"], ["Metagraph Layer0",1,"cyan"],
-                ["ML1",0,"blue","bold"],[":",-1,"blue"], ["Metagraph Layer1",2,"cyan"],
+                ["ML0",0,"blue","bold"],[":",-1,"blue"], ["Cluster Layer0",1,"cyan"],
+                ["ML1",0,"blue","bold"],[":",-1,"blue"], ["Cluster Layer1",2,"cyan"],
                 [link_description,1,"white","bold"],
             ]) 
             self.print_quit_option()
@@ -1456,7 +1624,7 @@ class Configurator():
             return [defaults, set_self_successful]
             
         def ask_link_questions(l_type, questions, key_default, host_default, port_default):
-            warning_msg = f"running a {'ML0' if l_type == 'ml0' else 'GL0'} network on the same Node as the Node running this Metagraph.  In order to do this you cancel this setup and choose the 'self' option when requested."
+            warning_msg = f"running a {'ML0' if l_type == 'ml0' else 'GL0'} network on the same Node as the Node running this cluster.  In order to do this you cancel this setup and choose the 'self' option when requested."
             questions = {
                 **questions,
                 f"{l_type}_link_key": {
@@ -1590,11 +1758,25 @@ class Configurator():
         })
         
         
-    def manual_define_token_id(self,profile=False): 
-        default = "disable" if not profile else self.c.config_obj[profile]["token_identifier"]
+    def manual_define_token_identifier(self,profile=False):
+        if profile == "global_elements": pass
+        else: 
+            default = "global" if not profile else self.c.config_obj[profile]["token_identifier"]
         profile = self.profile_to_edit if not profile else profile
         defaults, questions = False, False
-        
+        key_name = "token_identifier"
+
+        if profile == "global_elements":
+            default = "disable"
+            self.header_title = {
+                "line1": "EDIT GLOBAL SETTINGS",
+                "line2": "Metagraph Token Identifier",
+                "show_titles": False,
+                "clear": True,
+                "newline": "both",
+            }
+            key_name = "metagraph_token_identifier"            
+            
         self.manual_section_header(profile,"TOKEN IDENTIFIER")
         print("")
         
@@ -1603,36 +1785,133 @@ class Configurator():
         description += "resembles a DAG wallet address; however, it is a not a wallet address. "
         description += "You should obtain this identifier from the Metagraph administration.  It should normally be "
         description += "supplied with a pre-defined configuration.  Constellation Network MainNet, TestNet, and IntegrationNet "
-        description += "should have this key pair value set to 'disable'."
+        description += "should have this key pair value set to 'disable'. "
+        description += "If the 'token_identifier' is set to 'global', the global 'metagraph_token_identifier' will be used. "
         
         if self.detailed:
             self.c.functions.print_paragraphs([
                 [description,2,"white","bold"]
             ])
             
+        prompt = "Set token identifier to disable?"
+        if profile == "global_elements":
+            prompt = "Set global token identifier to disable?"
         if self.c.functions.confirm_action({
-            "prompt": "Set token identifier to disable?",
+            "prompt": prompt,
             "yes_no_default": "y",
             "return_on": "y",
             "exit_if": False
         }):
             defaults = {
-                "token_identifier": "disable",
+                f"{key_name}": "disable",
             }        
         else:
+            question = f"  {colored(f'Enter the token identifier required for this profile = {profile}','cyan')}"
+            if profile == "global_elements":
+                question = f"  {colored(f'Enter the global token identifier to use for all profiles','cyan')}"
             questions = {
-                "token_identifier": {
-                    "question": f"  {colored(f'Enter the token identifier required for this profile {profile}','cyan')}",
-                    "description": "Metagraph ID",
+                f"{key_name}": {
+                    "question": question,
+                    "description": "Metagraph token Identifier",
                     "default": default,
                     "required": False,
                 },
             }
-        
+    
         self.manual_append_build_apply({
             "questions": questions, 
             "profile": profile,
             "defaults": defaults,
+            "is_global": True if profile == "global_elements" else False
+        })
+        
+        
+    def manual_define_token_coin(self,profile=False):
+        key_name = "token_coin_id" 
+        if profile == "global_elements":
+            default = "default"
+            self.header_title = {
+                "line1": "EDIT GLOBAL SETTINGS",
+                "line2": "Token Company Specifier",
+                "show_titles": False,
+                "clear": True,
+                "newline": "both",
+            }
+            key_name = "metagraph_token_coin_id"
+        else:
+            default = "global" if not profile else self.c.config_obj[profile][key_name]
+        profile = self.profile_to_edit if not profile else profile
+        defaults, questions, manual = False, False, False
+        
+        self.manual_section_header(profile,"TOKEN COMPANY SPECIFIER ID")
+        print("")
+        
+        description = "The Metagraph you are working with may have a dedicated token specific to that Metagraph. "
+        description += "If the token is recognized by CoinGecko it will be displayed when issuing the 'dag','price', or 'market' commands. "
+        description += "If the token is NOT recognized by CoinGecko, you should enter 'constellation-labs' or 'default'. "
+        description += "This will set nodectl to 'constellation-labs' and display '$DAG' when appropriate. "
+        description += "This value must be the CoinGecko 'api id' for the token/coin you want to be added to nodectl's lookup commands. "
+        description += "You can find the 'id' by going to the CoinGecko website at 'https://www.coingecko.com/en/all-cryptocurrencies' and search through the "
+        description += "list until you find your 'Coin' and click on it.  On the LEFT side of the details for your 'Coin' you will see 'API ID'. Enter that "
+        description += "value here, when requested."
+        
+        description2 = "Handle Hypergraph/Metagraph cryptocurrency token symbol identification."
+
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                [description,2,"white","bold"]
+            ])
+
+        if profile == "global_elements":
+            if self.c.functions.confirm_action({
+                "prompt": "Set token coin id to default?",
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": False
+            }):
+                defaults = {
+                    f"{key_name}": default,
+                } 
+            else:
+                manual = True       
+        else:            
+            self.c.functions.print_paragraphs([
+                ["Do you want to setup the token id to follow the global settings, set it up manually, or use the default?",2],
+            ])
+            option = self.c.functions.print_option_menu({
+                "options": ["global","manual","default"],
+                "return_where": "Edit",
+                "r_and_q": "r",
+                "color": "cyan",
+                "newline": True,
+                "return_value": True,
+            })
+            if option == "r": return
+            elif option == "global" or option == "default":
+                defaults = {
+                    f"{key_name}": option,
+                }     
+            elif option == "manual":
+                manual = True  
+
+        if manual:
+            question = f"  {colored(f'Enter the network cluster token coin api id for this profile = {profile}','cyan')}"
+            if profile == "global_elements":
+                question = f"  {colored(f'Enter the network cluster token coin api id to use for all profiles','cyan')}"
+            questions = {
+                f"{key_name}": {
+                    "question": question,
+                    "description": description2,
+                    "default": default,
+                    "required": False,
+                },
+            }
+    
+        self.manual_append_build_apply({
+            "questions": questions, 
+            "profile": profile,
+            "defaults": defaults,
+            "is_global": True if profile == "global_elements" else False
         })
 
   
@@ -1762,14 +2041,21 @@ class Configurator():
                 defaults = {
                     f"{file_repo_type}_{one_off}": "default",
                     f"{file_repo_type}_file": "default",
-                    f"{file_repo_type}_repository": "default"
+                    f"{file_repo_type}_location": "default",
+                    f"{file_repo_type}_repository": "default",
                 }
+                if file_repo_type == "jar" or file_repo_type == "seed":
+                    defaults[f"{file_repo_type}_version"] = "default"
+
             else:
                 defaults = {
                     f"{file_repo_type}_{one_off}": "disable",
                     f"{file_repo_type}_file": "disable",
-                    f"{file_repo_type}_repository": "disable"
+                    f"{file_repo_type}_location": "disable",
+                    f"{file_repo_type}_repository": "disable",
                 } 
+                if file_repo_type == "jar" or file_repo_type == "seed":
+                    defaults[f"{file_repo_type}_version"] = "default"
             
             if file_repo_type == "pro_rating":
                 del defaults[f"{file_repo_type}_repository"]
@@ -1778,47 +2064,46 @@ class Configurator():
             
         else:
             if profile:
-                if one_off == "version": location_default = "default"
-                else: location_default = self.c.config_obj[profile][f"{file_repo_type}_{one_off}"]
+                if one_off == "version": loc_default = "default"
+                else: loc_default = self.c.config_obj[profile][f"{file_repo_type}_{one_off}"]
                 file_default = self.c.config_obj[profile][f"{file_repo_type}_file"]
                 if file_repo_type != "pro_rating":
                     repo_default = self.c.config_obj[profile][f"{file_repo_type}_repository"]
+                if file_repo_type == "jar" or file_repo_type == "seed":
+                    repo_version_default = self.c.config_obj[profile][f"{file_repo_type}_version"]
+                    repo_local_location_default = self.c.config_obj[profile][f"{file_repo_type}_location"]
             else:
                 def_value = "default" if int(self.c.config_obj[profile]["layer"]) < 1 else "disable"
-                location_default, file_default, repo_default = def_value, def_value, def_value
+                loc_default, file_default, repo_default = def_value, def_value, def_value
             
             defaultdescr = "Alternatively, the Node Operator can enter the string \"default\" to allow nodectl to use default values. "
             if allow_disable: defaultdescr += "Enter the string \"disable\" to disable this feature for this profile."
             
             description1 = ""
             if file_repo_type == "priority_source":
-                description1 += f"The {verb} is a specialized access-list that is mostly designated for Metagraph special access-list "
+                description1 += f"The {verb} is a specialized access-list that is mostly designated for network cluster special access-list "
                 description1 += f"elements, out of the scope of nodectl.  The values associated with these configuration values "
-                description1 += f"should be obtained directly from the Metagraph administrators. "
+                description1 += f"should be obtained directly from the administrators. "
             description1 += f"The {verb} is part of the PRO (proof of reputable observation) elements of Constellation Network. "
             description1 += "Enter the location (needs to be a full path not including the file name. Note: The file name will be defined "
             description1 += "succeeding this entry.) on your local Node. This is where the Node Operator would like to store the local copy of "
             description1 += "this data file, list, or access list. "
             if file_repo_type == "seed":
-                description1 += "This is a requirement to authenticate to the Metagraph and/or Hypergraph the Node Operator is "
+                description1 += "This is a requirement to authenticate to the cluster the Node Operator is "
                 description1 += "attempting to connect to. "
             if file_repo_type == "pro_rating":
                 description1 += "Trust labels constitute integral aspects of the Proof of Reputable Observation (PRO) system. "
                 description1 += "They impact several facets, such as determining the nodes from which to obtain snapshots. Trust labels "
                 description1 += "are off-chain information concerning the security of nodes and their potential to harm the network. These labels "
-                description1 += "are local bias values that you supply to your nodes during the joining process to the cluster (metagraph). They "
+                description1 += "are local bias values that you supply to your nodes during the joining process to the cluster. They "
                 description1 += "are specific to each node. Consequently, different nodes can exhibit varying degrees of bias. "
             if file_repo_type == "jar":
-                description1 = f"The {verb} version is currently disabled [hidden] in nodectl's configuration and will serve as a placeholder "
-                description1 += "to be removed from the utility in future releases if deemed unnecessary.  nodectl will request "
-                description1 += "versioning during the upgrade process or by options from the command line when using the refresh "
-                description1 += "binaries feature.  Thank you for your patience and understanding. "
-                description1 += "Please leave as 'default' here. "
-                # description1 = f"The {verb} version is the version number associated with the Metagraph or Hypergraph.  It is necessary that "
-                # description1 += "nodectl understand where it is intending to download the proper jar binaries from. In the event that the "
-                # description1 += "Metagraph associated jar binaries are located as artifacts in a github repository, is a prime example of the "
-                # description1 += "importance of knowing the version number. "
-                # description1 += "The version should be in the form: vX.X.X where X is a number.  Example) v2.0.0. "
+                description1 = f"The {verb} version is used by nodectl's configuration to help determine the "
+                description1 += "version during the upgrade process or from the command line when using the refresh "
+                description1 += "binaries feature. This is required for Metgraphs.  MainNet, TestNet, and IntegrationNet network clusters, should leave "
+                description1 += "this field set to 'default'. "
+
+
             description1 += defaultdescr
 
             description2 = f"The file name to be used to contain the {verb} entries.  This should be a single string value with no spaces (if you "
@@ -1828,20 +2113,26 @@ class Configurator():
                 adj = "should"
                 description2 += "The Node Operator should create this file on their own. "
             else:
-                description2 += f"After the {verb} is downloaded from a Metagraph or Hypergraph "
+                description2 += f"After the {verb} is downloaded from a cluster "
                 description2 += "repository (defined succeeding this entry), the contents will be saved to this file.  The file (downloaded from the repository) " 
                 description2 += "must contain the exact same information as all other Nodes that participate on the cluster. "
             description2 += f"The file {adj} be placed in the location defined by the {file_repo_type} location variable entered above. "
             description2 += defaultdescr
             
             description3 = f"The {verb} repository is the location on the Internet (generally a github repository or artifact location) where nodectl can download "
-            description3 += f"the {verb} associated with the Metagraph or Hypergraph. Do not enter a URL or URI (do not include "
+            description3 += f"the {verb} associated with the network cluster. Do not enter a URL or URI (do not include "
             description3 += "http:// or https:// in the FQDN (fully qualified domain name)). The Node Operator should obtain this information "
-            description3 += "from the Metagraph or Hypergraph administrators. "
+            description3 += "from the administrators. "
             description3 += defaultdescr
             
+            description5 = f"The {verb} location is the location on the local VPS/Server where nodectl should place and can access "
+            description5 += f"the {verb} binary file ( identified by the {verb}_file ) to access to run the Tessellation Node protocol services. "
+            description5 += defaultdescr
+
             one_off2 = "directory"
             if file_repo_type == "jar":
+                description4 = f"The jar repository needs to have a version associated with it.  This will make sure that that correction version "
+                description4 += "of the jar binaries are downloaded, allowing you to stay current with the network cluster in question."
                 one_off2 = "version"
                 
             questions = {
@@ -1849,7 +2140,13 @@ class Configurator():
                     "question": f"  {colored(f'Enter a valid {verb} {one_off2}','cyan')}",
                     "description": description1,
                     "required": False,
-                    "default": location_default,
+                    "default": loc_default,
+                },
+                f"{file_repo_type}_location": {
+                    "question": f"  {colored(f'Enter a valid {verb} location name','cyan')}",
+                    "description": description5, 
+                    "required": False,
+                    "default": repo_local_location_default
                 },
                 f"{file_repo_type}_file": {
                     "question": f"  {colored(f'Enter a valid {verb} file name','cyan')}",
@@ -1868,11 +2165,21 @@ class Configurator():
                         "default": repo_default
                     },
                 }
+            if file_repo_type == "jar" or file_repo_type == "seed":
+                questions = {
+                    **questions,
+                    f"{file_repo_type}_version": {
+                        "question": f"  {colored(f'Enter a valid {verb} repository version','cyan')}",
+                        "description": description4,
+                        "required": False,
+                        "default": repo_version_default
+                    },
+                }
         
-        # deprecate versioning on tessellation jar before removal
-        if one_off == "version" or one_off2 == "version":  
-            if questions: questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
-            del defaults["jar_version"]
+        # re-enable the once deprecated versioning on tessellation jar before removal
+        # if one_off == "version" or one_off2 == "version":  
+        #     if questions: questions.pop(f"{file_repo_type}_{one_off}")  # version will be removed.
+        #     del defaults["jar_version"]
             
         self.manual_append_build_apply({
             "questions": questions, 
@@ -1945,7 +2252,7 @@ class Configurator():
 
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["The configuration file for this Node is setup with profile sections for each Metagraph or Hypergraph cluster.",0,"white","bold"],
+                ["The configuration file for this Node is setup with profile sections for each cluster.",0,"white","bold"],
                 ["Each profile can be configured with unique or shared (global) p12 private key file (wallet setup) details. These details",0,"white","bold"],
                 ["help nodectl understand what wallets and authorization values to use for each cluster configured.",2,"white","bold"],
                 
@@ -1986,9 +2293,9 @@ class Configurator():
         return
 
 
-#     # =====================================================
-#     # COMMON BUILD METHODS  
-#     # =====================================================
+    # =====================================================
+    # COMMON BUILD METHODS  
+    # =====================================================
 
       
     def ask_confirm_questions(self, command_obj):
@@ -2075,9 +2382,9 @@ class Configurator():
             if user_confirm:
                 return value_dict
             
-#     # =====================================================
-#     # EDIT CONFIG METHODS  
-#     # =====================================================
+    # =====================================================
+    # EDIT CONFIG METHODS  
+    # =====================================================
     
     def edit_config(self):
         # self.action = "edit"
@@ -2089,7 +2396,7 @@ class Configurator():
             
             if self.action == "edit_profile" or self.action == "edit_change_profile":
                 option = "e"
-            elif self.action == "dev_mode":
+            elif self.action == "dev_mode" or self.action == "includes_section":
                 option = "de"
             else:
                 self.c.functions.print_header_title({
@@ -2103,9 +2410,9 @@ class Configurator():
                     self.c.functions.print_paragraphs([
                         ["nodectl",0,"blue","bold"], ["configuration yaml",0],["was found, loaded, and validated.",2],
                         
-                        ["If the configuration found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
+                        ["If the configuration",0,"red","bold"], ["found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
                         ["It is recommended to go through each",0,"red"],["issue",0,"yellow","underline"], ["one at a time, revalidating the configuration",0,"red"],
-                        ["after each edit, in order to make sure that dependent values, are cleared by each edit",2,"red"],
+                        ["after each edit, in order to make sure that dependent values, are cleared by each edit made.",2,"red"],
                         
                         ["If not found, please use the",0], ["manual",0,"yellow","bold"], ["setup and consult the Constellation Network Doc Hub for details.",2],
                     ])
@@ -2117,14 +2424,17 @@ class Configurator():
                 })
 
                 # options = ["E","A","G","R","L","M","Q"]
-                options = ["E","G","R","L","M","Q"]
-                if return_option not in options:
+                options = ["E","G","R","L","P","M","Q","T","I"]
+                if return_option.upper() not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
                         # ["A",-1,"magenta","bold"], [")",-1,"magenta"], ["A",0,"magenta","underline"], ["ppend New Profile to Existing",-1,"magenta"], ["",1],
-                        ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Section",-1,"magenta"], ["",1],
-                        ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Section",-1,"magenta"], ["",1],
+                        ["G",-1,"magenta","bold"], [")",-1,"magenta"], ["G",0,"magenta","underline"], ["lobal P12 Configuration",-1,"magenta"], ["",1],
+                        ["I",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Cluster",0,"magenta"],["Token",0,"magenta"], ["I",0,"magenta","underline"], ["dentifier",-1,"magenta"],["",1],
+                        ["T",-1,"magenta","bold"], [")",-1,"magenta"], ["Global Cluster",0,"magenta"],["T",0,"magenta","underline"], ["oken Coin Id",-1,"magenta"], ["",1],
+                        ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Configuration",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
+                        ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
                         ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
                         ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
                     ])
@@ -2141,7 +2451,7 @@ class Configurator():
             if option == "e":
                 print("")
                 self.header_title = {
-                    "line1": "Edit Profiles",
+                    "line1": "EDIT PROFILES",
                     "show_titles": False,
                     "clear": True,
                     "newline": "both",
@@ -2165,8 +2475,11 @@ class Configurator():
                 self.developer_enable_disable()
                 self.quit_configurator(False)
             elif option == "r": self.edit_auto_restart()
-            elif option == "l": 
-                self.edit_append_profile_global("log_level")
+            elif option == "p": 
+                self.passphrase_enable_disable_encryption("configurator")
+            elif option == "l": self.manual_log_level()
+            elif option == "i": self.manual_define_token_identifier("global_elements")
+            elif option == "t": self.manual_define_token_coin("global_elements")
             elif option == "m":
                 self.action = False
                 self.setup()
@@ -2175,7 +2488,7 @@ class Configurator():
                 
     def edit_profiles(self):
         self.c.functions.print_header_title({
-            "line1": "Select Available Profiles",
+            "line1": "SELECT AVAILABLE PROFILES",
             "single_line": True,
             "newline": "bottom",
         })  
@@ -2224,7 +2537,8 @@ class Configurator():
                 "line2": f"{topic}",
                 "show_titles": False,
                 "newline": "top",
-                "clear": True
+                "clear": True,
+                "upper": False,
             })
             
         print_config_section()
@@ -2248,16 +2562,17 @@ class Configurator():
             ("Tessellation Binaries",10),
             ("Source Priority Setup",11),
             ("Profile Description",12),
-            ("Profile Private p12 Key",13),
+            ("Profile P12 Key Setup",13),
             ("Node Type",14),
             ("Custom Variables",15),
             ("Collateral Requirements",16),
             ("API Edge Point",17),
             ("API TCP Ports",18),
             ("Consensus Linking",19),
-            ("Metagraph Type",20),
+            ("Network Cluster Type",20),
             ("Token Identifier",21),
             ("Rating File Setup",22),
+            ("Token Coin ID",23),
         ]
         section_change_names.sort()
                         
@@ -2316,8 +2631,12 @@ class Configurator():
             prompt = colored("  Enter an option: ","magenta",attrs=["bold"])
             option = input(prompt)
         
-            if option == "m": return "m"
-            elif option == "p": return "e"
+            if option == "m": 
+                self.action = "edit"
+                return "m"
+            elif option == "p": 
+                self.action = "edit_profile"
+                return "e"
             elif option == "h": 
                 self.move_config_backups()
                 self.c.functions.config_obj = deepcopy(self.c.config_obj)
@@ -2434,9 +2753,14 @@ class Configurator():
                     self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
                                                             
                 elif option == 21:
-                    self.called_option = "token id"
-                    self.manual_define_token_id(profile)
-                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [meta type] [{self.action}]"
+                    self.called_option = "token identifer"
+                    self.manual_define_token_identifier(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [token id] [{self.action}]"
+                                                            
+                elif option == 23:
+                    self.called_option = "token_coin_id"
+                    self.manual_define_token_coin(profile)
+                    self.edit_error_msg = f"Configurator found a error while attempting to edit the [{profile}] [token] [{self.action}]"
                                         
                 if do_validate: 
                     self.validate_config()
@@ -2589,7 +2913,12 @@ class Configurator():
                     restart_error = True
 
             if not restart_error:
-                shell = ShellHandler(self.c.config_obj,False)
+                try:
+                    shell = ShellHandler(self.c.config_obj,False)
+                except:
+                    from ..shell_handler import ShellHandler
+                    shell = ShellHandler(self.c.config_obj,False)
+
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 # auto restart
@@ -2607,6 +2936,7 @@ class Configurator():
                         "newline": True,
                     })
                 elif restart == "disable" and enable_answers["auto_restart"] == "y":
+                    shell.called_command = "configurator"
                     shell.auto_restart_handler("disable",True)
                     self.c.functions.print_cmd_status({
                         "text_start": "Stopping auto_restart service",
@@ -2662,7 +2992,7 @@ class Configurator():
 
         
     def edit_append_profile_global(self,s_type):
-        line1 = "Edit P12 Global" if s_type else "Append new profile"
+        line1 = "EDIT P12 GLOBAL" if s_type else "APPEND NEW PROFILE"
         line2 = "Private Keys" if s_type else "to configuration"
         
         self.header_title = {
@@ -2687,10 +3017,6 @@ class Configurator():
             })
 
             self.config_obj_apply["global_p12"] = self.config_obj["global_p12"]
-
-        if s_type == "log_level": 
-            self.manual_log_level()
-            return
                     
         self.apply_vars_to_config()    
 
@@ -2700,7 +3026,7 @@ class Configurator():
                 "action": "Create",
                 "rebuild": True,
             })   
-                 
+
     
     def delete_profile(self,profile):
         self.c.functions.print_header_title({
@@ -2708,7 +3034,8 @@ class Configurator():
             "line2": profile,
             "single_line": True,
             "clear": True,
-            "newline": "both"
+            "newline": "both",
+            "upper": False,
         })
 
         notice = [
@@ -2773,14 +3100,18 @@ class Configurator():
         
     def edit_profile_name(self, old_profile):
         self.c.functions.print_header_title({
-            "line1": "Change Profile Name",
+            "line1": "CHANGE PROFILE NAME",
             "line2": old_profile,
             "clear": True,
             "show_titles": False,
+            "upper": False,
         })
         
         self.c.functions.print_paragraphs([
-            [" WARNING! ",0,"grey,on_red","bold"], ["This is a dangerous command and should be done with precaution.  It will migrate an entire profile's settings and directory structure.",2],
+            [" WARNING! ",0,"grey,on_red","bold"], ["This is a dangerous command and should be done with precautions.",0],
+            ["It will migrate an entire profile's settings and directory structure.",0],
+            ["Moreover, some",0],["metagraph",0,"blue","bold"], ["default",0,"yellow"], ["settings are reliant on identifying",0],
+            ["predefined static profile names.",2],
             
             ["Please make sure you know what you are doing before continuing...",1],
             ["press ctrl+c to quit at any time",2,"yellow"],     
@@ -2817,6 +3148,7 @@ class Configurator():
             "line2": f"NEW: {new_profile}",
             "clear": False,
             "show_titles": False,
+            "upper": False,
         })
             
         notice = [
@@ -2977,7 +3309,11 @@ class Configurator():
             })
             
             if self.c.config_obj["global_auto_restart"]["auto_restart"] == True:
-                shell = ShellHandler(self.c.config_obj,False)
+                try:
+                    shell = ShellHandler(self.c.config_obj,False)
+                except:
+                    from ..shell_handler import ShellHandler
+                    shell = ShellHandler(self.c.config_obj,False)
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 self.c.functions.print_cmd_status({
@@ -2996,23 +3332,381 @@ class Configurator():
                 
                 
     def developer_enable_disable(self):
+        if self.action == "dev_mode":
+            key = "developer_mode"
+            start = "Developer Mode"
+        if self.action == "includes_section":
+            start = "Includes Section"
+            key = "includes"
+
         self.config_obj_apply = {
             "global_elements": 
-                {"developer_mode": "True" if self.dev_enable_disable == "enable" else "False"}
+                {f"{key}": "True" if self.dev_enable_disable == "enable" else "False"}
             }
         self.apply_vars_to_config()
         
         self.c.functions.print_cmd_status({
-            "text_start": "Developer Mode",
+            "text_start": start,
             "status": "enabled" if self.dev_enable_disable == "enable" else "disabled",
             "status_color": "green" if self.dev_enable_disable == "enable" else "red",
             "newline": True,
         })
         
+
+    def perform_encryption(self,profile,encryption_obj,effp,pass3,caller):
+        pass_key = "passphrase"
+        first_run, write_append = False, True
+
+        if profile != "global_p12":
+            pass_key = "p12_passphrase"
+            if self.c.config_obj[profile][pass_key] == "global":
+                return "skip","skip"
+            
+        enc_pass = self.c.config_obj[profile][pass_key].strip()
+        enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+
+        if caller != "configurator" and enc_pass == "None":
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-3092",
+                "line_code": "invalid_passphrase",
+                "extra": "Must be present in configuration",
+            })
+
+        if not self.quick_install and not pass3:
+            self.c.functions.print_header_title({
+                "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
+                "newline": "both",
+                "single_line": True,
+            })
+
+        default_seed = ''.join(choice(ascii_letters) for _ in range(16))
+        if self.quick_install or self.action == "install":
+            pass3 = enc_pass
+        else:
+            pass_correct = False
+            if not pass3:
+                first_run = True
+                self.c.functions.print_paragraphs([
+                    ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
+                ])
+                pass1 = getpass(f"  p12 passphrase: ")
+                pass1 = self.c.p12.keyphrase_validate({
+                    "profile": "global" if profile == "global_p12" else profile,
+                    "passwd": pass1,
+                    "operation": "encryption",
+                })
+                pass3 = pass1.strip()
+        
+        if not self.quick_install and first_run:
+            print("")
+            for s_status in ["deriving","redacting","forgetting","finished"]:
+                self.c.functions.print_cmd_status({
+                    "text_start": "Encryption",
+                    "text_start": "seed phrase",
+                    "brackets": s_status,
+                    "status_color": "green" if s_status == "finished" else "magenta",
+                    "status": "complete" if s_status == "finished" else "preparing",
+                    "newline": True if s_status == "finished" else False,
+                })
+                sleep(1)
+
+            print("")
+            self.c.functions.print_cmd_status({
+                **encryption_obj,
+                "brackets": "global" if profile == "global_p12" else profile,
+            })    
+
+        try:
+            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": default_seed})
+            if not hashed: raise Exception("hashing issue")
+            if not enc_key: raise Exception("encryption generation issue")
+        except Exception as e:
+            self.log.logger.critical(f"configurator --> [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "cfr-3110",
+                "line_code": "system_error",
+                "extra": e,
+            })
+
+        enc_list, enc_de, enc_h = self.build_uuid_mangle(len(hashed))
+        sleep(.8)
+
+        enc_str = ""
+        for n, i in enumerate(enc_list):
+            if n < 1: enc_str += hashed[:i]
+            elif n == len(enc_list): hashed[enc_list.index(i)-1:]
+            else: enc_str += hashed[enc_list.index(i)-1:i]
+            
+        fe, fe_list = "", []
+        fe_list = []
+        index = 0
+        for length in enc_list:
+            fe_list.append(hashed[index:index + length])
+            index += length
+        for pi, _ in enc_de: fe += fe_list[pi]  
+        enc_key = f"{profile}::{enc_key}{enc_h}"
+    
+        sleep(.4)
+        if path.isfile(effp):
+            elp = self.c.functions.test_or_replace_line_in_file({
+                "file_path": effp,
+                "search_line": profile,
+                "replace_line": enc_key+"\n",
+                "allow_dups": False,
+            })[1]
+            if elp > 0: # a line was replaced
+                write_append = False
+        if write_append:
+            with open(f"{effp}","a") as f:
+                f.write(enc_key+"\n")
+
+        fe = fe.strip()
+
+        return fe, pass3
+
+
+    def passphrase_enable_disable_encryption(self,caller):
+        self.log.logger.info("configurator -> encryption method envoked.")
+
+        if self.action != "install": system("clear")
+
+        enable = False if self.c.config_obj["global_p12"]["encryption"] else True
+
+        if self.action == "install" and not enable:
+            self.log.logger.warn("configurator -> During install or upgrade -> encryption found enabled already.")
+            return
+        
+        efp = "/etc/security/"
+        eff = "cnngsenc.conf"
+        effp = f"{efp}{eff}"
+
+        if self.quick_install:
+            encryption_obj = {} 
+        else:
+            print("\n"*2)
+            self.c.functions.print_header_title({
+                "line1": f"PASSPHRASE ENCRYPTION",
+                "line2": "Enable Encryption" if enable else "Disable Encryption",
+                "clear": True,
+                "show_titles": False,
+            })
+
+            e_action = "Building" if enable else "Removing"
+            encryption_obj = {
+                "text_start": f"{e_action} encryption elements",
+                "status": "running",
+                "status_color": "yellow",
+                "newline": False,
+            }
+
+        encryption_list = self.metagraph_list
+        encryption_list.insert(0,"global_p12")
+        if enable:
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1],[" IMPORTANT ",1,"yellow,on_red"], 
+                    ["Enabling encryption will encrypt your passphrase in the configuration file",0],
+                    ["linked to",0], ["nodectl",0,"yellow"], ["functionality.",2],
+                    ["In the unlikely event the encrypted hash stops working [for whatever reason],",0],
+                    ["you can simply",0],["disable",0,"red"], ["this functionality,",0],
+                    ["update/change your passphrase, and upon completion,",0],
+                    ["re-enable",0,"green"], ["the encryption feature.",2],
+
+                    ["Encryption will be turned on globally for all profiles. Each unique profile passphrase may be encrypted with a different key.",2],
+
+                    ["For security purposes nodectl will",0,"red","bold"], ["not",0,"yellow"], 
+                    ["decrypt the passphrase upon disabling the",0,"red","bold"],
+                    ["encryption feature.",2,"red","bold"],
+
+                    [" WARNING ",1,"yellow,on_red"], 
+                    ["If the configuration file was manually updated, any updated encryption elements [or other] will be",0,"red","bold"],
+                    ["overwritten",0,"magenta","bold"], ["causing old encryption data that may be allowing nodectl to handle previously encrypted",0,"red","bold"],
+                    ["elements to stop working, to be overwritten, and removed!",1,"red","bold"],
+                ])
+                if not self.action == "install":
+                    print("")
+                    confirm = self.c.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "prompt": "Do you want to enable encryption?",
+                        "exit_if": False,
+                    })
+                    if not confirm: return
+                    print("")
+
+            efp_error = False if path.exists(efp) else True
+            if not efp_error: 
+                try: remove(effp)  
+                except:
+                    self.log.logger.warn("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
+            if efp_error:
+                self.log.logger.error("configurator -> encryption service -> unable to find necessary file system distribution file security. Is this a Debian OS?")
+                self.error_messages.error_code_messages({
+                    "error_code": "cfr-3150",
+                    "line_code": "system_error",
+                    "extra": "invalid file system",
+                })  
+
+            pass3 = False
+            for profile in encryption_list:
+
+                for n in range(0,3):
+                    fe, pass3 = self.perform_encryption(profile,encryption_obj,effp,pass3,caller)
+                    if fe == "skip": break
+
+                    sleep(.8)
+                    test_p = self.c.functions.get_persist_hash({
+                        "pass1": fe, 
+                        "enc_data": True,
+                        "profile": profile,
+                        "test_only": True,
+                    })
+                    if test_p: break
+                    else:
+                        if not self.quick_install:
+                            cprint("\n  please wait...","magenta")
+                            self.log.logger.warn(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
+
+                if fe == "skip": continue
+
+                if test_p == pass3:
+                    self.log.logger.info(f"configurator -> profile [{profile}] encryption tests passed, continuing")
+                else:
+                    self.log.logger.error(f"configurator -> profile [{profile}] unable to properly encrypt, aborting encryption")
+                    if not self.quick_install:
+                        self.c.functions.print_paragraphs([
+                            [" ERROR ",0,"yellow,on_red"], ["During attempts to encrypt the passphrase and invalid SHA hash produced and nodectl was",0,"red"],
+                            ["unable to be verified. The encryption operation was cancelled to avoid disabling nodectl's ability to validate the",0,"red"],
+                            ["p12 file on this Node. You can try again or change your p12 passphrase. The passphrase should not contain:",1,"red"],
+                            ["  - spaces",1,"yellow"],
+                            ["  - $ (dollar signs)",1,"yellow"],
+                            ["  - single or double quotes",1,"yellow"],
+                            ["  - section signs",2,"yellow"],
+                            ["sudo nodectl passwd12",2],
+                        ])
+                        try: remove(effp)
+                        except: pass
+                        self.c.functions.print_timer({
+                            "seconds": 6,
+                            "step": -1,
+                            "phrase": "",
+                            "end_phrase": "pausing",
+                        })
+                
+                if profile == "global_p12":
+                    self.config_obj_apply = {
+                        **self.config_obj_apply,
+                        f"{profile}": {
+                            "encryption": "True",
+                            "passphrase": fe,
+                        }
+                    } 
+                else:
+                    self.config_obj_apply = {
+                        **self.config_obj_apply,
+                        f"{profile}": {
+                            "p12_passphrase": fe,
+                        }
+                    } 
+                if not self.quick_install:
+                    self.c.functions.print_cmd_status({
+                        **encryption_obj,
+                        "brackets": "global" if profile == "global_p12" else profile,
+                        "newline": True,
+                        "status": "completed",
+                        "status_color": "green",
+                    })
+        else:
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1],[" WARNING ",0,"yellow,on_red"], 
+                    ["Disabling encryption is permanent.",2],
+
+                    ["Profile specific",0,"red"], ["non-global",0,"yellow"], ["passphrases will",0,"red"], 
+                    ["NOT",0,"red","bold"], ["be restored in your Node's configuration file.",0,"red"],
+                    ["Each specific p12 configurations will be reset to",0,"red"], ["None",2,"yellow","bold"],
+
+                    [f"Please reset specific",0,"red"], ["dedicated profile",0,"yellow"], 
+                    ["passphrases via the configurator to",0,"red"],
+                    ["resume nodectl's ability to automate processes that require the",0,"red"],
+                    ["p12",0,"yellow"], ["key store elements to function.",2,"red"],
+
+                    ["Alternatively, you can resume using",0,"red"],
+                    ["--pass <passphrase>",0], ["at the command prompt.",2,"red"],
+
+                    ["You will be redirected automatically to reset your global p12 passphrase.",2,"green"],
+                ])
+
+            confirm = self.c.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": "Do you want to remove encryption?",
+                "exit_if": False
+            })
+            if not confirm: return
+
+            self.c.functions.print_paragraphs([
+                ["",1], ["This is permanent...",1,"red","bold"],
+            ])
+            
+            self.c.functions.print_cmd_status({
+                **encryption_obj,
+            })  
+
+            if path.exists(effp): remove(effp)    
+            sleep(.4) 
+
+            new_encryption_list = copy(encryption_list)
+            for profile in encryption_list:
+                if profile == "global_p12":
+                    self.config_obj_apply = {
+                        **self.config_obj_apply,
+                        "global_p12": {
+                            "encryption": "False",
+                            "passphrase": "None",
+                        }
+                    } 
+                elif self.c.config_obj[profile]["p12_passphrase"] != "global":
+                    self.config_obj_apply = {
+                        **self.config_obj_apply,
+                        f"{profile}": {
+                            "p12_passphrase": "None",
+                        }
+                    } 
+                else:
+                    new_encryption_list.remove(profile)
+
+            encryption_list = copy(new_encryption_list)
+                        
+        self.apply_vars_to_config()
+        if not self.quick_install:
+            self.c.functions.print_cmd_status({
+                **encryption_obj,
+                "newline": True,
+                "status": "completed",
+                "status_color": "green",
+            })  
+            sleep(1)
+
+        if not enable:
+            for profile in encryption_list:
+                self.c.functions.print_cmd_status({
+                    "text_start": "Resetting",
+                    "brackets": "global" if profile == "global_p12" else profile,
+                    "text_end": "configuration",
+                    "newline": True,
+                })
+                if profile == "global_p12": 
+                    self.edit_append_profile_global("p12")
+                else: 
+                    self.metagraph_list.remove("global_p12")
+                    self.manual_build_p12(profile)
+    
+
     # =====================================================
     # OTHER
     # =====================================================
-    
+
     def backup_config(self):
         print("")
         if not self.is_file_backedup:
@@ -3299,14 +3993,15 @@ class Configurator():
             "newline": "both"
         })
         
-        # if self.print_old_file_warning("profiles"): return
-        # if not self.clean_profiles:
-        #     verb, color = "not necessary", "green"
-        #     if self.skip_clean_profiles_manual:
-        #         verb, color = "declined", "red"
-        #     cprint(f"  service cleanup {verb}, skipping...",color,attrs=["bold"])
-        #     return
-            
+        if self.print_old_file_warning("services"): return
+        
+        if not self.old_last_cnconfig:
+            self.c.functions.print_cmd_status({
+                "text_start": "skipping cleanup",
+                "newline": True,
+            })
+            return
+        
         for old_profile in self.old_last_cnconfig.keys():
             if old_profile not in self.config_obj.keys():
                 if "global" not in old_profile:
@@ -3418,7 +4113,7 @@ class Configurator():
                             ["directory structure exists",1], 
                             ["profile:",0], [profile,1,"yellow"],
                             ["snapshot dir:",0], [lookup_path_abbrv,1,"yellow"],
-                            [f"Existing old {lookup_path_abbrv} may cause unexpected errors and conflicts, nodectl will remove snapshot contents from this directory",2,"red","bold"],
+                            [f"Existing old {lookup_path_abbrv} may cause unexpected errors and conflicts with new clusters, nodectl will remove snapshot contents from this directory",2,"red","bold"],
                         ])
                         user_confirm = self.c.functions.confirm_action({
                             "yes_no_default": "y",
@@ -3493,6 +4188,75 @@ class Configurator():
                     "exit_if": True
                 })   
         self.handle_service(profile,profile)
+
+
+    def build_uuid_mangle(self,size,max_value=15):
+        iuuid = self.c.functions.get_uuid().replace("-","")
+        hex_value = bytes.fromhex(iuuid)
+        integer_value = int.from_bytes(hex_value, byteorder='big')
+        digit_string = str(integer_value)
+        iuuid_int_list = []
+        current_value = ""
+
+        for digit in digit_string:
+            current_value += digit
+            current_value_int = int(current_value)
+            if current_value_int > max_value:
+                current_value = ""
+                continue
+            if 4 < current_value_int < max_value+1:
+                if sum(iuuid_int_list)+current_value_int <= size:
+                    iuuid_int_list.append(current_value_int)
+                else:
+                    while True:
+                        last_number = size - (sum(iuuid_int_list)+current_value_int)
+                        if last_number == 0: 
+                            if sum(iuuid_int_list) < size:
+                                iuuid_int_list.append(size - sum(iuuid_int_list))
+                                break
+                        if last_number < 0:
+                            last_number = iuuid_int_list[-1]+last_number
+                        iuuid_int_list[-1] = last_number
+                        if iuuid_int_list[-1] < 0:
+                            iuuid_int_list.pop()
+                    break
+                current_value = ""  
+        
+        if sum(iuuid_int_list) < size:
+            remainder = size - sum(iuuid_int_list)
+            while remainder > max_value:
+                pull = random.randint(10,max_value)
+                iuuid_int_list.append(pull)
+                remainder -= pull
+            if remainder > 0:
+                iuuid_int_list.append(remainder)
+
+            iuuid_int_list.append(size - sum(iuuid_int_list))
+
+        while True:
+            if len(iuuid_int_list) > max_value:
+                ct1 = iuuid_int_list.pop()
+                ct2 = iuuid_int_list.pop()
+                if ct1+ct2 > max_value:
+                    iuuid_int_list.append(ct1)
+                    for ct3 in iuuid_int_list:
+                        if ct3+ct2 < max_value-1:
+                            iuuid_int_list.append(ct3+ct2)
+                        else:
+                            madd = min(max_value - x for x in iuuid_int_list)
+                            iuuid_int_list = [x + min(ct2, madd) for x in iuuid_int_list]
+                            break
+                else:
+                    iuuid_int_list.append(ct1+ct2)
+            else:
+                break
+      
+        iuuid_int_list2 = copy(iuuid_int_list)
+        iuuid_int_list2 = list(enumerate(iuuid_int_list2))
+        random.shuffle(iuuid_int_list2)
+        iuuid_int_list3 = ":" + ''.join('{:X}{:X}'.format(x, y) for x, y in iuuid_int_list2)
+
+        return iuuid_int_list,iuuid_int_list2, iuuid_int_list3
 
 
     def print_error(self):
@@ -3582,7 +4346,12 @@ class Configurator():
                 "caller": "configurator"
             })
             if s_action == "leave":
-                self.c.functions.print_timer(40,"to gracefully leave the network")
+                self.c.functions.print_timer({
+                    "seconds": 40,
+                    "phrase": "Gracefully",
+                    "step": -1,
+                    "end_phrase": "leaving cluster"
+                })
                     
         self.c.functions.print_cmd_status({
             "text_start": "Updating Service",

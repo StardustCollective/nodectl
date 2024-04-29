@@ -5,10 +5,9 @@ from sys import exit
 
 from datetime import datetime
 
-from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
-from .config.versioning import Versioning
+
 
 class Status():
     
@@ -30,6 +29,7 @@ class Status():
         self.max_auth_attempts = ""
         self.last_action = "none"
         self.error_count = 0
+        self.process_memory = {}
         
         self.mem_swap_min = 1000000
         self.log_found_flag = False
@@ -55,7 +55,7 @@ class Status():
     def find_log_file(self):
         # removed due to version update
         # however may need to use this function repurposed
-        # in future releases to navigate through rolled/archieved
+        # in future releases to navigate through rolled/archived
         # logs
         bashCommand = "ls -l /var/log"
         ps = Popen(bashCommand.split(), 
@@ -88,6 +88,11 @@ class Status():
                 memory = popen(value)
                 memory = memory.read()
                 self.parse_memory(memory)
+                _ , _ , self.process_memory = self.functions.check_cpu_memory_thresholds()
+                for key, value in self.process_memory.items():
+                    if key == "thresholds": continue
+                    self.process_memory[key]["RSS"] = size(value["RSS"],system=alternative)
+                    self.process_memory[key]["VMS"] = size(value["VMS"],system=alternative)
             elif key == "uptime":
                 # fix problem with uptime less than 1 day
                 result_stream = popen("uptime")
@@ -104,12 +109,10 @@ class Status():
  
             
     def check_dev_device(self):
-        cmds = ["dev/vda1","/dev/xvda1","dev/sda1","dev/root","/dev/nvme0n1p1"]
-        for cmd in cmds:
-            device = popen(f"df -h | grep '{cmd} ' | awk "+"'{print $5\" of \"$3}'")
-            device = device.read()
-            if device:
-                return device
+        cmd = 'df -h | awk \'$NF=="/"{print $5 " of " $2}\''
+        device = popen(cmd)
+        device = device.read()
+        if device: return device
         return "unknown"
       
         
@@ -144,17 +147,17 @@ class Status():
         details.pop(0)
         details.pop()
 
-        for n, useage in enumerate(details):
-            if int(useage) < self.mem_swap_min:
+        for n, usage in enumerate(details):
+            if int(usage) < self.mem_swap_min:
                 if n == 0:
-                    self.memory = f"LOW@ {'{:,}'.format(int(useage))}"
+                    self.memory = f"LOW@ {'{:,}'.format(int(usage))}"
                 else:
-                    self.swap = f"LOW@ {'{:,}'.format(int(useage))}"
+                    self.swap = f"LOW@ {'{:,}'.format(int(usage))}"
             else:
                 if n == 0:
-                    self.memory = f"OK@ {'{:,}'.format(int(useage))}"
+                    self.memory = f"OK@ {'{:,}'.format(int(usage))}"
                 else:
-                    self.swap = f"OK@ {'{:,}'.format(int(useage))}\n"
+                    self.swap = f"OK@ {'{:,}'.format(int(usage))}\n"
                
   
     def security_check(self):

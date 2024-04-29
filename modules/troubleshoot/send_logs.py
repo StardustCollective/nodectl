@@ -1,7 +1,7 @@
 import json
 
 from re import match
-from os import system, path, mkdir, listdir
+from os import system, path, mkdir, listdir, popen
 from sys import exit
 from termcolor import colored, cprint
 from hurry.filesize import size, alternative
@@ -27,7 +27,12 @@ class Send():
         self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj["ip_address"]
 
+        self.nodectl_logs = False
+        if self.profile == "nodectl":
+            self.nodectl_logs = True
+            self.profile = list(self.config_obj.keys())[0]
         
+
     def prepare_and_send_logs(self):
         changed_ip = self.ip_address.replace(".","-")
         date = self.functions.get_date_time({"action":"datetime"})
@@ -46,24 +51,27 @@ class Send():
         
         self.functions.print_header_title({
             "line1": "RETRIEVE NODE LOGS",
-            "line2": self.profile.upper(),
+            "line2": self.profile,
             "clear": True,
         })
         
-        self.functions.print_paragraphs([
-            ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs",0,"magenta"], ["",1],
-            ["B",0,"magenta","bold"], [")",-1,"magenta"], ["Backup Logs",0,"magenta"], ["",1],
-            ["D",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date",0,"magenta"], ["",1],
-            ["R",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date Range",0,"magenta"], ["",1],
-            ["A",0,"magenta","bold"], [")",-1,"magenta"], ["Archived Logs",0,"magenta"], ["",1],
-            ["X",0,"magenta","bold"], [")",-1,"magenta"], ["Exit",0,"magenta"], ["",2],
-        ])
-                
-        choice = self.functions.get_user_keypress({
-            "prompt": "KEY PRESS an option",
-            "prompt_color": "cyan",
-            "options": ["C","B","A","X","D","R"],
-        })
+        if self.nodectl_logs:
+            choice = "c"
+        else:
+            self.functions.print_paragraphs([
+                ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs",0,"magenta"], ["",1],
+                ["B",0,"magenta","bold"], [")",-1,"magenta"], ["Backup Logs",0,"magenta"], ["",1],
+                ["D",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date",0,"magenta"], ["",1],
+                ["R",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date Range",0,"magenta"], ["",1],
+                ["A",0,"magenta","bold"], [")",-1,"magenta"], ["Archived Logs",0,"magenta"], ["",1],
+                ["X",0,"magenta","bold"], [")",-1,"magenta"], ["Exit",0,"magenta"], ["",2],
+            ])
+                    
+            choice = self.functions.get_user_keypress({
+                "prompt": "KEY PRESS an option",
+                "prompt_color": "cyan",
+                "options": ["C","B","A","X","D","R"],
+            })
         
         if choice == "a":
             self.log.logger.info(f"Request to upload Tessellation archive logs initiated")
@@ -108,8 +116,10 @@ class Send():
             self.log.logger.info(f"Request to upload Tessellation current logs initiated")
             tar_archive_dir = ""
             tar_creation_path = "/tmp/tess_logs"
-            tar_creation_origin = f"/var/tessellation/{self.profile}"
 
+            tar_creation_origin = f"/var/tessellation/{self.profile}/"
+            if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log*"
+            
             if path.isdir(tar_creation_path):
                 system(f"rm -rf {tar_creation_path} > /dev/null 2>&1")
             mkdir(tar_creation_path)
@@ -124,9 +134,10 @@ class Send():
                     "status": "copying",
                     "status_color": "yellow"
                 })
-                        
-                cmd = f"rsync -a {tar_creation_origin}/ {tar_creation_path}/ "
-                cmd += f"--exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "
+
+                cmd = f"rsync -a {tar_creation_origin} {tar_creation_path}/ "
+                if not self.nodectl_logs:
+                    cmd += f"--exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "
                 cmd += "> /dev/null 2>&1"
                 system(cmd)     
 
@@ -233,24 +244,30 @@ class Send():
 
         if confirm:
             self.functions.print_paragraphs([
-                ["",1], ["Depending on the size of the tarball, this may take some time to upload,",0],
-                ["please be patient.",2,"red"]
+                ["",1], ["Depending on the size of the tarball, this may take some time to upload",1],
+                ["please be patient...",2,"red"]
             ])
             
-            cmd = f"sudo curl --upload-file {tar_dest}{tar_file_name} https://transfer.sh/{tar_file_name}"
-            cmd_results = self.functions.process_command({
-                "bashCommand": cmd,
-                "proc_action": "poll"
-            })
+            cmd = f'sudo curl -F "file=@{tar_dest}{tar_file_name}" https://0x0.st'
+            cmd_results = popen(cmd)
+            cmd_results = cmd_results.read()
+
+            # transfer.sh is unstable...
+            # cmd = f"sudo curl --upload-file {tar_dest}{tar_file_name} https://transfer.sh/{tar_file_name}"
+            # cmd_results = self.functions.process_command({
+            #     "bashCommand": cmd,
+            #     "proc_action": "poll"
+            # })
+
             self.functions.print_paragraphs([
-                ["log tarball transferred to developers",1,"magenta"],
+                ["",1], ["log tarball transferred to developers",1,"magenta"],
                 ["Please provide the following link to the developers for download and analysis.",1,"white","bold"],
-                [cmd_results,2],
+                [cmd_results,1],
             ])
 
         # clean up
         self.log.logger.warn(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
-        system(f"rm -rf {tar_package['tar_creation_path']} > /dev/null 2>&1")
+        system(f"sudo rm -rf {tar_package['tar_creation_path']} > /dev/null 2>&1")
 
         self.functions.print_paragraphs([
             ["Log tarball created and also located:",0,"green"],
