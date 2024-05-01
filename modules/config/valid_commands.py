@@ -43,6 +43,7 @@ def pull_valid_command():
 
         "nodeid",
         "nodeid2dag",
+        "node_last_snapshot",
         
         "peers",
         "passwd12",

@@ -263,8 +263,6 @@ class ShellHandler:
             self.cli.show_node_states(self.argv)
         elif self.called_command == "passwd12":
             return_value = self.cli.passwd12(self.argv)
-        elif self.called_command == "migrate_node":
-            self.cli.migrate_node(self.argv)
         elif self.called_command == "reboot":
             self.cli.cli_reboot(self.argv)
         elif self.called_command == "remote_access" or self.called_command == "_ra":
@@ -322,6 +320,8 @@ class ShellHandler:
             self.cli.check_connection(self.argv)
         elif self.called_command == "remove_snapshots":
             self.cli.cli_remove_snapshots(self.argv)
+        elif self.called_command == "node_last_snapshot":
+            self.cli.cli_node_latest_snapshot(self.argv)
         elif self.called_command == "send_logs" or self.called_command == "_sl":
             self.cli.prepare_and_send_logs(self.argv)
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
@@ -538,7 +538,7 @@ class ShellHandler:
         if self.config_obj["global_elements"]["developer_mode"]: return   
 
         develop_commands = [
-            "execute_starchiver","remove_snapshots",
+            "remove_snapshots",
         ]
         if self.called_command in develop_commands:
             self.called_command = "help_only"
@@ -604,7 +604,7 @@ class ShellHandler:
             "check_seedlist","_csl",
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
-            "check_minority_fork","_cmf",
+            "check_minority_fork","_cmf","node_last_snapshot",
             "execute_starchiver","remove_snapshots"
         ]  
 

@@ -6,7 +6,7 @@ from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, remove, walk, chmod, stat, makedirs, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, popen, remove, walk, chmod, stat, makedirs, SEEK_END, SEEK_CUR
 from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
@@ -4965,6 +4965,57 @@ class CLI():
         p12.create_individual_p12(self)  
 
 
+    def cli_node_latest_snapshot(self,command_list):
+        self.functions.check_for_help(command_list,"node_latest_snapshot")
+        value_only = True if "value_only" in command_list else False
+
+        profile = command_list[command_list.index("-p")+1]
+        snapshot_dir = f"{self.functions.default_tessellation_dir}{profile}/data/incremental_snapshot"
+        
+        if self.config_obj[profile]["layer"] > 0:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4977",
+                "line_code": "invalid_layer",
+                "extra": "1",
+            })
+
+        cmd = f'find {snapshot_dir} -maxdepth 1 -type f -printf "%f\n" '
+        cmd += "| grep '^[0-9.]\{1,8\}$' | sort -n | tail -n 1"
+        
+        with ThreadPoolExecutor() as executor:
+            self.functions.status_dots = True
+            status_obj = {
+                "text_start": f"Reviewing snapshots",
+                "status": "please wait",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor.submit(self.functions.print_cmd_status,status_obj)
+            possible_end = popen(cmd)
+            possible_end = int(possible_end.read().strip())
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                **status_obj,
+                "status": "completed",
+                "status_color": "green",
+                "dotted_animation": False,
+                "newline": True,
+            })
+
+        if value_only: return snapshot_dir,possible_end
+
+        print_out_list = [{
+            "PROFILE": profile,
+            "LAST FOUND LOCAL SNAPSHOT": possible_end,
+        }]
+    
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            }) 
+
+
     def cli_remove_snapshots(self,command_list):
         self.log.logger.info("cli -> remove_snapshots initiated.")
 
@@ -4980,13 +5031,24 @@ class CLI():
             ["necessary.  This feature can lead to unpredictable and undesired affects on your existing Node.",2,"red"],
         ])
 
-        found = False
+        profile = command_list[command_list.index("-p")+1]
+        snapshot_dir, possible_end = self.cli_node_latest_snapshot(["value_only","-p",profile])        
+
+        int_error = False
+        missing = []
+
         start = input(colored("  Please enter the start snapshot: ","cyan"))
-        end = input(colored("  Please enter the end snapshot: ","cyan"))
-        try:
-            start = int(start)
-            end = int(end)
-        except:
+        end = input(colored(f"  Please enter the end snapshot [{colored(possible_end,'yellow')}]: ","cyan"))
+        if end == "" or end == None:
+            try: end = possible_end+1
+            except: int_error = True
+        else: 
+            try: end += 1
+            except: int_error = True
+        try: start = int(start)
+        except: int_error = True
+
+        if int_error:
             self.error_messages.error_code_messages({
                 "error_code": "cli-4823",
                 "line_code": "input_error",
@@ -4996,8 +5058,18 @@ class CLI():
 
         print("")
 
-        profile = command_list[command_list.index("-p")+1]
-        snapshot_dir = f"{self.functions.default_tessellation_dir}{profile}/data/incremental_snapshot"
+        self.functions.print_cmd_status({
+            "text_start": "Starting snapshot",
+            "status": start,
+            "status_color": "yellow",
+            "newline": True,
+        })
+        self.functions.print_cmd_status({
+            "text_start": "Ending snapshot",
+            "status": end,
+            "status_color": "yellow",
+            "newline": True,
+        })
 
         self.build_node_class()
         self.set_profile(profile)
@@ -5028,22 +5100,13 @@ class CLI():
                         ["Removing",0,"red"], [str(snap_to_remove),1,"red","bold"],
                     ])
                     remove(snap_to_remove)
+                else:
+                    missing.append(snap_to_remove)
 
-        # for current_snap in range(start, end):
-        #     file_path = path.join(snapshot_dir, str(current_snap))
-        #     if path.exists(file_path):
-        #         found = True
-        #         inode = stat(file_path).st_ino
-        #         for root, dirs, files in walk(snapshot_dir):
-        #             for name in files:
-        #                 if stat(path.join(root, name)).st_ino == inode:
-        #                     snap_to_remove = path.join(root, name)
-        #                     print(colored(f"  Removing {snap_to_remove}","red"))
-        #                     remove(snap_to_remove)
-
-        if not found:
+        if len(missing) > 0:
             self.functions.print_paragraphs([
-                ["",1], [f"No snapshots found between [{start}] and [{end}]",1],
+                ["",1], [f"Some snapshots were not found between [{start}] and [{end}]",1],
+                ["This can be safely ignored...",2,"white"],
             ])
         self.functions.print_paragraphs([
             [f"Removal operations complete, please restart profile [{profile}]",0],
@@ -5186,6 +5249,7 @@ class CLI():
         data_path = f"/var/tessellation/{profile}/data/"
         cluster = self.config_obj[profile]["environment"]
         bashCommand = f"{local_path} --data-path {data_path} --cluster {cluster}"
+        if "--timedate" in command_list:  bashCommand += f" --timedate {command_list[command_list.index("--timedate")+1]}"
         if "-d" in command_list: bashCommand += " -d"
         if "-o" in command_list: bashCommand += " -o"
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
