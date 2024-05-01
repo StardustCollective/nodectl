@@ -917,7 +917,7 @@ class CLI():
         for n, value in enumerate(ave_mem_list):
             self.functions.print_cmd_status({
                 "text_start": "Pass",
-                "brackets": f"0{n+1}" if n < 10 else str(n),
+                "brackets": f"0{n+1}" if n < 9 else str(n+1),
                 "text_end": "cpu / mem",
                 "status": f"{str(ave_cpu_list[n])}% / {str(value)}%",
                 "status_color": "yellow",
