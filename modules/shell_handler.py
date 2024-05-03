@@ -321,7 +321,7 @@ class ShellHandler:
         elif self.called_command == "remove_snapshots":
             self.cli.cli_remove_snapshots(self.argv)
         elif self.called_command == "node_last_snapshot":
-            self.cli.cli_node_latest_snapshot(self.argv)
+            self.cli.cli_node_last_snapshot(self.argv)
         elif self.called_command == "send_logs" or self.called_command == "_sl":
             self.cli.prepare_and_send_logs(self.argv)
         elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":

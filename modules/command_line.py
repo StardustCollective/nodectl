@@ -4965,8 +4965,8 @@ class CLI():
         p12.create_individual_p12(self)  
 
 
-    def cli_node_latest_snapshot(self,command_list):
-        self.functions.check_for_help(command_list,"node_latest_snapshot")
+    def cli_node_last_snapshot(self,command_list):
+        self.functions.check_for_help(command_list,"node_last_snapshot")
         value_only = True if "value_only" in command_list else False
 
         profile = command_list[command_list.index("-p")+1]
@@ -5032,7 +5032,7 @@ class CLI():
         ])
 
         profile = command_list[command_list.index("-p")+1]
-        snapshot_dir, possible_end = self.cli_node_latest_snapshot(["value_only","-p",profile])        
+        snapshot_dir, possible_end = self.cli_node_last_snapshot(["value_only","-p",profile])        
 
         int_error = False
         missing = []
@@ -5249,7 +5249,13 @@ class CLI():
         data_path = f"/var/tessellation/{profile}/data/"
         cluster = self.config_obj[profile]["environment"]
         bashCommand = f"{local_path} --data-path {data_path} --cluster {cluster}"
-        if "--timedate" in command_list:  bashCommand += f" --timedate {command_list[command_list.index("--timedate")+1]}"
+
+        if "--timedate" in command_list:  
+            sc_date = command_list[command_list.index("--timedate")+1]
+            if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
+                sc_date = f"'{sc_date}'"
+            bashCommand += f" --timedate {sc_date}"
+
         if "-d" in command_list: bashCommand += " -d"
         if "-o" in command_list: bashCommand += " -o"
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")

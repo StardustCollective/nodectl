@@ -24,7 +24,7 @@ def build_help(functions,command_obj):
       "clean_snapshots","update_seedlist", "check_source_connection",
       "health","sec","price","markets", "upgrade_path", 
       "check_seedlist_participation", "check_version", "uptime","uninstall",
-      "show_cpu_memory","execute_starchiver","backup_config",
+      "show_cpu_memory","execute_starchiver","backup_config", "node_last_snapshot",
     ]
     
     functions.print_paragraphs([
@@ -235,7 +235,9 @@ def build_help(functions,command_obj):
                                             
                                             see extended help for configurable auto_restart
                                             details... sudo nodectl auto_restart help
-                                            
+
+    node_last_snapshot | Display last known local snapshot on your Node
+
     verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity    
     
     create_p12 |  Create a single independent p12 file.                                    
@@ -2604,6 +2606,7 @@ def build_help(functions,command_obj):
   
     if extended in simple_command_list:
         help_text += f'''
+        
   Example Usage
   -------------
   show this help screen
