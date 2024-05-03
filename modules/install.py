@@ -75,24 +75,25 @@ class Installer():
     def setup_install(self):
         self.functions.check_sudo()
         self.log.logger.debug(f"installation request started - quick install [{self.options.quick_install}]")
-        self.print_main_title()
+        if not self.options.quiet: self.print_main_title()
         self.parent.install_upgrade = "installation"
 
-        self.functions.print_paragraphs([
-            [" NOTE ",2,"yellow,on_magenta"],
-            ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow,bold"],
-            ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
-            ["key to accept said value.",2,"magenta"],
-            
-            ["n",0,"yellow","bold"], ["stands for",0], [" no  ",0,"yellow,on_red"], ["",1],
-            ["y",0,"yellow","bold"], ["stands for",0], [" yes ",0,"blue,on_green"], ["",2],
-            
-            ["IMPORTANT",0,"red","bold"],
-            ["nodectl",0,"blue","bold"], ["was designed to run on a terminal session with a",0], ["black",0,"cyan","bold"],
-            ["background setting. Default terminal emulators with a",0], ["white",0,"cyan","bold"], ["background may experience some 'hard to see' contrasts.",0],
-            ["It is recommended to change the preferences on your terminal [of choice] to run with a",0], ["black",0,"cyan","bold"],
-            ["background.",2],
-        ])
+        if not self.options.quiet:
+            self.functions.print_paragraphs([
+                [" NOTE ",2,"yellow,on_magenta"],
+                ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow,bold"],
+                ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
+                ["key to accept said value.",2,"magenta"],
+                
+                ["n",0,"yellow","bold"], ["stands for",0], [" no  ",0,"yellow,on_red"], ["",1],
+                ["y",0,"yellow","bold"], ["stands for",0], [" yes ",0,"blue,on_green"], ["",2],
+                
+                ["IMPORTANT",0,"red","bold"],
+                ["nodectl",0,"blue","bold"], ["was designed to run on a terminal session with a",0], ["black",0,"cyan","bold"],
+                ["background setting. Default terminal emulators with a",0], ["white",0,"cyan","bold"], ["background may experience some 'hard to see' contrasts.",0],
+                ["It is recommended to change the preferences on your terminal [of choice] to run with a",0], ["black",0,"cyan","bold"],
+                ["background.",2],
+            ])
 
         if self.options.normal_install:
             self.log.logger.info("installer -> long normal option chosen by Node Operator option input.")
@@ -132,46 +133,66 @@ class Installer():
                 ["https://docs.constellationnetwork.io/validate/",2,"blue","bold"],
             ])
 
-        while True:
-            term_width_test = get_terminal_size()
-            if term_width_test.columns < 85:
-                self.functions.print_paragraphs([
-                    [" WARNING ",1,"red,on_yellow"], 
-                    ["nodectl has detected that the terminal size WIDTH is too narrow.",0,"red"],
-                    ["to properly display the installer's progress indicators. While this",0,"red"],
-                    ["won't affect the installation itself, it may impact the user experience.",2,"red"],
-                    ["detected column width:",0],[f"{term_width_test.columns}",1,"yellow"],
-                    ["To improve the display, you can optionally widen your terminal window by clicking on the terminal emulator window and dragging it out to at",0],
-                    ["least",0], ["85",0,"green","bold"], ["columns.",2],
-                ])
-                next_step = self.functions.print_any_key({
-                    "quit_option": True,
-                    "return_key": True,
-                })
-                if next_step == "q": 
-                    cprint("  Installation existed by Node Operator request","green",attrs="bold")
-                    exit(0)
+        if not self.options.quiet:
+            while True:
+                term_width_test = get_terminal_size()
+                if term_width_test.columns < 85:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",1,"red,on_yellow"], 
+                        ["nodectl has detected that the terminal size WIDTH is too narrow.",0,"red"],
+                        ["to properly display the installer's progress indicators. While this",0,"red"],
+                        ["won't affect the installation itself, it may impact the user experience.",2,"red"],
+                        ["detected column width:",0],[f"{term_width_test.columns}",1,"yellow"],
+                        ["To improve the display, you can optionally widen your terminal window by clicking on the terminal emulator window and dragging it out to at",0],
+                        ["least",0], ["85",0,"green","bold"], ["columns.",2],
+                    ])
+                    next_step = self.functions.print_any_key({
+                        "quit_option": True,
+                        "return_key": True,
+                    })
+                    if next_step == "q": 
+                        cprint("  Installation existed by Node Operator request","green",attrs="bold")
+                        exit(0)
 
-                print("")
-            else:
-                self.functions.print_clear_line(1,{"backwards":True})
-                break
+                    print("")
+                else:
+                    self.functions.print_clear_line(1,{"backwards":True})
+                    break
 
         if not self.options.confirm_install:
             self.parent.confirm_int_upg()
 
-        self.print_main_title()
-        self.functions.print_header_title({
-            "line1": "INSTALLATION STARTING",
-            "single_line": True,
-            "show_titles": False,
-            "newline": "bottom",
-        }) 
+        if not self.options.quiet:
+            self.print_main_title()
+            self.functions.print_header_title({
+                "line1": "INSTALLATION STARTING",
+                "single_line": True,
+                "show_titles": False,
+                "newline": "bottom",
+            }) 
     
     
     # Node Options and Values
     # =====================
         
+    def handle_quiet_mode(self):
+        if not self.options.quiet: return
+
+        quiet_requirements = [
+            "cluster_config",
+            "user_password","p12_passphrase",
+            "quick_install"
+        ]
+
+        for quiet in quiet_requirements:
+            if not self.options_dict[quiet]:
+                self.error_messages.error_code_messages({
+                    "error_code": "int-354",
+                    "line_code": "install_failed",
+                    "extra": "quiet mode requested without proper arguments or during a normal installation, must be quick install only. Please see documentation for further details."
+                })                
+
+
     def handle_options(self):
         self.options_dict = OrderedDict()
 
@@ -183,7 +204,7 @@ class Installer():
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
             "--quick-install", "--normal",
-            "--confirm","--override",
+            "--confirm","--override","--quiet",
         ]
         
         self.options_dict["quick_install"] = False
@@ -191,19 +212,25 @@ class Installer():
         self.options_dict["normal_install"] = False
         self.options_dict["confirm_install"] = False
         self.options_dict["override"] = False
+        self.options_dict["quiet"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
             if (o_option == "quick-install" or o_option == "quick_install") and "--quick-install" in self.argv_list: 
                 self.options_dict["quick_install"] = True
                 continue
-            if (o_option == "normal" or o_option == "normal") and "--normal" in self.argv_list: 
+            if o_option == "normal" and "--normal" in self.argv_list: 
                 self.options_dict["normal_install"] = True
                 continue
-            if (o_option == "confirm" or o_option == "confirm") and "--confirm" in self.argv_list: 
+            if o_option == "confirm" and "--confirm" in self.argv_list: 
                 self.options_dict["confirm_install"] = True
                 continue
-            if (o_option == "override" or o_option == "override") and "--override" in self.argv_list: 
+            if o_option == "override" and "--override" in self.argv_list: 
                 self.options_dict["override"] = True
+                continue
+            if o_option == "quiet" and "--quiet" in self.argv_list: 
+                self.log.logger.warn("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
+                self.options_dict["quiet"] = True
+                self.options_dict["confirm_install"] = True
                 continue
             self.options_dict[o_option] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
 
@@ -213,7 +240,8 @@ class Installer():
         self.options_dict["existing_p12"] = False
 
         self.options = SimpleNamespace(**self.options_dict)
-        
+        self.handle_quiet_mode()
+
         if self.options.p12_migration_path:
             self.log.logger.info(f"installer found --p12-migration-path request [{self.options.p12_migration_path}]")
             self.options.existing_p12 = True
@@ -290,7 +318,8 @@ class Installer():
     
 
     def handle_environment_setup(self,do=False):
-        if self.options.quick_install and do == False: return
+        if (self.options.quick_install and do == False) or self.options.quiet: return
+        if self.options.quiet: return
 
         self.log.logger.info("installer -> setting up cluster environment details.")
 
@@ -1093,7 +1122,7 @@ class Installer():
                         ["allow you to manually supply a full path to your existing p12 file.",2,"white"],
                     ])
 
-            if not self.options.existing_p12:
+            if not self.options.existing_p12 and not self.options.quiet:
                 self.options.existing_p12 = self.functions.confirm_action({
                     "yes_no_default": "n",
                     "return_on": "y",
@@ -1346,7 +1375,7 @@ class Installer():
         cli_obj = {
             "caller": "installer",
             "profile": "empty",
-            "command": "install",
+            "command": "install" if not self.options.quiet else "quiet_install",
             "command_list": [],
             "functions": self.functions,
             "ip_address": self.parent.ip_address,

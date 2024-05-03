@@ -105,9 +105,10 @@ class CLI():
             "functions": self.functions
         }
         # self.log.logger.debug(f"cli - calling node Obj - [{command_obj}]")
-        self.functions.print_cmd_status({
-            "text_start": "Acquiring Node details"
-        })
+        if self.primary_command != "quiet_install":
+            self.functions.print_cmd_status({
+                "text_start": "Acquiring Node details"
+            })
         self.node_service = Node(command_obj)
         self.node_service.log = self.functions.log
         self.node_service.functions.set_statics()

@@ -126,10 +126,15 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["An unrecoverable error occured during the installation.",2,"red","bold"],
                 ["Unable to process some information that is necessary for the installation of Tessellation to be successful.",2,"red","bold"],
+
+                ["Suggestion:",0,"yellow","bold"], ["Verify you entered the proper paramenters associated with the options chosen.",2],
+
                 ["Suggestion:",0,"yellow","bold"], ["Verify network connectivity and proper ports are opened on the Debian server.",0],
-                ["Debian Based",0,"cyan","underline"],["OS.",2],
+                ["Debian Based",0,"cyan","bold"],["OS.",2],
+
                 ["Suggestion:",0,"yellow","bold"], ["Attempt a new installation with a clean image of a",0],
-                ["Debian Based",0,"cyan","underline"],["OS.",2],
+                ["Debian Based",0,"cyan","bold"],["OS.",2],
+
                 ["Error Message:",0,"yellow","bold"],[var.extra,2,"red"],
             ])
             

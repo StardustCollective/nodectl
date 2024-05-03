@@ -1485,112 +1485,120 @@ class Configuration():
             "self_port": range(1024,65535),
         }
         
-        for section, section_types in self.schema.items():
-            if "global" in section and not self.skip_global_validation:
-                profile = section
-            for key, test_value in self.config_obj[profile].items():
-                for section_key, req_type in section_types:
-                    if key == section_key: 
-                        validated = False
-                        
-                        if skip_validation:
-                            if "gl0_link" in key or "ml0_link" in key: validated = True
-                            else: skip_validation = False
-                        
-                        if req_type in valuation_dict.keys():
-                            try: validated = isinstance(test_value,valuation_dict[req_type])   
-                            except Exception as e:
-                                for value in valuation_dict[req_type]:
-                                    if test_value == value:
-                                        validated = True
-                                        break
-                                    title = "invalid range"
-                            if not validated: 
-                                title = "invalid type"
-                            if "key_name" in key and req_type == "str":
-                                if test_value[-4::] != ".p12": title = "missing .p12 extension"
-                                else: validated = True
-                            if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
-                                skip_validation = True
-                            if "passphrase" in key and test_value != "none" and req_type != "bool":
-                                if test_value == None:
-                                    title = "invalid passphrase format entered as blank"
-                                elif "'" in test_value or '"' in test_value:
-                                    title = "invalid single and or double quotes in passphrase"
-                            if (key == "gl0_link_port" or key == "ml0_link_port") and test_value == "self":
-                                validated = True
+        try:
+            for section, section_types in self.schema.items():
+                if "global" in section and not self.skip_global_validation:
+                    profile = section
+                for key, test_value in self.config_obj[profile].items():
+                    for section_key, req_type in section_types:
+                        if key == section_key: 
+                            validated = False
                             
-                        elif "host" in req_type:
-                            if req_type == "host_def" and test_value == "default": validated = True
-                            elif req_type == "host_def_dis" and test_value == "disable": validated = True
-                            elif self.functions.test_hostname_or_ip(test_value,False) or test_value == "self": validated = True
-                            else: title = "invalid host or ip"
-                        
-                        elif req_type == "128hex":
-                            pattern = "^[a-fA-F0-9]{128}$"
-                            if not match(pattern,test_value) and test_value != "self": title = "invalid nodeid"
-                            else: validated = True 
-                        
-                        elif req_type == "wallet":
-                            pattern = "^DAG[0-9][A-Za-z0-9]{36}"
-                            if test_value == "global" or test_value == "disable": validated = True
-                            elif not match(pattern,test_value): title = "invalid token identifier"
-                            else: validated = True 
+                            if skip_validation:
+                                if "gl0_link" in key or "ml0_link" in key: validated = True
+                                else: skip_validation = False
+                            
+                            if req_type in valuation_dict.keys():
+                                try: validated = isinstance(test_value,valuation_dict[req_type])   
+                                except Exception as e:
+                                    for value in valuation_dict[req_type]:
+                                        if test_value == value:
+                                            validated = True
+                                            break
+                                        title = "invalid range"
+                                if not validated: 
+                                    title = "invalid type"
+                                if "key_name" in key and req_type == "str":
+                                    if test_value[-4::] != ".p12": title = "missing .p12 extension"
+                                    else: validated = True
+                                if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
+                                    skip_validation = True
+                                if "passphrase" in key and test_value != "none" and req_type != "bool":
+                                    if test_value == None:
+                                        title = "invalid passphrase format entered as blank"
+                                    elif "'" in test_value or '"' in test_value:
+                                        title = "invalid single and or double quotes in passphrase"
+                                if (key == "gl0_link_port" or key == "ml0_link_port") and test_value == "self":
+                                    validated = True
                                 
-                        elif req_type == "list_of_strs":
-                            title = "invalid list of strings"
-                            if isinstance(test_value,list): validated = True
-                            if validated:
-                                for v in test_value:
-                                    if not isinstance(v,str):
-                                        validated = False
-                                        break                          
+                            elif "host" in req_type:
+                                if req_type == "host_def" and test_value == "default": validated = True
+                                elif req_type == "host_def_dis" and test_value == "disable": validated = True
+                                elif self.functions.test_hostname_or_ip(test_value,False) or test_value == "self": validated = True
+                                else: title = "invalid host or ip"
+                            
+                            elif req_type == "128hex":
+                                pattern = "^[a-fA-F0-9]{128}$"
+                                if not match(pattern,test_value) and test_value != "self": title = "invalid nodeid"
+                                else: validated = True 
+                            
+                            elif req_type == "wallet":
+                                pattern = "^DAG[0-9][A-Za-z0-9]{36}"
+                                if test_value == "global" or test_value == "disable": validated = True
+                                elif not match(pattern,test_value): title = "invalid token identifier"
+                                else: validated = True 
+                                    
+                            elif req_type == "list_of_strs":
+                                title = "invalid list of strings"
+                                if isinstance(test_value,list): validated = True
+                                if validated:
+                                    for v in test_value:
+                                        if not isinstance(v,str):
+                                            validated = False
+                                            break                          
 
-                        elif "path" in req_type:
-                            # global paths replaced already
-                            try:
-                                if "path" in key: validated = True # dynamic value skip validation
-                                if "path_def" in req_type and test_value == "default": validated = True
-                                elif req_type == "path_def_dis" and test_value == "disable": validated = True
-                                elif path.isdir(test_value): validated = True
-                                elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
-                                    title = f"{test_value} is an invalid keyword for layer0"
-                                elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
-                                elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
-                                    title = f"{test_value} is an invalid keyword"
-                                elif not path.isdir(test_value): title = "invalid or path not found"
+                            elif "path" in req_type:
+                                # global paths replaced already
+                                try:
+                                    if "path" in key: validated = True # dynamic value skip validation
+                                    if "path_def" in req_type and test_value == "default": validated = True
+                                    elif req_type == "path_def_dis" and test_value == "disable": validated = True
+                                    elif path.isdir(test_value): validated = True
+                                    elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
+                                        title = f"{test_value} is an invalid keyword for layer0"
+                                    elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
+                                    elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
+                                        title = f"{test_value} is an invalid keyword"
+                                    elif not path.isdir(test_value): title = "invalid or path not found"
+                                    else: validated = True
+                                except KeyError as e:
+                                    self.log.logger.debug(f"config -> configuration object missing keys | error [{e}]")
+                                    validated = False
+                                    title = "invalid configuration file"
+                                except Exception as e:
+                                    self.log.logger.debug(f"config -> configuration profile types issue | error [{e}]")
+                                    validated = False
+                                    title = "invalid configuration file"
+                                    
+                            elif req_type == "mem_size":
+                                if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
                                 else: validated = True
-                            except KeyError as e:
-                                self.log.logger.debug(f"config -> configuration object missing keys | error [{e}]")
-                                validated = False
-                                title = "invalid configuration file"
-                            except Exception as e:
-                                self.log.logger.debug(f"config -> configuration profile types issue | error [{e}]")
-                                validated = False
-                                title = "invalid configuration file"
-                                
-                        elif req_type == "mem_size":
-                            if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
-                            else: validated = True
-                        
-                        elif req_type == "log_level":
-                            levels = ["NOTSET","DEBUG","INFO","WARN","ERROR","CRITICAL"]
-                            if test_value.upper() not in levels: title = "invalid log level"
-                            else: validated = True
                             
-                        if not validated:
-                            self.validated = False
-                            return_on_validated = False
-                            self.error_list.append({
-                                "title": title,
-                                "section": section,
-                                "profile": profile,
-                                "type": req_type,
-                                "key": key,
-                                "value": test_value,
-                                "special_case": special_case
-                            })        
-                    
+                            elif req_type == "log_level":
+                                levels = ["NOTSET","DEBUG","INFO","WARN","ERROR","CRITICAL"]
+                                if test_value.upper() not in levels: title = "invalid log level"
+                                else: validated = True
+                                
+                            if not validated:
+                                self.validated = False
+                                return_on_validated = False
+                                self.error_list.append({
+                                    "title": title,
+                                    "section": section,
+                                    "profile": profile,
+                                    "type": req_type,
+                                    "key": key,
+                                    "value": test_value,
+                                    "special_case": special_case
+                                })        
+        except:
+            self.log.logger.critical("config -> unable to validate configuration.  Corrupt or invalid.")
+            self.error_messages.error_code_messages({
+                "error_code": "cfg-1597",
+                "line_code": "config_error",
+                "extra": "format",
+            })   
+                     
         if return_on:
             return return_on_validated
         if not return_on_validated: 

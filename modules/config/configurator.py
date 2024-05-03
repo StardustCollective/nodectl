@@ -3355,17 +3355,24 @@ class Configurator():
 
     def perform_encryption(self,profile,encryption_obj,effp,pass3,caller):
         pass_key = "passphrase"
-        first_run, write_append = False, True
+        first_run, write_append, pass_error = False, True, False
 
         if profile != "global_p12":
             pass_key = "p12_passphrase"
             if self.c.config_obj[profile][pass_key] == "global":
                 return "skip","skip"
             
-        enc_pass = self.c.config_obj[profile][pass_key].strip()
-        enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+        try:
+            enc_pass = self.c.config_obj[profile][pass_key].strip()
+            enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+        except:
+            self.log.logger.error("Unable to find passphrase in configuration file.")
+            pass_error = True
 
         if caller != "configurator" and enc_pass == "None":
+            pass_error = True
+
+        if pass_error:
             self.error_messages.error_code_messages({
                 "error_code": "cfr-3092",
                 "line_code": "invalid_passphrase",
