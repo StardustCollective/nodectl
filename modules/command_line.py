@@ -5254,11 +5254,11 @@ class CLI():
         cluster = self.config_obj[profile]["environment"]
         bashCommand = f"{local_path} --data-path {data_path} --cluster {cluster}"
 
-        if "--timedate" in command_list:  
-            sc_date = command_list[command_list.index("--timedate")+1]
+        if "--datetime" in command_list:  
+            sc_date = command_list[command_list.index("--datetime")+1]
             if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
                 sc_date = f"'{sc_date}'"
-            bashCommand += f" --timedate {sc_date}"
+            bashCommand += f" --datetime {sc_date}"
 
         if "-d" in command_list: bashCommand += " -d"
         if "-o" in command_list: bashCommand += " -o"
