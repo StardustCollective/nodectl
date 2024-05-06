@@ -81,7 +81,7 @@ def print_status(functions,icmd,running,animate=False,result=False):
     })
 
 
-def remove_data(functions,log,install=False):
+def remove_data(functions,log,install=False,quiet=False):
     install_type = "uninstaller"
     if install: install_type = "installer"
     log.logger.info(f"{install_type} -> removing Node data")
@@ -143,7 +143,8 @@ def remove_data(functions,log,install=False):
             ])
 
     if install:  # installer will just use the default dirs, services lists
-        print(colored("  Handling removal of existing Node data","cyan"),end="\r")
+        if not quiet:
+            print(colored("  Handling removal of existing Node data","cyan"),end="\r")
         if path.isdir("/home/nodeadmin"):
             log.logger.warn(f"{install_type} -> found nodeadmin user, removed")
             remove_admins(functions,["nodeadmin"],log,True)
@@ -171,7 +172,7 @@ def remove_data(functions,log,install=False):
     remove_lists = [d_dirs,services,seedlists]
     if not install: remove_lists.append(p12s) # keep p12s for migration purposes
 
-    if install:  # installer will just use the default dirs, services lists
+    if install and not quiet:  # installer will just use the default dirs, services lists
         functions.print_cmd_status({
             "text_start": "Removing existing Node Data",
             "status": "please wait",
@@ -204,16 +205,18 @@ def remove_data(functions,log,install=False):
         if retain_log and remove_list == remove_lists[0]: # only once
             shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
 
-        if install: # redraw install of blank screen
-            functions.print_cmd_status({
-                "text_start": "Removing existing Node Data",
-                "status": "please wait",
-                "status_color": "yellow",
-                "newline": False,
-            })
+        if install:
+            if not quiet: # redraw install of blank screen
+                functions.print_cmd_status({
+                    "text_start": "Removing existing Node Data",
+                    "status": "please wait",
+                    "status_color": "yellow",
+                    "newline": False,
+                })
         else:
             command = f"Removing Node related {remove_list.pop(0)}"
             print_status(functions,command,True,True)
+
         for d_f in remove_list:
             if len(remove_list) > 0:
                 for d_f in remove_list:
@@ -227,7 +230,6 @@ def remove_data(functions,log,install=False):
                     except Exception as e:
                         log_list.append(["warn",f"{install_type} -> did not remove [{d_f}] reason [{e}] trying th"])
                     # system(f"sudo rm -rf {d_f} > /dev/null 2>&1")
-
             sleep(1)
 
         if not install:

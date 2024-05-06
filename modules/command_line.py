@@ -3817,6 +3817,7 @@ class CLI():
         outside_node_request = command_obj.get("outside_node_request",False)
         dag_address_only = command_obj.get("dag_addr_only",False)
         ready_state = command_obj.get("ready_state",False)
+        threading = command_obj.get("threading",True)
 
         profile = self.profile # default
         nodeid = ""
@@ -3895,10 +3896,11 @@ class CLI():
 
             with ThreadPoolExecutor() as executor:
                 self.functions.event = True
-                _ = executor.submit(self.functions.print_spinner,{
-                    "msg": f"Pulling Node ID, please wait",
-                    "color": "magenta",
-                })                     
+                if threading:
+                    _ = executor.submit(self.functions.print_spinner,{
+                        "msg": f"Pulling Node ID, please wait",
+                        "color": "magenta",
+                    })                     
                 if outside_node_request:
                     for n in range(0,1):
                         cluster_ips = self.functions.get_cluster_info_list({
@@ -3964,10 +3966,11 @@ class CLI():
             with ThreadPoolExecutor() as executor:
                 if not nodeid:
                     self.functions.event = True
-                    _ = executor.submit(self.functions.print_spinner,{
-                        "msg": f"Pulling {title}, please wait",
-                        "color": "magenta",
-                    })                     
+                    if threading:
+                        _ = executor.submit(self.functions.print_spinner,{
+                            "msg": f"Pulling {title}, please wait",
+                            "color": "magenta",
+                        })                     
                     nodeid = self.functions.process_command({
                         "bashCommand": cmd,
                         "proc_action": "poll"

@@ -86,7 +86,12 @@ class QuickInstaller():
 
     def handle_percent_hashes(self,t_step,desc,funct,parm,code,initial):
         console_size = get_terminal_size()
-        columns = int(console_size.columns*.65)
+        cut_percent = .65
+        if console_size.columns > 150:
+            cut_percent = .55
+        if console_size.columns > 175:
+            cut_percent = .45
+        columns = int(console_size.columns*cut_percent)
 
         percent_is = self.steps.index(t_step)+1
         percent_of = len(self.steps)-1
@@ -205,7 +210,7 @@ class QuickInstaller():
 
             while self.hash_marks.p_start < self.hash_marks.p_end+1:
                 p_percent = colored(f"{self.hash_marks.p_start}%","cyan",attrs=["bold"])
-                print(f"{step_str}  {p_percent}")
+                print(f"{step_str} .... {p_percent}")
                 self.hash_marks.p_start = self.hash_marks.p_start+1
                 print(f'\x1b[1A', end='')
                 sleep(.25)
@@ -224,18 +229,21 @@ class QuickInstaller():
         self.parent.user.quick_install = True
         if option == "user" and not self.parent.options.user: 
                 self.parent.options.user = self.parent.user.username = "nodeadmin"
-                self.parent.print_cmd_status("Admin user","user",True)
+                if not self.options.quiet:
+                    self.parent.print_cmd_status("Admin user","user",True)
         if option == "p12_destination_path":
             if not self.parent.options.p12_destination_path:
                 self.parent.options.p12_destination_path = f"/home/{self.parent.options.user}/tessellation/{self.parent.options.user}-node.p12"
         if option == "p12_alias" and not self.options.p12_alias:
             if not self.parent.options.p12_migration_path:
                 self.parent.options.p12_alias = f"{self.parent.options.user}-alias"
-                self.parent.print_cmd_status("P12 alias","p12_alias",True)
+                if not self.options.quiet:
+                    self.parent.print_cmd_status("P12 alias","p12_alias",True)
         if option == "p12_passphrase":
             self.parent.p12_generate_from_install()
         if option == "cluster-config":
-            self.parent.print_cmd_status("metagraph","metagraph",True)
+            if not self.options.quiet:
+                self.parent.print_cmd_status("metagraph","metagraph",True)
 
 
 if __name__ == "__main__":

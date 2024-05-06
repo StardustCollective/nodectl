@@ -1399,7 +1399,8 @@ class ShellHandler:
             self.installer.uninstall()
         else:
             self.installer.install_process()
-            self.functions.print_perftime(performance_start,"installation")
+            if not self.installer.options.quiet:
+                self.functions.print_perftime(performance_start,"installation")
 
 
     def handle_exit(self,value):

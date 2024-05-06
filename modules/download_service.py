@@ -17,12 +17,16 @@ class Download():
         self.error_messages = Error_codes(self.config_obj) 
         
         self.log = self.parent.log
+        command_obj = command_obj["command_obj"]
 
         self.log_prefix = "download_service ->"
         if self.auto_restart:
             self.log_prefix = f"auto_restart -> {self.log_prefix}"
-
-        command_obj = command_obj["command_obj"]
+        if command_obj["action"] == "quiet_install":
+            self.log_prefix = f"download_service -> quiet installation ->"
+            self.auto_restart = True # utilize the auto_restart flag to disable threading and printouts
+            self.functions.auto_restart = True
+            
         self.caller = command_obj.get("caller","node_service")
         self.action = command_obj.get("action","normal")
         self.requested_profile = command_obj.get("profile",False)
@@ -96,7 +100,7 @@ class Download():
         download_version = self.download_version
 
         # default the wallet and key tools
-        if self.auto_restart:
+        if self.auto_restart and self.action != "quiet_install":
             # auto_restart avoid race condition if same file is downloaded at the same time only
             # download tool jars if root profile.
             root_profile = self.functions.test_for_root_ml_type(self.environment)
@@ -382,7 +386,11 @@ class Download():
 
 
     def threaded_download_handler(self):
-        if not self.auto_restart:
+        if self.auto_restart:
+            for file_name in list(self.file_obj.keys()):
+                if self.file_obj[file_name]["state"] != "disabled":
+                    self.get_download_looper(file_name)
+        else:
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {executor.submit(self.get_download_looper, file_name): file_name for file_name in list(self.file_obj.keys())}
                 for future in as_completed(futures):
@@ -399,10 +407,6 @@ class Download():
                         if self.file_obj[file_name]["state"] != "disabled":
                             self.file_obj[file_name]["state"] = "completed"
                         self.print_status_handler(file_name)
-        else: 
-            for file_name in list(self.file_obj.keys()):
-                if self.file_obj[file_name]["state"] != "disabled":
-                    self.get_download_looper(file_name)
 
         self.cursor_setup["reset"] = self.cursor_setup["clear"]-1
 

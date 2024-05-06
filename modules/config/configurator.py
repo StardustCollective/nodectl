@@ -3390,7 +3390,6 @@ class Configurator():
         if self.quick_install or self.action == "install":
             pass3 = enc_pass
         else:
-            pass_correct = False
             if not pass3:
                 first_run = True
                 self.c.functions.print_paragraphs([

@@ -2327,7 +2327,7 @@ class Functions():
 
         with ThreadPoolExecutor() as executor:
             do_thread = False
-            if not self.auto_restart:
+            if not self.auto_restart and threaded:
                 if not self.event and not skip_thread:
                     if print_output: self.print_clear_line()
                     self.event, do_thread = True, True

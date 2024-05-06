@@ -203,7 +203,7 @@ class Installer():
             "--user", "--p12-destination-path", 
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
-            "--quick-install", "--normal",
+            "--quick-install", "--normal", "--json-output",
             "--confirm","--override","--quiet",
         ]
         
@@ -213,9 +213,10 @@ class Installer():
         self.options_dict["confirm_install"] = False
         self.options_dict["override"] = False
         self.options_dict["quiet"] = False
+        self.options_dict["json_output"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
-            if (o_option == "quick-install" or o_option == "quick_install") and "--quick-install" in self.argv_list: 
+            if o_option == "quick-install" and "--quick-install" in self.argv_list: 
                 self.options_dict["quick_install"] = True
                 continue
             if o_option == "normal" and "--normal" in self.argv_list: 
@@ -226,6 +227,9 @@ class Installer():
                 continue
             if o_option == "override" and "--override" in self.argv_list: 
                 self.options_dict["override"] = True
+                continue
+            if o_option == "json-output" and "--json-output" in self.argv_list: 
+                self.options_dict["json_output"] = True
                 continue
             if o_option == "quiet" and "--quiet" in self.argv_list: 
                 self.log.logger.warn("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
@@ -274,13 +278,14 @@ class Installer():
                     if not self.options.cluster_config:
                         self.handle_environment_setup(True)
                         self.options.metagraph_name = self.options.cluster_config
-                        print("")
+                        if not self.option.quiet: print("")
                         self.print_cmd_status("metagraph_name","metagraph_name",False)
                 elif self.options.quick_install:
                     self.quick_installer.handle_option_validation(option)
 
             elif option == "metagraph_name":
-                self.print_cmd_status("metagraph","metagraph_name",False) 
+                if not self.options.quiet: 
+                    self.print_cmd_status("metagraph","metagraph_name",False) 
             elif option == "p12_destination_path":
                 if not value.endswith(".p12"):
                     self.close_threads()
@@ -290,16 +295,20 @@ class Installer():
                         "extra": value,
                         "extra2": "p12 file must end with the '.p12' extension."
                     })    
-                self.print_cmd_status("P12 file",path.split(value)[1],False,False)   
+                if not self.options.quiet: 
+                    self.print_cmd_status("P12 file",path.split(value)[1],False,False)   
 
             elif option == "p12_migration_path":                  
-                self.print_cmd_status("P12 migration path",path.split(value)[0],False,False)   
+                if not self.options.quiet: 
+                    self.print_cmd_status("P12 migration path",path.split(value)[0],False,False)   
             elif option == "p12_alias":
-                self.print_cmd_status("P12 alias","p12_alias",False)
+                if not self.options.quiet: 
+                    self.print_cmd_status("P12 alias","p12_alias",False)
             elif option == "user":
                 if self.options.quick_install and self.options.user:
                     self.user.username = self.options.user
-                self.print_cmd_status("Node admin user","user",False)
+                if not self.options.quiet: 
+                    self.print_cmd_status("Node admin user","user",False)
 
         self.build_classes("p12")
 
@@ -364,7 +373,7 @@ class Installer():
     def handle_existing(self):
         if self.options.override: return
 
-        if not self.options.quick_install: 
+        if not self.options.quick_install and not self.options.quiet: 
             self.parent.print_ext_ip()
 
         self.log.logger.info("installer -> review future node for invalid old Node install or data.")
@@ -425,7 +434,8 @@ class Installer():
                     "show_titles": False,
                     "newline": "bottom",
                 })
-            uninstaller.remove_data(self.functions,self.log,True)
+
+            uninstaller.remove_data(self.functions,self.log,True,self.options.quiet)
             if not self.options.quick_install:
                 self.functions.print_cmd_status({
                     "text_start": "Clean up old configuration data",
@@ -526,20 +536,25 @@ class Installer():
         if self.options.metagraph_name == "hypergraph":
             download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"]
 
+        download_action = "install"
+        if self.options.quick_install: download_action = "quick_install"
+        if self.options.quiet: download_action = "quiet_install"
+
         pos = self.cli.node_service.download_constellation_binaries({
             "download_version": download_version,
             "environment": self.options.environment,
-            "action": "quick_install" if self.options.quick_install else "install",
+            "action": download_action,
             "tools_version": self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"],
         })
         status = "complete" if pos["success"] else "failed"
         sleep(.8)
-        if self.options.quick_install:
-            print(f"\033[{pos['up']}A", end="", flush=True)
-            self.functions.print_clear_line(pos['clear'],{"fl": pos['clear']})
-            print(f"\033[{pos['reset']}A", end="", flush=True)
-        else:
-            print(f"\033[{pos['down']}B", end="", flush=True)
+        if not self.options.quiet:
+            if self.options.quick_install:
+                print(f"\033[{pos['up']}A", end="", flush=True)
+                self.functions.print_clear_line(pos['clear'],{"fl": pos['clear']})
+                print(f"\033[{pos['reset']}A", end="", flush=True)
+            else:
+                print(f"\033[{pos['down']}B", end="", flush=True)
 
         if status == "failed":
             self.close_threads()
@@ -549,11 +564,12 @@ class Installer():
                 "extra": "unable to download required Constellation network Tessellation files"
             })
 
-        self.functions.print_cmd_status({
-            "text_start": "Installing Tessellation binaries",
-            "status": status,
-            "newline": True
-        })
+        if not self.options.quiet:
+            self.functions.print_cmd_status({
+                "text_start": "Installing Tessellation binaries",
+                "status": status,
+                "newline": True
+            })
     
 
     # Distribution
@@ -701,7 +717,7 @@ class Installer():
 
         for package, value in self.packages.items():
             if value == False:
-                if package == "openjdk-11-jdk":
+                if package == "openjdk-11-jdk" and not self.options.quiet:
                     print(colored(f"  {package}","cyan",attrs=['bold']),end=" ")
                     print(colored("may take a few minutes to install".ljust(40),"cyan"),end=" ")
                     print(" ".ljust(10))
@@ -712,14 +728,15 @@ class Installer():
                     self.log.logger.info(f"updating the Debian operating system.")
                     environ['DEBIAN_FRONTEND'] = 'noninteractive'
                     
-                    _ = executor.submit(self.functions.print_cmd_status,{
-                        "text_start": "Installing dependency",
-                        "brackets": package,
-                        "dotted_animation": True,
-                        "timeout": False,
-                        "status": "installing",
-                        "status_color": "yellow",
-                    })
+                    if not self.options.quiet:
+                        _ = executor.submit(self.functions.print_cmd_status,{
+                            "text_start": "Installing dependency",
+                            "brackets": package,
+                            "dotted_animation": True,
+                            "timeout": False,
+                            "status": "installing",
+                            "status_color": "yellow",
+                        })
                             
                     bashCommand = f"apt-get install -y {package}"
                     self.functions.process_command({
@@ -739,12 +756,13 @@ class Installer():
                             break   
 
                     self.functions.status_dots = False
-                    self.functions.print_cmd_status({
-                        "text_start": "Installing dependency",
-                        "brackets": package,
-                        "status": "complete",
-                        "newline": True
-                    })
+                    if not self.options.quiet:
+                        self.functions.print_cmd_status({
+                            "text_start": "Installing dependency",
+                            "brackets": package,
+                            "status": "complete",
+                            "newline": True
+                        })
 
 
     def make_swap_file(self):
@@ -1138,11 +1156,12 @@ class Installer():
             if self.options.quick_install and not self.options.existing_p12:
                 if not self.options.p12_destination_path:
                     self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{self.options.user}-node.p12"
-                self.print_cmd_status("p12 file name",path.split(self.options.p12_destination_path)[1],False,False)
+                if not self.options.quiet:
+                    self.print_cmd_status("p12 file name",path.split(self.options.p12_destination_path)[1],False,False)
 
             if self.options.existing_p12:
                 if self.options.quick_install:
-                    print("")
+                    if not self.options.quiet: print("")
                     self.p12_migrate_existing()
             return
         
@@ -1308,7 +1327,8 @@ class Installer():
             self.versioning = Versioning({
                 "called_cmd": "install" if not self.options.quick_install else "quick_install",
                 "request": "install",
-                "config_obj": self.config_obj
+                "config_obj": self.config_obj,
+                "show_spinner": True if not self.options.quiet else False,
             })
             self.version_obj = self.versioning.get_version_obj()
             self.cli.version_obj = self.version_obj
@@ -1488,6 +1508,33 @@ class Installer():
     
     def complete_install(self):
         self.log.logger.info("Installation complete !!!")
+
+        success = self.cli.cli_grab_id({
+            "command":"nodeid",
+            "return_success": True,
+            "skip_display": True,
+            "threading": False,
+        })
+        dag_address = self.cli.cli_nodeid2dag([self.cli.nodeid.strip("\n"), "return_only"])
+
+        node_details = {
+            "HyperGraphMetaGraph": self.options.metagraph_name,
+            "Environment": self.options.environment,
+            "P12Path": path.dirname(self.options.p12_destination_path),
+            "P12": path.basename(self.options.p12_destination_path),
+            "Alias": self.options.p12_alias,
+            "NodeId": self.cli.nodeid.strip("\n"),
+            "DAGAddress": dag_address
+        }
+        
+        if self.options.json_output:
+            with open(f"{self.functions.nodectl_path}node_details.json","w") as node_details:
+                node_details.write(node_details)
+
+        if self.options.quiet:
+            print(node_details)
+            return
+        
         self.print_main_title()
 
         self.functions.print_header_title({
@@ -1538,11 +1585,6 @@ class Installer():
 
         if self.encryption_performed:
             print("")
-            success = self.cli.cli_grab_id({
-                "command":"nodeid",
-                "return_success": True,
-                "skip_display": True,
-            })
             print(f"\033[1A", end="", flush=True)
 
         if not success:
@@ -1554,7 +1596,10 @@ class Installer():
                     break # only need to check once for an installation
 
         self.functions.print_paragraphs([
-            ["",1], [f"Please review the next Steps in order to gain access to the",0],
+            ["DAG WALLET ADDRESS",1,"blue","bold"], 
+            [dag_address,2,"white","bold"],
+
+            [f"Please review the next Steps in order to gain access to the",0],
             [self.options.metagraph_name,0,"yellow"], ["->",0], [self.options.environment,0,"yellow"], 
             ["environment.",2],
         ])     
