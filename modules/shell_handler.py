@@ -124,13 +124,13 @@ class ShellHandler:
             self.restore_config(self.argv)
             exit(0)
 
-        self.handle_versioning()
         self.check_valid_command()
-
         self.setup_profiles()
         self.check_auto_restart()
         self.check_skip_services()
         self.check_for_profile_requirements()
+        self.check_for_static_peer()
+        self.handle_versioning()
 
         if "all" in self.argv:
             self.check_all_profile()     
@@ -679,6 +679,47 @@ class ShellHandler:
         self.check_developer_only_commands()
      
 
+    def check_for_static_peer(self):
+        # are we avoiding the load balancer?
+        self.config_obj[self.profile]["static_peer"] = False
+        static_peer = False if not "--peer" in self.argv else self.argv[self.argv.index("--peer")+1]
+        static_peer_port = False if not "--port" in self.argv else int(self.argv[self.argv.index("--port")+1])
+
+        if not static_peer: return
+        else:
+            self.functions.is_valid_address("ip_address",False,static_peer)
+
+        if not static_peer_port:
+            try:
+                static_peer_port = self.functions.get_info_from_edge_point({
+                    "profile": self.profile,
+                    "caller": "shell",
+                    "specific_ip": static_peer,
+                })
+                static_peer_port = static_peer_port["publicPort"]
+            except:
+                while True:
+                    self.functions.print_paragraphs([
+                        ["Unable to determine the public port to access API for the peer.",1,"red"],
+                        ["peer:",0],[f"{static_peer}",1,"yellow"],
+                    ])
+                    static_peer_port = input(colored(f"  Please enter public API port [{colored('9000','yellow')}{colored(']: ','magenta')}","magenta"))
+                    if static_peer_port == "" or static_peer_port == None:
+                        static_peer_port = 9000
+                    try:
+                        static_peer_port = int(static_peer_port)
+                    except:
+                        pass
+                    else:
+                        if static_peer_port > 1023 and static_peer_port < 65536:
+                            break
+                    self.log.logger.error(f"shell handler -> invalid static peer port entered [{static_peer_port}]")
+
+        self.config_obj[self.profile]["edge_point"] = static_peer
+        self.config_obj[self.profile]["edge_point_tcp_port"] = static_peer_port
+        self.config_obj[self.profile]["static_peer"] = True
+
+
     # =============  
 
     def handle_versioning(self):
@@ -787,10 +828,11 @@ class ShellHandler:
             self.profile = None
             self.profile_names = None
             return
-        
-        self.profile_names = self.functions.profile_names 
+
+        self.functions.set_default_variables({"profiles_only": True})        
+        self.profile_names = self.functions.profile_names
         self.profile = self.functions.default_profile  # default to first layer0 found
-                
+
 
     def show_version(self):
         self.log.logger.info(f"show version check requested")

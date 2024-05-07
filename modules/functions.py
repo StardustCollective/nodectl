@@ -683,7 +683,7 @@ class Functions():
         max_range = command_obj.get("max_range",10)
         threaded = command_obj.get("threaded", False)
         cluster_info = []
-        
+
         if caller: self.log.logger.debug(f"get_info_from_edge_point called from [{caller}]")
             
         api_str = "/cluster/info"
@@ -738,7 +738,15 @@ class Functions():
                     })
             
             for n in range(0,max_range):
-                node = random.choice(cluster_info_tmp)
+                try:
+                    node = random.choice(cluster_info_tmp)
+                except:
+                    self.error_messages.error_code_messages({
+                        "error_code": "fnt-745",
+                        "line_code": "api_error",
+                        "extra": profile,
+                        "extra2": self.config_obj[profile]["edge_point"],
+                    })
                 if specific_ip:
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
                     for i_node in cluster_info_tmp:
@@ -1305,6 +1313,7 @@ class Functions():
         # set default edge point
         profile = command_obj.get("profile",None)
         skip_error = command_obj.get("skip_error",False)
+        profiles_only = command_obj.get("profiles_only",False)
         self.default_profile = False
 
         if profile != "skip":
@@ -1346,6 +1355,8 @@ class Functions():
         
         try: self.profile_names.pop(self.profile_names.index("upgrader"))
         except ValueError: pass
+        
+        if profiles_only: return
         
         for i_profile in self.profile_names:
             if self.config_obj[i_profile]["profile_enable"]:
@@ -2256,7 +2267,6 @@ class Functions():
             
             
     def test_peer_state(self,command_obj):
-        # test_address=(str), current_source_node=(str), public_port=(int), simple=(bool)
         test_address = command_obj.get("test_address","127.0.0.1")
         caller = command_obj.get("caller","default")
         profile = command_obj.get("profile")
@@ -2305,8 +2315,11 @@ class Functions():
             except Exception as e:
                 self.log.logger.error(f"test_peer_state -> error retrieving get_info_from_edge_point | current_source_node: {current_source_node} | e: {e}")
                 send_error = (2160,e) # fnt-2160
-            
-        ip_addresses = prepare_ip_objs = [test_address,current_source_node]
+        
+        ip_addresses = [test_address,current_source_node]
+        ip_addresses = [x for x in ip_addresses if x]
+        prepare_ip_objs = copy(ip_addresses)
+
         for n,ip in enumerate(prepare_ip_objs):
             if not isinstance(ip,dict):
                 try:
@@ -2325,9 +2338,16 @@ class Functions():
                     send_error = (2187,e) # fnt-2187
 
         if send_error and not self.auto_restart:
-            if caller not in ["versioning","status","quick_status"]:
+            if caller not in ["versioning","status","quick_status","skip_error"]:
                 print_test_error(send_error)
 
+        if send_error and not self.auto_restart and caller != "skip_error":
+            if caller in ["upgrade","install","quick_install","versioning"]:
+                if caller == "versioning":
+                    return send_error
+                else:
+                    print_test_error(send_error)
+            
         with ThreadPoolExecutor() as executor:
             do_thread = False
             if not self.auto_restart and threaded:

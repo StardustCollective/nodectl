@@ -204,11 +204,15 @@ class Versioning():
             self.log.logger.debug(f"versioning - version test obj | [{test_obj}]")
             state = self.functions.test_peer_state(test_obj)
             
+            if isinstance(state,tuple):
+                self.log.logger.warn(f"versioning -> error detected [code:{state[0]}] with [{state[1]}] so the version object was not updated.  This could lead to invalid output from nodectl, or unexpected outcomes; however, most of the time this will not affect nodectl administration.")
+                return
+            
             if state == "ApiNotResponding" and self.called_cmd == "uvos": 
                 # after installation there should be a version obj already created
                 # no need to update file while Node is not online.
                 self.log.logger.warn(f"versioning - versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")
-                exit(0)
+                exit(0)                    
                     
             if self.show_spinner:  
                 self.functions.event = True

@@ -354,7 +354,8 @@ class Error_codes():
                 [" - The",0,"red","bold"],["Node",0,"yellow"], ["service(s) are running?",1,"red","bold"],
                 [" - The",0,"red","bold"],["Edge Point",0,"yellow"], ["API endpoint(s) are available?",2,"red","bold"],
 
-                ["Make sure your",0,"magenta"], ["firewall",0,"magenta","underline"], ["has the proper TCP ports opened.",2,"magenta"],
+                ["Make sure your",0,"magenta"], ["firewall",0,"magenta","underline"], ["has the proper TCP ports opened.",1,"magenta"],
+                ["See logs for further details",2,"magenta"],
             ])
             if var.extra != None:
                 self.functions.print_paragraphs([
@@ -438,6 +439,14 @@ class Error_codes():
                 ["Invalid",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["address may have been entered.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered",2,"red","bold"],
                 ["Address Entered:",0,"yellow","bold"],[var.extra2,2],
+            ])            
+            
+        elif var.line_code == "invalid_peer_address":
+            self.log.logger.critical(f"attempt to use an invalid peer address detected during [{var.extra2}] address: [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["Invalid peer address may have been entered.",2,"red","bold"],
+                ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered is online, reachable, and in Ready state.",2,"red","bold"],
+                ["Address Entered:",0,"yellow","bold"],[var.extra,2],
             ])            
             
         elif var.line_code == "unknown_error":
@@ -547,11 +556,15 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_tcp_ports":
-            self.log.logger.error("invalid TCP ports found, displaying error message to user and exiting")
+            self.log.logger.error("invalid TCP ports found or not entered, displaying error message to user and exiting")
             self.functions.print_paragraphs([
                 ["nodectl found an invalid TCP port or port range has been used and cannot continue.",2,"red","bold"],
                 ["ports:",0,"white","bold"], [var.extra,2,"yellow","bold"],
             ])
+            if var.extra == "not_found":
+                self.functions.print_paragraphs([
+                ["An API call required a tcp port, but it was not found?",2,"red","bold"],
+                ])            
             
             
         elif var.line_code == "invalid_layer":

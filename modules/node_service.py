@@ -82,6 +82,7 @@ class Node():
         download_service = Download({
             "parent": self,
             "command_obj": command_obj,
+            "version_obj": self.version_obj,
         })
         return download_service.execute_downloads()
 
@@ -498,6 +499,7 @@ class Node():
         self.set_profile(profile)
 
         state = self.functions.test_peer_state({
+            "caller": "leave",
             "threaded": threaded,
             "profile": self.profile,
             "skip_thread": skip_thread,
@@ -522,7 +524,6 @@ class Node():
         action = command_obj["action"]
         caller = command_obj.get("caller",False) # for troubleshooting and logging
         interactive = command_obj.get("interactive",True)
-        static_peer = command_obj.get("static_peer",False)
         
         final = False  # only allow 2 non_interactive attempts
         clear_to_join, join_breakout, exception_found = True, False, False 
@@ -571,29 +572,32 @@ class Node():
                 if link_obj[f"{link_type}_linking_enabled"]: 
                     link_obj[f"{link_type}_link_ready"] = self.build_remote_link(link_type,interactive)
 
-        get_info_obj = {
-                "caller": f"{caller} -> join_cluster",
-                "profile": self.profile,
-                "desired_key": "state",
-                "desired_value": "Ready",
-                "return_value": "all",
-                "api_endpoint_type": "consensus",            
-        }
-        if static_peer: get_info_obj["specific_ip"] = static_peer
-        self.source_node_choice = self.functions.get_info_from_edge_point(get_info_obj)
-        
-        if static_peer:
-            if self.source_node_choice["specific_ip_found"][0] != self.source_node_choice["specific_ip_found"][1]:
-                self.functions.print_paragraphs([
-                    [" ERROR ",0,"red,on_yellow"], ["--peer",0,"red"], [static_peer,0,"yellow"], 
-                    ["was specifically requests as the peer to join against; however, this peer was not found on the cluster!",1,"red"],
-                ])
-                self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt": "Would you nodectl to pick a peer and continue?",
-                    "exit_if": True,
+        if self.config_obj[self.profile]["static_peer"]:
+            self.functions.print_cmd_status({
+                "text_start": "Found static peer request",
+                "status": "True",
+                "status_color": "green",
+                "newline": True,
+            })
+            static_ip = self.functions.get_api_node_info({
+                    "api_host": self.config_obj[self.profile]["edge_point"],
+                    "api_port": self.config_obj[self.profile]["edge_point_tcp_port"],
+                    "info_list": ["id","p2pPort"],
                 })
+            self.source_node_choice = {
+                "ip": self.config_obj[self.profile]["edge_point"], # replaced during start_cli
+                "id": static_ip[0], 
+                "p2pPort": static_ip[1], 
+            }
+        else:
+            self.source_node_choice = self.functions.get_info_from_edge_point({
+                    "caller": f"{caller} -> join_cluster",
+                    "profile": self.profile,
+                    "desired_key": "state",
+                    "desired_value": "Ready",
+                    "return_value": "all",
+                    "api_endpoint_type": "consensus",            
+            })
                 
         # join header header data
         data = { 

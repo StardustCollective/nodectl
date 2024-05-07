@@ -2628,7 +2628,12 @@ class CLI():
             if not self.config_obj[i_profile]["profile_enable"]: continue
 
             env = self.config_obj[i_profile]["environment"]
-            nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
+
+            try:
+                nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
+            except:
+                self.log.logger.warn("check_for_new_version -> unable to determine if [nodectl] version is up to date... skipping")
+                nodectl_version_check = "unknown"
 
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
                 if nodectl_version_check == "current_greater" and not self.skip_warning_messages:
@@ -2661,7 +2666,11 @@ class CLI():
                     ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",2,"green"]
                 ])
 
-            tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
+            try:
+                tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
+            except:
+                self.log.logger.warn("check_for_new_version -> unable to determine if [Tessellation] version is up to date... skipping")
+                tess_version_check = "unknown"
             if tess_version_check == "current_less" and not self.check_versions_called:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
@@ -2762,6 +2771,7 @@ class CLI():
             sleep(.8)
             
             show_status_obj = {
+                "called": "status",
                 "spinner": False,
                 "rebuild": True,
                 "wait": False,
@@ -2907,19 +2917,24 @@ class CLI():
         interactive = True if "-i" in argv_list else False
         non_interactive = True if "-ni" in argv_list or "--ni" in argv_list else False
         dip = True if "--dip" in argv_list else False
-        
         link_types = ["gl0","ml0"] 
-
         failure_retries = 3
+        input_error = False
+
         if "-r" in argv_list:
             try: failure_retries = int(argv_list[argv_list.index("-r")+1])
-            except:
-                self.error_messages.error_code_messages({
-                    "error_code": "cmd-2138",
-                    "line_code": "input_error",
-                    "extra": "invalid -r option",
-                    "extra2": f'-r {argv_list[argv_list.index("-r")+1]}'
-                })
+            except: 
+                input_error = True
+                option = "r"
+                extra2 = f'-r {argv_list[argv_list.index("-r")+1]}'
+
+        if input_error:
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-2138",
+                "line_code": "input_error",
+                "extra": option,
+                "extra2": f"invalid value found -> {extra2}"
+            })
                 
         self.functions.print_clear_line()
         performance_start = perf_counter()  # keep track of how long
@@ -3146,19 +3161,6 @@ class CLI():
                             "argv_list": []
                         }
                 
-                static_peer = False
-                if "all" in argv_list and "--peer" in argv_list:
-                    self.log.logger.warn(f'cli_restart -> static peer attempt failed during join process and will be ignored. | [{argv_list[argv_list.index("--peer")+1]}]')
-                    self.functions.print_paragraphs([
-                        [" WARNING ",0,"red,on_yellow"], ["an attempt to join with a static",0,"red"],
-                        ["--peer",0,"yellow"], ["option was identified with the special option variable",0,"red"],
-                        ["all",0,"yellow"], ["and will be ignored",1,"red"],
-                    ])
-                elif "--peer" in argv_list:
-                    # validation takes place on join
-                    static_peer = argv_list[argv_list.index("--peer")+1]
-                    self.functions.is_valid_address("ip_address",False,static_peer)
-                    
                 if cli_join_cmd or restart_type != "restart_only":
                     environment = self.config_obj[profile]["environment"]
                     self.print_title(f"JOINING [{environment.upper()}] [{profile.upper()}]")   
@@ -3173,7 +3175,6 @@ class CLI():
                             "watch": watch,
                             "dip": dip,
                             "interactive": interactive,
-                            "static_peer": static_peer,
                             "non_interactive": non_interactive,
                             "single_profile": single_profile,
                             "argv_list": ["-p",profile]
@@ -3283,7 +3284,6 @@ class CLI():
         skip_msg = command_obj.get("skip_msg",False)
         skip_title = command_obj.get("skip_title",False)
         watch_peer_counts = command_obj.get("watch",False)
-        static_peer = command_obj.get("static_peer",False)
         single_profile = command_obj.get("single_profile",True)
         upgrade = command_obj.get("upgrade",False)
         interactive = command_obj.get("interactive",False)
@@ -3293,11 +3293,6 @@ class CLI():
         
         called_profile = argv_list[argv_list.index("-p")+1]
         self.set_profile(called_profile)
-        
-        if "--peer" in argv_list:
-            static_peer = argv_list[argv_list.index("--peer")+1]
-        if static_peer:
-            self.functions.is_valid_address("ip_address",False,static_peer)
             
         result, snapshot_issues, tolerance_result = False, False, False
         first_attempt = True
@@ -3401,11 +3396,11 @@ class CLI():
                 "service_name": self.service_name,
             })
         
-        self.log.logger.info(f"cli_join -> sending to node services to start join process | profile [{self.profile}] static peer [{static_peer}]")
+        if self.config_obj[self.profile]["static_peer"]:
+            self.log.logger.info(f"cli_join -> sending to node services to start join process | profile [{self.profile}] static peer [{self.config_obj[self.profile]['edge_point']}]")
         join_result = self.node_service.join_cluster({
             "caller": "cli_join",
             "action":"cli",
-            "static_peer": static_peer,
             "interactive": True if watch_peer_counts or interactive else False, 
         })
       

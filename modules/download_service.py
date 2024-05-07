@@ -1,6 +1,5 @@
 from os import path, makedirs, chmod
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from copy import copy, deepcopy
 import requests
 
 from .troubleshoot.errors import Error_codes
@@ -15,14 +14,14 @@ class Download():
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
         self.error_messages = Error_codes(self.config_obj) 
-        
         self.log = self.parent.log
         command_obj = command_obj["command_obj"]
+        action = command_obj.get("action",False)
 
         self.log_prefix = "download_service ->"
         if self.auto_restart:
             self.log_prefix = f"auto_restart -> {self.log_prefix}"
-        if command_obj["action"] == "quiet_install":
+        if action == "quiet_install":
             self.log_prefix = f"download_service -> quiet installation ->"
             self.auto_restart = True # utilize the auto_restart flag to disable threading and printouts
             self.functions.auto_restart = True
@@ -36,6 +35,7 @@ class Download():
         self.environment = command_obj.get("environment",False)
         self.argv_list = command_obj.get("argv_list",[])
         self.backup = command_obj.get("backup", True)
+        self.version_obj = command_obj.get("version_obj",False)
 
         self.successful = True
         self.skip_asset_check = False
