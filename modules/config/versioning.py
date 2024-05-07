@@ -215,6 +215,7 @@ class Versioning():
                 _ = executor.submit(self.functions.print_spinner,{
                     "msg": "Gathering Tessellation version info",
                     "color": "magenta",
+                    "timeout": 15,
                 }) 
           
             # get cluster Tessellation
@@ -336,8 +337,21 @@ class Versioning():
                     ]
                     for versions in up_to_date:
                         test = self.functions.is_new_version(versions[1],versions[2],"versioning module",versions[3])
-                        if not test: test = True
-                        if versions[0] == "nodectl_uptodate": version_obj[environment]["nodectl"]["nodectl_uptodate"] = test
+                        if not test: 
+                            test = True
+                        if versions[0] == "nodectl_uptodate":
+                            version_obj[environment]["nodectl"]["nodectl_uptodate"] = test
+                        if test == "error":
+                            if self.service_uvos: 
+                                self.log.logger.error("versioning --> uvos -> unable to determine versioning, stopping service updater, versioning object not updated.")
+                                exit(1)
+                            self.log.logger.critical("versioning --> unable to determine versioning, skipping service updater.")
+                            # force a controlled error if possible
+                            self.functions.test_peer_state({
+                                **test_obj,
+                                "caller": "test_edge_point",
+                            })
+                            return # if test passes
                         else: env_version_obj[profile][f"{versions[0]}"] = test
 
                     version_obj[environment] = {

@@ -4089,11 +4089,12 @@ class Configurator():
         try:
             old_metagraph_list = self.c.functions.clear_global_profiles(self.old_last_cnconfig)
         except Exception as e:
+            self.log.logger.error(f"configurator -> metagraph list error [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "cfr-3215",
                 "line_code": "config_error",
                 "extra": "configurator",
-                "extra2": e,
+                "extra2": "unable to open old configuration",
             })
            
         for profile in old_metagraph_list:

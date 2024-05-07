@@ -4395,6 +4395,7 @@ class CLI():
         self.log.logger.info("command_line -> request to upgrade VPS issued")
 
         interactive = True if not "--ni" in argv_list else False
+        do_reboot = True if "--reboot" in argv_list else False
 
         self.functions.print_header_title({
             "line1": "UPGRADE VPS or SERVER",
@@ -4475,6 +4476,7 @@ class CLI():
             "newline": True,
         })            
 
+        if do_reboot: reboot_status = "YES"
         if reboot_status == "YES":
             self.functions.print_paragraphs([
                 ["",1],["If a message has been presented requesting a system reboot, please gracefully",0,"yellow"],
@@ -4483,23 +4485,25 @@ class CLI():
             ])
             self.build_node_class()
             print("")
+
             if interactive:
-                
-                self.functions.confirm_action({
-                    "prompt": "Reboot the VPS now?",
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "exit_if": True,
-                }) 
-            else:
-                self.functions.print_clear_line()
-                self.functions.print_timer({
-                    "p_type": "cmd",
-                    "seconds": 10,
-                    "step": -1,
-                    "phrase": "Reboot in",
-                    "end_phrase": "ctrl+c to abort",
-                })
+                if not do_reboot:
+                    self.functions.confirm_action({
+                        "prompt": "Reboot the VPS now?",
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "exit_if": True,
+                    }) 
+
+            self.functions.print_clear_line()
+            self.functions.print_timer({
+                "p_type": "cmd",
+                "seconds": 50,
+                "step": -1,
+                "phrase": "Reboot in",
+                # "end_phrase": "ctrl+c to abort",
+                "q_quit": True,
+            })
             self.cli_reboot(argv_list)
         else:
             self.functions.print_paragraphs([
@@ -5038,19 +5042,49 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         snapshot_dir, possible_end = self.cli_node_last_snapshot(["value_only","-p",profile])        
 
+        srap_obj = Send({
+            "config_obj": self.functions.config_obj,
+            "command_list": [profile],
+            "ip_address": self.ip_address,
+        })             
+        possible_start = srap_obj.handle_wdf_last_valid()
+
         int_error = False
         missing = []
 
-        start = input(colored("  Please enter the start snapshot: ","cyan"))
-        end = input(colored(f"  Please enter the end snapshot [{colored(possible_end,'yellow')}]: ","cyan"))
-        if end == "" or end == None:
-            try: end = possible_end+1
-            except: int_error = True
-        else: 
-            try: end += 1
-            except: int_error = True
+        try:
+            possible_start = int(possible_start)
+        except:
+            start = input(colored(f"  Please enter the start snapshot: ","cyan"))
+        else:
+            start = input(colored(f"  Please enter the start snapshot [{colored(possible_start,'yellow')}]: ","cyan"))
+
+        try:
+            possible_end = int(possible_end)
+        except:
+            end = input(colored(f"  Please enter the end snapshot: ","cyan"))
+        else:
+            end = input(colored(f"  Please enter the end snapshot [{colored(possible_end,'yellow')}]: ","cyan"))
+
         try: start = int(start)
-        except: int_error = True
+        except: int_error = True        
+        try: end = int(end)
+        except: int_error = True        
+
+        if not int_error:
+            if start == "" or start == None:
+                try: start = possible_start-1
+                except: int_error = True
+            else: 
+                try: start -= 1
+                except: int_error = True
+
+            if end == "" or end == None:
+                try: end = possible_end+1
+                except: int_error = True
+            else: 
+                try: end += 1
+                except: int_error = True
 
         if int_error:
             self.error_messages.error_code_messages({

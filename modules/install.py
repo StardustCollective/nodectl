@@ -1,4 +1,5 @@
 import shutil
+import json
 import modules.uninstall as uninstaller
 from os import makedirs, system, path, environ, get_terminal_size, chmod
 from time import sleep
@@ -1526,10 +1527,10 @@ class Installer():
             "NodeId": self.cli.nodeid.strip("\n"),
             "DAGAddress": dag_address
         }
-        
+
         if self.options.json_output:
-            with open(f"{self.functions.nodectl_path}node_details.json","w") as node_details:
-                node_details.write(node_details)
+            with open(f"{self.functions.nodectl_path}node_details.json","w") as node_detail_file:
+                json.dump(node_details,node_detail_file,indent=4)
 
         if self.options.quiet:
             print(node_details)

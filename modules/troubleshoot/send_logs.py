@@ -24,6 +24,7 @@ class Send():
         self.config_obj = command_obj["config_obj"]
         
         self.functions = Functions(self.config_obj)
+
         self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj["ip_address"]
 
@@ -32,6 +33,32 @@ class Send():
             self.nodectl_logs = True
             self.profile = list(self.config_obj.keys())[0]
         
+
+    def handle_wdf_last_valid(self):
+        self.functions.set_default_directories()
+
+        if path.exists(f"{self.config_obj[self.profile]['directory_logs']}/app.log"):
+            with open(f"{self.config_obj[self.profile]['directory_logs']}/app.log","r") as log_file:
+                log_entries = log_file.readlines()
+                wfd_index = -1
+                for entry in range(len(log_entries)-1, -1, -1):
+                    if "changed to=WaitingForDownload" in log_entries[entry]:
+                        wfd_index = entry
+                        break
+
+                if wfd_index < 0:
+                    return "not_found"
+
+                for entry in range(wfd_index, -1, -1):
+                    if "Downloading snapshot" in log_entries[entry]:
+                        snapshot_line = log_entries[entry]
+                        ordinal_value = snapshot_line.split('SnapshotOrdinal{value=')[1].split('}')[0]
+                        self.log.logger.debug(f"send_log --> found last ordinal before WaitingForDownload state changed = [{ordinal_value}]")
+                        return ordinal_value
+        else:
+            self.log.logger.error("send_log --> module unable to open or find log file.")
+            return "not_found"
+
 
     def prepare_and_send_logs(self):
         changed_ip = self.ip_address.replace(".","-")

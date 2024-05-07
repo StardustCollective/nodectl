@@ -2180,15 +2180,18 @@ class Functions():
     # =============================      
     
     def is_new_version(self,current,remote,caller,version_type):
-        if version.parse(current) == version.parse(remote):
-            self.log.logger.info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
-            return False            
-        elif version.parse(current) > version.parse(remote):
-            self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
-            return "current_greater"
-        else:
-            self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
-            return "current_less"
+        try:
+            if version.parse(current) == version.parse(remote):
+                self.log.logger.info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                return False            
+            elif version.parse(current) > version.parse(remote):
+                self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                return "current_greater"
+            else:
+                self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                return "current_less"
+        except:
+            return "error"
     
     
     def is_version_valid(self,check_version):
@@ -2653,6 +2656,7 @@ class Functions():
         p_type = command_obj.get("p_type","trad")
         step = command_obj.get("step",1)
         status = command_obj.get("status","preparing")
+        q_quit = command_obj.get("q_quit",False)
 
         if step > 0: 
             end_range = start+seconds
@@ -2682,6 +2686,22 @@ class Functions():
                         "text_end": end_phrase,
                         "status": status,
                     })
+                if q_quit:
+                    with ThreadPoolExecutor() as executor:
+                        try:
+                            executor.submit(self.get_user_keypress,{
+                                "prompt": None,
+                                "prompt_color": "magenta",
+                                "options": ["Q"],
+                                "quit_option": "Q",
+                                "quit_with_exception": True,
+                            })
+                        except self.exception:
+                            self.cancel_event = True
+                            self.print_paragraphs([
+                                ["Action cancelled by user",1,"green"]
+                            ])
+                            exit(0)
             sleep(1) 
 
         self.print_clear_line()           
