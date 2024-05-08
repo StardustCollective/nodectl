@@ -829,6 +829,7 @@ class Configuration():
                 error_found("profile",e.args[0],value,profile)
                 
             self.config_obj[profile]["p12_validated"] = False # initialize to False
+            self.config_obj[profile]["static_peer"] = False # initialize to False
         
         if "install" in self.action:
             return self.config_obj
@@ -1148,6 +1149,7 @@ class Configuration():
                 ["global_p12_encryption","bool"], # automated value [not part of yaml]
                 ["global_p12_key_alias","bool"], # automated value [not part of yaml]
                 ["global_p12_cli_pass","bool"], # automated value [not part of yaml]
+                ["static_peer","bool"], # automated value [not part of yaml]
             ],
             "global_auto_restart": [
                 ["auto_restart","bool"],
@@ -1226,7 +1228,7 @@ class Configuration():
     def validate_yaml_keys(self):
         missing_list = []
         not_in_list = [
-            "seed_path","pro_rating_path",
+            "seed_path","pro_rating_path","static_peer",
             "gl0_link_is_self","ml0_link_is_self",
             "p12_key_store","jar_github", "jar_path",
         ]

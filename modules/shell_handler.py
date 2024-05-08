@@ -681,13 +681,37 @@ class ShellHandler:
 
     def check_for_static_peer(self):
         # are we avoiding the load balancer?
-        self.config_obj[self.profile]["static_peer"] = False
+        error_found = False
         static_peer = False if not "--peer" in self.argv else self.argv[self.argv.index("--peer")+1]
         static_peer_port = False if not "--port" in self.argv else int(self.argv[self.argv.index("--port")+1])
 
         if not static_peer: return
+        elif static_peer == "self":
+            if self.called_command == "join" or self.called_command == "restart":
+                error_found = True
+                error_code = "sh-692"
+                extra = self.called_command
+                verb = "to" if self.called_command == "join" else "via"
+                extra2 = f"You will not be able to {self.called_command} your Node {verb} itself."
+            static_peer = self.functions.get_ext_ip()
+            static_peer_port = self.config_obj[self.profile]["public_port"]
         else:
             self.functions.is_valid_address("ip_address",False,static_peer)
+
+        if self.profile == "all":
+            error_found = True
+            error_code = "sh-704"
+            extra = "-p all"
+            extra2 = "You must specify valid profile(s) individually on the command line. "
+            extra2 += f"Please see the help file: 'sudo nodectl {self.called_command} help'"
+
+        if error_found:
+            self.error_messages.error_code_messages({
+                "error_code": error_code,
+                "line_code": "invalid_option",
+                "extra": extra,
+                "extra2": extra2,
+            })
 
         if not static_peer_port:
             try:
@@ -700,6 +724,7 @@ class ShellHandler:
             except:
                 while True:
                     self.functions.print_paragraphs([
+                        ["",1],["Static peer request detected:",1],
                         ["Unable to determine the public port to access API for the peer.",1,"red"],
                         ["peer:",0],[f"{static_peer}",1,"yellow"],
                     ])
