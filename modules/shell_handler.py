@@ -125,12 +125,14 @@ class ShellHandler:
             exit(0)
 
         self.check_valid_command()
+        self.check_can_use_offline()
         self.setup_profiles()
         self.check_auto_restart()
         self.check_skip_services()
         self.check_for_profile_requirements()
         self.check_for_static_peer()
         self.handle_versioning()
+
 
         if "all" in self.argv:
             self.check_all_profile()     
@@ -580,7 +582,7 @@ class ShellHandler:
         need_profile, need_environment = False, False
         called_profile, called_environment = False, False
         profile_hint, env_hint, either_or_hint = False, False, False
-        
+
         def send_to_help_method(hint):
             self.functions.print_help({
                 "usage_only": True,
@@ -682,6 +684,15 @@ class ShellHandler:
 
         self.check_developer_only_commands()
      
+
+    def check_can_use_offline(self):
+        cannot_use_offline = [
+            "upgrade","restart","join",
+        ]
+        if self.called_command in cannot_use_offline:
+            if self.called_command == "upgrade" and "--nodectl_only" in self.argv: return # exception
+            self.config_obj["global_elements"]["use_offline"] = False
+
 
     def check_for_static_peer(self):
         # are we avoiding the load balancer?

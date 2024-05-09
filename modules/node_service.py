@@ -408,6 +408,7 @@ class Node():
     def check_for_ReadyToJoin(self,caller):
         for n in range(1,4):
             state = self.functions.test_peer_state({
+                "caller": "check_for_ReadyToJoin",
                 "profile": self.profile,
                 "simple": True
             })
@@ -662,6 +663,7 @@ class Node():
                                 start = 1
 
                             state = self.functions.test_peer_state({
+                                "caller": "join",
                                 "profile": gl0ml0,
                                 "simple": True
                             })

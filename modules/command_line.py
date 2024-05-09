@@ -3687,6 +3687,7 @@ class CLI():
                     
                 get_state_obj = {
                     "profile": profile,
+                    "caller": "leave",
                     "skip_thread": True,
                     "simple": True,
                     "treaded": threaded,
@@ -5039,7 +5040,7 @@ class CLI():
 
         srap_obj = Send({
             "config_obj": self.functions.config_obj,
-            "command_list": [profile],
+            "command_list": ["-p",profile],
             "ip_address": self.ip_address,
         })             
         possible_start = srap_obj.handle_wdf_last_valid()

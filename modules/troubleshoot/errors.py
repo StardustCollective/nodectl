@@ -256,6 +256,9 @@ class Error_codes():
                 ["  - Your Node does not have Internet connection.",1],
                 ["  - Source Node may not be reachable",1],
                 ["  - Edge Node may not be reachable",2],
+
+                ["Alternative Solution:",0],["Use",0,"magenta"],["--peer",0,"yellow"],["option.",1,"magenta"],
+                ["note:",0],["May need accompanying",0,"magenta"],["--port",0,"yellow"],["option.",2,"magenta"],
             ])
 
             

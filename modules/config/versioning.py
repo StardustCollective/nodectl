@@ -353,7 +353,7 @@ class Versioning():
                             # force a controlled error if possible
                             self.functions.test_peer_state({
                                 **test_obj,
-                                "caller": "test_edge_point",
+                                "caller": "versioning",
                             })
                             return # if test passes
                         else: env_version_obj[profile][f"{versions[0]}"] = test

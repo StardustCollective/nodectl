@@ -211,6 +211,7 @@ class DownloadStatus():
     def pull_dip_state(self):
         state = self.functions.test_peer_state({
             "profile": self.profile,
+            "caller": "pull_ordinal_values",
             "simple": True,
             "print_output": False,
             "skip_thread": True,
@@ -326,6 +327,7 @@ class DownloadStatus():
             
         while True:
             state = self.functions.test_peer_state({
+                "caller": "handle_wfd_state",
                 "profile": self.profile,
                 "simple": True
             })                    

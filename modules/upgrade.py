@@ -1,4 +1,5 @@
 import subprocess
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from os import system, path, makedirs, remove, environ, chmod
 from time import sleep
@@ -14,6 +15,8 @@ from .troubleshoot.logger import Logging
 from .config.config import Configuration
 from .config.configurator import Configurator
 from .config.valid_commands import pull_valid_command
+from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
+
 
 class Upgrader():
 
@@ -1234,6 +1237,7 @@ class Upgrader():
                         self.get_update_core_statuses("update","complete_status",item["profile"],True)   
                         self.cli.set_profile(item["profile"])
                         state = self.functions.test_peer_state({
+                            "caller": "upgrade",
                             "profile": item["profile"],
                             "simple": True
                         })
@@ -1445,41 +1449,9 @@ class Upgrader():
             "delay": .8,
         })
 
-        auto_path = "/etc/bash_completion.d/nodectl_auto_complete.sh"
-        if not path.exists(path.split(auto_path)[0]):
-            self.log.logger.error(f"upgrader -> unable to determine auto complete BASH 4 path?  Are you sure bash is installed?")
-            makedirs("/etc/bash_completion.d/")
-            # self.error_messages.error_code_messages({
-            #     "error_code": "upg-1431",
-            #     "line_code": "system_error",
-            #     "extra": "possible invalid Linux distro",
-            #     "extra2": "nodectl requires bash 4 to be installed.",
-            # })
-        auto_complete_file = self.cli.node_service.create_files({
-            "file": "auto_complete",
-        })
-        valid_commands = pull_valid_command()
-        valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
-
-        install_options = "--normal --quick-install --user --p12-destination-path --user-password " # make sure ends with a space
-        install_options += "--p12-passphrase --p12-migration-path --p12-alias --cluster_config" 
-        
-        upgrade_options = "--ni --nodectl_only --pass -v -f"
-
-        viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory "
-        viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json --section"
-
-        auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
-        auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)
-        auto_complete_file = auto_complete_file.replace("nodegarageupgradeoptions",upgrade_options)
-        auto_complete_file = auto_complete_file.replace("nodegarageviewconfigoptions",viewconfig_options)
-        auto_complete_file = auto_complete_file.replace('\\n', '\n')
-
-        with open(auto_path,"w") as auto_complete:
-            auto_complete.write(auto_complete_file)
-
-        chmod(auto_path,0o644)
-        system("source /etc/bash_completion > /dev/null 2>&1")
+        auto_path = ac_validate_path(self.log,"upgrader")
+        auto_complete_file = ac_build_script(self.cli,auto_path)
+        ac_write_file(auto_path,auto_complete_file)
 
         self.functions.print_cmd_status({
             **progress,
@@ -1487,7 +1459,6 @@ class Upgrader():
             "status_color": "green",
             "newline": True,
         })
-
 
 
 if __name__ == "__main__":

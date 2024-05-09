@@ -1177,6 +1177,7 @@ class Configuration():
                 ["includes","bool"],
                 ["developer_mode","bool"],  
                 ["log_level","log_level"],
+                ["use_offline","bool"],
             ]
         }
         
@@ -1249,7 +1250,7 @@ class Configuration():
                 profile, missing_key = error
                 self.error_list.append({
                     "title": "invalid cn-config.yaml",
-                    "section": "metagraph profiles",
+                    "section": "hypergraph/metagraph profiles",
                     "profile": profile,
                     "missing_keys": missing_key, 
                     "key": None,
@@ -1304,6 +1305,7 @@ class Configuration():
     def validate_global_setting(self):
         # key_name, passphrase, and alias all have to match if set to global
         self.config_obj["global_elements"]["all_global"] = True
+        self.config_obj["global_elements"]["use_offline"] = True
         # global_p12_keys = ["key_name","passphrase","key_alias"] # test to make sure if one key is global all must be
         global_p12_keys = ["key_name","passphrase"] # test to make sure if one key is global all must be
 

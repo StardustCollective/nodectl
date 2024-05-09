@@ -683,6 +683,7 @@ class Functions():
         max_range = command_obj.get("max_range",10)
         threaded = command_obj.get("threaded", False)
         cluster_info = []
+        random_node = True
 
         if caller: self.log.logger.debug(f"get_info_from_edge_point called from [{caller}]")
             
@@ -701,26 +702,34 @@ class Functions():
             }
             
         while True:
-            try:
-                cluster_info = self.get_cluster_info_list({
-                    "ip_address": self.config_obj[profile]["edge_point"],
-                    "port": self.config_obj[profile]["edge_point_tcp_port"],
-                    "api_endpoint": api_str,
-                    "spinner": spinner,
-                    "error_secs": 3,
-                    "attempt_range": 7,
-                })
-            except Exception as e:
-                self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
-                
-            if not cluster_info:
-                if self.auto_restart:
-                    return False
-                self.error_messages.error_code_messages({
-                    "error_code": "fnt-725",
-                    "line_code": "lb_not_up",
-                    "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}'
-                })
+            for n in range(0,1):
+                try:
+                    cluster_info = self.get_cluster_info_list({
+                        "ip_address": self.config_obj[profile]["edge_point"],
+                        "port": self.config_obj[profile]["edge_point_tcp_port"],
+                        "api_endpoint": api_str,
+                        "spinner": spinner,
+                        "error_secs": 3,
+                        "attempt_range": 7,
+                    })
+                except Exception as e:
+                    self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
+                    
+                if not cluster_info:
+                    if self.auto_restart:
+                        return False
+                    if random_node and self.config_obj["global_elements"]["use_offline"]:
+                        self.log.logger.warn("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
+                        random_node = False
+                        self.config_obj[profile]["edge_point"] = self.get_ext_ip()
+                        self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
+                        self.config_obj[profile]["static_peer"] = True 
+                    else:               
+                        self.error_messages.error_code_messages({
+                            "error_code": "fnt-725",
+                            "line_code": "lb_not_up",
+                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}'
+                        })
                 
             cluster_info_tmp = deepcopy(cluster_info)
             self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
@@ -1358,14 +1367,23 @@ class Functions():
         
         if profiles_only: return
 
+        self.set_environment_names()
+        self.ip_address = self.get_ext_ip()
+
+        if not self.auto_restart: self.check_config_environment()
+                
+
+    def set_environment_names(self):
+        try:
+            _ = self.environment_names
+        except:
+            self.environment_names = list()
+
         for i_profile in self.profile_names:
             if self.config_obj[i_profile]["profile_enable"]:
                 self.environment_names.append(self.config_obj[i_profile]["environment"])
         self.environment_names = list(set(self.environment_names))
-        
-        self.ip_address = self.get_ext_ip()
-        if not self.auto_restart: self.check_config_environment()
-                
+
 
     def set_default_directories(self):
         # only to be set if "default" value is found
@@ -2246,6 +2264,7 @@ class Functions():
     def test_ready_observing(self,profile):
         self.get_service_status()
         state = self.test_peer_state({
+            "caller": "test_ready_observing",
             "profile": profile,
             "simple": True,
         })
@@ -2305,15 +2324,15 @@ class Functions():
         if not current_source_node:
             try:
                 current_source_node = self.get_info_from_edge_point({
-                    "caller": "test_peer_state",
+                    "caller": caller,
                     "threaded": threaded,
                     "profile": profile,
                     "spinner": spinner,
                 })
             except IndexError as e:
-                self.log.logger.error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | current_source_node: {current_source_node} | e: {e}")
+                self.log.logger.error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | caller: [{caller}] current_source_node: [{current_source_node}] | e: {e}")
             except Exception as e:
-                self.log.logger.error(f"test_peer_state -> error retrieving get_info_from_edge_point | current_source_node: {current_source_node} | e: {e}")
+                self.log.logger.error(f"test_peer_state -> error retrieving get_info_from_edge_point | caller: [{caller}] | current_source_node: [{current_source_node}] | e: {e}")
                 send_error = (2160,e) # fnt-2160
         
         ip_addresses = [test_address,current_source_node]
@@ -2324,7 +2343,7 @@ class Functions():
             if not isinstance(ip,dict):
                 try:
                     ip_addresses[n] = self.get_info_from_edge_point({
-                        "caller": "test_peer_state",
+                        "caller": caller,
                         "threaded": threaded,
                         "profile": profile,
                         "specific_ip": ip,
@@ -3024,7 +3043,12 @@ class Functions():
         p_type = command_obj.get("p_type","profile")
         title = command_obj.get("title",False)
         
-        p_type_list = self.environment_names
+        try:
+            p_type_list = self.environment_names
+        except:
+            self.set_environment_names()
+            p_type_list = self.environment_names
+
         if p_type == "profile" or p_type == "send_logs":
             p_type_list = self.profile_names
             if p_type == "send_logs": p_type_list.append("nodectl")
