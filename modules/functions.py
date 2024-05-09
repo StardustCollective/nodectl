@@ -3343,8 +3343,12 @@ class Functions():
                 old_env = None
                 for profile in install_profiles:
                     env = self.config_obj[profile]["environment"]
-                    node_tess_version = self.version_obj[env][profile]['node_tess_version']
-                    if old_env != env:
+                    try:
+                        node_tess_version = self.version_obj[env][profile]['node_tess_version']
+                    except:
+                        node_tess_version = "not_found"
+
+                    if old_env != env and node_tess_version != "not_found":
                         self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
                     old_env = env
 
