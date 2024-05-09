@@ -1895,6 +1895,13 @@ class CLI():
         })
         print("")
         
+    def handle_missing_version(self,version_class_obj):
+        version_class_obj.functions = self.functions
+        version_class_obj.config_obj = self.config_obj
+        version_class_obj.get_cached_version_obj()
+        
+        return version_class_obj.get_version_obj()
+
 
     # ==========================================
     # check commands
@@ -2507,10 +2514,7 @@ class CLI():
         try:
             nodectl_uptodate = getattr(versions,env)
         except:
-            version_class_obj.functions = self.functions
-            version_class_obj.config_obj = self.config_obj
-            version_class_obj.get_cached_version_obj()
-            versions = version_class_obj.get_version_obj()
+            versions = self.handle_missing_version(version_class_obj)
             versions = SimpleNamespace(**self.version_obj)
             nodectl_uptodate = getattr(versions,env)
 
@@ -5757,25 +5761,12 @@ class CLI():
     def upgrade_nodectl(self,command_obj):
         argv_list = command_obj["argv_list"]
         custom_version, upgrade_chosen = False, False
+        env_set = set()
         
         if command_obj["help"] == "help" or "help" in argv_list:
             self.functions.print_help({
                 "extended": "upgrade_nodectl"
             })
-         
-
-        env_set = set()
-        if "-v" in argv_list: 
-            custom_version = argv_list[argv_list.index("-v")+1]
-            self.functions.print_paragraphs([
-                [" WARNING ",0,"red,on_yellow"], ["This will skip verification checks and",0],
-                ["attempt",0,"red","bold"], ["to upgrade/downgrade your Node's nodectl version to:",0], [custom_version,2,"yellow","bold"],
-                ["If you decide to downgrade to a version that meets or falls below the upgrade path requirements",0,"red"],
-                ["for nodectl, you might encounter unexpected consequences that could make your Node unmanageable. In these",0,"red"],
-                ["situations, it is advisable to re-create the Node and perform a clean installation.",2,"red"],
-                ["hint:",0],["sudo nodectl upgrade_path",2,"yellow"],
-                ["Are you sure you want to continue?",1,"magenta"],
-            ])
 
         try:
             for i_profile in self.profile_names:
@@ -5791,8 +5782,28 @@ class CLI():
                     "error_code": "cmd-3435",
                     "line_code": "input_error",
                     "extra": e,
-                })   
-        
+                }) 
+
+        try:
+            version_obj = self.version_obj[environment_name] # readability
+        except:
+            version_obj = self.handle_missing_version(command_obj["version_class_obj"])
+            version_obj = version_obj[environment_name]
+
+
+
+        if "-v" in argv_list: 
+            custom_version = argv_list[argv_list.index("-v")+1]
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["This will skip verification checks and",0],
+                ["attempt",0,"red","bold"], ["to upgrade/downgrade your Node's nodectl version to:",0], [custom_version,2,"yellow","bold"],
+                ["If you decide to downgrade to a version that meets or falls below the upgrade path requirements",0,"red"],
+                ["for nodectl, you might encounter unexpected consequences that could make your Node unmanageable. In these",0,"red"],
+                ["situations, it is advisable to re-create the Node and perform a clean installation.",2,"red"],
+                ["hint:",0],["sudo nodectl upgrade_path",2,"yellow"],
+                ["Are you sure you want to continue?",1,"magenta"],
+            ])
+
         if len(env_set) > 1:
             environment_name = self.functions.print_option_menu({
                 "options": list(env_set),
@@ -5808,7 +5819,6 @@ class CLI():
 
         self.log.logger.info(f"Upgrade request for nodectl for [{environment_name}] using first profile [{profile}].")
 
-        version_obj = self.version_obj[environment_name] # readability
         self.functions.print_clear_line()
 
         def print_prerelease():

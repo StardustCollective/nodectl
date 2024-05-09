@@ -267,8 +267,8 @@ class ShellHandler:
             return_value = self.cli.passwd12(self.argv)
         elif self.called_command == "reboot":
             self.cli.cli_reboot(self.argv)
-        elif self.called_command == "remote_access" or self.called_command == "_ra":
-            self.cli.enable_remote_access(self.argv)
+        # elif self.called_command == "remote_access" or self.called_command == "_ra":
+        #     self.cli.enable_remote_access(self.argv)
         elif self.called_command in node_id_commands:
             command = "dag" if self.called_command == "dag" else "nodeid"
             self.cli.cli_grab_id({
@@ -282,7 +282,9 @@ class ShellHandler:
                 "new_command": "upgrade_nodectl"
             })
         elif self.called_command == "upgrade_nodectl":
+            self.upgrade_node(self.argv)
             return_value = self.cli.upgrade_nodectl({
+                "version_class_obj": self.version_class_obj,
                 "argv_list": self.argv,
                 "help": self.argv[0]
             })
@@ -1459,6 +1461,8 @@ class ShellHandler:
         performance_start = time.perf_counter()  # keep track of how long
 
         self.version_class_obj = Versioning({"called_cmd": "upgrade_setup"})
+        if self.called_command == "upgrade_nodectl": return
+
         self.upgrader = Upgrader({
             "parent": self,
             "argv_list": argv_list,
