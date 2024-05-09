@@ -371,14 +371,15 @@ class Functions():
             pass
         else:
             ip_address = self.ip_address if ip_address == "127.0.0.1" or ip_address == "self" else ip_address
+            id_ip = ("ip","id") if len(ip_address) < 128 else ("id","ip")
             try:
                 for line in peers:
-                    if ip_address in line["ip"]:
+                    if ip_address in line[id_ip[0]]:
                         if pull_node_id:
-                            self.our_node_id = line['id']
+                            self.our_node_id = line[id_ip[1]]
                             return
                         node_online = True
-                        peer_list.append(line['ip'])
+                        peer_list.append(line[id_ip[0]])
                         peers_publicport.append(line['publicPort'])
                         pull_states(line)
                         state_list.append("*")
@@ -387,7 +388,7 @@ class Functions():
                         for state in node_states:
                             if state[0] in line["state"]:
                                 pull_states(line)
-                                peer_list.append(line['ip'])
+                                peer_list.append(line[id_ip[0]])
                                 peers_publicport.append(line['publicPort'])
                                 state_list.append(state[1])
             except Exception as e:
@@ -757,9 +758,10 @@ class Functions():
                         "extra2": self.config_obj[profile]["edge_point"],
                     })
                 if specific_ip:
+                    id_ip = "id" if len(specific_ip) > 127 else "ip"
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
                     for i_node in cluster_info_tmp:
-                        if specific_ip == i_node["ip"]:
+                        if specific_ip == i_node[id_ip]:
                             node = i_node
                             break
 
@@ -1275,6 +1277,17 @@ class Functions():
 
         return
     
+
+    def get_version(self):
+        pass
+        # versioning = Versioning({
+        #     "config_obj": self.config_obj,
+        #     "show_spinner": False,
+        #     "print_messages": False,
+        #     "called_cmd": "functions",
+        # })     
+        # return versioning.get_version_obj()
+
 
     # =============================
     # setter functions

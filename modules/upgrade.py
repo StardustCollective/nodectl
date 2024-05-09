@@ -240,7 +240,8 @@ class Upgrader():
         self.functions.print_cmd_status(progress)
         self.cli.check_nodectl_upgrade_path({
             "called_command": "upgrade",
-            "argv_list": ["-e",self.environment]
+            "argv_list": ["-e",self.environment],
+            "version_class_obj": self.parent.version_class_obj
         })
         self.functions.print_cmd_status({
             **progress,

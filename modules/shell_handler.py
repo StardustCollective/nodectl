@@ -1458,6 +1458,7 @@ class ShellHandler:
         self.log.logger.debug(f"{self.called_command} request started") 
         performance_start = time.perf_counter()  # keep track of how long
 
+        self.version_class_obj = Versioning({"called_cmd": "upgrade_setup"})
         self.upgrader = Upgrader({
             "parent": self,
             "argv_list": argv_list,

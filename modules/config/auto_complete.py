@@ -45,6 +45,8 @@ def ac_build_script(cli,auto_path):
     auto_complete_file = auto_complete_file.replace("nodegarageviewconfigoptions",viewconfig_options)
     auto_complete_file = auto_complete_file.replace('\\n', '\n')    
 
+    return auto_complete_file
+
 
 def ac_write_file(auto_path,auto_complete_file):
     with open(auto_path,"w") as auto_complete:

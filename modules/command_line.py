@@ -2494,6 +2494,7 @@ class CLI():
     def check_nodectl_upgrade_path(self,command_obj):
         called_command = command_obj["called_command"]
         argv_list = command_obj["argv_list"]
+        version_class_obj = command_obj.get("version_class_obj",False)
 
         try: env = argv_list[argv_list.index('-e')+1]
         except: argv_list.append("help")
@@ -2502,9 +2503,18 @@ class CLI():
         called_command = "upgrade_path" if called_command == "_up" else called_command
         
         self.log.logger.debug("testing for upgrade path requirements")
-        versions = SimpleNamespace(**self.version_obj)
-        
-        nodectl_uptodate = getattr(versions,env)
+
+        try:
+            nodectl_uptodate = getattr(versions,env)
+        except:
+            version_class_obj.functions = self.functions
+            version_class_obj.config_obj = self.config_obj
+            version_class_obj.get_cached_version_obj()
+            versions = version_class_obj.get_version_obj()
+            versions = SimpleNamespace(**self.version_obj)
+            nodectl_uptodate = getattr(versions,env)
+
+
         nodectl_uptodate = nodectl_uptodate["nodectl"]["nodectl_uptodate"]
         
         upgrade_path = versions.upgrade_path
@@ -4287,8 +4297,27 @@ class CLI():
         if source_obj["ip"] == "127.0.0.1" or source_obj["ip"] == "self":
             source_obj["ip"] = self.ip_address
 
+        id_ip = "ID"
         if len(target_ip) > 127:
+            id_ip = "IP"
+            target_ip_id = self.functions.get_info_from_edge_point({
+                "profile": self.profile,
+                "caller": "cli_find",
+                "desired_key": "ip",
+                "specific_ip": target_ip,
+            })            
             target_ip = f"{target_ip[:8]}...{target_ip[-8:]}"
+        else:
+            try:
+                target_ip_id = self.functions.get_info_from_edge_point({
+                    "profile": self.profile,
+                    "caller": "cli_find",
+                    "desired_key": "id",
+                    "specific_ip": target_ip,
+                })
+            except:
+                target_ip_id = "unknown"
+
 
         spacing = 21            
         print_out_list = [
@@ -4323,12 +4352,20 @@ class CLI():
                 },
                 "spacing": spacing
             },
+            {
+                "header_elements" : {
+                    f"TARGET {id_ip}": target_ip_id,
+                },
+                "spacing": spacing
+            },
         ]
         
         for header_elements in print_out_list:
             self.functions.print_show_output({
                 "header_elements" : header_elements
             })  
+
+        return
             
         
     def cli_nodeid2dag(self,argv_list):
