@@ -253,9 +253,15 @@ class Upgrader():
         current = self.functions.version_obj["node_nodectl_version"]
         
         show_warning = False
-        if self.functions.version_obj[self.environment]["nodectl"]["nodectl_uptodate"]:
-            if not isinstance(self.functions.version_obj[self.environment]["nodectl"]["nodectl_uptodate"],bool):
-                show_warning = True
+        for _ in range(0,2):
+            try:
+                if self.functions.version_obj[self.environment]["nodectl"]["nodectl_uptodate"]:
+                    if not isinstance(self.functions.version_obj[self.environment]["nodectl"]["nodectl_uptodate"],bool):
+                        show_warning = True
+                break
+            except:
+                # in the event the version object is corrupt
+                self.functions.version_obj = self.cli.handle_missing_version(self.parent.version_class_obj)
                 
         if show_warning:
             err_warn = "warning"
