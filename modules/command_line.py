@@ -2515,7 +2515,7 @@ class CLI():
             nodectl_uptodate = getattr(versions,env)
         except:
             versions = self.handle_missing_version(version_class_obj)
-            versions = SimpleNamespace(**self.version_obj)
+            versions = SimpleNamespace(**versions)
             nodectl_uptodate = getattr(versions,env)
 
 
@@ -5839,9 +5839,10 @@ class CLI():
                 ["Current version of nodectl:",0], [node_nodectl_version,0,"yellow"],
                 [up_to_date,1], ["nothing to do",2,"red"]
             ])
-            print_prerelease()
             return
-        
+
+        print_prerelease()       
+         
         if custom_version:
             upgrade_chosen = custom_version
         else:

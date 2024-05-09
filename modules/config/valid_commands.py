@@ -84,6 +84,7 @@ def pull_valid_command():
         "uninstall",
         "uptime",
         "update_seedlist",
+        "update_version_object",
 
         "view_config",
         "validate_config",
