@@ -5295,6 +5295,107 @@ class CLI():
         system(bashCommand)
 
 
+    def cli_execute_unittests(self,command_list):
+        self.log.logger.info("cli -> execute_unittests initiated.")
+        self.functions.check_for_help(command_list,"execute_unittests")
+
+        self.functions.print_header_title({
+            "line1": "NODECTL UNITTESTS",
+            "single_line": True,
+            "newline": "both",
+        })
+
+        self.functions.print_paragraphs([
+            ["nodectl's",0], ["unittests",0,"yellow"], ["are designed to execute most of the available commands",0],
+            ["associated with nodectl.  It is designed to help test the utility during development.",2],
+            ["You may also utilize this script to become acquainted with a comprehensive set of all the commands",0,"yellow"], 
+            ["associated with nodectl.",2,"yellow"],
+        ])
+
+        self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt_color": "magenta",
+            "prompt": f"Execute the unittest script?",
+            "exit_if": True,
+        })
+
+        self.functions.print_cmd_status({
+            "text_start": "Remove existing unittests",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+        sleep(.5)
+        self.log.logger.debug("cli -> execute_unittest -> removing existing unittest script if exists.")
+        try:
+            remove("/usr/local/bin/nodectl_unittests_x86_64")
+        except:
+            self.log.logger.debug("cli -> execute_unittests -> did not find an existing unittests script.")
+        self.functions.print_cmd_status({
+            "text_start": "Remove existing unittests",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })    
+
+        self.functions.print_cmd_status({
+            "text_start": "Fetching unittests",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+        sleep(.5)
+        repo = f"{self.functions.nodectl_download_url}/nodectl_unittests_x86_64"
+        local_path = "/usr/local/bin/nodectl_unittests"
+        bashCommand = f'sudo wget {repo} -O {local_path} -o /dev/null'
+        self.log.logger.debug(f"cli -> execute_unittests -> fetching unittests -> [{bashCommand}]")
+        system(bashCommand)
+        self.functions.print_cmd_status({
+            "text_start": "Fetching unittests",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
+        self.functions.print_cmd_status({
+            "text_start": "Setting unittests permissions",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+        sleep(.5)
+        self.log.logger.debug(f"cli -> execute_unittests -> changing unittests permissions to +x -> [{local_path}]")
+        chmod(local_path, 0o755)
+        self.functions.print_cmd_status({
+            "text_start": "Setting unittests permissions",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
+        self.functions.print_cmd_status({
+            "text_start": "Executing unittests",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+        sleep(.5)
+
+        bashCommand = f"{local_path}"
+        if path.getsize(local_path) < 1:
+            self.log.logger.error(f"cli -> execute_unittests -> binary file size too small, may not exist [{path.getsize(local_path)}]")
+            self.functions.print_paragraphs([
+                ["Unable to properly download the necessary binary containing the",0,"red"],
+                ["unit tests",0,"yellow"], ["script. It may not have been released for this",0,"red"],
+                ["version of",0,"red"], ["nodectl?",0,"yellow"], ["Please refer to the repository to make sure",0,"red"],
+                ["the binary is present.",2,"red"]
+            ])
+            exit(0)
+        self.log.logger.debug(f"cli -> execute_unittests -> executing unittests | command referenced [{bashCommand}]")
+        system(bashCommand)
+
+
     def cli_enable_remote_access(self,command_list):
         if "help" in command_list:
             pass

@@ -81,7 +81,7 @@ class Functions():
         # nodectl metagraph custom statics (main branch only) 
         self.nodectl_includes_url = f'https://github.com/StardustCollective/nodectl/tree/main/predefined_configs/includes'
         self.nodectl_includes_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs/includes"
-        
+        self.nodectl_download_url = f"https://github.com/stardustCollective/nodectl/releases/download/{self.node_nodectl_version}"
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
         self.pre_consensus_list = ["DownloadInProgress","WaitingForReady","WaitingForObserving","Observing"]
@@ -1357,7 +1357,7 @@ class Functions():
         except ValueError: pass
         
         if profiles_only: return
-        
+
         for i_profile in self.profile_names:
             if self.config_obj[i_profile]["profile_enable"]:
                 self.environment_names.append(self.config_obj[i_profile]["environment"])

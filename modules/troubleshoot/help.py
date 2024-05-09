@@ -49,6 +49,10 @@ def build_help(functions,command_obj):
       functions.print_paragraphs([
         ["optional:",0],["--pass",0,"yellow"],["<passphrase>",1],
         ["    note:",0],["--pass will override the configuration's passphrase entry",2,"magenta"],
+        ["optional:",0],["--peer",0,"yellow"],["<static_peer_ip>",1],
+        ["    note:",0],["--peer will override the configuration's random Node selection feature",2,"magenta"],
+        ["optional:",0],["--port",0,"yellow"],["<static_peer_tcp_port>",1],
+        ["    note:",0],["--port can be used with the --peer Node uses a non-default port.",2,"magenta"],
         ["See extended help for more details including",0],["required",0,"blue","bold"], 
         ["parameters per command.",2],
         ["command: ",0], ["sudo nodectl <command> help",2,"yellow","bold"],
@@ -65,6 +69,9 @@ def build_help(functions,command_obj):
     upgrade    | upgrade Tessellation version
     install    | install Tessellation - Turn your bare metal or
                  VPS into a Validator Node
+
+    getting_started | offer quick explanation and resources of
+                      the nodectl utility
 
     uninstall  | restore your VPS to default state before nodectl
                  was installed.
@@ -282,6 +289,55 @@ def build_help(functions,command_obj):
                current position.
              
         '''
+        
+        
+    if extended == "getting_started":
+        help_text += title("GETTING STARTED")
+        help_text += f'''
+  Welcome to the nodectl utility!
+
+  Please note that this is a brief getting started guide covering the 
+  most common commands used by nodectl.
+
+  For a comprehensive understanding of nodectl, we highly 
+  recommend visiting the following links:
+
+  Constellation Documentation Hub:
+  https://docs.constellationnetwork.io/validate/
+
+  Full Command Reference Guide:
+  https://docs.constellationnetwork.io/validate/automated/nodectlCommands
+
+  Nodectl is a utility specifically designed to assist Constellation 
+  Network Validator Nodes in operating their Nodes easily and 
+  efficiently. It includes single-command installation and upgrades.
+
+  The most common commands you will use are:
+
+  {colored('sudo nodectl status','green')}
+  This command allows you to check the current status of your 
+  Node to ensure it is properly online and functioning well.
+  {colored('sudo nodectl status help','cyan')}
+
+  {colored('sudo nodectl restart -p all','green')}
+  Use this command to restart your Node if it is not properly 
+  online, as indicated by the status command above.
+  {colored('sudo nodectl restart help','cyan')}
+
+  {colored('sudo nodectl upgrade','green')}
+  Initiates an interactive guide to upgrade your Node’s protocol, Tessellation, 
+  to the latest version and update any necessary elements of the Node itself 
+  to ensure compatibility with both the Tessellation protocol and 
+  the nodectl utility.
+  {colored('sudo nodectl upgrade help','cyan')}
+  
+  {colored('sudo nodectl upgrade_nodectl','green')}
+  This command initiates an interactive guide to upgrade nodectl itself to 
+  the latest version. It will prompt if necessary to update any necessary 
+  elements of the Node to ensure compatibility with the nodectl utility.
+  {colored('sudo nodectl upgrade_nodectl help','cyan')}
+
+            '''
         
         
     if extended == "check_source_connection":

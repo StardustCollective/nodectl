@@ -376,6 +376,8 @@ class ShellHandler:
             self.cli.show_health(self.argv)
         elif self.called_command == "execute_starchiver":
             self.cli.cli_execute_starchiver(self.argv)
+        elif self.called_command == "execute_unittests":
+            self.cli.cli_execute_unittests(self.argv)
         elif self.called_command == "show_service_log" or self.called_command == "_ssl":
             self.cli.show_service_log(self.argv)
         elif self.called_command == "show_service_status" or self.called_command == "_sss":
@@ -392,6 +394,8 @@ class ShellHandler:
             self.cli.show_dip_error(self.argv)
         elif self.called_command == "show_p12_details" or self.called_command == "_spd":
             self.cli.show_p12_details(self.argv)
+        elif self.called_command == "getting_started":
+            self.functions.check_for_help(["help"],"getting_started")
 
         elif self.called_command == "help" or self.called_command == "_h":
                 self.functions.print_help({

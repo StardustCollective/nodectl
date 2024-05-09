@@ -341,12 +341,22 @@ class P12Class():
             "proc_action": "wait", 
             "return_error": True
         })
-        if not "Invalid password" in str(results):
+        if "friendlyName" in str(results):
             self.log.logger.info("p12 file unlocked successfully - openssl")
             return True
         
         # check p12 against method 2
         bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
+        results = self.functions.process_command({
+            "bashCommand": bashCommand2,
+            "proc_action": "wait"
+        })
+        if "Valid from:" in str(results):
+            self.log.logger.info("p12 file unlocked successfully - keytool")
+            return True
+        
+        # check p12 against method 2a
+        bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass "{self.entered_p12_keyphrase}" -storetype PKCS12'
         results = self.functions.process_command({
             "bashCommand": bashCommand2,
             "proc_action": "wait"
@@ -373,7 +383,7 @@ class P12Class():
                 self.log.logger.info("p12 file unlocked successfully - openssl")
                 return True
         else:
-            msg = "p12 -> attempt to authenticate via nodectl method 3 (of 3) with '-legacy' option failed. Unable to process because the SSL version is out-of-date, "
+            msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
             msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
             self.log.logger.warn(msg)
         
