@@ -1103,6 +1103,7 @@ if [[ ("$CHOICE" == "y" || "$CHOICE" == "Y") ]]; then
     echo "${clr}"
     sudo nodectl upgrade --nodectl_only
 fi
+echo "${clr}"
 exit 0
 
 '''
@@ -1110,6 +1111,7 @@ exit 0
                 cur_file2 += '''
 echo "  ${yellow}This version of nodectl ${pink}DOES NOT ${yellow}require an upgrade be performed"
 read -e -p "  ${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
+echo "${clr}"
 exit 0
 '''
 
