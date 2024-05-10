@@ -125,6 +125,7 @@ class ShellHandler:
             exit(0)
 
         self.check_valid_command()
+        self.set_version_obj_class()
         self.check_can_use_offline()
         self.setup_profiles()
         self.check_auto_restart()
@@ -282,7 +283,7 @@ class ShellHandler:
                 "new_command": "upgrade_nodectl"
             })
         elif self.called_command == "upgrade_nodectl":
-            self.upgrade_node(self.argv)
+            self.set_version_obj_class()
             return_value = self.cli.upgrade_nodectl({
                 "version_class_obj": self.version_class_obj,
                 "argv_list": self.argv,
@@ -336,7 +337,10 @@ class ShellHandler:
                 "command_list": self.argv
             })
         elif self.called_command in cv_commands:
-            self.cli.check_versions(self.argv)
+            self.cli.check_versions({
+                "command_list": self.argv,
+                "version_class_obj": self.set_version_obj_class()
+            })
         elif "auto_" in self.called_command:
             if self.called_command == "auto_upgrade":
                 if "help" not in self.argv:
@@ -368,6 +372,7 @@ class ShellHandler:
             self.cli.check_nodectl_upgrade_path({
                 "called_command": self.called_command,
                 "argv_list": self.argv,
+                "version_class_obj": self.version_class_obj,
             })
         elif self.called_command == "upgrade_vps":
             self.cli.cli_upgrade_vps(self.argv)
@@ -676,8 +681,24 @@ class ShellHandler:
                     return
                 else: self.environment_requested = []
                 
+            for n in range(0,2):
+                try:
+                    _ = self.functions.environment_names # network offline issue
+                except:
+                    if n > 0:
+                        self.error_messages.error_code_messages({
+                            "error_code": "sh-688",
+                            "line_code": "system_error",
+                            "extra": self.called_command,
+                        })
+                    self.log.logger.error(f"shell handler -> check_for_profile_requirements -> unable to obtain environment names.")
+                    self.functions.set_environment_names()
+
             if len(self.functions.environment_names) > 1 or len(self.functions.environment_names) < 1:
                 self.environment_requested = self.functions.print_profile_env_menu({"p_type": "environment"})
+            else:
+                self.environment_requested = self.functions.environment_names[0] # only one env found
+                
             self.argv.extend(["-e",self.environment_requested])
             need_profile = False  
                       
@@ -1460,9 +1481,7 @@ class ShellHandler:
         self.log.logger.debug(f"{self.called_command} request started") 
         performance_start = time.perf_counter()  # keep track of how long
 
-        self.version_class_obj = Versioning({"called_cmd": "upgrade_setup"})
-        if self.called_command == "upgrade_nodectl": return
-
+        self.set_version_obj_class()
         self.upgrader = Upgrader({
             "parent": self,
             "argv_list": argv_list,
@@ -1488,6 +1507,10 @@ class ShellHandler:
             self.installer.install_process()
             if not self.installer.options.quiet:
                 self.functions.print_perftime(performance_start,"installation")
+
+
+    def set_version_obj_class(self):
+        self.version_class_obj = Versioning({"called_cmd": "setup_only"})
 
 
     def handle_exit(self,value):

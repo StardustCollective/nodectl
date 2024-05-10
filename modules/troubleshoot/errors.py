@@ -496,9 +496,11 @@ class Error_codes():
             
         elif var.line_code == "version_fetch":
             self.log.logger.warn("unable to fetch version, exited program")
-            self.first_line = f"Tessellation attempted version fetch failed"
-            self.second_line = "Please report this to a Constellation Network Administrator"
-            
+            self.functions.print_paragraphs([
+                ["Tessellation attempted version fetch failed.",2,"red","bold"],
+                ["Please try again. If the issue persists, report this to a Constellation Network Administrator.",2,"magenta","bold"]
+            ])
+
                         
         elif var.line_code == "sudo_error":
             self.log.logger.critical(f"permissions error detected | {var.extra}")

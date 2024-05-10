@@ -383,7 +383,7 @@ class CLI():
                         join_state = sessions['state1']
                                         
                         if sessions["session0"] == 0:
-                            on_network = colored("LbNotReady","red")
+                            on_network = colored("NetworkUnreachable","red")
                             cluster_session = colored("SessionNotFound".ljust(20," "),"red")
                             join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
                         else:
@@ -1895,8 +1895,20 @@ class CLI():
         })
         print("")
         
+
     def handle_missing_version(self,version_class_obj):
         version_class_obj.functions = self.functions
+        # for n in range(0,2):
+        #     try:
+        #         version_class_obj.functions = self.functions
+        #     except:
+        #         if n > 0:
+        #             self.error_messages.error_code_messages({
+        #                 "error_code": "cli-1905",
+        #                 "line_code": "version_fetch",
+        #             })
+        #         self.log.logger.warn("cli missing elements necessary to proceed. Attempting to correct.")
+
         version_class_obj.config_obj = self.config_obj
         version_class_obj.get_cached_version_obj()
         
@@ -1907,7 +1919,8 @@ class CLI():
     # check commands
     # ==========================================
             
-    def check_versions(self, command_list):
+    def check_versions(self, command_obj):
+        command_list = command_obj["command_list"]
         self.functions.check_for_help(command_list,"check_version")
 
         self.check_versions_called = True
@@ -1950,6 +1963,19 @@ class CLI():
                     "line_code": "profile_error",
                     "extra": profile
                 })   
+
+            for n in range(0,2):
+                try:
+                    _ = self.version_obj[environment]["nodectl"]
+                    break
+                except:
+                    if n > 0:
+                        self.error_messages.error_code_messages({
+                            "error_code": "cmd-1962",
+                            "line_code": "version_fetch",
+                        })                           
+                    self.version_obj = self.handle_missing_version(command_obj["version_class_obj"])
+
                 
             nodectl_match = True       
             if not isinstance(self.version_obj[environment]["nodectl"]["nodectl_uptodate"],bool):
@@ -2904,6 +2930,7 @@ class CLI():
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
+            "status_color": "green",
             "newline": True
         }) 
 
@@ -3164,7 +3191,8 @@ class CLI():
                             
                         self.functions.print_paragraphs([
                             [" Issue Found: ",0,"yellow,on_red","bold"],
-                            [f"{profile}'s service was unable to start properly. Attempting stop/start again",0], 
+                            [f"{profile}'s service was unable to start properly.",1,"yellow"], 
+                            ["Attempting stop/start again",0], 
                             [str(n),0,"yellow","bold"],
                             ["of",0], [str(failure_retries),1,"yellow","bold"]
                         ])
@@ -5842,7 +5870,7 @@ class CLI():
             return
 
         print_prerelease()       
-         
+
         if custom_version:
             upgrade_chosen = custom_version
         else:

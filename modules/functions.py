@@ -733,7 +733,10 @@ class Functions():
                         })
                 
             cluster_info_tmp = deepcopy(cluster_info)
-            self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
+            try:
+                self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
+            except:
+                self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request no results")
             
             try:
                 cluster_info_tmp.pop()
@@ -743,7 +746,7 @@ class Functions():
                     cprint("  error attempting to reach edge point","red")
                 else:
                     self.error_messages.error_code_messages({
-                        "error_code": "fun-648",
+                        "error_code": "fnt-648",
                         "line_code": "off-network",
                     })
             
@@ -1571,16 +1574,26 @@ class Functions():
                 token = session[key]
             except Exception as e:
                 try:
-                    self.log.logger.warn(f"Load Balancer did not return a token | reason [{session['reason']} error [{e}]]")
+                    self.log.logger.warn(f"Peer did not return a token | reason [{session['reason']} error [{e}]]")
                     session_obj[f"session{i}"] = f"{i}"
                 except:
                     if self.auto_restart:
                         return False
-                    self.error_messages.error_code_messages({
-                        "error_code": "fnt-958",
-                        "line_code": "lb_not_up",
-                        "extra": command_obj['edge_device']['remote'],
-                    })
+                    try:
+                        return {
+                            "node0": nodes[0],
+                            "node1": nodes[1],
+                            "session0": 0,
+                            "session1": 0,
+                            "state0": "NetworkUnreachable", #remote
+                            "state1": "NetworkUnreachable" #local                        
+                        }
+                    except:
+                        self.error_messages.error_code_messages({
+                            "error_code": "fnt-958",
+                            "line_code": "lb_not_up",
+                            "extra": command_obj['edge_device']['remote'],
+                        })
             else:
                 session_obj[f"session{i}"] = token
                 
