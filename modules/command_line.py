@@ -5123,25 +5123,24 @@ class CLI():
         else:
             end = input(colored(f"  Please enter the end snapshot [{colored(possible_end,'yellow')}]: ","cyan"))
 
+        if start == "" or start == None:
+            try: start = possible_start-1
+            except: int_error = True
+        else: 
+            try: start -= 1
+            except: int_error = True
+
+        if end == "" or end == None:
+            try: end = possible_end+1
+            except: int_error = True
+        else: 
+            try: end += 1
+            except: int_error = True
+
         try: start = int(start)
         except: int_error = True        
         try: end = int(end)
         except: int_error = True        
-
-        if not int_error:
-            if start == "" or start == None:
-                try: start = possible_start-1
-                except: int_error = True
-            else: 
-                try: start -= 1
-                except: int_error = True
-
-            if end == "" or end == None:
-                try: end = possible_end+1
-                except: int_error = True
-            else: 
-                try: end += 1
-                except: int_error = True
 
         if int_error:
             self.error_messages.error_code_messages({
@@ -5150,6 +5149,8 @@ class CLI():
                 "extra": "start or end snapshot integer",
                 "extra2": "Must enter a valid integer for start and end snapshots."
             })
+
+        start, end = min(start, end), max(start, end)  #invert if necessary so values are lowest to highest
 
         print("")
 
@@ -5182,6 +5183,7 @@ class CLI():
         })
 
         inode_snaps_set = set()
+
         for current_snap in range(start,end):
             file_path = path.join(snapshot_dir, str(current_snap))
             if path.exists(file_path):
