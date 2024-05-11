@@ -2730,7 +2730,9 @@ class Functions():
             end_range = 0
 
         if phrase == None:
-            phrase = "to allow services to take effect"        
+            phrase = "to allow services to take effect"     
+        if end_phrase == None:
+            end_phrase = " "
 
         for s in range(start,end_range+1,step):
             if self.cancel_event: break
