@@ -5084,6 +5084,9 @@ class CLI():
     def cli_remove_snapshots(self,command_list):
         self.log.logger.info("cli -> remove_snapshots initiated.")
 
+        int_error, start_default, end_default = False, True, True
+        missing = []
+
         self.functions.print_header_title({
             "line1": "Developer Mode - Remove snapshots",
             "single_line": True,
@@ -5098,50 +5101,52 @@ class CLI():
 
         profile = command_list[command_list.index("-p")+1]
         snapshot_dir, possible_end = self.cli_node_last_snapshot(["value_only","-p",profile])        
+        possible_end += 1
 
         srap_obj = Send({
             "config_obj": self.functions.config_obj,
             "command_list": ["-p",profile],
             "ip_address": self.ip_address,
         })             
-        possible_start = srap_obj.handle_wdf_last_valid()
-
-        int_error = False
-        missing = []
+        possible_start = srap_obj.handle_wdf_last_valid() - 50
 
         try:
             possible_start = int(possible_start)
         except:
             start = input(colored(f"  Please enter the start snapshot: ","cyan"))
-        else:
-            start = input(colored(f"  Please enter the start snapshot [{colored(possible_start,'yellow')}]: ","cyan"))
-
+            start_default = False
+            try: start = int(start)
+            except: int_error = True  
+             
         try:
             possible_end = int(possible_end)
         except:
             end = input(colored(f"  Please enter the end snapshot: ","cyan"))
-        else:
-            end = input(colored(f"  Please enter the end snapshot [{colored(possible_end,'yellow')}]: ","cyan"))
+            end_default = False
+            try: end = int(end)
+            except: int_error = True      
 
-        if start == "" or start == None:
-            try: start = possible_start-1
-            except: int_error = True
-        else: 
-            try: start -= 1
-            except: int_error = True
+        if start_default:
+            start = possible_start
+        if end_default:
+            end = possible_end
 
-        if end == "" or end == None:
-            try: end = possible_end+1
-            except: int_error = True
-        else: 
-            try: end += 1
-            except: int_error = True
+        start, end = min(start, end), max(start, end)
 
-        try: start = int(start)
-        except: int_error = True        
-        try: end = int(end)
-        except: int_error = True        
+        if start_default:
+            user_start = input(colored(f"  Please enter the start snapshot [{colored(start,'yellow')}]: ","cyan"))
+            if user_start != "" and user_start != None:
+                try: start = int(user_start)
+                except: int_error = True
 
+        if end_default:
+            user_end = input(colored(f"  Please enter the end snapshot [{colored(end,'yellow')}]: ","cyan"))
+            if user_end != "" and user_end != None:
+                try: end = int(user_end)
+                except: int_error = True
+
+        start, end = min(start, end), max(start, end)     
+  
         if int_error:
             self.error_messages.error_code_messages({
                 "error_code": "cli-4823",
@@ -5149,8 +5154,6 @@ class CLI():
                 "extra": "start or end snapshot integer",
                 "extra2": "Must enter a valid integer for start and end snapshots."
             })
-
-        start, end = min(start, end), max(start, end)  #invert if necessary so values are lowest to highest
 
         print("")
 
