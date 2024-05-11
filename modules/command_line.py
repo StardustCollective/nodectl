@@ -4561,14 +4561,6 @@ class CLI():
                     }) 
 
             self.functions.print_clear_line()
-            self.functions.print_timer({
-                "p_type": "cmd",
-                "seconds": 50,
-                "step": -1,
-                "phrase": "Reboot in",
-                # "end_phrase": "ctrl+c to abort",
-                "q_quit": True,
-            })
             self.cli_reboot(argv_list)
         else:
             self.functions.print_paragraphs([

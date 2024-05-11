@@ -2721,7 +2721,6 @@ class Functions():
         p_type = command_obj.get("p_type","trad")
         step = command_obj.get("step",1)
         status = command_obj.get("status","preparing")
-        q_quit = command_obj.get("q_quit",False)
 
         if step > 0: 
             end_range = start+seconds
@@ -2751,25 +2750,9 @@ class Functions():
                         "text_end": end_phrase,
                         "status": status,
                     })
-                if q_quit:
-                    with ThreadPoolExecutor() as executor:
-                        try:
-                            executor.submit(self.get_user_keypress,{
-                                "prompt": None,
-                                "prompt_color": "magenta",
-                                "options": ["Q"],
-                                "quit_option": "Q",
-                                "quit_with_exception": True,
-                            })
-                        except self.exception:
-                            self.cancel_event = True
-                            self.print_paragraphs([
-                                ["Action cancelled by user",1,"green"]
-                            ])
-                            exit(0)
             sleep(1) 
 
-        self.print_clear_line()           
+        self.print_clear_line()        
             
             
     def print_states(self):
