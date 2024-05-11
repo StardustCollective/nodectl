@@ -5107,17 +5107,16 @@ class CLI():
             "config_obj": self.functions.config_obj,
             "command_list": ["-p",profile],
             "ip_address": self.ip_address,
-        })             
-        possible_start = srap_obj.handle_wdf_last_valid() - 50
+        })   
 
-        try:
-            possible_start = int(possible_start)
+        try:          
+            possible_start = int(srap_obj.handle_wdf_last_valid()) - 50
         except:
             start = input(colored(f"  Please enter the start snapshot: ","cyan"))
             start_default = False
             try: start = int(start)
             except: int_error = True  
-             
+
         try:
             possible_end = int(possible_end)
         except:
