@@ -281,14 +281,13 @@ class Installer():
                     if not self.options.cluster_config:
                         self.handle_environment_setup(True)
                         self.options.metagraph_name = self.options.cluster_config
-                        if not self.option.quiet: print("")
+                        if not self.options.quiet: print("")
                         self.print_cmd_status("metagraph_name","metagraph_name",False)
                 elif self.options.quick_install:
                     self.quick_installer.handle_option_validation(option)
 
             elif option == "metagraph_name":
-                if not self.options.quiet: 
-                    self.print_cmd_status("metagraph","metagraph_name",False) 
+                self.print_cmd_status("metagraph","metagraph_name",False) 
             elif option == "p12_destination_path":
                 if not value.endswith(".p12"):
                     self.close_threads()
@@ -298,20 +297,16 @@ class Installer():
                         "extra": value,
                         "extra2": "p12 file must end with the '.p12' extension."
                     })    
-                if not self.options.quiet: 
-                    self.print_cmd_status("P12 file",path.split(value)[1],False,False)   
+                self.print_cmd_status("P12 file",path.split(value)[1],False,False)   
 
             elif option == "p12_migration_path":                  
-                if not self.options.quiet: 
-                    self.print_cmd_status("P12 migration path",path.split(value)[0],False,False)   
+                self.print_cmd_status("P12 migration path",path.split(value)[0],False,False)   
             elif option == "p12_alias":
-                if not self.options.quiet: 
-                    self.print_cmd_status("P12 alias","p12_alias",False)
+                self.print_cmd_status("P12 alias","p12_alias",False)
             elif option == "user":
                 if self.options.quick_install and self.options.user:
                     self.user.username = self.options.user
-                if not self.options.quiet: 
-                    self.print_cmd_status("Node admin user","user",False)
+                self.print_cmd_status("Node admin user","user",False)
 
         self.build_classes("p12")
 
@@ -1131,8 +1126,7 @@ class Installer():
             if self.options.quick_install and not self.options.existing_p12:
                 if not self.options.p12_destination_path:
                     self.options.p12_destination_path = f"/home/{self.options.user}/tessellation/{self.options.user}-node.p12"
-                if not self.options.quiet:
-                    self.print_cmd_status("p12 file name",path.split(self.options.p12_destination_path)[1],False,False)
+                self.print_cmd_status("p12 file name",path.split(self.options.p12_destination_path)[1],False,False)
 
             if self.options.existing_p12:
                 if self.options.quick_install:
@@ -1407,6 +1401,7 @@ class Installer():
     
 
     def print_cmd_status(self,chosen,var,gen=True,lookup=True):
+        if self.options.quiet: return
         if lookup: var = getattr(self.options,var)
         if chosen == "metagraph_name": chosen = "hypergraph/metagraph"
         start = "Generated" if gen else "Chosen" 

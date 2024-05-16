@@ -1968,8 +1968,8 @@ class Functions():
         required = command_obj.get("required",False)
 
         predefined_envs = []
-        
         repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
+
         repo_profiles = repo_profiles["payload"]["tree"]["items"]
         metagraph_name, chosen_profile = None, None
         ordered_predefined_envs = ["mainnet","integrationnet","testnet"]
@@ -3390,8 +3390,24 @@ class Functions():
                     ]) 
         except:
             return                       
+
+
+    # =============================
+    # handlers
+    # =============================  
+
+    def handle_spinner_kill(self):
+        raise TerminateFunctionsException("spinner cancel")
     
+
+    def handle_missing_version(self,version_class_obj):
+        version_class_obj.functions = self
+        version_class_obj.config_obj = self.config_obj
+        version_class_obj.get_cached_version_obj()
+        
+        return version_class_obj.get_version_obj()   
     
+
     # =============================
     # miscellaneous
     # =============================  
@@ -3715,11 +3731,7 @@ class Functions():
             return result
         else:
             return    
-    
 
-    def handle_spinner_kill(self):
-        raise TerminateFunctionsException("spinner cancel")
-    
-    
+
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

@@ -130,10 +130,9 @@ class ShellHandler:
         self.setup_profiles()
         self.check_auto_restart()
         self.check_skip_services()
-        self.check_for_profile_requirements()
         self.check_for_static_peer()
         self.handle_versioning()
-
+        self.check_for_profile_requirements()
 
         if "all" in self.argv:
             self.check_all_profile()     
@@ -337,9 +336,10 @@ class ShellHandler:
                 "command_list": self.argv
             })
         elif self.called_command in cv_commands:
+            self.set_version_obj_class()
             self.cli.check_versions({
                 "command_list": self.argv,
-                "version_class_obj": self.set_version_obj_class()
+                "version_class_obj": self.version_class_obj,
             })
         elif "auto_" in self.called_command:
             if self.called_command == "auto_upgrade":

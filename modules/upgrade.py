@@ -261,7 +261,7 @@ class Upgrader():
                 break
             except:
                 # in the event the version object is corrupt
-                self.functions.version_obj = self.cli.handle_missing_version(self.parent.version_class_obj)
+                self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
                 
         if show_warning:
             err_warn = "warning"

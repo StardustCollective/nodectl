@@ -1894,26 +1894,6 @@ class CLI():
             "newline": True,
         })
         print("")
-        
-
-    def handle_missing_version(self,version_class_obj):
-        version_class_obj.functions = self.functions
-        # for n in range(0,2):
-        #     try:
-        #         version_class_obj.functions = self.functions
-        #     except:
-        #         if n > 0:
-        #             self.error_messages.error_code_messages({
-        #                 "error_code": "cli-1905",
-        #                 "line_code": "version_fetch",
-        #             })
-        #         self.log.logger.warn("cli missing elements necessary to proceed. Attempting to correct.")
-
-        version_class_obj.config_obj = self.config_obj
-        version_class_obj.get_cached_version_obj()
-        
-        return version_class_obj.get_version_obj()
-
 
     # ==========================================
     # check commands
@@ -1974,7 +1954,7 @@ class CLI():
                             "error_code": "cmd-1962",
                             "line_code": "version_fetch",
                         })                           
-                    self.version_obj = self.handle_missing_version(command_obj["version_class_obj"])
+                    self.version_obj = self.functions.handle_missing_version(command_obj["version_class_obj"])
 
                 
             nodectl_match = True       
@@ -1990,9 +1970,9 @@ class CLI():
                 if "current" in self.version_obj[environment][profile]["nodectl_yaml_uptodate"]:
                     yaml_match = False   
                      
-            prerelease = "False"
+            prerelease = colored("False","green")
             if self.version_obj[environment]["nodectl"]["nodectl_prerelease"]:
-                prerelease = "True"
+                prerelease = colored("True","yellow")
             if self.version_obj[environment]["nodectl"]["nodectl_prerelease"] == "Unknown":
                 prerelease = "Unknown"
             
@@ -2540,7 +2520,7 @@ class CLI():
         try:
             nodectl_uptodate = getattr(versions,env)
         except:
-            versions = self.handle_missing_version(version_class_obj)
+            versions = self.functions.handle_missing_version(version_class_obj)
             versions = SimpleNamespace(**versions)
             nodectl_uptodate = getattr(versions,env)
 
@@ -5100,8 +5080,9 @@ class CLI():
         ])
 
         profile = command_list[command_list.index("-p")+1]
-        snapshot_dir, possible_end = self.cli_node_last_snapshot(["value_only","-p",profile])        
+        snapshot_dir, possible_end = self.cli_node_last_snapshot(["value_only","-p",profile])  
         possible_end += 1
+        snapshot_info = snapshot_dir.replace("incremental_snapshot","snapshot_info")
 
         srap_obj = Send({
             "config_obj": self.functions.config_obj,
@@ -5188,8 +5169,12 @@ class CLI():
 
         for current_snap in range(start,end):
             file_path = path.join(snapshot_dir, str(current_snap))
+            info_path = path.join(snapshot_info, str(current_snap))
             if path.exists(file_path):
                 inode_snaps_set.add(stat(file_path).st_ino)
+            if path.isfile(info_path):
+                remove(info_path)
+
 
         for root, _, files in walk(snapshot_dir):
             for snapshot in files:
@@ -5201,12 +5186,13 @@ class CLI():
                     remove(snap_to_remove)
                 else:
                     missing.append(snap_to_remove)
-
+                           
         if len(missing) > 0:
             self.functions.print_paragraphs([
                 ["",1], [f"Some snapshots were not found between [{start}] and [{end}]",1],
                 ["This can be safely ignored...",2,"white"],
             ])
+           
         self.functions.print_paragraphs([
             [f"Removal operations complete, please restart profile [{profile}]",0],
             ["to return your Node to operational status.",2],
@@ -5361,18 +5347,18 @@ class CLI():
         system(bashCommand)
 
 
-    def cli_execute_unittests(self,command_list):
-        self.log.logger.info("cli -> execute_unittests initiated.")
-        self.functions.check_for_help(command_list,"execute_unittests")
+    def cli_execute_tests(self,command_list):
+        self.log.logger.info("cli -> execute_tests initiated.")
+        self.functions.check_for_help(command_list,"execute_tests")
 
         self.functions.print_header_title({
-            "line1": "NODECTL UNITTESTS",
+            "line1": "NODECTL OPERATOR TESTS",
             "single_line": True,
             "newline": "both",
         })
 
         self.functions.print_paragraphs([
-            ["nodectl's",0], ["unittests",0,"yellow"], ["are designed to execute most of the available commands",0],
+            ["nodectl's",0], ["Node Operator tests",0,"yellow"], ["are designed to execute most of the available commands",0],
             ["associated with nodectl.  It is designed to help test the utility during development.",2],
             ["You may also utilize this script to become acquainted with a comprehensive set of all the commands",0,"yellow"], 
             ["associated with nodectl.",2,"yellow"],
@@ -5382,66 +5368,66 @@ class CLI():
             "yes_no_default": "n",
             "return_on": "y",
             "prompt_color": "magenta",
-            "prompt": f"Execute the unittest script?",
+            "prompt": f"Execute the test script?",
             "exit_if": True,
         })
 
         self.functions.print_cmd_status({
-            "text_start": "Remove existing unittests",
+            "text_start": "Remove existing test script",
             "status": "running",
             "status_color": "yellow",
             "newline": False,
         })
         sleep(.5)
-        self.log.logger.debug("cli -> execute_unittest -> removing existing unittest script if exists.")
+        self.log.logger.debug("cli -> execute_tests -> removing existing test script if exists.")
         try:
-            remove("/usr/local/bin/nodectl_unittests_x86_64")
+            remove("/usr/local/bin/nodectl_tests_x86_64")
         except:
-            self.log.logger.debug("cli -> execute_unittests -> did not find an existing unittests script.")
+            self.log.logger.debug("cli -> execute_tests -> did not find an existing user tests script.")
         self.functions.print_cmd_status({
-            "text_start": "Remove existing unittests",
+            "text_start": "Remove existing user tests",
             "status": "complete",
             "status_color": "green",
             "newline": True,
         })    
 
         self.functions.print_cmd_status({
-            "text_start": "Fetching unittests",
+            "text_start": "Fetching user tests",
             "status": "running",
             "status_color": "yellow",
             "newline": False,
         })
         sleep(.5)
-        repo = f"{self.functions.nodectl_download_url}/nodectl_unittests_x86_64"
-        local_path = "/usr/local/bin/nodectl_unittests"
+        repo = f"{self.functions.nodectl_download_url}/nodectl_tests_x86_64"
+        local_path = "/usr/local/bin/nodectl_tests"
         bashCommand = f'sudo wget {repo} -O {local_path} -o /dev/null'
-        self.log.logger.debug(f"cli -> execute_unittests -> fetching unittests -> [{bashCommand}]")
+        self.log.logger.debug(f"cli -> execute_tests -> fetching Node Operator tests -> [{bashCommand}]")
         system(bashCommand)
         self.functions.print_cmd_status({
-            "text_start": "Fetching unittests",
+            "text_start": "Fetching tests",
             "status": "complete",
             "status_color": "green",
             "newline": True,
         })
 
         self.functions.print_cmd_status({
-            "text_start": "Setting unittests permissions",
+            "text_start": "Setting test permissions",
             "status": "running",
             "status_color": "yellow",
             "newline": False,
         })
         sleep(.5)
-        self.log.logger.debug(f"cli -> execute_unittests -> changing unittests permissions to +x -> [{local_path}]")
+        self.log.logger.debug(f"cli -> execute_tests -> changing Node Operator tests permissions to +x -> [{local_path}]")
         chmod(local_path, 0o755)
         self.functions.print_cmd_status({
-            "text_start": "Setting unittests permissions",
+            "text_start": "Setting test permissions",
             "status": "complete",
             "status_color": "green",
             "newline": True,
         })
 
         self.functions.print_cmd_status({
-            "text_start": "Executing unittests",
+            "text_start": "Executing tests",
             "status": "running",
             "status_color": "yellow",
             "newline": False,
@@ -5450,7 +5436,7 @@ class CLI():
 
         bashCommand = f"{local_path}"
         if path.getsize(local_path) < 1:
-            self.log.logger.error(f"cli -> execute_unittests -> binary file size too small, may not exist [{path.getsize(local_path)}]")
+            self.log.logger.error(f"cli -> execute_tests -> binary file size too small, may not exist [{path.getsize(local_path)}]")
             self.functions.print_paragraphs([
                 ["Unable to properly download the necessary binary containing the",0,"red"],
                 ["unit tests",0,"yellow"], ["script. It may not have been released for this",0,"red"],
@@ -5458,7 +5444,7 @@ class CLI():
                 ["the binary is present.",2,"red"]
             ])
             exit(0)
-        self.log.logger.debug(f"cli -> execute_unittests -> executing unittests | command referenced [{bashCommand}]")
+        self.log.logger.debug(f"cli -> execute_tests -> executing Node Operator tests | command referenced [{bashCommand}]")
         system(bashCommand)
 
 
@@ -5811,7 +5797,7 @@ class CLI():
         try:
             version_obj = self.version_obj[environment_name] # readability
         except:
-            version_obj = self.handle_missing_version(command_obj["version_class_obj"])
+            version_obj = self.functions.handle_missing_version(command_obj["version_class_obj"])
             version_obj = version_obj[environment_name]
 
 

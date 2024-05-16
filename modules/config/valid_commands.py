@@ -23,7 +23,7 @@ def pull_valid_command():
         "enable_root_ssh",     
         "export_private_key",
         "execute_starchiver",
-        "execute_unittests",
+        "execute_tests",
 
         "find",
 
