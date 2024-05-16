@@ -83,7 +83,12 @@ class ShellHandler:
             }   
             cli = CLI(command_obj)
             cli.version_class_obj = self.version_class_obj
-            cli.node_service.version_class_obj = self.version_class_obj
+
+            try:
+                cli.node_service.version_class_obj = self.version_class_obj
+            except:
+                self.log.logger.debug("shell --> skipped node service versioning, not needed.")
+
             cli.check_for_new_versions({
                 "caller": self.called_command
             })
