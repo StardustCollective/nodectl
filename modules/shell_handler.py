@@ -385,8 +385,8 @@ class ShellHandler:
             self.cli.show_health(self.argv)
         elif self.called_command == "execute_starchiver":
             self.cli.cli_execute_starchiver(self.argv)
-        elif self.called_command == "execute_unittests":
-            self.cli.cli_execute_unittests(self.argv)
+        elif self.called_command == "execute_tests":
+            self.cli.cli_execute_tests(self.argv)
         elif self.called_command == "show_service_log" or self.called_command == "_ssl":
             self.cli.show_service_log(self.argv)
         elif self.called_command == "show_service_status" or self.called_command == "_sss":
