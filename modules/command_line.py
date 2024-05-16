@@ -52,7 +52,7 @@ class CLI():
         self.check_versions_called = False
         self.invalid_version = False
         self.caller = "cli"
-
+        self.version_class_obj = None
         self.current_try = 0
         self.max_try = 2
         
@@ -170,6 +170,8 @@ class CLI():
         if called_command == "uptime": print_title = False
         if called_command == "_s": called_command = "status"
         if called_command == "_qs": called_command = "quick_status"
+        if called_command == "stop": called_command = "quick_status"
+
         self.functions.check_for_help(command_list,called_command)
         
         profile_list = self.profile_names
@@ -324,7 +326,7 @@ class CLI():
                     if called_command == "quick_status" or called_command == "_qs":
                         if n == 0:
                             self.functions.print_paragraphs([
-                                [" Node Status Quick Results ",2,"yellow,on_blue","bold"],
+                                ["",1],[" NODE STATUS QUICK RESULTS ",2,"yellow,on_blue","bold"],
                             ])                    
                         quick_results = quick_status_pull(self.functions.config_obj[called_profile]["public_port"])
                         restart_time, uptime, node_id = convert_time_node_id(quick_results)
@@ -2916,6 +2918,7 @@ class CLI():
 
         self.show_system_status({
             "rebuild": rebuild,
+            "called": "stop",
             "wait": show_timer,
             "spinner": spinner,
             "print_title": False,
@@ -3065,12 +3068,14 @@ class CLI():
         
         # seed list title printed in download_service class
         for n, profile in enumerate(profile_order):
-            self.node_service.set_profile(profile)
             self.log.logger.debug(f"cli_restart -> handling seed list updates against profile [{profile}]")
+            self.node_service.set_profile(profile)
+
             pos = self.node_service.download_constellation_binaries({
                 "caller": "update_seedlist",
                 "profile": profile,
                 "environment": self.config_obj[profile]["environment"],
+
             })
             sleep(.5)    
         print(f"\033[{pos['down']}B", end="", flush=True)
@@ -4803,10 +4808,13 @@ class CLI():
                     })
 
                     consensus_match = colored("False","red")
-                    if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
-                        consensus_match = colored("True","green") if not self.auto_restart else True
-                    if state in self.functions.pre_consensus_list:
-                        consensus_match = colored("Preparing","yellow") if not self.auto_restart else False
+                    try:
+                        if consensus['specific_ip_found'][0] == consensus['specific_ip_found'][1]:
+                            consensus_match = colored("True","green") if not self.auto_restart else True
+                        if state in self.functions.pre_consensus_list:
+                            consensus_match = colored("Preparing","yellow") if not self.auto_restart else False
+                    except:
+                        consensus_match = colored("UnableToDetermine","magenta")
                         
                     self.log.logger.debug(f"cli_check_consensus -> caller [{caller}] -> participating in consensus rounds [{consensus_match}]")
                     if caller != "check_consensus": 
@@ -5111,6 +5119,7 @@ class CLI():
         if end_default:
             end = possible_end
 
+        if start == end: end += 150
         start, end = min(start, end), max(start, end)
 
         if start_default:
@@ -5125,6 +5134,25 @@ class CLI():
                 try: end = int(user_end)
                 except: int_error = True
 
+        if start == end: 
+            end += 150
+            self.functions.print_paragraphs([
+                ["",1],[" WARNING ",0,"yellow,on_red"], ["The start and stop snapshots match, increasing the end",0,"yellow"],
+                ["snapshots by 150.",1,"yellow"], 
+                ["  start:",0],[str(start),1,"blue","bold"],
+                ["    end:",0],[str(end),1,"blue","bold"],
+
+            ])
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt_color": "magenta",
+                "prompt": f"Continue with new values?",
+                "exit_if": False,
+            })  
+            if not confirm:
+                end -= 150    
+                  
         start, end = min(start, end), max(start, end)     
   
         if int_error:
@@ -5149,6 +5177,10 @@ class CLI():
             "status_color": "yellow",
             "newline": True,
         })
+        self.functions.print_cmd_status({
+            "text_start": "Starting removal process",
+            "newline": True,
+        })
 
         self.build_node_class()
         self.set_profile(profile)
@@ -5167,12 +5199,25 @@ class CLI():
 
         inode_snaps_set = set()
 
+        self.functions.print_cmd_status({
+            "text_start": "Starting removal process",
+            "newline": True,
+        })
+
         for current_snap in range(start,end):
             file_path = path.join(snapshot_dir, str(current_snap))
             info_path = path.join(snapshot_info, str(current_snap))
             if path.exists(file_path):
                 inode_snaps_set.add(stat(file_path).st_ino)
             if path.isfile(info_path):
+                self.functions.print_cmd_status({
+                    "text_start": "Handling",
+                    "brackets": "snapshot",
+                    "status": path.split(info_path)[1],
+                    "status_color": "red",
+                    "newline": True,
+                })
+                self.log.logger.warn(f"remove_snapshots --> removing snapshot {info_path}")
                 remove(info_path)
 
 
@@ -5180,9 +5225,20 @@ class CLI():
             for snapshot in files:
                 snap_to_remove = path.join(root, snapshot)
                 if stat(snap_to_remove).st_ino in inode_snaps_set:
-                    self.functions.print_paragraphs([
-                        ["Removing",0,"red"], [str(snap_to_remove),1,"red","bold"],
-                    ])
+                    if snapshot.isdigit():
+                        snaphost_display = snapshot
+                    if len(snapshot) > 63:
+                        snaphost_display = f"{snapshot[0:8]}....{snapshot[-8:]}"
+
+                    self.functions.print_cmd_status({
+                        "text_start": "Removing",
+                        "brackets": "snapshot_elements",
+                        "status": snaphost_display,
+                        "status_color": "red",
+                        "newline": True,
+                    })
+
+                    self.log.logger.warn(f"remove_snapshots --> removing snapshot {snap_to_remove}")
                     remove(snap_to_remove)
                 else:
                     missing.append(snap_to_remove)

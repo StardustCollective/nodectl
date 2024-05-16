@@ -20,7 +20,7 @@ from .config.valid_commands import pull_valid_command
 
 class ShellHandler:
 
-    def __init__(self, config_obj, debug):
+    def __init__(self, command_obj, debug):
 
         try:
             self.log = Logging() # install exception
@@ -30,12 +30,20 @@ class ShellHandler:
             print(colored("nodectl may not be installed?","red"),colored("hint:","cyan"),"use sudo")
             exit("  sudo rights error")
 
-        self.functions = Functions(config_obj)
+        try:
+            self.config_obj = command_obj.config_obj
+        except:
+            self.config_obj = command_obj["config_obj"]
+
+        self.functions = Functions(self.config_obj)
         self.error_messages = Error_codes(self.functions)
         self.error_messages.functions = self.functions
-
-        self.config_obj = config_obj
         
+        try:
+            self.version_class_obj = command_obj.versioning
+        except:
+            self.version_class_obj = command_obj.get("versioning",False)
+
         self.install_flag = False
         self.restart_flag = False
         self.has_existing_p12 = False
@@ -74,6 +82,8 @@ class ShellHandler:
                 "valid_commands": self.valid_commands
             }   
             cli = CLI(command_obj)
+            cli.version_class_obj = self.version_class_obj
+            cli.node_service.version_class_obj = self.version_class_obj
             cli.check_for_new_versions({
                 "caller": self.called_command
             })
@@ -808,20 +818,23 @@ class ShellHandler:
         if called_cmd == "uvos":
             print_messages, show_spinner = False, False
 
-        try:   
-            versioning = Versioning({
-                "config_obj": self.config_obj,
-                "show_spinner": show_spinner,
-                "print_messages": print_messages,
-                "called_cmd": called_cmd,
-                "verify_only": verify_only,
-                "print_object": print_object,
-                "force": force
-            })
-        except Exception as e:
-            self.log.logger.error(f"shell_handler -> unable to process versioning | [{e}]")
-            self.functions.event = False
-            exit(1)
+        if not force and self.version_class_obj:
+            versioning = self.version_class_obj
+        else:
+            try:   
+                versioning = Versioning({
+                    "config_obj": self.config_obj,
+                    "show_spinner": show_spinner,
+                    "print_messages": print_messages,
+                    "called_cmd": called_cmd,
+                    "verify_only": verify_only,
+                    "print_object": print_object,
+                    "force": force
+                })
+            except Exception as e:
+                self.log.logger.error(f"shell_handler -> unable to process versioning | [{e}]")
+                self.functions.event = False
+                exit(1)
 
         if called_cmd == "update_version_object" or called_cmd == "uvos":
             if "help" not in self.argv:

@@ -31,7 +31,9 @@ def cli_commands(argv_list):
                 if argv_list[1] == "configure":
                     Configurator(argv_list)
                 elif argv_list[1] in skip_config_list:
-                    current_shell = ShellHandler({"global_elements":{"caller": argv_list[1]}},False)
+                    current_shell = ShellHandler({
+                        "config_obj": {"global_elements":{"caller": argv_list[1]}},
+                        },False)
                 else:  
                     config_needed = Configuration({
                         "action": argv_list[1],
@@ -51,11 +53,13 @@ def cli_commands(argv_list):
                     if config.action == "edit_on_error":
                         Configurator(config.edit_on_error_args)
                     else:
-                        current_shell = ShellHandler(config.config_obj,False)               
+                        current_shell = ShellHandler(config,False)               
                 else:
                     caller = argv_list[1] if argv_list[1] in exclude_config else "config"
                     if "main_error" in argv_list: caller = "main_error" 
-                    current_shell = ShellHandler({"global_elements":{"caller":caller}},False)
+                    current_shell = ShellHandler({
+                        "config_obj": {"global_elements":{"caller":caller}}
+                    },False)
             if current_shell:        
                 current_shell.start_cli(argv_list)
                 

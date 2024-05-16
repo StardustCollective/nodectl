@@ -40,6 +40,7 @@ class Node():
         self.p12_password  = None 
         self.wallet_alias = None
         self.environment_name = None
+        self.version_class_obj = None
 
         # during installation, the nodeid will be blank
         # until after the p12 is created causing the install
@@ -79,6 +80,7 @@ class Node():
     
     
     def download_constellation_binaries(self,command_obj):
+        self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
         download_service = Download({
             "parent": self,
             "command_obj": command_obj,
@@ -334,7 +336,7 @@ class Node():
 
     def build_remote_link(self,link_type,interactive):
         not_ready_option = None
-        for n in range(0,4):
+        for n in range(1,4):
             source_node_list = self.functions.get_api_node_info({
                 "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
                 "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],

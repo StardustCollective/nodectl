@@ -376,12 +376,17 @@ class Error_codes():
             
             
         elif var.line_code == "off_network":
-            self.log.logger.critical(f"attempt to issue command that returned empty values. Is the Node on the network?")
+            self.log.logger.critical(f"attempt to issue command that returned empty values. Is the Node on the network? edge point: [{var.extra}] layer [{str(var.extra2)}]")
             self.functions.print_paragraphs([
                 ["Something isn't quite right?",2,"red","bold"],
-                ["nodectl",0,"red","bold,underline"], ["was unable to access data associated with the command entered?",1,"red","bold"],
-                ["Are you sure this Node is on the HyperGraph?",2,"red","bold"],
-                ["Network Unreachable",2,"bold","magenta"]
+                ["nodectl",0,"red","bold"], ["was unable to access data associated with the command entered?",0,"red"],
+                ["Are you sure this Node is on the HyperGraph?",1,"red"],
+                ["Network Unreachable",2,"magenta","bold"],
+
+                ["Please keep in mind that nodectl will attempt to utilize the local API if the edge point is unreachable. Please consider this when reviewing the edge point and layer below.",2],
+
+                ["Edge Point:",0], [var.extra,1,"yellow"],
+                ["Layer:",0], [str(var.extra2),2,"yellow"],
             ])
             
             

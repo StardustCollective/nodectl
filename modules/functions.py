@@ -745,10 +745,16 @@ class Functions():
                     self.log.logger.error("get_info_from_edge_point reached error while threaded, error skipped")
                     cprint("  error attempting to reach edge point","red")
                 else:
-                    self.error_messages.error_code_messages({
-                        "error_code": "fnt-648",
-                        "line_code": "off-network",
-                    })
+                    if self.config_obj["global_elements"]["use_offline"]:
+                        return False
+                    else:
+                        self.error_messages.error_code_messages({
+                            "error_code": "fnt-648",
+                            "line_code": "off_network",
+                            "extra": self.config_obj[profile]["edge_point"],
+                            "extra2": self.config_obj[profile]["layer"],
+                        })
+
             
             for n in range(0,max_range):
                 try:
@@ -760,6 +766,7 @@ class Functions():
                         "extra": profile,
                         "extra2": self.config_obj[profile]["edge_point"],
                     })
+
                 if specific_ip:
                     id_ip = "id" if len(specific_ip) > 127 else "ip"
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
