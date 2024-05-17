@@ -537,6 +537,7 @@ class AutoRestart():
             if self.config_obj[self.thread_profile]["seed_repository"] != "disable":
                 _ = self.node_service.download_constellation_binaries({
                     "caller": "update_seedlist",
+                    "action": "auto_restart",
                     "profile": self.thread_profile,
                     "environment": self.environment,
                 })
@@ -719,6 +720,7 @@ class AutoRestart():
                 notice_warning = "auto_upgrade to obtain "
                 auto_upgrade_success = self.node_service.download_constellation_binaries({
                     "caller": "refresh_binaries",
+                    "action": "auto_restart",
                     "profile": self.thread_profile,
                     "environment": self.environment,
                 })

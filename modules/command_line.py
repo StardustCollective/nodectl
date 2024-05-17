@@ -3084,6 +3084,7 @@ class CLI():
                 "caller": "update_seedlist",
                 "profile": profile,
                 "environment": self.config_obj[profile]["environment"],
+                "action": self.caller,
 
             })
             sleep(.5)    
