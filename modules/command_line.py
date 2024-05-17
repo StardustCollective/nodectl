@@ -1887,7 +1887,7 @@ class CLI():
             "exit_if": True,
         })
         
-        download_obj = {"caller": caller}
+        download_obj = {"caller": caller, "action": caller}
         if "-p" in argv_list:  
             download_obj["profile"] = argv_list[argv_list.index("-p")+1]
             download_obj["environment"] = self.config_obj[download_obj["profile"]]["environment"]
