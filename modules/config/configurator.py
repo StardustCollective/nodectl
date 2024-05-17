@@ -2233,51 +2233,75 @@ class Configurator():
 
                 
     def manual_build_memory(self,profile=False):
-        xms_default = "1024M"
-        xmx_default = None
-        xss_default = "256K"
-        required = True
-        if profile:
-            xms_default = self.c.config_obj[profile]["java_xms"]
-            xmx_default = self.c.config_obj[profile]["java_xmx"]
-            xss_default = self.c.config_obj[profile]["java_xss"]
-            required = False
-        else:
-            profile = self.profile_to_edit
-        
+        defaults, questions = False, False
         self.manual_section_header(profile,"JAVA MEMORY HEAPS")
-        
+
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["You can setup your Node to use the default java memory heap values.",1],
-                ["K",0,"yellow","underline"], ["for kilobytes,",0], ["M",0,"yellow","underline"], ["for Megabytes, and",0], ["G",0,"yellow","underline"], ["for Gigabytes.",1],
-                ["example:",0,"magenta"], ["1024M",2,"yellow"]
+                ["",1], ["You can setup your Node to use the default",0], ["java",0,"yellow"],
+                ["memory recommendations.",2,"magenta"],
             ])
+            
+        dir_default = self.c.functions.confirm_action({
+            "prompt": "Use defaults?",
+            "yes_no_default": "y",
+            "return_on": "y",
+            "exit_if": False
+        })
 
-        questions = {
-            "java_xms": {
-                "question": f"  {colored('Enter the java','cyan')} {colored('Xms','yellow')} {colored('desired value','cyan')}",
-                "description": "Xms is used for setting the initial and minimum heap size. The heap is an area of memory used to store objects instantiated by Node's java software running on the JVM.",
-                "required": False,
-                "default": xms_default,
-            },
-            "java_xmx": {
-                "question": f"  {colored('Enter the java','cyan')} {colored('Xmx','yellow')} {colored('desired value: ','cyan')}",
-                "description": "Xmx is used for setting the maximum heap size. Warning: the performance of the Node will decrease if the max heap value is set lower than the amount of live data. This can force your Node to perform garbage collections more frequently, because memory space may be needed more habitually.",
-                "required": required,
-                "default": xmx_default,
-            },
-            "java_xss": {
-                "question": f"  {colored('Enter the java','cyan')} {colored('Xss','yellow')} {colored('desired value','cyan')}",
-                "description": "Your Node will run multiple threads and these threads have their own stacks.  This parameter is used to limit how much memory a stack consumes.",
-                "required": False,
-                "default": xss_default
-            },
-        }
+        if dir_default:
+            self.c.functions.print_cmd_status({
+                "text_start": "Using defaults for java memory recommendations",
+                "status": "complete",
+                "newline": True,
+            })
+            defaults = {
+                "java_xms": "default",
+                "java_xmx": "default",
+                "java_xss": "default",
+            }  
+            print("")
+        else:
+            if profile:
+                xms_default = self.c.config_obj[profile]["java_xms"]
+                xmx_default = self.c.config_obj[profile]["java_xmx"]
+                xss_default = self.c.config_obj[profile]["java_xss"]
+                required = False
+            else:
+                profile = self.profile_to_edit
+        
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1], ["You can setup your Node to use the default java memory heap values.",1],
+                    ["K",0,"yellow","underline"], ["for kilobytes,",0], ["M",0,"yellow","underline"], ["for Megabytes, and",0], ["G",0,"yellow","underline"], ["for Gigabytes.",1],
+                    ["example:",0,"magenta"], ["1024M",2,"yellow"]
+                ])
+
+            questions = {
+                "java_xms": {
+                    "question": f"  {colored('Enter the java','cyan')} {colored('Xms','yellow')} {colored('desired value','cyan')}",
+                    "description": "Xms is used for setting the initial and minimum heap size. The heap is an area of memory used to store objects instantiated by Node's java software running on the JVM.",
+                    "required": False,
+                    "default": xms_default,
+                },
+                "java_xmx": {
+                    "question": f"  {colored('Enter the java','cyan')} {colored('Xmx','yellow')} {colored('desired value: ','cyan')}",
+                    "description": "Xmx is used for setting the maximum heap size. Warning: the performance of the Node will decrease if the max heap value is set lower than the amount of live data. This can force your Node to perform garbage collections more frequently, because memory space may be needed more habitually.",
+                    "required": required,
+                    "default": xmx_default,
+                },
+                "java_xss": {
+                    "question": f"  {colored('Enter the java','cyan')} {colored('Xss','yellow')} {colored('desired value','cyan')}",
+                    "description": "Your Node will run multiple threads and these threads have their own stacks.  This parameter is used to limit how much memory a stack consumes.",
+                    "required": False,
+                    "default": xss_default
+                },
+            }
         
         self.manual_append_build_apply({
             "questions": questions, 
-            "profile": profile
+            "profile": profile,
+            "defaults": defaults,
         })
         
         
