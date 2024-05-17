@@ -2731,9 +2731,11 @@ class Functions():
 
         if step > 0: 
             end_range = start+seconds
+            end_range_print = end_range
             if start == 1: end_range = end_range-1
         else: 
             start = seconds
+            end_range_print = start
             end_range = 0
 
         if phrase == None:
@@ -2750,7 +2752,7 @@ class Functions():
                     print(colored(f"  Pausing:","magenta"),
                             colored(f"{s}","yellow"),
                             colored("of","magenta"),
-                            colored(f"{end_range}","yellow"),
+                            colored(f"{end_range_print}","yellow"),
                             colored(f"seconds {phrase}","magenta"), end='\r')
                 elif p_type == "cmd":
                     self.print_cmd_status({

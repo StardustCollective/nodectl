@@ -631,6 +631,13 @@ class Configuration():
                     service = f"{service}{one_off['layer']}"
                     return service if service == one_off["service"] else False 
                 except: return False                                               
+            if one_off["key"] == "default_tcp":
+                result_set = list()
+                try:
+                    for port in ["public_port","p2p_port","cli_port"]:
+                        result_set.append(True if defaults[port][one_off["layer"]] == one_off[port] else False)
+                    return result_set
+                except: return (False,False,False)                                               
 
         try:
             self.config_obj["global_p12"]["key_store"] = self.create_path_variable(

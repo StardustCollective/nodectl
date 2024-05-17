@@ -1506,7 +1506,18 @@ class Configurator():
                 "line_code": "invalid_layer",
                 "extra": self.c.config_obj["layer"]
             })
-            
+
+        is_default = self.c.setup_config_vars({
+            "key": "default_tcp",
+            "public_port": public_default,
+            "p2p_port": p2p_default,
+            "cli_port": cli_default,
+            "layer": self.c.config_obj[profile]["layer"],
+            })
+        if is_default[0]: public_default = "default"
+        if is_default[1]: p2p_default = "default"
+        if is_default[2]: cli_default = "default"
+
         self.manual_section_header(profile,"TCP PORTS") 
                             
         questions = {
@@ -1538,8 +1549,11 @@ class Configurator():
         self.c.functions.print_paragraphs([
             ["",1],[" WARNING ",0,"red,on_yellow"], ["You must now update your firewall settings to allow",0],
             ["ports",0], 
-            [f"{self.c.profile_obj[profile]['public_port']}, {self.c.profile_obj[profile]['p2p_port']}",0,"yellow"], 
+            [f"{self.c.config_obj[profile]['public_port']}, {self.c.config_obj[profile]['p2p_port']}",0,"yellow"], 
             ["through inbound via the ingress rules.",2],
+            ["Changing the service API ports forced a",0],
+            ["stop",0,"yellow"],["action on your Node, you will need to restart the service to return to the cluster.",1],
+            ["sudo nodectl restart -p",0,"blue","bold"],[profile,2,"blue","bold"],
         ])
         self.c.functions.print_any_key({"prompt":"Press any key to return to the main menu"})
         
