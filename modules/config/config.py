@@ -40,9 +40,10 @@ class Configuration():
         self.config_obj = {}
         self.error_list = []
         
-        self.error_found = False  # for configurator
-        self.configurator_verified = False # for configurator
-        
+        # for configurator
+        self.error_found = False
+        self.configurator_verified = False 
+
         self.auto_restart = True if "auto_restart" in self.argv_list or "service_restart" in self.argv_list else False
 
         try:
@@ -610,6 +611,15 @@ class Configuration():
             if one_off["key"] == "edge_point":
                 handle_edge_point(one_off["profile"], one_off["environment"], one_off["environment"])
                 return
+            if one_off["key"] == "default_edge":
+                host_default, port_default  = False, False
+                if defaults["edge_point"][one_off["env"]] in one_off["host"]:
+                    host_default = True
+                if defaults["edge_point_tcp_port"][one_off["graph"]] == one_off["port"]:
+                    port_default = True
+                return (host_default,port_default)
+            if one_off["key"] == "default_col":
+                return True if defaults["collateral"][one_off["graph"]] == one_off["col"] else False
 
         try:
             self.config_obj["global_p12"]["key_store"] = self.create_path_variable(

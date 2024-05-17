@@ -988,7 +988,16 @@ class CLI():
         
         try:
             if sip["ip"] == "self": sip["ip"] = self.functions.get_ext_ip()
-        except: sip["ip"] = self.functions.get_ext_ip()
+        except: 
+            try:
+                sip["ip"] = self.functions.get_ext_ip()
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-996",
+                    "line_code": "off_network",
+                    "extra": self.config_obj[profile]["edge_point"],
+                    "extra2": self.config_obj[profile]["layer"],
+                })
     
         peer_results = self.node_service.functions.get_peer_count({
             "peer_obj": sip, 
@@ -5893,7 +5902,18 @@ class CLI():
                     [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
                 
-        nodectl_uptodate = self.version_obj[environment_name]["nodectl"]["nodectl_uptodate"]
+        for n in range(0,2):
+            try:
+                nodectl_uptodate = self.version_obj[environment_name]["nodectl"]["nodectl_uptodate"]
+                break
+            except:
+                if n > 0:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cli-5903",
+                        "line_code": "version_fetch",
+                    })
+                self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+
         latest_nodectl = version_obj["nodectl"]["latest_nodectl_version"]
         node_nodectl_version = self.version_obj['node_nodectl_version']
         

@@ -27,7 +27,7 @@ try:
     from ..shell_handler import ShellHandler
 except ImportError:
     # installation may be calling this Class which will not need
-    # the ShellHandler which would also cause a circular reference
+    # the ShellHandler and would also cause a circular reference
     pass
 
 class Configurator():
@@ -1272,6 +1272,18 @@ class Configurator():
             host_default = None; port_default = "80"; profile = self.profile_to_edit
             required = True
             
+        is_default = self.c.setup_config_vars({
+            "key": "default_edge",
+            "host": host_default,
+            "port": port_default,
+            "env": self.c.config_obj[profile]["environment"],
+            "graph": self.c.yaml_dict["nodectl"]["global_elements"]["metagraph_name"],
+            })
+        if is_default[0]:
+            host_default = "default"
+        if is_default[1]:
+            port_default = "default"
+            
         self.manual_section_header(profile,"EDGE POINTS") 
         
         default_desc = "You can use the word \"default\" to allow nodectl to use known default values."
@@ -1420,6 +1432,13 @@ class Configurator():
         profile = self.profile_to_edit if not profile else profile
         
         self.manual_section_header(profile,"COLLATERAL")
+
+        is_default = self.c.setup_config_vars({
+            "key": "default_col",
+            "col": default,
+            "graph": self.c.yaml_dict["nodectl"]["global_elements"]["metagraph_name"],
+            })
+        if is_default: default = "default"
         
         description = "In order to participate on a cluster a Node may be required to hold collateral within the "
         description += "active (hot) wallet located on this Node.  In the event that collateral is waved or there is not a requirement "
@@ -2914,10 +2933,14 @@ class Configurator():
 
             if not restart_error:
                 try:
-                    shell = ShellHandler(self.c.config_obj,False)
+                    shell = ShellHandler({
+                        "config_obj": self.c.config_obj
+                        },False)
                 except:
                     from ..shell_handler import ShellHandler
-                    shell = ShellHandler(self.c.config_obj,False)
+                    shell = ShellHandler({
+                        "config_obj": self.c.config_obj
+                        },False)
 
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
@@ -3310,10 +3333,15 @@ class Configurator():
             
             if self.c.config_obj["global_auto_restart"]["auto_restart"] == True:
                 try:
-                    shell = ShellHandler(self.c.config_obj,False)
+                    shell = ShellHandler({
+                        "config_obj": self.c.config_obj
+                        },False)
                 except:
                     from ..shell_handler import ShellHandler
-                    shell = ShellHandler(self.c.config_obj,False)
+                    shell = ShellHandler({
+                        "config_obj": self.c.config_obj
+                        },False)
+
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 self.c.functions.print_cmd_status({
