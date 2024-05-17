@@ -613,13 +613,24 @@ class Configuration():
                 return
             if one_off["key"] == "default_edge":
                 host_default, port_default  = False, False
-                if defaults["edge_point"][one_off["env"]] in one_off["host"]:
-                    host_default = True
-                if defaults["edge_point_tcp_port"][one_off["graph"]] == one_off["port"]:
-                    port_default = True
+                try:
+                    if defaults["edge_point"][one_off["env"]] in one_off["host"]:
+                        host_default = True
+                    if defaults["edge_point_tcp_port"][one_off["graph"]] == one_off["port"]:
+                        port_default = True
+                except: pass
                 return (host_default,port_default)
             if one_off["key"] == "default_col":
-                return True if defaults["collateral"][one_off["graph"]] == one_off["col"] else False
+                try:
+                    return True if defaults["collateral"][one_off["graph"]] == one_off["col"] else False
+                except: return False
+            if one_off["key"] == "default_service":
+                try:
+                    service = defaults["service"][one_off["graph"]]
+                    service = service[one_off["env"]]
+                    service = f"{service}{one_off['layer']}"
+                    return service if service == one_off["service"] else False 
+                except: return False                                               
 
         try:
             self.config_obj["global_p12"]["key_store"] = self.create_path_variable(

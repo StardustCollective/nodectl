@@ -1439,7 +1439,7 @@ class Configurator():
             "graph": self.c.yaml_dict["nodectl"]["global_elements"]["metagraph_name"],
             })
         if is_default: default = "default"
-        
+
         description = "In order to participate on a cluster a Node may be required to hold collateral within the "
         description += "active (hot) wallet located on this Node.  In the event that collateral is waved or there is not a requirement "
         description += "to hold collateral, this value can be set to 0. Please contact administration to "
@@ -1548,7 +1548,16 @@ class Configurator():
         default = None if not profile else self.c.config_obj[profile]["service"]
         required = True if not profile else False
         profile = self.profile_to_edit if not profile else profile
-        
+
+        is_default = self.c.setup_config_vars({
+            "key": "default_service",
+            "service": default,
+            "graph": self.c.yaml_dict["nodectl"]["global_elements"]["metagraph_name"],
+            "env": self.c.config_obj[profile]["environment"],
+            "layer": self.c.config_obj[profile]["layer"],
+            })
+        if is_default: default = "default"
+
         self.manual_section_header(profile,"SYSTEM SERVICES") 
         
         questions = {
