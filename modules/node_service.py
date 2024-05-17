@@ -80,12 +80,16 @@ class Node():
     
     
     def download_constellation_binaries(self,command_obj):
-        self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+        action = command_obj.get("action",False)
+        if action and not "install" in action:
+            self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+
         download_service = Download({
             "parent": self,
             "command_obj": command_obj,
             "version_obj": self.version_obj,
         })
+        
         return download_service.execute_downloads()
 
 

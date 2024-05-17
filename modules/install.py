@@ -1372,6 +1372,7 @@ class Installer():
         }
         self.cli = CLI(cli_obj)
         self.cli.functions.set_statics()
+        self.cli.version_class_obj = self.parent.version_class_obj
         self.user = UserClass(self.cli)
         
         if self.action == "uninstall": return

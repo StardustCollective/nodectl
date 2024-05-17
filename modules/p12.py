@@ -740,7 +740,7 @@ class P12Class():
             pass_ask = colored(f'  Please enter your p12 passphrase to validate: ','cyan')
             p12_passwd = getpass(pass_ask,)
 
-        if self.config_obj["global_p12"]["encryption"] and not self.solo:
+        elif self.config_obj["global_p12"]["encryption"] and not self.solo:
             p12_passwd = attempt_decrypt(profile,p12_passwd.strip())
 
         for _ in range(0,2):
