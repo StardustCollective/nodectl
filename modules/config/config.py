@@ -728,9 +728,8 @@ class Configuration():
                             except:
                                 # hypergraph exception
                                 self.config_obj[profile][tdir] = "github.com/Constellation-Labs/tessellation/"
-                        elif tdir == "edge_point":
-                            if tdir == "edge_point": 
-                                handle_edge_point(profile,environment, metagraph_name)
+                        elif "edge_point" in tdir:
+                            handle_edge_point(profile,environment, metagraph_name)
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
                             self.config_obj[profile][tdir] = self.functions.cleaner(self.config_obj[profile][tdir],"double_slash")
