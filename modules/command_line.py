@@ -385,7 +385,8 @@ class CLI():
                         join_state = sessions['state1']
                                         
                         if sessions["session0"] == 0:
-                            on_network = colored("NetworkUnreachable","red")
+                            # on_network = colored("NetworkUnreachable","red")
+                            on_network = colored("EdgePointDown","red")
                             cluster_session = colored("SessionNotFound".ljust(20," "),"red")
                             join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
                         else:
@@ -995,7 +996,7 @@ class CLI():
                 self.error_messages.error_code_messages({
                     "error_code": "cli-996",
                     "line_code": "off_network",
-                    "extra": self.config_obj[profile]["edge_point"],
+                    "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                     "extra2": self.config_obj[profile]["layer"],
                 })
     
@@ -1480,14 +1481,29 @@ class CLI():
         for profile in self.profile_names:
             if path.exists(self.config_obj[profile]["seed_path"]):
                 found_list = list(); not_found_list = list()
-                cluster_ips = self.functions.get_cluster_info_list({
-                    "ip_address": self.config_obj[profile]["edge_point"],
-                    "port": self.config_obj[profile]["edge_point_tcp_port"],
-                    "api_endpoint": "/cluster/info",
-                    "error_secs": 3,
-                    "attempt_range": 3,
-                })   
-                count = cluster_ips.pop()   
+                for n in range(0,2):
+                    cluster_ips = self.functions.get_cluster_info_list({
+                        "ip_address": self.config_obj[profile]["edge_point"],
+                        "port": self.config_obj[profile]["edge_point_tcp_port"],
+                        "api_endpoint": "/cluster/info",
+                        "error_secs": 3,
+                        "attempt_range": 3,
+                    })   
+                    try:
+                        count = cluster_ips.pop()   
+                    except Exception as e:
+                        if n > 0:
+                            self.error_messages.error_code_messages({
+                                "error_code": "cli-1497",
+                                "line_code": "lb_not_up",
+                                "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
+                                "extra2": self.config_obj[profile]["layer"],
+                            })
+                        self.log.logger.warn("cli -> show_seedlist_participation -> LB may not be accessible, trying local.")
+                        self.config_obj[profile]["edge_point"] = self.functions.get_ext_ip()
+                        self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
+                        self.config_obj[profile]["static_peer"] = True 
+                                            
                 count["seedlist_count"] = 0
                 with open(self.config_obj[profile]["seed_path"],"r") as seed_file:
                     for line in seed_file:
@@ -5098,9 +5114,15 @@ class CLI():
         ])
 
         profile = command_list[command_list.index("-p")+1]
-        snapshot_dir, possible_end = self.cli_node_last_snapshot(["value_only","-p",profile])  
+
+        snapshot_dir = f"{self.functions.default_tessellation_dir}{profile}/data/incremental_snapshot"
+        possible_end = self.functions.get_snapshot({
+                "history": 1, 
+                "environment": self.config_obj[profile]["environment"],
+                "profile": profile
+            })[1]
         possible_end += 1
-        snapshot_info = snapshot_dir.replace("incremental_snapshot","snapshot_info")
+        snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
 
         srap_obj = Send({
             "config_obj": self.functions.config_obj,
@@ -5216,7 +5238,7 @@ class CLI():
 
         for current_snap in range(start,end):
             file_path = path.join(snapshot_dir, str(current_snap))
-            info_path = path.join(snapshot_info, str(current_snap))
+            info_path = path.join(snapshot_info_dir, str(current_snap))
             if path.exists(file_path):
                 inode_snaps_set.add(stat(file_path).st_ino)
             if path.isfile(info_path):

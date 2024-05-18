@@ -703,7 +703,7 @@ class Functions():
             }
             
         while True:
-            for n in range(0,1):
+            for n in range(0,2):
                 try:
                     cluster_info = self.get_cluster_info_list({
                         "ip_address": self.config_obj[profile]["edge_point"],
@@ -729,7 +729,8 @@ class Functions():
                         self.error_messages.error_code_messages({
                             "error_code": "fnt-725",
                             "line_code": "lb_not_up",
-                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}'
+                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
+                            "extra2": self.config_obj[profile]["layer"],
                         })
                 
             cluster_info_tmp = deepcopy(cluster_info)
@@ -751,7 +752,7 @@ class Functions():
                         self.error_messages.error_code_messages({
                             "error_code": "fnt-648",
                             "line_code": "off_network",
-                            "extra": self.config_obj[profile]["edge_point"],
+                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                             "extra2": self.config_obj[profile]["layer"],
                         })
 
@@ -1592,14 +1593,23 @@ class Functions():
                             "node1": nodes[1],
                             "session0": 0,
                             "session1": 0,
-                            "state0": "NetworkUnreachable", #remote
-                            "state1": "NetworkUnreachable" #local                        
+                            "state0": "EdgePointDown", #remote
+                            "state1": "EdgePointDown" #local                        
                         }
+                        # return {
+                        #     "node0": nodes[0],
+                        #     "node1": nodes[1],
+                        #     "session0": 0,
+                        #     "session1": 0,
+                        #     "state0": "NetworkUnreachable", #remote
+                        #     "state1": "NetworkUnreachable" #local                        
+                        # }
                     except:
                         self.error_messages.error_code_messages({
                             "error_code": "fnt-958",
                             "line_code": "lb_not_up",
                             "extra": command_obj['edge_device']['remote'],
+                            "extra2": "0",
                         })
             else:
                 session_obj[f"session{i}"] = token

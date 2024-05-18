@@ -246,22 +246,28 @@ class Error_codes():
             ])
 
             
-        elif "lb_not_up" in str(var.line_code):
+        elif "lb_not_up" in str(var.line_code) or "off_network" in str(var.line_code):
             self.log.logger.critical(f"Edge Device [load balancer] does not seem to be up: {var.extra}")
             self.functions.print_paragraphs([
                 ["HALTING ALL ACTIONS",2,"red","bold"],
-                [var.extra,2,"yellow"],
+
+                ["Edge Point:",0], [var.extra,1,"yellow"],
+                ["Layer:",2], [str(var.extra2),2,"yellow"],
+
                 ["Health Status Check on the",0,"red","bold"], ["EDGE DEVICE",0,"yellow","underline,bold"], ["did not return a valid response.",2,"red","bold"],
                 ["Possible Causes",2,"cyan","bold"],
                 ["  - Your Node does not have Internet connection.",1],
                 ["  - Source Node may not be reachable",1],
                 ["  - Edge Node may not be reachable",2],
 
+                ["Please keep in mind that nodectl will attempt to utilize the local API if the edge",0],
+                ["point is unreachable. Please consider this when reviewing the edge point and layer below.",2],
+
                 ["Alternative Solution:",0],["Use",0,"magenta"],["--peer",0,"yellow"],["option.",1,"magenta"],
                 ["note:",0],["May need accompanying",0,"magenta"],["--port",0,"yellow"],["option.",2,"magenta"],
             ])
 
-            
+
         elif "verification_failure" in str(var.line_code):
             self.log.logger.critical(f"Unable to verify nodectl properly, please review and try again | {var.extra}")
             self.functions.print_paragraphs([
@@ -373,22 +379,7 @@ class Error_codes():
                 ["nodectl",0,"red","bold,underline"], ["was unable to download the seed-list associated with the Global Layer0",2,"red","bold"],
                 ["Please check your outbound Internet access and try again later.",2,"yellow","bold"],
             ])
-            
-            
-        elif var.line_code == "off_network":
-            self.log.logger.critical(f"attempt to issue command that returned empty values. Is the Node on the network? edge point: [{var.extra}] layer [{str(var.extra2)}]")
-            self.functions.print_paragraphs([
-                ["Something isn't quite right?",2,"red","bold"],
-                ["nodectl",0,"red","bold"], ["was unable to access data associated with the command entered?",0,"red"],
-                ["Are you sure this Node is on the HyperGraph?",1,"red"],
-                ["Network Unreachable",2,"magenta","bold"],
 
-                ["Please keep in mind that nodectl will attempt to utilize the local API if the edge point is unreachable. Please consider this when reviewing the edge point and layer below.",2],
-
-                ["Edge Point:",0], [var.extra,1,"yellow"],
-                ["Layer:",0], [str(var.extra2),2,"yellow"],
-            ])
-            
             
         elif var.line_code == "join":
             self.log.logger.critical("attempt to join cluster failed.")
@@ -461,9 +452,14 @@ class Error_codes():
             self.log.logger.critical(f"during execution of nodectl an unknown error was encountered | error [{var.extra}]")
             self.functions.print_paragraphs([
                 ["An unknown error has occurred?  Please try the previous command request again.  If you continue to encounter",0,"red","bold"],
-                ["this error message, please join the Constellation Official Discord channel for additional help.",0,"red","bold"],
+                ["this error message, please join the Constellation Official Discord channel for additional help.",2,"red","bold"],
             ])            
-                        
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    [var.extra2,2,"yellow"],
+                ])  
+
+
         elif var.line_code == "possible404":
             self.log.logger.critical(f"attempt to access an invalid URI failed with error code [{var.extra.text} uri/url [{var.extra2}]")
             self.functions.print_paragraphs([
@@ -739,7 +735,7 @@ class Error_codes():
             if var.extra2:
                 self.functions.print_paragraphs([
                     ["hint:",0,"red"],
-                    [extra2,2,"yellow"],
+                    [var.extra2,2,"yellow"],
                 ])  
 
         elif var.line_code == "config_error":

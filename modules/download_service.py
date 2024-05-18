@@ -243,21 +243,30 @@ class Download():
 
 
     def set_default_version(self):
-        
-        # readability
-        env = self.functions.environment_name
+        try:
+            # readability
+            env = self.functions.environment_name
 
-        if self.requested_profile: profile = self.requested_profile
-        else: profile = self.functions.profile_names[0]
+            if self.requested_profile: profile = self.requested_profile
+            else: profile = self.functions.profile_names[0]
 
-        if self.tools_version == "default":
-            self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+            if self.tools_version == "default":
+                self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
 
-        if self.download_version == "default":
-            if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
-                self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
-            else:
-                self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
+            if self.download_version == "default":
+                if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
+                    self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+                else:
+                    self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
+        except Exception as e:
+            self.log.logger.error(f"{self.log_prefix} -> set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "ds-265",
+                "line_code": "unknown_error",
+                "extra": e,
+                "extra2": "The Download Service module may have conflicted with a parallel running versioning service at the time of the Node Operator's request.",
+            })
+
         return
     
 
