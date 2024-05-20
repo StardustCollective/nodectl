@@ -5146,55 +5146,56 @@ class CLI():
             try: end = int(end)
             except: int_error = True      
 
-        if start_default:
-            start = possible_start
-        if end_default:
-            end = possible_end
+        if not int_error:
+            if start_default:
+                start = possible_start
+            if end_default:
+                end = possible_end
 
-        if start == end: end += 150
-        start, end = min(start, end), max(start, end)
+            if start == end: end += 150
+            start, end = min(start, end), max(start, end)
 
-        if start_default:
-            user_start = input(colored(f"  Please enter the start snapshot [{colored(start,'yellow')}]: ","cyan"))
-            if user_start != "" and user_start != None:
-                try: start = int(user_start)
-                except: int_error = True
+            if start_default:
+                user_start = input(colored(f"  Please enter the start snapshot [{colored(start,'yellow')}]: ","cyan"))
+                if user_start != "" and user_start != None:
+                    try: start = int(user_start)
+                    except: int_error = True
 
-        if end_default:
-            user_end = input(colored(f"  Please enter the end snapshot [{colored(end,'yellow')}]: ","cyan"))
-            if user_end != "" and user_end != None:
-                try: end = int(user_end)
-                except: int_error = True
+            if end_default and not int_error:
+                end += 1500
+                user_end = input(colored(f"  Please enter the end snapshot [{colored(end,'yellow')}]: ","cyan"))
+                if user_end != "" and user_end != None:
+                    try: end = int(user_end)
+                    except: int_error = True
 
-        if start == end: 
-            end += 150
-            self.functions.print_paragraphs([
-                ["",1],[" WARNING ",0,"yellow,on_red"], ["The start and stop snapshots match, increasing the end",0,"yellow"],
-                ["snapshots by 150.",1,"yellow"], 
-                ["  start:",0],[str(start),1,"blue","bold"],
-                ["    end:",0],[str(end),1,"blue","bold"],
+            if start == end and not int_error: 
+                end += 150
+                self.functions.print_paragraphs([
+                    ["",1],[" WARNING ",0,"yellow,on_red"], ["The start and stop snapshots match, increasing the end",0,"yellow"],
+                    ["snapshots by 150.",1,"yellow"], 
+                    ["  start:",0],[str(start),1,"blue","bold"],
+                    ["    end:",0],[str(end),1,"blue","bold"],
 
-            ])
-            confirm = self.functions.confirm_action({
-                "yes_no_default": "n",
-                "return_on": "y",
-                "prompt_color": "magenta",
-                "prompt": f"Continue with new values?",
-                "exit_if": False,
-            })  
-            if not confirm:
-                end -= 150    
-                  
-        start, end = min(start, end), max(start, end)     
-  
+                ])
+                confirm = self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt_color": "magenta",
+                    "prompt": f"Continue with new values?",
+                    "exit_if": False,
+                })  
+                if not confirm:
+                    end -= 150   
+
         if int_error:
             self.error_messages.error_code_messages({
                 "error_code": "cli-4823",
                 "line_code": "input_error",
                 "extra": "start or end snapshot integer",
                 "extra2": "Must enter a valid integer for start and end snapshots."
-            })
+            })          
 
+        start, end = min(start, end), max(start, end)     
         print("")
 
         self.functions.print_cmd_status({
