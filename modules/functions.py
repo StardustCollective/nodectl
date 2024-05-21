@@ -1147,7 +1147,7 @@ class Functions():
             except:
                 self.log.logger.warn(f"unable to process path search | [/{i_path}/]")
             
-        clean_up = copy(possible_found) 
+        clean_up = deepcopy(possible_found) 
         for n,exclude in enumerate(excludes):  
             if exclude:
                 for item in exclude:
@@ -2380,7 +2380,7 @@ class Functions():
         
         ip_addresses = [test_address,current_source_node]
         ip_addresses = [x for x in ip_addresses if x]
-        prepare_ip_objs = copy(ip_addresses)
+        prepare_ip_objs = deepcopy(ip_addresses)
 
         for n,ip in enumerate(prepare_ip_objs):
             if not isinstance(ip,dict):
@@ -3001,7 +3001,7 @@ class Functions():
     
     def print_option_menu(self,command_obj):
         options_org = command_obj.get("options")
-        options = copy(options_org) # options relative to self.profile_names
+        options = deepcopy(options_org) # options relative to self.profile_names
         let_or_num = command_obj.get("let_or_num","num")
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")

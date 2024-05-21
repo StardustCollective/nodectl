@@ -6,16 +6,17 @@ from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, popen, remove, walk, chmod, stat, makedirs, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, popen, cpu_count, remove, walk, chmod, stat, makedirs, listdir, SEEK_END, SEEK_CUR
 from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
-from copy import copy
+from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, wait as thread_wait
 
 from modules.p12 import P12Class
-from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
+from modules.troubleshoot.snapshot import process_snap_files, discover_snapshots, merge_snap_results, remove_elements, clean_info, print_report
 from .download_status import DownloadStatus
 from .status import Status
 from .node_service import Node
@@ -858,12 +859,12 @@ class CLI():
         })
         self.functions.print_clear_line()
 
-        cpu_thresholds = copy(ave_cpu_list)
+        cpu_thresholds = deepcopy(ave_cpu_list)
         ave_cpu_set = set(ave_cpu_list)
         if len(ave_cpu_set) > 3:
             cpu_thresholds = remove_highest_lowest(cpu_thresholds)
 
-        mem_thresholds = copy(ave_mem_list)
+        mem_thresholds = deepcopy(ave_mem_list)
         ave_mem_set = set(ave_mem_list)
         if len(ave_mem_set) > 3:
             mem_thresholds = remove_highest_lowest(mem_thresholds)
@@ -5098,9 +5099,6 @@ class CLI():
     def cli_remove_snapshots(self,command_list):
         self.log.logger.info("cli -> remove_snapshots initiated.")
 
-        int_error, start_default, end_default = False, True, True
-        missing = []
-
         self.functions.print_header_title({
             "line1": "Developer Mode - Remove snapshots",
             "single_line": True,
@@ -5109,111 +5107,23 @@ class CLI():
 
         self.functions.print_paragraphs([
             [" WARNING ",0,"red,on_yellow"], ["This is an advanced feature and should not",0,"red"],
-            ["be used unless",0,"red"], ["ABSOLUTELY",0,"yellow","bold"],
-            ["necessary.  This feature can lead to unpredictable and undesired affects on your existing Node.",2,"red"],
+            ["be used unless",0,"red"], ["ABSOLUTELY",0,"yellow"],
+            ["necessary.",1,"red"],
+            ["This feature can lead to unpredictable and undesired affects on your existing Node.",2,"red"],
+            ["nodectl will take your Node offline first.",2],
         ])
 
         profile = command_list[command_list.index("-p")+1]
-
         snapshot_dir = f"{self.functions.default_tessellation_dir}{profile}/data/incremental_snapshot"
-        possible_end = self.functions.get_snapshot({
-                "history": 1, 
-                "environment": self.config_obj[profile]["environment"],
-                "profile": profile
-            })[1]
-        possible_end += 1
-        snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
 
-        srap_obj = Send({
-            "config_obj": self.functions.config_obj,
-            "command_list": ["-p",profile],
-            "ip_address": self.ip_address,
-        })   
-
-        try:          
-            possible_start = int(srap_obj.handle_wdf_last_valid()) - 50
-        except:
-            start = input(colored(f"  Please enter the start snapshot: ","cyan"))
-            start_default = False
-            try: start = int(start)
-            except: int_error = True  
-
-        try:
-            possible_end = int(possible_end)
-        except:
-            end = input(colored(f"  Please enter the end snapshot: ","cyan"))
-            end_default = False
-            try: end = int(end)
-            except: int_error = True      
-
-        if not int_error:
-            if start_default:
-                start = possible_start
-            if end_default:
-                end = possible_end
-
-            if start == end: end += 150
-            start, end = min(start, end), max(start, end)
-
-            if start_default:
-                user_start = input(colored(f"  Please enter the start snapshot [{colored(start,'yellow')}]: ","cyan"))
-                if user_start != "" and user_start != None:
-                    try: start = int(user_start)
-                    except: int_error = True
-
-            if end_default and not int_error:
-                end += 1500
-                user_end = input(colored(f"  Please enter the end snapshot [{colored(end,'yellow')}]: ","cyan"))
-                if user_end != "" and user_end != None:
-                    try: end = int(user_end)
-                    except: int_error = True
-
-            if start == end and not int_error: 
-                end += 150
-                self.functions.print_paragraphs([
-                    ["",1],[" WARNING ",0,"yellow,on_red"], ["The start and stop snapshots match, increasing the end",0,"yellow"],
-                    ["snapshots by 150.",1,"yellow"], 
-                    ["  start:",0],[str(start),1,"blue","bold"],
-                    ["    end:",0],[str(end),1,"blue","bold"],
-
-                ])
-                confirm = self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt_color": "magenta",
-                    "prompt": f"Continue with new values?",
-                    "exit_if": False,
-                })  
-                if not confirm:
-                    end -= 150   
-
-        if int_error:
-            self.error_messages.error_code_messages({
-                "error_code": "cli-4823",
-                "line_code": "input_error",
-                "extra": "start or end snapshot integer",
-                "extra2": "Must enter a valid integer for start and end snapshots."
-            })          
-
-        start, end = min(start, end), max(start, end)     
-        print("")
-
-        self.functions.print_cmd_status({
-            "text_start": "Starting snapshot",
-            "status": start,
-            "status_color": "yellow",
-            "newline": True,
-        })
-        self.functions.print_cmd_status({
-            "text_start": "Ending snapshot",
-            "status": end,
-            "status_color": "yellow",
-            "newline": True,
-        })
-        self.functions.print_cmd_status({
-            "text_start": "Starting removal process",
-            "newline": True,
-        })
+        if "-y" not in command_list:
+            self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt_color": "magenta",
+                "prompt": f"Continue?",
+                "exit_if": True,
+            })  
 
         self.build_node_class()
         self.set_profile(profile)
@@ -5230,57 +5140,103 @@ class CLI():
             "argv_list": []
         })
 
-        inode_snaps_set = set()
+        self.functions.print_paragraphs([
+            [" PATIENCE ",0,"yellow,on_red"],["This could take over",0],
+            ["3",0,"yellow"], ["minutes to complete.",1],
+        ])
+    
+        # with ThreadPoolExecutor() as executor:
+        #     self.functions.status_dots = True
+        #     status_obj = {
+        #         "text_start": f"Analyze Node chain",
+        #         "status": "running",
+        #         "status_color": "yellow",
+        #         "dotted_animation": True,
+        #         "newline": False,
+        #         "timeout": False,
+        #     }
+        #     _ = executor.submit(self.functions.print_cmd_status,status_obj)
+
+        #     files = [f for f in listdir(snapshot_dir) if path.isfile(path.join(snapshot_dir, f))]
+        #     num_workers = cpu_count()
+        #     chunk_size = len(files) // num_workers
+        #     length_of_files = len(files)
+
+        #     self.functions.status_dots = False
+        #     self.functions.print_cmd_status({
+        #         "text_start": "Found on Node",
+        #         "brackets": f"{length_of_files:,}",
+        #         "text_end": "inc files",
+        #         "status": "completed",
+        #         "status_color": "green",
+        #         "dotted_animation": False,
+        #         "newline": True,
+        #     })
+
+        results = discover_snapshots(snapshot_dir, self.functions, self.log)
+        # with ThreadPoolExecutor() as executor:
+        #     self.functions.status_dots = True
+        #     status_obj = {
+        #         "text_start": f"Discovering Node ordinals",
+        #         "status": "running",
+        #         "status_color": "yellow",
+        #         "dotted_animation": True,
+        #         "newline": False,
+        #         "timeout": False,
+        #     }
+        #     _ = executor.submit(self.functions.print_cmd_status,status_obj)
+
+        #     with ProcessPoolExecutor(max_workers=num_workers) as executor2:
+        #         futures = []
+        #         for i in range(0, length_of_files, chunk_size):
+        #             file_chunk = files[i:i + chunk_size]
+        #             futures.append(executor2.submit(process_snap_files, file_chunk, snapshot_dir, self.log))
+        #         results = [future.result() for future in as_completed(futures)]
+
+        #     self.functions.status_dots = False
+        #     self.functions.print_cmd_status({
+        #         "text_start": "Ordinal analysis process",
+        #         "status": "completed",
+        #         "status_color": "green",
+        #         "dotted_animation": False,
+        #         "newline": True,
+        #     })
+            
+        merged_dict, count_results = merge_snap_results(results)
+        snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
+        start = count_results["ord_lowest"]
+        end = count_results["ord_highest"]
+
+        self.print_title("ANALYSIS RESULTS")
+        print_report(count_results, self.functions)
+
+        if "--report_only" in command_list:
+            print("")
+            return
+
+        if "-y" not in command_list:
+            self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt_color": "magenta",
+                "prompt": f"Start removal?",
+                "exit_if": True,
+            })  
 
         self.functions.print_cmd_status({
-            "text_start": "Starting removal process",
+            "text_start": "Removing info bookmarks",
             "newline": True,
         })
+        clean_info(snapshot_info_dir, self.functions, self.log, start, end)
 
-        for current_snap in range(start,end):
-            file_path = path.join(snapshot_dir, str(current_snap))
-            info_path = path.join(snapshot_info_dir, str(current_snap))
-            if path.exists(file_path):
-                inode_snaps_set.add(stat(file_path).st_ino)
-            if path.isfile(info_path):
-                self.functions.print_cmd_status({
-                    "text_start": "Handling",
-                    "brackets": "snapshot",
-                    "status": path.split(info_path)[1],
-                    "status_color": "red",
-                    "newline": True,
-                })
-                self.log.logger.warn(f"remove_snapshots --> removing snapshot {info_path}")
-                remove(info_path)
-
-
-        for root, _, files in walk(snapshot_dir):
-            for snapshot in files:
-                snap_to_remove = path.join(root, snapshot)
-                if stat(snap_to_remove).st_ino in inode_snaps_set:
-                    if snapshot.isdigit():
-                        snaphost_display = snapshot
-                    if len(snapshot) > 63:
-                        snaphost_display = f"{snapshot[0:8]}....{snapshot[-8:]}"
-
-                    self.functions.print_cmd_status({
-                        "text_start": "Removing",
-                        "brackets": "snapshot_elements",
-                        "status": snaphost_display,
-                        "status_color": "red",
-                        "newline": True,
-                    })
-
-                    self.log.logger.warn(f"remove_snapshots --> removing snapshot {snap_to_remove}")
-                    remove(snap_to_remove)
-                else:
-                    missing.append(snap_to_remove)
-                           
-        if len(missing) > 0:
-            self.functions.print_paragraphs([
-                ["",1], [f"Some snapshots were not found between [{start}] and [{end}]",1],
-                ["This can be safely ignored...",2,"white"],
-            ])
+        print("")
+        self.functions.print_cmd_status({
+            "text_start": "Removing chain elements",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": True,
+        })
+        remove_elements(merged_dict,snapshot_dir,self.functions,self.log,start)
            
         self.functions.print_paragraphs([
             [f"Removal operations complete, please restart profile [{profile}]",0],

@@ -2415,7 +2415,7 @@ class Configurator():
 
             user_confirm = True
             if confirm:
-                confirm_dict = copy(value_dict)
+                confirm_dict = deepcopy(value_dict)
                 if len(alternative_confirm_keys) > 0:
                     for new_key, org_key in alternative_confirm_keys.items():
                         confirm_dict[new_key] = confirm_dict.pop(org_key)
@@ -2574,7 +2574,7 @@ class Configurator():
                 "extra2": "existence",
             })
             
-        options = copy(self.c.metagraph_list) # don't want metagraph_list altered
+        options = deepcopy(self.c.metagraph_list) # don't want metagraph_list altered
         if self.requested_profile in options:
             choice = self.requested_profile
         else:
@@ -3737,7 +3737,7 @@ class Configurator():
             if path.exists(effp): remove(effp)    
             sleep(.4) 
 
-            new_encryption_list = copy(encryption_list)
+            new_encryption_list = deepcopy(encryption_list)
             for profile in encryption_list:
                 if profile == "global_p12":
                     self.config_obj_apply = {
@@ -3757,7 +3757,7 @@ class Configurator():
                 else:
                     new_encryption_list.remove(profile)
 
-            encryption_list = copy(new_encryption_list)
+            encryption_list = deepcopy(new_encryption_list)
                         
         self.apply_vars_to_config()
         if not self.quick_install:
@@ -4091,7 +4091,7 @@ class Configurator():
                         clean_up_old_list.append(old_profile)
                         self.log.logger.warn(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
         
-        clean_up_old_list2 = copy(clean_up_old_list)
+        clean_up_old_list2 = deepcopy(clean_up_old_list)
 
         for old_profile in clean_up_old_list2:
             try: # new config will fall into exception
@@ -4333,7 +4333,7 @@ class Configurator():
             else:
                 break
       
-        iuuid_int_list2 = copy(iuuid_int_list)
+        iuuid_int_list2 = deepcopy(iuuid_int_list)
         iuuid_int_list2 = list(enumerate(iuuid_int_list2))
         random.shuffle(iuuid_int_list2)
         iuuid_int_list3 = ":" + ''.join('{:X}{:X}'.format(x, y) for x, y in iuuid_int_list2)

@@ -69,7 +69,7 @@ class Versioning():
             "node_nodectl_yaml_version": nodectl_yaml_version,  
             "node_upgrade_path_yaml_version": node_upgrade_path_yaml_version,          
         }
-        self.version_obj = copy(self.nodectl_static_versions)
+        self.version_obj = deepcopy(self.nodectl_static_versions)
         self.version_obj["nodectl_github_version"] = f'nodectl_{self.version_obj["node_nodectl_version"].replace(".","")}'
         self.version_obj_path = "/var/tessellation/nodectl/"
         self.version_obj_file = f"{self.version_obj_path}version_obj.json"
