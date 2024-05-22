@@ -22,9 +22,8 @@ def process_snap_files(files,snapshot_dir,log):
     return result
 
 
-def merge_snap_results(dicts,debug=False):
-    merged = {}
-    results = {
+def set_count_dict():
+    return {
         "match_count": 0,
         "solo_count": 0,
         "ord_count": 0,
@@ -33,6 +32,11 @@ def merge_snap_results(dicts,debug=False):
         "ord_highest": -1,
         "other": 0
     }
+
+
+def merge_snap_results(dicts,debug=False):
+    merged = {}
+    results = set_count_dict()
     example_snaps = []
     example_hashes = []
 
@@ -173,6 +177,10 @@ def print_report(count_results,functions):
 
 
 def discover_snapshots(snapshot_dir, functions, log):
+    return_results = {
+        "results": None,
+        "valid": False,
+    }
     with ThreadPoolExecutor() as executor:
         functions.status_dots = True
         status_obj = {
@@ -200,6 +208,9 @@ def discover_snapshots(snapshot_dir, functions, log):
             "dotted_animation": False,
             "newline": True,
         })
+
+    if length_of_files < 1:  
+        return return_results
 
     with ThreadPoolExecutor() as executor:
         functions.status_dots = True
@@ -229,4 +240,6 @@ def discover_snapshots(snapshot_dir, functions, log):
             "newline": True,
         })
 
-    return results
+    return_results["results"] = results
+    return_results["valid"] = True
+    return return_results

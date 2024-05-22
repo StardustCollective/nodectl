@@ -6,17 +6,17 @@ from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, popen, cpu_count, remove, walk, chmod, stat, makedirs, listdir, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, SEEK_END, SEEK_CUR
 from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
 from copy import deepcopy
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, wait as thread_wait
+from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 
 from modules.p12 import P12Class
-from modules.troubleshoot.snapshot import process_snap_files, discover_snapshots, merge_snap_results, remove_elements, clean_info, print_report
+from modules.troubleshoot.snapshot import discover_snapshots, merge_snap_results, remove_elements, clean_info, set_count_dict, print_report
 from .download_status import DownloadStatus
 from .status import Status
 from .node_service import Node
@@ -5124,6 +5124,7 @@ class CLI():
                 "prompt": f"Continue?",
                 "exit_if": True,
             })  
+            print("")
 
         self.build_node_class()
         self.set_profile(profile)
@@ -5144,68 +5145,23 @@ class CLI():
             [" PATIENCE ",0,"yellow,on_red"],["This could take over",0],
             ["3",0,"yellow"], ["minutes to complete.",1],
         ])
-    
-        # with ThreadPoolExecutor() as executor:
-        #     self.functions.status_dots = True
-        #     status_obj = {
-        #         "text_start": f"Analyze Node chain",
-        #         "status": "running",
-        #         "status_color": "yellow",
-        #         "dotted_animation": True,
-        #         "newline": False,
-        #         "timeout": False,
-        #     }
-        #     _ = executor.submit(self.functions.print_cmd_status,status_obj)
-
-        #     files = [f for f in listdir(snapshot_dir) if path.isfile(path.join(snapshot_dir, f))]
-        #     num_workers = cpu_count()
-        #     chunk_size = len(files) // num_workers
-        #     length_of_files = len(files)
-
-        #     self.functions.status_dots = False
-        #     self.functions.print_cmd_status({
-        #         "text_start": "Found on Node",
-        #         "brackets": f"{length_of_files:,}",
-        #         "text_end": "inc files",
-        #         "status": "completed",
-        #         "status_color": "green",
-        #         "dotted_animation": False,
-        #         "newline": True,
-        #     })
 
         results = discover_snapshots(snapshot_dir, self.functions, self.log)
-        # with ThreadPoolExecutor() as executor:
-        #     self.functions.status_dots = True
-        #     status_obj = {
-        #         "text_start": f"Discovering Node ordinals",
-        #         "status": "running",
-        #         "status_color": "yellow",
-        #         "dotted_animation": True,
-        #         "newline": False,
-        #         "timeout": False,
-        #     }
-        #     _ = executor.submit(self.functions.print_cmd_status,status_obj)
+        
+        if not results["valid"]:
+            count_results = set_count_dict()
+            merged_dict = {}
+        else:
+            results = results["results"]
+            merged_dict, count_results = merge_snap_results(results)
 
-        #     with ProcessPoolExecutor(max_workers=num_workers) as executor2:
-        #         futures = []
-        #         for i in range(0, length_of_files, chunk_size):
-        #             file_chunk = files[i:i + chunk_size]
-        #             futures.append(executor2.submit(process_snap_files, file_chunk, snapshot_dir, self.log))
-        #         results = [future.result() for future in as_completed(futures)]
-
-        #     self.functions.status_dots = False
-        #     self.functions.print_cmd_status({
-        #         "text_start": "Ordinal analysis process",
-        #         "status": "completed",
-        #         "status_color": "green",
-        #         "dotted_animation": False,
-        #         "newline": True,
-        #     })
-            
-        merged_dict, count_results = merge_snap_results(results)
         snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
+
         start = count_results["ord_lowest"]
+        if start < 0: count_results["ord_lowest"] = "n/a"
+
         end = count_results["ord_highest"]
+        if end < 0: count_results["ord_highest"] = "n/a"
 
         self.print_title("ANALYSIS RESULTS")
         print_report(count_results, self.functions)
@@ -5214,12 +5170,77 @@ class CLI():
             print("")
             return
 
+        if count_results["solo_count"] < 1:
+            if count_results["ord_highest"] == "n/a":
+                self.functions.print_paragraphs([
+                    ["",1],[" WARNING ",0,"yellow,on_red"], 
+                    ["nodectl was unable to find any valid ordinal, snapshot, or hash history on this Node?",2,"red"],
+                    ["In most cases, this indicates that the Node is either new or has never participated",0],
+                    ["on the configured cluster.",2],
+                    ["nodectl will now exit.",2,"blue","bold"],
+                ])
+                return
+
+            self.functions.print_paragraphs([
+                ["",1],[" VALID CHAIN ",0,"blue,on_green"], 
+                ["This Node's snapshot inventory is valid and does not need any further action.",0,"green"],
+                ["nodectl will quit with no action.",2,"green"],
+
+                ["If your Node is reaching the",0], ["WaitingForDownload",0,"red"], ["state, the Node may have an",0],
+                ["invalid ordinal/hash match. It is recommended to reach out to Constellation Network",0],
+                ["support for further troubleshooting.",2],
+
+                ["If you believe you reached this message in error, you will now be offered the option to enter a",0,"magenta"], 
+                ["user defined",0,"yellow"], ["starting ordinal below.",2,"magenta"],
+            ])
+
+            if count_results["ord_lowest"] == "n/a": start = 0
+            if self.config_obj[profile]["environment"] == "testnet":
+                start = 1933590 # static defined on protocol update waypoint
+            self.functions.print_paragraphs([
+                ["Please enter a",0], ["start",0,"yellow"], ["ordinal to begin removal process.",1],
+                ["Alternatively, you can please",0],["q",0,"yellow"], ["to exit the removal process.",2],
+            ])
+
+            while True:
+                user_start = input(f'{colored("  start ordinal [","magenta")}{start}{colored("]: ","magenta")}')
+                if user_start.lower() == "q":
+                    cprint("  Action cancelled by Node Operator","green")
+                    return
+                elif user_start != "" and user_start != None:
+                    try:
+                        user_start = int(user_start)
+                    except:
+                        cprint("  Invalid starting point, try again","red")
+                    else:
+                        if user_start == end or user_start > end:
+                            self.functions.print_paragraphs([
+                                ["Invalid starting ordinal.",1,"red"],
+                                ["The start value cannot be greater than or equal to the end value.",1,"red"],
+                            ])
+                        else:
+                            break
+                else:
+                    break
+
+            start = user_start
+            for n, s_t in enumerate(["start","stop"]):
+                self.functions.print_cmd_status({
+                    "text_start": f"New {s_t} ordinal",
+                    "status": str(start) if n < 1 else str(end),
+                    "status_color": "yellow",
+                    "newline": True,
+                })
+        
+        self.functions.print_paragraphs([
+            ["",1],["The removal clean up process will take some time to complete.",1],
+        ])
         if "-y" not in command_list:
             self.functions.confirm_action({
                 "yes_no_default": "n",
                 "return_on": "y",
                 "prompt_color": "magenta",
-                "prompt": f"Start removal?",
+                "prompt": f"Start removal process?",
                 "exit_if": True,
             })  
 
@@ -5227,6 +5248,7 @@ class CLI():
             "text_start": "Removing info bookmarks",
             "newline": True,
         })
+        sleep(1) # give Node Operator time to read messages
         clean_info(snapshot_info_dir, self.functions, self.log, start, end)
 
         print("")
