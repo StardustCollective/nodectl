@@ -16,7 +16,7 @@ from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 
 from modules.p12 import P12Class
-from modules.troubleshoot.snapshot import discover_snapshots, merge_snap_results, remove_elements, clean_info, set_count_dict, print_report
+from modules.troubleshoot.snapshot import discover_snapshots, merge_snap_results, remove_elements, clean_info, set_count_dict, custom_input, print_report
 from .download_status import DownloadStatus
 from .status import Status
 from .node_service import Node
@@ -5097,6 +5097,7 @@ class CLI():
 
 
     def cli_remove_snapshots(self,command_list):
+        debug = True
         self.log.logger.info("cli -> remove_snapshots initiated.")
 
         self.functions.print_header_title({
@@ -5126,24 +5127,51 @@ class CLI():
             })  
             print("")
 
-        self.build_node_class()
-        self.set_profile(profile)
-        self.cli_leave({
-            "secs": 30,
-            "reboot_flag": False,
-            "skip_msg": False,
-            "print_timer": True,
-            "threaded": False,
-        })
-        self.cli_stop({
-            "show_timer": False,
-            "static_nodeid": False,
-            "argv_list": []
-        })
+        old_days = -1
+        if "--days" in command_list:
+            old_days = command_list[command_list.index("--days")+1]
+            try:
+                old_days = int(old_days)
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-5137",
+                    "line_code": "invalid_input",
+                    "extra": f"--days {old_days}",
+                    "extra2": "--days must be a positive integer",
+                })
+            else:
+                if old_days < 1: old_days = -1
+
+            if old_days > 0:
+                self.functions.print_paragraphs([
+                    ["Removing old snapshot data requested by Node Operator >",0],[str(old_days),0,"yellow"],
+                    ["days old",2],
+                ])
+            if old_days < 30:
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"],
+                    ["Removing snapshot data younger than",0,"red"],
+                    ["30",0,"yellow"], ["days can lead to undesirable results.",2,"red"],
+                ])
+
+        # self.build_node_class()
+        # self.set_profile(profile)
+        # self.cli_leave({
+        #     "secs": 30,
+        #     "reboot_flag": False,
+        #     "skip_msg": False,
+        #     "print_timer": True,
+        #     "threaded": False,
+        # })
+        # self.cli_stop({
+        #     "show_timer": False,
+        #     "static_nodeid": False,
+        #     "argv_list": []
+        # })
 
         self.functions.print_paragraphs([
             [" PATIENCE ",0,"yellow,on_red"],["This could take over",0],
-            ["3",0,"yellow"], ["minutes to complete.",1],
+            ["3",0,"yellow"], ["minutes to complete the entire process.",1],
         ])
 
         results = discover_snapshots(snapshot_dir, self.functions, self.log)
@@ -5152,14 +5180,16 @@ class CLI():
             count_results = set_count_dict()
             merged_dict = {}
         else:
-            results = results["results"]
-            merged_dict, count_results = merge_snap_results(results)
+            merged_dict, count_results = merge_snap_results(results,debug)
 
         snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
+        count_results["old_days"] = old_days
 
         start = count_results["ord_lowest"]
         if start < 0: count_results["ord_lowest"] = "n/a"
 
+        if results["max_ordinal"] > count_results["ord_highest"]:
+            count_results["ord_highest"] = results["max_ordinal"]
         end = count_results["ord_highest"]
         if end < 0: count_results["ord_highest"] = "n/a"
 
@@ -5170,17 +5200,17 @@ class CLI():
             print("")
             return
 
+        if count_results["length_of_files"] < 1:
+            self.functions.print_paragraphs([
+                ["",1],[" WARNING ",0,"yellow,on_red"], 
+                ["nodectl was unable to find any valid ordinal, snapshot, or hash history on this Node?",2,"red"],
+                ["In most cases, this indicates that the Node is either new or has never participated",0],
+                ["on the configured cluster.",2],
+                ["nodectl will now exit.",2,"blue","bold"],
+            ])
+            return
+        
         if count_results["solo_count"] < 1:
-            if count_results["ord_highest"] == "n/a":
-                self.functions.print_paragraphs([
-                    ["",1],[" WARNING ",0,"yellow,on_red"], 
-                    ["nodectl was unable to find any valid ordinal, snapshot, or hash history on this Node?",2,"red"],
-                    ["In most cases, this indicates that the Node is either new or has never participated",0],
-                    ["on the configured cluster.",2],
-                    ["nodectl will now exit.",2,"blue","bold"],
-                ])
-                return
-
             self.functions.print_paragraphs([
                 ["",1],[" VALID CHAIN ",0,"blue,on_green"], 
                 ["This Node's snapshot inventory is valid and does not need any further action.",0,"green"],
@@ -5193,8 +5223,16 @@ class CLI():
                 ["If you believe you reached this message in error, you will now be offered the option to enter a",0,"magenta"], 
                 ["user defined",0,"yellow"], ["starting ordinal below.",2,"magenta"],
             ])
+            
+            if count_results["ord_lowest"] == "n/a": 
+                find_start = Send({
+                    "config_obj": self.config_obj,
+                    "command_list": command_list,
+                    "ip_address": self.ip_address,
+                })
+                start = find_start.handle_wdf_last_valid()
+                if start == "not_found": start = 0
 
-            if count_results["ord_lowest"] == "n/a": start = 0
             if self.config_obj[profile]["environment"] == "testnet":
                 start = 1933590 # static defined on protocol update waypoint
             self.functions.print_paragraphs([
@@ -5202,35 +5240,7 @@ class CLI():
                 ["Alternatively, you can please",0],["q",0,"yellow"], ["to exit the removal process.",2],
             ])
 
-            while True:
-                user_start = input(f'{colored("  start ordinal [","magenta")}{start}{colored("]: ","magenta")}')
-                if user_start.lower() == "q":
-                    cprint("  Action cancelled by Node Operator","green")
-                    return
-                elif user_start != "" and user_start != None:
-                    try:
-                        user_start = int(user_start)
-                    except:
-                        cprint("  Invalid starting point, try again","red")
-                    else:
-                        if user_start == end or user_start > end:
-                            self.functions.print_paragraphs([
-                                ["Invalid starting ordinal.",1,"red"],
-                                ["The start value cannot be greater than or equal to the end value.",1,"red"],
-                            ])
-                        else:
-                            break
-                else:
-                    break
-
-            start = user_start
-            for n, s_t in enumerate(["start","stop"]):
-                self.functions.print_cmd_status({
-                    "text_start": f"New {s_t} ordinal",
-                    "status": str(start) if n < 1 else str(end),
-                    "status_color": "yellow",
-                    "newline": True,
-                })
+            start, end = custom_input(start, end, self.functions)
         
         self.functions.print_paragraphs([
             ["",1],["The removal clean up process will take some time to complete.",1],
@@ -5249,7 +5259,7 @@ class CLI():
             "newline": True,
         })
         sleep(1) # give Node Operator time to read messages
-        clean_info(snapshot_info_dir, self.functions, self.log, start, end)
+        clean_info(snapshot_info_dir, self.functions, self.log, start, end, debug)
 
         print("")
         self.functions.print_cmd_status({
@@ -5258,7 +5268,7 @@ class CLI():
             "status_color": "yellow",
             "newline": True,
         })
-        remove_elements(merged_dict,snapshot_dir,self.functions,self.log,start)
+        remove_elements(merged_dict,snapshot_dir,self.functions,self.log,start,old_days,debug)
            
         self.functions.print_paragraphs([
             [f"Removal operations complete, please restart profile [{profile}]",0],

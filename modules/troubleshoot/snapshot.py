@@ -1,29 +1,36 @@
 from os import stat, path, remove, listdir, cpu_count
-from pathlib import Path
-from time import sleep
+from time import time
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, wait as thread_wait
+from termcolor import colored, cprint
 
 
 def process_snap_files(files,snapshot_dir,log):
     result = {}
-    for snap_hash_name in files:
-        file_path = path.join(snapshot_dir, str(snap_hash_name))
+    for ord_hash_name in files:
+        file_path = path.join(snapshot_dir, str(ord_hash_name))
 
         try:
             inode = stat(file_path).st_ino
+            file_mtime = path.getmtime(file_path)
             if inode not in result:
-                result[inode] = []
-            if snap_hash_name not in result[inode]:
-                result[inode].append(snap_hash_name)
+                result[inode] = {
+                    "inode": [],
+                    "stamp": [],
+                } 
+            if ord_hash_name not in result[inode]["inode"]:
+                result[inode]["inode"].append(ord_hash_name)
+            if file_mtime not in result[inode]["stamp"]:
+                result[inode]["stamp"].append(file_mtime)
 
         except Exception as e:
-            log.logger.warn(f"snaphost --> Error processing file {snap_hash_name}: {e}")
+            log.logger.warn(f"snaphost --> Error processing file {ord_hash_name}: {e}")
     
     return result
 
 
 def set_count_dict():
     return {
+        "length_of_files": 0,
         "match_count": 0,
         "solo_count": 0,
         "ord_count": 0,
@@ -34,39 +41,50 @@ def set_count_dict():
     }
 
 
-def merge_snap_results(dicts,debug=False):
+def merge_snap_results(matches,debug=False):
     merged = {}
     results = set_count_dict()
+    results["length_of_files"] = matches["length_of_files"]
+    matches = matches["results"]
     example_snaps = []
     example_hashes = []
-
-    for d in dicts:
+    
+    for d in matches:
         for inode, inode_list in d.items():
             if inode not in merged:
-                merged[inode] = []
-            for snap_hash in inode_list:
-                if snap_hash not in merged[inode]:
-                    merged[inode].append(snap_hash)
+                merged[inode] = {
+                    "inode": [],
+                    "stamp": [],
+                }
+            for key, ord_hash_stamp_list in inode_list.items():
+                for ord_hash_stamp in ord_hash_stamp_list:
+                    if key == "inode":
+                        if ord_hash_stamp not in merged[inode][key]:
+                            merged[inode][key].append(ord_hash_stamp)
+                    if key == "stamp":
+                        if ord_hash_stamp not in merged[inode][key]:
+                            merged[inode][key].append(ord_hash_stamp)
 
-    for _ , snap_hash in merged.items(): 
-        # for inode, snap_hash in dicts.items():         
-        if len(snap_hash) > 1:
+    del matches # cleanup memory
+    for _ , ord_hash_stamp in merged.items(): 
+        ord_hash = ord_hash_stamp["inode"]
+        if len(ord_hash) > 1:
             results["match_count"] += 1
-        elif len(snap_hash) > 0:
-            if len(snap_hash[0]) < 64 and snap_hash[0].isdigit():
+        elif len(ord_hash) > 0:
+            if len(ord_hash[0]) < 64 and ord_hash[0].isdigit():
                 if debug and len(example_snaps) < 11:
-                    example_snaps.append(snap_hash[0])
-                if int(snap_hash[0]) < results["ord_lowest"] or results["ord_lowest"] < 0:
+                    example_snaps.append(ord_hash[0])
+                if int(ord_hash[0]) < results["ord_lowest"] or results["ord_lowest"] < 0:
                     # find lowest break point
-                    results["ord_lowest"] = int(snap_hash[0])
-            elif len(snap_hash[0]) > 63:
+                    results["ord_lowest"] = int(ord_hash[0])
+            elif len(ord_hash[0]) > 63:
                 if debug and len(example_hashes) < 11:
-                    example_hashes.append(snap_hash[0])
+                    example_hashes.append(ord_hash[0])
             results["solo_count"] += 1
         else:
             results["other"] += 1
 
-        for i in snap_hash:
+        for i in ord_hash:
             if len(i) < 64 and i.isdigit():
                 if int(i) > results["ord_highest"]:
                     # find highest ordinal
@@ -78,15 +96,15 @@ def merge_snap_results(dicts,debug=False):
                 results["other"] += 1
     
     if debug:
-        print('=============================')
+        print('  =============================')
         for n in [example_snaps,example_hashes]:
             for i in n:
-                print(i)
+                print(f"  {i}")
 
     return merged, results
 
 
-def clean_info(snapshot_info_dir, functions, log, start,end):
+def clean_info(snapshot_info_dir, functions, log, start,end, debug):
     for current_snap in range(start,end):
         info_path = path.join(snapshot_info_dir, str(current_snap))
         if path.isfile(info_path):
@@ -99,29 +117,37 @@ def clean_info(snapshot_info_dir, functions, log, start,end):
                 "newline": True,
             })
             log.logger.warn(f"remove_snapshots --> removing snapshot {info_path}")
-            remove(info_path)
+            if not debug: 
+                remove(info_path)
 
 
-def remove_elements(i_node_dict,snapshot_dir, functions, log, start):
+def remove_elements(i_node_dict, snapshot_dir, functions, log, start, old_days, debug=False):
     for _ , match_list in i_node_dict.items():
-        test_range = True if len(match_list) > 1 else False
         skip = False
-        
-        for snap_hash in match_list:
+
+        snap_list = match_list[0]
+        time_list = match_list[1]
+        test_range = True if len(snap_list) > 1 else False
+        current_time = time()
+        threshold_time = current_time - (old_days*86400)
+
+        for i, ord_hash in enumerate(snap_list):
             if test_range:
-                for i_snap in match_list:
+                for ii, i_snap in enumerate(snap_list):
                     if len(i_snap) < 63:
-                        if int(i_snap) < start:
+                        if old_days > 0 and time_list[i][ii] < threshold_time: # -1 is disabled
+                            log.logger.warn(f"found snap or ordinal [{ord_hash}] that will be removed.")  
+                        elif int(i_snap) < start:
                             skip = True
 
             if skip: 
                 continue
 
-            snap_to_remove = path.join(snapshot_dir,snap_hash)
-            if snap_hash.isdigit():
-                snapshot_display = snap_hash
-            if len(snap_hash) > 63:
-                snapshot_display = f"{snap_hash[0:8]}....{snap_hash[-8:]}"
+            snap_to_remove = path.join(snapshot_dir,ord_hash)
+            if ord_hash.isdigit():
+                snapshot_display = ord_hash
+            if len(ord_hash) > 63:
+                snapshot_display = f"{ord_hash[0:8]}....{ord_hash[-8:]}"
 
             functions.print_cmd_status({
                 "text_start": "Removing",
@@ -131,7 +157,8 @@ def remove_elements(i_node_dict,snapshot_dir, functions, log, start):
                 "newline": True,
             })
             log.logger.warn(f"remove_snapshots --> removing ordinal {snap_to_remove}")
-            remove(snap_to_remove)
+            if not debug: 
+                remove(snap_to_remove)
 
 
 def print_report(count_results,functions):
@@ -174,13 +201,25 @@ def print_report(count_results,functions):
         "status_color": "yellow",
         "newline": True,
     })
+    if count_results["old_days"] > 0:
+        functions.print_cmd_status({
+            "text_start": "Remove ordinals > than",
+            "status": f'{count_results["old_days"]} Days',
+            "status_color": "yellow",
+            "newline": True,
+        })
 
 
 def discover_snapshots(snapshot_dir, functions, log):
     return_results = {
         "results": None,
         "valid": False,
+        "length_of_files": 0,
+        "max_ordinal": -1,
     }
+    files = []
+    max_ord = -1
+
     with ThreadPoolExecutor() as executor:
         functions.status_dots = True
         status_obj = {
@@ -193,7 +232,16 @@ def discover_snapshots(snapshot_dir, functions, log):
         }
         _ = executor.submit(functions.print_cmd_status,status_obj)
 
-        files = [f for f in listdir(snapshot_dir) if path.isfile(path.join(snapshot_dir, f))]
+        # files = [f for f in listdir(snapshot_dir) if path.isfile(path.join(snapshot_dir, f))]
+        for ordhash in listdir(snapshot_dir):
+            if path.isfile(path.join(snapshot_dir, ordhash)):
+                files.append(ordhash)
+                try:
+                    if len(ordhash) < 64 and int(ordhash) > max_ord:
+                        max_ord = int(ordhash)
+                except Exception as e:
+                    log.logger.error(f"unable to determine snapshot data type, skipping [{ordhash}]")
+
         num_workers = cpu_count()
         chunk_size = len(files) // num_workers
         length_of_files = len(files)
@@ -215,7 +263,7 @@ def discover_snapshots(snapshot_dir, functions, log):
     with ThreadPoolExecutor() as executor:
         functions.status_dots = True
         status_obj = {
-            "text_start": f"Discovering Node ordinals",
+            "text_start": f"Discovering Node snapshots",
             "status": "running",
             "status_color": "yellow",
             "dotted_animation": True,
@@ -242,4 +290,40 @@ def discover_snapshots(snapshot_dir, functions, log):
 
     return_results["results"] = results
     return_results["valid"] = True
+    return_results["length_of_files"] = length_of_files
+    return_results["max_ordinal"] = max_ord
     return return_results
+
+
+def custom_input(start,end,functions):
+    while True:
+        user_start = input(f'{colored("  start ordinal [","magenta")}{start}{colored("]: ","magenta")}')
+        if user_start.lower() == "q":
+            cprint("  Action cancelled by Node Operator","green")
+            return
+        elif user_start != "" and user_start != None:
+            try:
+                user_start = int(user_start)
+            except:
+                cprint("  Invalid starting point, try again","red")
+            else:
+                if user_start == end or user_start > end:
+                    functions.print_paragraphs([
+                        ["Invalid starting ordinal.",1,"red"],
+                        ["The start value cannot be greater than or equal to the end value.",1,"red"],
+                    ])
+                else:
+                    break
+        else:
+            break
+
+    start = user_start
+    for n, s_t in enumerate(["start","stop"]):
+        functions.print_cmd_status({
+            "text_start": f"Requested {s_t} ordinal",
+            "status": str(start) if n < 1 else str(end),
+            "status_color": "yellow",
+            "newline": True,
+        })
+
+    return start, end
