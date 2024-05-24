@@ -5180,7 +5180,7 @@ class CLI():
             count_results = set_count_dict()
             merged_dict = {}
         else:
-            merged_dict, count_results = merge_snap_results(results,debug)
+            merged_dict, count_results = merge_snap_results(results,self.functions,debug)
 
         snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
         count_results["old_days"] = old_days
@@ -5224,6 +5224,13 @@ class CLI():
                 ["user defined",0,"yellow"], ["starting ordinal below.",2,"magenta"],
             ])
             
+            if old_days > -1:
+                self.functions.print_paragraphs([
+                    ["Remove snapshots request identified and will ignore the start ordinal",0,"red"],
+                    ["and remove all ordinals older than",0,"red"], [str(old_days),0,"yellow"], ["days.",1,"red"],
+                    ["Regular removal from the identified start ordinal will also be handled.",2],
+                ])
+
             if count_results["ord_lowest"] == "n/a": 
                 find_start = Send({
                     "config_obj": self.config_obj,
@@ -5259,7 +5266,7 @@ class CLI():
             "newline": True,
         })
         sleep(1) # give Node Operator time to read messages
-        clean_info(snapshot_info_dir, self.functions, self.log, start, end, debug)
+        clean_info(snapshot_info_dir, self.functions, self.log, merged_dict, start, end, old_days, debug)
 
         print("")
         self.functions.print_cmd_status({

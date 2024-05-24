@@ -35,66 +35,105 @@ def set_count_dict():
         "solo_count": 0,
         "ord_count": 0,
         "hash_count": 0,
+        "unmatched_time": 0,
+        "day_0_old": 0,
+        "day_10_old": 0,
+        "day_20_old": 0,
+        "day_30_old": 0,
+        "day_60_old": 0,
+        "other": 0,
         "ord_lowest": -1,
         "ord_highest": -1,
-        "other": 0
     }
 
 
-def merge_snap_results(matches,debug=False):
+def merge_snap_results(matches,functions,debug=False):
     merged = {}
     results = set_count_dict()
     results["length_of_files"] = matches["length_of_files"]
     matches = matches["results"]
     example_snaps = []
     example_hashes = []
-    
-    for d in matches:
-        for inode, inode_list in d.items():
-            if inode not in merged:
-                merged[inode] = {
-                    "inode": [],
-                    "stamp": [],
-                }
-            for key, ord_hash_stamp_list in inode_list.items():
-                for ord_hash_stamp in ord_hash_stamp_list:
-                    if key == "inode":
-                        if ord_hash_stamp not in merged[inode][key]:
-                            merged[inode][key].append(ord_hash_stamp)
-                    if key == "stamp":
-                        if ord_hash_stamp not in merged[inode][key]:
-                            merged[inode][key].append(ord_hash_stamp)
+    days = [0,10,20,30,60]
 
-    del matches # cleanup memory
-    for _ , ord_hash_stamp in merged.items(): 
-        ord_hash = ord_hash_stamp["inode"]
-        if len(ord_hash) > 1:
-            results["match_count"] += 1
-        elif len(ord_hash) > 0:
-            if len(ord_hash[0]) < 64 and ord_hash[0].isdigit():
-                if debug and len(example_snaps) < 11:
-                    example_snaps.append(ord_hash[0])
-                if int(ord_hash[0]) < results["ord_lowest"] or results["ord_lowest"] < 0:
-                    # find lowest break point
-                    results["ord_lowest"] = int(ord_hash[0])
-            elif len(ord_hash[0]) > 63:
-                if debug and len(example_hashes) < 11:
-                    example_hashes.append(ord_hash[0])
-            results["solo_count"] += 1
-        else:
-            results["other"] += 1
+    with ThreadPoolExecutor() as executor:
+        functions.status_dots = True
+        status_obj = {
+            "text_start": f"Compiling results",
+            "status": "running",
+            "status_color": "yellow",
+            "dotted_animation": True,
+            "newline": False,
+            "timeout": False,
+        }
+        _ = executor.submit(functions.print_cmd_status,status_obj)
 
-        for i in ord_hash:
-            if len(i) < 64 and i.isdigit():
-                if int(i) > results["ord_highest"]:
-                    # find highest ordinal
-                    results["ord_highest"] = int(i)
-                results["ord_count"] += 1
-            elif len(i) > 63:
-                results["hash_count"] += 1
+        for d in matches:
+            for inode, inode_list in d.items():
+                if inode not in merged:
+                    merged[inode] = {
+                        "inode": [],
+                        "stamp": [],
+                    }
+                for key, ord_hash_stamp_list in inode_list.items():
+                    for ord_hash_stamp in ord_hash_stamp_list:
+                        if key == "inode":
+                            if ord_hash_stamp not in merged[inode][key]:
+                                merged[inode][key].append(ord_hash_stamp)
+                        if key == "stamp":
+                            if ord_hash_stamp not in merged[inode][key]:
+                                merged[inode][key].append(ord_hash_stamp)
+
+        del matches # cleanup memory
+        for _ , ord_hash_stamp in merged.items(): 
+            ord_hash = ord_hash_stamp["inode"]
+
+            if len(ord_hash) > 1:
+                results["match_count"] += 1
+            elif len(ord_hash) > 0:
+                if len(ord_hash[0]) < 64 and ord_hash[0].isdigit():
+                    if debug and len(example_snaps) < 11:
+                        example_snaps.append(ord_hash[0])
+                    if int(ord_hash[0]) < results["ord_lowest"] or results["ord_lowest"] < 0:
+                        # find lowest break point
+                        results["ord_lowest"] = int(ord_hash[0])
+                elif len(ord_hash[0]) > 63:
+                    if debug and len(example_hashes) < 11:
+                        example_hashes.append(ord_hash[0])
+                results["solo_count"] += 1
             else:
                 results["other"] += 1
-    
+
+            for i in ord_hash:
+                if len(i) < 64 and i.isdigit():
+                    if int(i) > results["ord_highest"]:
+                        # find highest ordinal
+                        results["ord_highest"] = int(i)
+                    results["ord_count"] += 1
+                elif len(i) > 63:
+                    results["hash_count"] += 1
+                else:
+                    results["other"] += 1
+
+            if len(ord_hash_stamp["stamp"]) > 1:
+                results["unmatched_time"] += 1
+            for i in ord_hash_stamp["stamp"]:
+                for t in days:
+                    if i < (time() - (t*86400)):
+                        results[f"day_{t}_old"] += 1
+        
+        for i, t in enumerate(days[:-1]):
+            results[f"day_{t}_old"] -= results[f"day_{days[i+1]}_old"]
+
+        functions.status_dots = False
+        functions.print_cmd_status({
+            "text_start": f"Compiling results",
+            "status": "completed",
+            "status_color": "green",
+            "dotted_animation": False,
+            "newline": True,
+        })
+        
     if debug:
         print('  =============================')
         for n in [example_snaps,example_hashes]:
@@ -104,7 +143,7 @@ def merge_snap_results(matches,debug=False):
     return merged, results
 
 
-def clean_info(snapshot_info_dir, functions, log, start,end, debug):
+def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_days, debug):
     for current_snap in range(start,end):
         info_path = path.join(snapshot_info_dir, str(current_snap))
         if path.isfile(info_path):
@@ -116,27 +155,49 @@ def clean_info(snapshot_info_dir, functions, log, start,end, debug):
                 "status_color": "red",
                 "newline": True,
             })
-            log.logger.warn(f"remove_snapshots --> removing snapshot {info_path}")
+            log.logger.warn(f"snaphost --> removing snapshot {info_path}")
             if not debug: 
                 remove(info_path)
 
+    if old_days > 0:
+        threshold_time = time() - (old_days*86400) 
+        for match_list in inode_dict.values():
+            snap_list = match_list['inode']
+            time_list = match_list['stamp']
+            for i, ord_snap in enumerate(snap_list):
+                try: stamp = time_list[i]
+                except: pass # only one timestamp
+                if stamp > threshold_time:       
+                    if len(ord_snap) < 64:
+                        functions.print_cmd_status({
+                            "text_start": "Handling old",
+                            "brackets": "ordinal",
+                            "text_end": "info bookmark",
+                            "status": path.split(info_path)[1],
+                            "status_color": "red",
+                            "newline": True,
+                        })
+                        info_path = path.join(snapshot_info_dir, str(ord_snap))
+                        log.logger.warn(f"snaphost --> removing snapshot {info_path}")
+                        if not debug: 
+                            remove(info_path)
 
-def remove_elements(i_node_dict, snapshot_dir, functions, log, start, old_days, debug=False):
-    for _ , match_list in i_node_dict.items():
+
+def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, debug=False):
+    for _ , match_list in inode_dict.items():
         skip = False
 
         snap_list = match_list[0]
         time_list = match_list[1]
         test_range = True if len(snap_list) > 1 else False
-        current_time = time()
-        threshold_time = current_time - (old_days*86400)
+        threshold_time = time() - (old_days*86400)
 
         for i, ord_hash in enumerate(snap_list):
             if test_range:
                 for ii, i_snap in enumerate(snap_list):
                     if len(i_snap) < 63:
                         if old_days > 0 and time_list[i][ii] < threshold_time: # -1 is disabled
-                            log.logger.warn(f"found snap or ordinal [{ord_hash}] that will be removed.")  
+                            log.logger.warn(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
                         elif int(i_snap) < start:
                             skip = True
 
@@ -156,7 +217,7 @@ def remove_elements(i_node_dict, snapshot_dir, functions, log, start, old_days, 
                 "status_color": "red",
                 "newline": True,
             })
-            log.logger.warn(f"remove_snapshots --> removing ordinal {snap_to_remove}")
+            log.logger.warn(f"snapshot --> removing ordinal {snap_to_remove}")
             if not debug: 
                 remove(snap_to_remove)
 
@@ -201,6 +262,28 @@ def print_report(count_results,functions):
         "status_color": "yellow",
         "newline": True,
     })
+
+    print("")
+
+    functions.print_cmd_status({
+        "text_start": f"Chain elements <",
+        "brackets": "10",
+        "text_end": "days old",
+        "status": count_results["day_0_old"],
+        "status_color": "yellow",
+        "newline": True,
+    })
+
+    for t in ["10","20","30","60"]:
+        functions.print_cmd_status({
+            "text_start": "Chain elements >",
+            "brackets": t,
+            "text_end": "days old",
+            "status": count_results[f"day_{t}_old"],
+            "status_color": "yellow",
+            "newline": True,
+        })
+
     if count_results["old_days"] > 0:
         functions.print_cmd_status({
             "text_start": "Remove ordinals > than",
