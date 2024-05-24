@@ -337,8 +337,8 @@ class ShellHandler:
             return_value = self.cli.show_current_snapshot_proofs(self.argv)
         elif self.called_command == "check_connection" or self.called_command == "_cc":
             self.cli.check_connection(self.argv)
-        elif self.called_command == "remove_snapshots":
-            self.cli.cli_remove_snapshots(self.argv)
+        elif self.called_command == "display_snapshot_chain":
+            self.cli.cli_snapshot_chain(self.argv)
         elif self.called_command == "node_last_snapshot":
             self.cli.cli_node_last_snapshot(self.argv)
         elif self.called_command == "send_logs" or self.called_command == "_sl":

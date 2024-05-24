@@ -19,6 +19,7 @@ def pull_valid_command():
         "dag",
         "disable_root_ssh",
         "download_status",
+        "display_snapshot_chain",
 
         "enable_root_ssh",     
         "export_private_key",
@@ -26,7 +27,6 @@ def pull_valid_command():
         "execute_tests",
 
         "find",
-
 
         "getting_started",
 
@@ -60,7 +60,6 @@ def pull_valid_command():
         "restart",
         "restart_only",
         "restore_config",
-        "remove_snapshots",
 
         "show_service_status",
         "show_service_log",

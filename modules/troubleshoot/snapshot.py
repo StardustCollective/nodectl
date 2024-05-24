@@ -75,14 +75,16 @@ def merge_snap_results(matches,functions,debug=False):
                         "inode": [],
                         "stamp": [],
                     }
-                for key, ord_hash_stamp_list in inode_list.items():
+                for ktype, ord_hash_stamp_list in inode_list.items():
                     for ord_hash_stamp in ord_hash_stamp_list:
-                        if key == "inode":
-                            if ord_hash_stamp not in merged[inode][key]:
-                                merged[inode][key].append(ord_hash_stamp)
-                        if key == "stamp":
-                            if ord_hash_stamp not in merged[inode][key]:
-                                merged[inode][key].append(ord_hash_stamp)
+                        if ktype == "inode":
+                            if ord_hash_stamp not in merged[inode][ktype]:
+                                merged[inode][ktype].append(ord_hash_stamp)
+                            if len(merged[inode][ktype]) > 1: # make sure oridnal is the first element
+                                merged[inode][ktype] = sorted(merged[inode][ktype], key=lambda x: (len(x) >= 64, x))
+                        if ktype == "stamp":
+                            if ord_hash_stamp not in merged[inode][ktype]:
+                                merged[inode][ktype].append(ord_hash_stamp)
 
         del matches # cleanup memory
         for _ , ord_hash_stamp in merged.items(): 
@@ -143,10 +145,21 @@ def merge_snap_results(matches,functions,debug=False):
     return merged, results
 
 
+def print_count(count,functions):
+    functions.print_cmd_status({
+        "text_start": "Found and removed",
+        "status": str(count),
+        "status_color": "yellow",
+        "newline": True,
+    })
+
+
 def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_days, debug):
+    count = 0
     for current_snap in range(start,end):
         info_path = path.join(snapshot_info_dir, str(current_snap))
         if path.isfile(info_path):
+            count += 1
             functions.print_cmd_status({
                 "text_start": "Handling",
                 "brackets": "ordinal",
@@ -159,7 +172,11 @@ def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_day
             if not debug: 
                 remove(info_path)
 
+    if count > 0:
+        print_count(count,functions)
+    
     if old_days > 0:
+        count = 0
         threshold_time = time() - (old_days*86400) 
         for match_list in inode_dict.values():
             snap_list = match_list['inode']
@@ -167,39 +184,49 @@ def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_day
             for i, ord_snap in enumerate(snap_list):
                 try: stamp = time_list[i]
                 except: pass # only one timestamp
-                if stamp > threshold_time:       
+                if stamp < threshold_time:       
                     if len(ord_snap) < 64:
-                        functions.print_cmd_status({
-                            "text_start": "Handling old",
-                            "brackets": "ordinal",
-                            "text_end": "info bookmark",
-                            "status": path.split(info_path)[1],
-                            "status_color": "red",
-                            "newline": True,
-                        })
                         info_path = path.join(snapshot_info_dir, str(ord_snap))
-                        log.logger.warn(f"snaphost --> removing snapshot {info_path}")
-                        if not debug: 
-                            remove(info_path)
+                        if path.isfile(info_path):
+                            count += 1
+                            functions.print_cmd_status({
+                                "text_start": "Handling old",
+                                "brackets": "ordinal",
+                                "text_end": "info bookmark",
+                                "status": path.split(info_path)[1],
+                                "status_color": "red",
+                                "newline": True,
+                            })
+                            log.logger.warn(f"snaphost --> removing snapshot {info_path}")
+                            if not debug: 
+                                remove(info_path)
+        if count > 0:
+            print_count(count,functions)
 
 
 def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, debug=False):
+    count, range_count, old_count = 0, 0, 0
+
     for _ , match_list in inode_dict.items():
         skip = False
 
-        snap_list = match_list[0]
-        time_list = match_list[1]
+        snap_list = match_list['inode']
+        time_list = match_list['stamp']
         test_range = True if len(snap_list) > 1 else False
         threshold_time = time() - (old_days*86400)
-
+        oe = "oridinal element"
         for i, ord_hash in enumerate(snap_list):
-            if test_range:
-                for ii, i_snap in enumerate(snap_list):
-                    if len(i_snap) < 63:
-                        if old_days > 0 and time_list[i][ii] < threshold_time: # -1 is disabled
-                            log.logger.warn(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
-                        elif int(i_snap) < start:
-                            skip = True
+            if test_range and len(ord_hash) < 63:
+                try: stamp = time_list[i]
+                except: pass # only one timestamp
+                if old_days > 0 and stamp < threshold_time: # -1 is disabled
+                        old_count += 2
+                        oe = "old ordinal element"
+                        log.logger.warn(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
+                elif int(ord_hash) < start:
+                    skip = True
+                else:
+                    range_count += 2
 
             if skip: 
                 continue
@@ -212,17 +239,42 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
 
             functions.print_cmd_status({
                 "text_start": "Removing",
-                "brackets": "ordinal_elements",
+                "brackets": oe,
                 "status": snapshot_display,
                 "status_color": "red",
                 "newline": True,
             })
             log.logger.warn(f"snapshot --> removing ordinal {snap_to_remove}")
+            count += 1
             if not debug: 
                 remove(snap_to_remove)
 
+    for n in range(3,0,-1):
+        if n > 2:
+            if old_days > 0:
+                old_str = colored(str(old_days),"yellow")
+                end_str = colored("] days................","cyan")
+                d_str = colored(f"snapshots older than [{old_str}{end_str}","cyan")
+                d_str = f"Snapshots older than [{old_str}{end_str}"
+                c = old_count
+            else:
+                continue
+        elif n > 1:
+            if old_days < 1: continue # not needed unless old_days is requested
+            d_str = "snapshots from requested range"
+            c = range_count
+        else:
+            d_str = "Total snapshots"
+            c = count
 
-def print_report(count_results,functions):
+        functions.print_cmd_status({
+            "text_start": d_str,
+            "newline": True,
+        })
+        print_count(c,functions)
+
+
+def print_report(count_results,fix,functions):
     functions.print_cmd_status({
         "text_start": "Valid chain ordinals",
         "status": f'{count_results["match_count"]:,}',
@@ -284,7 +336,7 @@ def print_report(count_results,functions):
             "newline": True,
         })
 
-    if count_results["old_days"] > 0:
+    if count_results["old_days"] > 0 and fix:
         functions.print_cmd_status({
             "text_start": "Remove ordinals > than",
             "status": f'{count_results["old_days"]} Days',

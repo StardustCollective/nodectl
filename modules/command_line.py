@@ -5096,9 +5096,9 @@ class CLI():
             }) 
 
 
-    def cli_remove_snapshots(self,command_list):
-        debug = True
-        self.log.logger.info("cli -> remove_snapshots initiated.")
+    def cli_snapshot_chain(self,command_list):
+        debug = False
+        self.log.logger.info("cli -> display_snapshot_chain initiated.")
 
         self.functions.print_header_title({
             "line1": "Developer Mode - Remove snapshots",
@@ -5127,9 +5127,13 @@ class CLI():
             })  
             print("")
 
+        fix = True if "--fix" in command_list else False
+        self.log.logger.info("cli -> display_snapshot_chain --fix option detected.")
+
         old_days = -1
         if "--days" in command_list:
             old_days = command_list[command_list.index("--days")+1]
+            self.log.logger.info(f"cli -> display_snapshot_chain remove old snapshots requested [{old_days} days].")
             try:
                 old_days = int(old_days)
             except:
@@ -5154,20 +5158,20 @@ class CLI():
                     ["30",0,"yellow"], ["days can lead to undesirable results.",2,"red"],
                 ])
 
-        # self.build_node_class()
-        # self.set_profile(profile)
-        # self.cli_leave({
-        #     "secs": 30,
-        #     "reboot_flag": False,
-        #     "skip_msg": False,
-        #     "print_timer": True,
-        #     "threaded": False,
-        # })
-        # self.cli_stop({
-        #     "show_timer": False,
-        #     "static_nodeid": False,
-        #     "argv_list": []
-        # })
+        self.build_node_class()
+        self.set_profile(profile)
+        self.cli_leave({
+            "secs": 30,
+            "reboot_flag": False,
+            "skip_msg": False,
+            "print_timer": True,
+            "threaded": False,
+        })
+        self.cli_stop({
+            "show_timer": False,
+            "static_nodeid": False,
+            "argv_list": []
+        })
 
         self.functions.print_paragraphs([
             [" PATIENCE ",0,"yellow,on_red"],["This could take over",0],
@@ -5194,9 +5198,26 @@ class CLI():
         if end < 0: count_results["ord_highest"] = "n/a"
 
         self.print_title("ANALYSIS RESULTS")
-        print_report(count_results, self.functions)
+        print_report(count_results, fix, self.functions)
 
-        if "--report_only" in command_list:
+        p_status = colored("True","green")
+        if count_results["solo_count"] < 0: 
+            p_status = colored("False","red")
+
+        print_out_list = [
+            {
+                "-BLANK-": None,
+                "PROFILE": profile,
+                "VALID CHAIN": p_status,
+            },
+        ]
+
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements,
+            })
+
+        if not fix:
             print("")
             return
 
@@ -5238,7 +5259,10 @@ class CLI():
                     "ip_address": self.ip_address,
                 })
                 start = find_start.handle_wdf_last_valid()
-                if start == "not_found": start = 0
+                if start == "not_found": 
+                    start = 0
+                elif start > 100:
+                    start -= 100
 
             if self.config_obj[profile]["environment"] == "testnet":
                 start = 1933590 # static defined on protocol update waypoint
