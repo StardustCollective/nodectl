@@ -16,7 +16,7 @@ from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 
 from modules.p12 import P12Class
-from modules.troubleshoot.snapshot import discover_snapshots, merge_snap_results, remove_elements, clean_info, set_count_dict, custom_input, print_report
+from modules.troubleshoot.snapshot import * # discover_snapshots, merge_snap_results, ordhash_to_ordhash, process_snap_files, remove_elements, clean_info, set_count_dict, custom_input, print_report
 from .download_status import DownloadStatus
 from .status import Status
 from .node_service import Node
@@ -136,6 +136,12 @@ class CLI():
         })
                 
    
+    def set_data_dir(self,profile=False):
+        if not profile:
+            profile = self.profile
+        return f"{self.functions.default_tessellation_dir}{self.profile}/data/incremental_snapshot"
+    
+
     def set_profile(self,profile):
         self.functions.pull_profile({  # test if profile is valid
             "profile": profile,
@@ -4295,13 +4301,9 @@ class CLI():
 
     def cli_find(self,argv_list): # ip="empty",dest=None
         self.log.logger.debug("find request initiated...")
+        self.functions.check_for_help(argv_list,"find")
+        ordhash_lookup = False
 
-        if "help" in argv_list:
-            self.functions.print_help({
-                "usage_only": True,
-                "extended": "find"
-            })
-                    
         self.profile = argv_list[argv_list.index("-p")+1]
         source_obj = "empty"
         if "-s"  in argv_list:
@@ -4310,6 +4312,52 @@ class CLI():
         target_obj = {"ip":"127.0.0.1"}
         if "-t" in argv_list:
             target_obj = argv_list[argv_list.index("-t")+1]
+
+            if target_obj == "ordinal" or target_obj == "hash":
+                ordhash = argv_list[argv_list.index(target_obj)+1]
+                ordhash_lookup = True
+                try:
+                    if target_obj == "ordinal":
+                        ordhash = int(ordhash)
+                    else:
+                        if len(ordhash) < 64 or len(ordhash) > 64: 
+                            raise Exception()
+                except:
+                    self.functions.check_for_help(["help"],"find")
+                           
+            # if target_obj == "ordinal":
+            #     try:
+            #         ordhash = argv_list[argv_list.index("ordinal")+1]
+            #         ordhash = int(ordhash)
+            #     except:
+            #         self.functions.check_for_help(["help"],"find")
+            #     ordhash_lookup = True
+            
+            # if target_obj == "hash":
+            #     try:
+            #         ordhash = argv_list[argv_list.index("hash")+1]
+            #         if len(ordhash) < 64: raise Exception()
+            #         ordhash = int(ordhash, 16)
+            #     except:
+            #         self.functions.check_for_help(["help"],"find")
+            #     ordhash_lookup = True
+
+            if ordhash_lookup:
+                self.print_title(f"{target_obj} LOOKUP")
+                inode = process_snap_files([ordhash], self.set_data_dir(), self.log, False)
+                ordhash_inode = list(inode.keys())[0]
+                results = discover_snapshots(self.set_data_dir(),self.functions,self.log,ordhash_inode)
+                ordhash_lookup, stamp = ordhash_to_ordhash(results, target_obj)
+                if target_obj == "ordinal":
+                    ordinal = ordhash
+                    hash = ordhash_lookup
+                else:
+                    ordinal = ordhash_lookup
+                    hash = ordhash
+                
+                print_single_ordhash(self.profile,ordinal,hash,ordhash_inode,stamp,self.functions)
+                return
+
             if not isinstance(target_obj,dict):
                 target_obj =  {"ip": "127.0.0.1"} if argv_list[argv_list.index("-t")+1] == "self" else {"ip": argv_list[argv_list.index("-t")+1]}
         target_ip = target_obj["ip"]
@@ -5050,7 +5098,7 @@ class CLI():
         value_only = True if "value_only" in command_list else False
 
         profile = command_list[command_list.index("-p")+1]
-        snapshot_dir = f"{self.functions.default_tessellation_dir}{profile}/data/incremental_snapshot"
+        snapshot_dir = self.set_data_dir(profile)
         
         if self.config_obj[profile]["layer"] > 0:
             self.error_messages.error_code_messages({
@@ -5115,7 +5163,7 @@ class CLI():
         ])
 
         profile = command_list[command_list.index("-p")+1]
-        snapshot_dir = f"{self.functions.default_tessellation_dir}{profile}/data/incremental_snapshot"
+        snapshot_dir = self.set_data_dir(profile)
 
         if "-y" not in command_list:
             self.functions.confirm_action({
@@ -5128,6 +5176,9 @@ class CLI():
             print("")
 
         fix = True if "--fix" in command_list else False
+        if fix and not self.config_obj["global_elements"]["developer_mode"]:
+            self.functions.check_for_help(["help"],"")
+
         self.log.logger.info("cli -> display_snapshot_chain --fix option detected.")
 
         old_days = -1
@@ -6158,12 +6209,13 @@ class CLI():
             var.command = var.command.replace("_","-",1)
         self.log.logger.error(f"[{var.command}] requested --> removed for [{new_command}]")
         self.functions.print_paragraphs([
-            [var.command,0,"white","bold"], ["command has been",0,"red"], ["removed",1,"red","bold"],
-            ["As of version:",0,"white","bold"], [var.version,1,"yellow"]
+            [f" WARNING ",0,"white,on_red","bold"], ["requested feature has been",0,"red"], ["removed",0,"red","bold"],["!",1,"red"],
+            ["      Feature:",0,"cyan","bold"], [var.command,1,"blue","bold"],
+            ["As of version:",0,"cyan","bold"], [var.version,1,"yellow"]
         ])
         if is_new:
             self.functions.print_paragraphs([
-                ["Please use",0,"white","bold"], [new_command,0,"yellow","bold"], ["instead",1,"white","bold"], 
+                ["  Replacement:",0,"cyan","bold"], [new_command,1,"green","bold"],
                 [help_hint,1,"magenta"]
             ])
         if done_exit:

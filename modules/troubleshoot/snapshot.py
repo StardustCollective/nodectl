@@ -1,10 +1,10 @@
 from os import stat, path, remove, listdir, cpu_count
-from time import time
+# from time import time
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, wait as thread_wait
 from termcolor import colored, cprint
+from datetime import datetime, time
 
-
-def process_snap_files(files,snapshot_dir,log):
+def process_snap_files(files, snapshot_dir, log, find_inode):
     result = {}
     for ord_hash_name in files:
         file_path = path.join(snapshot_dir, str(ord_hash_name))
@@ -13,13 +13,19 @@ def process_snap_files(files,snapshot_dir,log):
             inode = stat(file_path).st_ino
             file_mtime = path.getmtime(file_path)
             if inode not in result:
+                if find_inode and inode != find_inode:
+                    continue
                 result[inode] = {
                     "inode": [],
                     "stamp": [],
                 } 
             if ord_hash_name not in result[inode]["inode"]:
+                if find_inode and inode != find_inode:
+                    continue
                 result[inode]["inode"].append(ord_hash_name)
             if file_mtime not in result[inode]["stamp"]:
+                if find_inode and inode != find_inode:
+                    continue
                 result[inode]["stamp"].append(file_mtime)
 
         except Exception as e:
@@ -345,7 +351,7 @@ def print_report(count_results,fix,functions):
         })
 
 
-def discover_snapshots(snapshot_dir, functions, log):
+def discover_snapshots(snapshot_dir, functions, log, inode=False):
     return_results = {
         "results": None,
         "valid": False,
@@ -411,8 +417,10 @@ def discover_snapshots(snapshot_dir, functions, log):
             futures = []
             for i in range(0, length_of_files, chunk_size):
                 file_chunk = files[i:i + chunk_size]
-                futures.append(executor2.submit(process_snap_files, file_chunk, snapshot_dir, log))
+                futures.append(executor2.submit(process_snap_files, file_chunk, snapshot_dir, log, inode))
             results = [future.result() for future in as_completed(futures)]
+
+        results = [d for d in results if d] # remove all empty dictionaries
 
         functions.status_dots = False
         functions.print_cmd_status({
@@ -462,3 +470,64 @@ def custom_input(start,end,functions):
         })
 
     return start, end
+
+
+def ordhash_to_ordhash(results,ordhashtype):
+    for result in results["results"]:
+        for ordhash_dict in result.values():
+            stamp = ordhash_dict["stamp"]
+            for ordhash in ordhash_dict["inode"]:
+                if ordhashtype == "ordinal":
+                    if len(ordhash) > 63:
+                        return ordhash, stamp
+                else:
+                    if len(ordhash) < 63:
+                        return ordhash, stamp
+
+                    
+def print_single_ordhash(profile,ordinal,hash,ordhash_inode,stamp,functions):
+    issue = True if len(stamp) > 1 else False
+    print_stamps = []
+    for m_stamp in stamp:
+        dt = datetime.fromtimestamp(m_stamp)
+        print_stamps.append(dt.strftime('%Y-%m-%d %H:%M:%S'))
+
+    print_out_list = [
+        {
+            "header_elements" : {
+                "PROFILE": profile,
+            },
+        },
+        {
+            "header_elements" : {
+                "INODE LINK": ordhash_inode,
+                "ORDINAL": ordinal,
+                "DATE": print_stamps[0] if not issue else "invalid_link",
+            },
+        },
+        {
+            "header_elements" : {
+                "HASH": hash,
+            },
+        },
+    ]
+    
+    for header_elements in print_out_list:
+        functions.print_show_output({
+            "header_elements" : header_elements
+        })     
+
+    if issue:
+        functions.print_paragraphs([
+            ["",1],[" WARNING ",0,"yellow,on_red"], ["There may be an invalid chain on this Node.",0,"red"],
+            ["The file time/date stamps do not match.",2,"red"]
+        ])
+        for i, p_date in enumerate(print_stamps):
+            ordhash_str = colored(p_date,"red")
+            title = "Ordinal Date:" if i < 1 else "Hash Date:"
+            title = colored(title,"cyan")
+            print(f"  {title} {ordhash_str}")
+
+    print("")
+    return
+                

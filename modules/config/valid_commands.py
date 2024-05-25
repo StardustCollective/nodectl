@@ -108,7 +108,7 @@ def pull_valid_command():
         "clear_uploads","_cul","_cls","clear_logs",
         "clear_snapshots","clear_backups",
         "reset_cache","_rc","clean_snapshots","_cs",
-        "upgrade_nodectl_testnet",
+        "upgrade_nodectl_testnet","remove_snapshots",
     ]
     
     return (valid_commands,valid_short_cuts,service_cmds,removed_cmds)

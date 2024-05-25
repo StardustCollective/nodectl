@@ -173,7 +173,7 @@ class ShellHandler:
             "clear_uploads","_cul","_cls","clear_logs",
             "clear_snapshots","clear_backups",
             "reset_cache","_rc","clean_snapshots","_cs",
-        ]
+        ] # only if there is not a replacement command
         ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
         config_list = ["view_config","validate_config","_vc", "_val"]
         clean_files_list = ["clean_files","_cf"]
@@ -295,6 +295,12 @@ class ShellHandler:
                 "command": self.called_command,
                 "version": "v2.8.0",
                 "new_command": "upgrade_nodectl"
+            })
+        elif self.called_command == "remove_snapshots":
+            self.cli.print_removed({
+                "command": self.called_command,
+                "version": "v2.13.1",
+                "new_command": "display_snapshot_chain",
             })
         elif self.called_command == "upgrade_nodectl":
             self.set_version_obj_class()
@@ -506,7 +512,7 @@ class ShellHandler:
             "restart_only","slow_restart","-sr",
             "leave","start","stop","restart","join", 
             "nodectl_upgrade","upgrade_nodectl_testnet",
-            "execute_starchiver", "remove_snapshots",
+            "execute_starchiver", "display_snapshot_chain",
         ]
             
         print_quiet_auto_restart = [
@@ -565,9 +571,7 @@ class ShellHandler:
     def check_developer_only_commands(self):
         if self.config_obj["global_elements"]["developer_mode"]: return   
 
-        develop_commands = [
-            "remove_snapshots",
-        ]
+        develop_commands = []
         if self.called_command in develop_commands:
             self.called_command = "help_only"
 
@@ -633,7 +637,7 @@ class ShellHandler:
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf","node_last_snapshot",
-            "execute_starchiver","remove_snapshots"
+            "execute_starchiver","display_snapshot_chain"
         ]  
 
         option_exceptions = [
