@@ -1,8 +1,8 @@
 from os import stat, path, remove, listdir, cpu_count
-# from time import time
+from time import time
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, wait as thread_wait
 from termcolor import colored, cprint
-from datetime import datetime, time
+from datetime import datetime
 
 def process_snap_files(files, snapshot_dir, log, find_inode):
     result = {}
@@ -53,7 +53,7 @@ def set_count_dict():
     }
 
 
-def merge_snap_results(matches,functions,debug=False):
+def merge_snap_results(matches,functions,log,debug=False):
     merged = {}
     results = set_count_dict()
     results["length_of_files"] = matches["length_of_files"]
@@ -74,62 +74,68 @@ def merge_snap_results(matches,functions,debug=False):
         }
         _ = executor.submit(functions.print_cmd_status,status_obj)
 
-        for d in matches:
-            for inode, inode_list in d.items():
-                if inode not in merged:
-                    merged[inode] = {
-                        "inode": [],
-                        "stamp": [],
-                    }
-                for ktype, ord_hash_stamp_list in inode_list.items():
-                    for ord_hash_stamp in ord_hash_stamp_list:
-                        if ktype == "inode":
-                            if ord_hash_stamp not in merged[inode][ktype]:
-                                merged[inode][ktype].append(ord_hash_stamp)
-                            if len(merged[inode][ktype]) > 1: # make sure oridnal is the first element
-                                merged[inode][ktype] = sorted(merged[inode][ktype], key=lambda x: (len(x) >= 64, x))
-                        if ktype == "stamp":
-                            if ord_hash_stamp not in merged[inode][ktype]:
-                                merged[inode][ktype].append(ord_hash_stamp)
+        try:
+            for d in matches:
+                for inode, inode_list in d.items():
+                    if inode not in merged:
+                        merged[inode] = {
+                            "inode": [],
+                            "stamp": [],
+                        }
+                    for ktype, ord_hash_stamp_list in inode_list.items():
+                        for ord_hash_stamp in ord_hash_stamp_list:
+                            if ktype == "inode":
+                                if ord_hash_stamp not in merged[inode][ktype]:
+                                    merged[inode][ktype].append(ord_hash_stamp)
+                                if len(merged[inode][ktype]) > 1: # make sure oridnal is the first element
+                                    merged[inode][ktype] = sorted(merged[inode][ktype], key=lambda x: (len(x) >= 64, x))
+                            if ktype == "stamp":
+                                if ord_hash_stamp not in merged[inode][ktype]:
+                                    merged[inode][ktype].append(ord_hash_stamp)
+        except Exception as e:
+            log.logger.error(f"snapshot --> error matching during process of compiling snapshot results | [{e}]")
 
         del matches # cleanup memory
-        for _ , ord_hash_stamp in merged.items(): 
-            ord_hash = ord_hash_stamp["inode"]
+        try:
+            for _ , ord_hash_stamp in merged.items(): 
+                ord_hash = ord_hash_stamp["inode"]
 
-            if len(ord_hash) > 1:
-                results["match_count"] += 1
-            elif len(ord_hash) > 0:
-                if len(ord_hash[0]) < 64 and ord_hash[0].isdigit():
-                    if debug and len(example_snaps) < 11:
-                        example_snaps.append(ord_hash[0])
-                    if int(ord_hash[0]) < results["ord_lowest"] or results["ord_lowest"] < 0:
-                        # find lowest break point
-                        results["ord_lowest"] = int(ord_hash[0])
-                elif len(ord_hash[0]) > 63:
-                    if debug and len(example_hashes) < 11:
-                        example_hashes.append(ord_hash[0])
-                results["solo_count"] += 1
-            else:
-                results["other"] += 1
-
-            for i in ord_hash:
-                if len(i) < 64 and i.isdigit():
-                    if int(i) > results["ord_highest"]:
-                        # find highest ordinal
-                        results["ord_highest"] = int(i)
-                    results["ord_count"] += 1
-                elif len(i) > 63:
-                    results["hash_count"] += 1
+                if len(ord_hash) > 1:
+                    results["match_count"] += 1
+                elif len(ord_hash) > 0:
+                    if len(ord_hash[0]) < 64 and ord_hash[0].isdigit():
+                        if debug and len(example_snaps) < 11:
+                            example_snaps.append(ord_hash[0])
+                        if int(ord_hash[0]) < results["ord_lowest"] or results["ord_lowest"] < 0:
+                            # find lowest break point
+                            results["ord_lowest"] = int(ord_hash[0])
+                    elif len(ord_hash[0]) > 63:
+                        if debug and len(example_hashes) < 11:
+                            example_hashes.append(ord_hash[0])
+                    results["solo_count"] += 1
                 else:
                     results["other"] += 1
 
-            if len(ord_hash_stamp["stamp"]) > 1:
-                results["unmatched_time"] += 1
-            for i in ord_hash_stamp["stamp"]:
-                for t in days:
-                    if i < (time() - (t*86400)):
-                        results[f"day_{t}_old"] += 1
-        
+                for i in ord_hash:
+                    if len(i) < 64 and i.isdigit():
+                        if int(i) > results["ord_highest"]:
+                            # find highest ordinal
+                            results["ord_highest"] = int(i)
+                        results["ord_count"] += 1
+                    elif len(i) > 63:
+                        results["hash_count"] += 1
+                    else:
+                        results["other"] += 1
+
+                if len(ord_hash_stamp["stamp"]) > 1:
+                    results["unmatched_time"] += 1
+                for i in ord_hash_stamp["stamp"]:
+                    for t in days:
+                        if i < (time() - (t*86400)):
+                            results[f"day_{t}_old"] += 1
+        except Exception as e:
+            log.logger.error(f"snapshot --> error counting compiled snapshot data | [{e}]")  
+
         for i, t in enumerate(days[:-1]):
             results[f"day_{t}_old"] -= results[f"day_{days[i+1]}_old"]
 

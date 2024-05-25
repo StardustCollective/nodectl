@@ -1,5 +1,6 @@
 import shutil
 import json
+import distro
 import modules.uninstall as uninstaller
 from os import makedirs, system, path, environ, get_terminal_size, chmod
 from time import sleep
@@ -51,6 +52,7 @@ class Installer():
     def install_process(self):
         self.handle_options()
         self.setup_install()
+        self.test_distro()
         self.handle_environment_setup()
         self.build_classes()
         if self.options.quick_install:
@@ -74,6 +76,46 @@ class Installer():
             self.populate_node_service()
         self.complete_install()
     
+
+    def test_distro(self):
+        distro_name = distro.name()
+        distro_version = distro.version()
+        continue_warn = False
+
+        if distro_name not in ["Ubuntu","Debian"]:
+            self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+            if not self.options.quiet:
+                self.functions.print_paragraph([
+                    [" WARNING ",0,"yellow,on_red"], 
+                    ["nodectl was developed to run on",0,"red"],
+                    ["Ubuntu",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                    ["Linux distributions.  Install results may vary if an install",0,"red"],
+                    ["is performed on a non-supported distribution.",2,"red"],
+                    ["Distribution found:",0],[distro_name,2,"yellow"],
+                ])
+                continue_warn = True
+        if "Ubuntu" in distro_name and "22.04" not in distro_version:
+            self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+            if not self.options.quiet:
+                self.functions.print_paragraph([
+                    [" WARNING ",0,"yellow,on_red"], 
+                    ["nodectl was developed to run on",0,"red"],
+                    ["Ubuntu",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                    ["Linux distributions.  Install results may vary if an install",0,"red"],
+                    ["is performed on a non-supported distribution.",2,"red"],
+                    ["Distribution found:",0],[distro_name,2,"yellow"],
+
+                ])  
+                continue_warn = True
+
+        if continue_warn: 
+            self.options.quick_install = self.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": True,
+                "prompt": "Continue?",                
+            })
+
 
     def setup_install(self):
         self.functions.check_sudo()

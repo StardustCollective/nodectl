@@ -5235,7 +5235,7 @@ class CLI():
             count_results = set_count_dict()
             merged_dict = {}
         else:
-            merged_dict, count_results = merge_snap_results(results,self.functions,debug)
+            merged_dict, count_results = merge_snap_results(results,self.functions,self.log,debug)
 
         snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
         count_results["old_days"] = old_days
