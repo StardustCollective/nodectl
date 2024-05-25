@@ -357,6 +357,68 @@ def print_report(count_results,fix,functions):
         })
 
 
+def print_full_snapshot_report(results, file_len, cols, functions, np, logs):
+    more_break = round(cols.lines)-40
+    print("")
+    def headers(inode,s_ord,stamp, s_hash):
+        print_out_list = [
+            {
+                "header_elements" : {
+                    "INODE LINK": inode,
+                    "ORDINAL": s_ord,
+                    "STAMP": stamp,
+                },
+                "spacing": 12,
+            },
+            {
+                "header_elements" : {
+                    "HASH": s_hash,
+                },
+            },
+        ]
+        
+        for header_elements in print_out_list:
+            functions.print_show_output({
+                "header_elements" : header_elements
+            }) 
+
+    for item, (inode, elements) in enumerate(results.items()):
+        try:
+            hash = elements["inode"][1]
+        except:
+            hash = "invalid"
+
+        ordinal = elements["inode"][0]
+        if len(ordinal) > 63:
+            hash = ordinal
+            ordinal = "missing"
+
+        stamp = elements["stamp"][0]
+        dt = datetime.fromtimestamp(stamp)
+        stamp = dt.strftime('%Y-%m-%d %H:%M:%S')
+        if len(elements["stamp"]) > 1:
+            stamp = "mismatch"
+
+        print_header = False if item > 0 else True
+        if item % more_break == 0 and item > 0 and not np:
+            print("")
+            cprint(f"  snapshot {item} of {file_len}","cyan")
+            more = functions.print_any_key({
+                "quit_option": "q",
+                "newline": "both",
+            })
+            if more:
+                break
+            print_header = True
+
+        if print_header:
+            headers(inode, ordinal ,stamp, hash)
+        else:
+            print("")
+            print(f"  {inode:<12}{ordinal:<12}{stamp:<12}")
+            print(f"  {hash}")
+
+
 def discover_snapshots(snapshot_dir, functions, log, inode=False):
     return_results = {
         "results": None,

@@ -5148,41 +5148,42 @@ class CLI():
         debug = False
         self.log.logger.info("cli -> display_snapshot_chain initiated.")
 
-        self.functions.print_header_title({
-            "line1": "Developer Mode - Remove snapshots",
-            "single_line": True,
-            "newline": "both",
-        })
-
-        self.functions.print_paragraphs([
-            [" WARNING ",0,"red,on_yellow"], ["This is an advanced feature and should not",0,"red"],
-            ["be used unless",0,"red"], ["ABSOLUTELY",0,"yellow"],
-            ["necessary.",1,"red"],
-            ["This feature can lead to unpredictable and undesired affects on your existing Node.",2,"red"],
-            ["nodectl will take your Node offline first.",2],
-        ])
-
-        profile = command_list[command_list.index("-p")+1]
-        snapshot_dir = self.set_data_dir(profile)
-
-        if "-y" not in command_list:
-            self.functions.confirm_action({
-                "yes_no_default": "n",
-                "return_on": "y",
-                "prompt_color": "magenta",
-                "prompt": f"Continue?",
-                "exit_if": True,
-            })  
-            print("")
-
         fix = True if "--fix" in command_list else False
         if fix and not self.config_obj["global_elements"]["developer_mode"]:
             self.functions.check_for_help(["help"],"")
 
+        self.functions.print_header_title({
+            "line1": "DISPLAY SNAPSHOT CHAIN REPORT",
+            "single_line": True,
+            "newline": "both",
+        })
+
+        profile = command_list[command_list.index("-p")+1]
+        snapshot_dir = self.set_data_dir(profile)
+
+        if fix:
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["This is an advanced feature and should not",0,"red"],
+                ["be used unless",0,"red"], ["ABSOLUTELY",0,"yellow"],
+                ["necessary.",1,"red"],
+                ["This feature can lead to unpredictable and undesired affects on your existing Node.",2,"red"],
+                ["nodectl will take your Node offline first.",2],
+            ])
+
+            if "-y" not in command_list:
+                self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt_color": "magenta",
+                    "prompt": f"Continue?",
+                    "exit_if": True,
+                })  
+                print("")
+
         self.log.logger.info("cli -> display_snapshot_chain --fix option detected.")
 
         old_days = -1
-        if "--days" in command_list:
+        if fix and "--days" in command_list:
             old_days = command_list[command_list.index("--days")+1]
             self.log.logger.info(f"cli -> display_snapshot_chain remove old snapshots requested [{old_days} days].")
             try:
@@ -5209,20 +5210,22 @@ class CLI():
                     ["30",0,"yellow"], ["days can lead to undesirable results.",2,"red"],
                 ])
 
-        self.build_node_class()
-        self.set_profile(profile)
-        self.cli_leave({
-            "secs": 30,
-            "reboot_flag": False,
-            "skip_msg": False,
-            "print_timer": True,
-            "threaded": False,
-        })
-        self.cli_stop({
-            "show_timer": False,
-            "static_nodeid": False,
-            "argv_list": []
-        })
+
+        if fix:
+            self.build_node_class()
+            self.set_profile(profile)
+            self.cli_leave({
+                "secs": 30,
+                "reboot_flag": False,
+                "skip_msg": False,
+                "print_timer": True,
+                "threaded": False,
+            })
+            self.cli_stop({
+                "show_timer": False,
+                "static_nodeid": False,
+                "argv_list": []
+            })
 
         self.functions.print_paragraphs([
             [" PATIENCE ",0,"yellow,on_red"],["This could take over",0],
@@ -5267,6 +5270,13 @@ class CLI():
             self.functions.print_show_output({
                 "header_elements" : header_elements,
             })
+
+        if "--full_report" in command_list:
+            np = True if "--np" in command_list else False
+            print_full_snapshot_report(
+                merged_dict, count_results["length_of_files"],
+                get_terminal_size(), self.functions, np, self.log
+            )
 
         if not fix:
             print("")
