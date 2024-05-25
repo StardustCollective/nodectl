@@ -1900,6 +1900,12 @@ def build_help(functions,command_obj):
   {colored('NOTE:','yellow')} You can use the keyword {colored('self','green')}
   to indicate the local (localhost) Node for either {colored('-s','cyan')} or {colored('-t','cyan')}
   
+  You may lookup a Node oridnal or hash value to find
+  its associated inode link reference and ordinal or
+  hash value.
+  {colored('-t ordinal <target_ordinal>','green')}
+  {colored('-t hash <target_hash>','green')}
+
   Example Usage
   -------------
   show this help screen
@@ -1951,6 +1957,16 @@ def build_help(functions,command_obj):
   option on the cluster we are connected to
   # {colored('sudo nodectl find -p dag-l0 -s 10.2.2.2 -t 10.1.1.2','cyan')}
 
+  example 4
+  ---
+  Find the hash and inode reference for ordinal: 1240126
+  # {colored('sudo nodectl find -p dag-l0 -t ordinal 1240126','cyan')}
+
+  example 5
+  ---
+  Find the ordinal and inode reference for 
+  hash: 2464b911c3e9638101ec3608a85567770f0c4c2ac2862bc000a6a8bf34332838
+  # {colored('sudo nodectl find -p dag-l0 -t hash 2464b911c3e9638101ec3608a85567770f0c4c2ac2862bc000a6a8bf34332838','cyan')}
         '''
         
         
