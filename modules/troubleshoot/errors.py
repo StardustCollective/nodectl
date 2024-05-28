@@ -252,7 +252,7 @@ class Error_codes():
                 ["HALTING ALL ACTIONS",2,"red","bold"],
 
                 ["Edge Point:",0], [var.extra,1,"yellow"],
-                ["Layer:",2], [str(var.extra2),2,"yellow"],
+                ["Layer:",0], [str(var.extra2),2,"yellow"],
 
                 ["Health Status Check on the",0,"red","bold"], ["EDGE DEVICE",0,"yellow","underline,bold"], ["did not return a valid response.",2,"red","bold"],
                 ["Possible Causes",2,"cyan","bold"],

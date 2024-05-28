@@ -1985,7 +1985,16 @@ class Functions():
         required = command_obj.get("required",False)
 
         predefined_envs = []
-        repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
+        try:
+            repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
+        except:
+            self.log.logger.error("functions --> pull_remote_profiles --> unable to access network.")
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-1993",
+                "line_code": "off_network",
+                "extra": path.split(self.nodectl_profiles_url)[0],
+                "extra2": "n/a",
+            })
 
         repo_profiles = repo_profiles["payload"]["tree"]["items"]
         metagraph_name, chosen_profile = None, None
