@@ -39,10 +39,15 @@ def ac_build_script(cli,auto_path):
     viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory "
     viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json --section"
 
+    displaychain_options = "-p --np --json_output --full_report --days, --json_output"
+
+    find_options = "-s -t"
     auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
     auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)
     auto_complete_file = auto_complete_file.replace("nodegarageupgradeoptions",upgrade_options)
     auto_complete_file = auto_complete_file.replace("nodegarageviewconfigoptions",viewconfig_options)
+    auto_complete_file = auto_complete_file.replace("nodegaragedisplaychainoptions",displaychain_options)
+    auto_complete_file = auto_complete_file.replace("nodegaragefindoptions",find_options)
     auto_complete_file = auto_complete_file.replace('\\n', '\n')    
 
     return auto_complete_file

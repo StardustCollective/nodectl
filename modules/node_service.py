@@ -1139,6 +1139,8 @@ exit 0
     local install_opts="nodegarageinstalloptions"
     local upgrade_opts="nodegarageupgradeoptions"
     local viewconfig_opts="nodegarageviewconfigoptions"
+    local displaychain_opts="nodegaragedisplaychainoptions"
+    local find_opts="nodegaragefindoptions"
     local default_opts="help"
 
     # Determine the current command
@@ -1203,6 +1205,51 @@ exit 0
                     ;;
                 *)
                     COMPREPLY=($(compgen -W "${viewconfig_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        display_snapshot_chain)
+            case "${prev}" in
+                -p)
+                    COMPREPLY=($(compgen -W "<profile>" -- ${cur}))
+                    return 0
+                    ;;
+                --days)
+                    COMPREPLY=($(compgen -W "<number_of_days>" -- ${cur}))
+                    return 0
+                    ;;
+                --json_output)
+                    COMPREPLY=($(compgen -W "<file_name or path>" -- ${cur}))
+                    COMPREPLY=($(compgen -W "--pretty_print" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${displaychain_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        find_options)
+            case "${prev}" in
+                -t)
+                    COMPREPLY=($(compgen -W "<<target_ip_nodeid, ordinal <ordinal_number>, or hash <hash_number>>" -- ${cur}))
+                    return 0
+                    ;;
+                -s)
+                    COMPREPLY=($(compgen -W "<source_ip_nodeid>" -- ${cur}))
+                    return 0
+                    ;;
+                --days)
+                    COMPREPLY=($(compgen -W "<number_of_days>" -- ${cur}))
+                    return 0
+                    ;;
+                --json_output)
+                    COMPREPLY=($(compgen -W "<file_name or path>" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${displaychain_opts}" -- ${cur}))
                     return 0
                     ;;
             esac

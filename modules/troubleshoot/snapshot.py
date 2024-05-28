@@ -1,3 +1,5 @@
+import json
+
 from os import stat, path, remove, listdir, cpu_count
 from time import time
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, wait as thread_wait
@@ -333,7 +335,7 @@ def print_report(count_results,fix,functions):
         "text_start": f"Chain elements <",
         "brackets": "10",
         "text_end": "days old",
-        "status": count_results["day_0_old"],
+        "status": f'{count_results["day_0_old"]:,}',
         "status_color": "yellow",
         "newline": True,
     })
@@ -343,7 +345,7 @@ def print_report(count_results,fix,functions):
             "text_start": "Chain elements >",
             "brackets": t,
             "text_end": "days old",
-            "status": count_results[f"day_{t}_old"],
+            "status": f'{count_results[f"day_{t}_old"]:,}',
             "status_color": "yellow",
             "newline": True,
         })
@@ -351,7 +353,7 @@ def print_report(count_results,fix,functions):
     if count_results["old_days"] > 0 and fix:
         functions.print_cmd_status({
             "text_start": "Remove ordinals > than",
-            "status": f'{count_results["old_days"]} Days',
+            "status": f'{count_results["old_days"]:,} Days',
             "status_color": "yellow",
             "newline": True,
         })
@@ -402,7 +404,7 @@ def print_full_snapshot_report(results, file_len, cols, functions, np, logs):
         print_header = False if item > 0 else True
         if item % more_break == 0 and item > 0 and not np:
             print("")
-            cprint(f"  snapshot {item} of {file_len}","cyan")
+            cprint(f"  snapshot {item:,} of {file_len:,}","cyan")
             more = functions.print_any_key({
                 "quit_option": "q",
                 "newline": "both",
@@ -598,4 +600,41 @@ def print_single_ordhash(profile,ordinal,hash,ordhash_inode,stamp,functions):
 
     print("")
     return
+
+
+def output_to_file(results, command_list, functions, logs):
+    output_file = command_list[command_list.index("--json_output")+1]
+    output_file = f"{functions.default_upload_location}{output_file}" if "/" not in output_file else output_file
+    indent_spacing = 4 if "--pretty_print" in command_list else None
+    logs.logger.info(f"snapshots -> writting out json file. | location [{output_file}]")
+
+    print("")
+    with ThreadPoolExecutor() as executor:
+        functions.status_dots = True
+        status_obj = {
+            "text_start": f"Writing out to file",
+            "status": "running",
+            "status_color": "yellow",
+            "dotted_animation": True,
+            "newline": False,
+            "timeout": False,
+        }
+        _ = executor.submit(functions.print_cmd_status,status_obj)
+
+        with open(output_file, 'w') as json_file:
+            json.dump(results, json_file, indent=indent_spacing)
+
+        functions.status_dots = False
+        functions.print_cmd_status({
+            **status_obj,
+            "status": "completed",
+            "status_color": "green",
+            "dotted_animation": False,
+            "newline": True,
+        })
+
+    functions.print_paragraphs([
+        ["Node ordinal hash database output json created.",1],
+        ["file:",0], [output_file,2,"yellow"],
+    ])
                 

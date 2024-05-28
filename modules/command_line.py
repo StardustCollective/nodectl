@@ -4324,23 +4324,6 @@ class CLI():
                             raise Exception()
                 except:
                     self.functions.check_for_help(["help"],"find")
-                           
-            # if target_obj == "ordinal":
-            #     try:
-            #         ordhash = argv_list[argv_list.index("ordinal")+1]
-            #         ordhash = int(ordhash)
-            #     except:
-            #         self.functions.check_for_help(["help"],"find")
-            #     ordhash_lookup = True
-            
-            # if target_obj == "hash":
-            #     try:
-            #         ordhash = argv_list[argv_list.index("hash")+1]
-            #         if len(ordhash) < 64: raise Exception()
-            #         ordhash = int(ordhash, 16)
-            #     except:
-            #         self.functions.check_for_help(["help"],"find")
-            #     ordhash_lookup = True
 
             if ordhash_lookup:
                 self.print_title(f"{target_obj} LOOKUP")
@@ -4360,6 +4343,7 @@ class CLI():
 
             if not isinstance(target_obj,dict):
                 target_obj =  {"ip": "127.0.0.1"} if argv_list[argv_list.index("-t")+1] == "self" else {"ip": argv_list[argv_list.index("-t")+1]}
+        
         target_ip = target_obj["ip"]
             
         if source_obj == "empty":
@@ -5277,6 +5261,8 @@ class CLI():
                 merged_dict, count_results["length_of_files"],
                 get_terminal_size(), self.functions, np, self.log
             )
+        if "--json_output" in command_list:
+            output_to_file(merged_dict,command_list, self.functions, self.log)
 
         if not fix:
             print("")
