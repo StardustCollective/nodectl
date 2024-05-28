@@ -38,7 +38,6 @@ from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
 from packaging import version
-from datetime import datetime
 from .troubleshoot.help import build_help
 from pycoingecko import CoinGeckoAPI
 
@@ -621,6 +620,26 @@ class Functions():
             test2 = datetime.strptime(new_time, format)
             if getattr(test1, time_part) != getattr(test2, time_part):
                 return True  # There is a difference            
+            return False
+        elif action == "valid_datatime":
+            date_formats = [
+                "%Y-%m-%d",
+                "%d-%m-%Y",
+                "%m/%d/%Y",
+                "%d/%m/%Y",
+                "%Y-%m-%d %H:%M:%S",
+                "%d-%m-%Y %H:%M:%S",
+                "%m/%d/%Y %H:%M:%S",
+                "%d/%m/%Y %H:%M:%S",
+                "%H:%M:%S",
+                "%H:%M"
+            ]
+            for fmt in date_formats:
+                try:
+                    datetime.strptime(new_time, fmt)
+                    return True
+                except ValueError:
+                    continue
             return False
         else:
             # if the action is default 

@@ -82,9 +82,6 @@ class Installer():
         distro_version = distro.version()
         continue_warn = False
 
-        # distro_name = "RedHat"
-        distro_version = "24.04"
-
         if distro_name not in ["Ubuntu","Debian"]:
             self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
             if not self.options.quiet:

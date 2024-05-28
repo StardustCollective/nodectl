@@ -5495,9 +5495,15 @@ class CLI():
 
         if "--datetime" in command_list:  
             sc_date = command_list[command_list.index("--datetime")+1]
-            if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
-                sc_date = f"'{sc_date}'"
-            bashCommand += f" --datetime {sc_date}"
+            if self.functions.get_date_time({
+                "action": "valid_datetime",
+                "new_time": sc_date,
+            }):
+                if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
+                    sc_date = f"'{sc_date}'"
+                bashCommand += f" --datetime {sc_date}"
+            else:
+                bashCommand += f" --datetime"
 
         if "-d" in command_list: bashCommand += " -d"
         if "-o" in command_list: bashCommand += " -o"
