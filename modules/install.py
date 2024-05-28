@@ -82,10 +82,13 @@ class Installer():
         distro_version = distro.version()
         continue_warn = False
 
+        # distro_name = "RedHat"
+        distro_version = "24.04"
+
         if distro_name not in ["Ubuntu","Debian"]:
             self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
             if not self.options.quiet:
-                self.functions.print_paragraph([
+                self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], 
                     ["nodectl was developed to run on",0,"red"],
                     ["Ubuntu",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
@@ -94,19 +97,41 @@ class Installer():
                     ["Distribution found:",0],[distro_name,2,"yellow"],
                 ])
                 continue_warn = True
-        if "Ubuntu" in distro_name and "22.04" not in distro_version:
-            self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
-            if not self.options.quiet:
-                self.functions.print_paragraph([
-                    [" WARNING ",0,"yellow,on_red"], 
-                    ["nodectl was developed to run on",0,"red"],
-                    ["Ubuntu",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
-                    ["Linux distributions.  Install results may vary if an install",0,"red"],
-                    ["is performed on a non-supported distribution.",2,"red"],
-                    ["Distribution found:",0],[distro_name,2,"yellow"],
+        if "Ubuntu" in distro_name:
+            if ".10" in distro_version:
+                self.log.logger.warn(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
+                if not self.options.quiet:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"yellow,on_red"], 
+                        ["nodectl was developed to run on",0,"red"],
+                        ["Ubuntu Long Term Support (TLS)",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                        ["Linux distributions.",2,"red"],
+                        ["This version is identified as a interim release.",2,"red"],
+                        ["Install results may vary if an install is performed on a non-supported distribution.",2,"red"],
+                        ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
 
-                ])  
-                continue_warn = True
+                    ])  
+                    continue_warn = True
+            elif "22.04" not in distro_version and "20.04" not in distro_version and "18.04" not in distro_version:
+                self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+                if not self.options.quiet:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"yellow,on_red"], 
+                        ["nodectl was developed to run on",0,"red"],
+                        ["Ubuntu 22.04",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                        ["Linux distributions.  Install results may vary if an install",0,"red"],
+                        ["is performed on a non-supported distribution.",2,"red"],
+                        ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
+
+                    ])  
+                    if "24.04" in distro_version:
+                        self.functions.print_paragraphs([
+                            ["Ubuntu 24.04 will be supported as soon as all necessary packages",0],
+                            ["used to allow the needed functionality are updated and supported by 24.04.",1],
+                            ["Ubuntu 22.04 LTS will reach its end of life in April 2032.",2]
+
+                        ])  
+                    continue_warn = True
 
         if continue_warn: 
             self.options.quick_install = self.functions.confirm_action({

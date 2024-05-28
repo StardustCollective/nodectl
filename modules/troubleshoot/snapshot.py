@@ -444,14 +444,17 @@ def discover_snapshots(snapshot_dir, functions, log, inode=False):
         _ = executor.submit(functions.print_cmd_status,status_obj)
 
         # files = [f for f in listdir(snapshot_dir) if path.isfile(path.join(snapshot_dir, f))]
-        for ordhash in listdir(snapshot_dir):
-            if path.isfile(path.join(snapshot_dir, ordhash)):
-                files.append(ordhash)
-                try:
-                    if len(ordhash) < 64 and int(ordhash) > max_ord:
-                        max_ord = int(ordhash)
-                except Exception as e:
-                    log.logger.error(f"unable to determine snapshot data type, skipping [{ordhash}]")
+        try:
+            for ordhash in listdir(snapshot_dir):
+                if path.isfile(path.join(snapshot_dir, ordhash)):
+                    files.append(ordhash)
+                    try:
+                        if len(ordhash) < 64 and int(ordhash) > max_ord:
+                            max_ord = int(ordhash)
+                    except Exception as e:
+                        log.logger.error(f"unable to determine snapshot data type, skipping [{ordhash}]")
+        except:
+            log.logger.warn(f"snapshots --> unable to open or find snapshot items in [{snapshot_dir}]")
 
         num_workers = cpu_count()
         chunk_size = len(files) // num_workers
