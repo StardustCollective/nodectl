@@ -5154,15 +5154,20 @@ class CLI():
                 ["nodectl will take your Node offline first.",2],
             ])
 
-            if "-y" not in command_list:
-                self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt_color": "magenta",
-                    "prompt": f"Continue?",
-                    "exit_if": True,
-                })  
-                print("")
+        self.functions.print_paragraphs([
+            ["To prevent",0,"blue","bold"], ["false-negatives",0,"red"], 
+            ["nodectl will take your Node offline first.",2,"blue","bold"],
+        ])
+
+        if "-y" not in command_list:
+            self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt_color": "magenta",
+                "prompt": f"Continue?",
+                "exit_if": True,
+            })  
+            print("")
 
         self.log.logger.info("cli -> display_snapshot_chain --fix option detected.")
 
@@ -5194,22 +5199,20 @@ class CLI():
                     ["30",0,"yellow"], ["days can lead to undesirable results.",2,"red"],
                 ])
 
-
-        if fix:
-            self.build_node_class()
-            self.set_profile(profile)
-            self.cli_leave({
-                "secs": 30,
-                "reboot_flag": False,
-                "skip_msg": False,
-                "print_timer": True,
-                "threaded": False,
-            })
-            self.cli_stop({
-                "show_timer": False,
-                "static_nodeid": False,
-                "argv_list": []
-            })
+        self.build_node_class()
+        self.set_profile(profile)
+        self.cli_leave({
+            "secs": 30,
+            "reboot_flag": False,
+            "skip_msg": False,
+            "print_timer": True,
+            "threaded": False,
+        })
+        self.cli_stop({
+            "show_timer": False,
+            "static_nodeid": False,
+            "argv_list": []
+        })
 
         self.functions.print_paragraphs([
             [" PATIENCE ",0,"yellow,on_red"],["This could take over",0],
@@ -5239,7 +5242,7 @@ class CLI():
         print_report(count_results, fix, self.functions)
 
         p_status = colored("True","green")
-        if count_results["solo_count"] < 0: 
+        if count_results["solo_count"] > 0: 
             p_status = colored("False","red")
 
         print_out_list = [
