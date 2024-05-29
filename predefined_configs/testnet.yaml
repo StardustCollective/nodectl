@@ -117,11 +117,11 @@ nodectl:
     gl0_link_host: None
     gl0_link_port: None
     gl0_link_profile: None
-    ml0_link_enable: False
-    ml0_link_key: None
-    ml0_link_host: None
-    ml0_link_port: None
-    ml0_link_profile: None
+    ml0_link_enable: True
+    ml0_link_key: self
+    ml0_link_host: self
+    ml0_link_port: self
+    ml0_link_profile: dag-l0
     token_identifier: disable
     token_coin_id: global
     directory_backups: default
