@@ -621,7 +621,7 @@ class Functions():
             if getattr(test1, time_part) != getattr(test2, time_part):
                 return True  # There is a difference            
             return False
-        elif action == "valid_datatime":
+        elif action == "valid_datetime":
             date_formats = [
                 "%Y-%m-%d",
                 "%d-%m-%Y",

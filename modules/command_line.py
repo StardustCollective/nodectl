@@ -5507,6 +5507,7 @@ class CLI():
 
         if "-d" in command_list: bashCommand += " -d"
         if "-o" in command_list: bashCommand += " -o"
+        
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
         system(bashCommand)
 
