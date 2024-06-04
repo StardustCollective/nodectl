@@ -1105,8 +1105,9 @@ class ShellHandler:
         for cmd in cmds[1:]:
             if path.isfile(f'/var/tmp/{cmd[0]}'):
                 remove(f'/var/tmp/{cmd[0]}')
-        if path.isfile(f'/var/tmp/nodectl_{node_arch}'):
-            remove(f'/var/tmp/nodectl_{node_arch}')
+        for file in [f"nodecl_{node_arch}","nodectl_public"]:
+            if path.isfile(f'/var/tmp/{file}'):
+                remove(f'/var/tmp/{file}')
     
             
     def confirm_int_upg(self):

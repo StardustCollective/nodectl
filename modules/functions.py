@@ -1537,10 +1537,9 @@ class Functions():
         }
         
         if json:
-            get_headers = {
-                **get_headers,
+            get_headers.update({
                 'Accept': 'application/json',
-            }
+            })
             
         session = Session()            
         session.headers.update(get_headers)   
@@ -3727,14 +3726,16 @@ class Functions():
         local = command_obj.get("local",path.split(url)[1])
 
         try:
-            with get(url,stream=True) as response:
+            session = self.set_request_session()
+            session.verify = True
+            with session.get(url,stream=True) as response:
                 response.raise_for_status()
                 with open(local,'wb') as output_file:
                     for chunk in response.iter_content(chunk_size=8192):
                         output_file.write(chunk)
             self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
         except requests_exceptions.RequestException as e:
-            self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}]")
+            self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
             raise
 
 
