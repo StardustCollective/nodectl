@@ -260,7 +260,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
             })
             log.logger.warn(f"snapshot --> removing ordinal {snap_to_remove}")
             count += 1
-            if not debug: 
+            if not debug and path.isfile(snap_to_remove): 
                 remove(snap_to_remove)
 
     for n in range(3,0,-1):

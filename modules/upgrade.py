@@ -2,8 +2,9 @@ import subprocess
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from os import system, path, makedirs, remove, environ, chmod
+from shutil import copy2, move
 from time import sleep
-from termcolor import colored, cprint
+from termcolor import colored
 from re import match
 from hurry.filesize import size, alternative
 from copy import deepcopy
@@ -881,19 +882,28 @@ class Upgrader():
         # remove any private key file info to keep
         # security a little more cleaned up
         if path.isfile(f"{self.p12.p12_file_location}/id_ecdsa.hex"):
-            remove(f"{self.p12.p12_file_location}/id_ecdsa.hex > /dev/null 2>&1")
-        system("sudo rm -f /var/tmp/cnng-* > /dev/null 2>&1")
-        system("sudo rm -f /var/tmp/cn-* > /dev/null 2>&1")
-        system("sudo rm -f /var/tmpsshd_config* > /dev/null 2>&1")
+            remove(f"{self.p12.p12_file_location}/id_ecdsa.hex")
+
+        files = [
+            "/var/tmp/cnng-*",
+            "/var/tmp/cn-*",
+            "/var/tmp/sshd_config*",
+        ]
+        for file in files:
+            self.functions.remove_files(None,"modify_dynamic_elements",file)
 
         self.log.logger.debug("upgrader -> cleaning up seed list files from root of [/var/tessellation]")
+        
         for env in ["testnet","mainnet","integrationnet"]:
-            system(f"sudo rm -f /var/tessellation/{env}-seedlist > /dev/null 2>&1")
+            if path.isfile(f"/var/tessellation/{env}-seedlist"):
+                remove(f"/var/tessellation/{env}-seedlist")
 
-        # mv temp rewritten rc files to backup
+        # move temp rewritten rc files to backup
         rc_file_name = "{"+"}"+".bashrc*"
-        system(f'sudo mv /home/{self.p12.p12_username}/{rc_file_name} {self.config_obj[self.functions.default_profile]["directory_backups"]} > /dev/null 2>&1')
-
+        _ = self.functions.process_command({
+            "bashCommand": f'sudo mv /home/{self.p12.p12_username}/{rc_file_name} {self.config_obj[self.functions.default_profile]["directory_backups"]}',
+            "proc_action": "subprocess_devnull",
+        })
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -919,7 +929,7 @@ class Upgrader():
         files = ["node.service","node_l0.service","node_l1.service"]
         for file in files:
             if path.isfile(f"/etc/systemd/system/{file}"):
-                system(f"rm -f /etc/systemd/system/{file} > /dev/null 2>&1")
+                remove(f"/etc/systemd/system/{file}")
 
         self.functions.print_cmd_status({
             **progress,
@@ -1003,8 +1013,9 @@ class Upgrader():
         })
         if not test and test != "file_not_found":
             # backup the file just in case
-            system("cp /etc/fstab /etc/fstab.bak > /dev/null 2>&1")
-            system("echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab > /dev/null 2>&1")
+            copy2("/etc/fstab","/etc/fstab.bak")
+            with open("/etc/fstab", 'a') as file:
+                file.write("/swapfile none swap sw 0 0\n")
             results[0] = "done"
             
         test = self.functions.test_or_replace_line_in_file({
@@ -1013,13 +1024,16 @@ class Upgrader():
         })
         if not test and test != "file_not_found":
             # backup the file just in case
-            system("cp /etc/sysctl.conf /etc/sysctl.conf.bak > /dev/null 2>&1")
-            system("echo 'vm.swappiness=10' | tee -a /etc/sysctl.conf > /dev/null 2>&1")
-            
+            copy2("/etc/sysctl.conf","/etc/sysctl.conf.bak")
+            with open("/etc/sysctl.conf", 'a') as file:
+                file.write("vm.swappiness=10\n")            
         # turn it on temporarily until next reboot
-        system("sysctl vm.swappiness=10 > /dev/null 2>&1")
         # make sure swap is on until next reboot
-        system("swapon /swapfile > /dev/null 2>&1")
+        for cmd in ["sysctl vm.swappiness=10","swapon /swapfile"]:
+            _ = self.functions.process_command({
+                "bashCommand": cmd,
+                "proc_action": "subprocess_devnull",
+            })
             
         if results[0] == "done" and results[1] == "done":
             result = "complete"
@@ -1082,7 +1096,10 @@ class Upgrader():
         }
         self.functions.print_cmd_status(progress)
 
-        system("sudo systemctl daemon-reload > /dev/null 2>&1")
+        _ = self.functions.process_command({
+            "bashCommand": "sudo systemctl daemon-reload",
+            "proc_action": "subprocess_devnull",
+        })
         sleep(1)
         self.functions.print_cmd_status({
             **progress,
@@ -1098,10 +1115,13 @@ class Upgrader():
         }
         self.functions.print_cmd_status(progress)
 
-        system("sudo systemctl enable node_version_updater.service > /dev/null 2>&1")
-        sleep(.8)
-        system("sudo systemctl restart node_version_updater.service > /dev/null 2>&1")
-        sleep(1)
+        for cmd in ["enable node_version_updater.service","restart node_version_updater.service"]:
+            _ = self.functions.process_command({
+                "bashCommand": f"sudo systemctl {cmd}",
+                "proc_action": "subprocess_devnull",
+            })            
+            sleep(.5)
+
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -1460,7 +1480,7 @@ class Upgrader():
 
         auto_path = ac_validate_path(self.log,"upgrader")
         auto_complete_file = ac_build_script(self.cli,auto_path)
-        ac_write_file(auto_path,auto_complete_file)
+        ac_write_file(auto_path,auto_complete_file,self.functions)
 
         self.functions.print_cmd_status({
             **progress,

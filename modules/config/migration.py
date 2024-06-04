@@ -1,5 +1,5 @@
 from os import system, path, makedirs
-
+from shutil import move
 from .versioning import Versioning
 from ..troubleshoot.logger import Logging
 from ..node_service import Node
@@ -220,7 +220,8 @@ class Migration():
         dest = f"{backup_dir}backup_cn-config_{datetime}"
 
         self.log.logger.debug(f'migration module backing up the configuration to [{dest}]')
-        system(f"mv {self.functions.nodectl_path}cn-config.yaml {dest} > /dev/null 2>&1")        
+        if path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
+            move(f"{self.functions.nodectl_path}cn-config.yaml",dest)      
 
         self.functions.print_cmd_status({
             **progress,

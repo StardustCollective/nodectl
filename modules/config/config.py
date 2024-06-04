@@ -6,7 +6,10 @@ from time import sleep, time
 from random import randint
 from re import match
 from os import system, path, get_terminal_size, makedirs, listdir
+from shutil import copy2, move
 from sys import exit
+from glob import glob
+from shlex import quote
 
 from .migration import Migration
 from ..functions import Functions
@@ -144,6 +147,7 @@ class Configuration():
             self.print_report()
 
         self.functions.get_includes()
+        self.cleanup_backups()
         if self.action not in continue_list:
             exit(0)
         if self.action == "edit_on_error":
@@ -291,7 +295,7 @@ class Configuration():
     def yaml_passphrase_fix(self):
         temp_file = "/var/tmp/cn-config_temp.yaml"
         skip_values = ["None","global",'"']
-        system(f"cp {self.yaml_file} {temp_file} > /dev/null 2>&1")
+        copy2(self.yaml_file,temp_file)
         y_file = self.yaml_file.split("/")[-1]
         return_value = False
         
@@ -321,8 +325,9 @@ class Configuration():
                 fix_yaml.write(line)
 
         f.close()
-        
-        system(f"mv {temp_file} {self.yaml_file} > /dev/null 2>&1")
+
+        if path.isfile(temp_file):
+            move(temp_file,self.yaml_file)
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -1067,7 +1072,8 @@ class Configuration():
                                 newfile.write(line)
                     newfile.close()
                     f.close()
-                    system(f"mv /var/tmp/cn-config-temp.yaml {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
+                    if path.isfile("/var/tmp/cn-config-temp.yaml"):
+                        move("/var/tmp/cn-config-temp.yaml",f"{self.functions.nodectl_path}cn-config.yaml")
 
         except Exception as e:
             self.error_messages.error_code_messages({
@@ -1691,7 +1697,23 @@ class Configuration():
                 "special_case": None,
             })  
             
-                             
+
+    def cleanup_backups(self):
+        try:
+            profile = self.functions.clear_global_profiles(self.config_obj)[0]
+        except:
+            self.log.logger.warn("config --> unable to determine backup location, skipping cleanup.")
+            return
+        
+        source = glob("/var/tessellation/nodectl/*backup*")
+        for file in source:
+            bashCommand = f"sudo mv {quote(file)} {quote(self.config_obj[profile]['directory_backups'])}"
+            _ = self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "subprocess_devnull",
+            })
+
+
     def print_report(self):
         if self.skip_final_report:
             return

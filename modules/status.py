@@ -63,7 +63,10 @@ class Status():
         try:
             output = check_output(["grep","tessellation"], stdin=ps.stdout)
         except:
-            system(f'touch /var/log/tessellation_dag_log_{self.date_stamp} > /dev/null 2>&1')
+            _ = self.functions.process_command({
+                "bashCommand": f"touch /var/log/tessellation_dag_log_{self.date_stamp}",
+                "proc_action": "subprocess_devnull",
+            })
             self.log_file = f'tessellation_dag_log_{self.date_stamp}'
         else:
             self.log_found_flag = True

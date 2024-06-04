@@ -7,6 +7,7 @@ from hashlib import sha256
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
 from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, SEEK_END, SEEK_CUR
+from shutil import copy2, move
 from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
@@ -286,7 +287,11 @@ class CLI():
                 if self.functions.cancel_event: exit(0)
                 if watch_enabled:
                     watch_passes += 1
-                    system("clear")
+
+                    _ = self.functions.process_command({
+                        "proc_action": "clear",
+                    })
+
                     self.functions.print_paragraphs([
                         ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
                         ["Do not use",0],["ctrl",0,"yellow"],["and",0],["c",2,"yellow"],
@@ -611,7 +616,7 @@ class CLI():
             "req":"service",
             "profile": profile,
         })
-        bash_command = f"journalctl -b -u cnng-{service}"
+        bash_command = f"journalctl -b -u cnng-{service} --no-pager"
         
         self.functions.print_paragraphs([
             ["",1],["SERVICE JOURNAL LOGS",1,"blue","bold"],
@@ -623,7 +628,10 @@ class CLI():
             "prompt": "Press any key to begin",
             "color": "cyan",
         })
-        system(bash_command)
+        _ = self.functions.process_command({
+            "bashCommand": bash_command,
+            "proc_action": "subprocess_run",
+        })
         cprint("  Service log review complete","blue")
 
             
@@ -1441,12 +1449,34 @@ class CLI():
                                 ])       
             
             print(" ") # spacer
-        
+
         self.functions.print_paragraphs([
             ["Note:",0,"yellow"], ["port configurations are for the local Node only.",0,"magenta"],
             ["API ports are per Node customizable.",1,"magenta"],
             ["sudo nodectl configure",2,"cyan","bold"],
         ])
+
+        self.show_distro_elements()
+
+
+    def show_distro_elements(self):
+        distro_items = self.functions.get_distro_details()
+        print_out_list = [
+            {
+                "header_elements": {
+                    "DISTRIBUTION": distro_items["description"],
+                    "ARCHITECTURE": distro_items['arch'],
+                    "CODE NAME": distro_items["codename"],
+                    
+                },
+                "spacing": 19,
+            },
+        ]
+
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })
 
 
     def show_node_states(self,command_list):
@@ -1870,6 +1900,35 @@ class CLI():
         p12 = P12Class({"functions": self.functions})   
         p12.solo = True   
         p12.show_p12_details(command_list)  
+
+
+    def show_profile_issues(self,command_list,ts=False):
+        solo = False
+        lines = command_list[command_list.index("--lines")+1] if "--lines" in command_list else 149
+        if not ts:
+            ts = self.troubleshooter
+            self.print_title("POSSIBLE PROFILE ISSUES")
+            solo = True
+
+        profile = command_list[command_list.index("-p")+1]
+        ts.setup_logs({
+            "profile": profile,
+        })
+        results = ts.test_for_connect_error(lines) 
+        
+        if results:
+            self.log.logger.error(f"cli_restart -> profile [{results[0]}] possible cause [{results[1]}] result [{results[2]}] ")
+            self.functions.print_paragraphs([
+                ["",1], ["The following was identified in the logs",1],
+                ["       Profile:",0],[results[0],1,"yellow"],
+                ["Possible Cause:",0],[results[1],1,"yellow"],
+                ["        Result:",0],[results[2],2,"yellow"],
+            ])
+        elif solo:
+            self.functions.print_paragraphs([
+                ["Profile:",0],[profile,1,"yellow"],
+                ["No issues found...",1,"green","bold"],
+            ])
 
 
     # ==========================================
@@ -3192,18 +3251,7 @@ class CLI():
                                 [profile,0,"red","bold"], ["service failed to start...",1]
                             ])
                             ts = Troubleshooter({"config_obj": self.config_obj})
-                            ts.setup_logs({
-                                "profile": profile,
-                            })
-                            results = ts.test_for_connect_error() 
-                            if results:
-                                self.log.logger.error(f"cli_restart -> profile [{results[0]}] possible cause [{results[1]}] result [{results[2]}] ")
-                                self.functions.print_paragraphs([
-                                    ["",1], ["The following was identified in the logs",1],
-                                    ["       Profile:",0],[results[0],1,"yellow"],
-                                    ["Possible Cause:",0],[results[1],1,"yellow"],
-                                    ["        Result:",0],[results[2],2,"yellow"],
-                                ])
+                            self.show_profile_issues([f"-p {profile}"],ts)
                             self.functions.print_auto_restart_warning()
                             start_failed_list.append(profile)
                             
@@ -3251,6 +3299,13 @@ class CLI():
                 
 
     def cli_reboot(self,command_list):
+
+        def do_reboot():
+            _ = self.functions.process_command({
+                "bashCommand": "sudo reboot",
+                "proc_action": "subprocess_devnull",
+            })
+
         self.log.logger.info("user initiated system warm reboot.")
         self.functions.check_for_help(command_list,"reboot")
         
@@ -3315,7 +3370,8 @@ class CLI():
                 ["Preparing to reboot.  You will lose access after this message appears.  Please reconnect to your Node after a few moments of patience, to allow your server to reboot, initialize, and restart the SSH daemon.",2]
             ])
             sleep(2)
-            system(f"sudo reboot > /dev/null 2>&1")  
+            do_reboot() 
+ 
                     
         confirm ="y"
         if interactive:
@@ -3332,7 +3388,7 @@ class CLI():
             cprint("  Leave complete","green")
             cprint("  Preparing to reboot...","magenta")
             sleep(2)
-            system(f"sudo reboot > /dev/null 2>&1")
+            do_reboot()
             
       
     def cli_join(self,command_obj):
@@ -3867,7 +3923,7 @@ class CLI():
     def cli_grab_id(self,command_obj):
         # method is secondary method to obtain node id
         argv_list = command_obj.get("argv_list",[None])
-        command = command_obj.get("command")
+        command = command_obj["command"]
         return_success = command_obj.get("return_success",False)
         skip_display = command_obj.get("skip_display",False)
         outside_node_request = command_obj.get("outside_node_request",False)
@@ -4306,6 +4362,7 @@ class CLI():
 
         self.profile = argv_list[argv_list.index("-p")+1]
         source_obj = "empty"
+
         if "-s"  in argv_list:
             source_obj = {"ip": "127.0.0.1"} if argv_list[argv_list.index("-s")+1] == "self" else {"ip": argv_list[argv_list.index("-s")+1]}
 
@@ -4394,7 +4451,9 @@ class CLI():
             except:
                 target_ip_id = "unknown"
 
-
+        if "return_only" in argv_list:
+            return target_ip_id
+        
         spacing = 21            
         print_out_list = [
             {
@@ -4548,7 +4607,10 @@ class CLI():
         self.functions.print_paragraphs([
             ["",1],["UPDATE OUTPUT BOX",1,"blue","bold"],["-","half","bold"],
         ])
-        system("sudo apt -y update")
+        _ = self.functions.process_command({
+            "bashCommand": "sudo apt -y update",
+            "proc_action": "subprocess_run_check_only",
+        })
         self.functions.print_paragraphs([
             ["-","half","cyan","bold"],["",1],
         ])
@@ -4562,7 +4624,10 @@ class CLI():
         self.functions.print_paragraphs([
             ["",1],["UPGRADE OUTPUT BOX",1,"blue","bold"],["-","half","bold"],
         ])
-        system("sudo apt -y upgrade")
+        _ = self.functions.process_command({
+            "bashCommand": "sudo apt -y upgrade",
+            "proc_action": "subprocess_run_check_only",
+        })
         self.functions.print_paragraphs([
             ["-","half","cyan","bold"],["",1],
         ])
@@ -4810,7 +4875,7 @@ class CLI():
                 if self.functions.cancel_event: exit(0)
                 if seconds:
                     watch_passes += 1
-                    system("clear")
+                    _ = self.functions.process_command({"proc_action": "clear"})
                     if not brief:
                         self.functions.print_paragraphs([
                             ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
@@ -5028,7 +5093,8 @@ class CLI():
 
         self.functions.print_paragraphs([
             ["",2], [" IMPORTANT ",0,"yellow,on_red","bold"],
-            ["Remove this file after verification of passphrase change is completed.  The backed up file contains ability to access the blockchain using the original passphrase.",2],
+            ["Remove this file after verification of passphrase change is completed.",0,"red","bold"],
+            ["The backed up file contains ability to access the blockchain using the original passphrase.",2,"red","bold"],
         ])
         
         p12 = P12Class({
@@ -5242,14 +5308,31 @@ class CLI():
         print_report(count_results, fix, self.functions)
 
         p_status = colored("True","green")
-        if count_results["solo_count"] > 0: 
+        if count_results["solo_count"] > 0 or count_results["day_0_old"] < 1: 
             p_status = colored("False","red")
+
+        self.functions.print_paragraphs([
+            ["",1], [" WARNING ",0,"red,on_yellow"], ["nodectl is not integrated directly with",0],
+            ["Tessellation, which is the",0], ["definitive authority",0,"green","bold"], ["for verifying a Node's",0],
+            ["validity. Therefore, this feature uses the term",0],
+            ["'in order'",0,"green"], ["instead of",0], ["'valid'.",0,"green"], ["According to the organization, based",0],
+            ["on the pairing of ordinals to hashes and the last known snapshot age, nodectl considers whether or not",0],
+            ["the Node to be in proper order.",2],
+
+            ["If your Node reaches",0], ["WaitingForDownload",0,"red"], ["and this command indicates that",0],
+            ["the chain on this Node is",0], ["'in order',",0,"green"], ["it only means that the chain elements",0],
+            ["appear to be correctly aligned.",2],
+            
+            ["For a definitive assessment of the Node's snapshot DAG chain, nodectl would need to replicate",0],
+            ["Tessellation's functionality; instead, it can only direct you to the use of Tessellation's",0],
+            ["protocol [HGTP] to further analysis.",2],
+        ])
 
         print_out_list = [
             {
                 "-BLANK-": None,
                 "PROFILE": profile,
-                "VALID CHAIN": p_status,
+                "IN ORDER": p_status,
             },
         ]
 
@@ -5274,7 +5357,7 @@ class CLI():
         if count_results["length_of_files"] < 1:
             self.functions.print_paragraphs([
                 ["",1],[" WARNING ",0,"yellow,on_red"], 
-                ["nodectl was unable to find any valid ordinal, snapshot, or hash history on this Node?",2,"red"],
+                ["nodectl was unable to find any ordinal, snapshot, or hash history on this Node?",2,"red"],
                 ["In most cases, this indicates that the Node is either new or has never participated",0],
                 ["on the configured cluster.",2],
                 ["nodectl will now exit.",2,"blue","bold"],
@@ -5283,13 +5366,13 @@ class CLI():
         
         if count_results["solo_count"] < 1:
             self.functions.print_paragraphs([
-                ["",1],[" VALID CHAIN ",0,"blue,on_green"], 
-                ["This Node's snapshot inventory is valid and does not need any further action.",0,"green"],
+                ["",1],[" IN ORDER ",0,"blue,on_green"], 
+                ["This Node's snapshot inventory is in order and does not need any further action.",0,"green"],
                 ["nodectl will quit with no action.",2,"green"],
 
                 ["If your Node is reaching the",0], ["WaitingForDownload",0,"red"], ["state, the Node may have an",0],
-                ["invalid ordinal/hash match. It is recommended to reach out to Constellation Network",0],
-                ["support for further troubleshooting.",2],
+                ["invalid ordinal/hash match, or something is wrong that is out of the scope of nodectl's' abilities.",0],
+                ["It is recommended to reach out to Constellation Network support for further troubleshooting.",2],
 
                 ["If you believe you reached this message in error, you will now be offered the option to enter a",0,"magenta"], 
                 ["user defined",0,"yellow"], ["starting ordinal below.",2,"magenta"],
@@ -5441,9 +5524,11 @@ class CLI():
             "newline": False,
         })
         sleep(.5)
-        bashCommand = f'sudo wget {repo} -O {local_path} -o /dev/null'
-        self.log.logger.debug(f"cli -> execute_starchiver -> fetching starchiver -> [{bashCommand}]")
-        system(bashCommand)
+        self.log.logger.debug(f"cli -> execute_starchiver -> fetching starchiver -> [{repo}] -> [{local_path}]")
+        self.functions.download_file({
+            "url": repo,
+            "local": local_path,
+        })
         self.functions.print_cmd_status({
             "text_start": "Fetching starchiver",
             "status": "complete",
@@ -5488,6 +5573,7 @@ class CLI():
             "status_color": "yellow",
             "newline": False,
         })
+        print("")
         sleep(.5)
         data_path = f"/var/tessellation/{profile}/data/"
         cluster = self.config_obj[profile]["environment"]
@@ -5507,9 +5593,12 @@ class CLI():
 
         if "-d" in command_list: bashCommand += " -d"
         if "-o" in command_list: bashCommand += " -o"
-        
+
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
-        system(bashCommand)
+        _ = self.functions.process_command({
+            "bashCommand": bashCommand,
+            "proc_action": "subprocess_run",
+        })
 
 
     def cli_execute_tests(self,command_list):
@@ -5565,9 +5654,11 @@ class CLI():
         sleep(.5)
         repo = f"{self.functions.nodectl_download_url}/nodectl_tests_x86_64"
         local_path = "/usr/local/bin/nodectl_tests"
-        bashCommand = f'sudo wget {repo} -O {local_path} -o /dev/null'
-        self.log.logger.debug(f"cli -> execute_tests -> fetching Node Operator tests -> [{bashCommand}]")
-        system(bashCommand)
+        self.log.logger.debug(f"cli -> execute_tests -> fetching Node Operator tests -> [{repo}] to [{local_path}]")
+        self.functions.download_file({
+            "url": repo,
+            "local": local_path,
+        })
         self.functions.print_cmd_status({
             "text_start": "Fetching tests",
             "status": "complete",
@@ -5610,7 +5701,10 @@ class CLI():
             ])
             exit(0)
         self.log.logger.debug(f"cli -> execute_tests -> executing Node Operator tests | command referenced [{bashCommand}]")
-        system(bashCommand)
+        _ = self.functions.process_command({
+            "bashCommand": bashCommand,
+            "proc_action": "subprocess_run",
+        })        
 
 
     def cli_enable_remote_access(self,command_list):
@@ -5752,11 +5846,11 @@ class CLI():
             
             if not path.exists(backup_dir) and not uninstall:
                 self.log.logger.warn(f"backup dir did not exist, attempting to create [{backup_dir}]")
-                system(f"mkdir {backup_dir} > /dev/null 2>&1")
+                makedirs(backup_dir)
 
             self.log.logger.info(f"creating a backup of the sshd.config file to [{backup_dir}]")
             date = self.functions.get_date_time({"action":"datetime"})
-            system(f"cp /etc/ssh/sshd_config {backup_dir}sshd_config{date}.bak > /dev/null 2>&1")
+            copy2("/etc/ssh/sshd_config",f"{backup_dir}sshd_config{date}.bak")
             
             config_file = open("/etc/ssh/sshd_config")
             f = config_file.readlines()
@@ -5772,7 +5866,7 @@ class CLI():
                             if action == "enable":
                                 verb = "yes"
                                 if path.isfile(f"{upath}.ssh/backup_authorized_keys"):
-                                    system(f"sudo mv {upath}.ssh/backup_authorized_keys {upath}.ssh/authorized_keys > /dev/null 2>&1")
+                                    move(f"{upath}.ssh/backup_authorized_keys",f"{upath}.ssh/authorized_keys")
                                     self.log.logger.info(f"cli -> found and recovered {user} authorized_keys file")
                                 else:
                                     found_errors = f"auth_not_found {user}"
@@ -5780,7 +5874,7 @@ class CLI():
                             elif action == "disable":
                                 verb = "no"
                                 if path.isfile(f"{upath}.ssh/authorized_keys"):
-                                    system(f"sudo mv {upath}.ssh/authorized_keys {upath}.ssh/backup_authorized_keys > /dev/null 2>&1")
+                                    move(f"{upath}.ssh/authorized_keys",f"{upath}.ssh/backup_authorized_keys")
                                     self.log.logger.warn(f"cli -> found and renamed authorized_keys file | user {user}")
                                 else:
                                     self.log.logger.critical(f"cli -> could not find an authorized_key file to update | {user}")
@@ -5823,7 +5917,7 @@ class CLI():
             # one off check
             if action == "disable_user_auth":
                 if path.exists("/etc/ssh/sshd_config.d/50-cloud-init.conf"):
-                    system(f"cp /etc/ssh/sshd_config.d/50-cloud-init.conf {backup_dir}50-cloud-init.conf{date}.bak > /dev/null 2>&1")
+                    copy2("/etc/ssh/sshd_config.d/50-cloud-init.conf",f"{backup_dir}50-cloud-init.conf{date}.bak")
                     one_off = True
                     config_file = open("/etc/ssh/sshd_config.d/50-cloud-init.conf")
                     f = config_file.readlines()
@@ -5846,16 +5940,21 @@ class CLI():
                 }
                 self.functions.print_cmd_status(progress)
 
-            system("mv /tmp/sshd_config-new /etc/ssh/sshd_config > /dev/null 2>&1")
+            if path.isfile("/tmp/sshd_config-new"):
+                move("/tmp/sshd_config-new","/etc/ssh/sshd_config")
             self.log.logger.info(f"cli -> moving modified sshd_config into place.")
             if one_off:
                 self.log.logger.info(f"cli -> found one-off [50-cloud-init-config] moving modified sshd config file into place.")
-                system("mv /tmp/sshd_config-new2 /etc/ssh/sshd_config.d/50-cloud-init.conf > /dev/null 2>&1")
+                if path.isfile("/tmp/sshd_config-new2"):
+                    move("/tmp/sshd_config-new2","/etc/ssh/sshd_config.d/50-cloud-init.conf")
                 
             sleep(1)
             self.log.logger.info(f"cli -> restarted sshd service.")
-            system("service sshd restart > /dev/null 2>&1")
-            
+            _ = self.functions.process_command({
+                "bashCommand": "service sshd restart",
+                "proc_action": "subprocess_devnull",
+            })
+
             self.log.logger.info(f"SSH port configuration change successfully implemented [{action_print}]")
             if one_off:
                 self.log.logger.info(f"SSH configuration for an include file [one off] has been updated with password authentication [{verb}]")
@@ -5905,7 +6004,7 @@ class CLI():
             makedirs(backup_dir)
         
         dest = f"{backup_dir}backup_cn-config_{c_time}"
-        system(f"cp {config_file_path} {dest} > /dev/null 2>&1")
+        copy2(config_file_path,dest)
 
         self.functions.print_cmd_status({
             **progress,
@@ -6123,17 +6222,21 @@ class CLI():
             "proc_action": "wait"
         })  
         
-        system("sudo /var/tmp/upgrade-nodectl")
+        _ = self.functions.process_command({
+            "bashCommand": "sudo /var/tmp/upgrade-nodectl",
+            "proc_action": "subprocess_run_check_only",
+        })
         
         if self.functions.get_size("/usr/local/bin/nodectl",True) < 1:
             self.functions.print_paragraphs([
                 ["The original backed up version of nodectl will be restored",1,"yellow"],
                 ["file version:",0],[node_nodectl_version,2,"blue","bold"],
             ])
+
             self.log.logger.warn(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
-            try:
-                system(f"mv {backup_location}nodectl_{node_nodectl_version} /usr/local/bin/nodectl > /dev/null 2>&1")
-            except: pass
+            if path.isfile(f"{backup_location}nodectl_{node_nodectl_version}"):
+                move(f"{backup_location}nodectl_{node_nodectl_version}","/usr/local/bin/nodectl")
+
             if self.functions.get_size("/usr/local/bin/nodectl",True) < 1:
                 self.log.logger.critical(f"nodectl upgrader unable to restore [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
                 self.functions.print_paragraphs([
@@ -6146,7 +6249,7 @@ class CLI():
         try: 
             remove("/var/tmp/upgrade-nodectl")
             self.log.logger.info("upgrade_nodectl files cleaned up successfully.")
-        except OSError as e:
+        except Exception as e:
             self.log.logger.error(f"upgrade_nodectl nodectl method unable to clean up files : error [{e}]")
             
         return 0 
@@ -6155,12 +6258,13 @@ class CLI():
     # reusable methods
     # ==========================================
 
-    def get_and_verify_snapshots(self,snapshot_size, environment, profile):
+    def get_and_verify_snapshots(self,snapshot_size, environment, profile, reward_only=False):
         error = True
         return_data = {}
+        action = "history" if not reward_only else "rewards_per_id"
         for _ in range(0,5): # 5 attempts
             data = self.functions.get_snapshot({
-                "action": "history",
+                "action": action,
                 "history": snapshot_size,
                 "environment": environment,
                 "profile": profile,
@@ -6194,7 +6298,15 @@ class CLI():
     # ==========================================
     # print commands
     # ==========================================
+                    
+    # ==========================================
+    # miscellaneous or test commands
+    # ==========================================
     
+    def test_only(self,command_list=False):
+        pass
+    
+
     def print_title(self,line):
         self.functions.print_header_title({
             "line1": line,

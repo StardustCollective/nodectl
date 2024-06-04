@@ -1,8 +1,9 @@
-import shutil
 import json
 import distro
 import modules.uninstall as uninstaller
+
 from os import makedirs, system, path, environ, get_terminal_size, chmod
+from shutil import copy2, move, rmtree
 from time import sleep
 from termcolor import colored, cprint
 from types import SimpleNamespace
@@ -526,7 +527,7 @@ class Installer():
 
         auto_path = ac_validate_path(self.log,"installer")
         auto_complete_file = ac_build_script(self.cli,auto_path)
-        ac_write_file(auto_path,auto_complete_file)
+        ac_write_file(auto_path,auto_complete_file,self.functions)
 
         if not self.options.quick_install: 
             self.functions.print_cmd_status({
@@ -549,11 +550,13 @@ class Installer():
         self.cli.node_service.profile_names = self.functions.clear_global_profiles(self.metagraph_list)
         self.cli.node_service.build_service(True) # true will build restart_service
         
-        # handle version_service enablement 
-        system("sudo systemctl daemon-reload > /dev/null 2>&1")
-        system("sudo systemctl enable node_version_updater.service > /dev/null 2>&1")
-        sleep(.3)
-        system("sudo systemctl restart node_version_updater.service > /dev/null 2>&1")
+        # handle version_service enablement
+        for cmd in ["daemon-reload","enable node_version_updater.service","restart node_version_updater.service"]:
+            _ = self.functions.process_command({
+                "bashCommand": f"sudo systemctl {cmd}",
+                "proc_action": "subprocess_devnull",
+            }) 
+            sleep(.3)
         
         if not self.options.quick_install: 
             self.functions.print_cmd_status({
@@ -819,14 +822,23 @@ class Installer():
             self.log.logger.warn("Installation making swap file skipped because already detected")
         else:
             self.log.logger.info("Installation making swap file")
-            system("sudo touch /swapfile") 
-            # allocate 8G
-            system("sudo fallocate -l 8G /swapfile > /dev/null 2>&1")
-            sleep(1)
-            system("sudo chmod 600 /swapfile")
-            system("sudo mkswap /swapfile > /dev/null 2>&1")
-            sleep(1)
-            system("sudo swapon /swapfile > /dev/null 2>&1")
+
+            for n, cmd in enumerate([
+                "touch /swapfile",
+                "fallocate -l 8G /swapfile",
+                "systemctl restart node_version_updater.service",
+                "mkswap /swapfile",
+                "swapon /swapfile",
+            ]):
+                _ = self.functions.process_command({
+                    "bashCommand": f"sudo {cmd}",
+                    "proc_action": "subprocess_devnull",
+                }) 
+                if n == 1:
+                    sleep(1)
+                    chmod("/swapfile",0o600)
+                sleep(.8)
+
             result = "completed"
             color = "green"
 
@@ -843,8 +855,9 @@ class Installer():
                         "search_line": "/swapfile none swap sw 0 0",
                 }):
                     # backup the file just in case
-                    system("sudo cp /etc/fstab /etc/fstab.bak > /dev/null 2>&1")
-                    system("sudo echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab > /dev/null 2>&1")
+                    copy2("/etc/fstab","/etc/fstab.bak")
+                    with open("/etc/fstab", 'a') as file:
+                        file.write("/swapfile none swap sw 0 0\n")
             except:
                 self.log.logger.error("installation unable to update fstab to enable swapfile properly.")
 
@@ -854,8 +867,9 @@ class Installer():
                         "search_line": "vm.swappiness=",                    
                     }):
                     # backup the file just in case
-                    system("sudo cp /etc/sysctl.conf /etc/sysctl.conf.bak > /dev/null 2>&1")
-                    system("sudo echo 'vm.swappiness=10' | tee -a /etc/sysctl.conf > /dev/null 2>&1")
+                    copy2("/etc/sysctl.conf","/etc/sysctl.conf.bak")
+                    with open("/etc/sysctl.conf", 'a') as file:
+                        file.write("vm.swappiness=10\n")
             except:
                 self.log.logger.error("installation unable to update systctl to fix swapfile swapiness settings permanently.")
 
@@ -867,7 +881,10 @@ class Installer():
                           
             try:
                 # turn it on temporarily until next reboot
-                system("sudo sysctl vm.swappiness=10 > /dev/null 2>&1")
+                _ = self.functions.process_command({
+                    "bashCommand": "sysctl vm.swappiness=10",
+                    "proc_action": "subprocess_devnull",
+                })
             except:
                 self.log.logger.error("installation unable to update sysctl to fix swapfile swapiness settings temporarily until next reboot.")            
 
@@ -1135,9 +1152,9 @@ class Installer():
         if not path.exists(dest_p12_destination_path_only):
             makedirs(dest_p12_destination_path_only)
 
-        shutil.move(self.options.p12_migration_path, dest_p12_destination_path)
+        move(self.options.p12_migration_path, dest_p12_destination_path)
         chmod(dest_p12_destination_path, 0o400)
-        system(f"sudo chown root:root {dest_p12_destination_path} > /dev/null 2>&1")
+        self.functions.set_chown(dest_p12_destination_path, "root","root")
         self.p12_migrated = True
 
         if self.options.quick_install:
@@ -1235,7 +1252,7 @@ class Installer():
 
     def p12_encrypt_passphrase(self):
         if self.options.p12_alias == "error": 
-            self.log.logger.error("installer -> unable to encrypt passphrase because the p12 file associated with this installation was unble to be authenticated, passphrase could be incorrect")
+            self.log.logger.error("installer -> unable to encrypt passphrase because the p12 file associated with this installation was unable to be authenticated, passphrase could be incorrect")
             return
         
         self.log.logger.info("installer -> encrypting p12 passphrase.")
@@ -1334,7 +1351,10 @@ class Installer():
             
             # download specific file to Node
             try:
-                system(f'sudo wget {skeleton_yaml} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
+                self.functions.download_file({
+                    "url": skeleton_yaml,
+                    "local": f"{self.functions.nodectl_path}cn-config.yaml"
+                })
             except Exception as e:
                 self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton_yaml}] with error [{e}]')
                 self.close_threads()
@@ -1480,6 +1500,7 @@ class Installer():
     
     def uninstall(self):
         self.log.logger.info("installer -> executing uninstall process.")
+        self.options = SimpleNamespace(quiet=False)
         self.build_classes()
         node_service = Node({"functions": self.functions})
         node_service.log = self.log
@@ -1496,9 +1517,9 @@ class Installer():
             self.log.logger.info("moving nodectl to /var/tmp and completing uninstall.  Thank you for using nodectl.")
         self.log.logger.info("uninstaller -> handling removal of nodectl executable ")
         if node_admins[0] == "logger_retention":
-            shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
+            copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
             sleep(.5)
-            shutil.rmtree("/var/tessellation")
+            rmtree("/var/tessellation")
 
         uninstaller.remove_nodectl(node_service)
 

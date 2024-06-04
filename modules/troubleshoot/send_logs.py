@@ -2,6 +2,7 @@ import json
 
 from re import match
 from os import system, path, mkdir, listdir, popen
+from shutil import rmtree
 from sys import exit
 from termcolor import colored, cprint
 from hurry.filesize import size, alternative
@@ -144,11 +145,11 @@ class Send():
             tar_archive_dir = ""
             tar_creation_path = "/tmp/tess_logs"
 
-            tar_creation_origin = f"/var/tessellation/{self.profile}/"
+            tar_creation_origin = f"/var/tessellation/{self.profile}/logs/"
             if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log*"
             
             if path.isdir(tar_creation_path):
-                system(f"rm -rf {tar_creation_path} > /dev/null 2>&1")
+                rmtree(tar_creation_path)
             mkdir(tar_creation_path)
             
             with ThreadPoolExecutor() as executor:
@@ -166,7 +167,10 @@ class Send():
                 if not self.nodectl_logs:
                     cmd += f"--exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "
                 cmd += "> /dev/null 2>&1"
-                system(cmd)     
+                _ = self.functions.process_command({
+                    "bashCommand": cmd,
+                    "proc_action": "subprocess_devnull",
+                })   
 
                 self.functions.status_dots = False
                 self.functions.print_cmd_status({
@@ -294,8 +298,10 @@ class Send():
 
         # clean up
         self.log.logger.warn(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
-        system(f"sudo rm -rf {tar_package['tar_creation_path']} > /dev/null 2>&1")
-
+        _ = self.c.functions.process_command({
+            "bashCommand": f"sudo rm -rf {tar_package['tar_creation_path']}",
+            "proc_action": "subprocess_devnull",
+        })
         self.functions.print_paragraphs([
             ["Log tarball created and also located:",0,"green"],
             [tar_dest,2]

@@ -1,4 +1,5 @@
 import json
+import subprocess
 
 from re import search
 from time import sleep, perf_counter
@@ -591,8 +592,10 @@ class DownloadStatus():
             if self.caller == "upgrade" or self.caller == "cli_restart": 
                 self.functions.print_clear_line()
                 print("")
-            else: system("clear") 
-            
+            else:
+                _ = self.functions.process_command({
+                    "proc_action": "clear",
+                })            
             if self.caller == "download_status": # and dip_pass < 2:
                 self.functions.print_header_title({
                     "line1": "DOWNLOAD IN PROGRESS STATUS",

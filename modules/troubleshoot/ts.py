@@ -23,7 +23,7 @@ class Troubleshooter():
                 self.log_dict[profile]["http"] = f"/var/tessellation/{profile}/logs/json_logs/http.json.log"
 
 
-    def test_for_connect_error(self):
+    def test_for_connect_error(self,lines):
         self.log.logger.info("checking logs for simple error messages")
 
         for profile, log in self.log_dict.items():
@@ -75,7 +75,8 @@ class Troubleshooter():
                                 ERROR_list.append(json.loads(line))
                             except json.JSONDecodeError as e:
                                 self.log.logger.warn(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
-                            if n > 49: break
+                            if lines != "all" and n > lines-1: 
+                                break
                                                    
                     # search for more significant errors first verses
                     # last found error.

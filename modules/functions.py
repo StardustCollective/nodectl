@@ -9,6 +9,8 @@ import subprocess
 import socket
 import validators
 import uuid
+import glob
+import distro
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -20,7 +22,7 @@ from psutil import Process, cpu_percent, virtual_memory, process_iter, AccessDen
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
-from requests import get, Session
+from requests import get, Session, exceptions as requests_exceptions
 from subprocess import Popen, PIPE, call, run, check_output
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -33,7 +35,10 @@ from threading import Timer
 from platform import platform
 from urllib.parse import urlparse, urlunparse
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir, listdir, remove
+from os import system, getenv, path, walk, environ, get_terminal_size, scandir, listdir, remove, chmod, chown
+from pwd import getpwnam
+from grp import getgrnam
+from shutil import copy2, move
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
@@ -183,7 +188,8 @@ class Functions():
             # coin_prices = {'bitcoin': {'usd': 43097}, 'constellation-labs': {'usd': 0.051318}, 'dor': {'usd': 0.04198262}, 'ethereum': {'usd': 2305.3}, 'lattice-token': {'usd': 0.119092}, 'quant-network': {'usd': 103.24}, 'solana': {'usd': 97.75}}
         except Exception as e:
             self.log.logger.error(f"coingecko response error | {e}")
-            cprint("  Unable to process CoinGecko results...","red")
+            if not self.auto_restart:
+                cprint("  Unable to process CoinGecko results...","red")
         else:
             # replace pricing list properly
             coin_prices = test_for_api_outage(coin_prices)
@@ -515,13 +521,19 @@ class Functions():
             service_name = service+".service"
             if service in self.profile_names:
                 service_name = f"cnng-{self.config_obj[service]['service']}"
-            service_status = system(f'systemctl is-active --quiet {service_name} > /dev/null 2>&1')
+
+            service_status = self.process_command({
+                "bashCommand": f"systemctl is-active --quiet {service_name}",
+                "proc_action": "subprocess_return_code",
+            })
+
             if service_status == 0:
-                self.config_obj["global_elements"]["node_service_status"][service] = "active (running)"
-            elif service_status == 768:
-                self.config_obj["global_elements"]["node_service_status"][service] = "inactive (dead)"
+                self.config_obj["global_elements"]["node_service_status"][service] = "active"
+            elif service_status == 768 or service_status == 3:
+                self.config_obj["global_elements"]["node_service_status"][service] = "inactive"
             else:
-                self.config_obj["global_elements"]["node_service_status"][service] = "error (exit code)"
+
+                self.config_obj["global_elements"]["node_service_status"][service] = f"exit code"
             self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] = service_status  
 
             for process in process_iter():
@@ -649,7 +661,14 @@ class Functions():
         
         return return_val.strftime("%Y-%m-%d")
         
-                
+
+    def get_distro_details(self):
+        return {
+            "arch": self.get_arch(),
+            **distro.lsb_release_info()
+        }
+
+
     def get_arch(self):
         arch = platform()
         if "x86_64" in arch:
@@ -1098,7 +1117,6 @@ class Functions():
         environment = command_obj.get("environment","mainnet")
         profile = command_obj.get("profile",self.default_profile)
         return_values = command_obj.get("return_values",False) # list
-        # lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
         lookup_uri = command_obj.get("lookup_uri",self.set_proof_uri({"environment":environment, "profile": profile}))
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
@@ -1484,7 +1502,7 @@ class Functions():
     def set_system_prompt(self,username):
         prompt_update = r"'\[\e[1;34m\]\u@Constellation-Node:\w\$\[\e[0m\] '"
         prompt_update = f"PS1={prompt_update}"
-        cmd = f'echo "{prompt_update}" | tee -a /home/{username}/.bashrc > /dev/null 2>&1'  
+        # cmd = f'echo "{prompt_update}" | tee -a /home/{username}/.bashrc > /dev/null 2>&1'  
         
         is_prompt_there = self.test_or_replace_line_in_file({
             "file_path": f"/home/{username}/.bashrc",
@@ -1497,11 +1515,20 @@ class Functions():
                 "replace_line": prompt_update,
             })
         elif is_prompt_there != "file_not_found":
-            system(cmd)   
+            if not path.exists(prompt_update):
+                _ = self.process_command({
+                    "bashCommand": f"sudo touch {prompt_update}",
+                    "proc_action": "subprocess_devnull",
+                }) 
+            with open(f"/home/{username}/.bashrc") as file:
+                file.write(f"{prompt_update}\n")
         
-        system(f". /home/{username}/.bashrc > /dev/null 2>&1")   
+        _ = self.process_command({
+            "bashCommand": f"sudo -u {username} -i bash -c source /home/{username}/.bashrc",
+            "proc_action": "subprocess_return_code",
+        })
         
-        
+
     def set_request_session(self,json=False):
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -1536,6 +1563,11 @@ class Functions():
 
         return console_size, console_setup
 
+
+    def set_chown(self,file_path,user,group):
+        chown(file_path, getpwnam(user).pw_uid, getgrnam(group).gr_gid)
+        return
+    
     # =============================
     # pull functions
     # ============================= 
@@ -1681,7 +1713,7 @@ class Functions():
         ip_address = command_obj["ip_address"]
         wallet = command_obj["wallet"]
         environment = command_obj["environment"]
-        
+
         balance = 0
         return_obj = {
             "balance_dag": "unavailable",
@@ -1690,26 +1722,28 @@ class Functions():
             "token_symbol": "unknown"
         }
         
-        self.print_cmd_status({
-            "text_start": "Pulling DAG details from APIs",
-            "brackets": environment,
-            "status": "running",
-            "newline": True,
-        })
+        if not self.auto_restart:
+            self.print_cmd_status({
+                "text_start": "Pulling DAG details from APIs",
+                "brackets": environment,
+                "status": "running",
+                "newline": True,
+            })
 
-        if environment != "mainnet":
-            self.print_paragraphs([
-                [" NOTICE ",0,"red,on_yellow"], 
-                [f"Wallet balances on {environment} are fictitious",0],["$TOKENS",0,"green"], 
-                ["and will not be redeemable, transferable, or spendable.",2],
-            ])
+            if environment != "mainnet":
+                self.print_paragraphs([
+                    [" NOTICE ",0,"red,on_yellow"], 
+                    [f"Wallet balances on {environment} are fictitious",0],["$TOKENS",0,"green"], 
+                    ["and will not be redeemable, transferable, or spendable.",2],
+                ])
             
         with ThreadPoolExecutor() as executor:
             self.event = True
-            _ = executor.submit(self.print_spinner,{
-                "msg": f"Pulling Node balances, please wait",
-                "color": "magenta",
-            })                     
+            if not self.auto_restart:
+                _ = executor.submit(self.print_spinner,{
+                    "msg": f"Pulling Node balances, please wait",
+                    "color": "magenta",
+                })                     
 
             for n in range(5):
                 try:
@@ -1725,7 +1759,7 @@ class Functions():
                 except:
                     self.log.logger.error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
                     if n == 9:
-                        self.log.logger(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
+                        self.log.logger.warn(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
                 finally:
@@ -2604,16 +2638,16 @@ class Functions():
         # makes sure no left over file from esc'ed method
         def remove_temps():
             if path.isfile(temp):
-                system(f"sudo rm {temp} > /dev/null 2>&1") 
+                remove(temp) 
             if path.isfile(f"{temp}_reverse"):
-                system(f"sudo rm {temp}_reverse > /dev/null 2>&1")
+                remove(f"{temp}_reverse")
         
         remove_temps()
                 
         line_number, line_position = 0, 0       
         with open(temp,"w") as temp_file:
             if replace_line and not skip_backup:
-                system(f"cp {file_path} {backup_dir}{file}_{date} > /dev/null 2>&1")
+                copy2(file_path,f"{backup_dir}{file}_{date}")
             if all_first_last == "last":
                 for line in reversed(list(f)):
                     search_returns = search_replace(done,i_replace_line,line_position)
@@ -2647,7 +2681,7 @@ class Functions():
         f.close() # make sure closed properly                
                 
         if replace_line:
-            system(f"cp {temp} {file_path} > /dev/null 2>&1")
+            copy2(temp,file_path)
         # use statics to avoid accidental file removal
         remove_temps()
         
@@ -2847,7 +2881,7 @@ class Functions():
             single_bg = f"on_{single_bg}" 
 
         if clear:
-            system("clear")
+            _ = self.process_command({"proc_action": "clear"})
         if newline == "top" or newline == "both":
             print("")
                                     
@@ -3663,9 +3697,50 @@ class Functions():
                 self.print_clear_line()
                 
 
+    def remove_files(self, file_or_list, caller, is_glob=False):
+        files = file_or_list
+        result = True
+
+        if is_glob:
+            files = glob.glob(is_glob)
+        elif not isinstance(file_or_list,list):
+            files = [file_or_list]
+
+        for file in files:
+            try:
+                if is_glob:
+                    self.process_command({
+                        "bashCommand": f"sudo rm -f {file}",
+                        "proc_action": "subprocess_devnull",
+                    })
+                else:
+                    remove(file)
+            except OSError as e:
+                result = False
+                self.log.logger.error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")
+
+        return result
+    
+
+    def download_file(self,command_obj):
+        url = command_obj["url"]
+        local = command_obj.get("local",path.split(url)[1])
+
+        try:
+            with get(url,stream=True) as response:
+                response.raise_for_status()
+                with open(local,'wb') as output_file:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        output_file.write(chunk)
+            self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
+        except requests_exceptions.RequestException as e:
+            self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}]")
+            raise
+
+
     def process_command(self,command_obj):
         # bashCommand, proc_action, autoSplit=True,timeout=180,skip=False,log_error=False,return_error=False
-        bashCommand = command_obj.get("bashCommand")
+        bashCommand = command_obj.get("bashCommand",False)
         proc_action = command_obj.get("proc_action")
         
         autoSplit = command_obj.get("autoSplit",True)
@@ -3675,6 +3750,10 @@ class Functions():
         log_error = command_obj.get("log_error",False)
         return_error = command_obj.get("return_error",False)
         working_directory = command_obj.get("working_directory",None)
+        
+        if proc_action == "clear":
+            subprocess.run('clear', shell=True)
+            return
         
         if proc_action == "timeout":
             if working_directory == None:
@@ -3707,30 +3786,65 @@ class Functions():
                 
             output, _ = results[-1].communicate()
             return output.decode()
-    
-            
+
         if proc_action == "subprocess_co":
-            output = subprocess.check_output(bashCommand, shell=True, text=True)
+            try:
+                output = subprocess.check_output(bashCommand, shell=True, text=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
             return output
         
         if proc_action == "subprocess_run":
             output = subprocess.run(shlexsplit(bashCommand), shell=True, text=True)
             return output
         
+        if proc_action == "subprocess_run_check_only":
+            output = subprocess.run(shlexsplit(bashCommand), check=True)
+            return output
+        
         if proc_action == "subprocess_run_pipe":
             try:
                 output = subprocess.run(shlexsplit(bashCommand), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
+                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
-        if proc_action == "subprocess_run_check":
+        if proc_action == "subprocess_return_code":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True)
-            except subprocess.CalledProcessError:
+                output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
+                output = e
+            return output.returncode
+        
+        if proc_action == "subprocess_run_check_text":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), check=True, text=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
-            
+        
+        if proc_action == "subprocess_devnull":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
+                output = False
+            return output
+
+        if proc_action == "subprocess_capture" or proc_action == "subprocess_rsync":
+            verb = "capture" if "capture" in proc_action else "rsync"
+            try:
+                result = subprocess.run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
+                self.log.logger.info(f"{verb} completed successfully.")
+            except subprocess.CalledProcessError as e:
+                self.log.logger.error(f"{verb} failed. Error: {e.stderr}")
+            except Exception as e:
+                self.log.logger.error(f"An error occurred: {str(e)}")
+            return result
+
         if autoSplit:
             bashCommand = bashCommand.split()
             

@@ -5,6 +5,7 @@ from datetime import datetime
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 from os import geteuid, getgid, environ, system, walk, remove, path, makedirs
+from shutil import copy2, move
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -404,6 +405,8 @@ class ShellHandler:
             })
         elif self.called_command == "health":
             self.cli.show_health(self.argv)
+        elif self.called_command == "show_profile_issues":
+            self.cli.show_profile_issues(self.argv)
         elif self.called_command == "execute_starchiver":
             self.cli.cli_execute_starchiver(self.argv)
         elif self.called_command == "execute_tests":
@@ -426,6 +429,8 @@ class ShellHandler:
             self.cli.show_p12_details(self.argv)
         elif self.called_command == "getting_started":
             self.functions.check_for_help(["help"],"getting_started")
+        elif self.called_command == "test_only":
+            self.cli.test_only(self.argv)
 
         elif self.called_command == "help" or self.called_command == "_h":
                 self.functions.print_help({
@@ -550,7 +555,8 @@ class ShellHandler:
     def check_all_profile(self):
         # do we want to skip loading the node service obj?
         all_profile_allow_list = [
-            "restart","restart_only","slow_restart","-sr","join","status"
+            "restart","restart_only","slow_restart","-sr","join","status",
+            "show_profile_issues",
         ]
         if self.called_command in all_profile_allow_list:
             return
@@ -571,7 +577,7 @@ class ShellHandler:
     def check_developer_only_commands(self):
         if self.config_obj["global_elements"]["developer_mode"]: return   
 
-        develop_commands = []
+        develop_commands = ["test_only"]
         if self.called_command in develop_commands:
             self.called_command = "help_only"
 
@@ -633,7 +639,7 @@ class ShellHandler:
             "check_connection","_cc",
             "send_logs","_sl","show_node_proofs","_snp",
             "nodeid","id","dag","export_private_key",
-            "check_seedlist","_csl",
+            "check_seedlist","_csl","show_profile_issues",
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf","node_last_snapshot",
@@ -947,7 +953,7 @@ class ShellHandler:
         for header_elements in print_out_list:
             self.functions.print_show_output({
                 "header_elements" : header_elements
-            })  
+            })
             
 
     def digital_signature(self,command_list):
@@ -997,9 +1003,10 @@ class ShellHandler:
                 url = f"https://github.com/StardustCollective/nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
                 verify_cmd = f"openssl dgst -sha256 -verify /var/tmp/nodectl_public -signature /var/tmp/{cmd[0]} /var/tmp/{cmds[1][0]}"
 
-            wget_cmd = 'sudo wget -H "Cache-Control: no-cache, no-store, must-revalidate" -H "Pragma: no-cache" -H "Expires: 0" '
-            wget_cmd += f'{url} -O /var/tmp/{cmd[0]} -o /dev/null'
-            system(wget_cmd)
+            self.functions.download_file({
+                "url": url,
+                "local": f"/var/tmp/{cmd[0]}",
+            })
             full_file_path = f"/var/tmp/{cmd[0]}"
             
             if cmd[2] == "none":
@@ -1053,8 +1060,7 @@ class ShellHandler:
         })   
         
         self.log.logger.info("copy binary nodectl to nodectl dir for verification via rename")
-        
-        system(f"cp /usr/local/bin/nodectl /var/tmp/nodectl_{node_arch} > /dev/null 2>&1")    
+        copy2("/usr/local/bin/nodectl",f"/var/tmp/nodectl_{node_arch}")  
         result_sig = self.functions.process_command({
             "bashCommand": verify_cmd,
             "proc_action": "timeout"
@@ -1097,8 +1103,10 @@ class ShellHandler:
         #clean up
         self.log.logger.info("cleaning up digital signature check files.")
         for cmd in cmds[1:]:
-            remove(f'/var/tmp/{cmd[0]}')
-        remove(f'/var/tmp/nodectl_{node_arch}')                    
+            if path.isfile(f'/var/tmp/{cmd[0]}'):
+                remove(f'/var/tmp/{cmd[0]}')
+        if path.isfile(f'/var/tmp/nodectl_{node_arch}'):
+            remove(f'/var/tmp/nodectl_{node_arch}')
     
             
     def confirm_int_upg(self):
@@ -1257,7 +1265,7 @@ class ShellHandler:
                 "text_start": "backing up current config",
                 "status": "running",
             })
-            system(f"cp /var/tessellation/nodectl/cn-config.yaml {secondary_backup} > /dev/null 2>&1")
+            copy2("/var/tessellation/nodectl/cn-config.yaml",secondary_backup)
             time.sleep(.8)
             self.functions.print_cmd_status({
                 "text_start": "backing up current config",
@@ -1269,7 +1277,7 @@ class ShellHandler:
                 "status": "running",
             })            
             self.log.logger.info(f"restore_config is restoring cn-config.yaml from [{restore_file}]")
-            system(f"cp {restore_file} /var/tessellation/nodectl/cn-config.yaml > /dev/null 2>&1")
+            copy2(restore_file,"/var/tessellation/nodectl/cn-config.yaml")
             time.sleep(.8)
             self.functions.print_cmd_status({
                 "text_start": "restoring config",
@@ -1343,8 +1351,10 @@ class ShellHandler:
                 # thread_wait is an alias to wait, and will only execute the next line of this
                 # code before the exception kills the entire process therefor it is not logged
                 thread_wait(thread_list,return_when=concurrent.futures.FIRST_EXCEPTION)
-                system(f'sudo systemctl restart node_restart@"enable" > /dev/null 2>&1')  
-
+                _ = self.functions.process_command({
+                    "bashCommand": 'sudo systemctl restart node_restart@"enable"',
+                    "proc_action": "subprocess_devnull",
+                })
             
         if action == "disable":
             if cli:
@@ -1366,7 +1376,10 @@ class ShellHandler:
                     "color": "yellow",
                 }
                 self.functions.print_cmd_status(progress)
-                system('sudo systemctl stop node_restart@"enable" > /dev/null 2>&1')
+                _ = self.functions.process_command({
+                    "bashCommand": 'sudo systemctl stop node_restart@"enable"',
+                    "proc_action": "subprocess_devnull",
+                })
                 # test pid removal
                 self.get_auto_restart_pid()
                 
@@ -1383,12 +1396,15 @@ class ShellHandler:
                     if self.auto_restart_enabled:
                         cprint(f"  Auto Restart will reengage at completion {verb} requested task","green")
                     elif self.called_command != "uninstall":
-                        cprint("  This will need to restarted manually...","red")
+                        cprint("  This will need to be restarted manually...","red")
                     self.log.logger.debug(f"auto_restart process pid: [{self.auto_restart_pid}] killed") 
                     self.auto_restart_pid = False # reset 
 
                 if restart_request:
-                    system('sudo systemctl start node_restart@"enable" > /dev/null 2>&1')
+                    _ = self.functions.process_command({
+                        "bashCommand": 'sudo systemctl start node_restart@"enable"',
+                        "proc_action": "subprocess_devnull",
+                    })
                     cprint("  auto_restart restart request completed.","green",attrs=["bold"])
                     time.sleep(.5)
                     self.get_auto_restart_pid()
@@ -1488,7 +1504,10 @@ class ShellHandler:
             self.log.logger.warn(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
             return
         
-        system(f'sudo systemctl start node_restart@"{action}" > /dev/null 2>&1')
+        _ = self.functions.process_command({
+            "bashCommand": f'sudo systemctl start node_restart@"{action}"',
+            "proc_action": "subprocess_devnull",
+        })
         if cli:
             print("")
             cprint("  node restart service started... ","green")
@@ -1509,7 +1528,7 @@ class ShellHandler:
             "argv_list": argv_list,
         }) 
         self.upgrader.upgrade_process()
-        self.functions.print_perftime(performance_start,self.install_upgrade)
+        self.functions.print_perftime(performance_start,"upgrade")
         
     
     def install(self,argv_list):

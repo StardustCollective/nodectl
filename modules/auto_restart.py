@@ -3,6 +3,8 @@ import psutil
 from sys import exit
 from time import sleep, time
 from datetime import datetime, timedelta
+from types import SimpleNamespace
+from os import path
 
 from .node_service import Node
 from .functions import Functions
@@ -11,6 +13,7 @@ from .troubleshoot.logger import Logging
 from .node_service import Node
 from .command_line import CLI
 from .config.versioning import Versioning
+from .alerting import send_email, prepare_alert, prepare_report
 
 class AutoRestart():
 
@@ -32,7 +35,10 @@ class AutoRestart():
         self.thread_profile = thread_profile  # initialize
         self.rapid_restart = self.config_obj["global_auto_restart"]["rapid_restart"] 
         self.thread_layer = self.config_obj[self.thread_profile]["layer"]
-
+        self.cluster = self.config_obj[self.thread_profile]["environment"]
+        self.alerting = {}
+        
+        self.alert_on_up = True
         self.sleep_on_critical = 15 if self.rapid_restart else 600
         self.silent_restart_timer = 5 if self.rapid_restart else 30  
         self.join_pause_timer = 5 if self.rapid_restart else 180
@@ -55,6 +61,8 @@ class AutoRestart():
             "WaitingForReady_enabled": False,    
         }
         
+        self.persist_alert_file = "/var/tessellation/nodectl/alert_report"
+
         self.fork_check_time = {
             "minority_fork": -1,
             "consensus_fork": -1,
@@ -77,6 +85,7 @@ class AutoRestart():
         
         self.build_class_objs()   
         self.setup_profile_states()
+        self.setup_alerting()
         self.restart_handler()
         
     
@@ -99,7 +108,7 @@ class AutoRestart():
             else: 
                 self.on_boot_handler_check = False
                 break
-            
+
         self.log.logger.debug(f"auto_restart - on_boot_handler - thread [{self.thread_profile}] - uptime in seconds [{uptime_seconds}]")
         
                       
@@ -257,8 +266,17 @@ class AutoRestart():
                         self.profile_states[profile][f"{link_type}_link_profile"] =  self.functions.config_obj[profile][f"{link_type}_link_profile"]
                         
         if len(self.profile_states) < 2: self.independent_profile = True
-
     
+
+    def setup_alerting(self):
+        try: self.alerting = {**self.config_obj["global_elements"]["alerting"]}
+        except: 
+            self.alerting = {
+                "enabled": False,
+            }
+        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - alerting module [{self.alerting['enabled']}]")
+
+
     def update_profile_states(self):
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - update profile states | all profile [{self.profile_names}]")
         
@@ -435,6 +453,12 @@ class AutoRestart():
         elif self.profile_states[self.node_service.profile]["node_state"] in ["DownloadInProgress","Observing","WaitingForReady","WaitingForObserving"]:
             self.clear_timers_flags("flags")
     
+
+    def set_persistent_alert(self,alert,report):
+        with open(self.persist_alert_file,"w") as file:
+            file.write(f"alert: {str(alert)}\n")       
+            file.write(f"report: {str(report)}\n")       
+
 
     def clear_timers_flags(self, tf_type):
         if tf_type == "timers":
@@ -843,6 +867,45 @@ class AutoRestart():
         self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] -  join handler - check for ready state | final state: [{state}] [127.0.0.1] port [{self.node_service.api_ports['public']}] - exiting join_handler")  
     
 
+    def alert_handler(self):
+        if not self.alerting["enabled"]: return
+        report_hour = datetime.now().hour
+        send_alert, send_report = True, True
+
+        if not path.isfile(self.persist_alert_file):
+            self.set_persistent_alert(True,True)
+        else:
+            with open(self.persist_alert_file,"r") as file:
+                lines = file.readlines()
+                for line in lines:
+                    if "alert" in line and "False" in line:
+                        send_alert = False
+                    if "report" in line and "False" in line:
+                        send_report = False
+
+        if self.profile_states[self.thread_profile]["action"] == "NoActionNeeded":
+            try:
+                if int(self.alerting['report_hour_utc']) == report_hour:
+                    if send_report:
+                        self.set_persistent_alert(send_alert,False)
+                        prepare_report(self.cli, self.node_service, self.functions, self.profile_states[self.thread_profile], self.alerting, self.thread_profile, self.cluster, self.log)
+                    return
+                else:
+                    if self.profile_states[self.thread_profile]['node_state'] == "Ready":
+                        if not send_alert:
+                            prepare_alert("clear", self.alerting, self.thread_profile, self.cluster, self.log)
+                        self.set_persistent_alert(True,True)
+            except: 
+                self.log.logger.error(f"auto_restart - thread [{self.thread_profile}] - alert handler - unable to send report - issue with configuration settings")
+            return
+        
+        if send_alert:
+            self.set_persistent_alert(False,send_report)
+            result = prepare_alert(self.profile_states, self.alerting, self.thread_profile, self.cluster, self.log)
+            if result == "skip":
+                self.set_persistent_alert(True,send_report)    
+
+
     def restart_handler(self):
         self.node_service.set_profile(self.thread_profile)
         
@@ -866,8 +929,10 @@ class AutoRestart():
                 state = self.profile_states[self.node_service.profile]["node_state"]
                 minority_fork = self.profile_states[self.node_service.profile]["minority_fork"]
                 consensus_fork = self.profile_states[self.node_service.profile]["consensus_fork"]
+
+                self.alert_handler()
                 extra_wait_time = random.choice(self.random_times)
-                
+
                 if action == "ep_wait":
                     warn_msg = "\n==========================================================================\n"
                     warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - LOAD BALANCER NOT REACHABLE | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"

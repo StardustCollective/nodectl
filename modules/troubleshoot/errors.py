@@ -723,7 +723,7 @@ class Error_codes():
             self.log.logger.critical(f"unable to download valid configuration file [cn-config.yaml]")
             self.functions.print_paragraphs([
                 ["nodectl installer attempted to download an invalid or non-existent yaml pre-defined configuration.",0,"red"],
-                ["The installer cannot continue, please try installation again or seek assistance from the official Constellation Discord channel.",0,"red"],
+                ["The installer cannot continue, please try installation again or seek assistance from the official Constellation Discord channel.",2,"red"],
             ])
             
         elif var.line_code == "system_error":
@@ -797,7 +797,7 @@ class Error_codes():
                       
     def print_error(self,when="end"):
         if when == "start":
-            system("clear")
+            _ = self.functions.process_command({"proc_action": "clear"})
             self.functions.print_header_title({
                 "line1": "error detected",
                 "upper": False,

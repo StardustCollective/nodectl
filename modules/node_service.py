@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from os import system, path, makedirs
+from os import system, path, makedirs, remove, chmod
 from sys import exit
 from time import sleep
 from termcolor import colored, cprint
@@ -98,9 +98,9 @@ class Node():
         # background_build=(bool) # default True;  build the auto_restart service?
         
         def replace_service_file_items(profile,template,create_file_type):
-            chmod = "755" # default
+            chmod_code = "755" # default
             if create_file_type in ["service_file","version_service"]:
-                chmod = "644"
+                chmod_code = "644"
                 template = template.replace(
                     "nodegarageservicedescription",
                     self.config_obj[profile]["description"]
@@ -197,7 +197,7 @@ class Node():
             if create_file_type == "service_bash":
                 template = f"{template} &"
             template = f"{template}\n"
-            return(template,chmod)               
+            return(template,chmod_code)               
                
         # ===========================================
 
@@ -208,7 +208,7 @@ class Node():
         for profile in self.profile_names:
             profile = single_profile if single_profile else profile
             template = self.create_files({"file": create_file_type})
-            template, chmod = replace_service_file_items(profile,template,create_file_type)
+            template, chmod_code = replace_service_file_items(profile,template,create_file_type)
                         
             if create_file_type == "version_service":
                 service_dir_file = f"/etc/systemd/system/node_version_updater.service"
@@ -227,7 +227,7 @@ class Node():
                 file.write(template)
             file.close()
             
-            system(f"chmod {chmod} {service_dir_file} > /dev/null 2>&1")
+            chmod(service_dir_file,int(f"0o{chmod_code}",8))
             if single_profile:
                 return
             sleep(.5)
@@ -239,7 +239,7 @@ class Node():
                 with open(service_dir_file,'w') as file:
                     file.write(service)
                 file.close()
-                system(f"chmod 644 {service_dir_file} > /dev/null 2>&1")        
+                chmod(service_dir_file,0o644)        
 
 
     def build_service(self,background_build=False):
@@ -265,7 +265,7 @@ class Node():
             
         if path.exists(self.env_conf_file):
             self.log.logger.warn(f"found possible abandoned environment file [{self.env_conf_file}] removing.")
-            system(f"rm {self.env_conf_file} > /dev/null 2>&1")
+            remove(self.env_conf_file)
             
         with open(self.env_conf_file,"w") as f:
             if self.config_obj[profile]["custom_env_vars_enable"]:
@@ -420,6 +420,7 @@ class Node():
             })
             if state == "ReadyToJoin":
                 return True
+            if n < 2: print("")
             print(colored(f"  API not ready on {self.profile}","red"),colored(state,"yellow"),end=" ")
             print(f'{colored("attempt ","red")}{colored(n,"yellow",attrs=["bold"])}{colored(" of 3","red")}',end="\r")
             sleep(1.5)
@@ -445,7 +446,7 @@ class Node():
         self.log.logger.debug(f"changing service state method - action [{action}] service_name [{service_display}] caller = [{caller}]")
         self.functions.get_service_status()
         if action == "start":
-            if "inactive" not in self.functions.config_obj["global_elements"]["node_service_status"][profile]:
+            if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] < 1:
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
@@ -462,7 +463,7 @@ class Node():
             })
 
         if action == "stop":
-            if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
+            if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] > 0:
                 self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
@@ -486,14 +487,13 @@ class Node():
         bashCommand = f"systemctl {action} {service_name}"
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
-            "proc_action": "timeout" if action == "stop" else "wait",
+            "proc_action": "subprocess_run_check_text" if action == "stop" else "wait",
             "timeout": 5 if action == "stop" else 180
         })
 
         if action == "start":
             # clean up for a little more security of passphrases and cleaner installation
-            system(f"rm {self.env_conf_file} {self.temp_bash_file} > /dev/null 2>&1")
-            pass
+            self.functions.remove_files([self.env_conf_file,self.temp_bash_file],f"change_service_state [{caller}]")
         
         
     def leave_cluster(self,command_obj):
@@ -842,6 +842,7 @@ Type=forking
 EnvironmentFile={self.functions.nodectl_path}profile_nodegarageworkingdir.conf
 WorkingDirectory=/var/tessellation/nodegarageworkingdir
 ExecStart={self.functions.nodectl_path}nodegarageexecstartbash
+SuccessExitStatus=143
 
 [Install]
 WantedBy=multi-user.target

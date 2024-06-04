@@ -53,14 +53,13 @@ def ac_build_script(cli,auto_path):
     return auto_complete_file
 
 
-def ac_write_file(auto_path,auto_complete_file):
+def ac_write_file(auto_path,auto_complete_file,functions):
     with open(auto_path,"w") as auto_complete:
         auto_complete.write(auto_complete_file)
 
     chmod(auto_path,0o644)
-    system("source /etc/bash_completion > /dev/null 2>&1")
-
-
-# build_auto_complete = build_auto_complete
-# validate_path = validate_path
-# build_script = build_script
+    username = functions.config_obj['global_p12']['nodeadmin']
+    _ = functions.process_command({
+        "bashCommand": f"sudo -u {username} -i bash -c '. /etc/bash_completion'",
+        "proc_action": "subprocess_devnull",
+    })

@@ -1,5 +1,5 @@
 from time import time
-from os import system, path, listdir, stat, SEEK_END, SEEK_CUR
+from os import system, path, listdir, stat, remove, SEEK_END, SEEK_CUR
 from termcolor import colored, cprint
 from hurry.filesize import size, alternative
 
@@ -279,7 +279,8 @@ class Cleaner():
                                             )
                                         else:
                                             print(f'{colored("  removing:","red")} {colored(pre_text,"cyan")} {file}',end="\r")
-                                        system(f"rm -rf {file} > /dev/null 2>&1")
+                                        self.functions.remove_files(file,"find_or_replace_files")
+
                 except:
                     if dir_type == "config_change":
                         self.log.logger.warn("during configuration change unable to find file to replace.")

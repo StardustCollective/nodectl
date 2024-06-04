@@ -1,6 +1,6 @@
 
 import shutil
-from os import makedirs, system, path, environ, walk, remove
+from os import makedirs, system, path, environ, walk, remove, chmod
 
 from time import sleep
 from termcolor import colored
@@ -8,7 +8,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def start_uninstall(functions,log):
-    system("clear")
+    _ = functions.process_command({"proc_action": "clear"})
+
     functions.print_header_title({
         "line1": "NODECTL UNINSTALL",
         "single_line": True,
@@ -79,6 +80,18 @@ def print_status(functions,icmd,running,animate=False,result=False):
         "status_color": color,
         "newline": False if running else True,
     })
+
+
+def discover_data(services,p12s):
+    for sdir in ["/etc","/root","/home","/tmp","/var"]:
+        for root, _, ftypes in walk(sdir):
+            for ftype in ftypes:
+                if ftype.startswith("cnng") and ftype not in services:
+                    services.append(path.join(root, ftype))
+                elif ftype.endswith(".p12") and ftype not in p12s:
+                    p12s.append(path.join(root, ftype))
+    
+    return services, p12s
 
 
 def remove_data(functions,log,install=False,quiet=False):
@@ -161,13 +174,33 @@ def remove_data(functions,log,install=False,quiet=False):
                     if value not in node_admins:
                         node_admins.append(value)
 
-    for sdir in ["/etc","/root","/home","/tmp","/var"]:
-        for root, _, ftypes in walk(sdir):
-            for ftype in ftypes:
-                if ftype.startswith("cnng") and ftype not in services:
-                    services.append(path.join(root, ftype))
-                elif ftype.endswith(".p12") and ftype not in p12s:
-                    p12s.append(path.join(root, ftype))
+    if install:
+        services, p12s = discover_data()
+    else:
+        functions.print_paragraphs([
+            ["This may take a few of minutes, please exercise patience",1,"yellow"]
+        ])
+        with ThreadPoolExecutor() as executor:
+            functions.status_dots = True
+            status_obj = {
+                "text_start": f"Discovering Node Data",
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor.submit(functions.print_cmd_status,status_obj)
+
+            services, p12s = discover_data()
+
+            functions.status_dots = False
+            functions.print_cmd_status({
+                **status_obj,
+                "status": "completed",
+                "status_color": "green",
+                "dotted_animation": False,
+                "newline": True,
+            })
 
     remove_lists = [d_dirs,services,seedlists]
     if not install: remove_lists.append(p12s) # keep p12s for migration purposes
@@ -229,7 +262,6 @@ def remove_data(functions,log,install=False,quiet=False):
                             remove(d_f)
                     except Exception as e:
                         log_list.append(["warn",f"{install_type} -> did not remove [{d_f}] reason [{e}] trying th"])
-                    # system(f"sudo rm -rf {d_f} > /dev/null 2>&1")
             sleep(1)
 
         if not install:
@@ -338,7 +370,10 @@ def remove_admins(functions,node_admins,log,install=False):
 
 def finish_uninstall(functions):
     # refresh systemctl daemon to forget about the nodectl services
-    system("sudo systemctl daemon-reload > /dev/null 2>&1")
+    _ = functions.process_command({
+        "bashCommand": "sudo systemctl daemon-reload",
+        "proc_action": "subprocess_devnull",
+    })
 
     functions.print_paragraphs([
         ["",1], ["nodectl has",0,"green"], ["successfully",0,"green","bold"],
@@ -367,9 +402,15 @@ def stop_services(functions, node_service,log):
     status = "complete"
     color = "green"
     try:
-        system("sudo systemctl disable node_version_updater.service > /dev/null 2>&1")
-        system("sudo systemctl disable node_restart@.service > /dev/null 2>&1")
-        system("sudo systemctl stop node_version_updater.service > /dev/null 2>&1")
+        for cmd in [
+            "disable node_version_updater.service",
+            "disable node_restart@.service",
+            "stop node_version_updater.service",
+        ]:
+            _ = functions.process_command({
+                "bashCommand": f"sudo systemctl {cmd}",
+                "proc_action": "subprocess_devnull",
+            })
     except:
         status = "incomplete"
         color = "magenta"
@@ -398,6 +439,9 @@ def remove_nodectl(node_service):
     with open(removal_script_loc,'w') as file:
         file.write(removal_script)
     file.close
-    system(f"sudo chmod +x {removal_script_loc}")
-    system(f"sudo {removal_script_loc}")
+    chmod(removal_script_loc,0o755)
+    _ = node_service.functions.process_command({
+        "bashCommand": f"sudo {removal_script_loc}",
+        "proc_action": "subprocess_run_check_only",
+    })
     sleep(.8)

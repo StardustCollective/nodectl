@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
 from os import system, path, environ, makedirs, listdir, chmod, remove
+from shutil import copy2, move
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
@@ -191,7 +192,7 @@ class Configurator():
         if action == "edit_config":
             self.config_obj_apply = {}
             if path.isfile(self.config_file_path):
-                system(f"sudo cp {self.config_file_path} {self.yaml_path} > /dev/null 2>&1")
+                copy2(self.config_file_path,self.yaml_path)
             else:
                 self.error_messages.error_code_messages({
                     "error_code": "cfr-101",
@@ -421,7 +422,7 @@ class Configurator():
                 "exit_if": True,            
             })
 
-            system("clear")
+            _ = self.c.functions.process_command({"proc_action": "clear"})
             print_scenarios()
             self.c.functions.print_paragraphs([
                 ["Most likely you are continuing because you decided that scenario",0,"green"],
@@ -453,7 +454,7 @@ class Configurator():
                 ])
                 self.c.functions.print_any_key({"prompt":"Press any key to continue"})
             else:
-                system("clear")
+                _ = self.c.functions.process_command({"proc_action": "clear"})
                 print_scenarios()
                 self.c.functions.print_paragraphs([
                     ["If you are here because of scenario",0,"green"], ["THREE",0,"red"], ["there may be a situation where you are migrating your node to",0,"green"],
@@ -489,7 +490,7 @@ class Configurator():
     
         if path.isfile(self.yaml_path):
             # clean up old file
-            system(f"sudo rm -f {self.yaml_path}")
+            remove(self.yaml_path)
             
         self.c.functions.print_cmd_status({
             "text_start": "building configuration skeleton",
@@ -520,7 +521,10 @@ class Configurator():
             "status": environment,
             "newline": True,
         })
-        system(f'sudo wget {environment_details[0]["yaml_url"]} -O {self.yaml_path} -o /dev/null')
+        self.c.functions.download_file({
+            "url": environment_details[0]["yaml_url"],
+            "local": self.yaml_path,
+        })
         self.metagraph_list = self.c.functions.clear_global_profiles(environment_details[0]["json"]["nodectl"])
         self.config_obj = environment_details[0]["json"]["nodectl"]
 
@@ -907,8 +911,9 @@ class Configurator():
                         "skip_backup": True,
                     })
                     
-        system(f"sudo cp {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
-        system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
+        copy2(self.yaml_path,self.config_file_path)
+        if path.isfile(self.yaml_path):
+            remove(self.yaml_path)
 
         if not self.quick_install:
             print("")
@@ -2031,7 +2036,7 @@ class Configurator():
                 ["trust label ratings should not be configured on layer1 cluster profiles.",1,"red"],
             ])
             self.c.functions.print_any_key({}) 
-            system("clear")
+            _ = self.c.functions.process_command({"proc_action": "clear"})
             return False
         
         title_profile = self.profile_to_edit if not profile else profile
@@ -3022,7 +3027,10 @@ class Configurator():
                         "status": "enabling",
                         "status_color": "yellow",
                     })
-                    system('sudo systemctl enable node_restart@"enable" > /dev/null 2>&1')
+                    _ = self.c.functions.process_command({
+                        "bashCommand": 'sudo systemctl enable node_restart@"enable"',
+                        "proc_action": "subprocess_devnull",
+                    })
                     self.c.functions.print_cmd_status({
                         "text_start": "Enabling auto_restart on boot",
                         "status": "enabled",
@@ -3035,7 +3043,10 @@ class Configurator():
                         "status": "disabling",
                         "status_color": "yellow",
                     })
-                    system('sudo systemctl disable node_restart@"enable" > /dev/null 2>&1')
+                    _ = self.c.functions.process_command({
+                        "bashCommand": 'sudo systemctl disable node_restart@"enable"',
+                        "proc_action": "subprocess_devnull",
+                    })
                     self.c.functions.print_cmd_status({
                         "text_start": "Disabling auto_restart on boot",
                         "status": "disabled",
@@ -3291,7 +3302,8 @@ class Configurator():
             "text_start": "Update data link dependencies",
         })
 
-        system(f"mv {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
+        if path.exists(self.yaml_path):
+            move(self.yaml_path,self.config_file_path)
         
         self.c.functions.print_cmd_status({
             **progress,
@@ -3321,7 +3333,8 @@ class Configurator():
         self.c.functions.print_cmd_status(progress)
         self.log.logger.debug(f"configurator edit request - moving [{old_profile}] to [{new_profile}]")
         
-        try: system(f"mv /var/tessellation/{old_profile}/ /var/tessellation/{new_profile}/ > /dev/null 2>&1")
+        try: 
+            move(f"/var/tessellation/{old_profile}/",f"/var/tessellation/{new_profile}/")
         except:
             self.error_messages.error_code_messages({
                 "error_code": "cfr-2275",
@@ -3549,7 +3562,8 @@ class Configurator():
     def passphrase_enable_disable_encryption(self,caller):
         self.log.logger.info("configurator -> encryption method envoked.")
 
-        if self.action != "install": system("clear")
+        if self.action != "install": 
+            _ = self.c.functions.process_command({"proc_action": "clear"})
 
         enable = False if self.c.config_obj["global_p12"]["encryption"] else True
 
@@ -3812,7 +3826,7 @@ class Configurator():
                 if not path.isdir(backup_dir):
                     makedirs(backup_dir)
                 dest = f"{backup_dir}backup_cn-config_{c_time}"
-                system(f"cp {self.config_file_path} {dest} > /dev/null 2>&1")
+                copy2(self.config_file_path, dest)
                 self.c.functions.print_cmd_status({
                     **progress,
                     "status": "complete",
@@ -3930,9 +3944,13 @@ class Configurator():
                                     "color": "magenta",
                                     "newline": "both"
                                     })
-                                cmd = f"rsync -a {old_path} {new_path} > /dev/null 2>&1"
-                                system(cmd)
+
+                                _ = self.c.functions.process_command({
+                                    "bashCommand": f"rsync -a {old_path} {new_path}",
+                                    "proc_action": "subprocess_rsync",
+                                })
                                 self.c.functions.event = False
+
                                 clean_up = {
                                     "text_start": "Cleaning up directories",
                                     "brackets": directory_name,
@@ -3950,7 +3968,10 @@ class Configurator():
                                     "exit_if": False
                                 })
                                 if confirm:                                
-                                    system(f"rm -rf {old_path} > /dev/null 2>&1")
+                                    _ = self.c.functions.process_command({
+                                        "bashCommand": f"rm -rf {old_path}",
+                                        "proc_action": "subprocess_devnull",
+                                    })
                                     self.c.functions.print_cmd_status({
                                         **clean_up,
                                         "status": "complete",
@@ -3988,7 +4009,11 @@ class Configurator():
                     [f"review your Node's directory structure for abandoned {stype}.",2,"yellow"],
                     ["Profile Directories Found",2,"blue","bold"]
                 ])
-                if stype == "profiles": system("sudo tree /var/tessellation/ -I 'data|logs|nodectl|backups|uploads|*.jar|*seedlist'")
+                if stype == "profiles": 
+                    _ = self.functions.process_command({
+                        "bashCommand": "sudo tree /var/tessellation/ -I 'data|logs|nodectl|backups|uploads|*.jar|*seedlist'",
+                        "proc_action": "subprocess_run_check_only",
+                    })
             return True
         return False
                 
@@ -4038,7 +4063,10 @@ class Configurator():
             if not self.clean_profiles: self.skip_clean_profiles_manual = True 
             if self.clean_profiles:
                 for profile in clean_up_old_list:
-                    system(f"sudo rm -rf /var/tessellation/{profile} > /dev/null 2>&1")
+                    _ = self.c.functions.process_command({
+                        "bashCommand": f"sudo rm -rf /var/tessellation/{profile}",
+                        "proc_action": "subprocess_devnull",
+                    })
                     self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
@@ -4132,8 +4160,9 @@ class Configurator():
                 for profile in clean_up_old_list:
                     service = self.old_last_cnconfig[profile]["service"]
                     service_name = f"cnng-{service}.service"
-                    system(f"sudo rm -f /etc/systemd/system/{service_name} > /dev/null 2>&1")
-                    self.log.logger.info(f"configuration removed abandoned service file [{service_name}]")      
+                    if path.isfile(f"/etc/systemd/system/{service_name}"):
+                        remove(f"/etc/systemd/system/{service_name}")
+                        self.log.logger.info(f"configuration removed abandoned service file [{service_name}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
                         "brackets": service,
@@ -4214,7 +4243,10 @@ class Configurator():
                             self.c.functions.print_cmd_status({
                                 **progress
                             })
-                            system(f"sudo rm -rf {lookup_path} > /dev/null 2>&1")
+                            _ = self.c.functions.process_command({
+                                "bashCommand": f"sudo rm -rf {lookup_path}",
+                                "proc_action": "subprocess_devnull",
+                            })
                             sleep(1)
                             self.c.functions.print_cmd_status({
                                 **progress,
@@ -4458,7 +4490,9 @@ class Configurator():
 
     def quit_configurator(self,requested=True):
         self.move_config_backups()
-        if path.isfile(self.yaml_path): system(f"rm -f {self.yaml_path} > /dev/null 2>&1")
+        if path.isfile(self.yaml_path): 
+            if path.isfile(self.yaml_path):
+                remove(self.yaml_path)
         if requested:
             cprint("  Configurator exited upon Node Operator request","green")
         exit(0)  
@@ -4522,8 +4556,9 @@ class Configurator():
                     if line == end_line: check_for_update = False
                             
         f.close()
-        system(f"sudo cp {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
-        if remove_yaml: system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
+        copy2(self.yaml_path,self.config_file_path)
+        if remove_yaml and path.isfile(self.yaml_path): 
+            remove(self.yaml_path)
         if list_of_lines:
             self.c.functions.print_cmd_status({
                 "text_start": f"Configuration changes {'appended' if append else 'removed'}",
@@ -4597,7 +4632,10 @@ class Configurator():
                 ])
                 self.c.functions.print_any_key({})
         else:
-            system(f"mv {self.config_path}backup_cn-config_* {backup_dir} > /dev/null 2>&1")
+            _ = self.c.functions.process_command({
+                "bashCommand": f"mv {self.config_path}backup_cn-config_* {backup_dir}",
+                "proc_action": "subprocess_devnull",
+            })
             self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
     
                           

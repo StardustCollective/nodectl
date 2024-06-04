@@ -1,6 +1,6 @@
-from os import environ, path, system, makedirs, getcwd
+from os import environ, path, system, makedirs, getcwd, remove, chmod
 from re import match
-
+from shutil import copy2, move
 from time import sleep
 from getpass import getpass
 from termcolor import colored, cprint
@@ -137,7 +137,7 @@ class P12Class():
                 }
                 self.functions.print_cmd_status(progress)
                 if confirm:
-                    system(f"sudo rm {p12_full_path} > /dev/null 2>&1")
+                    if path.isfile(p12_full_path): remove(p12_full_path)
                     status = "complete"
                     status_color = "green"
                     
@@ -414,10 +414,13 @@ class P12Class():
         id_hex_file = f"{self.path_to_p12}{self.id_file_name}"
         id_file_exists = path.exists(id_hex_file)
         if id_file_exists:
-            system(f"rm {id_hex_file} > /dev/null 2>&1")
+            remove(id_hex_file)
             
         bashCommand = f"java -jar /var/tessellation/cl-keytool.jar export"
-        system(bashCommand)
+        _ = self.functions.process_command({
+            "bashCommand": bashCommand,
+            "proc_action": "subprocess_devnull",
+        })
 
         try:
             f = open(id_hex_file,"r")
@@ -453,8 +456,7 @@ class P12Class():
         self.log.logger.info("p12 file private key request completed.")
         
         f.close()
-        bashCommand = f"rm -f {id_hex_file} > /dev/null 2>&1"
-        system(bashCommand)
+        if path.isfile(id_hex_file): remove(id_hex_file)
         
         
     def extract_export_config_env(self,command_obj):
@@ -569,7 +571,8 @@ class P12Class():
         if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
             if self.quick_install:
                 self.log.logger.warn(f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
-                system(f"sudo rm -f {self.p12_file_location}/{self.p12_filename} > /dev/null 2>&1")
+                if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
+                    remove(f"{self.p12_file_location}/{self.p12_filename}")
             else:
                 self.log.logger.warn(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
                 print_exists_warning = True
@@ -579,7 +582,7 @@ class P12Class():
             self.log.logger.info(f"p12 file path being created {self.p12_file_location}")
             makedirs(self.p12_file_location)
             self.log.logger.info(f"p12 file ownership permissions set {self.p12_file_location}/{self.p12_filename}")
-            system(f"chown {self.user.username}:{self.user.username} {self.p12_file_location} > /dev/null 2>&1")
+            self.functions.set_chown(self.p12_file_location,self.user.username,self.user.username)
               
         self.log.logger.info(f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
         # do not use sudo here otherwise the env variables will not be associated
@@ -590,8 +593,9 @@ class P12Class():
         }))
 
         self.log.logger.info(f"p12 file permissions set {self.p12_file_location}/{self.p12_filename}")
-        system(f"chown {self.user.username}:{self.user.username} {self.p12_file_location}/{self.p12_filename} > /dev/null 2>&1")
-        system(f"chmod 400 {self.p12_file_location}/{self.p12_filename} > /dev/null 2>&1")
+
+        self.functions.set_chown(f"{self.p12_file_location}/{self.p12_filename}",self.user.username, self.user.username)
+        chmod(f"{self.p12_file_location}/{self.p12_filename}",0o400)
         result = "completed"
         color = "green"
 
@@ -627,7 +631,7 @@ class P12Class():
         temp_p12_file = "/tmp/cnng-temporary.p12"
         p12_file_exists = path.exists(temp_p12_file)
         if p12_file_exists:
-            system(f"rm {temp_p12_file} > /dev/null 2>&1")
+            remove(temp_p12_file)
         
         # backup old p12 file
         datetime = self.functions.get_date_time({"action":"datetime"})
@@ -639,7 +643,7 @@ class P12Class():
         backup_dir = self.config_obj[profile]["directory_backups"]
         p12_key_name_bk = p12_key_name.replace(".p12","_")
         if path.exists(p12_location):
-            system(f"cp {p12_location} {backup_dir}{p12_key_name_bk}{datetime}.p12.bak > /dev/null 2>&1")
+            copy2(p12_location,f"{backup_dir}{p12_key_name_bk}{datetime}.p12.bak")
         else:
             self.error_messages.error_code_messages({
                 "error_code": "p-350",
@@ -661,11 +665,12 @@ class P12Class():
         }))
         if "error" in results:
             self.log.logger.error("p12 passphrase update failed")
-            system(f"sudo rm {temp_p12_file} > /dev/null 2>&1")
+            if path.isfile(temp_p12_file): remove(temp_p12_file)
             return results
         
         # migrate new p12 into place
-        system(f"sudo mv {temp_p12_file} {p12_location} > /dev/null 2>&1")       
+        if path.isfile(temp_p12_file):
+            move(temp_p12_file,p12_location)     
         return "success"
         
         

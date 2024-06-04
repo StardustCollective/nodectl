@@ -74,6 +74,7 @@ def pull_valid_command():
         "show_p12_details",
         "show_node_proofs",
         "show_cpu_memory",
+        "show_profile_issues",
         "sec",
 
         "upgrade",
@@ -94,7 +95,7 @@ def pull_valid_command():
 
     service_cmds = [
         "service_restart",
-        "uvos",
+        "uvos","test_only",
     ]
     valid_short_cuts = [
         "_sr","_s","_qs","_cv","_vc","_val","_cf",

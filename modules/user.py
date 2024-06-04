@@ -1,10 +1,11 @@
 import re
 
-from os import system, path, makedirs, getenv
+from os import system, path, makedirs, getenv, chmod
 from getpass import getpass, getuser
 from shutil import copyfile
 from termcolor import colored, cprint
 from secrets import compare_digest
+from shutil import copy2, move
 
 from .troubleshoot.errors import Error_codes
 
@@ -313,7 +314,10 @@ class UserClass:
                 "delay": .8
             })
         
-        system(f"usermod -aG sudo {self.username} > /dev/null 2>&1")
+        _ = self.functions.process_command({
+            "bashCommand": f"usermod -aG sudo {self.username}",
+            "proc_action": "subprocess_devnull",
+        })
         self.functions.set_system_prompt(self.username)
                      
         if not self.quick_install:
@@ -468,8 +472,8 @@ class UserClass:
         with open(dest_dir_file,'w') as cur_file:
             cur_file.write(filedata)
             
-        system(f"chown {self.username}:{self.username} {dest_dir_file} > /dev/null 2>&1")
-        system(f"chmod 600 {dest_dir_file} > /dev/null 2>&1")
+        self.functions.set_chown(dest_dir_file,self.username, self.username)
+        chmod(dest_dir_file,0o600)
 
         if not self.quick_install:
             self.functions.print_cmd_status({
@@ -589,7 +593,7 @@ class UserClass:
             if value is True:
                 if "ubuntu" in poss_user and path.isfile("/ubuntu/.ssh/authorized_keys"):
                     try:
-                        system(f"mv /home/ubuntu/.ssh/{self.file} /home/ubuntu/.ssh/backup_{self.file} > /dev/null 2>&1")
+                        move(f"/home/ubuntu/.ssh/{self.file}",f"/home/ubuntu/.ssh/backup_{self.file}")
                     except:
                         if not self.quick_install:
                             cprint("  could not move ubuntu ssh key file","red")
@@ -597,7 +601,7 @@ class UserClass:
                         end_color = "yellow"
                 elif "admin" in poss_user and path.isfile("/admin/.ssh/authorized_keys"):
                     try:
-                        system(f"mv /home/admin/.ssh/{self.file} /home/admin/.ssh/backup_{self.file} > /dev/null 2>&1")
+                        move(f"/home/admin/.ssh/{self.file}",f"/home/admin/.ssh/backup_{self.file}")
                     except:
                         if not self.quick_install:
                             cprint("  could not move admin ssh key file","red")
