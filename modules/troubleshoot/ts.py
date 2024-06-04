@@ -30,7 +30,7 @@ class Troubleshooter():
             ERROR_list = []; two_lines = False
             
             try:
-                with open(log["app"]) as file:
+                with open(log["app"],"r") as file:
 
                     test_messages = [
                         {

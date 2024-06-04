@@ -175,7 +175,7 @@ def remove_data(functions,log,install=False,quiet=False):
                         node_admins.append(value)
 
     if install:
-        services, p12s = discover_data()
+        services, p12s = discover_data(services,p12s)
     else:
         functions.print_paragraphs([
             ["This may take a few of minutes, please exercise patience",1,"yellow"]
@@ -191,7 +191,7 @@ def remove_data(functions,log,install=False,quiet=False):
             }
             _ = executor.submit(functions.print_cmd_status,status_obj)
 
-            services, p12s = discover_data()
+            services, p12s = discover_data(services,p12s)
 
             functions.status_dots = False
             functions.print_cmd_status({
@@ -376,9 +376,15 @@ def finish_uninstall(functions):
     })
 
     functions.print_paragraphs([
-        ["",1], ["nodectl has",0,"green"], ["successfully",0,"green","bold"],
+        ["",1], 
+        ["If nodectl created a swapfile during initital installation, the swapfile was not removed to prevent potiental conflicts",0,"magenta"],
+        ["with other [possible] elements, or impacting performance on this VPS. This includes the 'swappiness' settings.",2,"magenta"],
+
+        ["nodectl has",0,"green"], ["successfully",0,"green","bold"],
         ["removed the Node components from the system.",2,"green"],
+
         ["Thank you for your participation with Constellation Network. We hope to see you back soon!",2,"blue","bold"],
+        
         ["Executing final removal of the",0],["nodectl",0,"yellow"], ["binary.",1],
     ])
 

@@ -4906,7 +4906,7 @@ class CLI():
                     })  
                     _ = node_list.pop() # clean off counter
                     if file:
-                        with open(file) as f:
+                        with open(file,"r") as f:
                             for line in f.readlines():
                                 if self.functions.is_valid_address("nodeid",True,line):
                                     check_node_list.append(line.strip("\n"))

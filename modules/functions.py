@@ -1502,25 +1502,25 @@ class Functions():
     def set_system_prompt(self,username):
         prompt_update = r"'\[\e[1;34m\]\u@Constellation-Node:\w\$\[\e[0m\] '"
         prompt_update = f"PS1={prompt_update}"
-        # cmd = f'echo "{prompt_update}" | tee -a /home/{username}/.bashrc > /dev/null 2>&1'  
-        
+        bashrc_file = f"/home/{username}/.bashrc"
+
         is_prompt_there = self.test_or_replace_line_in_file({
-            "file_path": f"/home/{username}/.bashrc",
+            "file_path": bashrc_file,
             "search_line": "Constellation-Node",
         })
         if is_prompt_there and is_prompt_there != "file_not_found":
             self.test_or_replace_line_in_file({
-                "file_path": f"/home/{username}/.bashrc",
+                "file_path": bashrc_file,
                 "search_line": "Constellation-Node",
                 "replace_line": prompt_update,
             })
         elif is_prompt_there != "file_not_found":
-            if not path.exists(prompt_update):
+            if not path.exists(bashrc_file):
                 _ = self.process_command({
-                    "bashCommand": f"sudo touch {prompt_update}",
+                    "bashCommand": f"sudo touch {bashrc_file}",
                     "proc_action": "subprocess_devnull",
                 }) 
-            with open(f"/home/{username}/.bashrc") as file:
+            with open(bashrc_file,"a") as file:
                 file.write(f"{prompt_update}\n")
         
         _ = self.process_command({
