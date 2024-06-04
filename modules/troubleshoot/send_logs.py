@@ -298,7 +298,7 @@ class Send():
 
         # clean up
         self.log.logger.warn(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
-        _ = self.c.functions.process_command({
+        _ = self.functions.process_command({
             "bashCommand": f"sudo rm -rf {tar_package['tar_creation_path']}",
             "proc_action": "subprocess_devnull",
         })

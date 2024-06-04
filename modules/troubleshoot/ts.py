@@ -67,6 +67,16 @@ class Troubleshooter():
                             "find":"Joining to peer P2PContext",
                             "user_msg": "Peer to Peer port issue",
                             "error_msg": "join_error",
+                        },
+                        {
+                            "find":"Join request rejected",
+                            "user_msg": "Join was rejected",
+                            "error_msg": "join_error",
+                        },
+                        {
+                            "find":"Failed to join",
+                            "user_msg": "Unable to join to selected Peer",
+                            "error_msg": "join_error",
                         }
                     ]
                     for n, line in enumerate(reversed(list(file))):
@@ -88,7 +98,7 @@ class Troubleshooter():
                             if "stack_trace" in line.keys():
                                 if message_test["find"] in line["stack_trace"]:
                                     return (profile,message_test["user_msg"],message_test["error_msg"])
-                            if message_test["find"] in line["message"]: 
+                            if message_test["find"].lower() in line["message"].lower(): 
                                 return (profile,message_test["user_msg"],message_test["error_msg"])
 
             except Exception as e:

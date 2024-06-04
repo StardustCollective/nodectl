@@ -868,7 +868,10 @@ class AutoRestart():
     
 
     def alert_handler(self):
-        if not self.alerting["enabled"]: return
+        if not self.alerting["enabled"]: 
+            self.log.logger.debug(f"auto_restart -> thread [{self.thread_profile}] --> alerting is disabled")
+            return
+        
         report_hour = datetime.now().hour
         send_alert, send_report = True, True
 

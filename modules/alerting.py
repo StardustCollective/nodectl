@@ -2,6 +2,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
+from time import sleep
 from os import path
 
 
@@ -98,33 +99,38 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
 
 
 def send_email(comm_obj,body,log):
-    # subject, body, to_email, from_email, password
-
-    try:
-        for i, recipient in enumerate(comm_obj["recipients"]):
-            if i < 1:
-                send_to = recipient
-                continue
-            send_to += f", {recipient}"
-    except:
-        log.logger.error(f"alerting module -> unable to figure out recipients to send alert/report to: [{comm_obj['recipients']}]")
-        return
-
-    msg = MIMEMultipart()
-    msg['From'] = comm_obj["gmail"]
-    msg['To'] = send_to
-    msg['Subject'] = "Constellation Network"
-
-    msg.attach(MIMEText(body, 'plain'))
+    if comm_obj["send_method"] == "single":
+        if len(comm_obj["recipients"]) > 1:
+            try:
+                for i, recipient in enumerate(comm_obj["recipients"]):
+                    if i < 1:
+                        send_to = recipient
+                        continue
+                    send_to += f", {recipient}"
+            except:
+                log.logger.error(f"alerting module -> unable to figure out recipients to send alert/report to: [{comm_obj['recipients']}]")
+                return
 
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
     server.login(comm_obj["gmail"], comm_obj["token"])
 
-    text = msg.as_string()
-    log.logger.error(f"alerting module -> email alert/report sent : [{msg}] to: [{send_to}]")
-    server.sendmail(comm_obj["gmail"], send_to, text)
+    for email in comm_obj["recipients"]:
+        email = send_to if comm_obj["send_method"] == "single" else email
+        msg = MIMEMultipart()
+        msg['From'] = comm_obj["gmail"]
+        msg['To'] = email
+        msg['Subject'] = "Constellation Network"
 
+        msg.attach(MIMEText(body, 'plain'))
+
+        text = msg.as_string()
+        log.logger.info(f"alerting module -> email alert/report sent : [{msg}] to: [{email}]")
+        server.sendmail(comm_obj["gmail"], email, text)
+        if comm_obj["send_method"] == "single": 
+            break
+        sleep(2)
+    
     server.quit()
 
 
