@@ -1317,12 +1317,15 @@ class Functions():
                 filepath = path.join(self.default_includes_path, filename)
                 self.log.logger.info(f"config --> loading local [{filepath}] data into configuration.")
                 with open(filepath, 'r') as file:
-                    yaml_data = yaml.safe_load(file)
-                    self.config_obj["global_elements"] = {
-                        **self.config_obj["global_elements"],
-                        **yaml_data,
-                    }
-
+                    try:
+                        yaml_data = yaml.safe_load(file)
+                        self.config_obj["global_elements"] = {
+                            **self.config_obj["global_elements"],
+                            **yaml_data,
+                        }
+                    except Exception as e:
+                        self.log.logger.warn(f"config -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
+                        continue
         return
     
 
