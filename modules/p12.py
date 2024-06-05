@@ -72,8 +72,10 @@ class P12Class():
             self.ask_for_location() 
         if not self.existing_p12:
             self.generate()
-
+        elif self.solo and self.process != "install":
+            self.generate() 
      
+
     def validate_value(self,pattern,value):
         if match(pattern,value):
             return True
@@ -696,6 +698,7 @@ class P12Class():
             })
             return p12_passwd 
 
+
         if "--passphrase" in command_list:
             return_pass = True
         if "--alias" in command_list:
@@ -840,6 +843,18 @@ class P12Class():
                 },                
             ]
         else:
+            if self.solo: 
+                self.p12_file_location = path.split(p12_location)[0]
+                self.p12_filename = path.split(p12_location)[1]
+                self.p12_password = p12_passwd
+                self.key_alias = p12_output_dict["alias"]
+                self.extract_export_config_env({"env_vars":True})
+                cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
+                node_id = self.functions.process_command({
+                    "bashCommand": cmd,
+                    "proc_action": "poll"
+                })
+                node_id = node_id.strip()
             print_out_list = [
                 {
                     "header_elements": {
@@ -884,6 +899,12 @@ class P12Class():
                     "header_elements": {
                         "ISSUER": p12_output_dict["iowner"],
                         "COMMON NAME": p12_output_dict["iowner_cn"],
+                    },
+                    "spacing": 25,
+                },                
+                {
+                    "header_elements": {
+                        "NODE ID": node_id,
                     },
                     "spacing": 25,
                 },                
@@ -932,6 +953,22 @@ class P12Class():
                 "extra2": "verify the location you entered exists or in the configuration is valid.",
             })
 
+        if "--file" in cli.command_list:
+            self.p12_file_location += cli.command_list[cli.command_list.index("--file")+1]
+            if path.isfile(self.p12_file_location):
+                self.functions.print_paragraphs([
+                      [" WARNING ",0,"white,on_red"], ["nodectl found an existing",0,"red"],
+                      ["file with the same name.  If you continue, that file will be",0,"red"],
+                      ["removed permanently by being overwritten.",1,"red"],  
+                    ])
+                self.functions.confirm_action({
+                    "prompt": "Overwrite existing p12?",
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "exit_if": True
+                })
+            self.existing_p12 = self.p12_file_location               
+
         from .user import UserClass
         self.user = UserClass(cli)
         self.user.username = p12_username
@@ -946,6 +983,8 @@ class P12Class():
             "return_on": "y",
             "exit_if": True
         })
+
+        if self.p12_file_location[-1] != "/": self.p12_file_location += "/"
         self.show_p12_details(["--file",self.p12_file_location+self.p12_filename])
         
              

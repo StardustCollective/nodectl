@@ -33,7 +33,7 @@ def prepare_alert(alert_profile, comm_obj, profile, env, log):
     else:
         return "skip" # we don't want to send an alert
         
-    log.logger.info(f"alerting module -> sending alert [{body}]")
+    log.logger.info(f"alerting module -> sending alert [{alert_profile[profile]['action']}]")
     send_email(comm_obj,body,log)
     return "complete"
 
@@ -125,7 +125,7 @@ def send_email(comm_obj,body,log):
         msg.attach(MIMEText(body, 'plain'))
 
         text = msg.as_string()
-        log.logger.info(f"alerting module -> email alert/report sent : [{msg}] to: [{email}]")
+        log.logger.info(f"alerting module -> email alert/report sent to: [{email}]")
         server.sendmail(comm_obj["gmail"], email, text)
         if comm_obj["send_method"] == "single": 
             break
