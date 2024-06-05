@@ -246,25 +246,39 @@ def remove_data(functions,log,install=False,quiet=False):
                     "status_color": "yellow",
                     "newline": False,
                 })
-        else:
-            command = f"Removing Node related {remove_list.pop(0)}"
-            print_status(functions,command,True,True)
 
-        for d_f in remove_list:
-            if len(remove_list) > 0:
-                for d_f in remove_list:
-                    if not d_f.startswith("/"): d_f = f"/etc/systemd/system/{d_f}"
-                    log_list.append(["info",f"{install_type} -> removing [{d_f}]"])
-                    try:
-                        if path.isdir(d_f):
-                            shutil.rmtree(d_f)
-                        else:
-                            remove(d_f)
-                    except Exception as e:
-                        log_list.append(["warn",f"{install_type} -> did not remove [{d_f}] reason [{e}] trying th"])
-            sleep(1)
+        with ThreadPoolExecutor() as executor:
+            functions.status_dots = True
+            if not install:
+                command = f"Removing Node related {remove_list.pop(0)}"
+            status_obj = {
+                "text_start": command,
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            if not install and not quiet:
+                _ = executor.submit(functions.print_cmd_status,status_obj)
+            # command = f"Removing Node related {remove_list.pop(0)}"
+            # print_status(functions,command,True,True)
 
-        if not install:
+            for d_f in remove_list:
+                if len(remove_list) > 0:
+                    for d_f in remove_list:
+                        if not d_f.startswith("/"): d_f = f"/etc/systemd/system/{d_f}"
+                        log_list.append(["info",f"{install_type} -> removing [{d_f}]"])
+                        try:
+                            if path.isdir(d_f):
+                                shutil.rmtree(d_f)
+                            else:
+                                remove(d_f)
+                        except Exception as e:
+                            log_list.append(["warn",f"{install_type} -> did not remove [{d_f}] reason [{e}] trying th"])
+                sleep(1)
+            functions.status_dots = False  
+
+        if not install and not quiet:
             print_status(functions,command,False)
         
     # remove auto_complete element
