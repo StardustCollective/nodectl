@@ -3551,7 +3551,7 @@ class CLI():
                         # did not increase
                         if peer_count == False:
                             self.troubleshooter.setup_logs({"profile": called_profile})
-                            error_msg = self.troubleshooter.test_for_connect_error()
+                            error_msg = self.troubleshooter.test_for_connect_error("all")
                             if error_msg:
                                 self.functions.print_paragraphs([
                                     ["",1], ["Possible Error",1,"red","bold"],
