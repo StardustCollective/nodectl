@@ -1,6 +1,6 @@
 import random
 import psutil
-from sys import exit
+
 from time import sleep, time
 from datetime import datetime, timedelta
 from os import path
@@ -12,7 +12,7 @@ from .troubleshoot.logger import Logging
 from .node_service import Node
 from .command_line import CLI
 from .config.versioning import Versioning
-from .alerting import send_email, prepare_alert, prepare_report
+from .alerting import prepare_alert, prepare_report
 
 class AutoRestart():
 

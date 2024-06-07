@@ -32,8 +32,11 @@ def prepare_alert(alert_profile, comm_obj, profile, env, log):
         body += "Alert: Unable to access Edge Point from Node.\n"
     else:
         return "skip" # we don't want to send an alert
-        
-    log.logger.info(f"alerting module -> sending alert [{alert_profile[profile]['action']}]")
+    
+    if alert_profile == "clear":
+        log.logger.info(f"alerting module -> sending alert [alert cleared]")
+    else:
+        log.logger.info(f"alerting module -> sending alert [{alert_profile[profile]['action']}]")
     send_email(comm_obj,body,log)
     return "complete"
 
