@@ -1930,7 +1930,9 @@ class CLI():
 
             results = sorted(results[1],key=sort_errors)
             for result in results:
-                result["timestamp"] = result["timestamp"].isoformat() + 'Z'
+                try:
+                    result["timestamp"] = result["timestamp"].isoformat() + 'Z'
+                except: pass
 
             self.functions.print_paragraphs([
                 ["",1], ["The following was identified in the logs",2,"red"],
