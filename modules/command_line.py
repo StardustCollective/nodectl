@@ -1915,15 +1915,35 @@ class CLI():
             "profile": profile,
         })
         results = ts.test_for_connect_error(lines) 
+        f_profile = results[0]      
+
+        def sort_errors(err):
+            return err["rank"], err["timestamp"].timestamp()
         
         if results:
-            self.log.logger.error(f"cli_restart -> profile [{results[0]}] possible cause [{results[1]}] result [{results[2]}] ")
+            for result in results[1]:
+                try:
+                    result["timestamp"] = datetime.fromisoformat(result["timestamp"].replace("Z","+00:00"))
+                except: 
+                    # list references same dict, so it can be skipped
+                    pass
+
+            results = sorted(results[1],key=sort_errors)
+            for result in results:
+                result["timestamp"] = result["timestamp"].isoformat() + 'Z'
+
             self.functions.print_paragraphs([
-                ["",1], ["The following was identified in the logs",1],
-                ["       Profile:",0],[results[0],1,"yellow"],
-                ["Possible Cause:",0],[results[1],1,"yellow"],
-                ["        Result:",0],[results[2],2,"yellow"],
+                ["",1], ["The following was identified in the logs",2,"red"],
             ])
+            for result in results:
+                self.log.logger.error(f"cli_restart -> profile [{f_profile}] error [{result['error_msg']}] error found [{result['find']}] user message [{result['user_msg']}]")
+                self.functions.print_paragraphs([
+                    ["       Profile:",0],[f_profile,1,"yellow"],
+                    ["         Error:",0],[result['error_msg'],1,"yellow"],
+                    ["Possible Cause:",0],[result['user_msg'],1,"yellow"],
+                    ["        Result:",0],[result['find'],1,"yellow"],
+                    ["        Time:",0],[result['timestamp'],2,"yellow"],
+                ])
         elif solo:
             self.functions.print_paragraphs([
                 ["Profile:",0],[profile,1,"yellow"],

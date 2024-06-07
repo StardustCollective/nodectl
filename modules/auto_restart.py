@@ -456,8 +456,8 @@ class AutoRestart():
 
     def set_persistent_alert(self,alert,report):
         with open(self.persist_alert_file,"w") as file:
-            file.write(f"alert: {str(alert)}\n")       
-            file.write(f"report: {str(report)}\n")       
+            file.write(f"{self.thread_profile}: alert: {str(alert)}\n")       
+            file.write(f"{self.thread_profile}: report: {str(report)}\n")       
 
 
     def clear_timers_flags(self, tf_type):
@@ -881,9 +881,9 @@ class AutoRestart():
             with open(self.persist_alert_file,"r") as file:
                 lines = file.readlines()
                 for line in lines:
-                    if "alert" in line and "False" in line:
+                    if f"{self.thread_profile}: alert" in line and "False" in line:
                         send_alert = False
-                    if "report" in line and "False" in line:
+                    if f"{self.thread_profile}: report" in line and "False" in line:
                         send_report = False
 
         if self.profile_states[self.thread_profile]["action"] == "NoActionNeeded":
