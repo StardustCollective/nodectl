@@ -1932,7 +1932,8 @@ class CLI():
             for result in results:
                 try:
                     result["timestamp"] = result["timestamp"].isoformat() + 'Z'
-                except: pass
+                except: 
+                    pass
 
             self.functions.print_paragraphs([
                 ["",1], ["The following was identified in the logs",2,"red"],
