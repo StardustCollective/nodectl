@@ -3,7 +3,6 @@ import psutil
 from sys import exit
 from time import sleep, time
 from datetime import datetime, timedelta
-from types import SimpleNamespace
 from os import path
 
 from .node_service import Node

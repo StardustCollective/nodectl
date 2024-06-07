@@ -9,7 +9,7 @@ from os import path
 def prepare_alert(alert_profile, comm_obj, profile, env, log):
     log.logger.info("alerting module -> prepare report requested")
 
-    body = f"NODECTL {'UP' if alert_profile == "clear" else 'DOWN'} ALERT\n"
+    body = f"NODECTL {'UP' if alert_profile == 'clear' else 'DOWN'} ALERT\n"
     body += f"Cluster: {env}\n"
     body += f"Profile: {profile}\n"
     body += "\nAuto Restart action taken\n\n"
