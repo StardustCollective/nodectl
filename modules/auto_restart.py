@@ -60,7 +60,7 @@ class AutoRestart():
             "WaitingForReady_enabled": False,    
         }
         
-        self.persist_alert_file = "/var/tessellation/nodectl/alert_report"
+        self.persist_alert_file = f"/var/tessellation/nodectl/{self.thread_profile}_alert_report"
 
         self.fork_check_time = {
             "minority_fork": -1,
@@ -455,8 +455,8 @@ class AutoRestart():
 
     def set_persistent_alert(self,alert,report):
         with open(self.persist_alert_file,"w") as file:
-            file.write(f"{self.thread_profile}: alert: {str(alert)}\n")       
-            file.write(f"{self.thread_profile}: report: {str(report)}\n")       
+            file.write(f"alert: {str(alert)}\n")       
+            file.write(f"report: {str(report)}\n")       
 
 
     def clear_timers_flags(self, tf_type):
@@ -880,9 +880,9 @@ class AutoRestart():
             with open(self.persist_alert_file,"r") as file:
                 lines = file.readlines()
                 for line in lines:
-                    if f"{self.thread_profile}: alert" in line and "False" in line:
+                    if "alert" in line and "False" in line:
                         send_alert = False
-                    if f"{self.thread_profile}: report" in line and "False" in line:
+                    if f"report" in line and "False" in line:
                         send_report = False
 
         if self.profile_states[self.thread_profile]["action"] == "NoActionNeeded":
@@ -890,7 +890,13 @@ class AutoRestart():
                 if int(self.alerting['report_hour_utc']) == report_hour:
                     if send_report:
                         self.set_persistent_alert(send_alert,False)
-                        prepare_report(self.cli, self.node_service, self.functions, self.profile_states[self.thread_profile], self.alerting, self.thread_profile, self.cluster, self.log)
+                        if self.thread_layer < 1:
+                            prepare_report(
+                                self.cli, self.node_service, self.functions, 
+                                self.profile_states[self.thread_profile], 
+                                self.alerting, self.thread_profile, 
+                                self.cluster, self.log
+                            )
                     return
                 else:
                     if self.profile_states[self.thread_profile]['node_state'] == "Ready":
