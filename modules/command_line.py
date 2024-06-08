@@ -1915,12 +1915,12 @@ class CLI():
             "profile": profile,
         })
         results = ts.test_for_connect_error(lines) 
-        f_profile = results[0]      
 
         def sort_errors(err):
             return err["rank"], err["timestamp"].timestamp()
         
         if results:
+            f_profile = results[0] 
             for result in results[1]:
                 try:
                     result["timestamp"] = datetime.fromisoformat(result["timestamp"].replace("Z","+00:00"))
