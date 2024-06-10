@@ -270,10 +270,21 @@ class AutoRestart():
     def setup_alerting(self):
         try: self.alerting = {**self.config_obj["global_elements"]["alerting"]}
         except: 
-            self.alerting = {
-                "enabled": False,
-            }
-        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - alerting module [{self.alerting['enabled']}]")
+            self.alerting = {"enable": False}
+        self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - alerting module [{self.alerting['enable']}]")
+
+        #validate alerting
+        necessary_items = ["enable","gmail","token","send_method","recipients","begin_alert_utc","end_alert_utc","report_hour_utc"]
+        found_items = list(self.config_obj["global_elements"]["alerting"].keys())
+        if set(necessary_items) != set(found_items):
+            self.log.logger.error(f"auto_restart - thread [{self.thread_profile}] - invalid alerting configuration found alerting is [disabled]")
+            self.alerting = {"enable": False}
+
+        if self.alerting["report_hour_utc"] == "disable":
+            self.alerting["report_hour_utc"] = -1
+        if self.alerting["begin_alert_utc"] == "disable" or self.alerting["end_alert_utc"] == "disable":
+            self.alerting["begin_alert_utc"] = -1
+            self.alerting["end_alert_utc"] = -1
 
 
     def update_profile_states(self):
@@ -867,12 +878,22 @@ class AutoRestart():
     
 
     def alert_handler(self):
-        if not self.alerting["enabled"]: 
+        if not self.alerting["enable"]: 
             self.log.logger.debug(f"auto_restart -> thread [{self.thread_profile}] --> alerting is disabled")
             return
-        
+
         report_hour = datetime.now().hour
-        send_alert, send_report = True, True
+        
+        if self.alerting["begin_alert_utc"] <= self.alerting["end_alert_utc"]:
+            if not (self.alerting["begin_alert_utc"] <= report_hour < self.alerting["end_alert_utc"]):
+                self.log.logger.debug(f"auto_restart -> thread [{self.thread_profile}] --> alerting is disabled because outside of specified alerting hours.")
+                return  
+        else: # Wraparound case
+            if not (report_hour >= self.alerting["begin_alert_utc"] or report_hour < self.alerting["end_alert_utc"]):
+                self.log.logger.debug(f"auto_restart -> thread [{self.thread_profile}] --> alerting is disabled because outside of specified alerting hours.")
+                return   
+               
+        send_alert, send_report = True, True        
 
         if not path.isfile(self.persist_alert_file):
             self.set_persistent_alert(True,True)

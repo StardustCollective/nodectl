@@ -1945,7 +1945,7 @@ class CLI():
                     ["         Error:",0],[result['error_msg'],1,"yellow"],
                     ["Possible Cause:",0],[result['user_msg'],1,"yellow"],
                     ["        Result:",0],[result['find'],1,"yellow"],
-                    ["        Time:",0],[result['timestamp'],2,"yellow"],
+                    ["          Time:",0],[result['timestamp'],2,"yellow"],
                 ])
         elif solo:
             self.functions.print_paragraphs([

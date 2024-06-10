@@ -442,10 +442,11 @@ class Upgrader():
         ml_version_found = False
 
         meta_type = self.config_obj["global_elements"]["metagraph_name"]
-        meta_title = "metagraph: "
+        meta_title = " metagraph:"
         is_meta = True
-        if meta_type == "hypergraph":
-            meta_title = "cluster:   "
+
+        if meta_type == "hypergraph:":
+            meta_title = "   cluster:"
             is_meta = False
 
         # all profiles with the ml type should be the same version
