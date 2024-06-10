@@ -3566,6 +3566,20 @@ class Functions():
         return [ x for x in profile_list_or_obj.keys() if "external" not in x]
 
     
+    def remove_duplicates(self, r_type, dicts_list):
+        if r_type == "list_of_dicts":
+            seen = set()
+            unique_dicts = []
+
+            for d in dicts_list:
+                dict_as_tuple = frozenset(d.items())
+                if dict_as_tuple not in seen:
+                    seen.add(dict_as_tuple)
+                    unique_dicts.append(d)
+        
+            return unique_dicts
+
+
     def cleaner(self, line, action, char=None):
         if action == "dag_count":
             cleaned_line = sub('\D', '', line)

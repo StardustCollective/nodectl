@@ -1942,6 +1942,8 @@ class CLI():
             self.functions.print_paragraphs([
                 ["",1], ["The following was identified in the logs",2,"red"],
             ])
+            results = self.functions.remove_duplicates("list_of_dicts",results)
+
             for result in results:
                 error_msg = str(result['error_msg'])
                 find_msg = str(result['find'])
@@ -3586,11 +3588,12 @@ class CLI():
                             if error_msg:
                                 self.functions.print_paragraphs([
                                     ["",1], ["Possible Error",1,"red","bold"],
-                                    [f"{error_msg[1]}",1],
+                                    [f"{error_msg[1][0]['find']}",1,"magenta"],
+                                    [f"{error_msg[1][0]['user_msg']}",1,"magenta"],
                                 ])
                             self.functions.print_auto_restart_warning()
                             print("")
-                            exit("  possible error during join")
+                            exit(1)
                         increase_check += 1
                     if state == "WaitingForDownload":
                         if wfd_count > wfd_max:
