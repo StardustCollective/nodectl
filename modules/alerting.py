@@ -16,6 +16,8 @@ def prepare_alert(alert_profile, comm_obj, profile, env, log):
 
     if not isinstance(alert_profile,dict) and alert_profile == "clear":
         body += "ALERT CLEARED - Node is Ready"
+    elif not isinstance(alert_profile,dict) and alert_profile == "test":
+        body += "ALERT TEST - This is a test only"
     elif not alert_profile[profile]["match"]:
         body += "Alert: Majority Fork detected.\n"
     elif alert_profile[profile]["minority_fork"]:
@@ -33,8 +35,8 @@ def prepare_alert(alert_profile, comm_obj, profile, env, log):
     else:
         return "skip" # we don't want to send an alert
     
-    if alert_profile == "clear":
-        log.logger.info(f"alerting module -> sending alert [alert cleared]")
+    if alert_profile == "clear" or alert_profile == "test":
+        log.logger.info(f"alerting module -> sending alert [alert {alert_profile}]")
     else:
         log.logger.info(f"alerting module -> sending alert [{alert_profile[profile]['action']}]")
     send_email(comm_obj,body,log)
@@ -81,7 +83,7 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
     body += f"Wallet: {dag_addr}\n"
     body += f"Wallet Balance: {wallet_balance['balance_dag']}\n"
     body += f"DAG Price: ${price}\n\n"
-    body += f"Snapshot History Size [HHZ]: 530\n"
+    body += f"Snapshot History Size [SHZ]: 530\n"
     body += f"start: {start}\n"
     body += f"end: {end}\n"
     body += f"SHZ $DAG Earned: {full_dag_amount}\n"

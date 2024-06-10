@@ -18,6 +18,8 @@ from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .config.versioning import Versioning
 from .config.valid_commands import pull_valid_command
+from .alerting import prepare_alert
+
 
 class ShellHandler:
 
@@ -1462,8 +1464,25 @@ class ShellHandler:
             
             return
         
+        if action == "alert_test":
+            self.functions.print_paragraphs([
+                ["",1],["Sending test auto_restart alert",2],
+            ])
+            try:
+                _ = self.config_obj["global_elements"]["alerting"] 
+                prepare_alert("test",self.config_obj["global_elements"]["alerting"],self.functions.default_profile,"test",self.log)
+                self.functions.print_paragraphs([
+                    ["Test Alert Sent.",1,"green"],
+                    ["recipient:",0], [self.config_obj["global_elements"]["alerting"]["recipients"],2,"yellow"],
+                ])
+            except:
+                self.functions.print_paragraphs([
+                    ["Alerting configuration not found, aborting.",2,"red"],
+                ])
+            return
+
         if action != "enable":  # change back to action != "empty" when enabled in prod
-            cprint("  unknown auto_restart parameter detected, exiting","red")
+            cprint("  Unknown auto_restart parameter detected, exiting","red")
             return
 
         keys = list(self.functions.config_obj.keys())
