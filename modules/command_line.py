@@ -1932,7 +1932,7 @@ class CLI():
                 results = sorted(results[1],key=sort_errors)
             except:
                 self.log.logger.error("cli -> show_profile_error -> unable to sort timestamps, skipping")
-                
+
             for result in results:
                 try:
                     result["timestamp"] = result["timestamp"].isoformat() + 'Z'
@@ -1943,13 +1943,17 @@ class CLI():
                 ["",1], ["The following was identified in the logs",2,"red"],
             ])
             for result in results:
+                error_msg = str(result['error_msg'])
+                find_msg = str(result['find'])
+                user_msg = str(result['user_msg'])
+                timestamp_msg = str(result['timestamp'])
                 self.log.logger.error(f"cli_restart -> profile [{f_profile}] error [{result['error_msg']}] error found [{result['find']}] user message [{result['user_msg']}]")
                 self.functions.print_paragraphs([
                     ["       Profile:",0],[f_profile,1,"yellow"],
-                    ["         Error:",0],[result['error_msg'],1,"yellow"],
-                    ["Possible Cause:",0],[result['user_msg'],1,"yellow"],
-                    ["        Result:",0],[result['find'],1,"yellow"],
-                    ["          Time:",0],[result['timestamp'],2,"yellow"],
+                    ["         Error:",0],[error_msg,1,"yellow"],
+                    ["Possible Cause:",0],[user_msg,1,"yellow"],
+                    ["        Result:",0],[find_msg,1,"yellow"],
+                    ["          Time:",0],[timestamp_msg,2,"yellow"],
                 ])
         elif solo:
             self.functions.print_paragraphs([
