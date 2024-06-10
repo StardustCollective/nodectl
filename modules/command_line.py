@@ -1928,7 +1928,11 @@ class CLI():
                     # list references same dict, so it can be skipped
                     pass
 
-            results = sorted(results[1],key=sort_errors)
+            try:
+                results = sorted(results[1],key=sort_errors)
+            except:
+                self.log.logger.error("cli -> show_profile_error -> unable to sort timestamps, skipping")
+                
             for result in results:
                 try:
                     result["timestamp"] = result["timestamp"].isoformat() + 'Z'
