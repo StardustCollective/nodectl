@@ -634,6 +634,12 @@ class Functions():
                 return True  # There is a difference            
             return False
         elif action == "valid_datetime":
+            unix = False
+            try: 
+                new_time = int(new_time)
+                unix = True
+            except: pass
+
             date_formats = [
                 "%Y-%m-%d",
                 "%d-%m-%Y",
@@ -644,11 +650,17 @@ class Functions():
                 "%m/%d/%Y %H:%M:%S",
                 "%d/%m/%Y %H:%M:%S",
                 "%H:%M:%S",
-                "%H:%M"
+                "%H:%M",
+                "%Y-%m-%d.%H",
+                '%Y-%m-%d z%H%M', 
+                '%Y-%m-%d Z%H%M'
             ]
             for fmt in date_formats:
                 try:
-                    datetime.strptime(new_time, fmt)
+                    if unix:
+                        datetime.fromtimestamp(new_time)
+                    else:
+                        datetime.strptime(new_time, fmt)
                     return True
                 except ValueError:
                     continue

@@ -228,7 +228,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
         time_list = match_list['stamp']
         test_range = True if len(snap_list) > 1 else False
         threshold_time = time() - (old_days*86400)
-        oe = "oridinal element"
+        oe = "ordinal element"
         for i, ord_hash in enumerate(snap_list):
             if test_range and len(ord_hash) < 63:
                 try: stamp = time_list[i]

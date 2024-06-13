@@ -3284,7 +3284,7 @@ class CLI():
                                 [profile,0,"red","bold"], ["service failed to start...",1]
                             ])
                             ts = Troubleshooter({"config_obj": self.config_obj})
-                            self.show_profile_issues([f"-p {profile}"],ts)
+                            self.show_profile_issues(["-p",profile],ts)
                             self.functions.print_auto_restart_warning()
                             start_failed_list.append(profile)
                             
@@ -5518,7 +5518,8 @@ class CLI():
         self.functions.print_paragraphs([
             [" WARNING ",0,"red,on_yellow"], ["This will execute the starchiver external community",0],
             ["supported script.",2],
-            ["USE AT YOUR OWN RISK!",1,"red"], ["The",0], ["starchiver",0,"yellow"], 
+            ["USE AT YOUR OWN RISK!",1,"red","bold"], 
+            ["The",0], ["starchiver",0,"yellow"], 
             ["script is not supported by Constellation Network; however,",0],
             ["it is a useful script included in nodectl's tool set to help expedite a Node's ability to",0],
             ["join the Constellation cluster of choice.",2]
@@ -5602,16 +5603,16 @@ class CLI():
         })
 
         self.functions.print_cmd_status({
-            "text_start": "Executing starchiver",
+            "text_start": "Preparing starchiver",
             "status": "running",
             "status_color": "yellow",
-            "newline": False,
+            "newline": True,
         })
         print("")
         sleep(.5)
-        data_path = f"/var/tessellation/{profile}/data/"
+        data_path = f"/var/tessellation/{profile}/data"
         cluster = self.config_obj[profile]["environment"]
-        bashCommand = f"{local_path} --data-path {data_path} --cluster {cluster}"
+        bashCommand = f"{local_path} --data-path '{data_path}' --cluster '{cluster}'"
 
         if "--datetime" in command_list:  
             sc_date = command_list[command_list.index("--datetime")+1]
@@ -5619,21 +5620,54 @@ class CLI():
                 "action": "valid_datetime",
                 "new_time": sc_date,
             }):
-                if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
-                    sc_date = f"'{sc_date}'"
+                try:
+                    int(sc_date)
+                except:
+                    if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
+                        sc_date = f"'{sc_date}'"
                 bashCommand += f" --datetime {sc_date}"
             else:
                 bashCommand += f" --datetime"
 
-        if "-d" in command_list: bashCommand += " -d"
-        if "-o" in command_list: bashCommand += " -o"
+        elif "-d" in command_list: bashCommand += " -d"
+        elif "-o" in command_list: bashCommand += " -o"
 
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
-        _ = self.functions.process_command({
-            "bashCommand": bashCommand,
-            "proc_action": "subprocess_run",
+
+        self.functions.print_paragraphs([
+            ["The following command will be executed at the terminal.",1],
+            [bashCommand,1,"yellow"],
+        ])
+        self.functions.print_cmd_status({
+            "text_start": "Preparing starchiver",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+        self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt_color": "magenta",
+            "prompt": f"Execute the starchiver script?",
+            "exit_if": True,
+        })
+        self.functions.print_cmd_status({
+            "text_start": "Executing starchiver",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": True,
         })
 
+        _ = self.functions.process_command({
+            "bashCommand": bashCommand,
+            "proc_action": "subprocess_run_check_only",
+        })
+        self.functions.print_cmd_status({
+            "text_start": "Executing starchiver",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
 
     def cli_execute_tests(self,command_list):
         self.log.logger.info("cli -> execute_tests initiated.")

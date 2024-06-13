@@ -353,8 +353,9 @@ class Node():
                         "error_code": "ns-634",
                         "line_code": "config_error",
                         "extra": "format",
+                        "extra2": "Is the linking between profiles setup correctly?",
                     })
-                self.log.logger.error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{source_node_list}]")
+                self.log.logger.error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{str(source_node_list)}]")
                 continue # try again... 
 
             if not self.auto_restart:
