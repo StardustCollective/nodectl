@@ -3829,7 +3829,8 @@ class Functions():
             return output
         
         if proc_action == "subprocess_run_check_only":
-            output = subprocess.run(shlexsplit(bashCommand), check=True)
+            args = shlexsplit(bashCommand)
+            output = subprocess.run(args, check=True)
             return output
         
         if proc_action == "subprocess_run_pipe":
