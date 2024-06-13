@@ -5669,6 +5669,7 @@ class CLI():
             "newline": True,
         })
 
+
     def cli_execute_tests(self,command_list):
         self.log.logger.info("cli -> execute_tests initiated.")
         self.functions.check_for_help(command_list,"execute_tests")

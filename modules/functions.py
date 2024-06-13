@@ -3157,7 +3157,10 @@ class Functions():
 
         if p_type == "profile" or p_type == "send_logs":
             p_type_list = self.profile_names
-            if p_type == "send_logs": p_type_list.append("nodectl")
+            if p_type == "send_logs": 
+                for p in p_type_list:
+                    p_type_list[p_type_list.index(p)] = f"{p} app logs"
+                p_type_list.append("nodectl logs")
             
         if not title:
             title = f"Press choose required {p_type}"
@@ -3191,7 +3194,11 @@ class Functions():
                 ["Command operation canceled by Node Operator",2,"green"],
             ])
             exit(0)
-            
+
+        if p_type == "send_logs": 
+            return_value = return_value.replace(" app logs","")
+            return_value = return_value.replace(" logs","")
+
         self.print_paragraphs([
             ["",1], [f" {return_value} ",2,"yellow,on_blue","bold"],
         ])
