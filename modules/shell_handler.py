@@ -419,6 +419,8 @@ class ShellHandler:
             self.cli.show_service_status(self.argv)
         elif self.called_command == "show_cpu_memory" or self.called_command == "_scm":
             self.cli.show_cpu_memory(self.argv)
+        elif self.called_command == "sync_node_time" or self.called_command == "_snt":
+            self.cli.cli_sync_time()
         elif self.called_command == "sec":
             self.cli.show_security(self.argv)
         elif self.called_command == "price" or self.called_command == "prices":

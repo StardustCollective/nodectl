@@ -1582,6 +1582,22 @@ class Functions():
         chown(file_path, getpwnam(user).pw_uid, getgrnam(group).gr_gid)
         return
     
+
+    def set_time_sync(self):
+        self.log.logger.info("functions -> syncing system clock")
+        try:
+            result = self.process_command({
+                "bashCommand": "chronyc makestep",
+                "proc_action": "subprocess_run_pipe",
+            })
+        except:
+            self.log.logger.warn("functions -> unable to sync the clock with the network, skipping")
+            return False
+        else:
+            result = result.stdout.decode().strip()
+            self.log.logger.info(f"functions -> time sync'ed with network [{result}]")
+            return result
+        
     # =============================
     # pull functions
     # ============================= 

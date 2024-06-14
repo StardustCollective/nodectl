@@ -5801,6 +5801,23 @@ class CLI():
         self.functions.check_for_help(command_list,"remote_access")        
             
 
+    def cli_sync_time(self):
+        status = {
+            "text_start": "Syncing clock with network",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+            "delay": 0.8,
+        }
+        self.functions.print_cmd_status(status)
+        results = self.functions.set_time_sync()
+        status["newline"] = True
+        status["delay"] = 0
+        status["status"] = "complete" if "OK" in results else "failed"
+        status["status_color"] = "green" if "OK" in results else "red"
+        self.functions.print_cmd_status(status)
+
+
     def clean_files(self,command_obj):
         what = "clear_snapshots" if command_obj["action"] == "snapshots" else "clean_files"
         self.log.logger.info(f"request to {what} inventory by Operator...")

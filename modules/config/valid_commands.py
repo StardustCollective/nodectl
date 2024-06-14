@@ -76,6 +76,7 @@ def pull_valid_command():
         "show_cpu_memory",
         "show_profile_issues",
         "sec",
+        "sync_node_time",
 
         "upgrade",
         "upgrade_nodectl",
@@ -102,7 +103,7 @@ def pull_valid_command():
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
         "_sde","_usl","_con","_cmf","_spd",
-        "log","prices","markets","_sss",
+        "log","prices","markets","_sss","_snt",
     ]
     
     removed_cmds = [
