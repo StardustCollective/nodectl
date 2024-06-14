@@ -17,7 +17,7 @@ from .config.config import Configuration
 from .config.configurator import Configurator
 from .config.valid_commands import pull_valid_command
 from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
-
+from .config.time_setup import remove_ntp_services, handle_time_setup
 
 class Upgrader():
 
@@ -912,6 +912,8 @@ class Upgrader():
             "newline": True,
         })
 
+        remove_ntp_services()
+        handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
 
              
@@ -1446,7 +1448,7 @@ class Upgrader():
         if self.non_interactive:
             self.log.logger.warn("upgrade -> non-interactive mode detected, encryption of passphrase feature skipped.")
             self.functions.print_paragraphs([
-                ["non-interactive mode detected, nodectl is skipping passphrase an encryption request.",1,"red"]
+                ["non-interactive mode detected, nodectl is skipping passphrase and encryption request.",1,"red"]
             ])
             return
 
@@ -1490,6 +1492,6 @@ class Upgrader():
             "newline": True,
         })
 
-
+        
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")        

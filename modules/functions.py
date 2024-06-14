@@ -3803,7 +3803,7 @@ class Functions():
                 timer.start()
                 # stdout, stderr = p.communicate()
             except Exception as e:
-                self.log.logger.error(f"function process command errored out with [{e}]")
+                self.log.logger.warn(f"function process command errored out with [{e}]")
             finally:
                 timer.cancel()
         
@@ -3828,7 +3828,7 @@ class Functions():
             try:
                 output = subprocess.check_output(bashCommand, shell=True, text=True)
             except subprocess.CalledProcessError as e:
-                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
             return output
         
         if proc_action == "subprocess_run":
@@ -3836,15 +3836,18 @@ class Functions():
             return output
         
         if proc_action == "subprocess_run_check_only":
-            args = shlexsplit(bashCommand)
-            output = subprocess.run(args, check=True)
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), check=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = False
             return output
-        
+                
         if proc_action == "subprocess_run_pipe":
             try:
                 output = subprocess.run(shlexsplit(bashCommand), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             except subprocess.CalledProcessError as e:
-                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
@@ -3852,7 +3855,7 @@ class Functions():
             try:
                 output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             except subprocess.CalledProcessError as e:
-                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = e
             return output.returncode
         
@@ -3860,7 +3863,7 @@ class Functions():
             try:
                 output = subprocess.run(shlexsplit(bashCommand), check=True, text=True)
             except subprocess.CalledProcessError as e:
-                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
@@ -3868,7 +3871,7 @@ class Functions():
             try:
                 output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
             except subprocess.CalledProcessError as e:
-                self.log.logger.error(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
 
@@ -3878,9 +3881,9 @@ class Functions():
                 result = subprocess.run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
                 self.log.logger.info(f"{verb} completed successfully.")
             except subprocess.CalledProcessError as e:
-                self.log.logger.error(f"{verb} failed. Error: {e.stderr}")
+                self.log.logger.warn(f"{verb} failed. Error: {e.stderr}")
             except Exception as e:
-                self.log.logger.error(f"An error occurred: {str(e)}")
+                self.log.logger.warn(f"An error occurred: {str(e)}")
             return result
 
         if autoSplit:
@@ -3905,7 +3908,7 @@ class Functions():
                                     stdout=PIPE,
                                     stderr=PIPE)
             except Exception as e:
-                self.log.logger.error(f"function process command errored out with [{e}]")
+                self.log.logger.warn(f"function process command errored out with [{e}]")
                 skip = True
            
         if not skip:     
@@ -3919,7 +3922,7 @@ class Functions():
             result, err = p.communicate()
 
             if err and log_error:
-                self.log.logger.error(f"process command [Bash Command] err: [{err}].")
+                self.log.logger.warn(f"process command [Bash Command] err: [{err}].")
                 
             if return_error:
                 return err.decode('utf-8')

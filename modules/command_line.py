@@ -6274,6 +6274,7 @@ class CLI():
             upgrade_file = upgrade_file.replace("ARCH",self.arch)
             if version_obj["nodectl"]["upgrade"] == "full":
                 upgrade_file = upgrade_file.replace("sudo nodectl upgrade --nodectl_only","sudo nodectl upgrade")
+                upgrade_file = upgrade_file.replace("requires a nodectl_only","requires a full upgrade")
         except Exception as e:
             self.log.logger.debug(f"nodectl binary updater was unable to build the upgrade file path | upgrade chosen [{upgrade_chosen}] old [{node_nodectl_version}] backup location [{backup_location}] arch [{self.arch}] | error [{e}]")
             self.error_messages.error_code_messages({

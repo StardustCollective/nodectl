@@ -22,6 +22,7 @@ from .quick_install import QuickInstaller
 from .node_service import Node
 from .config.valid_commands import pull_valid_command
 from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
+from .config.time_setup import remove_ntp_services, handle_time_setup
 
 class Installer():
 
@@ -776,6 +777,9 @@ class Installer():
                         })
                             
                     bashCommand = f"apt-get install -y {package}"
+                    if package == "ntp":
+                        bashCommand += " ntpdate -oDpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'"
+
                     self.functions.process_command({
                         "bashCommand": bashCommand,
                         "proc_action": "timeout",
@@ -800,7 +804,9 @@ class Installer():
                             "status": "complete",
                             "newline": True
                         })
-
+        remove_ntp_services()
+        handle_time_setup(self.functions,self.options.quick_install,False,self.options.quiet,self.log)
+        
 
     def make_swap_file(self):
         self.log.logger.info("installer -> preparing to create swapfile")

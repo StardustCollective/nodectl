@@ -113,7 +113,7 @@ class Node():
                     "nodegarageexecstartbash",
                     f"cnng-{self.config_obj[profile]['service']}"
                 ) 
-
+                
             elif create_file_type == "service_bash":
                 template = template.replace(
                     "nodegarageservicename",
@@ -185,7 +185,7 @@ class Node():
                         if "custom_args_enable" not in key and "custom_args_" in key:
                             template = f'{template} --{key.replace("custom_args_","")} {value}'
                             template = template.rstrip()
-                            
+
             # clean up the template
             substring = "/usr/bin/java"
             index = template.find(substring)
@@ -1103,7 +1103,7 @@ echo ""
 '''
             if var.upgrade_required:
                 cur_file2 = '''
-echo "  ${blue}This version of nodectl requires an upgrade be performed"
+echo "  ${blue}This version of nodectl requires a nodectl_only upgrade be performed"
 echo "  ${blue}on your Node.\n"
 read -e -p "  ${pink}Press ${yellow}Y ${pink}then ${yellow}[ENTER] ${pink}to upgrade or ${yellow}N ${pink}then ${yellow}[ENTER] ${pink}to cancel:${blue} " CHOICE
 
