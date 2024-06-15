@@ -1007,11 +1007,19 @@ class ShellHandler:
                 url = f"https://github.com/StardustCollective/nodectl/releases/download/{nodectl_version_full}/{cmd[0]}"
                 verify_cmd = f"openssl dgst -sha256 -verify /var/tmp/nodectl_public -signature /var/tmp/{cmd[0]} /var/tmp/{cmds[1][0]}"
 
-            self.functions.download_file({
-                "url": url,
-                "local": f"/var/tmp/{cmd[0]}",
-            })
-            full_file_path = f"/var/tmp/{cmd[0]}"
+            try:
+                self.functions.download_file({
+                    "url": url,
+                    "local": f"/var/tmp/{cmd[0]}",
+                })
+                full_file_path = f"/var/tmp/{cmd[0]}"
+            except Exception as e:
+                self.log.logger.error(f"shell handler -> digital signature failed to download from [{url}] with error [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "sh-1019",
+                    "line_code": "download_invalid",
+                    "extra": url,
+                })
             
             if cmd[2] == "none":
                 self.functions.print_cmd_status({

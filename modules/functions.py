@@ -11,6 +11,7 @@ import validators
 import uuid
 import glob
 import distro
+import requests
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -22,7 +23,8 @@ from psutil import Process, cpu_percent, virtual_memory, process_iter, AccessDen
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
-from requests import get, Session, exceptions as requests_exceptions
+from requests import get, Session
+from requests.exceptions import HTTPError, RequestException
 from subprocess import Popen, PIPE, call, run, check_output
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -3776,7 +3778,7 @@ class Functions():
     def download_file(self,command_obj):
         url = command_obj["url"]
         local = command_obj.get("local",path.split(url)[1])
-
+        do_raise = False
         try:
             session = self.set_request_session()
             session.verify = True
@@ -3786,8 +3788,14 @@ class Functions():
                     for chunk in response.iter_content(chunk_size=8192):
                         output_file.write(chunk)
             self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
-        except requests_exceptions.RequestException as e:
+        except HTTPError as e:
             self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+            do_raise = True
+        except RequestException as e:
+            self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+            do_raise = True
+
+        if do_raise:
             raise
 
 

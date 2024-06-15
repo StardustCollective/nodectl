@@ -17,6 +17,7 @@ from .logger import Logging
 #     configurator
 
 # download_yaml
+# download_invalid
 # dependency
 
 # environment_error
@@ -479,7 +480,7 @@ class Error_codes():
             
             
         elif var.line_code == "term":
-            self.log.logger.critical("invalid terminal type, exited program")
+            self.log.logger.critical("invalid terminal type, exited utility ")
             self.functions.print_paragraphs([
                 ["Invalid terminal type detected:",0,"yellow"], [var.extra,2,"magenta","bold"],
                 ["Please enable a",0], ["xterm",0,"yellow","bold"], ["terminal session to continue.",2],
@@ -487,7 +488,7 @@ class Error_codes():
             
             
         elif var.line_code == "ip_not_found":
-            self.log.logger.warn("unable to find the external IP address of the Node, there may be internet access issues ensuring, exited program")
+            self.log.logger.warn("unable to find the external IP address of the Node, there may be internet access issues ensuring, exited utility ")
             self.functions.print_paragraphs([
                 ["In an attempt to search the current network cluster with an IP address,",0,"red"],
                 [var.extra,0,"yellow","bold"],
@@ -496,7 +497,7 @@ class Error_codes():
             
             
         elif var.line_code == "version_fetch":
-            self.log.logger.warn("unable to fetch version, exited program")
+            self.log.logger.warn("unable to fetch version, exited utility ")
             self.functions.print_paragraphs([
                 ["Tessellation attempted version fetch failed.",2,"red","bold"],
                 ["Please try again. If the issue persists, report this to a Constellation Network Administrator.",2,"magenta","bold"]
@@ -582,7 +583,7 @@ class Error_codes():
             
             
         elif var.line_code == "input_error":
-            self.log.logger.warn(f"invalid input from user was entered for option [{var.extra}], exited program.")
+            self.log.logger.warn(f"invalid input from user was entered for option [{var.extra}], exited utility .")
             self.functions.print_paragraphs([
                 ["nodectl found an invalid input entered by the Node Operator.",2,"red","bold"],
                 ["Please try again later or issue the",0], ["help",0,"yellow","bold"], 
@@ -608,7 +609,7 @@ class Error_codes():
                 
                                      
         elif var.line_code == "file_not_found":
-            self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program.")
+            self.log.logger.warn(f"invalid file location or name [{var.extra}], exited utility .")
             self.functions.print_paragraphs([
                 ["System has attempted to access a file that does not exist.",2,"red","bold"],
                 [" File Name: ",0,"blue,on_yellow","bold"], [var.extra,2],
@@ -618,10 +619,23 @@ class Error_codes():
                 self.functions.print_paragraphs([
                     [" Hint: ",0,"blue","bold"], [var.extra2,2,"yellow"],
                 ])                         
+                
+                                     
+        elif var.line_code == "download_invalid":
+            self.log.logger.critical(f"invalid download forced operation to halt. url [{var.extra}], exited utility .")
+            self.functions.print_paragraphs([
+                ["System has attempted to access a internet based file for download that may not exist.",2,"red","bold"],
+                [" URL: ",0,"blue,on_yellow","bold"], [var.extra,2],
+                ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
+            ])     
+            if var.extra2:
+                self.functions.print_paragraphs([
+                    [" Hint: ",0,"blue","bold"], [var.extra2,2,"yellow"],
+                ])                         
                         
             
         elif var.line_code == "dependency":
-            self.log.logger.critical(f"an error processing a command outside the realm of nodectl was encountered [{var.extra2}], exited program.")
+            self.log.logger.critical(f"an error processing a command outside the realm of nodectl was encountered [{var.extra2}], exited utility .")
             self.functions.print_paragraphs([
                 ["An error has occurred while attempting to process a distribution system command.",2,"red","bold"],
                 [" Missing Component: ",0,"blue,on_yellow","bold"], [var.extra,2],
@@ -632,7 +646,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_output_file":
-            self.log.logger.warn(f"invalid file location or name [{var.extra}], exited program. file not allowed")
+            self.log.logger.warn(f"invalid file location or name [{var.extra}], exited utility . file not allowed")
             self.functions.print_paragraphs([
                 ["System detected an attempt to output data to an invalid output location.",0,"red","bold"],
                 ["nodectl is setup to output files to the default uploads directory.  If an alternate directory location is desired, please modified the",0,"red","bold"],
@@ -657,7 +671,7 @@ class Error_codes():
                 ])             
             
         elif var.line_code == "invalid_configuration_request":
-            self.log.logger.warn(f"invalid profile configuration requested [{var.extra}], exited program. remote configuration did not exist or could not be processed")
+            self.log.logger.warn(f"invalid profile configuration requested [{var.extra}], exited utility . remote configuration did not exist or could not be processed")
             self.functions.print_paragraphs([
                 ["nodectl unsuccessfully attempted to import data from a configuration file.",0,"red","bold"],
                 ["The remote configuration file does not exist, may be spelled wrong, incorrectly formatted, or incorrectly entered.",2,"red","bold"],
@@ -667,7 +681,7 @@ class Error_codes():
             ]) 
             
         elif var.line_code == "invalid_file_format":
-            self.log.logger.warn(f"invalid file format for file [{var.extra}], exited program. file could not be processed")
+            self.log.logger.warn(f"invalid file format for file [{var.extra}], exited utility . file could not be processed")
             self.functions.print_paragraphs([
                 ["System detected an attempt to import data from a file or an invalid file format.",0,"red","bold"],
                 ["nodectl is setup to access a file that may have been inputted incorrectly, formatted incorrectly,",0,"red","bold"],
