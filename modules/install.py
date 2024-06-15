@@ -1161,6 +1161,7 @@ class Installer():
         move(self.options.p12_migration_path, dest_p12_destination_path)
         chmod(dest_p12_destination_path, 0o400)
         self.functions.set_chown(dest_p12_destination_path, "root","root")
+        self.functions.set_chown(path.dirname(dest_p12_destination_path), self.user.username,self.user.username)
         self.p12_migrated = True
 
         if self.options.quick_install:

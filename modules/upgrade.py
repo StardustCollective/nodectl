@@ -2,7 +2,7 @@ import subprocess
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from os import system, path, makedirs, remove, environ, chmod
-from shutil import copy2, move
+from shutil import copy2, move, rmtree
 from time import sleep
 from termcolor import colored
 from re import match
@@ -905,6 +905,12 @@ class Upgrader():
             "bashCommand": f'sudo mv /home/{self.p12.p12_username}/{rc_file_name} {self.config_obj[self.functions.default_profile]["directory_backups"]}',
             "proc_action": "subprocess_devnull",
         })
+
+        # bug from previous < v2.13.4
+        for i_path in ["/root/2<$1",f"/home/{self.p12.p12_username}/2<$1"]:
+            if path.exists(i_path):
+                rmtree(i_path)
+
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",

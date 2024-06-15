@@ -166,7 +166,6 @@ class Send():
                 cmd = f"rsync -a {tar_creation_origin} {tar_creation_path}/ "
                 if not self.nodectl_logs:
                     cmd += f"--exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "
-                cmd += "> /dev/null 2>&1"
                 _ = self.functions.process_command({
                     "bashCommand": cmd,
                     "proc_action": "subprocess_devnull",
