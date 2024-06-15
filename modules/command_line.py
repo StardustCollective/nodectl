@@ -5801,7 +5801,9 @@ class CLI():
         self.functions.check_for_help(command_list,"remote_access")        
             
 
-    def cli_sync_time(self):
+    def cli_sync_time(self,command_list):
+        if "-v" not in command_list:
+            cprint("  option: -v to see details","magenta")
         status = {
             "text_start": "Syncing clock with network",
             "status": "running",
@@ -5810,12 +5812,29 @@ class CLI():
             "delay": 0.8,
         }
         self.functions.print_cmd_status(status)
-        results = self.functions.set_time_sync()
+        results, track, source = self.functions.set_time_sync()
         status["newline"] = True
         status["delay"] = 0
         status["status"] = "complete" if "OK" in results else "failed"
         status["status_color"] = "green" if "OK" in results else "red"
         self.functions.print_cmd_status(status)
+
+        if "-v" in command_list:
+            self.functions.print_paragraphs([
+                ["",1],[" TRACKING OUTPUT ",1,"white,on_blue","bold"],
+            ])
+            for line in track.split("\n"):
+                self.functions.print_paragraphs([
+                    [line,1,"green"],
+                ])            
+            self.functions.print_paragraphs([
+                ["",1],[" SOURCE OUTPUT ",1,"white,on_blue","bold"],
+            ])
+            for line in source.split("\n"):
+                self.functions.print_paragraphs([
+                    [line,1,"green"],
+                ]) 
+            print("")
 
 
     def clean_files(self,command_obj):

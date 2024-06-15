@@ -1598,7 +1598,34 @@ class Functions():
         else:
             result = result.stdout.decode().strip()
             self.log.logger.info(f"functions -> time sync'ed with network [{result}]")
-            return result
+            if "OK" not in result:
+                return result
+            
+        try:
+            track_output = self.process_command({
+                "bashCommand": "chronyc tracking",
+                "proc_action": "subprocess_run_pipe",
+            })
+        except:
+            self.log.logger.warn("functions -> unable to sync the clock with the network, skipping")
+            return False
+        else:
+            track_output = track_output.stdout.decode().strip()
+            self.log.logger.info(f"functions -> track the time sync'ed with network [{track_output}]")
+        
+        try:
+            source_output = self.process_command({
+                "bashCommand": "chronyc sources -v",
+                "proc_action": "subprocess_run_pipe",
+            })
+        except:
+            self.log.logger.warn("functions -> unable to view sources of the clock with the network, skipping")
+            return False
+        else:
+            source_output = source_output.stdout.decode().strip()
+            self.log.logger.info(f"functions -> time source output sync'ed with network [{source_output}]")
+
+        return result, track_output, source_output
         
     # =============================
     # pull functions
