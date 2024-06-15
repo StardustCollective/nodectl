@@ -6173,6 +6173,9 @@ class CLI():
 
         if "-v" in argv_list: 
             custom_version = argv_list[argv_list.index("-v")+1]
+            custom_version = custom_version.lower()
+            if custom_version[0] != "v":
+                custom_version = f"v{custom_version}"
             self.functions.print_paragraphs([
                 [" WARNING ",0,"red,on_yellow"], ["This will skip verification checks and",0],
                 ["attempt",0,"red","bold"], ["to upgrade/downgrade your Node's nodectl version to:",0], [custom_version,2,"yellow","bold"],
