@@ -652,6 +652,9 @@ class Installer():
                 self.user.create_debian_user()
                 self.user.transfer_ssh_key()
         
+        # update permissions
+        self.functions.set_chown(path.dirname(self.options.p12_destination_path), self.user.username,self.user.username)
+        self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
         return
 
 
@@ -1160,11 +1163,12 @@ class Installer():
 
         move(self.options.p12_migration_path, dest_p12_destination_path)
         chmod(dest_p12_destination_path, 0o400)
-        self.functions.set_chown(dest_p12_destination_path, "root","root")
-        self.functions.set_chown(path.dirname(dest_p12_destination_path), self.user.username,self.user.username)
-        self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
-        self.p12_migrated = True
-
+        try:
+            self.functions.set_chown(dest_p12_destination_path, "root","root")
+            self.p12_migrated = True
+        except Exception as e:
+            self.log.logger.error("installer -> unable to set permissions, please verify permission settings.")
+    
         if self.options.quick_install:
             return
 

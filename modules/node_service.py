@@ -710,16 +710,22 @@ class Node():
                             break
 
                         if not self.auto_restart and not link_obj[f"{link_type}_link_ready"]:
+                            if isinstance(self.profile,bool):
+                                self.profile = "Unknown"
                             self.functions.print_paragraphs([
                                 ["",1], [" ERROR ",0,"red,on_yellow"],
-                                [f"nodectl was unable to find the {link_type.upper()} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
+                                [f"nodectl was unable to find the {str(link_type.upper())} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
                                 [f"continue to wait for the state to become 'Ready' or exit now and try again to join after the link profile or Node becomes",0,"red"],
                                 [f"'Ready'.",2,"red"],
 
                                 ["If the Node Operator chooses to exit, issue the following commands to verify the status of each profile and restart when 'Ready' state is found:",1],                        
                                 ["sudo nodectl status",1,"yellow"],
-                                [f"sudo nodectl restart -p {self.profile}",2,"yellow"],
+                                [f"sudo nodectl restart -p {str(self.profile)}",2,"yellow"],
                             ])
+
+                            if self.profile == "Unknown":
+                                cprint("  Profile error, unable to continue...","red")
+                                exit(0)
 
                             if interactive:
                                 self.functions.confirm_action({
