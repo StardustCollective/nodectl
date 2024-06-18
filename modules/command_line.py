@@ -5851,15 +5851,25 @@ class CLI():
             "newline": False,
         }
 
-        for profile in self.profile_names:
-            if not self.config_obj[profile]["global_p12_key_location"]:
-                requirements.append(profile)
+        if "-p" in command_list:
+            profile = command_list[command_list.index("-p")+1]
+            if profile not in self.profile_names:
+                self.log.logger.error(f"cli -> prepare_file_download -> profile [{profile}] not found.")
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-5859",
+                    "line_code": "profile_error",
+                    "extra": profile,
+                })
+            requirements = [profile]
+        else:
+            for profile in self.profile_names:
+                if not self.config_obj[profile]["global_p12_key_location"]:
+                    requirements.append(profile)
 
         for profile in requirements:
             key_name = "key_store" if profile == "global_p12" else "p12_key_name"
             key_name = self.config_obj[profile][key_name]
             files.append(key_name)
-
 
         if action == "file":
             file = command_list[command_list.index("--type")+2]
