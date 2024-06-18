@@ -1327,20 +1327,24 @@ class Functions():
 
         self.log.logger.warn("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
         yaml_data = {}
-        for filename in listdir(self.default_includes_path):
-            if filename.endswith('.yaml'):
-                filepath = path.join(self.default_includes_path, filename)
-                self.log.logger.info(f"config --> loading local [{filepath}] data into configuration.")
-                with open(filepath, 'r') as file:
-                    try:
-                        yaml_data = yaml.safe_load(file)
-                        self.config_obj["global_elements"] = {
-                            **self.config_obj["global_elements"],
-                            **yaml_data,
-                        }
-                    except Exception as e:
-                        self.log.logger.warn(f"config -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
-                        continue
+        try:
+            for filename in listdir(self.default_includes_path):
+                if filename.endswith('.yaml'):
+                    filepath = path.join(self.default_includes_path, filename)
+                    self.log.logger.info(f"functions -> get_includes -> loading local [{filepath}] data into configuration.")
+                    with open(filepath, 'r') as file:
+                        try:
+                            yaml_data = yaml.safe_load(file)
+                            self.config_obj["global_elements"] = {
+                                **self.config_obj["global_elements"],
+                                **yaml_data,
+                            }
+                        except Exception as e:
+                            self.log.logger.warn(f"functions -> get_includes -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
+                            continue
+        except Exception as e:
+            self.log.logger.warn("functions -> get_includes -> found possible empty includes, nothing to do")
+
         return
     
 

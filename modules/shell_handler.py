@@ -117,7 +117,7 @@ class ShellHandler:
         self.skip_services = True
         return_value = 0
 
-        self.log.logger.info(f"obtain ip address: {self.ip_address}")
+        self.log.logger.info(f"shell_handler -> start_cli -> obtain ip address: {self.ip_address}")
                 
         # commands that do not need all resources
         if "main_error" in argv:
