@@ -5801,7 +5801,219 @@ class CLI():
         self.functions.check_for_help(command_list,"remote_access")        
             
 
+    def cli_prepare_file_download(self, command_list):
+
+        if "--type" not in command_list:
+            command_list.append("help")
+        elif command_list[command_list.index("--type")+1] not in ["file","p12"]:
+            command_list.append("help")
+
+        self.functions.check_for_help(command_list,"prepare_file_download")
+
+
+        def display_file_results(action, root_path, file):
+            file_list = ["*.p12"] if action == "p12" else [path.basename(file)]
+            files = self.functions.get_list_of_files({
+                "paths": [root_path],
+                "files": file_list,
+                "exclude_paths": [f"{root_path}/tessellation"],
+                "exclude_files": ["*"],
+            })
+            if len(files) > 0:
+                self.functions.print_paragraphs([
+                    ["",1], ["Found Files:",1,"yellow"],
+                ])
+                for _, file in files.items():
+                    cprint(f"  - {path.basename(file)}","blue",attrs=["bold"])
+            else:
+                cprint("  no files found","red")
+            print("")
+
+
+        cleanup = True if "--cleanup" in command_list else False
+        requirements = ["global_p12"]
+        files = []
+
+        root_path = f'/home/{self.config_obj["global_p12"]["nodeadmin"]}'
+        root_path = path.normpath(root_path)
+
+        user = self.config_obj["global_p12"]["nodeadmin"]
+        action = command_list[command_list.index("--type")+1]
+
+        title = "PREPARE P12 FOR BACKUP" if not cleanup else "CLEAN UP P12 FILES"
+        self.print_title(title)
+
+        status = {
+            "text_start": "Preparing",
+            "status": "copying",
+            "status_color": "yellow",
+            "delay": 0.8,
+            "newline": False,
+        }
+
+        for profile in self.profile_names:
+            if not self.config_obj[profile]["global_p12_key_location"]:
+                requirements.append(profile)
+
+        for profile in requirements:
+            key_name = "key_store" if profile == "global_p12" else "p12_key_name"
+            key_name = self.config_obj[profile][key_name]
+            files.append(key_name)
+
+
+        if action == "file":
+            file = command_list[command_list.index("--type")+2]
+            if not path.exists(file):
+                self.log.logger.error(f"cli -> prepare_file_download -> unable to find requested file [{file}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-5837",
+                    "line_code": "file_not_found",
+                    "extra": file,
+                })   
+                
+            if cleanup:
+                self.functions.print_paragraphs([
+                    [" WARNING ",1,"red,on_yellow"], 
+                    ["The following file will be removed!!",1,"red","bold"],
+                ])                
+                if not path.exists(f"{root_path}/{path.basename(file)}"):
+                    cprint("  File not found, request cancelled, nothing done!","red")
+                    exit(0)
+
+                display_file_results(action, root_path, path.basename(file))
+                self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": f"clean up file?",
+                    "exit_if": True,
+                })
+                remove(f"{root_path}/{path.basename(file)}")
+                cprint("  File Removed","green",attrs=["bold"])
+                exit(0)
+                                                 
+            self.functions.print_paragraphs([
+                [" WARNING ",1,"red,on_yellow"], ["The following operation will temporarily",0],
+                ["has the possibility",0,"red"],["of causing a",0],["a minor security risk,",0,"red"],["on your Node.",2],
+
+                [f"This command will create a copy of the requested file",0,"magenta"],
+                [file,0,"yellow"], ["in the root of a non-root user's home directory,",0,"magenta"],
+                ["and set the permissions for access via a",0,"magenta"], ["non-root",0,"red","bold"], ["user until removed.",2,"magenta"],
+
+                [f"Once you have completed the backup of your file",0,"green"],
+                [file,0,"yellow"],["it is",0,"green"],
+                ["recommended",0,"green","bold"], ["that you return to your Node and re-run",0,"green"],
+                ["this command with the",0,"green"], ["--cleanup",0,"yellow"], ["option, to remove and",0,"green"],
+                ["secure your Node's nodeadmin user from accessing root files.",2,"green"],
+            ])
+            exists = self.functions.test_file_exists(root_path,path.basename(file))
+            if exists and exists != "override":
+                cprint("  Skipping request and exiting.","red")
+                exit(0)
+            status["brackets"] = path.basename(file)
+            self.functions.print_cmd_status(status)
+            copy2(file,root_path)
+            self.functions.print_cmd_status({
+                **status,
+                "delay": 0,
+                "newline": True,
+                "status": "complete",
+                "status_color": "green"
+            })
+            self.functions.set_chown(f"{root_path}/{path.basename(file)}", user, user)
+        else:
+            if cleanup:
+                self.functions.print_paragraphs([
+                    [" WARNING ",1,"red,on_yellow"], 
+                    ["The following file will be removed!!",2,"red","bold"],
+                    ["If you want to remove individual files only, use the",0],
+                    ["--file",0,"yellow"], ["option instead",1],
+                ])                
+
+                found = False
+                for file in files:
+                    if path.exists(f"{root_path}/{path.basename(file)}"):
+                        display_file_results(action, root_path, path.basename(file))
+                        found = True
+                if not found:
+                    cprint("  Unable to find p12 files to remove, nothing to do!!","red")
+                    exit(0)
+
+                self.functions.print_paragraphs([
+                    ["Please ensure you have your p12 files backed up and in a secure",0,"red"],
+                    ["location. This process will only remove the files located in the",0,"red"],
+                    ["root",0,"yellow"],["of the nodeadmin user's directory.",0,"red"],
+                    ["If you have a custom setup, exercise",0,"red"],["CAUTION",0,"yellow","bold"],
+                    ["before continuing!",1,"red"],
+                ])
+                self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": f"clean up p12 files?",
+                    "exit_if": True,
+                })
+                for file in files:
+                    remove(f"{root_path}/{path.basename(file)}")
+
+                cprint("  File(s) Removed","green",attrs=["bold"])
+                exit(0)
+
+            self.functions.print_paragraphs([
+                [" WARNING ",1,"red,on_yellow"], ["The following operation will temporarily",0],
+                ["create a minor security risk,",0,"red"],["on your Node.",2],
+
+                ["This command will create copies of your known p12 files, place them into a non-root",0,"magenta"],
+                ["user's home directory, and change the",0,"magenta"],
+                ["permissions for access via a",0,"magenta"], ["non-root",0,"red","bold"], ["user until removed.",2,"magenta"],
+
+                ["Once you have completed the backup of your p12 key store files, it is",0,"green"],
+                ["very",0,"green","bold"], ["important that you return to your Node and re-run",0,"green"],
+                ["this command with the",0,"green"], ["--cleanup",0,"yellow"], ["option, to remove and",0,"green"],
+                ["secure your Node's p12 access to proper status.",2,"green"],
+            ])
+            self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": f"Prepare p12 for backup?",
+                "exit_if": True,
+            })
+
+            for file in files:
+                try:
+                    exists = self.functions.test_file_exists(root_path,path.basename(file))
+                    if exists and exists != "override":
+                        continue
+                    status["brackets"] = path.basename(file)
+                    self.functions.print_cmd_status(status)
+                    copy2(file,root_path)
+                    self.functions.set_chown(f"{root_path}/{path.basename(file)}", user, user)
+                except Exception as e:
+                    self.log.logger.error(f"cli -> prepare_file_download -> file copy error [{e}]")
+                    self.error_messages.error_code_messages({
+                        "error_code": "cli-5870",
+                        "line_code": "file_not_found",
+                        "extra": file,
+                    })
+                self.functions.print_cmd_status({
+                    **status,
+                    "delay": 0,
+                    "newline": True,
+                    "status": "complete",
+                    "status_color": "green"
+                })
+            
+        if not cleanup:
+            display_file_results(action, root_path, file)
+
+        self.functions.print_cmd_status({
+            "text_start": "p12 preparation" if not cleanup else "p12 cleanup",
+            "status": "complete",
+            "newline": True,
+        })
+
+
     def cli_sync_time(self,command_list):
+        self.functions.check_for_help(command_list,"sync_node_time")
+
         if "-v" not in command_list:
             cprint("  option: -v to see details","magenta")
         status = {

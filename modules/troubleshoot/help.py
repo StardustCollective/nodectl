@@ -22,7 +22,7 @@ def build_help(functions,command_obj):
       "list","whoami","show_node_states","passwd12",
       "reboot","disable_root_ssh","enable_root_ssh",
       "clean_snapshots","update_seedlist", "check_source_connection",
-      "health","sec","price","markets", "upgrade_path", 
+      "health","sec","price","markets", "upgrade_path","display_snapshot_chain",
       "check_seedlist_participation", "check_version", "uptime","uninstall",
       "show_cpu_memory","execute_starchiver","backup_config", "node_last_snapshot",
     ]
@@ -248,7 +248,10 @@ def build_help(functions,command_obj):
     verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity    
     
     create_p12 |  Create a single independent p12 file.                                    
-                     
+
+    sync_node_time | force a sync between the Node and NTP servers connected to the
+                     atomic clocks
+
     health  | - show basic health elements of your Node
               - show the current 15 minute CPU load and 
                 if WARNING or LOW
@@ -1238,6 +1241,63 @@ def build_help(functions,command_obj):
   {colored('-p <profile_name>','cyan')} 
   '''      
   
+    if extended == "prepare_file_download":
+        help_text += title(extended)
+        help_text += f'''
+  
+  This command will request nodectl to prepare your p12 file for
+  a backup.  This command can we used in conjunction with the  
+  {colored('quasar','green')} local utility. 
+
+  Your p12 file(s) will be located, moved to the root of your
+  nodeadmin user's root directory, and the file permissions will
+  be changed so you can retrieve them from the nodeadmin user's
+  account.  
+
+  Node's built using the recommended security practices will not 
+  be able to retrieve a p12 file using the root user.  This command
+  offers a solution to this restriction.
+     
+  required options:
+  {colored('--type p12|file','cyan')} 
+
+  Using the {colored('--type','cyan')} with {colored('p12','cyan')} will require
+  will handle p12 migration for you.
+  Using the {colored('--type','cyan')} with {colored('file','cyan')} will require
+  a full path to the file and filename to properly handle the preparation.
+
+  optional parameters:
+  {colored('-p <profile_name>','cyan')} 
+  {colored('--cleanup','green')} 
+
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl prepare_file_download help','cyan')}
+  
+  move all known p12 files to the root of the nodeadmin
+  user and update permissions for access.
+  # {colored('sudo nodectl prepare_file_download --type p12','cyan')}
+
+  move only p12 files associated with the profile 'dag-l0'
+  to the root of the nodeadmin user and update permissions 
+  for access.
+  # {colored('sudo nodectl prepare_file_download --type p12 -p dag-l0','cyan')}
+ 
+  migrate a file called 'mylogs.tar.gz' that is located in 
+  the '/var/tessellation/uploads' for download from the root of 
+  the username's directory.
+  # {colored('sudo nodectl prepare_file_download --type file /var/tessellation/uploads/mylogs.tar.gz','cyan')}
+
+  remove the p12 files associated with all profiles including global.
+  # {colored('sudo nodectl prepare_file_download --type p12 --cleanup','cyan')}
+
+  remove the file named 'mylogs.tar.gz' that is located in the nodeadmin
+  username's directory.
+  # {colored('sudo nodectl prepare_file_download --type file mylogs.tar.gz --cleanup','cyan')}
+     
+  '''      
+  
     if extended == "uptime":
         help_text += title(extended)
         help_text += f'''
@@ -1500,6 +1560,32 @@ def build_help(functions,command_obj):
   
   execute an upgrade of nodectl to version "v2.12.0"
   # {colored('sudo nodectl upgrade_nodectl -v v2.12.0','cyan')}
+
+  '''    
+        
+        
+    if extended == "sync_node_time":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored('sync_node_time','cyan')} command will update the Node's
+  underlining Linux Debian distribution's datetime clock.  It will use
+  the NTP service installed during nodectl installation to force an 
+  update of the Node's clock.
+  
+  optional:
+  {colored('-v','green')} - verbose mode
+  
+  usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl sync_node_time help','cyan')}
+  
+  execute an manual time sync of system clock.
+  # {colored('sudo nodectl sync_node_time','cyan')}
+  
+  execute an manual time sync of system clock with results
+  output.
+  # {colored('sudo nodectl sync_node_time -v','cyan')}
       
   '''      
         

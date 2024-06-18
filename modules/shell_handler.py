@@ -413,6 +413,8 @@ class ShellHandler:
             self.cli.cli_execute_starchiver(self.argv)
         elif self.called_command == "execute_tests":
             self.cli.cli_execute_tests(self.argv)
+        elif self.called_command == "prepare_file_download":
+            self.cli.cli_prepare_file_download(self.argv)
         elif self.called_command == "show_service_log" or self.called_command == "_ssl":
             self.cli.show_service_log(self.argv)
         elif self.called_command == "show_service_status" or self.called_command == "_sss":
@@ -1192,7 +1194,6 @@ class ShellHandler:
             if date:
                 if date not in value: continue
             if "backup" in value and "cn-config" in value:
-                value = value.replace("//","/")
                 try:
                     format_replace = value.split(".")[1].split("backup")[0]
                 except:

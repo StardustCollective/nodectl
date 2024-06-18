@@ -1189,7 +1189,8 @@ class Functions():
         excludes.append(command_obj.get("exclude_files",False)) # list
         
         possible_found = {}
-        
+        clean_up = {}
+
         for i_path in paths:
             try:
                 for file in files:
@@ -1198,17 +1199,17 @@ class Functions():
             except:
                 self.log.logger.warn(f"unable to process path search | [/{i_path}/]")
             
-        clean_up = deepcopy(possible_found) 
+        for i, file in possible_found.items():
+            file = file.replace("//","/")
+            clean_up[i] = file
+        possible_found = deepcopy(clean_up)
+
         for n,exclude in enumerate(excludes):  
             if exclude:
                 for item in exclude:
                     for key, found in clean_up.items():
-                        if n < 1:
-                            if item == found[1:]:
-                                possible_found.pop(key)
-                        else:
-                            if item in found:
-                                possible_found.pop(key)
+                        if item in found:
+                            possible_found.pop(key)
                 
         return possible_found
     
@@ -2791,6 +2792,21 @@ class Functions():
         # to test if this method is available
         return True         
     
+
+    def test_file_exists(self,root_path,file,ask=True):
+        if path.exists(f"{root_path}/{file}"):
+            cprint(f"  {root_path}/{file} already found","red")
+            if ask:
+                confirm = self.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": f"Overwrite existing?",
+                    "exit_if": False,
+                })
+                if confirm: return "override"
+            return True
+        return False
+     
     # =============================
     # create functions
     # =============================  

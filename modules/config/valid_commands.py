@@ -52,6 +52,7 @@ def pull_valid_command():
         "peers",
         "passwd12",
         "price",
+        "prepare_file_download",
 
         "quick_status",
 
