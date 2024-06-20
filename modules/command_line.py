@@ -5515,26 +5515,8 @@ class CLI():
             "newline": "both",
         })
 
-        self.functions.print_paragraphs([
-            [" WARNING ",0,"red,on_yellow"], ["This will execute the starchiver external community",0],
-            ["supported script.",2],
-            ["USE AT YOUR OWN RISK!",1,"red","bold"], 
-            ["The",0], ["starchiver",0,"yellow"], 
-            ["script is not supported by Constellation Network; however,",0],
-            ["it is a useful script included in nodectl's tool set to help expedite a Node's ability to",0],
-            ["join the Constellation cluster of choice.",2]
-        ])
-
-        self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "y",
-            "prompt_color": "magenta",
-            "prompt": f"Execute the starchiver script?",
-            "exit_if": True,
-        })
-
         self.functions.print_cmd_status({
-            "text_start": "Remove existing starchivers",
+            "text_start": "Remove existing starchiver scripts",
             "status": "running",
             "status_color": "yellow",
             "newline": False,
@@ -5546,7 +5528,7 @@ class CLI():
         except:
             self.log.logger.debug("cli -> execute_starchiver -> did not find an existing starchiver script.")
         self.functions.print_cmd_status({
-            "text_start": "Remove existing starchivers",
+            "text_start": "Remove existing starchiver scripts",
             "status": "complete",
             "status_color": "green",
             "newline": True,
@@ -5606,9 +5588,8 @@ class CLI():
             "text_start": "Preparing starchiver",
             "status": "running",
             "status_color": "yellow",
-            "newline": True,
+            "newline": False,
         })
-        print("")
         sleep(.5)
         data_path = f"/var/tessellation/{profile}/data"
         cluster = self.config_obj[profile]["environment"]
@@ -5634,16 +5615,30 @@ class CLI():
 
         self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
 
-        self.functions.print_paragraphs([
-            ["The following command will be executed at the terminal.",1],
-            [bashCommand,1,"yellow"],
-        ])
         self.functions.print_cmd_status({
             "text_start": "Preparing starchiver",
             "status": "complete",
             "status_color": "green",
             "newline": True,
         })
+
+        self.functions.print_paragraphs([
+            ["",1],["The following command will be executed at the terminal.",1],
+            ["=","half","blue","bold"],
+            [bashCommand,1,"yellow"],
+            ["=","half","blue","bold"],["",1]
+        ])
+
+        self.functions.print_paragraphs([
+            [" WARNING ",0,"red,on_yellow"], ["This will execute the starchiver external community",0],
+            ["supported script.",2],
+            ["USE AT YOUR OWN RISK!",1,"red","bold"], 
+            ["The",0], ["starchiver",0,"yellow"], 
+            ["script is not supported by Constellation Network; however,",0],
+            ["it is a useful script included in nodectl's tool set to help expedite a Node's ability to",0],
+            ["join the Constellation cluster of choice.",2]
+        ])
+
         self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
