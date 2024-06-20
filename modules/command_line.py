@@ -5915,7 +5915,7 @@ class CLI():
                 exit(0)
                                                  
             self.functions.print_paragraphs([
-                [" WARNING ",1,"red,on_yellow"], ["The following operation will temporarily",0],
+                [" WARNING ",1,"red,on_yellow"], ["The following operation should be considered temporary and",0],
                 ["has the possibility",0,"red"],["of causing a",0],["a minor security risk,",0,"red"],["on your Node.",2],
 
                 [f"This command will create a copy of the requested file",0,"magenta"],

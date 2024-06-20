@@ -755,7 +755,7 @@ class Functions():
             }
             
         while True:
-            for n in range(0,2):
+            for n in range(0,3):
                 try:
                     cluster_info = self.get_cluster_info_list({
                         "ip_address": self.config_obj[profile]["edge_point"],
@@ -768,7 +768,7 @@ class Functions():
                 except Exception as e:
                     self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                     
-                if not cluster_info:
+                if not cluster_info and n > 1:
                     if self.auto_restart:
                         return False
                     if random_node and self.config_obj["global_elements"]["use_offline"]:
@@ -784,6 +784,10 @@ class Functions():
                             "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                             "extra2": self.config_obj[profile]["layer"],
                         })
+                if not cluster_info and n > 2:
+                    sleep(.8)
+                else:
+                    break
                 
             cluster_info_tmp = deepcopy(cluster_info)
             try:
