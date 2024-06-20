@@ -159,6 +159,7 @@ class Send():
                 _ = executor.submit(self.functions.print_cmd_status,{
                     "text_start": "Transferring required files",
                     "dotted_animation": True,
+                    "timeout": False,
                     "status": "copying",
                     "status_color": "yellow"
                 })
@@ -217,13 +218,14 @@ class Send():
             _ = executor.submit(self.functions.print_cmd_status,{
                 "text_start": "Generating gzip tarball",
                 "dotted_animation": True,
+                "timeout": False,
                 "status": "creating",
                 "status_color": "yellow"
             })
                     
             self.functions.process_command({
                 "bashCommand": cmd,
-                "proc_action": "poll"
+                "proc_action": "subprocess_return_code"
             })
 
             self.functions.status_dots = False
@@ -297,14 +299,15 @@ class Send():
 
         # clean up
         self.log.logger.warn(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
-        _ = self.functions.process_command({
-            "bashCommand": f"sudo rm -rf {tar_package['tar_creation_path']}",
-            "proc_action": "subprocess_devnull",
-        })
+        rmtree(tar_package['tar_creation_path'])
+
         self.functions.print_paragraphs([
             ["Log tarball created and also located:",0,"green"],
             [tar_dest,1],
             ["file:",0,"green"],[tar_file_name,2],
+            ["You can also utilize the",0],["prepare_file_download",0,"yellow"],
+            ["command to setup this file for download to your local system.",1],
+            ["Command:",0,"magenta"], ["sudo nodectl prepare_file_download help",1,"yellow"],
         ])     
         
         

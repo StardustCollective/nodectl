@@ -3925,6 +3925,14 @@ class Functions():
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
+                
+        if proc_action == "subprocess_run_only":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand))
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = False
+            return output
         
         if proc_action == "subprocess_return_code":
             try:
@@ -3934,17 +3942,17 @@ class Functions():
                 output = e
             return output.returncode
         
-        if proc_action == "subprocess_run_check_text":
-            try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True, text=True)
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
-                output = False
-            return output
-        
         if proc_action == "subprocess_devnull":
             try:
                 output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = False
+            return output  
+              
+        if proc_action == "subprocess_run_check_text":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), check=True, text=True)
             except subprocess.CalledProcessError as e:
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
