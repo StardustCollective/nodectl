@@ -303,7 +303,7 @@ class Send():
         })
         self.functions.print_paragraphs([
             ["Log tarball created and also located:",0,"green"],
-            [tar_dest,1]
+            [tar_dest,1],
             ["file:",0,"green"],[tar_file_name,2],
         ])     
         
