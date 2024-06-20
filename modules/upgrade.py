@@ -907,7 +907,7 @@ class Upgrader():
         })
 
         # bug from previous < v2.13.4
-        for i_path in ["/root/'2>$1'",f"/home/{self.p12.p12_username}/'2>$1'"]:
+        for i_path in ["/root/'2>&1'",f"/home/{self.p12.p12_username}/'2>&1'"]:
             if path.exists(i_path):
                 rmtree(i_path)
 
