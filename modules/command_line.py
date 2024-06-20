@@ -5491,6 +5491,29 @@ class CLI():
                 "extra2": extra2
             })
 
+        self.functions.print_cmd_status({
+            "text_start": "Preparing starchiver",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+        })
+
+        profile = command_list[command_list.index("-p")+1]
+        if profile not in self.functions.profile_names:
+            send_error(f"is this a valid profile? [{profile}]")
+
+        self.functions.print_paragraphs([
+            [" WARNING ",0,"red,on_yellow"], ["This will execute the starchiver external community",0],
+            ["supported script.",2],
+            ["USE AT YOUR OWN RISK!",1,"red","bold"], 
+            ["The",0], ["starchiver",0,"yellow"], 
+            ["script is not supported by Constellation Network; however,",0],
+            ["it is a useful script included in nodectl's tool set to help expedite a Node's ability to",0],
+            ["join the Constellation cluster of choice.",1],
+            ["This will be executed on:",0,"blue","bold"],[self.config_obj[profile]['environment'],1,"yellow"],
+            [f"{self.config_obj[profile]['environment']} cluster profile:",0,"blue","bold"],[profile,2,"yellow"],
+        ])
+
         try:
             local_path, repo = set_key_pairs()
         except:
@@ -5501,10 +5524,45 @@ class CLI():
                 send_error("make sure you have the proper include file in the includes directory [/var/tessellation/nodectl/includes/].")
 
         local_path = self.functions.cleaner(local_path,"double_slash")
+        data_path = f"/var/tessellation/{profile}/data"
+        cluster = self.config_obj[profile]["environment"]
+        bashCommand = f"{local_path} --data-path '{data_path}' --cluster '{cluster}'"
 
-        profile = command_list[command_list.index("-p")+1]
-        if profile not in self.functions.profile_names:
-            send_error(f"is this a valid profile? [{profile}]")
+        if "--datetime" in command_list:  
+            sc_date = command_list[command_list.index("--datetime")+1]
+            if self.functions.get_date_time({
+                "action": "valid_datetime",
+                "new_time": sc_date,
+            }):
+                try:
+                    int(sc_date)
+                except:
+                    if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
+                        sc_date = f"'{sc_date}'"
+                bashCommand += f" --datetime {sc_date}"
+            else:
+                bashCommand += f" --datetime"
+
+        elif "-d" in command_list: bashCommand += " -d"
+        elif "-o" in command_list: bashCommand += " -o"
+
+        self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
+
+
+        self.functions.print_paragraphs([
+            ["The following command will be executed at the terminal.",1],
+            ["=","half","blue","bold"],
+            [bashCommand,1,"yellow"],
+            ["=","half","blue","bold"],["",1]
+        ])
+
+        self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt_color": "magenta",
+            "prompt": f"Execute the starchiver script?",
+            "exit_if": True,
+        })
 
         if "-d" in command_list and "-o" in command_list:
             send_error("invalid options requested together")
@@ -5585,68 +5643,6 @@ class CLI():
         })
 
         self.functions.print_cmd_status({
-            "text_start": "Preparing starchiver",
-            "status": "running",
-            "status_color": "yellow",
-            "newline": False,
-        })
-        sleep(.5)
-        data_path = f"/var/tessellation/{profile}/data"
-        cluster = self.config_obj[profile]["environment"]
-        bashCommand = f"{local_path} --data-path '{data_path}' --cluster '{cluster}'"
-
-        if "--datetime" in command_list:  
-            sc_date = command_list[command_list.index("--datetime")+1]
-            if self.functions.get_date_time({
-                "action": "valid_datetime",
-                "new_time": sc_date,
-            }):
-                try:
-                    int(sc_date)
-                except:
-                    if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
-                        sc_date = f"'{sc_date}'"
-                bashCommand += f" --datetime {sc_date}"
-            else:
-                bashCommand += f" --datetime"
-
-        elif "-d" in command_list: bashCommand += " -d"
-        elif "-o" in command_list: bashCommand += " -o"
-
-        self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
-
-        self.functions.print_cmd_status({
-            "text_start": "Preparing starchiver",
-            "status": "complete",
-            "status_color": "green",
-            "newline": True,
-        })
-
-        self.functions.print_paragraphs([
-            ["",1],["The following command will be executed at the terminal.",1],
-            ["=","half","blue","bold"],
-            [bashCommand,1,"yellow"],
-            ["=","half","blue","bold"],["",1]
-        ])
-
-        self.functions.print_paragraphs([
-            [" WARNING ",0,"red,on_yellow"], ["This will execute the starchiver external community",0],
-            ["supported script.",2],
-            ["USE AT YOUR OWN RISK!",1,"red","bold"], 
-            ["The",0], ["starchiver",0,"yellow"], 
-            ["script is not supported by Constellation Network; however,",0],
-            ["it is a useful script included in nodectl's tool set to help expedite a Node's ability to",0],
-            ["join the Constellation cluster of choice.",2]
-        ])
-
-        self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "y",
-            "prompt_color": "magenta",
-            "prompt": f"Execute the starchiver script?",
-            "exit_if": True,
-        })
-        self.functions.print_cmd_status({
             "text_start": "Executing starchiver",
             "status": "running",
             "status_color": "yellow",
@@ -5657,12 +5653,34 @@ class CLI():
             "bashCommand": bashCommand,
             "proc_action": "subprocess_run_check_only",
         })
+        
         self.functions.print_cmd_status({
             "text_start": "Executing starchiver",
             "status": "complete",
             "status_color": "green",
             "newline": True,
         })
+        if "--restart" in self.command_list:
+            self.cli_start({})
+            self.cli_join({
+                "skip_msg": False,
+                "wait": True,
+                "argv_list": ["-p",profile],
+            })
+        else:
+            self.functions.print_paragraphs([
+                ["",1], ["The",0],["starchiver",0,"yellow"],["script has completed!",2],
+
+                ["Please execute a restart; as soon as possible, to make sure you",0],
+                ["are able to join the cluster with as little delay as possible.",2],
+
+                ["The longer you delay, the more snapshots may be produced on the cluster,",0,"magenta"],
+                ["the longer it will take for your Node to download the additional snapshots, complete acquisition of the",0,"magenta"],
+                ["full chain, and join consensus.",2,"magenta"],
+                
+                ["If",0,"green"],["auto_restart",0,"yellow","bold"], ["is enabled on this Node, if will restart the",0,"green"],
+                ["service automatically for you.",1,"green"],
+            ])
 
 
     def cli_execute_tests(self,command_list):
