@@ -6481,7 +6481,7 @@ class CLI():
                 ["available version:",0], [latest_nodectl,1,"yellow"],
                 ["   latest release:",0], [self.version_obj["upgrade_path"][0],1,"yellow"],
             ])
-            if latest_nodectl != self.version_obj["upgrade_path"][0]:
+            if latest_nodectl != self.version_obj["node_nodectl_version"]:
                 upgrade_chosen = False
                 if node_nodectl_version == self.version_obj["upgrade_path"][0]:
                     upgrade_chosen = latest_nodectl
@@ -6501,9 +6501,15 @@ class CLI():
                         ["reinstall a fresh copy at a lower version that suits your needs.",2]
                     ])
                     
+                    option_one = self.version_obj["upgrade_path"][0]
+                    for v in self.version_obj["upgrade_path"]:
+                        if latest_nodectl != v:
+                            option_one = v
+                            break
+
                     option = self.functions.print_option_menu({
                         "options": [
-                            self.version_obj["upgrade_path"][0],
+                            option_one,
                             latest_nodectl
                         ],
                         "r_and_q": "q",
