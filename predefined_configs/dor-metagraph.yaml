@@ -69,7 +69,7 @@ nodectl:
     gl0_link_profile: None
     ml0_link_enable: True
     ml0_link_key: external
-    ml0_link_host: 54.191.143.191
+    ml0_link_host: dor-metagraph-mainnet-l0-1396659502.us-west-2.elb.amazonaws.com
     ml0_link_port: 7000
     ml0_link_profile: None
     token_identifier: global
