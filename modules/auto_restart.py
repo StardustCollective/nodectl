@@ -276,7 +276,7 @@ class AutoRestart():
         if not self.alerting["enable"]: return
 
         #validate alerting
-        necessary_items = ["enable","gmail","token","send_method","recipients","begin_alert_utc","end_alert_utc","report_hour_utc"]
+        necessary_items = ["enable","gmail","token","send_method","recipients","begin_alert_utc","end_alert_utc","report_hour_utc","local_time_zone"]
         found_items = list(self.config_obj["global_elements"]["alerting"].keys())
         if set(necessary_items) != set(found_items):
             self.log.logger.error(f"auto_restart - thread [{self.thread_profile}] - invalid alerting configuration found alerting is [disabled]")
@@ -292,6 +292,11 @@ class AutoRestart():
         except:
             self.alerting = {"enable": False}
             self.log.logger.error(f"auto_restart - thread [{self.thread_profile}] - alerting module error in configuration - disabling alerting.")
+
+        try:
+            self.local_time_zone = self.alerting["local_time_zone"]
+        except:
+            self.local_time_zone = 'disable'
         
 
     def update_profile_states(self):
@@ -928,13 +933,13 @@ class AutoRestart():
                                 self.cli, self.node_service, self.functions, 
                                 self.profile_states[self.thread_profile], 
                                 self.alerting, self.thread_profile, 
-                                self.cluster, self.log
+                                self.cluster, self.local_time_zone, self.log
                             )
                     return
                 else:
                     if self.profile_states[self.thread_profile]['node_state'] == "Ready":
                         if not send_alert:
-                            prepare_alert("clear", self.alerting, self.thread_profile, self.cluster, self.log)
+                            prepare_alert("clear", self.alerting, self.thread_profile, self.cluster, self.local_time_zone, self.functions, self.log)
                         self.set_persistent_alert(True,True)
             except: 
                 self.log.logger.error(f"auto_restart - thread [{self.thread_profile}] - alert handler - unable to send report - issue with configuration settings")
@@ -942,7 +947,7 @@ class AutoRestart():
         
         if send_alert:
             self.set_persistent_alert(False,send_report)
-            result = prepare_alert(self.profile_states, self.alerting, self.thread_profile, self.cluster, self.log)
+            result = prepare_alert(self.profile_states, self.alerting, self.thread_profile, self.cluster, self.local_time_zone, self.log)
             if result == "skip":
                 self.set_persistent_alert(True,send_report)    
 

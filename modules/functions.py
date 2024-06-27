@@ -12,6 +12,7 @@ import uuid
 import glob
 import distro
 import requests
+import pytz
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -575,7 +576,12 @@ class Functions():
         old_time = command_obj.get("old_time",False)
         new_time = command_obj.get("new_time",False)
         time_part = command_obj.get("time_part",False)
-        format = command_obj.get("format", "%Y-%m-%d-%H:%M:%SZ")
+        time_zone = command_obj.get("time_zone",False)
+        format = command_obj.get("format",False)
+
+        if not format: 
+            format = command_obj.get("format", "%Y-%m-%d-%H:%M:%SZ")
+
         return_format = command_obj.get("return_format","string")
         
         if not new_time: new_time = datetime.now()
@@ -584,6 +590,9 @@ class Functions():
         if action == "date":
             return new_time.strftime("%Y-%m-%d")
         elif action == "datetime":
+            if time_zone:
+                utc_now = datetime.now(pytz.utc)
+                return utc_now.astimezone(pytz.timezone('US/Eastern')).strftime(format)
             return new_time.strftime(format)
         elif action == "get_elapsed":
             try: old_time = datetime.strptime(old_time, format)

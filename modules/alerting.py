@@ -1,4 +1,5 @@
 import smtplib
+import pytz
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
@@ -6,12 +7,37 @@ from time import sleep
 from os import path
 
 
-def prepare_alert(alert_profile, comm_obj, profile, env, log):
+def prepare_datetime_stamp(functions,time_zone,log):
+    utc_stamp = functions.get_date_time({
+        "action":"datetime",
+        "format": '%Y-%d-%m %H:%M:%S',
+    })
+    if time_zone != "disable":
+        try:
+            local_stamp = functions.get_date_time({
+                "action":"datetime",
+                "format": '%Y-%d-%m %I:%M:%S %p',
+                "time_zone": time_zone
+            })
+        except Exception as e:
+            time_zone_str = ", ".join(pytz.all_timezones)
+            log.logger.error(f"alerting module -> setting time stamp error skipping [{time_zone}] error [{e}]")
+            log.logger.warn(f"alerting module -> available timezones are: [{time_zone_str}]")
+            local_stamp = "Disabled"
+
+    return local_stamp, utc_stamp
+
+
+def prepare_alert(alert_profile, comm_obj, profile, env, local_time_zone, functions, log):
     log.logger.info("alerting module -> prepare report requested")
+
+    utc_time, local_time = prepare_datetime_stamp(functions, local_time_zone, log)
 
     body = f"NODECTL {'UP' if alert_profile == 'clear' else 'DOWN'} ALERT\n"
     body += f"Cluster: {env}\n"
     body += f"Profile: {profile}\n"
+    body += f"\nUTC: {utc_time}\n"
+    body += f"{local_time}\n"
     body += "\nAuto Restart action taken\n\n"
 
     if not isinstance(alert_profile,dict) and alert_profile == "clear":
@@ -34,7 +60,7 @@ def prepare_alert(alert_profile, comm_obj, profile, env, log):
         body += "Alert: Unable to access Edge Point from Node.\n"
     else:
         return "skip" # we don't want to send an alert
-    
+
     if alert_profile == "clear" or alert_profile == "test":
         log.logger.info(f"alerting module -> sending alert [alert {alert_profile}]")
     else:
@@ -43,7 +69,7 @@ def prepare_alert(alert_profile, comm_obj, profile, env, log):
     return "complete"
 
 
-def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profile, env, log):
+def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profile, env, local_time_zone, log):
     try:
         report_data = cli.get_and_verify_snapshots(530,env,profile)
         cli.node_service = node_service
@@ -60,7 +86,7 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
 
         wallet_balance = functions.pull_node_balance({
             "ip_address": alert_profile["local_node"],
-            "wallet": nodeid.strip(),
+            "wallet": dag_addr.strip(),
             "environment": env
         })
 
@@ -88,6 +114,10 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
     body += f"end: {end}\n"
     body += f"SHZ $DAG Earned: {full_dag_amount}\n"
     body += f"SHZ $DAG USD: {full_usd_amount}\n\n"
+
+    utc_time, local_time = prepare_datetime_stamp(functions, local_time_zone, log)
+    body += f"UTC: {utc_time}\n"
+    body += f"{local_time}\n\n"
 
     body += "Last 10 Transactions\n"
     body += "====================\n"
