@@ -64,12 +64,12 @@ nodectl:
     cli_port: default
     gl0_link_enable: True
     gl0_link_key: external
-    gl0_link_host: 52.53.46.33
+    gl0_link_host: 52.32.139.235
     gl0_link_port: 9000
     gl0_link_profile: None
     ml0_link_enable: True
     ml0_link_key: external
-    ml0_link_host: dor-metagraph-mainnet-l0-1396659502.us-west-2.elb.amazonaws.com
+    ml0_link_host: 54.191.128.90
     ml0_link_port: 7000
     ml0_link_profile: None
     token_identifier: global
