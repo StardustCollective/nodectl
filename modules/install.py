@@ -653,8 +653,10 @@ class Installer():
                 self.user.transfer_ssh_key()
         
         # update permissions
-        self.functions.set_chown(path.dirname(self.options.p12_destination_path), self.user.username,self.user.username)
-        self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
+        if self.options.p12_destination_path:
+            self.functions.set_chown(path.dirname(self.options.p12_destination_path), self.user.username,self.user.username)
+        if path.exists(f"/home{self.user.username}"):
+            self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
         return
 
 

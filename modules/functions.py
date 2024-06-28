@@ -1227,7 +1227,10 @@ class Functions():
                 for item in exclude:
                     for key, found in clean_up.items():
                         if item in found:
-                            possible_found.pop(key)
+                            try:
+                                possible_found.pop(key)
+                            except:
+                                pass
                 
         return possible_found
     
