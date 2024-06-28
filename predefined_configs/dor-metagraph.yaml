@@ -57,8 +57,8 @@ nodectl:
     layer: 1
     collateral: default
     service: default
-    edge_point: default 
-    edge_point_tcp_port: default
+    edge_point: 52.32.139.235 
+    edge_point_tcp_port: 9000
     public_port: default
     p2p_port: default
     cli_port: default
