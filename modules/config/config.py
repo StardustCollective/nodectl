@@ -552,7 +552,7 @@ class Configuration():
                 "mainnet": "mainnet.constellationnetwork.io",
                 "testnet": "testnet.constellationnetwork.io",
                 "integrationnet": "integrationnet.constellationnetwork.io",
-                "dor-metagraph": " dor-metagraph-mainnet-568250314.us-west-2.elb.amazonaws.com",
+                "dor-metagraph": "dor-metagraph-mainnet-568250314.us-west-2.elb.amazonaws.com",
             },
             "seed_file": {
                 "dor-metagraph": {
