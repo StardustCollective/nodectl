@@ -18,7 +18,7 @@ from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .config.versioning import Versioning
 from .config.valid_commands import pull_valid_command
-from .alerting import prepare_alert
+from .alerting import prepare_alert, prepare_report
 
 
 class ShellHandler:
@@ -1475,18 +1475,39 @@ class ShellHandler:
             
             return
         
-        if action == "alert_test":
+        if action == "alert_test" or action == "send_report":
+            s_type = "Test alert"
             self.functions.print_paragraphs([
                 ["",1],["Sending test auto_restart alert",2],
             ])
             try:
                 _ = self.config_obj["global_elements"]["alerting"] 
-                prepare_alert("test",self.config_obj["global_elements"]["alerting"],self.functions.default_profile,"test",self.log)
+                if action == "alert_test":
+                    prepare_alert("test",self.config_obj["global_elements"]["alerting"],self.functions.default_profile,"test",self.functions, self.log)
+                else:
+                    s_type = "Report"
+                    # cli, node_service, functions, alert_profile, comm_obj, profile, env, log
+                    cli = self.build_cli_obj(True)
+                    session_list = self.functions.pull_node_sessions({
+                        "edge_device": self.functions.pull_edge_point(self.functions.default_profile),
+                        "profile": self.functions.default_profile,
+                        "caller": "auto_restart",
+                        "key": "clusterSession"
+                    })
+                    prepare_report(
+                        cli, cli.node_service, self.functions, session_list, 
+                        self.config_obj["global_elements"]["alerting"],
+                        self.functions.default_profile, 
+                        self.config_obj[self.functions.default_profile]["environment"], 
+                        self.log, direct=True
+                    )
+
                 self.functions.print_paragraphs([
-                    ["Test Alert Sent.",1,"green"],
+                    [f"{s_type} Sent.",1,"green"],
                     ["recipient:",0], [self.config_obj["global_elements"]["alerting"]["recipients"],2,"yellow"],
                 ])
-            except:
+            except Exception as e:
+                self.log.logger.error(f"shell_handler -> auto_restart_handler -> unable to send {s_type.lower()} error [{e}]")
                 self.functions.print_paragraphs([
                     ["Alerting configuration not found, aborting.",2,"red"],
                 ])

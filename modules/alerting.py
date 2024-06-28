@@ -28,10 +28,10 @@ def prepare_datetime_stamp(functions,time_zone,log):
     return (utc_stamp, local_stamp)
 
 
-def prepare_alert(alert_profile, comm_obj, profile, env, local_time_zone, functions, log):
+def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
     log.logger.info("alerting module -> prepare report requested")
 
-    utc_time, local_time = prepare_datetime_stamp(functions, local_time_zone, log)
+    utc_time, local_time = prepare_datetime_stamp(functions, comm_obj["local_time_zone"], log)
 
     body = f"NODECTL {'UP' if alert_profile == 'clear' else 'DOWN'} ALERT\n"
     body += f"Cluster: {env}\n"
@@ -69,7 +69,7 @@ def prepare_alert(alert_profile, comm_obj, profile, env, local_time_zone, functi
     return "complete"
 
 
-def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profile, env, local_time_zone, log):
+def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profile, env, log, direct=False):
     try:
         report_data = cli.get_and_verify_snapshots(530,env,profile)
         cli.node_service = node_service
@@ -84,6 +84,10 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
                     full_amount += reward["amount"]
                     reward_items.append((data["timestamp"],reward["amount"]))
 
+        if direct:
+            alert_profile["local_node"] = functions.get_ext_ip()
+            alert_profile["node_state"] = alert_profile["state1"]
+            
         wallet_balance = functions.pull_node_balance({
             "ip_address": alert_profile["local_node"],
             "wallet": dag_addr.strip(),
@@ -115,7 +119,7 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
     body += f"SHZ $DAG Earned: {full_dag_amount}\n"
     body += f"SHZ $DAG USD: {full_usd_amount}\n\n"
 
-    utc_time, local_time = prepare_datetime_stamp(functions, local_time_zone, log)
+    utc_time, local_time = prepare_datetime_stamp(functions, comm_obj["local_time_zone"], log)
     body += f"UTC: {utc_time}\n"
     body += f"{local_time}\n\n"
 
