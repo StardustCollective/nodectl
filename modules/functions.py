@@ -12,7 +12,9 @@ import uuid
 import glob
 import distro
 import requests
+
 import pytz
+from tzlocal import get_localzone
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -590,9 +592,12 @@ class Functions():
         if action == "date":
             return new_time.strftime("%Y-%m-%d")
         elif action == "datetime":
-            if time_zone:
-                utc_now = datetime.now(pytz.utc)
-                return utc_now.astimezone(pytz.timezone('US/Eastern')).strftime(format)
+            utc_now = datetime.now(pytz.utc)
+            if time_zone == "self":
+                local_now = utc_now.astimezone(get_localzone())
+                return local_now.strftime(format)
+            elif time_zone:
+                return utc_now.astimezone(pytz.timezone(time_zone)).strftime(format)
             return new_time.strftime(format)
         elif action == "get_elapsed":
             try: old_time = datetime.strptime(old_time, format)

@@ -10,13 +10,13 @@ from os import path
 def prepare_datetime_stamp(functions,time_zone,log):
     utc_stamp = functions.get_date_time({
         "action":"datetime",
-        "format": '%Y-%d-%m %H:%M:%S',
+        "format": '%H:%M:%S %Y-%m-%d',
     })
     if time_zone != "disable":
         try:
             local_stamp = functions.get_date_time({
                 "action":"datetime",
-                "format": '%Y-%d-%m %I:%M:%S %p',
+                "format": '%I:%M:%S%p %Y-%m-%d',
                 "time_zone": time_zone
             })
         except Exception as e:
@@ -25,7 +25,7 @@ def prepare_datetime_stamp(functions,time_zone,log):
             log.logger.warn(f"alerting module -> available timezones are: [{time_zone_str}]")
             local_stamp = "Disabled"
 
-    return local_stamp, utc_stamp
+    return (utc_stamp, local_stamp)
 
 
 def prepare_alert(alert_profile, comm_obj, profile, env, local_time_zone, functions, log):
