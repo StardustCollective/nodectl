@@ -23,73 +23,110 @@ class Troubleshooter():
                 self.log_dict[profile]["http"] = f"/var/tessellation/{profile}/logs/json_logs/http.json.log"
 
 
-    def test_for_connect_error(self):
+    def test_for_connect_error(self,lines):
         self.log.logger.info("checking logs for simple error messages")
 
         for profile, log in self.log_dict.items():
             ERROR_list = []; two_lines = False
             
             try:
-                with open(log["app"]) as file:
+                with open(log["app"],"r") as file:
 
                     test_messages = [
                         {
                             "find":"CollateralNotSatisfied",
                             "user_msg": "Collateral Not Satisfied",
                             "error_msg": "join_error",
+                            "rank": 1,
                         },
                         {
                             "find":"SeedlistDoesNotMatch",
                             "user_msg": "Seed List Issue",
                             "error_msg": "join_error",
+                            "rank": 1,
                         },
                         {
                             "find":"VersionMismatch",
                             "user_msg": "Incorrect Tessellation Version",
                             "error_msg": "upgrade_needed",
+                            "rank": 1,
+                        },
+                        {
+                            "find":"not in seedlist",
+                            "user_msg": "This Node is not authorized to join the cluster. Seed list issue.",
+                            "error_msg": "join_error",
+                            "rank": 1,
                         },
                         {
                             "find":"Address already in use",
                             "user_msg": "Connection Issue - Server reboot may be required.",
                             "error_msg": "Unhandled Exception during runtime",
+                            "rank": 2,
                         },
                         {
                             "find":"Unauthorized for request",
                             "user_msg": "Access Permission - Unauthorized",
                             "error_msg": "join_error",
+                            "rank": 1,
                         },
                         {
                             "find":"Joining to peer P2PContext",
                             "user_msg": "Peer to Peer port issue",
                             "error_msg": "join_error",
+                            "rank": 3,
+                        },
+                        {
+                            "find":"Join request rejected",
+                            "user_msg": "Join was rejected",
+                            "error_msg": "join_error",
+                            "rank": 1,
+                        },
+                        {
+                            "find":"Failed to join",
+                            "user_msg": "Unable to join to selected Peer",
+                            "error_msg": "join_error",
+                            "rank": 2,
                         }
                     ]
                     for n, line in enumerate(reversed(list(file))):
-                        if "ERROR" in line:
+                        if "ERROR" in line or "WARN" in line:
                             try:
                                 ERROR_list.append(json.loads(line))
                             except json.JSONDecodeError as e:
                                 self.log.logger.warn(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
-                            if n > 49: break
+                            if lines != "all" and n > lines-1: 
+                                break
                                                    
                     # search for more significant errors first verses
                     # last found error.
+                    no_of_errors, found = 4, 0
+                    end_results = []
                     for message_test in test_messages:
                         for line in ERROR_list:            
-                            # only going to search the last lines
+                            # only going to search in reverse
                             # because a service start error will be at
                             # the end of the current app file
+                            message_test["timestamp"] = line["@timestamp"]
                             if "stack_trace" in line.keys():
                                 if message_test["find"] in line["stack_trace"]:
-                                    return (profile,message_test["user_msg"],message_test["error_msg"])
-                            if message_test["find"] in line["message"]: 
-                                return (profile,message_test["user_msg"],message_test["error_msg"])
+                                    found += 1
+                                    end_results.append(message_test)
+                            if message_test["find"].lower() in line["message"].lower():
+                                found += 1 
+                                end_results.append(message_test)
+                            if found > no_of_errors-1:
+                                break
+                        if found > no_of_errors-1:
+                            break
 
             except Exception as e:
                 try:
                     self.log.logger.error(f"error attempting to open log file | file [{file}] | error [{e}]")
                 except:
                     self.log.logger.error(f"error attempting to open log file... file not present on system?")
+
+        if found > 0:
+            return (profile,end_results)
         return False
     
 

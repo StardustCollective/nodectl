@@ -13,7 +13,7 @@
 # documentation hub for details on how to configure
 # this file.
 # =========================================================
-# Metagraph sections isolated by profile key name
+# Network cluster sections isolated by profile key name
 # =========================================================
 # Custom Options and Environment Variables
 # ---------------------------------------------------------
@@ -22,10 +22,10 @@
 #
 # Failure to do so may create undesired results from
 # nodectl (especially the configurator) the Node Operator
-# should use the configurator over manually updating this 
+# should use the configurator over manually updating this
 # config file.
 # ---------------------------------------------------------
-# Required arguments 
+# Required arguments
 # ---------------------------------------------------------
 # custom_args_enable: True (or False)
 # custom_env_vars_enable: True (or False)
@@ -36,7 +36,7 @@
 # MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
 # ---------------------------------------------------------
 # MANUAL ENTRY MUST BE IN CORRECT ORDER FOR CONFIGURATOR
-# TO WORK PROPERLY.  
+# TO WORK PROPERLY.
 # custom_args_enable followed by all custom_args
 # custom_env_vars_enabled followed by all custom_env_var
 # Failure to do so will lead to unexpected behavior
@@ -48,99 +48,46 @@
 # =========================================================
 
 nodectl:
-  dag-l0:
+  dor-dl1:
     profile_enable: True
     environment: mainnet
-    description: Constellation Network Mainnet Global layer0 ml0
-    node_type: validator
-    meta_type: ml
-    layer: 0
-    collateral: default
-    service: default
-    edge_point: default
-    edge_point_tcp_port: default
-    public_port: default
-    p2p_port: default
-    cli_port: default
-    gl0_link_enable: False
-    gl0_link_key: None
-    gl0_link_host: None
-    gl0_link_port: None
-    gl0_link_profile: None
-    ml0_link_enable: False
-    ml0_link_key: None
-    ml0_link_host: None
-    ml0_link_port: None
-    ml0_link_profile: None
-    token_identifier: disable
-    token_coin_id: global
-    directory_backups: default
-    directory_uploads: default
-    java_xms: default
-    java_xmx: default
-    java_xss: default
-    jar_location: default
-    jar_repository: default
-    jar_version: default
-    jar_file: default
-    p12_nodeadmin: global
-    p12_key_location: global
-    p12_key_name: global
-    p12_passphrase: global
-    seed_location: default
-    seed_repository: default
-    seed_version: default
-    seed_file: default
-    pro_rating_location: disable
-    pro_rating_file: disable
-    priority_source_location: default
-    priority_source_repository: default
-    priority_source_file: default
-    custom_args_enable: False
-    custom_env_vars_enable: False
-  dag-l1:
-    profile_enable: True
-    environment: mainnet
-    description: Constellation Network Mainnet layer1 ml1
+    description: Dor Metagraph Data layer1
     node_type: validator
     meta_type: ml
     layer: 1
-    collateral: default
-    service: default
-    edge_point: default
-    edge_point_tcp_port: default
-    public_port: default
-    p2p_port: default
-    cli_port: default
-    gl0_link_enable: False
-    gl0_link_key: None
-    gl0_link_host: None
-    gl0_link_port: None
+    collateral: 0
+    service: dor_dl1
+    edge_point: 54.191.143.191  
+    edge_point_tcp_port: 9000
+    public_port: 8018
+    p2p_port: 8019
+    cli_port: 8020
+    gl0_link_enable: True
+    gl0_link_key: e0c1ee6ec43510f0e16d2969a7a7c074a5c8cdb477c074fe9c32a9aad8cbc8ff1dff60bb81923e0db437d2686a9b65b86c403e6a21fa32b6acc4e61be4d70925
+    gl0_link_host: 52.53.46.33
+    gl0_link_port: 9000
     gl0_link_profile: None
     ml0_link_enable: True
-    ml0_link_key: self
-    ml0_link_host: self
-    ml0_link_port: self
-    ml0_link_profile: dag-l0
-    token_identifier: disable
-    token_coin_id: global
+    ml0_link_key: ced1b13081d75a8c2e1463a8c2ff09f1ea14ff7af3265bcd3d4acfa3290626f965001a7ed6dbf2a748145ddecf1eb8ffeddf42d29dee3541a769601ea4cbba02
+    ml0_link_host: 54.191.143.191
+    ml0_link_port: 7000
+    ml0_link_profile: None
+    token_identifier: DAG0CyySf35ftDQDQBnd1bdQ9aPyUdacMghpnCuM
     directory_backups: default
     directory_uploads: default
     java_xms: default
     java_xmx: default
     java_xss: default
-    jar_location: default
-    jar_repository: default
-    jar_version: default
-    jar_file: default
+    jar_repository: github.com/Constellation-Labs/dor-metagraph/releases/download/v1.2.0/
+    jar_file: data-l1.jar
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
+    p12_key_alias: global
     p12_passphrase: global
-    seed_location: disable
-    seed_repository: disable
-    seed_version: disable
-    seed_file: disable
+    seed_location: default
+    seed_repository: default
+    seed_file: default
     pro_rating_location: disable
     pro_rating_file: disable
     priority_source_location: default
@@ -154,18 +101,13 @@ nodectl:
     on_boot: False
     rapid_restart: False
   global_p12:
-    nodeadmin: blank
-    key_location: blank
-    key_name: blank
+    nodeadmin: nodeadmin
+    key_location: /home/nodeadmin/tessellation/
+    key_name: nodeadmin.p12
+    key_alias: nodeadmin-alias
     passphrase: blank
-    encryption: False
   global_elements:
-    yaml_config_name: mainnet
-    metagraph_name: hypergraph
-    metagraph_token_identifier: disable
-    metagraph_token_coin_id: default
-    local_api: disable
-    includes: False
-    nodectl_yaml: v2.1.1
+    metagraph_name: mainnet
+    nodectl_yaml: v2.1.0
     developer_mode: False
-    log_level: INFO
+    log_level: DEBUG

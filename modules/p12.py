@@ -1,6 +1,6 @@
-from os import environ, path, system, makedirs, getcwd
+from os import environ, path, system, makedirs, getcwd, remove, chmod
 from re import match
-
+from shutil import copy2, move
 from time import sleep
 from getpass import getpass
 from termcolor import colored, cprint
@@ -13,7 +13,7 @@ from .config.versioning import Versioning
 
 class P12Class():
         
-    def __init__(self,command_obj,debug=False):
+    def __init__(self,command_obj):
 
         self.log = Logging()
         
@@ -27,40 +27,41 @@ class P12Class():
         self.existing_p12 = command_obj.get("existing_p12",False) # installation migration
         self.user = command_obj.get("user_obj",None)
         self.cli = command_obj.get("cli_obj",None)
-        process = command_obj.get("process",None)
+        self.process = command_obj.get("process",None)
         self.functions = command_obj["functions"]
         self.version_obj = self.functions.version_obj
         self.config_obj = self.functions.config_obj 
         self.profile = self.functions.default_profile
-        
+        self.quick_install = False
+        self.solo = False # part of install or solo request to create p12
+
         self.error_messages = Error_codes(self.functions) 
         
         if "profile" in command_obj:
             self.profile = command_obj["profile"]
-                           
-        try:
-            self.app_env = self.config_obj[self.profile]["environment"]
-        except Exception as e:
+
+        if not self.app_env and self.process != "install":                  
             try:
-                self.app_env = self.config_obj["global_elements"]["metagraph_name"]
-            except Exception as ee: 
+                self.app_env = self.config_obj[self.profile]["environment"]
+            except Exception as e:
                 try:
-                    self.app_env = self.config_obj["global_elements"]["environment_name"]
-                except Exception as eee:
+                    self.app_env = self.config_obj["global_elements"]["metagraph_name"]
+                except Exception as ee: 
                     self.error_messages.error_code_messages({
                         "error_code": "p-51",
                         "line_code": "config_error",
                         "extra": "format",
-                        "extra2": f"config keys missing | {e} | {ee} | {eee}"
+                        "extra2": f"config keys missing | {e} | {ee}"
                     })
-            
-        self.solo = False # part of install or solo request to create p12?
-        if process == "install":
-            self.solo = True
- 
-        self.debug = debug  # bypass keyphrase checks
   
-  
+
+    def set_p12_alias(self,profile):
+        key = "p12_alias"
+        if profile == "global_p12": key = "key_alias"
+        if isinstance(self.config_obj[profile][key],bool):
+            self.config_obj[profile][key] = self.show_p12_details(["-p",profile,"--return","--alias","--installer",self.p12_password]) 
+
+
     def generate_p12_file(self): 
         # used for install, upgrade, and solo
         self.ask_for_p12name()     
@@ -71,8 +72,10 @@ class P12Class():
             self.ask_for_location() 
         if not self.existing_p12:
             self.generate()
-
+        elif self.solo and self.process != "install":
+            self.generate() 
      
+
     def validate_value(self,pattern,value):
         if match(pattern,value):
             return True
@@ -92,9 +95,11 @@ class P12Class():
             self.functions.print_paragraphs([
                 ["",1], ["Default location for your p12 file storage created.",1],
             ])
+        if self.existing_p12:
+            self.p12_file_location, _ = path.split(self.existing_p12)
 
         self.functions.print_paragraphs([
-            ["location",0], [self.p12_file_location,2,"yellow"],
+            ["location:",0], [self.p12_file_location,2,"yellow"],
             ["Note",0,"grey,on_yellow"], ["The default location can be modified.",1,"white","bold"],
             ["sudo nodectl configure",2],
         ])
@@ -102,17 +107,16 @@ class P12Class():
 
     def ask_for_p12name(self):
         if self.existing_p12:
-            name = self.existing_p12.split("/")
-            self.p12_filename = name.pop(-1)
-            self.p12_file_location = "/".join(name)+'/'
+            self.p12_file_location, self.p12_filename = path.split(self.existing_p12)
             return
             
-        self.functions.print_header_title({
-          "line1": "P12 GENERATION",
-          "newline": "top", 
-          "show_titles": False,
-          "clear": True,
-        })
+        if not self.quick_install:
+            self.functions.print_header_title({
+            "line1": "P12 GENERATION",
+            "newline": "top", 
+            "show_titles": False,
+            "clear": True,
+            })
         default_value = f"{self.user.username}-node.p12"
         
         def test_for_exist():
@@ -135,7 +139,7 @@ class P12Class():
                 }
                 self.functions.print_cmd_status(progress)
                 if confirm:
-                    system(f"sudo rm {p12_full_path} > /dev/null 2>&1")
+                    if path.isfile(p12_full_path): remove(p12_full_path)
                     status = "complete"
                     status_color = "green"
                     
@@ -147,7 +151,7 @@ class P12Class():
                 })
                 if not confirm:
                     self.functions.print_paragraphs([
-                      [" WARNING ",0,"white,on_red"], ["exising p12 not removed",0,"red"],
+                      [" WARNING ",0,"white,on_red"], ["existing p12 not removed",0,"red"],
                       ["unexpected results may ensue...",1,"red"],  
                     ])
                 
@@ -178,9 +182,23 @@ class P12Class():
 
        
     def ask_for_file_alias(self):
-        print(""); cprint("  Please create a simple name to help you remember your","cyan")
-        cprint("  p12's private key name.","cyan")
-        default_alias = f"{self.user.username}-alias"
+        self.functions.print_paragraphs([
+            ["",1], ["Please create or supply a simple name to help you remember your",0],
+            ["p12's",0,"yellow"], ["private key name.",1],
+        ])
+
+        try:
+            if self.existing_p12: 
+                default_alias = self.show_p12_details(["--file",self.existing_p12,"--return","--alias","--installer",self.p12_password])
+                self.functions.print_paragraphs([
+                    ["nodectl found an existing alias:",0],[default_alias,1,"yellow"],
+                ])
+            else: 
+                default_alias = f"{self.user.username}-alias"
+        except:
+            self.log.logger.error("unable to determine alias")
+            default_alias = f"{self.user.username}-alias"
+
         while True:
             cprint("  Please enter the alias name for your p12","magenta")
             ask_question = colored("  private key [","magenta")+colored(default_alias,"yellow",attrs=["bold"])+colored("] : ","magenta")
@@ -204,18 +222,22 @@ class P12Class():
 
 
     def ask_for_keyphrase(self):
-        self.user.print_password_descriptions(10,"passphrase",True)
-          
-        self.functions.print_paragraphs([
-            ["This passphrase will allow you to authenticate to the",0], ["Hypergrpah",0,"yellow","bold"],[".",-1],["",1],
-            ["This passphrase will allow you to authenticate to your Node's",0], ["Wallet",0,"yellow","bold"],[".",-1],["",1],
-            ["You should create a",0], ["unique",0,"yellow","bold"], ["passphrase and write it down!",2],
-            ["We recommend you save this to a secure location and, do",0], ["NOT",0,"yellow,on_red","bold,underline"],
-            ["forget the passphrase!",2],
-            ["In your notes:",1,"white","bold"],
-            ["\"This is the passphrase to access my Node's",0,"magenta"],["hot",0,"red","bold"],
-            ["wallet and gain access to the Hypergraph.\"",2,"magenta"],
-        ])
+        if self.quick_install:
+            self.functions.print_paragraphs([
+                ["We need to create passphrase for our p12 file.",1],
+            ])
+        else:
+            self.user.print_password_descriptions(10,"passphrase",True)
+            self.functions.print_paragraphs([
+                ["This passphrase will allow you to authenticate to the",0], ["Hypergrpah",0,"yellow","bold"],[".",-1],["",1],
+                ["This passphrase will allow you to authenticate to your Node's",0], ["Wallet",0,"yellow","bold"],[".",-1],["",1],
+                ["You should create a",0], ["unique",0,"yellow","bold"], ["passphrase and write it down!",2],
+                ["We recommend you save this to a secure location and, do",0], ["NOT",0,"yellow,on_red","bold,underline"],
+                ["forget the passphrase!",2],
+                ["In your notes:",1,"white","bold"],
+                ["\"This is the passphrase to access my Node's",0,"magenta"],["hot",0,"red","bold"],
+                ["wallet and gain access to the Hypergraph.\"",2,"magenta"],
+            ])
 
         self.log.logger.info("p12 passphrase input requested")
         
@@ -228,14 +250,16 @@ class P12Class():
         operation = command_obj["operation"]
         passwd = command_obj.get("passwd",False)
         profile = command_obj.get("profile","global")
-        manual = False
+        de, manual = False, False
         
         self.log.logger.info(f"p12 keyphrase validation process started")
         
         for attempts in range(1,4):
             if profile == "global":
-                self.set_variables(True,None)                
+                self.set_variables(True,None)      
+                if self.config_obj["global_p12"]["encryption"]: de = True
             else:
+                if not self.config_obj[profile]["global_p12_passphrase"] and self.config_obj[profile]["global_p12_encryption"]: de = True
                 self.set_variables(False,profile)   
             
             try:
@@ -247,6 +271,12 @@ class P12Class():
                     "line_code": "invalid_passphrase"
                 })
             
+            if de: 
+                passwd = self.functions.get_persist_hash({
+                    "pass1": passwd,
+                    "profile": profile,
+                    "enc_data": True,
+                })
             if not passwd:
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
                 if profile != "global":
@@ -303,23 +333,32 @@ class P12Class():
             print("") # overcome '\r'
         return self.entered_p12_keyphrase
                 
-       
+
     def unlock(self):
-        bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_file}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
+        bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
         
         # check p12 against method 1
-        # results = self.functions.process_command(bashCommand1,"wait",True,180,False,False,True)
         results = self.functions.process_command({
             "bashCommand": bashCommand1,
             "proc_action": "wait", 
             "return_error": True
         })
-        if not "Invalid password" in str(results):
+        if "friendlyName" in str(results):
             self.log.logger.info("p12 file unlocked successfully - openssl")
             return True
         
         # check p12 against method 2
-        bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_file} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
+        bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
+        results = self.functions.process_command({
+            "bashCommand": bashCommand2,
+            "proc_action": "wait"
+        })
+        if "Valid from:" in str(results):
+            self.log.logger.info("p12 file unlocked successfully - keytool")
+            return True
+        
+        # check p12 against method 2a
+        bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass "{self.entered_p12_keyphrase}" -storetype PKCS12'
         results = self.functions.process_command({
             "bashCommand": bashCommand2,
             "proc_action": "wait"
@@ -346,7 +385,7 @@ class P12Class():
                 self.log.logger.info("p12 file unlocked successfully - openssl")
                 return True
         else:
-            msg = "p12 -> attempt to authenticate via nodectl method 3 (of 3) with '-legacy' option failed. Unable to process because the SSL version is out-of-date, "
+            msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
             msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
             self.log.logger.warn(msg)
         
@@ -359,10 +398,13 @@ class P12Class():
         self.log.logger.info("p12 file importing variables.")
         if is_global:
             self.path_to_p12 = self.config_obj["global_p12"]["key_location"]
-            self.p12_file = self.config_obj["global_p12"]["key_name"]
+            self.p12_filename = self.config_obj["global_p12"]["key_name"]
         else:
             self.path_to_p12 = self.config_obj[profile]["p12_key_location"]
-            self.p12_file = self.config_obj[profile]["p12_key_name"]
+            self.p12_filename = self.config_obj[profile]["p12_key_name"]
+
+        if not self.path_to_p12.endswith("/"):
+            self.path_to_p12 = f"{self.path_to_p12}/"
         
         
     def export_private_key_from_p12(self):
@@ -374,10 +416,13 @@ class P12Class():
         id_hex_file = f"{self.path_to_p12}{self.id_file_name}"
         id_file_exists = path.exists(id_hex_file)
         if id_file_exists:
-            system(f"rm {id_hex_file} > /dev/null 2>&1")
+            remove(id_hex_file)
             
         bashCommand = f"java -jar /var/tessellation/cl-keytool.jar export"
-        system(bashCommand)
+        _ = self.functions.process_command({
+            "bashCommand": bashCommand,
+            "proc_action": "subprocess_devnull",
+        })
 
         try:
             f = open(id_hex_file,"r")
@@ -403,7 +448,7 @@ class P12Class():
             ["DO NOT EXPOSE TO ANYONE, AS YOUR",0,"red"], ["HOT WALLET",0,"red","underline"],
             ["AND NODE CAN BE COMPROMISED!",2,"red"],
             
-            ["PRIVATE KEY FOR [",0], [self.p12_file,-1,"yellow","bold"], ["]",-1], ["",1],
+            ["PRIVATE KEY FOR [",0], [self.p12_filename,-1,"yellow","bold"], ["]",-1], ["",1],
             ["=","full","white","bold"],
             [hex_result,1,"green","bold"],
             ["=","full","white", "bold"], ["",1],
@@ -413,8 +458,7 @@ class P12Class():
         self.log.logger.info("p12 file private key request completed.")
         
         f.close()
-        bashCommand = f"rm -f {id_hex_file} > /dev/null 2>&1"
-        system(bashCommand)
+        if path.isfile(id_hex_file): remove(id_hex_file)
         
         
     def extract_export_config_env(self,command_obj):
@@ -424,102 +468,153 @@ class P12Class():
         is_global = command_obj.get("global",True)
         profile = command_obj.get("profile",False)
         env_vars = command_obj.get("env_vars",False)
+        return_success = command_obj.get("return_success",False)
+        ext_p12 = command_obj.get("ext_p12",False)
+
+        pass1 = None
+        enc = False
         
+        if ext_p12:
+            self.p12_file_location = self.path_to_p12 = path.split(ext_p12)[0]
+            self.p12_filename = path.split(ext_p12)[1]
+            self.functions.print_paragraphs([
+                [f"File:",0,"yellow"],[self.p12_filename,1],
+            ])
+            self.key_alias, self.p12_password = self.show_p12_details(["--file",ext_p12,"--return","--alias","--passphrase"])
+            env_vars = True
+        else:    
+            p_sub_key = "p12_passphrase"
+            if is_global or self.config_obj[profile]["global_p12_passphrase"]: 
+                profile = "global_p12"
+                p_sub_key = "passphrase"
+
+            if self.process != "install" and not self.solo:
+                if self.config_obj["global_p12"]["encryption"]:
+                    enc = True
+                    if env_vars: pass1 = self.p12_password
+                    else: pass1 = self.config_obj[profile][p_sub_key]
+                    pass1 = self.functions.get_persist_hash({
+                        "pass1": pass1,
+                        "profile": profile,
+                        "enc_data": True,
+                    }) 
+                else: pass1 = self.config_obj[profile][p_sub_key]   
+
         if env_vars:
+            environ['CL_STOREPASS'] = f"{pass1}" if enc else f"{self.p12_password}"
             # used for p12 generation on install of solo p12 build
             environ['CL_KEYSTORE'] = f"{self.p12_file_location}/{self.p12_filename}"
-            # environ['CL_KEYSTORE'] = f"{self.p12_key_store}"
             environ['CL_KEYPASS'] = f"{self.p12_password}"
-            environ['CL_STOREPASS'] = f"{self.p12_password}"
             environ['CL_PASSWORD'] = f"{self.p12_password}"
             environ['CL_KEYALIAS'] = f"{self.key_alias}"
             return
-        
-        if is_global:
-            passphrase = self.config_obj["global_p12"]["passphrase"]
-            nodeadmin = self.config_obj["global_p12"]["nodeadmin"]
-            key_location = self.config_obj["global_p12"]["key_location"]
-            p12_key_name = self.config_obj["global_p12"]["key_name"]
-            key_alias = self.config_obj["global_p12"]["key_alias"]
-            key_store = self.config_obj["global_p12"]["key_store"]
-        else:
-            passphrase =self.config_obj[profile]["p12_passphrase"]
-            nodeadmin =self.config_obj[profile]["p12_nodeadmin"]
-            key_location =self.config_obj[profile]["p12_key_location"]
-            p12_key_name =self.config_obj[profile]["p12_key_name"]
-            key_alias =self.config_obj[profile]["p12_key_alias"]            
-            key_store =self.config_obj[profile]["p12_key_store"]
+
+        indiv_p12_obj = {"passphrase": pass1}
+        skeys = ["nodeadmin","key_location","key_name","key_alias","key_store"]
+
+        try:
+            for skey in skeys:
+                p12_key = skey
+                if profile != "global_p12": skey = f"p12_{skey}"
+                indiv_p12_obj[p12_key] = self.config_obj[profile][skey] 
+        except:
+            self.error_messages.error_code_messages({
+                "error_code": "p-508",
+                "line_code": "invalid_passphrase",
+                "extra2": "wrong",
+            })
 
         self.log.logger.info("p12 file exporting p12 details into env variables.")
             
         passes = ["CL_PASSWORD","CL_KEYPASS","CL_STOREPASS"]
         for key in passes:
-            environ[key] = passphrase
+            environ[key] = indiv_p12_obj["passphrase"]
             
         try:
-            environ["CL_KEYALIAS"] = key_alias
-            environ["CL_KEYSTORE"] = key_store
+            environ["CL_KEYALIAS"] = indiv_p12_obj["key_alias"]
         except Exception as e:
-            self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}]")
+            self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}] error_code [p-504]")
+            if return_success: return False
             self.error_messages.error_code_messages({
-                "error_code": "p-368",
+                "error_code": "p-504",
                 "line_code": "config_error",
                 "extra": "format"
             })
-        self.path_to_p12 = key_location
-        self.p12_username = nodeadmin
-        self.p12_file = p12_key_name
+
+        try:
+            environ["CL_KEYSTORE"] = indiv_p12_obj["key_store"]
+        except Exception as e:
+            self.log.logger.critical(f"unable to load environment variables for p12 extraction. | error [{e}] error_code [p-514]")
+            if return_success: return False
+            self.error_messages.error_code_messages({
+                "error_code": "p-514",
+                "line_code": "config_error",
+                "extra": "format"
+            })
+        self.path_to_p12 = indiv_p12_obj["key_location"]
+        self.p12_username = indiv_p12_obj["nodeadmin"]
+        self.p12_filename = indiv_p12_obj["key_name"]
+
+        return True # if command is not looking for bool, will be ignored.
 
                   
     def generate(self):
         print_exists_warning = False
-        progress = {
-            "text_start": "Generating p12",
-            "brackets": self.p12_filename,
-            "status": "running"
-        }
-        self.functions.print_cmd_status(progress)
+        if not self.quick_install:
+            progress = {
+                "text_start": "Generating p12",
+                "brackets": self.p12_filename,
+                "status": "running"
+            }
+            self.functions.print_cmd_status(progress)
 
         self.extract_export_config_env({"env_vars":True})
 
         if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
-            self.log.logger.warn(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
-            print_exists_warning = True
-            result = "exists skipping"
-            color = "magenta"
-        else:
-            if not path.exists(self.p12_file_location):
-                self.log.logger.info(f"p12 file path being created {self.p12_file_location}")
-                makedirs(self.p12_file_location)
-                self.log.logger.info(f"p12 file ownership permissions set {self.p12_file_location}/{self.p12_filename}")
-                system(f"chown {self.user.username}:{self.user.username} {self.p12_file_location} > /dev/null 2>&1")
+            if self.quick_install:
+                self.log.logger.warn(f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
+                if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
+                    remove(f"{self.p12_file_location}/{self.p12_filename}")
+            else:
+                self.log.logger.warn(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
+                print_exists_warning = True
+                result = "exists skipping"
+                color = "magenta"
+        elif not path.exists(self.p12_file_location):
+            self.log.logger.info(f"p12 file path being created {self.p12_file_location}")
+            makedirs(self.p12_file_location)
+            self.log.logger.info(f"p12 file ownership permissions set {self.p12_file_location}/{self.p12_filename}")
+            self.functions.set_chown(self.p12_file_location,self.user.username,self.user.username)
               
-            self.log.logger.info(f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
-            bashCommand = "java -jar /var/tessellation/cl-keytool.jar generate"
-            self.functions.process_command(({
-                "bashCommand": bashCommand,
-                "proc_action": "timeout"
-            }))
+        self.log.logger.info(f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
+        # do not use sudo here otherwise the env variables will not be associated
+        bashCommand = "java -jar /var/tessellation/cl-keytool.jar generate"
+        self.functions.process_command(({
+            "bashCommand": bashCommand,
+            "proc_action": "timeout"
+        }))
 
-            self.log.logger.info(f"p12 file permissions set {self.p12_file_location}/{self.p12_filename}")
-            system(f"chown {self.user.username}:{self.user.username} {self.p12_file_location}/{self.p12_filename} > /dev/null 2>&1")
-            system(f"chmod 400 {self.p12_file_location}/{self.p12_filename} > /dev/null 2>&1")
-            result = "completed"
-            color = "green"
+        self.log.logger.info(f"p12 file permissions set {self.p12_file_location}/{self.p12_filename}")
 
-        self.functions.print_cmd_status({
-            **progress,
-            "status": result,
-            "status_color": color,
-            "newline": True
-        })
-        if print_exists_warning:
-            self.functions.print_paragraphs([
-                ["",1], [" WARNING ",2,"yellow,on_red"], 
-                ["You have chosen a p12 file name that already exists on the system.  If your",0,"yellow"], 
-                ["passphrase",0,"yellow","bold"], ["is not the same as the previous passphrase, this installation will fail.",2],
-                ["Recommendation",0], [f"Remove the previous p12 file and restart the {self.cli.command_obj['caller']}",1,"yellow"]
-            ])
+        self.functions.set_chown(f"{self.p12_file_location}/{self.p12_filename}",self.user.username, self.user.username)
+        chmod(f"{self.p12_file_location}/{self.p12_filename}",0o400)
+        result = "completed"
+        color = "green"
+
+        if not self.quick_install:
+            self.functions.print_cmd_status({
+                **progress,
+                "status": result,
+                "status_color": color,
+                "newline": True
+            })
+            if print_exists_warning:
+                self.functions.print_paragraphs([
+                    ["",1], [" WARNING ",2,"yellow,on_red"], 
+                    ["You have chosen a p12 file name that already exists on the system.  If your",0,"yellow"], 
+                    ["passphrase",0,"yellow","bold"], ["is not the same as the previous passphrase, this installation will fail.",2],
+                    ["Recommendation",0], [f"Remove the previous p12 file and restart the {self.cli.command_obj['caller']}",1,"yellow"]
+                ])
 
         
     def change_passphrase(self,command_obj):
@@ -538,7 +633,7 @@ class P12Class():
         temp_p12_file = "/tmp/cnng-temporary.p12"
         p12_file_exists = path.exists(temp_p12_file)
         if p12_file_exists:
-            system(f"rm {temp_p12_file} > /dev/null 2>&1")
+            remove(temp_p12_file)
         
         # backup old p12 file
         datetime = self.functions.get_date_time({"action":"datetime"})
@@ -550,7 +645,7 @@ class P12Class():
         backup_dir = self.config_obj[profile]["directory_backups"]
         p12_key_name_bk = p12_key_name.replace(".p12","_")
         if path.exists(p12_location):
-            system(f"cp {p12_location} {backup_dir}{p12_key_name_bk}{datetime}.p12.bak > /dev/null 2>&1")
+            copy2(p12_location,f"{backup_dir}{p12_key_name_bk}{datetime}.p12.bak")
         else:
             self.error_messages.error_code_messages({
                 "error_code": "p-350",
@@ -572,30 +667,63 @@ class P12Class():
         }))
         if "error" in results:
             self.log.logger.error("p12 passphrase update failed")
-            system(f"sudo rm {temp_p12_file} > /dev/null 2>&1")
+            if path.isfile(temp_p12_file): remove(temp_p12_file)
             return results
         
         # migrate new p12 into place
-        system(f"sudo mv {temp_p12_file} {p12_location} > /dev/null 2>&1")       
+        if path.isfile(temp_p12_file):
+            move(temp_p12_file,p12_location)     
         return "success"
         
         
     def show_p12_details(self, command_list):
-        alias, owner, owner_cn, iowner = "unknown", "unknown", "unknown", "unknown"
-        sha1, sha256, sig_alg, pub_alg = "unknown", "unknown", "unknown", "unknown"
-        version, value, entry_number = "unknown", "unknown", "unknown"
+            
+        # Define the keys for the dictionary
+        p12_values = [
+            "alias", "owner", "owner_cn", "iowner", "iowner_cn", "sha1", "sha256", "sig_alg", 
+            "pub_alg", "version", "value", "entry_number", "creation_date", "entry_type"
+        ]
+        p12_output_dict = {key: "unknown" for key in p12_values}
+        return_alias, return_pass, alias_only = False, False, False
+
+
+        def attempt_decrypt(profile,p12_passwd):
+            enc_profile = "Unknown"
+            if self.config_obj["global_elements"]["all_global"]: enc_profile = "global"
+            else: enc_profile = profile
+            p12_passwd = self.functions.get_persist_hash({
+                "pass1": p12_passwd,
+                "profile": enc_profile,
+                "enc_data": True,
+            })
+            return p12_passwd 
+
+
+        if "--passphrase" in command_list:
+            return_pass = True
+        if "--alias" in command_list:
+            if "--return" in command_list: return_alias = True
+            alias_only = True
 
         if "--file" in command_list:
             p12_location = command_list[command_list.index("--file")+1]
         elif "-p" in command_list:
             profile = command_list[command_list.index("-p")+1]
-            p12_location = self.config_obj[profile]["p12_key_store"]    
-            p12_passwd = self.config_obj[profile]["p12_passphrase"]
+            if profile != "global_p12" and self.config_obj[profile]["global_p12_passphrase"]: 
+                profile = "global_p12"
+            if profile == "global_p12":
+                p12_location = self.config_obj[profile]["key_store"]    
+                p12_passwd = self.config_obj[profile]["passphrase"]
+            else:
+                p12_location = self.config_obj[profile]["p12_key_store"]    
+                p12_passwd = self.config_obj[profile]["p12_passphrase"]
         else:
             command_list.append("help")
             self.functions.check_for_help(command_list,"show_p12_details")
             
         if not path.exists(p12_location):
+            if "--config" in command_list:
+                return False
             self.error_messages.error_code_messages({
                 "error_code": "p-568",
                 "line_code": "open_file",
@@ -605,18 +733,46 @@ class P12Class():
             
         self.log.logger.info(f"show_p12_details -> initiated - p12 file location [{p12_location}]")
         
-        if "--file" in command_list:
+        if "--installer" in command_list:
+            p12_passwd = command_list[command_list.index("--installer")+1]
+            try: 
+                _ = self.config_obj["global_p12"]["encryption"]
+            except:
+                self.config_obj = {
+                    **self.config_obj,
+                    "global_p12": {
+                        "encryption": False,
+                    }
+                }
+        elif "--file" in command_list:
             pass_ask = colored(f'  Please enter your p12 passphrase to validate: ','cyan')
             p12_passwd = getpass(pass_ask,)
-        bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"
-    
-        results = self.functions.process_command({
-            "bashCommand": bashCommand,
-            "proc_action": "wait",
-        })
-        results = results.split("\n")
+
+        elif self.config_obj["global_p12"]["encryption"] and not self.solo:
+            p12_passwd = attempt_decrypt(profile,p12_passwd.strip())
+
+        for _ in range(0,2):
+            bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"
+            result_str = self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "wait",
+            })
+            results = result_str.split("\n")
+            if not "keytool error" in result_str:
+                break
+            try:
+                p12_passwd = attempt_decrypt(profile,p12_passwd)
+            except:
+                self.log.logger.critical("p12 module was unable to process this p12 file")
+                if "--installer" in command_list: raise Exception
+                self.error_messages.error_code_messages({
+                    "error_code": "p-725",
+                    "line_code": "invalid_passphrase",
+                })
 
         if not results or results == "":
+            if "--config" in command_list:
+                return False
             self.functions.print_paragraphs([
                 ["nodectl was not able to process this p12 file?",2,"red","bold"],
             ])
@@ -624,99 +780,135 @@ class P12Class():
       
         for item in results:
             if "keystore contains" in item:
-                entry_number = item.split(" ")[-2].strip()
+                p12_output_dict["entry_number"] = item.split(" ")[-2].strip()
                 continue
             value = item.split(":")[-1].strip()
 
             if "keytool error" in item:
                 self.log.logger.error(f"p12 -> show_p12_details p12 authentication issue: error [{value}] p12 file [{p12_location}]") 
+                if self.process == "install": return
                 self.error_messages.error_code_messages({
                     "error_code": "p-603",
                     "line_code": "invalid_passphrase",
-                    "extra": value,
+                    "extra": value+" or decryption error. See nodectl logs.",
                 })
 
             elif "Alias name" in item: 
-                alias = item.split(":")[-1].strip()
+                p12_output_dict["alias"] = item.split(":")[-1].strip()
             elif "Creation date" in item:
-                creation_date = item.split(":")[-1].strip()
+                p12_output_dict["creation_date"] = item.split(":")[-1].strip()
             elif "Entry type" in item:
-                entry_type = item.split(":")[-1].strip()
+                p12_output_dict["entry_type"] = item.split(":")[-1].strip()
             elif "Owner" in item:
                 owner = value.split(",")[0]
-                owner = owner.split("=")[-1]
+                p12_output_dict["owner"] = owner.split("=")[-1]
                 owner_cn = value.split(",")[-1]
-                owner_cn = owner_cn.split("=")[-1]
+                p12_output_dict["owner_cn"] = owner_cn.split("=")[-1]
             elif "Issuer" in item:
                 iowner = value.split(",")[0]
-                iowner = iowner.split("=")[-1]
+                p12_output_dict["iowner"] = iowner.split("=")[-1]
                 iowner_cn = value.split(",")[-1]
-                iowner_cn = iowner_cn.split("=")[-1]
+                p12_output_dict["iowner_cn"] = iowner_cn.split("=")[-1]
             elif "SHA1" in item:
-                sha1 = item.split(":",1)[-1].strip()
+                p12_output_dict["sha1"] = item.split(":",1)[-1].strip()
             elif "SHA256" in item:
-                sha256 = item.split(":",1)[-1].strip()
+                p12_output_dict["sha256"] = item.split(":",1)[-1].strip()
             elif "Signature algorithm" in item:
-                sig_alg = value
+                p12_output_dict["sig_alg"] = value
             elif "Public Key" in item:
-                pub_alg = value
+                p12_output_dict["pub_alg"] = value
             elif "Version" in item:
-                version = value
+                p12_output_dict["version"] = value
                 
         p12_dir = path.dirname(p12_location)
         if p12_dir == "": p12_dir = getcwd()
         
-        self.functions.print_paragraphs([
-            ["",1],["  P12 FILE DETAILS  ",2,"blue,on_yellow","bold"],
-        ])
-        print_out_list = [
-            {
-                "header_elements": {
-                    "P12 NAME": path.basename(p12_location),
-                    "P12 LOCATION": p12_dir,
-                },
-                "spacing": 25,
-            },                
-            {
-                "SHA1 FINGER PRINT": sha1,
-            },                
-            {
-                "SHA256 FINGER PRINT": sha256,
-            },                
-            {
-                "P12 ALIAS": colored(alias,"green"),
-            },                
-            {
-                "header_elements": {
-                    "CREATED": creation_date,
-                    "VERSION": version,
-                    "KEYS FOUND": entry_number,
-                },
-                "spacing": 18,
-            },                
-            {
-                "header_elements": {
-                    "ENTRY TYPE": entry_type,
-                    "SIGNATURE ALGO": sig_alg,
-                    "PUBLIC ALGO": pub_alg,
-                },
-                "spacing": 18,
-            },                
-            {
-                "header_elements": {
-                    "OWNER": owner,
-                    "COMMON NAME": owner_cn,
-                },
-                "spacing": 25,
-            },                
-            {
-                "header_elements": {
-                    "ISSUER": iowner,
-                    "COMMON NAME": iowner_cn,
-                },
-                "spacing": 25,
-            },                
-        ]
+        if not "--installer" in command_list and not "--config" in command_list:
+            self.functions.print_paragraphs([
+                ["",1],["  P12 FILE DETAILS  ",2,"blue,on_yellow","bold"],
+            ])
+
+        if return_alias and return_pass:
+            return (p12_output_dict["alias"],p12_passwd)
+        elif return_alias: return p12_output_dict["alias"]
+        elif return_pass: return p12_passwd
+
+        if alias_only:
+            print_out_list = [
+                {
+                    "header_elements": {
+                        "P12 NAME": path.basename(p12_location),
+                        "P12 ALIAS": colored(p12_output_dict["alias"],"green"),
+                    },
+                },                
+            ]
+        else:
+            if self.solo: 
+                self.p12_file_location = path.split(p12_location)[0]
+                self.p12_filename = path.split(p12_location)[1]
+                self.p12_password = p12_passwd
+                self.key_alias = p12_output_dict["alias"]
+                self.extract_export_config_env({"env_vars":True})
+                cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
+                node_id = self.functions.process_command({
+                    "bashCommand": cmd,
+                    "proc_action": "poll"
+                })
+                node_id = node_id.strip()
+            print_out_list = [
+                {
+                    "header_elements": {
+                        "P12 NAME": path.basename(p12_location),
+                        "P12 LOCATION": p12_dir,
+                    },
+                    "spacing": 25,
+                },                
+                {
+                    "SHA1 FINGER PRINT": p12_output_dict["sha1"],
+                },                
+                {
+                    "SHA256 FINGER PRINT": p12_output_dict["sha256"],
+                },                
+                {
+                    "P12 ALIAS": colored(p12_output_dict["alias"],"green"),
+                },                
+                {
+                    "header_elements": {
+                        "CREATED": p12_output_dict["creation_date"],
+                        "VERSION": p12_output_dict["version"],
+                        "KEYS FOUND": p12_output_dict["entry_number"],
+                    },
+                    "spacing": 18,
+                },                
+                {
+                    "header_elements": {
+                        "ENTRY TYPE": p12_output_dict["entry_type"],
+                        "SIGNATURE ALGO": p12_output_dict["sig_alg"],
+                        "PUBLIC ALGO": p12_output_dict["pub_alg"],
+                    },
+                    "spacing": 18,
+                },                
+                {
+                    "header_elements": {
+                        "OWNER": p12_output_dict["owner"],
+                        "COMMON NAME": p12_output_dict["owner_cn"],
+                    },
+                    "spacing": 25,
+                },                
+                {
+                    "header_elements": {
+                        "ISSUER": p12_output_dict["iowner"],
+                        "COMMON NAME": p12_output_dict["iowner_cn"],
+                    },
+                    "spacing": 25,
+                },                
+                {
+                    "header_elements": {
+                        "NODE ID": node_id,
+                    },
+                    "spacing": 25,
+                },                
+            ]
         
         for header_elements in print_out_list:
             self.functions.print_show_output({
@@ -761,8 +953,24 @@ class P12Class():
                 "extra2": "verify the location you entered exists or in the configuration is valid.",
             })
 
+        if "--file" in cli.command_list:
+            self.p12_file_location += cli.command_list[cli.command_list.index("--file")+1]
+            if path.isfile(self.p12_file_location):
+                self.functions.print_paragraphs([
+                      [" WARNING ",0,"white,on_red"], ["nodectl found an existing",0,"red"],
+                      ["file with the same name.  If you continue, that file will be",0,"red"],
+                      ["removed permanently by being overwritten.",1,"red"],  
+                    ])
+                self.functions.confirm_action({
+                    "prompt": "Overwrite existing p12?",
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "exit_if": True
+                })
+            self.existing_p12 = self.p12_file_location               
+
         from .user import UserClass
-        self.user = UserClass(cli,True)
+        self.user = UserClass(cli)
         self.user.username = p12_username
         
         self.cli = {"command_obj": {"caller": "create_p12"}}
@@ -775,6 +983,8 @@ class P12Class():
             "return_on": "y",
             "exit_if": True
         })
+
+        if self.p12_file_location[-1] != "/": self.p12_file_location += "/"
         self.show_p12_details(["--file",self.p12_file_location+self.p12_filename])
         
              
