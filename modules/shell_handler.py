@@ -1612,4 +1612,4 @@ class ShellHandler:
         
         
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")
+    print("This class module is not designed to be run independently, please refer to the documentation")            

@@ -87,7 +87,8 @@ class Send():
             choice = "c"
         else:
             self.functions.print_paragraphs([
-                ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs",0,"magenta"], ["",1],
+                ["S",0,"magenta","bold"], [")",-1,"magenta"], ["Current Log (singular)",0,"magenta"], ["",1],
+                ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs (all)",0,"magenta"], ["",1],
                 ["B",0,"magenta","bold"], [")",-1,"magenta"], ["Backup Logs",0,"magenta"], ["",1],
                 ["D",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date",0,"magenta"], ["",1],
                 ["R",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date Range",0,"magenta"], ["",1],
@@ -98,7 +99,7 @@ class Send():
             choice = self.functions.get_user_keypress({
                 "prompt": "KEY PRESS an option",
                 "prompt_color": "cyan",
-                "options": ["C","B","A","X","D","R"],
+                "options": ["S","C","B","A","X","D","R"],
             })
         
         if choice == "a":
@@ -136,7 +137,7 @@ class Send():
                     break
             tar_package = self.listing_setup(dates_obj)
                 
-        if choice == "c":
+        if choice == "c" or choice == "s":
             self.functions.print_cmd_status({
                 "text_start": "Current logs process started",
                 "newline": True,
@@ -147,7 +148,10 @@ class Send():
 
             tar_creation_origin = f"/var/tessellation/{self.profile}/logs/"
             if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log*"
-            
+            if choice == "s":
+                tar_creation_origin = f"/var/tessellation/{self.profile}/logs/app.log"
+                if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log"
+                
             if path.isdir(tar_creation_path):
                 rmtree(tar_creation_path)
             mkdir(tar_creation_path)

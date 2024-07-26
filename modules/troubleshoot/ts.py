@@ -58,11 +58,6 @@ class Troubleshooter():
                             "rank": 1,
                         },
                         {
-                            "find":"not in seedlist",
-                            "user_msg": "This Node is not authorized to join the cluster. Seed list issue.",
-                            "error_msg": "join_error",
-                        },
-                        {
                             "find":"Address already in use",
                             "user_msg": "Connection Issue - Server reboot may be required.",
                             "error_msg": "Unhandled Exception during runtime",
