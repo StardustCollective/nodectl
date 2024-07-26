@@ -1,6 +1,6 @@
-from os import environ, path, system, makedirs, getcwd
+from os import environ, path, system, makedirs, getcwd, remove, chmod
 from re import match
-
+from shutil import copy2, move
 from time import sleep
 from getpass import getpass
 from termcolor import colored, cprint
@@ -72,8 +72,10 @@ class P12Class():
             self.ask_for_location() 
         if not self.existing_p12:
             self.generate()
-
+        elif self.solo and self.process != "install":
+            self.generate() 
      
+
     def validate_value(self,pattern,value):
         if match(pattern,value):
             return True
@@ -137,7 +139,7 @@ class P12Class():
                 }
                 self.functions.print_cmd_status(progress)
                 if confirm:
-                    system(f"sudo rm {p12_full_path} > /dev/null 2>&1")
+                    if path.isfile(p12_full_path): remove(p12_full_path)
                     status = "complete"
                     status_color = "green"
                     
@@ -341,12 +343,22 @@ class P12Class():
             "proc_action": "wait", 
             "return_error": True
         })
-        if not "Invalid password" in str(results):
+        if "friendlyName" in str(results):
             self.log.logger.info("p12 file unlocked successfully - openssl")
             return True
         
         # check p12 against method 2
         bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
+        results = self.functions.process_command({
+            "bashCommand": bashCommand2,
+            "proc_action": "wait"
+        })
+        if "Valid from:" in str(results):
+            self.log.logger.info("p12 file unlocked successfully - keytool")
+            return True
+        
+        # check p12 against method 2a
+        bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass "{self.entered_p12_keyphrase}" -storetype PKCS12'
         results = self.functions.process_command({
             "bashCommand": bashCommand2,
             "proc_action": "wait"
@@ -373,7 +385,7 @@ class P12Class():
                 self.log.logger.info("p12 file unlocked successfully - openssl")
                 return True
         else:
-            msg = "p12 -> attempt to authenticate via nodectl method 3 (of 3) with '-legacy' option failed. Unable to process because the SSL version is out-of-date, "
+            msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
             msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
             self.log.logger.warn(msg)
         
@@ -404,10 +416,13 @@ class P12Class():
         id_hex_file = f"{self.path_to_p12}{self.id_file_name}"
         id_file_exists = path.exists(id_hex_file)
         if id_file_exists:
-            system(f"rm {id_hex_file} > /dev/null 2>&1")
+            remove(id_hex_file)
             
         bashCommand = f"java -jar /var/tessellation/cl-keytool.jar export"
-        system(bashCommand)
+        _ = self.functions.process_command({
+            "bashCommand": bashCommand,
+            "proc_action": "subprocess_devnull",
+        })
 
         try:
             f = open(id_hex_file,"r")
@@ -443,8 +458,7 @@ class P12Class():
         self.log.logger.info("p12 file private key request completed.")
         
         f.close()
-        bashCommand = f"rm -f {id_hex_file} > /dev/null 2>&1"
-        system(bashCommand)
+        if path.isfile(id_hex_file): remove(id_hex_file)
         
         
     def extract_export_config_env(self,command_obj):
@@ -559,7 +573,8 @@ class P12Class():
         if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
             if self.quick_install:
                 self.log.logger.warn(f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
-                system(f"sudo rm -f {self.p12_file_location}/{self.p12_filename} > /dev/null 2>&1")
+                if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
+                    remove(f"{self.p12_file_location}/{self.p12_filename}")
             else:
                 self.log.logger.warn(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
                 print_exists_warning = True
@@ -569,7 +584,7 @@ class P12Class():
             self.log.logger.info(f"p12 file path being created {self.p12_file_location}")
             makedirs(self.p12_file_location)
             self.log.logger.info(f"p12 file ownership permissions set {self.p12_file_location}/{self.p12_filename}")
-            system(f"chown {self.user.username}:{self.user.username} {self.p12_file_location} > /dev/null 2>&1")
+            self.functions.set_chown(self.p12_file_location,self.user.username,self.user.username)
               
         self.log.logger.info(f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
         # do not use sudo here otherwise the env variables will not be associated
@@ -580,8 +595,9 @@ class P12Class():
         }))
 
         self.log.logger.info(f"p12 file permissions set {self.p12_file_location}/{self.p12_filename}")
-        system(f"chown {self.user.username}:{self.user.username} {self.p12_file_location}/{self.p12_filename} > /dev/null 2>&1")
-        system(f"chmod 400 {self.p12_file_location}/{self.p12_filename} > /dev/null 2>&1")
+
+        self.functions.set_chown(f"{self.p12_file_location}/{self.p12_filename}",self.user.username, self.user.username)
+        chmod(f"{self.p12_file_location}/{self.p12_filename}",0o400)
         result = "completed"
         color = "green"
 
@@ -617,7 +633,7 @@ class P12Class():
         temp_p12_file = "/tmp/cnng-temporary.p12"
         p12_file_exists = path.exists(temp_p12_file)
         if p12_file_exists:
-            system(f"rm {temp_p12_file} > /dev/null 2>&1")
+            remove(temp_p12_file)
         
         # backup old p12 file
         datetime = self.functions.get_date_time({"action":"datetime"})
@@ -629,7 +645,7 @@ class P12Class():
         backup_dir = self.config_obj[profile]["directory_backups"]
         p12_key_name_bk = p12_key_name.replace(".p12","_")
         if path.exists(p12_location):
-            system(f"cp {p12_location} {backup_dir}{p12_key_name_bk}{datetime}.p12.bak > /dev/null 2>&1")
+            copy2(p12_location,f"{backup_dir}{p12_key_name_bk}{datetime}.p12.bak")
         else:
             self.error_messages.error_code_messages({
                 "error_code": "p-350",
@@ -651,11 +667,12 @@ class P12Class():
         }))
         if "error" in results:
             self.log.logger.error("p12 passphrase update failed")
-            system(f"sudo rm {temp_p12_file} > /dev/null 2>&1")
+            if path.isfile(temp_p12_file): remove(temp_p12_file)
             return results
         
         # migrate new p12 into place
-        system(f"sudo mv {temp_p12_file} {p12_location} > /dev/null 2>&1")       
+        if path.isfile(temp_p12_file):
+            move(temp_p12_file,p12_location)     
         return "success"
         
         
@@ -680,6 +697,7 @@ class P12Class():
                 "enc_data": True,
             })
             return p12_passwd 
+
 
         if "--passphrase" in command_list:
             return_pass = True
@@ -730,7 +748,7 @@ class P12Class():
             pass_ask = colored(f'  Please enter your p12 passphrase to validate: ','cyan')
             p12_passwd = getpass(pass_ask,)
 
-        if self.config_obj["global_p12"]["encryption"] and not self.solo:
+        elif self.config_obj["global_p12"]["encryption"] and not self.solo:
             p12_passwd = attempt_decrypt(profile,p12_passwd.strip())
 
         for _ in range(0,2):
@@ -825,6 +843,18 @@ class P12Class():
                 },                
             ]
         else:
+            if self.solo: 
+                self.p12_file_location = path.split(p12_location)[0]
+                self.p12_filename = path.split(p12_location)[1]
+                self.p12_password = p12_passwd
+                self.key_alias = p12_output_dict["alias"]
+                self.extract_export_config_env({"env_vars":True})
+                cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
+                node_id = self.functions.process_command({
+                    "bashCommand": cmd,
+                    "proc_action": "poll"
+                })
+                node_id = node_id.strip()
             print_out_list = [
                 {
                     "header_elements": {
@@ -869,6 +899,12 @@ class P12Class():
                     "header_elements": {
                         "ISSUER": p12_output_dict["iowner"],
                         "COMMON NAME": p12_output_dict["iowner_cn"],
+                    },
+                    "spacing": 25,
+                },                
+                {
+                    "header_elements": {
+                        "NODE ID": node_id,
                     },
                     "spacing": 25,
                 },                
@@ -917,6 +953,22 @@ class P12Class():
                 "extra2": "verify the location you entered exists or in the configuration is valid.",
             })
 
+        if "--file" in cli.command_list:
+            self.p12_file_location += cli.command_list[cli.command_list.index("--file")+1]
+            if path.isfile(self.p12_file_location):
+                self.functions.print_paragraphs([
+                      [" WARNING ",0,"white,on_red"], ["nodectl found an existing",0,"red"],
+                      ["file with the same name.  If you continue, that file will be",0,"red"],
+                      ["removed permanently by being overwritten.",1,"red"],  
+                    ])
+                self.functions.confirm_action({
+                    "prompt": "Overwrite existing p12?",
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "exit_if": True
+                })
+            self.existing_p12 = self.p12_file_location               
+
         from .user import UserClass
         self.user = UserClass(cli)
         self.user.username = p12_username
@@ -931,6 +983,8 @@ class P12Class():
             "return_on": "y",
             "exit_if": True
         })
+
+        if self.p12_file_location[-1] != "/": self.p12_file_location += "/"
         self.show_p12_details(["--file",self.p12_file_location+self.p12_filename])
         
              

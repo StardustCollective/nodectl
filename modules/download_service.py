@@ -1,6 +1,5 @@
 from os import path, makedirs, chmod
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from copy import copy, deepcopy
 import requests
 
 from .troubleshoot.errors import Error_codes
@@ -15,14 +14,18 @@ class Download():
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
         self.error_messages = Error_codes(self.config_obj) 
-        
         self.log = self.parent.log
+        command_obj = command_obj["command_obj"]
+        action = command_obj.get("action",False)
 
         self.log_prefix = "download_service ->"
         if self.auto_restart:
             self.log_prefix = f"auto_restart -> {self.log_prefix}"
-
-        command_obj = command_obj["command_obj"]
+        if action == "quiet_install":
+            self.log_prefix = f"download_service -> quiet installation ->"
+            self.auto_restart = True # utilize the auto_restart flag to disable threading and printouts
+            self.functions.auto_restart = True
+            
         self.caller = command_obj.get("caller","node_service")
         self.action = command_obj.get("action","normal")
         self.requested_profile = command_obj.get("profile",False)
@@ -32,6 +35,7 @@ class Download():
         self.environment = command_obj.get("environment",False)
         self.argv_list = command_obj.get("argv_list",[])
         self.backup = command_obj.get("backup", True)
+        self.version_obj = command_obj.get("version_obj",False)
 
         self.successful = True
         self.skip_asset_check = False
@@ -96,7 +100,7 @@ class Download():
         download_version = self.download_version
 
         # default the wallet and key tools
-        if self.auto_restart:
+        if self.auto_restart and self.action != "quiet_install":
             # auto_restart avoid race condition if same file is downloaded at the same time only
             # download tool jars if root profile.
             root_profile = self.functions.test_for_root_ml_type(self.environment)
@@ -239,21 +243,30 @@ class Download():
 
 
     def set_default_version(self):
-        
-        # readability
-        env = self.functions.environment_name
+        try:
+            # readability
+            env = self.functions.environment_name
 
-        if self.requested_profile: profile = self.requested_profile
-        else: profile = self.functions.profile_names[0]
+            if self.requested_profile: profile = self.requested_profile
+            else: profile = self.functions.profile_names[0]
 
-        if self.tools_version == "default":
-            self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+            if self.tools_version == "default":
+                self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
 
-        if self.download_version == "default":
-            if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
-                self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
-            else:
-                self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
+            if self.download_version == "default":
+                if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
+                    self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+                else:
+                    self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
+        except Exception as e:
+            self.log.logger.error(f"{self.log_prefix} -> set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "ds-265",
+                "line_code": "unknown_error",
+                "extra": e,
+                "extra2": "The Download Service module may have conflicted with a parallel running versioning service at the time of the Node Operator's request.",
+            })
+
         return
     
 
@@ -382,7 +395,11 @@ class Download():
 
 
     def threaded_download_handler(self):
-        if not self.auto_restart:
+        if self.auto_restart:
+            for file_name in list(self.file_obj.keys()):
+                if self.file_obj[file_name]["state"] != "disabled":
+                    self.get_download_looper(file_name)
+        else:
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {executor.submit(self.get_download_looper, file_name): file_name for file_name in list(self.file_obj.keys())}
                 for future in as_completed(futures):
@@ -399,10 +416,6 @@ class Download():
                         if self.file_obj[file_name]["state"] != "disabled":
                             self.file_obj[file_name]["state"] = "completed"
                         self.print_status_handler(file_name)
-        else: 
-            for file_name in list(self.file_obj.keys()):
-                if self.file_obj[file_name]["state"] != "disabled":
-                    self.get_download_looper(file_name)
 
         self.cursor_setup["reset"] = self.cursor_setup["clear"]-1
 

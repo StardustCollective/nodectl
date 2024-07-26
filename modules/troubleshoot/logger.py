@@ -1,6 +1,9 @@
 import logging
 import time
-from os import path, system
+import subprocess
+
+from shlex import split as shlexsplit
+from os import path, system, makedirs
 from termcolor import cprint
 from sys import exit
 
@@ -61,11 +64,15 @@ class Logging():
         if not log_dir_exists:
             cprint("No installation found","red")
             cprint("Creating log directory for nodectl","yellow")
-            system(f"mkdir -p {self.log_path} > /dev/null 2>&1")
+            makedirs(self.log_path)
         if not log_file_exists:
-            system(f"touch {self.full_log_path} > /dev/null 2>&1")
+            cmd = f"touch {self.full_log_path}"
+            try:
+                _ = subprocess.run(shlexsplit(cmd), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
+            except subprocess.CalledProcessError as e:
+                pass
             
-            
+
     def get_log_level(self):
         if len(self.logger.handlers): return
         

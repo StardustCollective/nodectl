@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from os import system, path, makedirs
+from os import system, path, makedirs, remove, chmod
 from sys import exit
 from time import sleep
 from termcolor import colored, cprint
@@ -40,6 +40,7 @@ class Node():
         self.p12_password  = None 
         self.wallet_alias = None
         self.environment_name = None
+        self.version_class_obj = None
 
         # during installation, the nodeid will be blank
         # until after the p12 is created causing the install
@@ -79,10 +80,16 @@ class Node():
     
     
     def download_constellation_binaries(self,command_obj):
+        action = command_obj.get("action",False)
+        if action and not "install" in action:
+            self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+
         download_service = Download({
             "parent": self,
             "command_obj": command_obj,
+            "version_obj": self.version_obj,
         })
+        
         return download_service.execute_downloads()
 
 
@@ -91,9 +98,9 @@ class Node():
         # background_build=(bool) # default True;  build the auto_restart service?
         
         def replace_service_file_items(profile,template,create_file_type):
-            chmod = "755" # default
+            chmod_code = "755" # default
             if create_file_type in ["service_file","version_service"]:
-                chmod = "644"
+                chmod_code = "644"
                 template = template.replace(
                     "nodegarageservicedescription",
                     self.config_obj[profile]["description"]
@@ -106,7 +113,7 @@ class Node():
                     "nodegarageexecstartbash",
                     f"cnng-{self.config_obj[profile]['service']}"
                 ) 
-
+                
             elif create_file_type == "service_bash":
                 template = template.replace(
                     "nodegarageservicename",
@@ -178,7 +185,7 @@ class Node():
                         if "custom_args_enable" not in key and "custom_args_" in key:
                             template = f'{template} --{key.replace("custom_args_","")} {value}'
                             template = template.rstrip()
-                            
+
             # clean up the template
             substring = "/usr/bin/java"
             index = template.find(substring)
@@ -190,7 +197,7 @@ class Node():
             if create_file_type == "service_bash":
                 template = f"{template} &"
             template = f"{template}\n"
-            return(template,chmod)               
+            return(template,chmod_code)               
                
         # ===========================================
 
@@ -201,7 +208,7 @@ class Node():
         for profile in self.profile_names:
             profile = single_profile if single_profile else profile
             template = self.create_files({"file": create_file_type})
-            template, chmod = replace_service_file_items(profile,template,create_file_type)
+            template, chmod_code = replace_service_file_items(profile,template,create_file_type)
                         
             if create_file_type == "version_service":
                 service_dir_file = f"/etc/systemd/system/node_version_updater.service"
@@ -220,7 +227,7 @@ class Node():
                 file.write(template)
             file.close()
             
-            system(f"chmod {chmod} {service_dir_file} > /dev/null 2>&1")
+            chmod(service_dir_file,int(f"0o{chmod_code}",8))
             if single_profile:
                 return
             sleep(.5)
@@ -232,7 +239,7 @@ class Node():
                 with open(service_dir_file,'w') as file:
                     file.write(service)
                 file.close()
-                system(f"chmod 644 {service_dir_file} > /dev/null 2>&1")        
+                chmod(service_dir_file,0o644)        
 
 
     def build_service(self,background_build=False):
@@ -258,7 +265,7 @@ class Node():
             
         if path.exists(self.env_conf_file):
             self.log.logger.warn(f"found possible abandoned environment file [{self.env_conf_file}] removing.")
-            system(f"rm {self.env_conf_file} > /dev/null 2>&1")
+            remove(self.env_conf_file)
             
         with open(self.env_conf_file,"w") as f:
             if self.config_obj[profile]["custom_env_vars_enable"]:
@@ -333,7 +340,7 @@ class Node():
 
     def build_remote_link(self,link_type,interactive):
         not_ready_option = None
-        for n in range(0,4):
+        for n in range(1,4):
             source_node_list = self.functions.get_api_node_info({
                 "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
                 "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
@@ -346,8 +353,9 @@ class Node():
                         "error_code": "ns-634",
                         "line_code": "config_error",
                         "extra": "format",
+                        "extra2": "Is the linking between profiles setup correctly?",
                     })
-                self.log.logger.error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{source_node_list}]")
+                self.log.logger.error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{str(source_node_list)}]")
                 continue # try again... 
 
             if not self.auto_restart:
@@ -407,11 +415,13 @@ class Node():
     def check_for_ReadyToJoin(self,caller):
         for n in range(1,4):
             state = self.functions.test_peer_state({
+                "caller": "check_for_ReadyToJoin",
                 "profile": self.profile,
                 "simple": True
             })
             if state == "ReadyToJoin":
                 return True
+            if n < 2: print("")
             print(colored(f"  API not ready on {self.profile}","red"),colored(state,"yellow"),end=" ")
             print(f'{colored("attempt ","red")}{colored(n,"yellow",attrs=["bold"])}{colored(" of 3","red")}',end="\r")
             sleep(1.5)
@@ -437,7 +447,7 @@ class Node():
         self.log.logger.debug(f"changing service state method - action [{action}] service_name [{service_display}] caller = [{caller}]")
         self.functions.get_service_status()
         if action == "start":
-            if "inactive" not in self.functions.config_obj["global_elements"]["node_service_status"][profile]:
+            if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] < 1:
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
@@ -454,7 +464,7 @@ class Node():
             })
 
         if action == "stop":
-            if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
+            if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] > 0:
                 self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
@@ -478,14 +488,13 @@ class Node():
         bashCommand = f"systemctl {action} {service_name}"
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
-            "proc_action": "timeout" if action == "stop" else "wait",
+            "proc_action": "subprocess_run_check_text" if action == "stop" else "wait",
             "timeout": 5 if action == "stop" else 180
         })
 
         if action == "start":
             # clean up for a little more security of passphrases and cleaner installation
-            system(f"rm {self.env_conf_file} {self.temp_bash_file} > /dev/null 2>&1")
-            pass
+            self.functions.remove_files([self.env_conf_file,self.temp_bash_file],f"change_service_state [{caller}]")
         
         
     def leave_cluster(self,command_obj):
@@ -498,6 +507,7 @@ class Node():
         self.set_profile(profile)
 
         state = self.functions.test_peer_state({
+            "caller": "leave",
             "threaded": threaded,
             "profile": self.profile,
             "skip_thread": skip_thread,
@@ -522,7 +532,6 @@ class Node():
         action = command_obj["action"]
         caller = command_obj.get("caller",False) # for troubleshooting and logging
         interactive = command_obj.get("interactive",True)
-        static_peer = command_obj.get("static_peer",False)
         
         final = False  # only allow 2 non_interactive attempts
         clear_to_join, join_breakout, exception_found = True, False, False 
@@ -571,29 +580,32 @@ class Node():
                 if link_obj[f"{link_type}_linking_enabled"]: 
                     link_obj[f"{link_type}_link_ready"] = self.build_remote_link(link_type,interactive)
 
-        get_info_obj = {
-                "caller": f"{caller} -> join_cluster",
-                "profile": self.profile,
-                "desired_key": "state",
-                "desired_value": "Ready",
-                "return_value": "all",
-                "api_endpoint_type": "consensus",            
-        }
-        if static_peer: get_info_obj["specific_ip"] = static_peer
-        self.source_node_choice = self.functions.get_info_from_edge_point(get_info_obj)
-        
-        if static_peer:
-            if self.source_node_choice["specific_ip_found"][0] != self.source_node_choice["specific_ip_found"][1]:
-                self.functions.print_paragraphs([
-                    [" ERROR ",0,"red,on_yellow"], ["--peer",0,"red"], [static_peer,0,"yellow"], 
-                    ["was specifically requests as the peer to join against; however, this peer was not found on the cluster!",1,"red"],
-                ])
-                self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt": "Would you nodectl to pick a peer and continue?",
-                    "exit_if": True,
+        if self.config_obj[self.profile]["static_peer"]:
+            self.functions.print_cmd_status({
+                "text_start": "Found static peer request",
+                "status": "True",
+                "status_color": "green",
+                "newline": True,
+            })
+            static_ip = self.functions.get_api_node_info({
+                    "api_host": self.config_obj[self.profile]["edge_point"],
+                    "api_port": self.config_obj[self.profile]["edge_point_tcp_port"],
+                    "info_list": ["id","p2pPort"],
                 })
+            self.source_node_choice = {
+                "ip": self.config_obj[self.profile]["edge_point"], # replaced during start_cli
+                "id": static_ip[0], 
+                "p2pPort": static_ip[1], 
+            }
+        else:
+            self.source_node_choice = self.functions.get_info_from_edge_point({
+                    "caller": f"{caller} -> join_cluster",
+                    "profile": self.profile,
+                    "desired_key": "state",
+                    "desired_value": "Ready",
+                    "return_value": "all",
+                    "api_endpoint_type": "consensus",            
+            })
                 
         # join header header data
         data = { 
@@ -658,6 +670,7 @@ class Node():
                                 start = 1
 
                             state = self.functions.test_peer_state({
+                                "caller": "join",
                                 "profile": gl0ml0,
                                 "simple": True
                             })
@@ -697,16 +710,22 @@ class Node():
                             break
 
                         if not self.auto_restart and not link_obj[f"{link_type}_link_ready"]:
+                            if isinstance(self.profile,bool):
+                                self.profile = "Unknown"
                             self.functions.print_paragraphs([
                                 ["",1], [" ERROR ",0,"red,on_yellow"],
-                                [f"nodectl was unable to find the {link_type.upper()} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
+                                [f"nodectl was unable to find the {str(link_type.upper())} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
                                 [f"continue to wait for the state to become 'Ready' or exit now and try again to join after the link profile or Node becomes",0,"red"],
                                 [f"'Ready'.",2,"red"],
 
                                 ["If the Node Operator chooses to exit, issue the following commands to verify the status of each profile and restart when 'Ready' state is found:",1],                        
                                 ["sudo nodectl status",1,"yellow"],
-                                [f"sudo nodectl restart -p {self.profile}",2,"yellow"],
+                                [f"sudo nodectl restart -p {str(self.profile)}",2,"yellow"],
                             ])
+
+                            if self.profile == "Unknown":
+                                cprint("  Profile error, unable to continue...","red")
+                                exit(0)
 
                             if interactive:
                                 self.functions.confirm_action({
@@ -830,6 +849,7 @@ Type=forking
 EnvironmentFile={self.functions.nodectl_path}profile_nodegarageworkingdir.conf
 WorkingDirectory=/var/tessellation/nodegarageworkingdir
 ExecStart={self.functions.nodectl_path}nodegarageexecstartbash
+SuccessExitStatus=143
 
 [Install]
 WantedBy=multi-user.target
@@ -1089,7 +1109,7 @@ echo ""
 '''
             if var.upgrade_required:
                 cur_file2 = '''
-echo "  ${blue}This version of nodectl requires an upgrade be performed"
+echo "  ${blue}This version of nodectl requires a nodectl_only upgrade be performed"
 echo "  ${blue}on your Node.\n"
 read -e -p "  ${pink}Press ${yellow}Y ${pink}then ${yellow}[ENTER] ${pink}to upgrade or ${yellow}N ${pink}then ${yellow}[ENTER] ${pink}to cancel:${blue} " CHOICE
 
@@ -1097,6 +1117,7 @@ if [[ ("$CHOICE" == "y" || "$CHOICE" == "Y") ]]; then
     echo "${clr}"
     sudo nodectl upgrade --nodectl_only
 fi
+echo "${clr}"
 exit 0
 
 '''
@@ -1104,6 +1125,7 @@ exit 0
                 cur_file2 += '''
 echo "  ${yellow}This version of nodectl ${pink}DOES NOT ${yellow}require an upgrade be performed"
 read -e -p "  ${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
+echo "${clr}"
 exit 0
 '''
 
@@ -1125,6 +1147,8 @@ exit 0
     local install_opts="nodegarageinstalloptions"
     local upgrade_opts="nodegarageupgradeoptions"
     local viewconfig_opts="nodegarageviewconfigoptions"
+    local displaychain_opts="nodegaragedisplaychainoptions"
+    local find_opts="nodegaragefindoptions"
     local default_opts="help"
 
     # Determine the current command
@@ -1189,6 +1213,51 @@ exit 0
                     ;;
                 *)
                     COMPREPLY=($(compgen -W "${viewconfig_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        display_snapshot_chain)
+            case "${prev}" in
+                -p)
+                    COMPREPLY=($(compgen -W "<profile>" -- ${cur}))
+                    return 0
+                    ;;
+                --days)
+                    COMPREPLY=($(compgen -W "<number_of_days>" -- ${cur}))
+                    return 0
+                    ;;
+                --json_output)
+                    COMPREPLY=($(compgen -W "<file_name or path>" -- ${cur}))
+                    COMPREPLY=($(compgen -W "--pretty_print" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${displaychain_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        find_options)
+            case "${prev}" in
+                -t)
+                    COMPREPLY=($(compgen -W "<<target_ip_nodeid, ordinal <ordinal_number>, or hash <hash_number>>" -- ${cur}))
+                    return 0
+                    ;;
+                -s)
+                    COMPREPLY=($(compgen -W "<source_ip_nodeid>" -- ${cur}))
+                    return 0
+                    ;;
+                --days)
+                    COMPREPLY=($(compgen -W "<number_of_days>" -- ${cur}))
+                    return 0
+                    ;;
+                --json_output)
+                    COMPREPLY=($(compgen -W "<file_name or path>" -- ${cur}))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "${displaychain_opts}" -- ${cur}))
                     return 0
                     ;;
             esac

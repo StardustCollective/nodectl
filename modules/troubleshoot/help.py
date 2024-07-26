@@ -22,9 +22,9 @@ def build_help(functions,command_obj):
       "list","whoami","show_node_states","passwd12",
       "reboot","disable_root_ssh","enable_root_ssh",
       "clean_snapshots","update_seedlist", "check_source_connection",
-      "health","sec","price","markets", "upgrade_path", 
+      "health","sec","price","markets", "upgrade_path","display_snapshot_chain",
       "check_seedlist_participation", "check_version", "uptime","uninstall",
-      "show_cpu_memory","execute_starchiver","backup_config",
+      "show_cpu_memory","execute_starchiver","backup_config", "node_last_snapshot",
     ]
     
     functions.print_paragraphs([
@@ -49,6 +49,10 @@ def build_help(functions,command_obj):
       functions.print_paragraphs([
         ["optional:",0],["--pass",0,"yellow"],["<passphrase>",1],
         ["    note:",0],["--pass will override the configuration's passphrase entry",2,"magenta"],
+        ["optional:",0],["--peer",0,"yellow"],["<static_peer_ip>",1],
+        ["    note:",0],["--peer will override the configuration's random Node selection feature",2,"magenta"],
+        ["optional:",0],["--port",0,"yellow"],["<static_peer_tcp_port>",1],
+        ["    note:",0],["--port can be used with the --peer Node uses a non-default port.",2,"magenta"],
         ["See extended help for more details including",0],["required",0,"blue","bold"], 
         ["parameters per command.",2],
         ["command: ",0], ["sudo nodectl <command> help",2,"yellow","bold"],
@@ -65,6 +69,9 @@ def build_help(functions,command_obj):
     upgrade    | upgrade Tessellation version
     install    | install Tessellation - Turn your bare metal or
                  VPS into a Validator Node
+
+    getting_started | offer quick explanation and resources of
+                      the nodectl utility
 
     uninstall  | restore your VPS to default state before nodectl
                  was installed.
@@ -235,11 +242,16 @@ def build_help(functions,command_obj):
                                             
                                             see extended help for configurable auto_restart
                                             details... sudo nodectl auto_restart help
-                                            
+
+    node_last_snapshot | Display last known local snapshot on your Node
+
     verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity    
     
     create_p12 |  Create a single independent p12 file.                                    
-                     
+
+    sync_node_time | force a sync between the Node and NTP servers connected to the
+                     atomic clocks
+
     health  | - show basic health elements of your Node
               - show the current 15 minute CPU load and 
                 if WARNING or LOW
@@ -280,6 +292,55 @@ def build_help(functions,command_obj):
                current position.
              
         '''
+        
+        
+    if extended == "getting_started":
+        help_text += title("GETTING STARTED")
+        help_text += f'''
+  Welcome to the nodectl utility!
+
+  Please note that this is a brief getting started guide covering the 
+  most common commands used by nodectl.
+
+  For a comprehensive understanding of nodectl, we highly 
+  recommend visiting the following links:
+
+  Constellation Documentation Hub:
+  https://docs.constellationnetwork.io/validate/
+
+  Full Command Reference Guide:
+  https://docs.constellationnetwork.io/validate/automated/nodectlCommands
+
+  Nodectl is a utility specifically designed to assist Constellation 
+  Network Validator Nodes in operating their Nodes easily and 
+  efficiently. It includes single-command installation and upgrades.
+
+  The most common commands you will use are:
+
+  {colored('sudo nodectl status','green')}
+  This command allows you to check the current status of your 
+  Node to ensure it is properly online and functioning well.
+  {colored('sudo nodectl status help','cyan')}
+
+  {colored('sudo nodectl restart -p all','green')}
+  Use this command to restart your Node if it is not properly 
+  online, as indicated by the status command above.
+  {colored('sudo nodectl restart help','cyan')}
+
+  {colored('sudo nodectl upgrade','green')}
+  Initiates an interactive guide to upgrade your Node’s protocol, Tessellation, 
+  to the latest version and update any necessary elements of the Node itself 
+  to ensure compatibility with both the Tessellation protocol and 
+  the nodectl utility.
+  {colored('sudo nodectl upgrade help','cyan')}
+  
+  {colored('sudo nodectl upgrade_nodectl','green')}
+  This command initiates an interactive guide to upgrade nodectl itself to 
+  the latest version. It will prompt if necessary to update any necessary 
+  elements of the Node to ensure compatibility with the nodectl utility.
+  {colored('sudo nodectl upgrade_nodectl help','cyan')}
+
+            '''
         
         
     if extended == "check_source_connection":
@@ -1180,6 +1241,63 @@ def build_help(functions,command_obj):
   {colored('-p <profile_name>','cyan')} 
   '''      
   
+    if extended == "prepare_file_download":
+        help_text += title(extended)
+        help_text += f'''
+  
+  This command will request nodectl to prepare your p12 file for
+  a backup.  This command can we used in conjunction with the  
+  {colored('quasar','green')} local utility. 
+
+  Your p12 file(s) will be located, moved to the root of your
+  nodeadmin user's root directory, and the file permissions will
+  be changed so you can retrieve them from the nodeadmin user's
+  account.  
+
+  Node's built using the recommended security practices will not 
+  be able to retrieve a p12 file using the root user.  This command
+  offers a solution to this restriction.
+     
+  required options:
+  {colored('--type p12|file','cyan')} 
+
+  Using the {colored('--type','cyan')} with {colored('p12','cyan')} will require
+  will handle p12 migration for you.
+  Using the {colored('--type','cyan')} with {colored('file','cyan')} will require
+  a full path to the file and filename to properly handle the preparation.
+
+  optional parameters:
+  {colored('-p <profile_name>','cyan')} 
+  {colored('--cleanup','green')} 
+
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl prepare_file_download help','cyan')}
+  
+  move all known p12 files to the root of the nodeadmin
+  user and update permissions for access.
+  # {colored('sudo nodectl prepare_file_download --type p12','cyan')}
+
+  move only p12 files associated with the profile 'dag-l0'
+  to the root of the nodeadmin user and update permissions 
+  for access.
+  # {colored('sudo nodectl prepare_file_download --type p12 -p dag-l0','cyan')}
+ 
+  migrate a file called 'mylogs.tar.gz' that is located in 
+  the '/var/tessellation/uploads' for download from the root of 
+  the username's directory.
+  # {colored('sudo nodectl prepare_file_download --type file /var/tessellation/uploads/mylogs.tar.gz','cyan')}
+
+  remove the p12 files associated with all profiles including global.
+  # {colored('sudo nodectl prepare_file_download --type p12 --cleanup','cyan')}
+
+  remove the file named 'mylogs.tar.gz' that is located in the nodeadmin
+  username's directory.
+  # {colored('sudo nodectl prepare_file_download --type file mylogs.tar.gz --cleanup','cyan')}
+     
+  '''      
+  
     if extended == "uptime":
         help_text += title(extended)
         help_text += f'''
@@ -1442,6 +1560,32 @@ def build_help(functions,command_obj):
   
   execute an upgrade of nodectl to version "v2.12.0"
   # {colored('sudo nodectl upgrade_nodectl -v v2.12.0','cyan')}
+
+  '''    
+        
+        
+    if extended == "sync_node_time":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored('sync_node_time','cyan')} command will update the Node's
+  underlining Linux Debian distribution's datetime clock.  It will use
+  the NTP service installed during nodectl installation to force an 
+  update of the Node's clock.
+  
+  optional:
+  {colored('-v','green')} - verbose mode
+  
+  usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl sync_node_time help','cyan')}
+  
+  execute an manual time sync of system clock.
+  # {colored('sudo nodectl sync_node_time','cyan')}
+  
+  execute an manual time sync of system clock with results
+  output.
+  # {colored('sudo nodectl sync_node_time -v','cyan')}
       
   '''      
         
@@ -1842,6 +1986,12 @@ def build_help(functions,command_obj):
   {colored('NOTE:','yellow')} You can use the keyword {colored('self','green')}
   to indicate the local (localhost) Node for either {colored('-s','cyan')} or {colored('-t','cyan')}
   
+  You may lookup a Node oridnal or hash value to find
+  its associated inode link reference and ordinal or
+  hash value.
+  {colored('-t ordinal <target_ordinal>','green')}
+  {colored('-t hash <target_hash>','green')}
+
   Example Usage
   -------------
   show this help screen
@@ -1893,6 +2043,16 @@ def build_help(functions,command_obj):
   option on the cluster we are connected to
   # {colored('sudo nodectl find -p dag-l0 -s 10.2.2.2 -t 10.1.1.2','cyan')}
 
+  example 4
+  ---
+  Find the hash and inode reference for ordinal: 1240126
+  # {colored('sudo nodectl find -p dag-l0 -t ordinal 1240126','cyan')}
+
+  example 5
+  ---
+  Find the ordinal and inode reference for 
+  hash: 2464b911c3e9638101ec3608a85567770f0c4c2ac2862bc000a6a8bf34332838
+  # {colored('sudo nodectl find -p dag-l0 -t hash 2464b911c3e9638101ec3608a85567770f0c4c2ac2862bc000a6a8bf34332838','cyan')}
         '''
         
         
@@ -2604,6 +2764,7 @@ def build_help(functions,command_obj):
   
     if extended in simple_command_list:
         help_text += f'''
+        
   Example Usage
   -------------
   show this help screen
@@ -2622,4 +2783,4 @@ def build_help(functions,command_obj):
   
   
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")        
+    print("This class module is not designed to be run independently, please refer to the documentation")

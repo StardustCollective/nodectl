@@ -1,4 +1,5 @@
 import json
+import subprocess
 
 from re import search
 from time import sleep, perf_counter
@@ -211,6 +212,7 @@ class DownloadStatus():
     def pull_dip_state(self):
         state = self.functions.test_peer_state({
             "profile": self.profile,
+            "caller": "pull_ordinal_values",
             "simple": True,
             "print_output": False,
             "skip_thread": True,
@@ -326,6 +328,7 @@ class DownloadStatus():
             
         while True:
             state = self.functions.test_peer_state({
+                "caller": "handle_wfd_state",
                 "profile": self.profile,
                 "simple": True
             })                    
@@ -589,8 +592,10 @@ class DownloadStatus():
             if self.caller == "upgrade" or self.caller == "cli_restart": 
                 self.functions.print_clear_line()
                 print("")
-            else: system("clear") 
-            
+            else:
+                _ = self.functions.process_command({
+                    "proc_action": "clear",
+                })            
             if self.caller == "download_status": # and dip_pass < 2:
                 self.functions.print_header_title({
                     "line1": "DOWNLOAD IN PROGRESS STATUS",

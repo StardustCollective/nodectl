@@ -59,7 +59,7 @@ class AutoRestart():
             "WaitingForReady_state_enabled": False,
             "WaitingForReady_enabled": False,    
         }
-
+        
         self.persist_alert_file = f"/var/tessellation/nodectl/{self.thread_profile}_alert_report"
 
         self.fork_check_time = {
@@ -336,10 +336,7 @@ class AutoRestart():
         return self.functions.test_peer_state({
                     "test_address": self.profile_states[self.node_service.profile][f"{link_type}_link_ehost"],
                     "profile": self.node_service.profile,
-<<<<<<< HEAD
-=======
                     "caller": "auto_restart",
->>>>>>> 481bebef3aa89ea476324d7417870606955c0d8d
                     "simple": True,
                     "print_output": False,
                     "skip_thread": True,
@@ -479,15 +476,12 @@ class AutoRestart():
             self.clear_timers_flags("flags")
     
 
-<<<<<<< HEAD
-=======
     def set_persistent_alert(self,alert,report):
         with open(self.persist_alert_file,"w") as file:
             file.write(f"alert: {str(alert)}\n")       
             file.write(f"report: {str(report)}\n")       
 
 
->>>>>>> 481bebef3aa89ea476324d7417870606955c0d8d
     def clear_timers_flags(self, tf_type):
         if tf_type == "timers":
             for clear_state_time in ["Observing","WaitingForDownload","WaitingForReady"]:
@@ -987,11 +981,8 @@ class AutoRestart():
                 state = self.profile_states[self.node_service.profile]["node_state"]
                 minority_fork = self.profile_states[self.node_service.profile]["minority_fork"]
                 consensus_fork = self.profile_states[self.node_service.profile]["consensus_fork"]
-<<<<<<< HEAD
-=======
 
                 self.alert_handler()
->>>>>>> 481bebef3aa89ea476324d7417870606955c0d8d
                 extra_wait_time = random.choice(self.random_times)
 
                 if action == "ep_wait":

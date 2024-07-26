@@ -1,14 +1,13 @@
 import re
 
-from os import system, path, makedirs, getenv
+from os import system, path, makedirs, getenv, chmod
 from getpass import getpass, getuser
 from shutil import copyfile
 from termcolor import colored, cprint
 from secrets import compare_digest
+from shutil import copy2, move
 
-from .functions import Functions
 from .troubleshoot.errors import Error_codes
-from .config.versioning import Versioning
 
 class UserClass:
     
@@ -191,7 +190,7 @@ class UserClass:
                     
                     ["You will not see your password as you type it, this is for security purposes.",1,"magenta"],
                     ["Your password should contain capital & lowercase letters, numbers, special characters, but",0,"magenta"], ["no",0,"red","bold,underline"],
-                    ["single or double quotes.",2,"magenta"],
+                    ["spaces, single or double quotes.",2,"magenta"],
                     
                     [f"This {type} should be {length} in length.",1],
                     [" WARNING ",0,"grey,on_yellow","bold"], ["nodectl does not work well with",0,"red"], ["section signs",0,"yellow","bold"], ["special characters.",2,"red"], 
@@ -209,8 +208,8 @@ class UserClass:
         # name = p12 or username
         # type = password, keyphrase, or passphrase
         
-        pattern = "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-])(?=.*?[^'])([^'\"]*$)" # no single quotes, double quotes, or periods.
-        
+        # pattern = "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-])(?=.*?[^'])([^'\"]*$)" # no single quotes, double quotes, or periods.
+        pattern = "^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[#?!@$%^&*-])[^'\"\\s.]+$" # no single quotes, double quotes, spaces or periods.
         conjunction = "an" if length < 10 else "a"
         cprint(f">> Please enter {conjunction} {length} character minimum","magenta")
         first = f">> {type} for {name}: "
@@ -225,7 +224,7 @@ class UserClass:
         len_error += colored(length,"yellow",attrs=["bold"])+colored(" characters long.","red")
         
         char_error = colored("  Your ","red")+colored(type,"red",attrs=["bold"])+colored(" must ","red")+colored("not","red",attrs=["bold"])
-        char_error += colored(" contain single or double quotes or periods","red")+"\n"
+        char_error += colored(" contain spaces, single or double quotes or periods","red")+"\n"
         char_error += colored("  and, your passphrase ","red")+colored("must","red",attrs=["bold"])+colored(" contain at least 1 lowercase\n","red")
         char_error += colored("  uppercase, and special character.\n","red")
 
@@ -315,7 +314,10 @@ class UserClass:
                 "delay": .8
             })
         
-        system(f"usermod -aG sudo {self.username} > /dev/null 2>&1")
+        _ = self.functions.process_command({
+            "bashCommand": f"usermod -aG sudo {self.username}",
+            "proc_action": "subprocess_devnull",
+        })
         self.functions.set_system_prompt(self.username)
                      
         if not self.quick_install:
@@ -470,8 +472,8 @@ class UserClass:
         with open(dest_dir_file,'w') as cur_file:
             cur_file.write(filedata)
             
-        system(f"chown {self.username}:{self.username} {dest_dir_file} > /dev/null 2>&1")
-        system(f"chmod 600 {dest_dir_file} > /dev/null 2>&1")
+        self.functions.set_chown(dest_dir_file,self.username, self.username)
+        chmod(dest_dir_file,0o600)
 
         if not self.quick_install:
             self.functions.print_cmd_status({
@@ -591,7 +593,7 @@ class UserClass:
             if value is True:
                 if "ubuntu" in poss_user and path.isfile("/ubuntu/.ssh/authorized_keys"):
                     try:
-                        system(f"mv /home/ubuntu/.ssh/{self.file} /home/ubuntu/.ssh/backup_{self.file} > /dev/null 2>&1")
+                        move(f"/home/ubuntu/.ssh/{self.file}",f"/home/ubuntu/.ssh/backup_{self.file}")
                     except:
                         if not self.quick_install:
                             cprint("  could not move ubuntu ssh key file","red")
@@ -599,7 +601,7 @@ class UserClass:
                         end_color = "yellow"
                 elif "admin" in poss_user and path.isfile("/admin/.ssh/authorized_keys"):
                     try:
-                        system(f"mv /home/admin/.ssh/{self.file} /home/admin/.ssh/backup_{self.file} > /dev/null 2>&1")
+                        move(f"/home/admin/.ssh/{self.file}",f"/home/admin/.ssh/backup_{self.file}")
                     except:
                         if not self.quick_install:
                             cprint("  could not move admin ssh key file","red")
@@ -620,5 +622,4 @@ class UserClass:
 
             
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")  
-  
+    print("This class module is not designed to be run independently, please refer to the documentation")

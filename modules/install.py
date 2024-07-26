@@ -1,6 +1,9 @@
-import shutil
+import json
+import distro
 import modules.uninstall as uninstaller
+
 from os import makedirs, system, path, environ, get_terminal_size, chmod
+from shutil import copy2, move, rmtree
 from time import sleep
 from termcolor import colored, cprint
 from types import SimpleNamespace
@@ -18,6 +21,9 @@ from .config.versioning import Versioning
 from .quick_install import QuickInstaller
 from .node_service import Node
 from .config.valid_commands import pull_valid_command
+from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
+from .config.time_setup import remove_ntp_services, handle_time_setup
+
 class Installer():
 
     def __init__(self,parent,argv_list):
@@ -48,6 +54,7 @@ class Installer():
     def install_process(self):
         self.handle_options()
         self.setup_install()
+        self.test_distro()
         self.handle_environment_setup()
         self.build_classes()
         if self.options.quick_install:
@@ -72,27 +79,90 @@ class Installer():
         self.complete_install()
     
 
+    def test_distro(self):
+        distro_name = distro.name()
+        distro_version = distro.version()
+        continue_warn = False
+
+        if distro_name not in ["Ubuntu","Debian"]:
+            self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+            if not self.options.quiet:
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"yellow,on_red"], 
+                    ["nodectl was developed to run on",0,"red"],
+                    ["Ubuntu",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                    ["Linux distributions.  Install results may vary if an install",0,"red"],
+                    ["is performed on a non-supported distribution.",2,"red"],
+                    ["Distribution found:",0],[distro_name,2,"yellow"],
+                ])
+                continue_warn = True
+        if "Ubuntu" in distro_name:
+            if ".10" in distro_version:
+                self.log.logger.warn(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
+                if not self.options.quiet:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"yellow,on_red"], 
+                        ["nodectl was developed to run on",0,"red"],
+                        ["Ubuntu Long Term Support (TLS)",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                        ["Linux distributions.",2,"red"],
+                        ["This version is identified as a interim release.",2,"red"],
+                        ["Install results may vary if an install is performed on a non-supported distribution.",2,"red"],
+                        ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
+
+                    ])  
+                    continue_warn = True
+            elif "22.04" not in distro_version and "20.04" not in distro_version and "18.04" not in distro_version:
+                self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+                if not self.options.quiet:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"yellow,on_red"], 
+                        ["nodectl was developed to run on",0,"red"],
+                        ["Ubuntu 22.04",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                        ["Linux distributions.  Install results may vary if an install",0,"red"],
+                        ["is performed on a non-supported distribution.",2,"red"],
+                        ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
+
+                    ])  
+                    if "24.04" in distro_version:
+                        self.functions.print_paragraphs([
+                            ["Ubuntu 24.04 will be supported as soon as all necessary packages",0],
+                            ["used to allow the needed functionality are updated and supported by 24.04.",1],
+                            ["Ubuntu 22.04 LTS will reach its end of life in April 2032.",2]
+
+                        ])  
+                    continue_warn = True
+
+        if continue_warn: 
+            self.options.quick_install = self.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": True,
+                "prompt": "Continue?",                
+            })
+
+
     def setup_install(self):
         self.functions.check_sudo()
         self.log.logger.debug(f"installation request started - quick install [{self.options.quick_install}]")
-        self.print_main_title()
+        if not self.options.quiet: self.print_main_title()
         self.parent.install_upgrade = "installation"
 
-        self.functions.print_paragraphs([
-            [" NOTE ",2,"yellow,on_magenta"],
-            ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow,bold"],
-            ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
-            ["key to accept said value.",2,"magenta"],
-            
-            ["n",0,"yellow","bold"], ["stands for",0], [" no  ",0,"yellow,on_red"], ["",1],
-            ["y",0,"yellow","bold"], ["stands for",0], [" yes ",0,"blue,on_green"], ["",2],
-            
-            ["IMPORTANT",0,"red","bold"],
-            ["nodectl",0,"blue","bold"], ["was designed to run on a terminal session with a",0], ["black",0,"cyan","bold"],
-            ["background setting. Default terminal emulators with a",0], ["white",0,"cyan","bold"], ["background may experience some 'hard to see' contrasts.",0],
-            ["It is recommended to change the preferences on your terminal [of choice] to run with a",0], ["black",0,"cyan","bold"],
-            ["background.",2],
-        ])
+        if not self.options.quiet:
+            self.functions.print_paragraphs([
+                [" NOTE ",2,"yellow,on_magenta"],
+                ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow,bold"],
+                ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
+                ["key to accept said value.",2,"magenta"],
+                
+                ["n",0,"yellow","bold"], ["stands for",0], [" no  ",0,"yellow,on_red"], ["",1],
+                ["y",0,"yellow","bold"], ["stands for",0], [" yes ",0,"blue,on_green"], ["",2],
+                
+                ["IMPORTANT",0,"red","bold"],
+                ["nodectl",0,"blue","bold"], ["was designed to run on a terminal session with a",0], ["black",0,"cyan","bold"],
+                ["background setting. Default terminal emulators with a",0], ["white",0,"cyan","bold"], ["background may experience some 'hard to see' contrasts.",0],
+                ["It is recommended to change the preferences on your terminal [of choice] to run with a",0], ["black",0,"cyan","bold"],
+                ["background.",2],
+            ])
 
         if self.options.normal_install:
             self.log.logger.info("installer -> long normal option chosen by Node Operator option input.")
@@ -132,46 +202,66 @@ class Installer():
                 ["https://docs.constellationnetwork.io/validate/",2,"blue","bold"],
             ])
 
-        while True:
-            term_width_test = get_terminal_size()
-            if term_width_test.columns < 85:
-                self.functions.print_paragraphs([
-                    [" WARNING ",1,"red,on_yellow"], 
-                    ["nodectl has detected that the terminal size WIDTH is too narrow.",0,"red"],
-                    ["to properly display the installer's progress indicators. While this",0,"red"],
-                    ["won't affect the installation itself, it may impact the user experience.",2,"red"],
-                    ["detected column width:",0],[f"{term_width_test.columns}",1,"yellow"],
-                    ["To improve the display, you can optionally widen your terminal window by clicking on the terminal emulator window and dragging it out to at",0],
-                    ["least",0], ["85",0,"green","bold"], ["columns.",2],
-                ])
-                next_step = self.functions.print_any_key({
-                    "quit_option": True,
-                    "return_key": True,
-                })
-                if next_step == "q": 
-                    cprint("  Installation existed by Node Operator request","green",attrs="bold")
-                    exit(0)
+        if not self.options.quiet:
+            while True:
+                term_width_test = get_terminal_size()
+                if term_width_test.columns < 85:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",1,"red,on_yellow"], 
+                        ["nodectl has detected that the terminal size WIDTH is too narrow.",0,"red"],
+                        ["to properly display the installer's progress indicators. While this",0,"red"],
+                        ["won't affect the installation itself, it may impact the user experience.",2,"red"],
+                        ["detected column width:",0],[f"{term_width_test.columns}",1,"yellow"],
+                        ["To improve the display, you can optionally widen your terminal window by clicking on the terminal emulator window and dragging it out to at",0],
+                        ["least",0], ["85",0,"green","bold"], ["columns.",2],
+                    ])
+                    next_step = self.functions.print_any_key({
+                        "quit_option": True,
+                        "return_key": True,
+                    })
+                    if next_step == "q": 
+                        cprint("  Installation existed by Node Operator request","green",attrs="bold")
+                        exit(0)
 
-                print("")
-            else:
-                self.functions.print_clear_line(1,{"backwards":True})
-                break
+                    print("")
+                else:
+                    self.functions.print_clear_line(1,{"backwards":True})
+                    break
 
         if not self.options.confirm_install:
             self.parent.confirm_int_upg()
 
-        self.print_main_title()
-        self.functions.print_header_title({
-            "line1": "INSTALLATION STARTING",
-            "single_line": True,
-            "show_titles": False,
-            "newline": "bottom",
-        }) 
+        if not self.options.quiet:
+            self.print_main_title()
+            self.functions.print_header_title({
+                "line1": "INSTALLATION STARTING",
+                "single_line": True,
+                "show_titles": False,
+                "newline": "bottom",
+            }) 
     
     
     # Node Options and Values
     # =====================
         
+    def handle_quiet_mode(self):
+        if not self.options.quiet: return
+
+        quiet_requirements = [
+            "cluster_config",
+            "user_password","p12_passphrase",
+            "quick_install"
+        ]
+
+        for quiet in quiet_requirements:
+            if not self.options_dict[quiet]:
+                self.error_messages.error_code_messages({
+                    "error_code": "int-354",
+                    "line_code": "install_failed",
+                    "extra": "quiet mode requested without proper arguments or during a normal installation, must be quick install only. Please see documentation for further details."
+                })                
+
+
     def handle_options(self):
         self.options_dict = OrderedDict()
 
@@ -182,8 +272,8 @@ class Installer():
             "--user", "--p12-destination-path", 
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
-            "--quick-install", "--normal",
-            "--confirm","--override",
+            "--quick-install", "--normal", "--json-output",
+            "--confirm","--override","--quiet",
         ]
         
         self.options_dict["quick_install"] = False
@@ -191,19 +281,29 @@ class Installer():
         self.options_dict["normal_install"] = False
         self.options_dict["confirm_install"] = False
         self.options_dict["override"] = False
+        self.options_dict["quiet"] = False
+        self.options_dict["json_output"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
-            if (o_option == "quick-install" or o_option == "quick_install") and "--quick-install" in self.argv_list: 
+            if o_option == "quick-install" and "--quick-install" in self.argv_list: 
                 self.options_dict["quick_install"] = True
                 continue
-            if (o_option == "normal" or o_option == "normal") and "--normal" in self.argv_list: 
+            if o_option == "normal" and "--normal" in self.argv_list: 
                 self.options_dict["normal_install"] = True
                 continue
-            if (o_option == "confirm" or o_option == "confirm") and "--confirm" in self.argv_list: 
+            if o_option == "confirm" and "--confirm" in self.argv_list: 
                 self.options_dict["confirm_install"] = True
                 continue
-            if (o_option == "override" or o_option == "override") and "--override" in self.argv_list: 
+            if o_option == "override" and "--override" in self.argv_list: 
                 self.options_dict["override"] = True
+                continue
+            if o_option == "json-output" and "--json-output" in self.argv_list: 
+                self.options_dict["json_output"] = True
+                continue
+            if o_option == "quiet" and "--quiet" in self.argv_list: 
+                self.log.logger.warn("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
+                self.options_dict["quiet"] = True
+                self.options_dict["confirm_install"] = True
                 continue
             self.options_dict[o_option] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
 
@@ -213,7 +313,8 @@ class Installer():
         self.options_dict["existing_p12"] = False
 
         self.options = SimpleNamespace(**self.options_dict)
-        
+        self.handle_quiet_mode()
+
         if self.options.p12_migration_path:
             self.log.logger.info(f"installer found --p12-migration-path request [{self.options.p12_migration_path}]")
             self.options.existing_p12 = True
@@ -246,7 +347,7 @@ class Installer():
                     if not self.options.cluster_config:
                         self.handle_environment_setup(True)
                         self.options.metagraph_name = self.options.cluster_config
-                        print("")
+                        if not self.options.quiet: print("")
                         self.print_cmd_status("metagraph_name","metagraph_name",False)
                 elif self.options.quick_install:
                     self.quick_installer.handle_option_validation(option)
@@ -290,7 +391,8 @@ class Installer():
     
 
     def handle_environment_setup(self,do=False):
-        if self.options.quick_install and do == False: return
+        if (self.options.quick_install and do == False) or self.options.quiet: return
+        if self.options.quiet: return
 
         self.log.logger.info("installer -> setting up cluster environment details.")
 
@@ -335,7 +437,7 @@ class Installer():
     def handle_existing(self):
         if self.options.override: return
 
-        if not self.options.quick_install: 
+        if not self.options.quick_install and not self.options.quiet: 
             self.parent.print_ext_ip()
 
         self.log.logger.info("installer -> review future node for invalid old Node install or data.")
@@ -396,7 +498,8 @@ class Installer():
                     "show_titles": False,
                     "newline": "bottom",
                 })
-            uninstaller.remove_data(self.functions,self.log,True)
+
+            uninstaller.remove_data(self.functions,self.log,True,self.options.quiet)
             if not self.options.quick_install:
                 self.functions.print_cmd_status({
                     "text_start": "Clean up old configuration data",
@@ -423,37 +526,9 @@ class Installer():
                 "delay": .8,
             })
 
-        auto_path = "/etc/bash_completion.d/nodectl_auto_complete.sh"
-        if not path.exists(path.split(auto_path)[0]):
-            self.log.logger.warn("This distro may not be compatible with auto_complete, skipping.")
-            return
-        
-        auto_complete_file = self.cli.node_service.create_files({
-            "file": "auto_complete",
-        })
-        valid_commands = pull_valid_command()
-        valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
-
-        install_options = "--normal --quick-install --user --p12-destination-path --user-password " 
-        install_options += "--p12-passphrase --p12-migration-path --p12-alias"
-        
-        upgrade_options = "--ni --nodectl_only --pass -v -f"
-
-        viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory "
-        viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json"
-        
-        auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
-        auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)
-        auto_complete_file = auto_complete_file.replace("nodegarageupgradeoptions",upgrade_options)
-        auto_complete_file = auto_complete_file.replace("nodegarageviewconfigoptions",viewconfig_options)
-        
-        auto_complete_file = auto_complete_file.replace('\\n', '\n')
-
-        with open(auto_path,"w") as auto_complete:
-            auto_complete.write(auto_complete_file)
-
-        chmod(auto_path,0o644)
-        system("source /etc/bash_completion > /dev/null 2>&1")
+        auto_path = ac_validate_path(self.log,"installer")
+        auto_complete_file = ac_build_script(self.cli,auto_path)
+        ac_write_file(auto_path,auto_complete_file,self.functions)
 
         if not self.options.quick_install: 
             self.functions.print_cmd_status({
@@ -476,11 +551,13 @@ class Installer():
         self.cli.node_service.profile_names = self.functions.clear_global_profiles(self.metagraph_list)
         self.cli.node_service.build_service(True) # true will build restart_service
         
-        # handle version_service enablement 
-        system("sudo systemctl daemon-reload > /dev/null 2>&1")
-        system("sudo systemctl enable node_version_updater.service > /dev/null 2>&1")
-        sleep(.3)
-        system("sudo systemctl restart node_version_updater.service > /dev/null 2>&1")
+        # handle version_service enablement
+        for cmd in ["daemon-reload","enable node_version_updater.service","restart node_version_updater.service"]:
+            _ = self.functions.process_command({
+                "bashCommand": f"sudo systemctl {cmd}",
+                "proc_action": "subprocess_devnull",
+            }) 
+            sleep(.3)
         
         if not self.options.quick_install: 
             self.functions.print_cmd_status({
@@ -497,20 +574,25 @@ class Installer():
         if self.options.metagraph_name == "hypergraph":
             download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"]
 
+        download_action = "install"
+        if self.options.quick_install: download_action = "quick_install"
+        if self.options.quiet: download_action = "quiet_install"
+
         pos = self.cli.node_service.download_constellation_binaries({
             "download_version": download_version,
             "environment": self.options.environment,
-            "action": "quick_install" if self.options.quick_install else "install",
+            "action": download_action,
             "tools_version": self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"],
         })
         status = "complete" if pos["success"] else "failed"
         sleep(.8)
-        if self.options.quick_install:
-            print(f"\033[{pos['up']}A", end="", flush=True)
-            self.functions.print_clear_line(pos['clear'],{"fl": pos['clear']})
-            print(f"\033[{pos['reset']}A", end="", flush=True)
-        else:
-            print(f"\033[{pos['down']}B", end="", flush=True)
+        if not self.options.quiet:
+            if self.options.quick_install:
+                print(f"\033[{pos['up']}A", end="", flush=True)
+                self.functions.print_clear_line(pos['clear'],{"fl": pos['clear']})
+                print(f"\033[{pos['reset']}A", end="", flush=True)
+            else:
+                print(f"\033[{pos['down']}B", end="", flush=True)
 
         if status == "failed":
             self.close_threads()
@@ -520,11 +602,12 @@ class Installer():
                 "extra": "unable to download required Constellation network Tessellation files"
             })
 
-        self.functions.print_cmd_status({
-            "text_start": "Installing Tessellation binaries",
-            "status": status,
-            "newline": True
-        })
+        if not self.options.quiet:
+            self.functions.print_cmd_status({
+                "text_start": "Installing Tessellation binaries",
+                "status": status,
+                "newline": True
+            })
     
 
     # Distribution
@@ -569,6 +652,11 @@ class Installer():
                 self.user.create_debian_user()
                 self.user.transfer_ssh_key()
         
+        # update permissions
+        if self.options.p12_destination_path:
+            self.functions.set_chown(path.dirname(self.options.p12_destination_path), self.user.username,self.user.username)
+        if path.exists(f"/home{self.user.username}"):
+            self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
         return
 
 
@@ -672,7 +760,7 @@ class Installer():
 
         for package, value in self.packages.items():
             if value == False:
-                if package == "openjdk-11-jdk":
+                if package == "openjdk-11-jdk" and not self.options.quiet:
                     print(colored(f"  {package}","cyan",attrs=['bold']),end=" ")
                     print(colored("may take a few minutes to install".ljust(40),"cyan"),end=" ")
                     print(" ".ljust(10))
@@ -683,16 +771,20 @@ class Installer():
                     self.log.logger.info(f"updating the Debian operating system.")
                     environ['DEBIAN_FRONTEND'] = 'noninteractive'
                     
-                    _ = executor.submit(self.functions.print_cmd_status,{
-                        "text_start": "Installing dependency",
-                        "brackets": package,
-                        "dotted_animation": True,
-                        "timeout": False,
-                        "status": "installing",
-                        "status_color": "yellow",
-                    })
+                    if not self.options.quiet:
+                        _ = executor.submit(self.functions.print_cmd_status,{
+                            "text_start": "Installing dependency",
+                            "brackets": package,
+                            "dotted_animation": True,
+                            "timeout": False,
+                            "status": "installing",
+                            "status_color": "yellow",
+                        })
                             
                     bashCommand = f"apt-get install -y {package}"
+                    if package == "ntp":
+                        bashCommand += " ntpdate -oDpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'"
+
                     self.functions.process_command({
                         "bashCommand": bashCommand,
                         "proc_action": "timeout",
@@ -710,13 +802,16 @@ class Installer():
                             break   
 
                     self.functions.status_dots = False
-                    self.functions.print_cmd_status({
-                        "text_start": "Installing dependency",
-                        "brackets": package,
-                        "status": "complete",
-                        "newline": True
-                    })
-
+                    if not self.options.quiet:
+                        self.functions.print_cmd_status({
+                            "text_start": "Installing dependency",
+                            "brackets": package,
+                            "status": "complete",
+                            "newline": True
+                        })
+        remove_ntp_services()
+        handle_time_setup(self.functions,self.options.quick_install,False,self.options.quiet,self.log)
+        
 
     def make_swap_file(self):
         self.log.logger.info("installer -> preparing to create swapfile")
@@ -738,14 +833,23 @@ class Installer():
             self.log.logger.warn("Installation making swap file skipped because already detected")
         else:
             self.log.logger.info("Installation making swap file")
-            system("sudo touch /swapfile") 
-            # allocate 8G
-            system("sudo fallocate -l 8G /swapfile > /dev/null 2>&1")
-            sleep(1)
-            system("sudo chmod 600 /swapfile")
-            system("sudo mkswap /swapfile > /dev/null 2>&1")
-            sleep(1)
-            system("sudo swapon /swapfile > /dev/null 2>&1")
+
+            for n, cmd in enumerate([
+                "touch /swapfile",
+                "fallocate -l 8G /swapfile",
+                "systemctl restart node_version_updater.service",
+                "mkswap /swapfile",
+                "swapon /swapfile",
+            ]):
+                _ = self.functions.process_command({
+                    "bashCommand": f"sudo {cmd}",
+                    "proc_action": "subprocess_devnull",
+                }) 
+                if n == 1:
+                    sleep(1)
+                    chmod("/swapfile",0o600)
+                sleep(.8)
+
             result = "completed"
             color = "green"
 
@@ -762,8 +866,9 @@ class Installer():
                         "search_line": "/swapfile none swap sw 0 0",
                 }):
                     # backup the file just in case
-                    system("sudo cp /etc/fstab /etc/fstab.bak > /dev/null 2>&1")
-                    system("sudo echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab > /dev/null 2>&1")
+                    copy2("/etc/fstab","/etc/fstab.bak")
+                    with open("/etc/fstab", 'a') as file:
+                        file.write("/swapfile none swap sw 0 0\n")
             except:
                 self.log.logger.error("installation unable to update fstab to enable swapfile properly.")
 
@@ -773,8 +878,9 @@ class Installer():
                         "search_line": "vm.swappiness=",                    
                     }):
                     # backup the file just in case
-                    system("sudo cp /etc/sysctl.conf /etc/sysctl.conf.bak > /dev/null 2>&1")
-                    system("sudo echo 'vm.swappiness=10' | tee -a /etc/sysctl.conf > /dev/null 2>&1")
+                    copy2("/etc/sysctl.conf","/etc/sysctl.conf.bak")
+                    with open("/etc/sysctl.conf", 'a') as file:
+                        file.write("vm.swappiness=10\n")
             except:
                 self.log.logger.error("installation unable to update systctl to fix swapfile swapiness settings permanently.")
 
@@ -786,7 +892,10 @@ class Installer():
                           
             try:
                 # turn it on temporarily until next reboot
-                system("sudo sysctl vm.swappiness=10 > /dev/null 2>&1")
+                _ = self.functions.process_command({
+                    "bashCommand": "sysctl vm.swappiness=10",
+                    "proc_action": "subprocess_devnull",
+                })
             except:
                 self.log.logger.error("installation unable to update sysctl to fix swapfile swapiness settings temporarily until next reboot.")            
 
@@ -1054,11 +1163,14 @@ class Installer():
         if not path.exists(dest_p12_destination_path_only):
             makedirs(dest_p12_destination_path_only)
 
-        shutil.move(self.options.p12_migration_path, dest_p12_destination_path)
+        move(self.options.p12_migration_path, dest_p12_destination_path)
         chmod(dest_p12_destination_path, 0o400)
-        system(f"sudo chown root:root {dest_p12_destination_path} > /dev/null 2>&1")
-        self.p12_migrated = True
-
+        try:
+            self.functions.set_chown(dest_p12_destination_path, "root","root")
+            self.p12_migrated = True
+        except Exception as e:
+            self.log.logger.error("installer -> unable to set permissions, please verify permission settings.")
+    
         if self.options.quick_install:
             return
 
@@ -1093,7 +1205,7 @@ class Installer():
                         ["allow you to manually supply a full path to your existing p12 file.",2,"white"],
                     ])
 
-            if not self.options.existing_p12:
+            if not self.options.existing_p12 and not self.options.quiet:
                 self.options.existing_p12 = self.functions.confirm_action({
                     "yes_no_default": "n",
                     "return_on": "y",
@@ -1113,7 +1225,7 @@ class Installer():
 
             if self.options.existing_p12:
                 if self.options.quick_install:
-                    print("")
+                    if not self.options.quiet: print("")
                     self.p12_migrate_existing()
             return
         
@@ -1154,7 +1266,7 @@ class Installer():
 
     def p12_encrypt_passphrase(self):
         if self.options.p12_alias == "error": 
-            self.log.logger.error("installer -> unable to encrypt passphrase because the p12 file associated with this installation was unble to be authenticated, passphrase could be incorrect")
+            self.log.logger.error("installer -> unable to encrypt passphrase because the p12 file associated with this installation was unable to be authenticated, passphrase could be incorrect")
             return
         
         self.log.logger.info("installer -> encrypting p12 passphrase.")
@@ -1253,7 +1365,10 @@ class Installer():
             
             # download specific file to Node
             try:
-                system(f'sudo wget {skeleton_yaml} -O {self.functions.nodectl_path}cn-config.yaml -o /dev/null')
+                self.functions.download_file({
+                    "url": skeleton_yaml,
+                    "local": f"{self.functions.nodectl_path}cn-config.yaml"
+                })
             except Exception as e:
                 self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton_yaml}] with error [{e}]')
                 self.close_threads()
@@ -1279,7 +1394,8 @@ class Installer():
             self.versioning = Versioning({
                 "called_cmd": "install" if not self.options.quick_install else "quick_install",
                 "request": "install",
-                "config_obj": self.config_obj
+                "config_obj": self.config_obj,
+                "show_spinner": True if not self.options.quiet else False,
             })
             self.version_obj = self.versioning.get_version_obj()
             self.cli.version_obj = self.version_obj
@@ -1346,7 +1462,7 @@ class Installer():
         cli_obj = {
             "caller": "installer",
             "profile": "empty",
-            "command": "install",
+            "command": "install" if not self.options.quiet else "quiet_install",
             "command_list": [],
             "functions": self.functions,
             "ip_address": self.parent.ip_address,
@@ -1354,6 +1470,7 @@ class Installer():
         }
         self.cli = CLI(cli_obj)
         self.cli.functions.set_statics()
+        self.cli.version_class_obj = self.parent.version_class_obj
         self.user = UserClass(self.cli)
         
         if self.action == "uninstall": return
@@ -1383,6 +1500,7 @@ class Installer():
     
 
     def print_cmd_status(self,chosen,var,gen=True,lookup=True):
+        if self.options.quiet: return
         if lookup: var = getattr(self.options,var)
         if chosen == "metagraph_name": chosen = "hypergraph/metagraph"
         start = "Generated" if gen else "Chosen" 
@@ -1396,6 +1514,7 @@ class Installer():
     
     def uninstall(self):
         self.log.logger.info("installer -> executing uninstall process.")
+        self.options = SimpleNamespace(quiet=False)
         self.build_classes()
         node_service = Node({"functions": self.functions})
         node_service.log = self.log
@@ -1412,9 +1531,9 @@ class Installer():
             self.log.logger.info("moving nodectl to /var/tmp and completing uninstall.  Thank you for using nodectl.")
         self.log.logger.info("uninstaller -> handling removal of nodectl executable ")
         if node_admins[0] == "logger_retention":
-            shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
+            copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
             sleep(.5)
-            shutil.rmtree("/var/tessellation")
+            rmtree("/var/tessellation")
 
         uninstaller.remove_nodectl(node_service)
 
@@ -1459,6 +1578,33 @@ class Installer():
     
     def complete_install(self):
         self.log.logger.info("Installation complete !!!")
+
+        success = self.cli.cli_grab_id({
+            "command":"nodeid",
+            "return_success": True,
+            "skip_display": True,
+            "threading": False,
+        })
+        dag_address = self.cli.cli_nodeid2dag([self.cli.nodeid.strip("\n"), "return_only"])
+
+        node_details = {
+            "HyperGraphMetaGraph": self.options.metagraph_name,
+            "Environment": self.options.environment,
+            "P12Path": path.dirname(self.options.p12_destination_path),
+            "P12": path.basename(self.options.p12_destination_path),
+            "Alias": self.options.p12_alias,
+            "NodeId": self.cli.nodeid.strip("\n"),
+            "DAGAddress": dag_address
+        }
+
+        if self.options.json_output:
+            with open(f"{self.functions.nodectl_path}node_details.json","w") as node_detail_file:
+                json.dump(node_details,node_detail_file,indent=4)
+
+        if self.options.quiet:
+            print(node_details)
+            return
+        
         self.print_main_title()
 
         self.functions.print_header_title({
@@ -1509,11 +1655,6 @@ class Installer():
 
         if self.encryption_performed:
             print("")
-            success = self.cli.cli_grab_id({
-                "command":"nodeid",
-                "return_success": True,
-                "skip_display": True,
-            })
             print(f"\033[1A", end="", flush=True)
 
         if not success:
@@ -1525,7 +1666,10 @@ class Installer():
                     break # only need to check once for an installation
 
         self.functions.print_paragraphs([
-            ["",1], [f"Please review the next Steps in order to gain access to the",0],
+            ["DAG WALLET ADDRESS",1,"blue","bold"], 
+            [dag_address,2,"white","bold"],
+
+            [f"Please review the next Steps in order to gain access to the",0],
             [self.options.metagraph_name,0,"yellow"], ["->",0], [self.options.environment,0,"yellow"], 
             ["environment.",2],
         ])     

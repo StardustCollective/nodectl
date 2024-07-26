@@ -1,6 +1,6 @@
 
 import shutil
-from os import makedirs, system, path, environ, walk, remove
+from os import makedirs, system, path, environ, walk, remove, chmod
 
 from time import sleep
 from termcolor import colored
@@ -8,7 +8,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def start_uninstall(functions,log):
-    system("clear")
+    _ = functions.process_command({"proc_action": "clear"})
+
     functions.print_header_title({
         "line1": "NODECTL UNINSTALL",
         "single_line": True,
@@ -81,7 +82,19 @@ def print_status(functions,icmd,running,animate=False,result=False):
     })
 
 
-def remove_data(functions,log,install=False):
+def discover_data(services,p12s):
+    for sdir in ["/etc","/root","/home","/tmp","/var"]:
+        for root, _, ftypes in walk(sdir):
+            for ftype in ftypes:
+                if ftype.startswith("cnng") and ftype not in services:
+                    services.append(path.join(root, ftype))
+                elif ftype.endswith(".p12") and ftype not in p12s:
+                    p12s.append(path.join(root, ftype))
+    
+    return services, p12s
+
+
+def remove_data(functions,log,install=False,quiet=False):
     install_type = "uninstaller"
     if install: install_type = "installer"
     log.logger.info(f"{install_type} -> removing Node data")
@@ -143,7 +156,8 @@ def remove_data(functions,log,install=False):
             ])
 
     if install:  # installer will just use the default dirs, services lists
-        print(colored("  Handling removal of existing Node data","cyan"),end="\r")
+        if not quiet:
+            print(colored("  Handling removal of existing Node data","cyan"),end="\r")
         if path.isdir("/home/nodeadmin"):
             log.logger.warn(f"{install_type} -> found nodeadmin user, removed")
             remove_admins(functions,["nodeadmin"],log,True)
@@ -160,18 +174,38 @@ def remove_data(functions,log,install=False):
                     if value not in node_admins:
                         node_admins.append(value)
 
-    for sdir in ["/etc","/root","/home","/tmp","/var"]:
-        for root, _, ftypes in walk(sdir):
-            for ftype in ftypes:
-                if ftype.startswith("cnng") and ftype not in services:
-                    services.append(path.join(root, ftype))
-                elif ftype.endswith(".p12") and ftype not in p12s:
-                    p12s.append(path.join(root, ftype))
+    if install:
+        services, p12s = discover_data(services,p12s)
+    else:
+        functions.print_paragraphs([
+            ["This may take a few of minutes, please exercise patience",1,"yellow"]
+        ])
+        with ThreadPoolExecutor() as executor:
+            functions.status_dots = True
+            status_obj = {
+                "text_start": f"Discovering Node Data",
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor.submit(functions.print_cmd_status,status_obj)
+
+            services, p12s = discover_data(services,p12s)
+
+            functions.status_dots = False
+            functions.print_cmd_status({
+                **status_obj,
+                "status": "completed",
+                "status_color": "green",
+                "dotted_animation": False,
+                "newline": True,
+            })
 
     remove_lists = [d_dirs,services,seedlists]
     if not install: remove_lists.append(p12s) # keep p12s for migration purposes
 
-    if install:  # installer will just use the default dirs, services lists
+    if install and not quiet:  # installer will just use the default dirs, services lists
         functions.print_cmd_status({
             "text_start": "Removing existing Node Data",
             "status": "please wait",
@@ -204,33 +238,47 @@ def remove_data(functions,log,install=False):
         if retain_log and remove_list == remove_lists[0]: # only once
             shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
 
-        if install: # redraw install of blank screen
-            functions.print_cmd_status({
-                "text_start": "Removing existing Node Data",
-                "status": "please wait",
+        if install:
+            if not quiet: # redraw install of blank screen
+                functions.print_cmd_status({
+                    "text_start": "Removing existing Node Data",
+                    "status": "please wait",
+                    "status_color": "yellow",
+                    "newline": False,
+                })
+
+        with ThreadPoolExecutor() as executor:
+            functions.status_dots = True
+            if not install:
+                command = f"Removing Node related {remove_list.pop(0)}"
+            status_obj = {
+                "text_start": command,
+                "status": "running",
                 "status_color": "yellow",
+                "dotted_animation": True,
                 "newline": False,
-            })
-        else:
-            command = f"Removing Node related {remove_list.pop(0)}"
-            print_status(functions,command,True,True)
-        for d_f in remove_list:
-            if len(remove_list) > 0:
-                for d_f in remove_list:
-                    if not d_f.startswith("/"): d_f = f"/etc/systemd/system/{d_f}"
-                    log_list.append(["info",f"{install_type} -> removing [{d_f}]"])
-                    try:
-                        if path.isdir(d_f):
-                            shutil.rmtree(d_f)
-                        else:
-                            remove(d_f)
-                    except Exception as e:
-                        log_list.append(["warn",f"{install_type} -> did not remove [{d_f}] reason [{e}] trying th"])
-                    # system(f"sudo rm -rf {d_f} > /dev/null 2>&1")
+            }
+            if not install and not quiet:
+                _ = executor.submit(functions.print_cmd_status,status_obj)
+            # command = f"Removing Node related {remove_list.pop(0)}"
+            # print_status(functions,command,True,True)
 
-            sleep(1)
+            for d_f in remove_list:
+                if len(remove_list) > 0:
+                    for d_f in remove_list:
+                        if not d_f.startswith("/"): d_f = f"/etc/systemd/system/{d_f}"
+                        log_list.append(["info",f"{install_type} -> removing [{d_f}]"])
+                        try:
+                            if path.isdir(d_f):
+                                shutil.rmtree(d_f)
+                            else:
+                                remove(d_f)
+                        except Exception as e:
+                            log_list.append(["warn",f"{install_type} -> did not remove [{d_f}] reason [{e}] trying th"])
+                sleep(1)
+            functions.status_dots = False  
 
-        if not install:
+        if not install and not quiet:
             print_status(functions,command,False)
         
     # remove auto_complete element
@@ -336,12 +384,21 @@ def remove_admins(functions,node_admins,log,install=False):
 
 def finish_uninstall(functions):
     # refresh systemctl daemon to forget about the nodectl services
-    system("sudo systemctl daemon-reload > /dev/null 2>&1")
+    _ = functions.process_command({
+        "bashCommand": "sudo systemctl daemon-reload",
+        "proc_action": "subprocess_devnull",
+    })
 
     functions.print_paragraphs([
-        ["",1], ["nodectl has",0,"green"], ["successfully",0,"green","bold"],
+        ["",1], 
+        ["If nodectl created a swapfile during initital installation, the swapfile was not removed to prevent potiental conflicts",0,"magenta"],
+        ["with other [possible] elements, or impacting performance on this VPS. This includes the 'swappiness' settings.",2,"magenta"],
+
+        ["nodectl has",0,"green"], ["successfully",0,"green","bold"],
         ["removed the Node components from the system.",2,"green"],
+
         ["Thank you for your participation with Constellation Network. We hope to see you back soon!",2,"blue","bold"],
+        
         ["Executing final removal of the",0],["nodectl",0,"yellow"], ["binary.",1],
     ])
 
@@ -365,9 +422,15 @@ def stop_services(functions, node_service,log):
     status = "complete"
     color = "green"
     try:
-        system("sudo systemctl disable node_version_updater.service > /dev/null 2>&1")
-        system("sudo systemctl disable node_restart@.service > /dev/null 2>&1")
-        system("sudo systemctl stop node_version_updater.service > /dev/null 2>&1")
+        for cmd in [
+            "disable node_version_updater.service",
+            "disable node_restart@.service",
+            "stop node_version_updater.service",
+        ]:
+            _ = functions.process_command({
+                "bashCommand": f"sudo systemctl {cmd}",
+                "proc_action": "subprocess_devnull",
+            })
     except:
         status = "incomplete"
         color = "magenta"
@@ -396,6 +459,9 @@ def remove_nodectl(node_service):
     with open(removal_script_loc,'w') as file:
         file.write(removal_script)
     file.close
-    system(f"sudo chmod +x {removal_script_loc}")
-    system(f"sudo {removal_script_loc}")
+    chmod(removal_script_loc,0o755)
+    _ = node_service.functions.process_command({
+        "bashCommand": f"sudo {removal_script_loc}",
+        "proc_action": "subprocess_run_check_only",
+    })
     sleep(.8)

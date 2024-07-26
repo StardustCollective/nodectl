@@ -2,6 +2,7 @@ import json
 
 from re import match
 from os import system, path, mkdir, listdir, popen
+from shutil import rmtree
 from sys import exit
 from termcolor import colored, cprint
 from hurry.filesize import size, alternative
@@ -24,6 +25,7 @@ class Send():
         self.config_obj = command_obj["config_obj"]
         
         self.functions = Functions(self.config_obj)
+
         self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj["ip_address"]
 
@@ -32,6 +34,32 @@ class Send():
             self.nodectl_logs = True
             self.profile = list(self.config_obj.keys())[0]
         
+
+    def handle_wdf_last_valid(self):
+        self.functions.set_default_directories()
+
+        if path.exists(f"{self.config_obj[self.profile]['directory_logs']}/app.log"):
+            with open(f"{self.config_obj[self.profile]['directory_logs']}/app.log","r") as log_file:
+                log_entries = log_file.readlines()
+                wfd_index = -1
+                for entry in range(len(log_entries)-1, -1, -1):
+                    if "changed to=WaitingForDownload" in log_entries[entry]:
+                        wfd_index = entry
+                        break
+
+                if wfd_index < 0:
+                    return "not_found"
+
+                for entry in range(wfd_index, -1, -1):
+                    if "Downloading snapshot" in log_entries[entry]:
+                        snapshot_line = log_entries[entry]
+                        ordinal_value = snapshot_line.split('SnapshotOrdinal{value=')[1].split('}')[0]
+                        self.log.logger.debug(f"send_log --> found last ordinal before WaitingForDownload state changed = [{ordinal_value}]")
+                        return ordinal_value
+        else:
+            self.log.logger.error("send_log --> module unable to open or find log file.")
+            return "not_found"
+
 
     def prepare_and_send_logs(self):
         changed_ip = self.ip_address.replace(".","-")
@@ -117,11 +145,11 @@ class Send():
             tar_archive_dir = ""
             tar_creation_path = "/tmp/tess_logs"
 
-            tar_creation_origin = f"/var/tessellation/{self.profile}/"
+            tar_creation_origin = f"/var/tessellation/{self.profile}/logs/"
             if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log*"
             
             if path.isdir(tar_creation_path):
-                system(f"rm -rf {tar_creation_path} > /dev/null 2>&1")
+                rmtree(tar_creation_path)
             mkdir(tar_creation_path)
             
             with ThreadPoolExecutor() as executor:
@@ -131,6 +159,7 @@ class Send():
                 _ = executor.submit(self.functions.print_cmd_status,{
                     "text_start": "Transferring required files",
                     "dotted_animation": True,
+                    "timeout": False,
                     "status": "copying",
                     "status_color": "yellow"
                 })
@@ -138,8 +167,10 @@ class Send():
                 cmd = f"rsync -a {tar_creation_origin} {tar_creation_path}/ "
                 if not self.nodectl_logs:
                     cmd += f"--exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "
-                cmd += "> /dev/null 2>&1"
-                system(cmd)     
+                _ = self.functions.process_command({
+                    "bashCommand": cmd,
+                    "proc_action": "subprocess_devnull",
+                })   
 
                 self.functions.status_dots = False
                 self.functions.print_cmd_status({
@@ -187,13 +218,14 @@ class Send():
             _ = executor.submit(self.functions.print_cmd_status,{
                 "text_start": "Generating gzip tarball",
                 "dotted_animation": True,
+                "timeout": False,
                 "status": "creating",
                 "status_color": "yellow"
             })
                     
             self.functions.process_command({
                 "bashCommand": cmd,
-                "proc_action": "poll"
+                "proc_action": "subprocess_return_code"
             })
 
             self.functions.status_dots = False
@@ -267,11 +299,15 @@ class Send():
 
         # clean up
         self.log.logger.warn(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
-        system(f"sudo rm -rf {tar_package['tar_creation_path']} > /dev/null 2>&1")
+        rmtree(tar_package['tar_creation_path'])
 
         self.functions.print_paragraphs([
             ["Log tarball created and also located:",0,"green"],
-            [tar_dest,2]
+            [tar_dest,1],
+            ["file:",0,"green"],[tar_file_name,2],
+            ["You can also utilize the",0],["prepare_file_download",0,"yellow"],
+            ["command to setup this file for download to your local system.",1],
+            ["Command:",0,"magenta"], ["sudo nodectl prepare_file_download help",1,"yellow"],
         ])     
         
         

@@ -9,6 +9,12 @@ import subprocess
 import socket
 import validators
 import uuid
+import glob
+import distro
+import requests
+
+import pytz
+from tzlocal import get_localzone
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -21,6 +27,7 @@ from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
 from requests import get, Session
+from requests.exceptions import HTTPError, RequestException
 from subprocess import Popen, PIPE, call, run, check_output
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -33,12 +40,14 @@ from threading import Timer
 from platform import platform
 from urllib.parse import urlparse, urlunparse
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir, listdir, remove
+from os import system, getenv, path, walk, environ, get_terminal_size, scandir, listdir, remove, chmod, chown
+from pwd import getpwnam
+from grp import getgrnam
+from shutil import copy2, move
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
 from packaging import version
-from datetime import datetime
 from .troubleshoot.help import build_help
 from pycoingecko import CoinGeckoAPI
 
@@ -81,7 +90,7 @@ class Functions():
         # nodectl metagraph custom statics (main branch only) 
         self.nodectl_includes_url = f'https://github.com/StardustCollective/nodectl/tree/main/predefined_configs/includes'
         self.nodectl_includes_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs/includes"
-        
+        self.nodectl_download_url = f"https://github.com/stardustCollective/nodectl/releases/download/{self.node_nodectl_version}"
         # Tessellation reusable lists
         self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
         self.pre_consensus_list = ["DownloadInProgress","WaitingForReady","WaitingForObserving","Observing"]
@@ -184,7 +193,8 @@ class Functions():
             # coin_prices = {'bitcoin': {'usd': 43097}, 'constellation-labs': {'usd': 0.051318}, 'dor': {'usd': 0.04198262}, 'ethereum': {'usd': 2305.3}, 'lattice-token': {'usd': 0.119092}, 'quant-network': {'usd': 103.24}, 'solana': {'usd': 97.75}}
         except Exception as e:
             self.log.logger.error(f"coingecko response error | {e}")
-            cprint("  Unable to process CoinGecko results...","red")
+            if not self.auto_restart:
+                cprint("  Unable to process CoinGecko results...","red")
         else:
             # replace pricing list properly
             coin_prices = test_for_api_outage(coin_prices)
@@ -371,14 +381,15 @@ class Functions():
             pass
         else:
             ip_address = self.ip_address if ip_address == "127.0.0.1" or ip_address == "self" else ip_address
+            id_ip = ("ip","id") if len(ip_address) < 128 else ("id","ip")
             try:
                 for line in peers:
-                    if ip_address in line["ip"]:
+                    if ip_address in line[id_ip[0]]:
                         if pull_node_id:
-                            self.our_node_id = line['id']
+                            self.our_node_id = line[id_ip[1]]
                             return
                         node_online = True
-                        peer_list.append(line['ip'])
+                        peer_list.append(line[id_ip[0]])
                         peers_publicport.append(line['publicPort'])
                         pull_states(line)
                         state_list.append("*")
@@ -387,7 +398,7 @@ class Functions():
                         for state in node_states:
                             if state[0] in line["state"]:
                                 pull_states(line)
-                                peer_list.append(line['ip'])
+                                peer_list.append(line[id_ip[0]])
                                 peers_publicport.append(line['publicPort'])
                                 state_list.append(state[1])
             except Exception as e:
@@ -515,13 +526,19 @@ class Functions():
             service_name = service+".service"
             if service in self.profile_names:
                 service_name = f"cnng-{self.config_obj[service]['service']}"
-            service_status = system(f'systemctl is-active --quiet {service_name} > /dev/null 2>&1')
+
+            service_status = self.process_command({
+                "bashCommand": f"systemctl is-active --quiet {service_name}",
+                "proc_action": "subprocess_return_code",
+            })
+
             if service_status == 0:
-                self.config_obj["global_elements"]["node_service_status"][service] = "active (running)"
-            elif service_status == 768:
-                self.config_obj["global_elements"]["node_service_status"][service] = "inactive (dead)"
+                self.config_obj["global_elements"]["node_service_status"][service] = "active"
+            elif service_status == 768 or service_status == 3:
+                self.config_obj["global_elements"]["node_service_status"][service] = "inactive"
             else:
-                self.config_obj["global_elements"]["node_service_status"][service] = "error (exit code)"
+
+                self.config_obj["global_elements"]["node_service_status"][service] = f"exit code"
             self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] = service_status  
 
             for process in process_iter():
@@ -561,7 +578,12 @@ class Functions():
         old_time = command_obj.get("old_time",False)
         new_time = command_obj.get("new_time",False)
         time_part = command_obj.get("time_part",False)
-        format = command_obj.get("format", "%Y-%m-%d-%H:%M:%SZ")
+        time_zone = command_obj.get("time_zone",False)
+        format = command_obj.get("format",False)
+
+        if not format: 
+            format = command_obj.get("format", "%Y-%m-%d-%H:%M:%SZ")
+
         return_format = command_obj.get("return_format","string")
         
         if not new_time: new_time = datetime.now()
@@ -570,6 +592,12 @@ class Functions():
         if action == "date":
             return new_time.strftime("%Y-%m-%d")
         elif action == "datetime":
+            utc_now = datetime.now(pytz.utc)
+            if time_zone == "self":
+                local_now = utc_now.astimezone(get_localzone())
+                return local_now.strftime(format)
+            elif time_zone:
+                return utc_now.astimezone(pytz.timezone(time_zone)).strftime(format)
             return new_time.strftime(format)
         elif action == "get_elapsed":
             try: old_time = datetime.strptime(old_time, format)
@@ -621,6 +649,38 @@ class Functions():
             if getattr(test1, time_part) != getattr(test2, time_part):
                 return True  # There is a difference            
             return False
+        elif action == "valid_datetime":
+            unix = False
+            try: 
+                new_time = int(new_time)
+                unix = True
+            except: pass
+
+            date_formats = [
+                "%Y-%m-%d",
+                "%d-%m-%Y",
+                "%m/%d/%Y",
+                "%d/%m/%Y",
+                "%Y-%m-%d %H:%M:%S",
+                "%d-%m-%Y %H:%M:%S",
+                "%m/%d/%Y %H:%M:%S",
+                "%d/%m/%Y %H:%M:%S",
+                "%H:%M:%S",
+                "%H:%M",
+                "%Y-%m-%d.%H",
+                '%Y-%m-%d z%H%M', 
+                '%Y-%m-%d Z%H%M'
+            ]
+            for fmt in date_formats:
+                try:
+                    if unix:
+                        datetime.fromtimestamp(new_time)
+                    else:
+                        datetime.strptime(new_time, fmt)
+                    return True
+                except ValueError:
+                    continue
+            return False
         else:
             # if the action is default 
             return_val = new_time+timedelta(days=r_days)
@@ -629,7 +689,14 @@ class Functions():
         
         return return_val.strftime("%Y-%m-%d")
         
-                
+
+    def get_distro_details(self):
+        return {
+            "arch": self.get_arch(),
+            **distro.lsb_release_info()
+        }
+
+
     def get_arch(self):
         arch = platform()
         if "x86_64" in arch:
@@ -683,7 +750,8 @@ class Functions():
         max_range = command_obj.get("max_range",10)
         threaded = command_obj.get("threaded", False)
         cluster_info = []
-        
+        random_node = True
+
         if caller: self.log.logger.debug(f"get_info_from_edge_point called from [{caller}]")
             
         api_str = "/cluster/info"
@@ -701,29 +769,45 @@ class Functions():
             }
             
         while True:
-            try:
-                cluster_info = self.get_cluster_info_list({
-                    "ip_address": self.config_obj[profile]["edge_point"],
-                    "port": self.config_obj[profile]["edge_point_tcp_port"],
-                    "api_endpoint": api_str,
-                    "spinner": spinner,
-                    "error_secs": 3,
-                    "attempt_range": 7,
-                })
-            except Exception as e:
-                self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
-                
-            if not cluster_info:
-                if self.auto_restart:
-                    return False
-                self.error_messages.error_code_messages({
-                    "error_code": "fnt-725",
-                    "line_code": "lb_not_up",
-                    "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}'
-                })
+            for n in range(0,3):
+                try:
+                    cluster_info = self.get_cluster_info_list({
+                        "ip_address": self.config_obj[profile]["edge_point"],
+                        "port": self.config_obj[profile]["edge_point_tcp_port"],
+                        "api_endpoint": api_str,
+                        "spinner": spinner,
+                        "error_secs": 3,
+                        "attempt_range": 7,
+                    })
+                except Exception as e:
+                    self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
+                    
+                if not cluster_info and n > 1:
+                    if self.auto_restart:
+                        return False
+                    if random_node and self.config_obj["global_elements"]["use_offline"]:
+                        self.log.logger.warn("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
+                        random_node = False
+                        self.config_obj[profile]["edge_point"] = self.get_ext_ip()
+                        self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
+                        self.config_obj[profile]["static_peer"] = True 
+                    else:               
+                        self.error_messages.error_code_messages({
+                            "error_code": "fnt-725",
+                            "line_code": "lb_not_up",
+                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
+                            "extra2": self.config_obj[profile]["layer"],
+                        })
+                if not cluster_info and n > 2:
+                    sleep(.8)
+                else:
+                    break
                 
             cluster_info_tmp = deepcopy(cluster_info)
-            self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
+            try:
+                self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
+            except:
+                self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request no results")
             
             try:
                 cluster_info_tmp.pop()
@@ -732,17 +816,33 @@ class Functions():
                     self.log.logger.error("get_info_from_edge_point reached error while threaded, error skipped")
                     cprint("  error attempting to reach edge point","red")
                 else:
-                    self.error_messages.error_code_messages({
-                        "error_code": "fun-648",
-                        "line_code": "off-network",
-                    })
+                    if self.config_obj["global_elements"]["use_offline"]:
+                        return False
+                    else:
+                        self.error_messages.error_code_messages({
+                            "error_code": "fnt-648",
+                            "line_code": "off_network",
+                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
+                            "extra2": self.config_obj[profile]["layer"],
+                        })
+
             
             for n in range(0,max_range):
-                node = random.choice(cluster_info_tmp)
+                try:
+                    node = random.choice(cluster_info_tmp)
+                except:
+                    self.error_messages.error_code_messages({
+                        "error_code": "fnt-745",
+                        "line_code": "api_error",
+                        "extra": profile,
+                        "extra2": self.config_obj[profile]["edge_point"],
+                    })
+
                 if specific_ip:
+                    id_ip = "id" if len(specific_ip) > 127 else "ip"
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
                     for i_node in cluster_info_tmp:
-                        if specific_ip == i_node["ip"]:
+                        if specific_ip == i_node[id_ip]:
                             node = i_node
                             break
 
@@ -1049,7 +1149,6 @@ class Functions():
         environment = command_obj.get("environment","mainnet")
         profile = command_obj.get("profile",self.default_profile)
         return_values = command_obj.get("return_values",False) # list
-        # lookup_uri = command_obj.get("lookup_uri",f"https://{self.be_urls[environment]}/")
         lookup_uri = command_obj.get("lookup_uri",self.set_proof_uri({"environment":environment, "profile": profile}))
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
@@ -1108,7 +1207,8 @@ class Functions():
         excludes.append(command_obj.get("exclude_files",False)) # list
         
         possible_found = {}
-        
+        clean_up = {}
+
         for i_path in paths:
             try:
                 for file in files:
@@ -1117,17 +1217,20 @@ class Functions():
             except:
                 self.log.logger.warn(f"unable to process path search | [/{i_path}/]")
             
-        clean_up = copy(possible_found) 
+        for i, file in possible_found.items():
+            file = file.replace("//","/")
+            clean_up[i] = file
+        possible_found = deepcopy(clean_up)
+
         for n,exclude in enumerate(excludes):  
             if exclude:
                 for item in exclude:
                     for key, found in clean_up.items():
-                        if n < 1:
-                            if item == found[1:]:
+                        if item in found:
+                            try:
                                 possible_found.pop(key)
-                        else:
-                            if item in found:
-                                possible_found.pop(key)
+                            except:
+                                pass
                 
         return possible_found
     
@@ -1245,19 +1348,37 @@ class Functions():
 
         self.log.logger.warn("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
         yaml_data = {}
-        for filename in listdir(self.default_includes_path):
-            if filename.endswith('.yaml'):
-                filepath = path.join(self.default_includes_path, filename)
-                self.log.logger.info(f"config --> loading local [{filepath}] data into configuration.")
-                with open(filepath, 'r') as file:
-                    yaml_data = yaml.safe_load(file)
-                    self.config_obj["global_elements"] = {
-                        **self.config_obj["global_elements"],
-                        **yaml_data,
-                    }
+        try:
+            for filename in listdir(self.default_includes_path):
+                if filename.endswith('.yaml'):
+                    filepath = path.join(self.default_includes_path, filename)
+                    self.log.logger.info(f"functions -> get_includes -> loading local [{filepath}] data into configuration.")
+                    with open(filepath, 'r') as file:
+                        try:
+                            yaml_data = yaml.safe_load(file)
+                            self.config_obj["global_elements"] = {
+                                **self.config_obj["global_elements"],
+                                **yaml_data,
+                            }
+                        except Exception as e:
+                            self.log.logger.warn(f"functions -> get_includes -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
+                            continue
+        except Exception as e:
+            self.log.logger.warn("functions -> get_includes -> found possible empty includes, nothing to do")
 
         return
     
+
+    def get_version(self):
+        pass
+        # versioning = Versioning({
+        #     "config_obj": self.config_obj,
+        #     "show_spinner": False,
+        #     "print_messages": False,
+        #     "called_cmd": "functions",
+        # })     
+        # return versioning.get_version_obj()
+
 
     # =============================
     # setter functions
@@ -1305,6 +1426,7 @@ class Functions():
         # set default edge point
         profile = command_obj.get("profile",None)
         skip_error = command_obj.get("skip_error",False)
+        profiles_only = command_obj.get("profiles_only",False)
         self.default_profile = False
 
         if profile != "skip":
@@ -1347,14 +1469,25 @@ class Functions():
         try: self.profile_names.pop(self.profile_names.index("upgrader"))
         except ValueError: pass
         
+        if profiles_only: return
+
+        self.set_environment_names()
+        self.ip_address = self.get_ext_ip()
+
+        if not self.auto_restart: self.check_config_environment()
+                
+
+    def set_environment_names(self):
+        try:
+            _ = self.environment_names
+        except:
+            self.environment_names = list()
+
         for i_profile in self.profile_names:
             if self.config_obj[i_profile]["profile_enable"]:
                 self.environment_names.append(self.config_obj[i_profile]["environment"])
         self.environment_names = list(set(self.environment_names))
-        
-        self.ip_address = self.get_ext_ip()
-        if not self.auto_restart: self.check_config_environment()
-                
+
 
     def set_default_directories(self):
         # only to be set if "default" value is found
@@ -1412,24 +1545,33 @@ class Functions():
     def set_system_prompt(self,username):
         prompt_update = r"'\[\e[1;34m\]\u@Constellation-Node:\w\$\[\e[0m\] '"
         prompt_update = f"PS1={prompt_update}"
-        cmd = f'echo "{prompt_update}" | tee -a /home/{username}/.bashrc > /dev/null 2>&1'  
-        
+        bashrc_file = f"/home/{username}/.bashrc"
+
         is_prompt_there = self.test_or_replace_line_in_file({
-            "file_path": f"/home/{username}/.bashrc",
+            "file_path": bashrc_file,
             "search_line": "Constellation-Node",
         })
         if is_prompt_there and is_prompt_there != "file_not_found":
             self.test_or_replace_line_in_file({
-                "file_path": f"/home/{username}/.bashrc",
+                "file_path": bashrc_file,
                 "search_line": "Constellation-Node",
                 "replace_line": prompt_update,
             })
         elif is_prompt_there != "file_not_found":
-            system(cmd)   
+            if not path.exists(bashrc_file):
+                _ = self.process_command({
+                    "bashCommand": f"sudo touch {bashrc_file}",
+                    "proc_action": "subprocess_devnull",
+                }) 
+            with open(bashrc_file,"a") as file:
+                file.write(f"{prompt_update}\n")
         
-        system(f". /home/{username}/.bashrc > /dev/null 2>&1")   
+        _ = self.process_command({
+            "bashCommand": f"sudo -u {username} -i bash -c source /home/{username}/.bashrc",
+            "proc_action": "subprocess_return_code",
+        })
         
-        
+
     def set_request_session(self,json=False):
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -1438,10 +1580,9 @@ class Functions():
         }
         
         if json:
-            get_headers = {
-                **get_headers,
+            get_headers.update({
                 'Accept': 'application/json',
-            }
+            })
             
         session = Session()            
         session.headers.update(get_headers)   
@@ -1464,6 +1605,54 @@ class Functions():
 
         return console_size, console_setup
 
+
+    def set_chown(self,file_path,user,group):
+        chown(file_path, getpwnam(user).pw_uid, getgrnam(group).gr_gid)
+        return
+    
+
+    def set_time_sync(self):
+        self.log.logger.info("functions -> syncing system clock")
+        try:
+            result = self.process_command({
+                "bashCommand": "chronyc makestep",
+                "proc_action": "subprocess_run_pipe",
+            })
+        except:
+            self.log.logger.warn("functions -> unable to sync the clock with the network, skipping")
+            return False
+        else:
+            result = result.stdout.decode().strip()
+            self.log.logger.info(f"functions -> time sync'ed with network [{result}]")
+            if "OK" not in result:
+                return result
+            
+        try:
+            track_output = self.process_command({
+                "bashCommand": "chronyc tracking",
+                "proc_action": "subprocess_run_pipe",
+            })
+        except:
+            self.log.logger.warn("functions -> unable to sync the clock with the network, skipping")
+            return False
+        else:
+            track_output = track_output.stdout.decode().strip()
+            self.log.logger.info(f"functions -> track the time sync'ed with network [{track_output}]")
+        
+        try:
+            source_output = self.process_command({
+                "bashCommand": "chronyc sources -v",
+                "proc_action": "subprocess_run_pipe",
+            })
+        except:
+            self.log.logger.warn("functions -> unable to view sources of the clock with the network, skipping")
+            return False
+        else:
+            source_output = source_output.stdout.decode().strip()
+            self.log.logger.info(f"functions -> time source output sync'ed with network [{source_output}]")
+
+        return result, track_output, source_output
+        
     # =============================
     # pull functions
     # ============================= 
@@ -1529,16 +1718,35 @@ class Functions():
                 token = session[key]
             except Exception as e:
                 try:
-                    self.log.logger.warn(f"Load Balancer did not return a token | reason [{session['reason']} error [{e}]]")
+                    self.log.logger.warn(f"Peer did not return a token | reason [{session['reason']} error [{e}]]")
                     session_obj[f"session{i}"] = f"{i}"
                 except:
                     if self.auto_restart:
                         return False
-                    self.error_messages.error_code_messages({
-                        "error_code": "fnt-958",
-                        "line_code": "lb_not_up",
-                        "extra": command_obj['edge_device']['remote'],
-                    })
+                    try:
+                        return {
+                            "node0": nodes[0],
+                            "node1": nodes[1],
+                            "session0": 0,
+                            "session1": 0,
+                            "state0": "EdgePointDown", #remote
+                            "state1": "EdgePointDown" #local                        
+                        }
+                        # return {
+                        #     "node0": nodes[0],
+                        #     "node1": nodes[1],
+                        #     "session0": 0,
+                        #     "session1": 0,
+                        #     "state0": "NetworkUnreachable", #remote
+                        #     "state1": "NetworkUnreachable" #local                        
+                        # }
+                    except:
+                        self.error_messages.error_code_messages({
+                            "error_code": "fnt-958",
+                            "line_code": "lb_not_up",
+                            "extra": command_obj['edge_device']['remote'],
+                            "extra2": "0",
+                        })
             else:
                 session_obj[f"session{i}"] = token
                 
@@ -1590,7 +1798,7 @@ class Functions():
         ip_address = command_obj["ip_address"]
         wallet = command_obj["wallet"]
         environment = command_obj["environment"]
-        
+
         balance = 0
         return_obj = {
             "balance_dag": "unavailable",
@@ -1599,26 +1807,28 @@ class Functions():
             "token_symbol": "unknown"
         }
         
-        self.print_cmd_status({
-            "text_start": "Pulling DAG details from APIs",
-            "brackets": environment,
-            "status": "running",
-            "newline": True,
-        })
+        if not self.auto_restart:
+            self.print_cmd_status({
+                "text_start": "Pulling DAG details from APIs",
+                "brackets": environment,
+                "status": "running",
+                "newline": True,
+            })
 
-        if environment != "mainnet":
-            self.print_paragraphs([
-                [" NOTICE ",0,"red,on_yellow"], 
-                [f"Wallet balances on {environment} are fictitious",0],["$TOKENS",0,"green"], 
-                ["and will not be redeemable, transferable, or spendable.",2],
-            ])
+            if environment != "mainnet":
+                self.print_paragraphs([
+                    [" NOTICE ",0,"red,on_yellow"], 
+                    [f"Wallet balances on {environment} are fictitious",0],["$TOKENS",0,"green"], 
+                    ["and will not be redeemable, transferable, or spendable.",2],
+                ])
             
         with ThreadPoolExecutor() as executor:
             self.event = True
-            _ = executor.submit(self.print_spinner,{
-                "msg": f"Pulling Node balances, please wait",
-                "color": "magenta",
-            })                     
+            if not self.auto_restart:
+                _ = executor.submit(self.print_spinner,{
+                    "msg": f"Pulling Node balances, please wait",
+                    "color": "magenta",
+                })                     
 
             for n in range(5):
                 try:
@@ -1634,7 +1844,7 @@ class Functions():
                 except:
                     self.log.logger.error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
                     if n == 9:
-                        self.log.logger(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
+                        self.log.logger.warn(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
                 finally:
@@ -1913,8 +2123,17 @@ class Functions():
         required = command_obj.get("required",False)
 
         predefined_envs = []
-        
-        repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
+        try:
+            repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
+        except:
+            self.log.logger.error("functions --> pull_remote_profiles --> unable to access network.")
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-1993",
+                "line_code": "off_network",
+                "extra": path.split(self.nodectl_profiles_url)[0],
+                "extra2": "n/a",
+            })
+
         repo_profiles = repo_profiles["payload"]["tree"]["items"]
         metagraph_name, chosen_profile = None, None
         ordered_predefined_envs = ["mainnet","integrationnet","testnet"]
@@ -2180,15 +2399,18 @@ class Functions():
     # =============================      
     
     def is_new_version(self,current,remote,caller,version_type):
-        if version.parse(current) == version.parse(remote):
-            self.log.logger.info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
-            return False            
-        elif version.parse(current) > version.parse(remote):
-            self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
-            return "current_greater"
-        else:
-            self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
-            return "current_less"
+        try:
+            if version.parse(current) == version.parse(remote):
+                self.log.logger.info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                return False            
+            elif version.parse(current) > version.parse(remote):
+                self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                return "current_greater"
+            else:
+                self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                return "current_less"
+        except:
+            return "error"
     
     
     def is_version_valid(self,check_version):
@@ -2232,6 +2454,7 @@ class Functions():
     def test_ready_observing(self,profile):
         self.get_service_status()
         state = self.test_peer_state({
+            "caller": "test_ready_observing",
             "profile": profile,
             "simple": True,
         })
@@ -2253,7 +2476,6 @@ class Functions():
             
             
     def test_peer_state(self,command_obj):
-        # test_address=(str), current_source_node=(str), public_port=(int), simple=(bool)
         test_address = command_obj.get("test_address","127.0.0.1")
         caller = command_obj.get("caller","default")
         profile = command_obj.get("profile")
@@ -2292,23 +2514,26 @@ class Functions():
         if not current_source_node:
             try:
                 current_source_node = self.get_info_from_edge_point({
-                    "caller": "test_peer_state",
+                    "caller": caller,
                     "threaded": threaded,
                     "profile": profile,
                     "spinner": spinner,
                 })
             except IndexError as e:
-                self.log.logger.error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | current_source_node: {current_source_node} | e: {e}")
+                self.log.logger.error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | caller: [{caller}] current_source_node: [{current_source_node}] | e: {e}")
             except Exception as e:
-                self.log.logger.error(f"test_peer_state -> error retrieving get_info_from_edge_point | current_source_node: {current_source_node} | e: {e}")
+                self.log.logger.error(f"test_peer_state -> error retrieving get_info_from_edge_point | caller: [{caller}] | current_source_node: [{current_source_node}] | e: {e}")
                 send_error = (2160,e) # fnt-2160
-            
-        ip_addresses = prepare_ip_objs = [test_address,current_source_node]
+        
+        ip_addresses = [test_address,current_source_node]
+        ip_addresses = [x for x in ip_addresses if x]
+        prepare_ip_objs = deepcopy(ip_addresses)
+
         for n,ip in enumerate(prepare_ip_objs):
             if not isinstance(ip,dict):
                 try:
                     ip_addresses[n] = self.get_info_from_edge_point({
-                        "caller": "test_peer_state",
+                        "caller": caller,
                         "threaded": threaded,
                         "profile": profile,
                         "specific_ip": ip,
@@ -2322,12 +2547,19 @@ class Functions():
                     send_error = (2187,e) # fnt-2187
 
         if send_error and not self.auto_restart:
-            if caller not in ["versioning","status","quick_status"]:
+            if caller not in ["versioning","status","quick_status","skip_error"]:
                 print_test_error(send_error)
 
+        if send_error and not self.auto_restart and caller != "skip_error":
+            if caller in ["upgrade","install","quick_install","versioning"]:
+                if caller == "versioning":
+                    return send_error
+                else:
+                    print_test_error(send_error)
+            
         with ThreadPoolExecutor() as executor:
             do_thread = False
-            if not self.auto_restart:
+            if not self.auto_restart and threaded:
                 if not self.event and not skip_thread:
                     if print_output: self.print_clear_line()
                     self.event, do_thread = True, True
@@ -2491,16 +2723,16 @@ class Functions():
         # makes sure no left over file from esc'ed method
         def remove_temps():
             if path.isfile(temp):
-                system(f"sudo rm {temp} > /dev/null 2>&1") 
+                remove(temp) 
             if path.isfile(f"{temp}_reverse"):
-                system(f"sudo rm {temp}_reverse > /dev/null 2>&1")
+                remove(f"{temp}_reverse")
         
         remove_temps()
                 
         line_number, line_position = 0, 0       
         with open(temp,"w") as temp_file:
             if replace_line and not skip_backup:
-                system(f"cp {file_path} {backup_dir}{file}_{date} > /dev/null 2>&1")
+                copy2(file_path,f"{backup_dir}{file}_{date}")
             if all_first_last == "last":
                 for line in reversed(list(f)):
                     search_returns = search_replace(done,i_replace_line,line_position)
@@ -2534,7 +2766,7 @@ class Functions():
         f.close() # make sure closed properly                
                 
         if replace_line:
-            system(f"cp {temp} {file_path} > /dev/null 2>&1")
+            copy2(temp,file_path)
         # use statics to avoid accidental file removal
         remove_temps()
         
@@ -2585,6 +2817,21 @@ class Functions():
         # to test if this method is available
         return True         
     
+
+    def test_file_exists(self,root_path,file,ask=True):
+        if path.exists(f"{root_path}/{file}"):
+            cprint(f"  {root_path}/{file} already found","red")
+            if ask:
+                confirm = self.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": f"Overwrite existing?",
+                    "exit_if": False,
+                })
+                if confirm: return "override"
+            return True
+        return False
+     
     # =============================
     # create functions
     # =============================  
@@ -2656,13 +2903,17 @@ class Functions():
 
         if step > 0: 
             end_range = start+seconds
+            end_range_print = end_range
             if start == 1: end_range = end_range-1
         else: 
             start = seconds
+            end_range_print = start
             end_range = 0
 
         if phrase == None:
-            phrase = "to allow services to take effect"        
+            phrase = "to allow services to take effect"     
+        if end_phrase == None:
+            end_phrase = " "
 
         for s in range(start,end_range+1,step):
             if self.cancel_event: break
@@ -2673,7 +2924,7 @@ class Functions():
                     print(colored(f"  Pausing:","magenta"),
                             colored(f"{s}","yellow"),
                             colored("of","magenta"),
-                            colored(f"{end_range}","yellow"),
+                            colored(f"{end_range_print}","yellow"),
                             colored(f"seconds {phrase}","magenta"), end='\r')
                 elif p_type == "cmd":
                     self.print_cmd_status({
@@ -2684,7 +2935,7 @@ class Functions():
                     })
             sleep(1) 
 
-        self.print_clear_line()           
+        self.print_clear_line()        
             
             
     def print_states(self):
@@ -2730,7 +2981,7 @@ class Functions():
             single_bg = f"on_{single_bg}" 
 
         if clear:
-            system("clear")
+            _ = self.process_command({"proc_action": "clear"})
         if newline == "top" or newline == "both":
             print("")
                                     
@@ -2912,7 +3163,7 @@ class Functions():
     
     def print_option_menu(self,command_obj):
         options_org = command_obj.get("options")
-        options = copy(options_org) # options relative to self.profile_names
+        options = deepcopy(options_org) # options relative to self.profile_names
         let_or_num = command_obj.get("let_or_num","num")
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")
@@ -2984,10 +3235,18 @@ class Functions():
         p_type = command_obj.get("p_type","profile")
         title = command_obj.get("title",False)
         
-        p_type_list = self.environment_names
+        try:
+            p_type_list = self.environment_names
+        except:
+            self.set_environment_names()
+            p_type_list = self.environment_names
+
         if p_type == "profile" or p_type == "send_logs":
             p_type_list = self.profile_names
-            if p_type == "send_logs": p_type_list.append("nodectl")
+            if p_type == "send_logs": 
+                for p in p_type_list:
+                    p_type_list[p_type_list.index(p)] = f"{p} app logs"
+                p_type_list.append("nodectl logs")
             
         if not title:
             title = f"Press choose required {p_type}"
@@ -3021,7 +3280,11 @@ class Functions():
                 ["Command operation canceled by Node Operator",2,"green"],
             ])
             exit(0)
-            
+
+        if p_type == "send_logs": 
+            return_value = return_value.replace(" app logs","")
+            return_value = return_value.replace(" logs","")
+
         self.print_paragraphs([
             ["",1], [f" {return_value} ",2,"yellow,on_blue","bold"],
         ])
@@ -3266,8 +3529,12 @@ class Functions():
                 old_env = None
                 for profile in install_profiles:
                     env = self.config_obj[profile]["environment"]
-                    node_tess_version = self.version_obj[env][profile]['node_tess_version']
-                    if old_env != env:
+                    try:
+                        node_tess_version = self.version_obj[env][profile]['node_tess_version']
+                    except:
+                        node_tess_version = "not_found"
+
+                    if old_env != env and node_tess_version != "not_found":
                         self.help_text += f"\n  {env.upper()} TESSELLATION INSTALLED: [{colored(node_tess_version,'yellow')}]"
                     old_env = env
 
@@ -3311,8 +3578,24 @@ class Functions():
                     ]) 
         except:
             return                       
+
+
+    # =============================
+    # handlers
+    # =============================  
+
+    def handle_spinner_kill(self):
+        raise TerminateFunctionsException("spinner cancel")
     
+
+    def handle_missing_version(self,version_class_obj):
+        version_class_obj.functions = self
+        version_class_obj.config_obj = self.config_obj
+        version_class_obj.get_cached_version_obj()
+        
+        return version_class_obj.get_version_obj()   
     
+
     # =============================
     # miscellaneous
     # =============================  
@@ -3388,6 +3671,20 @@ class Functions():
         return [ x for x in profile_list_or_obj.keys() if "external" not in x]
 
     
+    def remove_duplicates(self, r_type, dicts_list):
+        if r_type == "list_of_dicts":
+            seen = set()
+            unique_dicts = []
+
+            for d in dicts_list:
+                dict_as_tuple = frozenset(d.items())
+                if dict_as_tuple not in seen:
+                    seen.add(dict_as_tuple)
+                    unique_dicts.append(d)
+        
+            return unique_dicts
+
+
     def cleaner(self, line, action, char=None):
         if action == "dag_count":
             cleaned_line = sub('\D', '', line)
@@ -3521,9 +3818,58 @@ class Functions():
                 self.print_clear_line()
                 
 
+    def remove_files(self, file_or_list, caller, is_glob=False):
+        files = file_or_list
+        result = True
+
+        if is_glob:
+            files = glob.glob(is_glob)
+        elif not isinstance(file_or_list,list):
+            files = [file_or_list]
+
+        for file in files:
+            try:
+                if is_glob:
+                    self.process_command({
+                        "bashCommand": f"sudo rm -f {file}",
+                        "proc_action": "subprocess_devnull",
+                    })
+                else:
+                    remove(file)
+            except OSError as e:
+                result = False
+                self.log.logger.error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")
+
+        return result
+    
+
+    def download_file(self,command_obj):
+        url = command_obj["url"]
+        local = command_obj.get("local",path.split(url)[1])
+        do_raise = False
+        try:
+            session = self.set_request_session()
+            session.verify = True
+            with session.get(url,stream=True) as response:
+                response.raise_for_status()
+                with open(local,'wb') as output_file:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        output_file.write(chunk)
+            self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
+        except HTTPError as e:
+            self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+            do_raise = True
+        except RequestException as e:
+            self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+            do_raise = True
+
+        if do_raise:
+            raise
+
+
     def process_command(self,command_obj):
         # bashCommand, proc_action, autoSplit=True,timeout=180,skip=False,log_error=False,return_error=False
-        bashCommand = command_obj.get("bashCommand")
+        bashCommand = command_obj.get("bashCommand",False)
         proc_action = command_obj.get("proc_action")
         
         autoSplit = command_obj.get("autoSplit",True)
@@ -3533,6 +3879,10 @@ class Functions():
         log_error = command_obj.get("log_error",False)
         return_error = command_obj.get("return_error",False)
         working_directory = command_obj.get("working_directory",None)
+        
+        if proc_action == "clear":
+            subprocess.run('clear', shell=True)
+            return
         
         if proc_action == "timeout":
             if working_directory == None:
@@ -3545,7 +3895,7 @@ class Functions():
                 timer.start()
                 # stdout, stderr = p.communicate()
             except Exception as e:
-                self.log.logger.error(f"function process command errored out with [{e}]")
+                self.log.logger.warn(f"function process command errored out with [{e}]")
             finally:
                 timer.cancel()
         
@@ -3565,30 +3915,77 @@ class Functions():
                 
             output, _ = results[-1].communicate()
             return output.decode()
-    
-            
+
         if proc_action == "subprocess_co":
-            output = subprocess.check_output(bashCommand, shell=True, text=True)
+            try:
+                output = subprocess.check_output(bashCommand, shell=True, text=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
             return output
         
         if proc_action == "subprocess_run":
             output = subprocess.run(shlexsplit(bashCommand), shell=True, text=True)
             return output
         
+        if proc_action == "subprocess_run_check_only":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), check=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = False
+            return output
+                
         if proc_action == "subprocess_run_pipe":
             try:
                 output = subprocess.run(shlexsplit(bashCommand), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = False
+            return output
+                
+        if proc_action == "subprocess_run_only":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand))
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
-        if proc_action == "subprocess_run_check":
+        if proc_action == "subprocess_return_code":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True)
-            except subprocess.CalledProcessError:
+                output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = e
+            return output.returncode
+        
+        if proc_action == "subprocess_devnull":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = False
+            return output  
+              
+        if proc_action == "subprocess_run_check_text":
+            try:
+                output = subprocess.run(shlexsplit(bashCommand), check=True, text=True)
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
-            
+
+        if proc_action == "subprocess_capture" or proc_action == "subprocess_rsync":
+            verb = "capture" if "capture" in proc_action else "rsync"
+            try:
+                result = subprocess.run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
+                self.log.logger.info(f"{verb} completed successfully.")
+            except subprocess.CalledProcessError as e:
+                self.log.logger.warn(f"{verb} failed. Error: {e.stderr}")
+            except Exception as e:
+                self.log.logger.warn(f"An error occurred: {str(e)}")
+            return result
+
         if autoSplit:
             bashCommand = bashCommand.split()
             
@@ -3611,7 +4008,7 @@ class Functions():
                                     stdout=PIPE,
                                     stderr=PIPE)
             except Exception as e:
-                self.log.logger.error(f"function process command errored out with [{e}]")
+                self.log.logger.warn(f"function process command errored out with [{e}]")
                 skip = True
            
         if not skip:     
@@ -3625,7 +4022,7 @@ class Functions():
             result, err = p.communicate()
 
             if err and log_error:
-                self.log.logger.error(f"process command [Bash Command] err: [{err}].")
+                self.log.logger.warn(f"process command [Bash Command] err: [{err}].")
                 
             if return_error:
                 return err.decode('utf-8')
@@ -3636,11 +4033,7 @@ class Functions():
             return result
         else:
             return    
-    
 
-    def handle_spinner_kill(self):
-        raise TerminateFunctionsException("spinner cancel")
-    
-    
+
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

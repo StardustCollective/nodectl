@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
 from os import system, path, environ, makedirs, listdir, chmod, remove
+from shutil import copy2, move
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
@@ -27,7 +28,7 @@ try:
     from ..shell_handler import ShellHandler
 except ImportError:
     # installation may be calling this Class which will not need
-    # the ShellHandler which would also cause a circular reference
+    # the ShellHandler and would also cause a circular reference
     pass
 
 class Configurator():
@@ -191,7 +192,7 @@ class Configurator():
         if action == "edit_config":
             self.config_obj_apply = {}
             if path.isfile(self.config_file_path):
-                system(f"sudo cp {self.config_file_path} {self.yaml_path} > /dev/null 2>&1")
+                copy2(self.config_file_path,self.yaml_path)
             else:
                 self.error_messages.error_code_messages({
                     "error_code": "cfr-101",
@@ -421,7 +422,7 @@ class Configurator():
                 "exit_if": True,            
             })
 
-            system("clear")
+            _ = self.c.functions.process_command({"proc_action": "clear"})
             print_scenarios()
             self.c.functions.print_paragraphs([
                 ["Most likely you are continuing because you decided that scenario",0,"green"],
@@ -453,7 +454,7 @@ class Configurator():
                 ])
                 self.c.functions.print_any_key({"prompt":"Press any key to continue"})
             else:
-                system("clear")
+                _ = self.c.functions.process_command({"proc_action": "clear"})
                 print_scenarios()
                 self.c.functions.print_paragraphs([
                     ["If you are here because of scenario",0,"green"], ["THREE",0,"red"], ["there may be a situation where you are migrating your node to",0,"green"],
@@ -489,7 +490,7 @@ class Configurator():
     
         if path.isfile(self.yaml_path):
             # clean up old file
-            system(f"sudo rm -f {self.yaml_path}")
+            remove(self.yaml_path)
             
         self.c.functions.print_cmd_status({
             "text_start": "building configuration skeleton",
@@ -520,7 +521,10 @@ class Configurator():
             "status": environment,
             "newline": True,
         })
-        system(f'sudo wget {environment_details[0]["yaml_url"]} -O {self.yaml_path} -o /dev/null')
+        self.c.functions.download_file({
+            "url": environment_details[0]["yaml_url"],
+            "local": self.yaml_path,
+        })
         self.metagraph_list = self.c.functions.clear_global_profiles(environment_details[0]["json"]["nodectl"])
         self.config_obj = environment_details[0]["json"]["nodectl"]
 
@@ -907,8 +911,9 @@ class Configurator():
                         "skip_backup": True,
                     })
                     
-        system(f"sudo cp {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
-        system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
+        copy2(self.yaml_path,self.config_file_path)
+        if path.isfile(self.yaml_path):
+            remove(self.yaml_path)
 
         if not self.quick_install:
             print("")
@@ -1272,6 +1277,18 @@ class Configurator():
             host_default = None; port_default = "80"; profile = self.profile_to_edit
             required = True
             
+        is_default = self.c.setup_config_vars({
+            "key": "default_edge",
+            "host": host_default,
+            "port": port_default,
+            "env": self.c.config_obj[profile]["environment"],
+            "graph": self.c.yaml_dict["nodectl"]["global_elements"]["metagraph_name"],
+            })
+        if is_default[0]:
+            host_default = "default"
+        if is_default[1]:
+            port_default = "default"
+            
         self.manual_section_header(profile,"EDGE POINTS") 
         
         default_desc = "You can use the word \"default\" to allow nodectl to use known default values."
@@ -1420,7 +1437,14 @@ class Configurator():
         profile = self.profile_to_edit if not profile else profile
         
         self.manual_section_header(profile,"COLLATERAL")
-        
+
+        is_default = self.c.setup_config_vars({
+            "key": "default_col",
+            "col": default,
+            "graph": self.c.yaml_dict["nodectl"]["global_elements"]["metagraph_name"],
+            })
+        if is_default: default = "default"
+
         description = "In order to participate on a cluster a Node may be required to hold collateral within the "
         description += "active (hot) wallet located on this Node.  In the event that collateral is waved or there is not a requirement "
         description += "to hold collateral, this value can be set to 0. Please contact administration to "
@@ -1487,7 +1511,18 @@ class Configurator():
                 "line_code": "invalid_layer",
                 "extra": self.c.config_obj["layer"]
             })
-            
+
+        is_default = self.c.setup_config_vars({
+            "key": "default_tcp",
+            "public_port": public_default,
+            "p2p_port": p2p_default,
+            "cli_port": cli_default,
+            "layer": self.c.config_obj[profile]["layer"],
+            })
+        if is_default[0]: public_default = "default"
+        if is_default[1]: p2p_default = "default"
+        if is_default[2]: cli_default = "default"
+
         self.manual_section_header(profile,"TCP PORTS") 
                             
         questions = {
@@ -1519,8 +1554,11 @@ class Configurator():
         self.c.functions.print_paragraphs([
             ["",1],[" WARNING ",0,"red,on_yellow"], ["You must now update your firewall settings to allow",0],
             ["ports",0], 
-            [f"{self.c.profile_obj[profile]['public_port']}, {self.c.profile_obj[profile]['p2p_port']}",0,"yellow"], 
+            [f"{self.c.config_obj[profile]['public_port']}, {self.c.config_obj[profile]['p2p_port']}",0,"yellow"], 
             ["through inbound via the ingress rules.",2],
+            ["Changing the service API ports forced a",0],
+            ["stop",0,"yellow"],["action on your Node, you will need to restart the service to return to the cluster.",1],
+            ["sudo nodectl restart -p",0,"blue","bold"],[profile,2,"blue","bold"],
         ])
         self.c.functions.print_any_key({"prompt":"Press any key to return to the main menu"})
         
@@ -1529,7 +1567,16 @@ class Configurator():
         default = None if not profile else self.c.config_obj[profile]["service"]
         required = True if not profile else False
         profile = self.profile_to_edit if not profile else profile
-        
+
+        is_default = self.c.setup_config_vars({
+            "key": "default_service",
+            "service": default,
+            "graph": self.c.yaml_dict["nodectl"]["global_elements"]["metagraph_name"],
+            "env": self.c.config_obj[profile]["environment"],
+            "layer": self.c.config_obj[profile]["layer"],
+            })
+        if is_default: default = "default"
+
         self.manual_section_header(profile,"SYSTEM SERVICES") 
         
         questions = {
@@ -1989,7 +2036,7 @@ class Configurator():
                 ["trust label ratings should not be configured on layer1 cluster profiles.",1,"red"],
             ])
             self.c.functions.print_any_key({}) 
-            system("clear")
+            _ = self.c.functions.process_command({"proc_action": "clear"})
             return False
         
         title_profile = self.profile_to_edit if not profile else profile
@@ -2191,51 +2238,75 @@ class Configurator():
 
                 
     def manual_build_memory(self,profile=False):
-        xms_default = "1024M"
-        xmx_default = None
-        xss_default = "256K"
-        required = True
-        if profile:
-            xms_default = self.c.config_obj[profile]["java_xms"]
-            xmx_default = self.c.config_obj[profile]["java_xmx"]
-            xss_default = self.c.config_obj[profile]["java_xss"]
-            required = False
-        else:
-            profile = self.profile_to_edit
-        
+        defaults, questions = False, False
         self.manual_section_header(profile,"JAVA MEMORY HEAPS")
-        
+
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["You can setup your Node to use the default java memory heap values.",1],
-                ["K",0,"yellow","underline"], ["for kilobytes,",0], ["M",0,"yellow","underline"], ["for Megabytes, and",0], ["G",0,"yellow","underline"], ["for Gigabytes.",1],
-                ["example:",0,"magenta"], ["1024M",2,"yellow"]
+                ["",1], ["You can setup your Node to use the default",0], ["java",0,"yellow"],
+                ["memory recommendations.",2,"magenta"],
             ])
+            
+        dir_default = self.c.functions.confirm_action({
+            "prompt": "Use defaults?",
+            "yes_no_default": "y",
+            "return_on": "y",
+            "exit_if": False
+        })
 
-        questions = {
-            "java_xms": {
-                "question": f"  {colored('Enter the java','cyan')} {colored('Xms','yellow')} {colored('desired value','cyan')}",
-                "description": "Xms is used for setting the initial and minimum heap size. The heap is an area of memory used to store objects instantiated by Node's java software running on the JVM.",
-                "required": False,
-                "default": xms_default,
-            },
-            "java_xmx": {
-                "question": f"  {colored('Enter the java','cyan')} {colored('Xmx','yellow')} {colored('desired value: ','cyan')}",
-                "description": "Xmx is used for setting the maximum heap size. Warning: the performance of the Node will decrease if the max heap value is set lower than the amount of live data. This can force your Node to perform garbage collections more frequently, because memory space may be needed more habitually.",
-                "required": required,
-                "default": xmx_default,
-            },
-            "java_xss": {
-                "question": f"  {colored('Enter the java','cyan')} {colored('Xss','yellow')} {colored('desired value','cyan')}",
-                "description": "Your Node will run multiple threads and these threads have their own stacks.  This parameter is used to limit how much memory a stack consumes.",
-                "required": False,
-                "default": xss_default
-            },
-        }
+        if dir_default:
+            self.c.functions.print_cmd_status({
+                "text_start": "Using defaults for java memory recommendations",
+                "status": "complete",
+                "newline": True,
+            })
+            defaults = {
+                "java_xms": "default",
+                "java_xmx": "default",
+                "java_xss": "default",
+            }  
+            print("")
+        else:
+            if profile:
+                xms_default = self.c.config_obj[profile]["java_xms"]
+                xmx_default = self.c.config_obj[profile]["java_xmx"]
+                xss_default = self.c.config_obj[profile]["java_xss"]
+                required = False
+            else:
+                profile = self.profile_to_edit
+        
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1], ["You can setup your Node to use the default java memory heap values.",1],
+                    ["K",0,"yellow","underline"], ["for kilobytes,",0], ["M",0,"yellow","underline"], ["for Megabytes, and",0], ["G",0,"yellow","underline"], ["for Gigabytes.",1],
+                    ["example:",0,"magenta"], ["1024M",2,"yellow"]
+                ])
+
+            questions = {
+                "java_xms": {
+                    "question": f"  {colored('Enter the java','cyan')} {colored('Xms','yellow')} {colored('desired value','cyan')}",
+                    "description": "Xms is used for setting the initial and minimum heap size. The heap is an area of memory used to store objects instantiated by Node's java software running on the JVM.",
+                    "required": False,
+                    "default": xms_default,
+                },
+                "java_xmx": {
+                    "question": f"  {colored('Enter the java','cyan')} {colored('Xmx','yellow')} {colored('desired value: ','cyan')}",
+                    "description": "Xmx is used for setting the maximum heap size. Warning: the performance of the Node will decrease if the max heap value is set lower than the amount of live data. This can force your Node to perform garbage collections more frequently, because memory space may be needed more habitually.",
+                    "required": required,
+                    "default": xmx_default,
+                },
+                "java_xss": {
+                    "question": f"  {colored('Enter the java','cyan')} {colored('Xss','yellow')} {colored('desired value','cyan')}",
+                    "description": "Your Node will run multiple threads and these threads have their own stacks.  This parameter is used to limit how much memory a stack consumes.",
+                    "required": False,
+                    "default": xss_default
+                },
+            }
         
         self.manual_append_build_apply({
             "questions": questions, 
-            "profile": profile
+            "profile": profile,
+            "defaults": defaults,
         })
         
         
@@ -2349,7 +2420,7 @@ class Configurator():
 
             user_confirm = True
             if confirm:
-                confirm_dict = copy(value_dict)
+                confirm_dict = deepcopy(value_dict)
                 if len(alternative_confirm_keys) > 0:
                     for new_key, org_key in alternative_confirm_keys.items():
                         confirm_dict[new_key] = confirm_dict.pop(org_key)
@@ -2508,7 +2579,7 @@ class Configurator():
                 "extra2": "existence",
             })
             
-        options = copy(self.c.metagraph_list) # don't want metagraph_list altered
+        options = deepcopy(self.c.metagraph_list) # don't want metagraph_list altered
         if self.requested_profile in options:
             choice = self.requested_profile
         else:
@@ -2914,10 +2985,14 @@ class Configurator():
 
             if not restart_error:
                 try:
-                    shell = ShellHandler(self.c.config_obj,False)
+                    shell = ShellHandler({
+                        "config_obj": self.c.config_obj
+                        },False)
                 except:
                     from ..shell_handler import ShellHandler
-                    shell = ShellHandler(self.c.config_obj,False)
+                    shell = ShellHandler({
+                        "config_obj": self.c.config_obj
+                        },False)
 
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
@@ -2952,7 +3027,10 @@ class Configurator():
                         "status": "enabling",
                         "status_color": "yellow",
                     })
-                    system('sudo systemctl enable node_restart@"enable" > /dev/null 2>&1')
+                    _ = self.c.functions.process_command({
+                        "bashCommand": 'sudo systemctl enable node_restart@"enable"',
+                        "proc_action": "subprocess_devnull",
+                    })
                     self.c.functions.print_cmd_status({
                         "text_start": "Enabling auto_restart on boot",
                         "status": "enabled",
@@ -2965,7 +3043,10 @@ class Configurator():
                         "status": "disabling",
                         "status_color": "yellow",
                     })
-                    system('sudo systemctl disable node_restart@"enable" > /dev/null 2>&1')
+                    _ = self.c.functions.process_command({
+                        "bashCommand": 'sudo systemctl disable node_restart@"enable"',
+                        "proc_action": "subprocess_devnull",
+                    })
                     self.c.functions.print_cmd_status({
                         "text_start": "Disabling auto_restart on boot",
                         "status": "disabled",
@@ -3221,7 +3302,8 @@ class Configurator():
             "text_start": "Update data link dependencies",
         })
 
-        system(f"mv {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
+        if path.exists(self.yaml_path):
+            move(self.yaml_path,self.config_file_path)
         
         self.c.functions.print_cmd_status({
             **progress,
@@ -3251,7 +3333,8 @@ class Configurator():
         self.c.functions.print_cmd_status(progress)
         self.log.logger.debug(f"configurator edit request - moving [{old_profile}] to [{new_profile}]")
         
-        try: system(f"mv /var/tessellation/{old_profile}/ /var/tessellation/{new_profile}/ > /dev/null 2>&1")
+        try: 
+            move(f"/var/tessellation/{old_profile}/",f"/var/tessellation/{new_profile}/")
         except:
             self.error_messages.error_code_messages({
                 "error_code": "cfr-2275",
@@ -3310,10 +3393,15 @@ class Configurator():
             
             if self.c.config_obj["global_auto_restart"]["auto_restart"] == True:
                 try:
-                    shell = ShellHandler(self.c.config_obj,False)
+                    shell = ShellHandler({
+                        "config_obj": self.c.config_obj
+                        },False)
                 except:
                     from ..shell_handler import ShellHandler
-                    shell = ShellHandler(self.c.config_obj,False)
+                    shell = ShellHandler({
+                        "config_obj": self.c.config_obj
+                        },False)
+
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 self.c.functions.print_cmd_status({
@@ -3355,17 +3443,24 @@ class Configurator():
 
     def perform_encryption(self,profile,encryption_obj,effp,pass3,caller):
         pass_key = "passphrase"
-        first_run, write_append = False, True
+        first_run, write_append, pass_error = False, True, False
 
         if profile != "global_p12":
             pass_key = "p12_passphrase"
             if self.c.config_obj[profile][pass_key] == "global":
                 return "skip","skip"
             
-        enc_pass = self.c.config_obj[profile][pass_key].strip()
-        enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+        try:
+            enc_pass = self.c.config_obj[profile][pass_key].strip()
+            enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+        except:
+            self.log.logger.error("Unable to find passphrase in configuration file.")
+            pass_error = True
 
         if caller != "configurator" and enc_pass == "None":
+            pass_error = True
+
+        if pass_error:
             self.error_messages.error_code_messages({
                 "error_code": "cfr-3092",
                 "line_code": "invalid_passphrase",
@@ -3383,7 +3478,6 @@ class Configurator():
         if self.quick_install or self.action == "install":
             pass3 = enc_pass
         else:
-            pass_correct = False
             if not pass3:
                 first_run = True
                 self.c.functions.print_paragraphs([
@@ -3468,7 +3562,8 @@ class Configurator():
     def passphrase_enable_disable_encryption(self,caller):
         self.log.logger.info("configurator -> encryption method envoked.")
 
-        if self.action != "install": system("clear")
+        if self.action != "install": 
+            _ = self.c.functions.process_command({"proc_action": "clear"})
 
         enable = False if self.c.config_obj["global_p12"]["encryption"] else True
 
@@ -3656,7 +3751,7 @@ class Configurator():
             if path.exists(effp): remove(effp)    
             sleep(.4) 
 
-            new_encryption_list = copy(encryption_list)
+            new_encryption_list = deepcopy(encryption_list)
             for profile in encryption_list:
                 if profile == "global_p12":
                     self.config_obj_apply = {
@@ -3676,7 +3771,7 @@ class Configurator():
                 else:
                     new_encryption_list.remove(profile)
 
-            encryption_list = copy(new_encryption_list)
+            encryption_list = deepcopy(new_encryption_list)
                         
         self.apply_vars_to_config()
         if not self.quick_install:
@@ -3731,7 +3826,7 @@ class Configurator():
                 if not path.isdir(backup_dir):
                     makedirs(backup_dir)
                 dest = f"{backup_dir}backup_cn-config_{c_time}"
-                system(f"cp {self.config_file_path} {dest} > /dev/null 2>&1")
+                copy2(self.config_file_path, dest)
                 self.c.functions.print_cmd_status({
                     **progress,
                     "status": "complete",
@@ -3849,9 +3944,13 @@ class Configurator():
                                     "color": "magenta",
                                     "newline": "both"
                                     })
-                                cmd = f"rsync -a {old_path} {new_path} > /dev/null 2>&1"
-                                system(cmd)
+
+                                _ = self.c.functions.process_command({
+                                    "bashCommand": f"rsync -a {old_path} {new_path}",
+                                    "proc_action": "subprocess_rsync",
+                                })
                                 self.c.functions.event = False
+
                                 clean_up = {
                                     "text_start": "Cleaning up directories",
                                     "brackets": directory_name,
@@ -3869,7 +3968,10 @@ class Configurator():
                                     "exit_if": False
                                 })
                                 if confirm:                                
-                                    system(f"rm -rf {old_path} > /dev/null 2>&1")
+                                    _ = self.c.functions.process_command({
+                                        "bashCommand": f"rm -rf {old_path}",
+                                        "proc_action": "subprocess_devnull",
+                                    })
                                     self.c.functions.print_cmd_status({
                                         **clean_up,
                                         "status": "complete",
@@ -3907,7 +4009,11 @@ class Configurator():
                     [f"review your Node's directory structure for abandoned {stype}.",2,"yellow"],
                     ["Profile Directories Found",2,"blue","bold"]
                 ])
-                if stype == "profiles": system("sudo tree /var/tessellation/ -I 'data|logs|nodectl|backups|uploads|*.jar|*seedlist'")
+                if stype == "profiles": 
+                    _ = self.functions.process_command({
+                        "bashCommand": "sudo tree /var/tessellation/ -I 'data|logs|nodectl|backups|uploads|*.jar|*seedlist'",
+                        "proc_action": "subprocess_run_check_only",
+                    })
             return True
         return False
                 
@@ -3957,7 +4063,10 @@ class Configurator():
             if not self.clean_profiles: self.skip_clean_profiles_manual = True 
             if self.clean_profiles:
                 for profile in clean_up_old_list:
-                    system(f"sudo rm -rf /var/tessellation/{profile} > /dev/null 2>&1")
+                    _ = self.c.functions.process_command({
+                        "bashCommand": f"sudo rm -rf /var/tessellation/{profile}",
+                        "proc_action": "subprocess_devnull",
+                    })
                     self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
@@ -4010,7 +4119,7 @@ class Configurator():
                         clean_up_old_list.append(old_profile)
                         self.log.logger.warn(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
         
-        clean_up_old_list2 = copy(clean_up_old_list)
+        clean_up_old_list2 = deepcopy(clean_up_old_list)
 
         for old_profile in clean_up_old_list2:
             try: # new config will fall into exception
@@ -4051,8 +4160,9 @@ class Configurator():
                 for profile in clean_up_old_list:
                     service = self.old_last_cnconfig[profile]["service"]
                     service_name = f"cnng-{service}.service"
-                    system(f"sudo rm -f /etc/systemd/system/{service_name} > /dev/null 2>&1")
-                    self.log.logger.info(f"configuration removed abandoned service file [{service_name}]")      
+                    if path.isfile(f"/etc/systemd/system/{service_name}"):
+                        remove(f"/etc/systemd/system/{service_name}")
+                        self.log.logger.info(f"configuration removed abandoned service file [{service_name}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
                         "brackets": service,
@@ -4083,11 +4193,12 @@ class Configurator():
         try:
             old_metagraph_list = self.c.functions.clear_global_profiles(self.old_last_cnconfig)
         except Exception as e:
+            self.log.logger.error(f"configurator -> metagraph list error [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "cfr-3215",
                 "line_code": "config_error",
                 "extra": "configurator",
-                "extra2": e,
+                "extra2": "unable to open old configuration",
             })
            
         for profile in old_metagraph_list:
@@ -4132,7 +4243,10 @@ class Configurator():
                             self.c.functions.print_cmd_status({
                                 **progress
                             })
-                            system(f"sudo rm -rf {lookup_path} > /dev/null 2>&1")
+                            _ = self.c.functions.process_command({
+                                "bashCommand": f"sudo rm -rf {lookup_path}",
+                                "proc_action": "subprocess_devnull",
+                            })
                             sleep(1)
                             self.c.functions.print_cmd_status({
                                 **progress,
@@ -4251,7 +4365,7 @@ class Configurator():
             else:
                 break
       
-        iuuid_int_list2 = copy(iuuid_int_list)
+        iuuid_int_list2 = deepcopy(iuuid_int_list)
         iuuid_int_list2 = list(enumerate(iuuid_int_list2))
         random.shuffle(iuuid_int_list2)
         iuuid_int_list3 = ":" + ''.join('{:X}{:X}'.format(x, y) for x, y in iuuid_int_list2)
@@ -4376,7 +4490,9 @@ class Configurator():
 
     def quit_configurator(self,requested=True):
         self.move_config_backups()
-        if path.isfile(self.yaml_path): system(f"rm -f {self.yaml_path} > /dev/null 2>&1")
+        if path.isfile(self.yaml_path): 
+            if path.isfile(self.yaml_path):
+                remove(self.yaml_path)
         if requested:
             cprint("  Configurator exited upon Node Operator request","green")
         exit(0)  
@@ -4440,8 +4556,9 @@ class Configurator():
                     if line == end_line: check_for_update = False
                             
         f.close()
-        system(f"sudo cp {self.yaml_path} {self.config_file_path} > /dev/null 2>&1")
-        if remove_yaml: system(f"sudo rm -f {self.yaml_path} > /dev/null 2>&1")
+        copy2(self.yaml_path,self.config_file_path)
+        if remove_yaml and path.isfile(self.yaml_path): 
+            remove(self.yaml_path)
         if list_of_lines:
             self.c.functions.print_cmd_status({
                 "text_start": f"Configuration changes {'appended' if append else 'removed'}",
@@ -4515,7 +4632,10 @@ class Configurator():
                 ])
                 self.c.functions.print_any_key({})
         else:
-            system(f"mv {self.config_path}backup_cn-config_* {backup_dir} > /dev/null 2>&1")
+            _ = self.c.functions.process_command({
+                "bashCommand": f"mv {self.config_path}backup_cn-config_* {backup_dir}",
+                "proc_action": "subprocess_devnull",
+            })
             self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
     
                           

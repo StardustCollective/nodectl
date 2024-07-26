@@ -23,7 +23,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.13.0"
+        nodectl_version = "v2.14.1"
         nodectl_yaml_version = "v2.1.1"
                 
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
@@ -69,12 +69,12 @@ class Versioning():
             "node_nodectl_yaml_version": nodectl_yaml_version,  
             "node_upgrade_path_yaml_version": node_upgrade_path_yaml_version,          
         }
-        self.version_obj = copy(self.nodectl_static_versions)
+        self.version_obj = deepcopy(self.nodectl_static_versions)
         self.version_obj["nodectl_github_version"] = f'nodectl_{self.version_obj["node_nodectl_version"].replace(".","")}'
         self.version_obj_path = "/var/tessellation/nodectl/"
         self.version_obj_file = f"{self.version_obj_path}version_obj.json"
 
-        init_only = ["verify_nodectl","_vn","-vn","uninstall"]
+        init_only = ["verify_nodectl","_vn","-vn","uninstall","setup_only"]
         if self.called_cmd in init_only: return
         
         self.execute_versioning()
@@ -204,17 +204,22 @@ class Versioning():
             self.log.logger.debug(f"versioning - version test obj | [{test_obj}]")
             state = self.functions.test_peer_state(test_obj)
             
+            if isinstance(state,tuple):
+                self.log.logger.warn(f"versioning -> error detected [code:{state[0]}] with [{state[1]}] so the version object was not updated.  This could lead to invalid output from nodectl, or unexpected outcomes; however, most of the time this will not affect nodectl administration.")
+                return
+            
             if state == "ApiNotResponding" and self.called_cmd == "uvos": 
                 # after installation there should be a version obj already created
                 # no need to update file while Node is not online.
                 self.log.logger.warn(f"versioning - versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")
-                exit(0)
+                exit(0)                    
                     
             if self.show_spinner:  
                 self.functions.event = True
                 _ = executor.submit(self.functions.print_spinner,{
                     "msg": "Gathering Tessellation version info",
                     "color": "magenta",
+                    "timeout": 15,
                 }) 
           
             # get cluster Tessellation
@@ -336,8 +341,21 @@ class Versioning():
                     ]
                     for versions in up_to_date:
                         test = self.functions.is_new_version(versions[1],versions[2],"versioning module",versions[3])
-                        if not test: test = True
-                        if versions[0] == "nodectl_uptodate": version_obj[environment]["nodectl"]["nodectl_uptodate"] = test
+                        if not test: 
+                            test = True
+                        if versions[0] == "nodectl_uptodate":
+                            version_obj[environment]["nodectl"]["nodectl_uptodate"] = test
+                        if test == "error":
+                            if self.service_uvos: 
+                                self.log.logger.error("versioning --> uvos -> unable to determine versioning, stopping service updater, versioning object not updated.")
+                                exit(1)
+                            self.log.logger.critical("versioning --> unable to determine versioning, skipping service updater.")
+                            # force a controlled error if possible
+                            self.functions.test_peer_state({
+                                **test_obj,
+                                "caller": "versioning",
+                            })
+                            return # if test passes
                         else: env_version_obj[profile][f"{versions[0]}"] = test
 
                     version_obj[environment] = {

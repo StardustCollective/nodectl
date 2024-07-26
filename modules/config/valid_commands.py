@@ -19,12 +19,16 @@ def pull_valid_command():
         "dag",
         "disable_root_ssh",
         "download_status",
+        "display_snapshot_chain",
 
         "enable_root_ssh",     
         "export_private_key",
+        "execute_starchiver",
+        "execute_tests",
 
         "find",
-        "execute_starchiver",
+
+        "getting_started",
 
         "help",
         "health",
@@ -43,10 +47,12 @@ def pull_valid_command():
 
         "nodeid",
         "nodeid2dag",
+        "node_last_snapshot",
         
         "peers",
         "passwd12",
         "price",
+        "prepare_file_download",
 
         "quick_status",
 
@@ -55,7 +61,6 @@ def pull_valid_command():
         "restart",
         "restart_only",
         "restore_config",
-        "remove_snapshots",
 
         "show_service_status",
         "show_service_log",
@@ -70,7 +75,9 @@ def pull_valid_command():
         "show_p12_details",
         "show_node_proofs",
         "show_cpu_memory",
+        "show_profile_issues",
         "sec",
+        "sync_node_time",
 
         "upgrade",
         "upgrade_nodectl",
@@ -79,6 +86,7 @@ def pull_valid_command():
         "uninstall",
         "uptime",
         "update_seedlist",
+        "update_version_object",
 
         "view_config",
         "validate_config",
@@ -89,21 +97,21 @@ def pull_valid_command():
 
     service_cmds = [
         "service_restart",
-        "uvos",
+        "uvos","test_only",
     ]
     valid_short_cuts = [
         "_sr","_s","_qs","_cv","_vc","_val","_cf",
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
         "_sde","_usl","_con","_cmf","_spd",
-        "log","prices","markets","_sss",
+        "log","prices","markets","_sss","_snt",
     ]
     
     removed_cmds = [
         "clear_uploads","_cul","_cls","clear_logs",
         "clear_snapshots","clear_backups",
         "reset_cache","_rc","clean_snapshots","_cs",
-        "upgrade_nodectl_testnet",
+        "upgrade_nodectl_testnet","remove_snapshots",
     ]
     
     return (valid_commands,valid_short_cuts,service_cmds,removed_cmds)

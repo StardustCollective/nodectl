@@ -6,7 +6,10 @@ from time import sleep, time
 from random import randint
 from re import match
 from os import system, path, get_terminal_size, makedirs, listdir
+from shutil import copy2, move
 from sys import exit
+from glob import glob
+from shlex import quote
 
 from .migration import Migration
 from ..functions import Functions
@@ -40,9 +43,10 @@ class Configuration():
         self.config_obj = {}
         self.error_list = []
         
-        self.error_found = False  # for configurator
-        self.configurator_verified = False # for configurator
-        
+        # for configurator
+        self.error_found = False
+        self.configurator_verified = False 
+
         self.auto_restart = True if "auto_restart" in self.argv_list or "service_restart" in self.argv_list else False
 
         try:
@@ -143,6 +147,7 @@ class Configuration():
             self.print_report()
 
         self.functions.get_includes()
+        self.cleanup_backups()
         if self.action not in continue_list:
             exit(0)
         if self.action == "edit_on_error":
@@ -290,7 +295,7 @@ class Configuration():
     def yaml_passphrase_fix(self):
         temp_file = "/var/tmp/cn-config_temp.yaml"
         skip_values = ["None","global",'"']
-        system(f"cp {self.yaml_file} {temp_file} > /dev/null 2>&1")
+        copy2(self.yaml_file,temp_file)
         y_file = self.yaml_file.split("/")[-1]
         return_value = False
         
@@ -320,8 +325,9 @@ class Configuration():
                 fix_yaml.write(line)
 
         f.close()
-        
-        system(f"mv {temp_file} {self.yaml_file} > /dev/null 2>&1")
+
+        if path.isfile(temp_file):
+            move(temp_file,self.yaml_file)
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -546,7 +552,7 @@ class Configuration():
                 "mainnet": "mainnet.constellationnetwork.io",
                 "testnet": "testnet.constellationnetwork.io",
                 "integrationnet": "integrationnet.constellationnetwork.io",
-                "dor-metagraph": "54.191.143.191",
+                "dor-metagraph": "dor-metagraph-mainnet-568250314.us-west-2.elb.amazonaws.com",
             },
             "seed_file": {
                 "dor-metagraph": {
@@ -610,6 +616,33 @@ class Configuration():
             if one_off["key"] == "edge_point":
                 handle_edge_point(one_off["profile"], one_off["environment"], one_off["environment"])
                 return
+            if one_off["key"] == "default_edge":
+                host_default, port_default  = False, False
+                try:
+                    if defaults["edge_point"][one_off["env"]] in one_off["host"]:
+                        host_default = True
+                    if defaults["edge_point_tcp_port"][one_off["graph"]] == one_off["port"]:
+                        port_default = True
+                except: pass
+                return (host_default,port_default)
+            if one_off["key"] == "default_col":
+                try:
+                    return True if defaults["collateral"][one_off["graph"]] == one_off["col"] else False
+                except: return False
+            if one_off["key"] == "default_service":
+                try:
+                    service = defaults["service"][one_off["graph"]]
+                    service = service[one_off["env"]]
+                    service = f"{service}{one_off['layer']}"
+                    return service if service == one_off["service"] else False 
+                except: return False                                               
+            if one_off["key"] == "default_tcp":
+                result_set = list()
+                try:
+                    for port in ["public_port","p2p_port","cli_port"]:
+                        result_set.append(True if defaults[port][one_off["layer"]] == one_off[port] else False)
+                    return result_set
+                except: return (False,False,False)                                               
 
         try:
             self.config_obj["global_p12"]["key_store"] = self.create_path_variable(
@@ -700,9 +733,8 @@ class Configuration():
                             except:
                                 # hypergraph exception
                                 self.config_obj[profile][tdir] = "github.com/Constellation-Labs/tessellation/"
-                        elif tdir == "edge_point":
-                            if tdir == "edge_point": 
-                                handle_edge_point(profile,environment, metagraph_name)
+                        elif "edge_point" in tdir:
+                            handle_edge_point(profile,environment, metagraph_name)
                         elif tdir == "seed_location":
                             self.config_obj[profile][tdir] = f"{def_value}/{profile}"
                             self.config_obj[profile][tdir] = self.functions.cleaner(self.config_obj[profile][tdir],"double_slash")
@@ -829,6 +861,7 @@ class Configuration():
                 error_found("profile",e.args[0],value,profile)
                 
             self.config_obj[profile]["p12_validated"] = False # initialize to False
+            self.config_obj[profile]["static_peer"] = False # initialize to False
         
         if "install" in self.action:
             return self.config_obj
@@ -1039,7 +1072,8 @@ class Configuration():
                                 newfile.write(line)
                     newfile.close()
                     f.close()
-                    system(f"mv /var/tmp/cn-config-temp.yaml {self.functions.nodectl_path}cn-config.yaml > /dev/null 2>&1")
+                    if path.isfile("/var/tmp/cn-config-temp.yaml"):
+                        move("/var/tmp/cn-config-temp.yaml",f"{self.functions.nodectl_path}cn-config.yaml")
 
         except Exception as e:
             self.error_messages.error_code_messages({
@@ -1148,6 +1182,7 @@ class Configuration():
                 ["global_p12_encryption","bool"], # automated value [not part of yaml]
                 ["global_p12_key_alias","bool"], # automated value [not part of yaml]
                 ["global_p12_cli_pass","bool"], # automated value [not part of yaml]
+                ["static_peer","bool"], # automated value [not part of yaml]
             ],
             "global_auto_restart": [
                 ["auto_restart","bool"],
@@ -1175,6 +1210,7 @@ class Configuration():
                 ["includes","bool"],
                 ["developer_mode","bool"],  
                 ["log_level","log_level"],
+                ["use_offline","bool"],
             ]
         }
         
@@ -1226,7 +1262,7 @@ class Configuration():
     def validate_yaml_keys(self):
         missing_list = []
         not_in_list = [
-            "seed_path","pro_rating_path",
+            "seed_path","pro_rating_path","static_peer",
             "gl0_link_is_self","ml0_link_is_self",
             "p12_key_store","jar_github", "jar_path",
         ]
@@ -1247,7 +1283,7 @@ class Configuration():
                 profile, missing_key = error
                 self.error_list.append({
                     "title": "invalid cn-config.yaml",
-                    "section": "metagraph profiles",
+                    "section": "hypergraph/metagraph profiles",
                     "profile": profile,
                     "missing_keys": missing_key, 
                     "key": None,
@@ -1302,6 +1338,7 @@ class Configuration():
     def validate_global_setting(self):
         # key_name, passphrase, and alias all have to match if set to global
         self.config_obj["global_elements"]["all_global"] = True
+        self.config_obj["global_elements"]["use_offline"] = True
         # global_p12_keys = ["key_name","passphrase","key_alias"] # test to make sure if one key is global all must be
         global_p12_keys = ["key_name","passphrase"] # test to make sure if one key is global all must be
 
@@ -1485,112 +1522,120 @@ class Configuration():
             "self_port": range(1024,65535),
         }
         
-        for section, section_types in self.schema.items():
-            if "global" in section and not self.skip_global_validation:
-                profile = section
-            for key, test_value in self.config_obj[profile].items():
-                for section_key, req_type in section_types:
-                    if key == section_key: 
-                        validated = False
-                        
-                        if skip_validation:
-                            if "gl0_link" in key or "ml0_link" in key: validated = True
-                            else: skip_validation = False
-                        
-                        if req_type in valuation_dict.keys():
-                            try: validated = isinstance(test_value,valuation_dict[req_type])   
-                            except Exception as e:
-                                for value in valuation_dict[req_type]:
-                                    if test_value == value:
-                                        validated = True
-                                        break
-                                    title = "invalid range"
-                            if not validated: 
-                                title = "invalid type"
-                            if "key_name" in key and req_type == "str":
-                                if test_value[-4::] != ".p12": title = "missing .p12 extension"
-                                else: validated = True
-                            if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
-                                skip_validation = True
-                            if "passphrase" in key and test_value != "none" and req_type != "bool":
-                                if test_value == None:
-                                    title = "invalid passphrase format entered as blank"
-                                elif "'" in test_value or '"' in test_value:
-                                    title = "invalid single and or double quotes in passphrase"
-                            if (key == "gl0_link_port" or key == "ml0_link_port") and test_value == "self":
-                                validated = True
+        try:
+            for section, section_types in self.schema.items():
+                if "global" in section and not self.skip_global_validation:
+                    profile = section
+                for key, test_value in self.config_obj[profile].items():
+                    for section_key, req_type in section_types:
+                        if key == section_key: 
+                            validated = False
                             
-                        elif "host" in req_type:
-                            if req_type == "host_def" and test_value == "default": validated = True
-                            elif req_type == "host_def_dis" and test_value == "disable": validated = True
-                            elif self.functions.test_hostname_or_ip(test_value,False) or test_value == "self": validated = True
-                            else: title = "invalid host or ip"
-                        
-                        elif req_type == "128hex":
-                            pattern = "^[a-fA-F0-9]{128}$"
-                            if not match(pattern,test_value) and test_value != "self": title = "invalid nodeid"
-                            else: validated = True 
-                        
-                        elif req_type == "wallet":
-                            pattern = "^DAG[0-9][A-Za-z0-9]{36}"
-                            if test_value == "global" or test_value == "disable": validated = True
-                            elif not match(pattern,test_value): title = "invalid token identifier"
-                            else: validated = True 
+                            if skip_validation:
+                                if "gl0_link" in key or "ml0_link" in key: validated = True
+                                else: skip_validation = False
+                            
+                            if req_type in valuation_dict.keys():
+                                try: validated = isinstance(test_value,valuation_dict[req_type])   
+                                except Exception as e:
+                                    for value in valuation_dict[req_type]:
+                                        if test_value == value:
+                                            validated = True
+                                            break
+                                        title = "invalid range"
+                                if not validated: 
+                                    title = "invalid type"
+                                if "key_name" in key and req_type == "str":
+                                    if test_value[-4::] != ".p12": title = "missing .p12 extension"
+                                    else: validated = True
+                                if (key == "gl0_link_enable" or key == "ml0_link_enable") and not test_value:
+                                    skip_validation = True
+                                if "passphrase" in key and test_value != "none" and req_type != "bool":
+                                    if test_value == None:
+                                        title = "invalid passphrase format entered as blank"
+                                    elif "'" in test_value or '"' in test_value:
+                                        title = "invalid single and or double quotes in passphrase"
+                                if (key == "gl0_link_port" or key == "ml0_link_port") and test_value == "self":
+                                    validated = True
                                 
-                        elif req_type == "list_of_strs":
-                            title = "invalid list of strings"
-                            if isinstance(test_value,list): validated = True
-                            if validated:
-                                for v in test_value:
-                                    if not isinstance(v,str):
-                                        validated = False
-                                        break                          
+                            elif "host" in req_type:
+                                if req_type == "host_def" and test_value == "default": validated = True
+                                elif req_type == "host_def_dis" and test_value == "disable": validated = True
+                                elif self.functions.test_hostname_or_ip(test_value,False) or test_value == "self": validated = True
+                                else: title = "invalid host or ip"
+                            
+                            elif req_type == "128hex":
+                                pattern = "^[a-fA-F0-9]{128}$"
+                                if not match(pattern,test_value) and test_value != "self": title = "invalid nodeid"
+                                else: validated = True 
+                            
+                            elif req_type == "wallet":
+                                pattern = "^DAG[0-9][A-Za-z0-9]{36}"
+                                if test_value == "global" or test_value == "disable": validated = True
+                                elif not match(pattern,test_value): title = "invalid token identifier"
+                                else: validated = True 
+                                    
+                            elif req_type == "list_of_strs":
+                                title = "invalid list of strings"
+                                if isinstance(test_value,list): validated = True
+                                if validated:
+                                    for v in test_value:
+                                        if not isinstance(v,str):
+                                            validated = False
+                                            break                          
 
-                        elif "path" in req_type:
-                            # global paths replaced already
-                            try:
-                                if "path" in key: validated = True # dynamic value skip validation
-                                if "path_def" in req_type and test_value == "default": validated = True
-                                elif req_type == "path_def_dis" and test_value == "disable": validated = True
-                                elif path.isdir(test_value): validated = True
-                                elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
-                                    title = f"{test_value} is an invalid keyword for layer0"
-                                elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
-                                elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
-                                    title = f"{test_value} is an invalid keyword"
-                                elif not path.isdir(test_value): title = "invalid or path not found"
+                            elif "path" in req_type:
+                                # global paths replaced already
+                                try:
+                                    if "path" in key: validated = True # dynamic value skip validation
+                                    if "path_def" in req_type and test_value == "default": validated = True
+                                    elif req_type == "path_def_dis" and test_value == "disable": validated = True
+                                    elif path.isdir(test_value): validated = True
+                                    elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
+                                        title = f"{test_value} is an invalid keyword for layer0"
+                                    elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
+                                    elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
+                                        title = f"{test_value} is an invalid keyword"
+                                    elif not path.isdir(test_value): title = "invalid or path not found"
+                                    else: validated = True
+                                except KeyError as e:
+                                    self.log.logger.debug(f"config -> configuration object missing keys | error [{e}]")
+                                    validated = False
+                                    title = "invalid configuration file"
+                                except Exception as e:
+                                    self.log.logger.debug(f"config -> configuration profile types issue | error [{e}]")
+                                    validated = False
+                                    title = "invalid configuration file"
+                                    
+                            elif req_type == "mem_size":
+                                if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
                                 else: validated = True
-                            except KeyError as e:
-                                self.log.logger.debug(f"config -> configuration object missing keys | error [{e}]")
-                                validated = False
-                                title = "invalid configuration file"
-                            except Exception as e:
-                                self.log.logger.debug(f"config -> configuration profile types issue | error [{e}]")
-                                validated = False
-                                title = "invalid configuration file"
-                                
-                        elif req_type == "mem_size":
-                            if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
-                            else: validated = True
-                        
-                        elif req_type == "log_level":
-                            levels = ["NOTSET","DEBUG","INFO","WARN","ERROR","CRITICAL"]
-                            if test_value.upper() not in levels: title = "invalid log level"
-                            else: validated = True
                             
-                        if not validated:
-                            self.validated = False
-                            return_on_validated = False
-                            self.error_list.append({
-                                "title": title,
-                                "section": section,
-                                "profile": profile,
-                                "type": req_type,
-                                "key": key,
-                                "value": test_value,
-                                "special_case": special_case
-                            })        
-                    
+                            elif req_type == "log_level":
+                                levels = ["NOTSET","DEBUG","INFO","WARN","ERROR","CRITICAL"]
+                                if test_value.upper() not in levels: title = "invalid log level"
+                                else: validated = True
+                                
+                            if not validated:
+                                self.validated = False
+                                return_on_validated = False
+                                self.error_list.append({
+                                    "title": title,
+                                    "section": section,
+                                    "profile": profile,
+                                    "type": req_type,
+                                    "key": key,
+                                    "value": test_value,
+                                    "special_case": special_case
+                                })        
+        except:
+            self.log.logger.critical("config -> unable to validate configuration.  Corrupt or invalid.")
+            self.error_messages.error_code_messages({
+                "error_code": "cfg-1597",
+                "line_code": "config_error",
+                "extra": "format",
+            })   
+                     
         if return_on:
             return return_on_validated
         if not return_on_validated: 
@@ -1652,7 +1697,23 @@ class Configuration():
                 "special_case": None,
             })  
             
-                             
+
+    def cleanup_backups(self):
+        try:
+            profile = self.functions.clear_global_profiles(self.config_obj)[0]
+        except:
+            self.log.logger.warn("config --> unable to determine backup location, skipping cleanup.")
+            return
+        
+        source = glob("/var/tessellation/nodectl/*backup*")
+        for file in source:
+            bashCommand = f"sudo mv {quote(file)} {quote(self.config_obj[profile]['directory_backups'])}"
+            _ = self.functions.process_command({
+                "bashCommand": bashCommand,
+                "proc_action": "subprocess_devnull",
+            })
+
+
     def print_report(self):
         if self.skip_final_report:
             return
