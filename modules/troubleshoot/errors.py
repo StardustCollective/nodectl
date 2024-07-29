@@ -52,6 +52,7 @@ from .logger import Logging
 #     nodeid2dag
 #     config
 # new_connect_error
+# network_error
 
 # off_network
 # open_file
@@ -220,6 +221,18 @@ class Error_codes():
                 ["To continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
                 ["Please see the Constellation documentation portal for more details.",2],
                 ["https://docs.constellationnetwork.io/validate/",2],
+            ])
+                        
+                        
+        elif "network_error" in str(var.line_code):
+            self.log.logger.critical(f"nodectl was unable to determine the external network interface related to the server this Node is running on and cannot continue.")
+            self.functions.print_paragraphs([
+                ["NODECTL NETWORKING IDENTIFICATION FAILED.",2,"red","bold"],
+
+                ["nodectl was unable to determine the network interface defined as the external link for the server.",0,"yellow"],
+                ["this Node is running on.",2,"red"],
+                
+                ["Could not continue command request, please try again later.",2],
             ])
                         
                         

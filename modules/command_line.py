@@ -1,6 +1,7 @@
 import re
 import base58
 import psutil
+import socket
 
 from hashlib import sha256
 
@@ -14,6 +15,7 @@ from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
 from copy import deepcopy
+from scapy.all import sniff
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 
 from modules.p12 import P12Class
@@ -5019,7 +5021,169 @@ class CLI():
                     })
                 else: break
                   
-                             
+
+    def cli_check_tcp_ports(self,command_obj):
+        caller = command_obj.get("caller","check_tcp_ports")
+        argv_list = command_obj.get("argv_list",[])   
+        self.functions.check_for_help(argv_list,"check_tcp_ports")
+
+        self.print_title("TCP PORT TESTING")
+
+        timeout = 10 if not "-t" in argv_list else argv_list[argv_list.index("-t")+1]
+        try: timeout = int(timeout)
+        except: 
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"yellow,on_red"], 
+                ["Invalid timeout detected, reverting to default 10 seconds",1,"red"]
+            ])
+            timeout = 10
+
+        self.tcp_test_results = {
+            "data_found": True,
+            "recv_data_found": False,
+            "send_data_found": False,
+            "ext_int": False,
+        }
+
+        self.functions.print_cmd_status({
+            "text_start": "External Interface IP",
+            "status": self.ip_address,
+            "status_color": "yellow",
+            "newline": True,
+        })
+
+        with ThreadPoolExecutor() as executor:
+            self.functions.event = False
+            _ = executor.submit(self.functions.print_spinner,{
+                "msg": f"Identifying network interfaces",
+                "color": "magenta",
+            }) 
+            interface = False
+            for interface, addrs in psutil.net_if_addrs().items():
+                for addr in addrs:
+                    if addr.family == socket.AF_INET:
+                        if addr.address == self.ip_address:
+                            self.tcp_test_results["ext_int"] = interface 
+            self.functions.event = False
+            if not interface:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-5038",
+                    "line_code": "network_error",
+                    "extra": caller
+                })
+            self.functions.print_cmd_status({
+                "text_start": "Identifying network interface",
+                "status": interface,
+                "status_color": "green",
+                "newline": True,
+            })
+
+        with ThreadPoolExecutor() as executor:
+            self.functions.event = True
+            _ = executor.submit(self.functions.print_spinner,{
+                "msg": f"Sniffing interface: [{interface}]",
+                "color": "magenta",
+            }) 
+
+            initial_stats = psutil.net_io_counters(pernic=True).get(interface)
+            self.functions.event = False
+
+        self.functions.print_cmd_status({
+            "text_start": f"Sniffing interface",
+            "brackets": interface,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
+        if initial_stats is None:
+                self.tcp_test_results["data_found"] = False
+        else:
+            with ThreadPoolExecutor() as executor:
+                self.functions.event = True
+
+                int_str = colored(interface,"yellow",attrs=["bold"])
+                int_str_end = colored("]","magenta")
+                _ = executor.submit(self.functions.print_spinner,{
+                    "msg": f"Testing send/receive: [{int_str}{int_str_end}",
+                    "color": "magenta",
+                }) 
+
+                initial_bytes_sent = initial_stats.bytes_sent
+                initial_bytes_recv = initial_stats.bytes_recv
+                
+                sleep(1.5)
+                
+                current_stats = psutil.net_io_counters(pernic=True).get(interface)
+                if current_stats is None:
+                    self.tcp_test_results["data_found"] = False
+                else:
+                    if current_stats.bytes_sent > initial_bytes_sent:
+                        self.tcp_test_results["send_data_found"] = True
+                    if current_stats.bytes_recv > initial_bytes_recv:
+                        self.tcp_test_results["recv_data_found"] = True
+                self.functions.event = False
+
+            self.functions.print_cmd_status({
+                "text_start": f"Please wait",
+                "brackets": str(timeout),
+                "text_end": "seconds per interface",
+                "newline": True,
+            })
+            for self.profile in self.profile_names:
+                self.set_profile_api_ports()
+                del self.api_ports["cli"]
+                self.functions.parent = self
+                for self.functions.port_int in self.api_ports.values():
+                    with ThreadPoolExecutor() as executor:
+                        self.functions.event = True
+                        port_int_str = colored(self.functions.port_int,"yellow",attrs=["bold"])
+                        port_close_str = colored("]","magenta")
+                        port_int_str_end = colored("send/receive on [","magenta")+colored(interface,"yellow",attrs=["bold"])+colored("]","magenta")
+                        _ = executor.submit(self.functions.print_spinner,{
+                            "msg": f"Sniffing Port [{port_int_str}{port_close_str} {port_int_str_end}",
+                            "color": "magenta",
+                        }) 
+                        sniff(iface=interface, prn=self.functions.test_for_tcp_packet, filter="tcp", timeout=timeout)
+                        self.functions.event = False
+                        self.functions.print_cmd_status({
+                            "text_start": f"Sniffing tcp packets",
+                            "brackets": str(self.functions.port_int),
+                            "status": "complete",
+                            "status_color": "green",
+                            "newline": True,
+                        })
+        print("")
+
+        print_out_list = [
+            {
+                "EXTERNAL IP": self.ip_address,
+                "EXTERNAL INTERFACE": interface,
+                "INTERFACE TRAFFIC": colored(str(self.tcp_test_results["data_found"]),"green" if self.tcp_test_results["data_found"] else "red"),
+            },
+        ]
+        for port, values in self.tcp_test_results.items():
+            try: int(port)
+            except: continue
+            inbound = colored(str(values["found_destination"]),"green" if values["found_destination"] else "red")
+            outbound = colored(str(values["found_source"]),"green" if values["found_source"] else "red")
+            print_obj = {
+                "header_elements": {
+                    f"TCP {port} INBOUND": inbound, 
+                    f"TCP {port} OUTBOUND": outbound,
+                },
+                "value_spacing_only": True,
+                "spacing": 29,
+            }
+            print_out_list.append(print_obj)
+
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })
+        print("")
+
+                            
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")
         self.functions.check_for_help(command_list,"passwd12")

@@ -22,6 +22,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 import base64
 
+from scapy.all import TCP
 from psutil import Process, cpu_percent, virtual_memory, process_iter, AccessDenied, NoSuchProcess
 from getpass import getuser
 from re import match, sub, compile
@@ -2832,6 +2833,27 @@ class Functions():
             return True
         return False
      
+
+    def test_for_tcp_packet(self, packet):
+        # set self.parent before calling test_for_tcp_packets
+        try: _ = self.parent.tcp_test_results[self.port_int]
+        except:
+            self.parent.tcp_test_results[self.port_int] = {
+                "found_destination": False,
+                "found_source": False
+            }
+
+        if TCP in packet:
+            if packet[TCP].dport in [self.port_int]:
+                self.log.logger.debug(f"functions -> test_for_tcp_packet -> TCP destination packet found: {packet.summary()}")
+                self.parent.tcp_test_results[self.port_int]["found_destination"] = True
+            if packet[TCP].sport in [self.port_int]:
+                self.log.logger.debug(f"functions -> test_for_tcp_packet -> TCP source packet found: {packet.summary()}")
+                self.parent.tcp_test_results[self.port_int]["found_source"] = True
+        
+        return
+            
+
     # =============================
     # create functions
     # =============================  
@@ -3035,10 +3057,11 @@ class Functions():
         # defaults
         header_color = "blue"
         header_attr = "bold" 
+        value_spacing_only = False
         d_spacing = 20
                
         for key,value in header_elements.items():
-            if key != "spacing" and key != "header_color" and key != "header_attr" and key != "header_elements":
+            if key != "spacing" and key != "header_color" and key != "header_attr" and key != "header_elements" and key != "value_spacing_only":
                 try:
                     int(key)
                 except:       
@@ -3060,10 +3083,14 @@ class Functions():
                     header_attr = value
                 if key == "spacing":
                     d_spacing = int(value)
+                if key == "value_spacing_only":
+                    value_spacing_only = True
         
         #for header, value in header_elements.items():
         for i, (header, value) in enumerate(header_elements.items()):
-            spacing = d_spacing
+            spacing = d_spacing if not value_spacing_only else 20
+            v_spacing = d_spacing
+
             if header == "-BLANK-":
                 print("")
             else:
@@ -3071,10 +3098,10 @@ class Functions():
                         spacing = cols[str(i)]
                 status_header += colored(f"  {header: <{spacing}}",header_color,attrs=[header_attr])
                 try:
-                    status_results += f"  {value: <{spacing}}"
+                    status_results += f"  {value: <{v_spacing}}"
                 except:
-                    value = "unavailable".ljust(spacing," ")
-                    status_results += f"  {value: <{spacing}}"
+                    value = "unavailable".ljust(v_spacing," ")
+                    status_results += f"  {value: <{v_spacing}}"
                 
         print(status_header)
         print(status_results)

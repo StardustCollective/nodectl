@@ -15,7 +15,8 @@ def pull_valid_command():
         "clean_files",
         "check_connection",
         "check_seedlist_participation",
-        
+        "check_tcp_ports",
+
         "dag",
         "disable_root_ssh",
         "download_status",
@@ -99,11 +100,12 @@ def pull_valid_command():
         "service_restart",
         "uvos","test_only",
     ]
+    
     valid_short_cuts = [
         "_sr","_s","_qs","_cv","_vc","_val","_cf",
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
-        "_sde","_usl","_con","_cmf","_spd",
+        "_sde","_usl","_con","_cmf","_spd", "_ctp",
         "log","prices","markets","_sss","_snt",
     ]
     
