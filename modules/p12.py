@@ -33,6 +33,7 @@ class P12Class():
         self.config_obj = self.functions.config_obj 
         self.profile = self.functions.default_profile
         self.quick_install = False
+        self.p12_migration = False
         self.solo = False # part of install or solo request to create p12
 
         self.error_messages = Error_codes(self.functions) 
@@ -222,16 +223,21 @@ class P12Class():
 
 
     def ask_for_keyphrase(self):
+        p12_verb = "create a"
+        if self.existing_p12:
+            self.user.migrating_p12 = True
+            p12_verb = "verify the"
+
         if self.quick_install:
             self.functions.print_paragraphs([
-                ["We need to create passphrase for our p12 file.",1],
+                [f"We need to {p12_verb} passphrase for our p12 file.",1],
             ])
         else:
             self.user.print_password_descriptions(10,"passphrase",True)
             self.functions.print_paragraphs([
                 ["This passphrase will allow you to authenticate to the",0], ["Hypergrpah",0,"yellow","bold"],[".",-1],["",1],
                 ["This passphrase will allow you to authenticate to your Node's",0], ["Wallet",0,"yellow","bold"],[".",-1],["",1],
-                ["You should create a",0], ["unique",0,"yellow","bold"], ["passphrase and write it down!",2],
+                [f"You should {p12_verb}",0], ["unique",0,"yellow","bold"], ["passphrase and write it down!",2],
                 ["We recommend you save this to a secure location and, do",0], ["NOT",0,"yellow,on_red","bold,underline"],
                 ["forget the passphrase!",2],
                 ["In your notes:",1,"white","bold"],
@@ -241,9 +247,53 @@ class P12Class():
 
         self.log.logger.info("p12 passphrase input requested")
         
-        if self.existing_p12:
-            self.user.migrating_p12 = True
-        self.p12_password = self.user.get_verify_password(10,"your p12 private key","passphrase")
+        for attempt in range(1,4):
+            self.p12_password = self.user.get_verify_password(10,"your p12 private key","passphrase")
+            if self.p12_migration:
+                self.path_to_p12 = path.dirname(self.existing_p12)+"/"
+                self.p12_filename = path.basename(self.existing_p12)
+                self.entered_p12_keyphrase = self.p12_password
+
+                existing_unlock = self.unlock()
+                if not existing_unlock:
+                    self.log.logger.warn(f"p12 passphrase invalid, unable to access private key store [{attempt}] of [3]")
+                    self.functions.print_cmd_status({
+                        "text_start": "Unable to unlock p12",
+                        "brackets": f"{attempt} of 3",
+                        "status": "Try Again" if attempt < 3 else "Failed",
+                        "status_color": "magenta" if attempt < 3 else "red",
+                        "newline": True,
+                    })
+                    if attempt > 2:
+                        self.functions.print_paragraphs([
+                            ["",1], ["WARNING",0,"yellow,on_red"], ["The p12 passphrase responsible for digitial",0,"red"],
+                            ["signatures and authentication challenges against the cluster through retrival of the public node id,",0,"red"],
+                            ["seems to be",0,"red"], ["invalid.",2,"red","bold"], 
+
+                            ["The installation will continue; however, retrieval of the p12 key store deatils will fail.",0,"magenta"],
+                            ["Please use the",0,"magenta"], ["configurator",0,"yellow"], ["to update your passphrase at the",0,"magenta"],
+                            ["conclustion of the installation.",1,"magenta"],
+                            ["Command:",0,"yellow"],["sudo nodectl configure",2],
+                        ])
+                        self.functions.confirm_action({
+                            "prompt": "Continue installation?",
+                            "yes_no_default": "y",
+                            "return_on": "y",
+                            "exit_if": True
+                        })
+                        break
+                else:
+                    self.functions.print_cmd_status({
+                        "text_start": "Migrating",
+                        "brackets": "p12 key store",
+                        "status": "unlocked",
+                        "status_color": "green",
+                        "newline": True,
+                    })
+                    break
+            else:
+                break
+
         
         
     def keyphrase_validate(self,command_obj):
