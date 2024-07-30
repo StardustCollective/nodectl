@@ -539,6 +539,40 @@ class Installer():
             })
 
 
+    def handle_transfer_ssh_valiation(self):
+        for n in range(1,3):
+            self.user.transfer_ssh_key()
+            ssh_path = f"/home/{self.user.username}/.ssh/"
+            size_test = path.getsize(ssh_path)
+            if size_test > 0:
+                self.log.logger.info(f"installer -> ssh key transfer validated [{ssh_path}]")
+                return
+            self.log.logger.error(f"installer -> ssh key transfer validated [{ssh_path}] attempt [{n}] of [3]")
+            if not self.options.quick_install:
+                self.functions.print_cmd_status({
+                    "text_start": "Error transfering SSH key",
+                    "brackets": f"{n} of 3",
+                    "status": "Failed" if n > 2 else "Retrying",
+                    "status_color": "red",
+                    "newline": True,
+                })
+            sleep(.8)
+
+        self.log.logger.error(f"installer -> ssh key transfer failed validatation: please manually verify the authorized_keys file and access to your Node after the installation and before closing the remote terminal. [{ssh_path}]")
+        if not self.options.quick_install: 
+            self.functions.print_paragraphs([
+                ["",1],[" WARNING ",0,"yellow,on_red"], ["nodectl was unable to successful transfer the",0,"red"],
+                ["SSH Authorization File",0,"yellow"], ["to the nodeadmin user:",0,"red"], 
+                [self.user.username,0,"yellow"], ["after 3 attempts.",2,"red"],
+                ["The installation will continue; however, you may not be able to access the",0,"magenta"],
+                ["nodeadmin user:",0,"magenta"],[self.user.username,0,"yellow"], ["remotely via SSH until the SSH key pair",0,"magenta"],
+                ["authorization file is properly transfered over to the nodeadmin's",0,"magenta"],
+                [".ssh",0,"yellow"], ["folder.",2,"magenta"],
+                ["Please contact a System Administrator for further help, via the Constallation Netwwork Offical Discord server.",2],
+            ])
+            self.functions.print_any_key({"newline":"bottom"})
+            
+
     def populate_node_service(self):
         self.log.logger.info("installer -> populating node services module")
         if not self.options.quick_install:                
@@ -638,7 +672,7 @@ class Installer():
         if self.options.quick_install:
             if quick_ssh: 
                 # second element of quick install
-                self.user.transfer_ssh_key()
+                self.handle_transfer_ssh_valiation()
             else: self.user.create_debian_user()
         else:
             self.functions.print_any_key({"newline":"top"})
@@ -650,12 +684,12 @@ class Installer():
                 if not self.options.user_password:
                     self.user.ask_for_password()
                 self.user.create_debian_user()
-                self.user.transfer_ssh_key()
+            self.handle_transfer_ssh_valiation()
         
         # update permissions
-        if self.options.p12_destination_path:
+        if self.options.p12_destination_path and path.isfile(self.options.p12_destination_path):
             self.functions.set_chown(path.dirname(self.options.p12_destination_path), self.user.username,self.user.username)
-        if path.exists(f"/home{self.user.username}"):
+        if path.exists(f"/home/{self.user.username}"):
             self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
         return
 

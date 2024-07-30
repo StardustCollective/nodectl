@@ -36,7 +36,7 @@ class UserClass:
         self.ask_for_username()
         self.ask_for_password()
         self.create_debian_user()
-        self.transfer_ssh_key()
+        # transfer_ssh_key called outside of this router
 
   
     def ask_for_username(self):
