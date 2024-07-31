@@ -225,7 +225,6 @@ class P12Class():
     def ask_for_keyphrase(self):
         p12_verb = "create a"
         if self.existing_p12:
-            self.user.migrating_p12 = True
             p12_verb = "verify the"
 
         if self.quick_install:
@@ -294,7 +293,6 @@ class P12Class():
             else:
                 break
 
-        
         
     def keyphrase_validate(self,command_obj):
         operation = command_obj["operation"]

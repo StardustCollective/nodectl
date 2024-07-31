@@ -383,7 +383,9 @@ class Installer():
                 self.p12_session.user.password = self.options.user_password
 
             if not self.options.p12_passphrase:
-                if self.options.existing_p12: self.p12_session.p12_migration = True
+                if self.options.existing_p12: 
+                    self.p12_session.p12_migration = True
+                    self.p12_session.user.p12_migration = True
                 self.p12_session.ask_for_keyphrase()
                 self.options.p12_passphrase = self.p12_session.p12_password
                 self.p12_session.p12_password = self.options.p12_passphrase

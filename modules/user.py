@@ -28,7 +28,7 @@ class UserClass:
         self.password = None
 
         self.keep_user = False
-        self.migrating_p12 = False
+        self.p12_migration = False
         self.quick_install = False
         
         
@@ -237,7 +237,8 @@ class UserClass:
         while True:
             results = []
             pass1 = getpass(colored(first,"magenta"))
-            pass2 = getpass(colored(second,"magenta"))
+            if self.p12_migration: pass2 = pass1  # only ask once on migration
+            else: pass2 = getpass(colored(second,"magenta"))
 
             try:
                 if not compare_digest(pass1,pass2):
@@ -248,7 +249,7 @@ class UserClass:
                     "line_code": "invalid_passphrase_pass",
                 })
         
-            if not self.migrating_p12:
+            if not self.p12_migration:
                 if len(pass1) < length:
                     results.append("len")
                 
@@ -465,8 +466,12 @@ class UserClass:
             else:
                 self.log.logger.error(f"transfer_ssh_key -> quick installer -> unable to read file [{dest_dir_file}]") 
         
-        index = filedata.find('ssh-rsa')
-        filedata = filedata[index:]
+        index_rsa = filedata.find('ssh-rsa')
+        index_ed25519 = filedata.find('ssh-ed25519')
+        if index_rsa > -1:
+            filedata = filedata[index_rsa:]
+        elif index_ed25519 > -1:
+            filedata = filedata[index_ed25519:]
         
         with open(dest_dir_file,'w') as cur_file:
             cur_file.write(filedata)
