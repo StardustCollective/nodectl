@@ -360,7 +360,7 @@ class UserClass:
                 "exit_if": False
             })
             if not confirm:
-                return
+                return False
 
             progress = {
                 "text_start": "Transferring SSH key to",
@@ -525,6 +525,7 @@ class UserClass:
                 "status_color": "green" if verb == "disabled" else "red"
             })
 
+        return True
 
     def disable_root_user(self):
         # check for non-root users

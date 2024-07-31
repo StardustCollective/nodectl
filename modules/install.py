@@ -544,7 +544,9 @@ class Installer():
 
     def handle_transfer_ssh_valiation(self):
         for n in range(1,3):
-            self.user.transfer_ssh_key()
+            do_validation = self.user.transfer_ssh_key()
+            if not do_validation:
+                return
             ssh_path = f"/home/{self.user.username}/.ssh/"
             size_test = path.getsize(ssh_path)
             if size_test > 0:
