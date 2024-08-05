@@ -42,7 +42,7 @@ class Cleaner():
             ["I/O",0,"yellow"], ["on the Node.",2],
             
             ["This should be done",0], ["only",0,"yellow","underline"], ["when either completely necessary due to disk space issues",0],
-            ["or when specifically requested from an Administrator (or experienced Node Operator) of the Hypergraph or a Metagraph.",2],
+            ["or when specifically requested from an Administrator (or experienced Node Operator) of the Hypergraph or a metagraph.",2],
             
             ["Check system health via:",1],
             ["sudo nodectl health",2,"green"],

@@ -474,7 +474,7 @@ class CLI():
                         if print_title:
                             self.functions.print_states()
                             self.functions.print_paragraphs([
-                                ["Current Session:",0,"magenta"], ["The Metagraph cluster session",1],
+                                ["Current Session:",0,"magenta"], ["The metagraph cluster session",1],
                                 ["  Found Session:",0,"magenta"], ["Node's current cluster session",1],
                                 [" Latest Ordinal:",0,"magenta"], ["Node consensus ordinal",1],
                                 ["      Last DLed:",0,"magenta"], ["Last found ordinal downloaded by Node",1],

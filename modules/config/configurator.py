@@ -306,7 +306,7 @@ class Configurator():
         if self.detailed:
             self.c.functions.print_paragraphs([
                 ["nodectl",0,"blue","bold"], ["can build a configuration for you based on",0], ["predefined",0,"blue","bold"],
-                ["profiles. These profiles are setup by the Constellation Network or Metagraph Administrators",0],
+                ["profiles. These profiles are setup by the Constellation Network or metagraph Administrators",0],
                 ["(or Layer0) companies that plan to ride on the Hypergraph.",2],
 
                 ["Before continuing, please make sure you have the following checklist completed, to save time.",2,"yellow"],
@@ -482,7 +482,7 @@ class Configurator():
             self.c.functions.print_paragraphs([
                 ["Please choose the",0], ["profile",0,"blue","bold"], ["below that matches the configuration you are seeking to build.",2],
                 ["If not found, please consult the Constellation Network Doc Hub for details or contact Constellation Network Administration on Discord.",2],
-                ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
+                ["You can also put in a request to have your metagraph's configuration added, by contacting a Constellation Network representative.",2],
             ]) 
         if self.override: 
             self.prepare_configuration(action="edit_config_from_new")
@@ -1412,8 +1412,8 @@ class Configurator():
         
         description = "The distributed ledger technology 'DLT' generally called the blockchain "
         description += "($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid "
-        description += "integer (number) between 0 and 4, for the 5 available layers. Constellation Network or Metagraph clusters are generally always layer 0 or 1. "
-        description += "Hypergraph/Metagraph Layer 0 can be referred to as ML0, Hypergraph/Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description += "integer (number) between 0 and 4, for the 5 available layers. Constellation Network or metagraph clusters are generally always layer 0 or 1. "
+        description += "Hypergraph/metagraph Layer 0 can be referred to as ML0, Hypergraph/metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0.  ML0 and ML1 should link to GL0.  ML1 should link to ML0. "
         description += "See the linking section for link options and details."
         
@@ -1472,11 +1472,11 @@ class Configurator():
         
         self.manual_section_header(profile,"ENVIRONMENT")  
           
-        description = "Hypergraph/Metagraph Layer 0 can be referred to as ML0, Hypergraph/Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description = "Hypergraph/metagraph Layer 0 can be referred to as ML0, Hypergraph/metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0. "
         description += "This networks require an environment identifier used internally; by the network, to define certain " 
-        description += "operational variables. Depending on the Metagraph, this is used to define " 
-        description += "customized elements within the Metagraph. You should obtain this information " 
+        description += "operational variables. Depending on the metagraph, this is used to define " 
+        description += "customized elements within the metagraph. You should obtain this information " 
         description += "from the Administrators of this network. "
                 
         questions = {
@@ -1604,9 +1604,9 @@ class Configurator():
         layer_types = ["gl0","ml0"]
         
         def print_header():
-            link_description = "Generally, a Hypergraph/Metagraph Layer0 (ML0) and/or Hypergraph/Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
+            link_description = "Generally, a Hypergraph/metagraph Layer0 (ML0) and/or Hypergraph/metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
             link_description += "(GL0) network to transmit consensus information between the local Node and the Validator Nodes on the Layer0 network. "
-            link_description += "The Node Operator should consult with your Constellation Network or Metagraph Administrators for further details. "
+            link_description += "The Node Operator should consult with your Constellation Network or metagraph Administrators for further details. "
             link_description += "Also, a ML1 will be required to link to the ML0 thereby creating to separate links. "
             link_description += "IMPORTANT: If you plan to use the recommended process of linking to ML1 to GL0, ML1 to ML0, and/or ML0 to GL0 "
             link_description += "through another profile residing on this Node, it is required to answer \"yes\" to the link to self question, "
@@ -1827,10 +1827,10 @@ class Configurator():
         self.manual_section_header(profile,"TOKEN IDENTIFIER")
         print("")
         
-        description = "When working within a Metagraph, you will need to define the Metagraph's ID "
-        description += "this ID will identify the Metagraph that you are connecting to via an identifier that "
+        description = "When working within a metagraph, you will need to define the metagraph's ID "
+        description += "this ID will identify the metagraph that you are connecting to via an identifier that "
         description += "resembles a DAG wallet address; however, it is a not a wallet address. "
-        description += "You should obtain this identifier from the Metagraph administration.  It should normally be "
+        description += "You should obtain this identifier from the metagraph administration.  It should normally be "
         description += "supplied with a pre-defined configuration.  Constellation Network MainNet, TestNet, and IntegrationNet "
         description += "should have this key pair value set to 'disable'. "
         description += "If the 'token_identifier' is set to 'global', the global 'metagraph_token_identifier' will be used. "
@@ -1859,7 +1859,7 @@ class Configurator():
             questions = {
                 f"{key_name}": {
                     "question": question,
-                    "description": "Metagraph token Identifier",
+                    "description": "metagraph token Identifier",
                     "default": default,
                     "required": False,
                 },
@@ -1893,7 +1893,7 @@ class Configurator():
         self.manual_section_header(profile,"TOKEN COMPANY SPECIFIER ID")
         print("")
         
-        description = "The Metagraph you are working with may have a dedicated token specific to that Metagraph. "
+        description = "The metagraph you are working with may have a dedicated token specific to that metagraph. "
         description += "If the token is recognized by CoinGecko it will be displayed when issuing the 'dag','price', or 'market' commands. "
         description += "If the token is NOT recognized by CoinGecko, you should enter 'constellation-labs' or 'default'. "
         description += "This will set nodectl to 'constellation-labs' and display '$DAG' when appropriate. "
@@ -1902,7 +1902,7 @@ class Configurator():
         description += "list until you find your 'Coin' and click on it.  On the LEFT side of the details for your 'Coin' you will see 'API ID'. Enter that "
         description += "value here, when requested."
         
-        description2 = "Handle Hypergraph/Metagraph cryptocurrency token symbol identification."
+        description2 = "Handle Hypergraph/metagraph cryptocurrency token symbol identification."
 
         if self.detailed:
             self.c.functions.print_paragraphs([

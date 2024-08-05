@@ -402,25 +402,25 @@ class Installer():
         if not self.options.cluster_config and not self.options.quick_install:
             self.functions.print_paragraphs([
                 ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
-                ["on various network clusters or Metagraph pre-defined configurations.",2,"green"],
+                ["on various network clusters or metagraph pre-defined configurations.",2,"green"],
                 
-                ["If the network cluster or Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
+                ["If the network cluster or metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
                 ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
                 ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
                 ["required components, to ensure successful implementation of this utility.",0],
                 
-                ["If a pre-defined network cluster or Metagraph listed above is not the ultimate role of this future Node,",0],
-                ["following a successful installation, the next steps should be for you to refer to the Metagraph",0],
-                ["Administrators of the Metagraph you are expected to finally connect with. The Administrator",0,],
-                ["will offer instructions on how to obtain the required configuration file for said Metagraph.",2],
-                ["Please key press number of a network cluster or Metagraph configuration below:",2,"blue","bold"],
+                ["If a pre-defined network cluster or metagraph listed above is not the ultimate role of this future Node,",0],
+                ["following a successful installation, the next steps should be for you to refer to the metagraph",0],
+                ["Administrators of the metagraph you are expected to finally connect with. The Administrator",0,],
+                ["will offer instructions on how to obtain the required configuration file for said metagraph.",2],
+                ["Please key press number of a network cluster or metagraph configuration below:",2,"blue","bold"],
             ])
 
         if not self.options.configuration_file:
             print("")
             self.functions.print_paragraphs([
                 [" ",1],
-                ["Please choose which Hypergraph or Metagraph you would like to install on this server:",2],
+                ["Please choose which Hypergraph or metagraph you would like to install on this server:",2],
                 ["HYPERGRAPH or METAGRAPH",1,"yellow","bold"],
                 ["predefined choices",1,"blue","bold"],
                 ["-","half","blue","bold"]
@@ -719,7 +719,7 @@ class Installer():
                 ["Network Cluster:",0], [self.options.metagraph_name,0,"yellow"], ["->",0], [self.options.environment,2,"yellow"],
                 
                 ["After installation is complete, the Node Operator may alter the",0,"magenta"], ["nodectl",0,"blue","bold"],
-                ["configuration to allow connection to the",0,"magenta"], ["network cluster or Metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
+                ["configuration to allow connection to the",0,"magenta"], ["network cluster or metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
                 
                 ["sudo nodectl configure",2],
             ])
@@ -1584,7 +1584,7 @@ class Installer():
 
     def print_cluster_config_details(self):
         self.functions.print_cmd_status({
-            "text_start": "HyperGraph/Metagraph",
+            "text_start": "HyperGraph/metagraph",
             "status": self.options.metagraph_name,
             "status_color": "yellow",
             "newline": True,

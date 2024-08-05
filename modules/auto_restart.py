@@ -750,7 +750,7 @@ class AutoRestart():
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version check")
             try:
                 if self.version_obj[self.environment][self.thread_profile]["tess_uptodate"] == "true": 
-                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.thread_profile}] - versions matched | Metagraph/Hypergraph/Cluster [{versions[0]}] Node [{versions[1]}]")
+                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.thread_profile}] - versions matched | Hypergraph/metagraph/cluster [{versions[0]}] Node [{versions[1]}]")
                     if not self.auto_upgrade or auto_upgrade_success:
                         return True
                     elif self.auto_upgrade and not auto_upgrade_success:
@@ -759,7 +759,7 @@ class AutoRestart():
             except Exception as e:
                 self.log.logger.critical(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - and we received an error [{e}] - sleeping 10m")
                 sleep(self.sleep_on_critical) # ten minutes
-            self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - versions matched | Metagraph/Hypergraph/Cluster [{versions[0]}] Node [{versions[1]}] - auto_upgrade setting [{str(self.auto_upgrade)}]")
+            self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - versions matched | Hypergraph/metagraph/cluster [{versions[0]}] Node [{versions[1]}] - auto_upgrade setting [{str(self.auto_upgrade)}]")
 
             if self.auto_upgrade:
                 notice_warning = "auto_upgrade to obtain "
@@ -997,7 +997,7 @@ class AutoRestart():
                     warn_msg += "=========================================================================="
                     self.log.logger.info(warn_msg)
                 elif action == "layer0_wait" or action == "layer1_wait":
-                    cause = "Global layer0 link (GL0)" if action == "layer0_wait" else "Cluster/Metagraph Layer0 (ML0)"
+                    cause = "Global layer0 link (GL0)" if action == "layer0_wait" else "Cluster/metagraph Layer0 (ML0)"
                     warn_msg = "\n==========================================================================\n"
                     warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - {cause} link state not ready | profile [{self.thread_profile}] action [{action}]\n"
                     warn_msg += f"auto_restart - take no action at this time | thread [{self.thread_profile}] state [{state}]\n"

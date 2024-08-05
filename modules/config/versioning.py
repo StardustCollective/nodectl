@@ -553,4 +553,8 @@ class Versioning():
                 print(json.dumps(self.functions.version_obj,indent=4))
                 print("")
             exit(0)
+
+
+if __name__ == "__main__":
+    print("This class module is not designed to be run independently, please refer to the documentation")   
         

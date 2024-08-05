@@ -2173,7 +2173,7 @@ class Functions():
                 ordered_predefined_envs[ordered_predefined_envs.index(env)] = f"{env} [HyperGraph]"
             elif env not in ordered_predefined_envs:
                 if add_postfix:
-                    env = f"{env} [Metagraph]"
+                    env = f"{env} [metagraph]"
                 ordered_predefined_envs.append(env)
 
         if retrieve == "profile_names" or retrieve == "chosen_profile":    
@@ -2187,7 +2187,7 @@ class Functions():
             })
 
         if add_postfix:
-            chosen_profile = chosen_profile.replace(" [HyperGraph]","").replace(" [Metagraph]","")
+            chosen_profile = chosen_profile.replace(" [HyperGraph]","").replace(" [metagraph]","")
 
         if set_in_functions: 
             self.environment_names = list(predefined_configs.keys())
@@ -2783,7 +2783,7 @@ class Functions():
     
     
     def test_for_root_ml_type(self,metagraph):
-        # Review the configuration and return the lowest Cluster or Metagraph
+        # Review the configuration and return the lowest Cluster or metagraph
         try: profile_names = self.profile_names
         except:
             profile_names = self.clear_global_profiles(self.config_obj)

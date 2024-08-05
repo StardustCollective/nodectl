@@ -1798,7 +1798,7 @@ def build_help(functions,command_obj):
   to communicate with the rest of the systems on the Internet.  This
   is the address that your Node will use to communicate with the rest
   of the decentralized Nodes that make up the Global Layer0, cluster or
-  Metagraph that your Node will attempt to communications 
+  metagraph that your Node will attempt to communications 
   with via p2p connections and APIs.
   
   optional option:
