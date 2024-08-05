@@ -459,6 +459,9 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["Invalid peer address may have been entered.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered is online, reachable, and in Ready state.",2,"red","bold"],
+
+                ["If you verify the peer is valid, please check the TCP port associated, and invalid port may cause this error as well.",2,"magenta"],
+
                 ["Address Entered:",0,"yellow","bold"],[var.extra,2],
             ])            
             
@@ -841,7 +844,7 @@ class Error_codes():
             ["TERMINATING",0,"yellow,on_red","bold"], ["nodectl",0,"yellow","bold"]                           
         ])
 
-        exit("  nodectl critical error detected")  
+        exit("  nodectl exiting on critical error.")  
 
         
 if __name__ == "__main__":

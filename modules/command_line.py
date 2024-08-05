@@ -2262,11 +2262,9 @@ class CLI():
             # "missed_ip_count": 0,
             # "full_connection": True,
             # "full_connection_color": "green"
-            
-        self.log.logger.info(f"Check connection request made. | {edge}")
-              
+
+
         def print_results(node_obj_list,secondFlag):
-            
             for n in range(0,5):
                 if n == 0:
                     header_elements = {
@@ -2373,7 +2371,8 @@ class CLI():
                             print(f"  {ip2.ljust(22)}{ip1}")
                 except:
                     pass
-        
+
+
         self.functions.check_for_help(command_list,"check_connection")
         self.set_profile(command_list[command_list.index("-p")+1])
         
@@ -2383,6 +2382,8 @@ class CLI():
             edge = command_list[command_list.index("-e")+1]
            
         edge = "127.0.0.1" if not edge else edge
+        self.log.logger.info(f"Check connection request made. | {edge}")
+
         node_list = [source,edge]
         flip_flop = []
 
@@ -2398,6 +2399,13 @@ class CLI():
             })
             flip_flop.append(node_obj)
         
+        if True in flip_flop or False in flip_flop:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-2392",
+                "line_code": "invalid_peer_address",
+                "extra": node_list[1],
+            })
+
         try:
             for node_obj in flip_flop:
                 valid = node_obj["specific_ip_found"]
@@ -2723,7 +2731,7 @@ class CLI():
                     ["",1], ["Upgrade cannot continue. Exiting...",1,"red","bold"],
                 ])
                 self.functions.print_auto_restart_warning()
-                exit("  auto restart enabled error")
+                exit("  auto restart enablement error")
 
         if called_command == "upgrade_path":
             self.functions.print_cmd_status({
@@ -4391,7 +4399,7 @@ class CLI():
             return True
             
 
-    def cli_find(self,argv_list): # ip="empty",dest=None
+    def cli_find2(self,argv_list): # ip="empty",dest=None
         self.log.logger.debug("find request initiated...")
         self.functions.check_for_help(argv_list,"find")
         ordhash_lookup = False
@@ -4523,6 +4531,210 @@ class CLI():
                 },
                 "spacing": spacing
             },
+            {
+                "header_elements" : {
+                    f"TARGET {id_ip}": target_ip_id,
+                },
+                "spacing": spacing
+            },
+        ]
+        
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })  
+
+        return
+
+
+    def cli_find(self,argv_list): # ip="empty",dest=None
+        self.log.logger.debug("find request initiated...")
+        self.functions.check_for_help(argv_list,"find")
+        ordhash_lookup = False
+        list_file = False
+        
+        self.profile = argv_list[argv_list.index("-p")+1]
+        source_obj = "empty"
+
+        if "--file" in argv_list:
+            list_file = argv_list[argv_list.index("--file")+1]
+            if not path.isfile(list_file):
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-4414",
+                    "line_code": "file_not_found",
+                    "extra": list_file,
+                })
+            
+        if "-s"  in argv_list:
+            source_obj = {"ip": "127.0.0.1"} if argv_list[argv_list.index("-s")+1] == "self" else {"ip": argv_list[argv_list.index("-s")+1]}
+
+        target_obj = {"ip":"127.0.0.1"}
+        if "-t" in argv_list:
+            target_obj = argv_list[argv_list.index("-t")+1]
+
+            if target_obj == "ordinal" or target_obj == "hash":
+                ordhash = argv_list[argv_list.index(target_obj)+1]
+                ordhash_lookup = True
+                try:
+                    if target_obj == "ordinal":
+                        ordhash = int(ordhash)
+                    else:
+                        if len(ordhash) < 64 or len(ordhash) > 64: 
+                            raise Exception()
+                except:
+                    self.functions.check_for_help(["help"],"find")
+
+            if ordhash_lookup:
+                self.print_title(f"{target_obj} LOOKUP")
+                inode = process_snap_files([ordhash], self.set_data_dir(), self.log, False)
+                ordhash_inode = list(inode.keys())[0]
+                results = discover_snapshots(self.set_data_dir(),self.functions,self.log,ordhash_inode)
+                ordhash_lookup, stamp = ordhash_to_ordhash(results, target_obj)
+                if target_obj == "ordinal":
+                    ordinal = ordhash
+                    hash = ordhash_lookup
+                else:
+                    ordinal = ordhash_lookup
+                    hash = ordhash
+                
+                print_single_ordhash(self.profile,ordinal,hash,ordhash_inode,stamp,self.functions)
+                return
+
+            if not isinstance(target_obj,dict):
+                target_obj =  {"ip": "127.0.0.1"} if argv_list[argv_list.index("-t")+1] == "self" else {"ip": argv_list[argv_list.index("-t")+1]}
+        
+        target_ip = target_obj["ip"]
+            
+        if source_obj == "empty":
+            source_obj = self.functions.get_info_from_edge_point({
+                "caller": "cli_find",
+                "profile": self.profile,
+            })
+
+        def pull_peer_results(target_ip, target_obj,source_obj):
+            peer_results = self.node_service.functions.get_peer_count({
+                "peer_obj": target_obj,
+                "edge_obj": source_obj,
+                "profile": self.profile,
+            })
+
+            if peer_results == "error" or peer_results == None:
+                self.log.logger.error(f"show count | attempt to access peer count function failed")
+                self.error_messages.error_code_messages({
+                    "error_code": "cmd-217",
+                    "line_code": "service",
+                    "extra": None,
+                    "extra2": None
+                })
+
+            node_found_color = "green" if peer_results["node_online"] == True else "red"
+            if target_obj["ip"] == "127.0.0.1" or target_obj["ip"] == "self":
+                target_ip = self.ip_address
+            if source_obj["ip"] == "127.0.0.1" or source_obj["ip"] == "self":
+                source_obj["ip"] = self.ip_address
+
+            id_ip = "ID"
+            if len(target_ip) > 127:
+                id_ip = "IP"
+                target_ip_id = self.functions.get_info_from_edge_point({
+                    "profile": self.profile,
+                    "caller": "cli_find",
+                    "desired_key": "ip",
+                    "specific_ip": target_ip,
+                })            
+                target_ip = f"{target_ip[:8]}...{target_ip[-8:]}"
+            else:
+                try:
+                    target_ip_id = self.functions.get_info_from_edge_point({
+                        "profile": self.profile,
+                        "caller": "cli_find",
+                        "desired_key": "id",
+                        "specific_ip": target_ip,
+                    })
+                except:
+                    target_ip_id = "unknown"
+            return peer_results, id_ip, target_ip_id, target_ip, node_found_color
+
+        if list_file:
+            list_results = []
+            with open(list_file,"r") as find_file:
+                results = find_file.readlines()
+                for n, list_node in enumerate(results):
+                    list_node = list_node.strip("\n")
+                    if len(list_node) != 128:
+                        self.error_messages.error_code_messages({
+                            "error_code": "cli_4520",
+                            "line_code": "invalid_nodeid",
+                            "extra": list_node,
+                        })
+                    list_node_obj = {"ip": list_node}
+                    if n > 0:
+                        peer_results_f, _, _, target_ip_f, node_found_color = pull_peer_results(list_node, list_node_obj, source_obj)
+                        list_results.append(
+                            ( peer_results_f['node_online'], 
+                              target_ip_f, 
+                              source_obj['ip'],
+                              node_found_color
+                            )
+                        )
+                    else:
+                        peer_results, id_ip, target_ip_id, target_ip, node_found_color = pull_peer_results(list_node, list_node_obj, source_obj) 
+                    
+        else:
+            peer_results, id_ip, target_ip_id, target_ip, node_found_color = pull_peer_results(target_ip, target_obj, source_obj) 
+
+        if "return_only" in argv_list:
+            return target_ip_id
+        
+        spacing = 21            
+        print_out_list = [
+            {
+                "header_elements" : {
+                    "CLUSTER PEERS": peer_results["peer_count"],
+                    "READY": peer_results["ready_count"],
+                    "PROFILE": self.profile,
+                },
+                "spacing": spacing
+            },
+            {
+                "header_elements" : {
+                    "Observing": peer_results["observing_count"],
+                    "WaitingForObserving": peer_results["waitingforobserving_count"],
+                    "WaitingForReady": peer_results["waitingforready_count"],
+                },
+                "spacing": spacing
+            },
+            {
+                "header_elements" : {
+                    "DownloadInProgress": peer_results["downloadinprogress_count"],
+                    "WaitingForDownload": peer_results["waitingfordownload_count"],
+                },
+                "spacing": spacing
+            },
+            {
+                "header_elements" : {
+                    "TARGET NODE": target_ip,
+                    "SOURCE NODE": source_obj["ip"],
+                    "NODE FOUND": colored(f"{str(peer_results['node_online']).ljust(spacing)}",node_found_color),
+                },
+                "spacing": spacing
+            },
+        ]
+
+        if list_file:
+            for multi_result in list_results:
+                print_out_list = print_out_list + [
+                    {
+                        "header_elements" : {
+                            "-SKIP_HEADER1-": multi_result[1],
+                            "-SKIP_HEADER2-": source_obj["ip"],
+                            "-SKIP_HEADER3-": colored(f"{str(multi_result[0]).ljust(spacing)}",multi_result[3]),
+                        },
+                        "spacing": spacing
+                    }
+                ]
+
+        print_out_list = print_out_list+[
             {
                 "header_elements" : {
                     f"TARGET {id_ip}": target_ip_id,

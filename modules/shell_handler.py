@@ -815,7 +815,23 @@ class ShellHandler:
         self.config_obj[self.profile]["edge_point_tcp_port"] = static_peer_port
         self.config_obj[self.profile]["static_peer"] = True
 
-
+        self.functions.auto_restart = False
+        self.functions.event = False
+        self.functions.ip_address = self.functions.get_ext_ip()
+        self.functions.session_timeout = 2
+        state = self.functions.test_peer_state({
+            "profile": self.profile,
+            "current_source_node": "127.0.0.1",
+            "test_address": static_peer,
+            "simple": True
+        })
+        if state != "Ready":
+            self.error_messages.error_code_messages({
+                "error_code": "sh-830",
+                "line_code": "invalid_peer_address",
+                "extra": f"{static_peer}:{static_peer_port}",
+            })
+        
     # =============  
 
     def handle_versioning(self):

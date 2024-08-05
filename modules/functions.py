@@ -3103,7 +3103,8 @@ class Functions():
                     value = "unavailable".ljust(v_spacing," ")
                     status_results += f"  {value: <{v_spacing}}"
                 
-        print(status_header)
+        if "SKIP_HEADER" not in status_header:
+            print(status_header)
         print(status_results)
                 
 
