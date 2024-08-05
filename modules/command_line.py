@@ -411,21 +411,21 @@ class CLI():
                                 if sessions["state1"] == "ApiNotResponding":
                                     on_network = colored("TryAgainLater","magenta")
                                     join_state = colored(f"ApiNotResponding".ljust(20),"magenta")
+                                elif sessions["state1"] == "WaitingForDownload":
+                                    join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+                                    on_network = colored("True","red",attrs=["bold"])
                                 elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "SessionStarted" and sessions["state1"] != "Initial":
                                     # there are other states other than Ready and Observing when on_network
                                     on_network = colored("True","green")
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"green")
                                     if sessions["state1"] == "Observing" or sessions["state1"] == "WaitingForReady":
                                         join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                                # elif sessions["state1"] == "Ready":
-                                #     join_state = colored(f"{sessions['state1']}".ljust(20),"green",attrs=['bold'])
-                                #     on_network = colored("True","green",attrs=["bold"])
                                 else:
                                     node_session = colored("SessionIgnored".ljust(20," "),"red")
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"red")
                             if sessions["session0"] != sessions["session1"] and sessions["state1"] == "Ready":
                                     on_network = colored("False","red")
-                                    join_state = colored(f"{sessions['state1']} (off-cluster)".ljust(20),"yellow")
+                                    join_state = colored(f"{sessions['state1']} (forked)".ljust(20),"yellow")
                                             
                         if sessions["session1"] == 0:
                             node_session = colored("SessionNotFound".ljust(20," "),"red")
