@@ -952,7 +952,7 @@ class AutoRestart():
             self.set_persistent_alert(False,send_report)
             result = prepare_alert(
                 self.profile_states, self.alerting, self.thread_profile, 
-                self.cluster, self.log
+                self.cluster, self.functions, self.log
             )
             if result == "skip":
                 self.set_persistent_alert(True,send_report)    
