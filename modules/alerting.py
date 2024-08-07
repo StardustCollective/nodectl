@@ -101,7 +101,8 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
         start = report_data["start_time"].strftime('%Y-%m-%d %H:%M:%S')
         end = report_data["end_time"].strftime('%Y-%m-%d %H:%M:%S')
 
-    except:
+    except Exception as e:
+        log.logger.error(f"alerting -> send report failed with [{e}]")
         return # skip report if an error occurred
     
     body = "NODECTL REPORT\n"
@@ -112,12 +113,14 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
 
     body += f"Wallet: {dag_addr}\n"
     body += f"Wallet Balance: {wallet_balance['balance_dag']}\n"
-    body += f"DAG Price: ${price}\n\n"
+    body += f"Wallet Balance: {wallet_balance['balance_usd']}\n"
+
+    body += f"{wallet_balance['token_symbol']} Price: ${price}\n\n"
     body += f"Snapshot History Size [SHZ]: 530\n"
     body += f"start: {start}\n"
     body += f"end: {end}\n"
-    body += f"SHZ $DAG Earned: {full_dag_amount}\n"
-    body += f"SHZ $DAG USD: {full_usd_amount}\n\n"
+    body += f"SHZ {wallet_balance['token_symbol']} Earned: {full_dag_amount}\n"
+    body += f"SHZ {wallet_balance['token_symbol']} USD: {full_usd_amount}\n\n"
 
     utc_time, local_time = prepare_datetime_stamp(functions, comm_obj["local_time_zone"], log)
     body += f"UTC: {utc_time}\n"
