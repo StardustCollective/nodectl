@@ -586,6 +586,7 @@ class Configuration():
                 "dor-metagraph": 0,
             },
             "service": {
+                # make sure to update configurator 'cleanup_service_file'
                 "hypergraph": {
                     "mainnet": "node_l",
                     "testnet": "node_l",
@@ -634,7 +635,11 @@ class Configuration():
                     service = defaults["service"][one_off["graph"]]
                     service = service[one_off["env"]]
                     service = f"{service}{one_off['layer']}"
-                    return service if service == one_off["service"] else False 
+                    try:
+                        if one_off["cleanup"]: 
+                            return service
+                    except:
+                        return service if service == one_off["service"] else False 
                 except: return False                                               
             if one_off["key"] == "default_tcp":
                 result_set = list()

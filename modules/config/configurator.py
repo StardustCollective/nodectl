@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
 from os import system, path, environ, makedirs, listdir, chmod, remove
-from shutil import copy2, move
+from shutil import copy2, move, rmtree
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
@@ -65,6 +65,8 @@ class Configurator():
         self.installer = False
         self.quick_install = False
         self.encryption_failed = True
+        self.scenario = False
+        self.hypergraph = False
 
         self.edit_error_msg = ""
         self.detailed = "init"
@@ -181,6 +183,11 @@ class Configurator():
             "called_cmd": "show_version",
         })
         
+        try:
+            self.hypergraph = self.c.config_obj["global_elements"]["metagraph_name"]
+        except:
+            self.log.logger.warn("configurator -> prepare_config -> missing Hypergraph/metagraph type")
+
         self.c.config_obj["global_elements"] = {"caller":"config"}
         self.c.functions.log = self.log
         self.c.functions.version_obj = versioning.version_obj
@@ -381,7 +388,7 @@ class Configurator():
             })
             self.c.functions.print_paragraphs([
                 ["Scenario One:",1,"cyan","bold"], ["This entails setting up a brand new Node. In this case, it is highly recommended that you",0,"green"],
-                ["exit here",0,"red"], ["and utilize the installer to build your new Node. Refer to the documentation for full details and options on how to use the installer.",1,"green"],
+                ["exit here",0,"red","bold"], ["and utilize the installer to build your new Node. Refer to the documentation for full details and options on how to use the installer.",1,"green"],
                 ["recommended:",0,"yellow"], ["sudo nodectl install –quick-install",2],
 
                 ["Scenario Two:",1,"cyan","bold"], ["This involves an existing Node where you need to apply a new configuration to handle new features or add",0,"green"],
@@ -389,8 +396,10 @@ class Configurator():
                 ["share the same profile name and",0,"green"], ["will not",0,"yellow"], ["interfere with the existing configuration (clusters and profiles)",0,"green"],
                 ["already on this Node.",2,"green"],
 
-                ["Scenario Three:",1,"cyan","bold"], ["You are here for in reference to",0,"green"],["scenario two",0,], ["but",0,"red","bold"],
-                ["the new configuration",0,"green"], ["is going to conflict",0,"red"], ["with an existing profile of a different cluster on this Node.",2,"green"],
+                ["Scenario Three:",1,"cyan","bold"], ["You would like to",0,"green"], ["migrate",0,"red","bold"], ["or",0,"green"], ["replace",0,"red","bold"],
+                ["the configuration on this existing Node for use on another cluster.",1,"green"], 
+                ["Example:",0],["Migrate a Node from Constellation Network's",0,"green"], ["IntegrationNet",0,"yellow"], ["to Constellation Network's",0,"green"],
+                ["MainNet.",2,"yellow"],
 
                 ["Scenario Four:",1,"cyan","bold"], ["You have encountered a configuration error that is preventing you from continuing to use nodectl",0,"red"],
                 ["and would like to attempt to overwrite your configuration, preserve as much information as possible, and avoid losing any data.",2,"red"],
@@ -409,8 +418,8 @@ class Configurator():
 
                 ["Definitions",1,"cyan","bold"],
                 ["Cluster:",0,"yellow"],["A network of connected Nodes.",1],
-                ["Hypergraph:",0,"yellow"],["Constellation's main cluster.",1],
-                ["Metagraph:",0,"yellow"],["Business or non-constellation owned cluster, that links to the Hypergraph layer0 cluster.",2],
+                ["Hypergraph:",0,"yellow"],["Constellation's main layer0 & layer1 cluster.",1],
+                ["metagraph:",0,"yellow"],["Business or non-constellation owned cluster, that links to the metagraph layer0 & Hypergraph layer0 cluster.",2],
             ])
 
             print_scenarios()  
@@ -427,42 +436,47 @@ class Configurator():
             self.c.functions.print_paragraphs([
                 ["Most likely you are continuing because you decided that scenario",0,"green"],
                 ["two, three, or four",0,"yellow"], ["fit your requirements.",2,"green"],
-                ["Are you here because of scenario",0,"green"], ["FOUR",0,"yellow"], 
-                ["(overriding an existing or corrupt configuration)?",2,"green"],
             ])
-            self.override = self.c.functions.confirm_action({
-                "prompt": "Yes? ",
-                "yes_no_default": "y",
-                "return_on": "y",
-                "exit_if": False,            
-            })
+            scenario_list = ["Scenario 1","Scenario 2","Scenario 3","Scenario 4"]
+            self.scenario = int(self.c.functions.print_option_menu({
+                "options": scenario_list,
+                "let_or_num": "num",
+                "color": "cyan",
+                "return_value": False
+            }))
+            self.c.functions.print_paragraphs([
+                [" Chosen: ",0,"white,on_blue"],[scenario_list[self.scenario-1],1,"green"],
+            ])
+            if self.scenario > 2: self.override = True
             if self.override:
                 self.c.functions.print_paragraphs([
-                    ["",1],[" WARNING ",0,"red,on_yellow"], ["nodectl will attempt to pull information from your current",0],
-                    ["configuration in order to persist data. However, you may encounter various nodectl errors during this process",0],
-                    ["if the configuration is not recoverable.",2],
+                    ["",1],[" WARNING ",0,"red,on_yellow"], ["nodectl will attempt to pull information from your current",0,"yellow"],
+                    ["configuration in order to persist data. However, you may encounter various nodectl errors during this process",0,"yellow"],
+                    ["if the configuration is not recoverable.",2,"yellow"],
                     
-                    ["The purpose of this attempt to override the existing configuration is to persist data.",0],
-                    ["If errors occur, nodectl will automatically exit.",2], 
+                    ["The purpose of this attempt to override the existing configuration is to persist data.",0,"yellow"],
+                    ["If errors occur, nodectl will automatically exit.",2,"yellow"], 
 
-                    ["You can restart the configurator,",0], ["decline",0,"red"], ["the override configuration option, proceed with the next steps,",0],
-                    ["and then after the process is completed, use the configurator to update your various",0],
-                    ["non-default information, such as private key [p12] details.",2],
+                    ["You can restart the configurator,",0,"yellow"], ["decline",0,"red"], ["the override configuration option, proceed with the next steps,",0,"yellow"],
+                    ["and then after the process is completed, use the configurator to update your various",0,"yellow"],
+                    ["non-default information, such as private key [p12] details.",2,"yellow"],
 
                     ["See the documentation for further details:",1],
                     ["https://docs.constellationnetwork.io/validate",2,"blue","bold"],
                 ])
                 self.c.functions.print_any_key({"prompt":"Press any key to continue"})
-            else:
+            
+            if self.scenario == 3: 
                 _ = self.c.functions.process_command({"proc_action": "clear"})
                 print_scenarios()
                 self.c.functions.print_paragraphs([
-                    ["If you are here because of scenario",0,"green"], ["THREE",0,"red"], ["there may be a situation where you are migrating your node to",0,"green"],
-                    ["another (new) cluster that happens to share the same profile name as the existing profile name already on this Node. If",0,"green"],
-                    ["and only if you are joining a new cluster that shares the same profile name, it is important to stop your Node’s original",0,"green"],
+                    ["You are here because scenario",0,"green"], ["THREE",0,"red","bold"], ["was chosen. There may be a situation where you are migrating your node to",0,"green"],
+                    ["another (new) cluster that happens to share the same profile name as the existing profile name already on this Node.",2,"green"],
+                    ["Regardless, it is important to stop your Node’s original",0,"green"],
                     ["profile by issuing a leave and stop command to remove your Node from the old cluster. Failure to do so can lead",0,"green"],
                     ["to undesired and unknown results or errors.",1,"green"],
                     ["Command:",0,"yellow"], ["sudo nodectl stop -p <profile_name>",2,"cyan"],
+                    ["nodectl will prompt you to assist in the removal of data related to the old cluster you are migrating from later in this process.",2,"red"]
                 ])
 
                 self.c.functions.confirm_action({
@@ -4019,7 +4033,7 @@ class Configurator():
                 
                 
     def cleanup_old_profiles(self):
-        cleanup = False
+        cleanup = True
         clean_up_old_list = []
         self.log.logger.info("configurator is verifying old profile cleanup.")
         
@@ -4031,21 +4045,37 @@ class Configurator():
 
         if self.print_old_file_warning("profiles"): return
                 
-        for old_profile in self.old_last_cnconfig.keys():
-            if old_profile not in self.config_obj.keys():
-                cleanup = True
-                clean_up_old_list.append(old_profile)
-                self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
+        # for old_profile in self.old_last_cnconfig.keys():
+        #     if old_profile not in self.config_obj.keys():
+        #         cleanup = True
+        #         clean_up_old_list.append(old_profile)
+        #         self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
         
-        for old_profile in clean_up_old_list:
-            self.c.functions.print_cmd_status({
-                "text_start": "Abandoned",
-                "brackets": old_profile,
-                "text_end": "profile",
-                "status": "found",
-                "color": "red",
-                "newline": True,
-            })
+        # for old_profile in clean_up_old_list:
+        #     self.c.functions.print_cmd_status({
+        #         "text_start": "Abandoned",
+        #         "brackets": old_profile,
+        #         "text_end": "profile",
+        #         "status": "found",
+        #         "color": "red",
+        #         "newline": True,
+        #     })
+
+        old_profiles = list(self.old_last_cnconfig.keys())
+        old_profiles = self.c.functions.clear_global_profiles(old_profiles)
+        try:
+            for old_profile in old_profiles:
+                self.log.logger.warn(f"configuration found possible abandoned profile [{old_profile}]")
+                self.c.functions.print_cmd_status({
+                    "text_start": "Abandoned",
+                    "brackets": old_profile,
+                    "text_end": "profile",
+                    "status": "found",
+                    "color": "red",
+                    "newline": True,
+                })
+        except:
+            cleanup = False
             
         if cleanup:
             self.c.functions.print_paragraphs([
@@ -4062,20 +4092,29 @@ class Configurator():
             })   
             if not self.clean_profiles: self.skip_clean_profiles_manual = True 
             if self.clean_profiles:
-                for profile in clean_up_old_list:
-                    _ = self.c.functions.process_command({
-                        "bashCommand": f"sudo rm -rf /var/tessellation/{profile}",
-                        "proc_action": "subprocess_devnull",
-                    })
-                    self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
-                    self.c.functions.print_cmd_status({
-                        "text_start": "Removed",
-                        "brackets": profile,
-                        "text_end": "profile",
-                        "status": "complete",
-                        "color": "green",
-                        "newline": True,
-                    })
+                for profile in old_profiles:
+                    with ThreadPoolExecutor() as executor:
+                        self.c.functions.event = True
+                        _ = executor.submit(self.c.functions.print_spinner,{
+                            "msg": f"removing abandon profile: {profile} ",
+                            "color": "magenta",
+                            })                        
+                        # rmtree(f"/var/tessellation/{profile}")
+                        sleep(3)
+                        self.c.functions.event = False
+                        self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
+                        self.c.functions.print_cmd_status({
+                            "text_start": "Removed",
+                            "brackets": profile,
+                            "text_end": "profile",
+                            "status": "complete",
+                            "color": "green",
+                            "newline": True,
+                        })
+            else:
+                self.c.functions.print_paragraphs([
+                    ["Skipping profile data cleanup.",1,"magenta","bold"],
+                ])
         else:  
             self.c.functions.print_paragraphs([
                 ["No old profiles were identified.",1,"green","bold"],
@@ -4111,13 +4150,22 @@ class Configurator():
             })
             return
         
-        for old_profile in self.old_last_cnconfig.keys():
-            if old_profile not in self.config_obj.keys():
-                if "global" not in old_profile:
-                    cleanup = True
-                    if self.action == "new" or old_profile == self.profile_to_edit:
-                        clean_up_old_list.append(old_profile)
-                        self.log.logger.warn(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
+        old_profiles = list(self.old_last_cnconfig.keys())
+        old_profiles = self.c.functions.clear_global_profiles(old_profiles)  
+        for old_profile in old_profiles:
+            if old_profile not in self.config_obj.keys() or self.action == "new":
+                cleanup = True
+                if self.action == "new" or old_profile == self.profile_to_edit:
+                    clean_up_old_list.append(old_profile)
+                    self.old_last_cnconfig[old_profile]["service"] = self.c.setup_config_vars({
+                        "key": "default_service",
+                        "graph": self.hypergraph,
+                        "profile": old_profile,
+                        "cleanup": True,
+                        "layer": self.old_last_cnconfig[old_profile]["layer"],
+                        "env": self.old_last_cnconfig[old_profile]["environment"],
+                    })
+                    self.log.logger.warn(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
         
         clean_up_old_list2 = deepcopy(clean_up_old_list)
 
