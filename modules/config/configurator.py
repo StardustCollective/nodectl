@@ -356,9 +356,15 @@ class Configurator():
             "action": "Create",
         }) 
         
-        self.cleanup_old_profiles()
-        self.cleanup_service_files(False)
-        if not self.override: self.cleanup_create_snapshot_dirs() 
+        if not self.scenario or self.scenario > 2:
+            self.cleanup_old_profiles()
+            self.cleanup_service_files(False)
+            if not self.override and self.scenario: self.cleanup_create_snapshot_dirs() 
+        else:
+            self.c.functions.print_paragraphs([
+                ["",1],["New configuration detected. Cleanup of old services and data will be skipped.",0,"red"],
+                ["Depending on your situation you may have old data and services from an abandoned profiles on this Node.",2,'red'],
+            ])
         self.prepare_configuration("edit_config",False)
         self.move_config_backups()
         
@@ -648,9 +654,7 @@ class Configurator():
                     
                 nodeadmin_default = self.sudo_user
                 location_default = f"/home/{self.sudo_user}/tessellation/"
-                p12_default = ""
-            
-            p12_required = False if set_default else True
+                p12_default = f"{self.sudo_user}-node.p12"
             
             questions = {
                 "nodeadmin": {
@@ -666,10 +670,10 @@ class Configurator():
                     "required": False,
                 },
                 "key_name": {
-                    "question": f"  {colored('Enter in your p12 file name: ','cyan')}",
+                    "question": f"  {colored('Enter in your p12 file name:','cyan')}",
                     "description": "This is the name of your p12 private key file.  It should have a '.p12' extension.",
                     "default": p12_default,
-                    "required": p12_required,
+                    "required": False,
                 },
             }
             
@@ -2387,6 +2391,14 @@ class Configurator():
         questions = command_obj["questions"]
         confirm = command_obj.get("confirm",True)
         
+        if self.scenario:
+            self.c.functions.print_paragraphs([
+                ["",1],[" WARNING ",0,"yellow,on_red"], ["Depending on the reason you reached this section",0],
+                ["the default options in",0], ["yellow",0,"yellow"], ["are",0],["suggestions only.",2,"green","bold"],
+                ["Please enter the values that best meet your p12 key store setup.",1,"red","bold"],
+                ["-","half"],
+            ])
+
         alternative_confirm_keys = questions.get("alt_confirm_dict",{})
         if len(alternative_confirm_keys) > 0:
             alternative_confirm_keys = questions.pop("alt_confirm_dict")
@@ -4024,7 +4036,7 @@ class Configurator():
                     ["Profile Directories Found",2,"blue","bold"]
                 ])
                 if stype == "profiles": 
-                    _ = self.functions.process_command({
+                    _ = self.c.functions.process_command({
                         "bashCommand": "sudo tree /var/tessellation/ -I 'data|logs|nodectl|backups|uploads|*.jar|*seedlist'",
                         "proc_action": "subprocess_run_check_only",
                     })
