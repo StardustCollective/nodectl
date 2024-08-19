@@ -826,7 +826,6 @@ class Functions():
                             "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                             "extra2": self.config_obj[profile]["layer"],
                         })
-
             
             for n in range(0,max_range):
                 try:

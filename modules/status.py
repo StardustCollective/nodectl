@@ -96,18 +96,12 @@ class Status():
                     if key == "thresholds": continue
                     self.process_memory[key]["RSS"] = size(value["RSS"],system=alternative)
                     self.process_memory[key]["VMS"] = size(value["VMS"],system=alternative)
+                self.memory_percent = self.process_memory["thresholds"]["mem_percent"]
+                self.cpu_percent = self.process_memory["thresholds"]["cpu_percent"]
             elif key == "uptime":
-                # fix problem with uptime less than 1 day
-                result_stream = popen("uptime")
-                result_test = result_stream.read()
-                if "day" in result_test:
-                    command = "uptime | awk '{print $3\" \"$12}'"
-                elif "min" in result_test:
-                    command = "uptime | awk '{print $3\" \"$11}'"
-                else:
-                    command = "uptime | awk '{print $3\" \"$10}'"
-                result_stream = popen(command)
-                self.current_result = result_stream.read()
+                with open('/proc/uptime','r') as uptime_file:
+                    uptime_seconds = float(uptime_file.readline().split()[0])
+                    self.current_result = str(int(uptime_seconds /(60*60*24)))
                 self.parse_uptime_load()
  
             
@@ -120,29 +114,19 @@ class Status():
       
         
     def parse_uptime_load(self):
-        details = self.current_result.split(" ")
-        details[0] = self.functions.cleaner(details[0],"new_line")
-        details[0] = self.functions.cleaner(details[0],"commas")
-        details[1] = self.functions.cleaner(details[1],"new_line")
-        details[1] = self.functions.cleaner(details[1],"commas")
 
-        try: 
-            int(details[0])
-        except:
-            details[0] = 1
-
-        if int(details[0]) > self.uptime:
-            self.system_up_time = f"WARN@{details[0]}"
+        if  int(self.current_result) > self.uptime:
+            self.system_up_time = f"WARN@{str(self.current_result)}"
         else:
-            self.system_up_time = f"OK@{details[0]}"
+            self.system_up_time = f"OK@{str(self.current_result)}"
 
-        if float(details[1]) > float(self.load):
-            self.usage = f"WARN@{details[1]}"
+        if float(self.cpu_percent/100) > float(self.load):
+            self.usage = f"WARN@{self.cpu_percent}%"
         else:
-            self.usage = f"OK@{details[1]}" 
+            self.usage = f"OK@{self.cpu_percent}%" 
             
-        self.usage = self.usage.strip("\n")
-        self.system_up_time = self.system_up_time.strip("\n")
+        # self.usage = self.usage.strip("\n")
+        # self.system_up_time = self.system_up_time.strip("\n")
 
 
     def parse_memory(self,memory):

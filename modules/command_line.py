@@ -767,9 +767,15 @@ class CLI():
             {
                 "header_elements" : {
                     "DISK USAGE": status.hd_space.strip("\n"),
-                    "15M CPU": status.usage,
+                    "CPU USAGE": status.usage,
                     "UPTIME_DAYS": status.system_up_time,
+                },
+                "spacing": 15,
+            },
+            {
+                "header_elements" : {
                     "MEMORY": status.memory,
+                    "MEMORY %": f"{status.memory_percent}%",
                     "SWAP": status.swap,
                 },
                 "spacing": 15,
