@@ -302,6 +302,7 @@ class Cleaner():
             })
             skip = True
         else:
+            self.functions.print_clear_line()
             for p_file in file_list:
                 if dir_type != "directory_snapshots" and action == "find_only":
                     print(p_file) 
