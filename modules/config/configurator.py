@@ -352,10 +352,6 @@ class Configurator():
         self.apply_vars_to_config()
         self.upgrade_needed = False
 
-        self.build_service_file({
-            "action": "Create",
-        }) 
-        
         if not self.scenario or self.scenario > 2:
             self.cleanup_old_profiles()
             self.cleanup_service_files(False)
@@ -365,6 +361,11 @@ class Configurator():
                 ["",1],["New configuration detected. Cleanup of old services and data will be skipped.",0,"red"],
                 ["Depending on your situation you may have old data and services from an abandoned profiles on this Node.",2,'red'],
             ])
+
+        self.build_service_file({
+            "action": "Create",
+        }) 
+
         self.prepare_configuration("edit_config",False)
         self.move_config_backups()
         
@@ -610,7 +611,7 @@ class Configurator():
                     [new_config_warning,line_skip,"red"]
                 ])
                 self.preserve_pass = self.c.functions.confirm_action({
-                    "prompt": "Preserve Global p12 details? ",
+                    "prompt": "Preserve global p12 details? ",
                     "yes_no_default": "n",
                     "return_on": "y",
                     "exit_if": False                
@@ -710,9 +711,9 @@ class Configurator():
             p12_pass = {"passphrase": "None", "pass2": "None"}
 
             if self.keep_pass_visible:
-                single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the passphrase for this profile","cyan")}'
+                single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the passphrase for this profile?","cyan")}'
                 if ptype == "global":
-                    single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the global passphrase","cyan")}'
+                    single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the global passphrase?","cyan")}'
                 if not self.c.functions.confirm_action({
                     "prompt": single_visible_str,
                     "yes_no_default": "n",
@@ -4111,8 +4112,8 @@ class Configurator():
                             "msg": f"removing abandon profile: {profile} ",
                             "color": "magenta",
                             })                        
-                        # rmtree(f"/var/tessellation/{profile}")
-                        sleep(3)
+                        rmtree(f"/var/tessellation/{profile}")
+                
                         self.c.functions.event = False
                         self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
                         self.c.functions.print_cmd_status({
@@ -4178,6 +4179,16 @@ class Configurator():
                         "env": self.old_last_cnconfig[old_profile]["environment"],
                     })
                     self.log.logger.warn(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
+
+        for profile in self.metagraph_list:
+            self.config_obj[profile]["service"] = self.c.setup_config_vars({
+                "key": "default_service",
+                "graph": self.config_obj["global_elements"]["metagraph_name"],
+                "profile": profile,
+                "cleanup": True,
+                "layer": self.config_obj[profile]["layer"],
+                "env": self.config_obj[profile]["environment"],
+            })            
         
         clean_up_old_list2 = deepcopy(clean_up_old_list)
 

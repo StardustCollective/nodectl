@@ -1509,7 +1509,7 @@ class CLI():
         print(status_header.rjust(28))
         print(status_results)
 
-        nodectl_only = ["ApiNotReady","ApiNotResponding","SessionIgnored","SessionNotFound"]
+        nodectl_only = self.functions.get_node_statues("nodectl_only",True)
         states.pop(0)
         for value in states:
             print_value = value[1]
@@ -2984,7 +2984,8 @@ class CLI():
                 "caller": "cli_stop",
             })     
             self.log.logger.info(f"cli_stop -> found state | profile [{profile}] | state [{state}]")
-            states = ["Ready","WaitingForReady","Observing","WaitingForObserving","DownloadInProgress"]
+            states = self.functions.get_node_states("on_network",True)
+
             if state in states:
                 self.functions.print_paragraphs([
                     ["",1],[" WARNING ",0,"white,on_red"], ["This profile",0],
@@ -3289,7 +3290,7 @@ class CLI():
                         "simple": True,
                     })
 
-                    ready_states = list(zip(*self.functions.get_node_states("ready_states")))[0]
+                    ready_states = self.functions.get_node_states("ready_states",True)
                     if peer_test_results in ready_states:  # ReadyToJoin and Ready
                         self.log.logger.debug(f"cli_restart -> found state [{peer_test_results}] profile [{profile}]")
                         break
@@ -3461,9 +3462,11 @@ class CLI():
             
         result, snapshot_issues, tolerance_result = False, False, False
         first_attempt = True
-        wfd_count, wfd_max = 0, 3  # WaitingForDownload
+
+        # every 4 seconds updated
+        wfd_count, wfd_max = 0, 5  # WaitingForDownload
         dip_count, dip_max = 0, 8 # DownloadInProgress
-        ss_count, ss_max = 0, 3 # SessionStarted
+        ss_count, ss_max = 0, 35 # SessionStarted 
         
         attempt = ""
         
@@ -3474,15 +3477,18 @@ class CLI():
         gl0_link = self.functions.config_obj[called_profile]["gl0_link_enable"]
         ml0_link = self.functions.config_obj[called_profile]["ml0_link_enable"]
 
-        states = list(zip(*self.functions.get_node_states("on_network")))[0]
-        break_states = list(zip(*self.functions.get_node_states("past_observing")))[0]
+        states = self.functions.get_node_states("on_network",True)
+        break_states = self.functions.get_node_states("past_observing",True)
                 
         def print_update():
             nonlocal first_attempt
             if first_attempt:
                 first_attempt = False
                 self.functions.print_paragraphs([
-                    [" Max Timer ",0,"yellow,on_blue"],["300",0,"yellow"], ["seconds",1]
+                    ["",1],["State:",0,"magenta"], ["SessionStarted",0,"yellow"], ["may take up to",0,"magenta"],
+                    ["120+",0,"yellow"],["seconds to properly synchronize with peers to enhance join accuracy.",1,"magenta"],
+                    [" Max Timer ",0,"yellow,on_blue"],["300",0,"yellow"], ["seconds",1],
+                    ["-","half","blue","bold"],
                 ])
                 
             self.functions.print_clear_line()
@@ -3678,7 +3684,7 @@ class CLI():
                             
                 try:
                     connect_threshold = peer_count/src_peer_count
-                    if peer_count >= src_peer_count: 
+                    if peer_count >= src_peer_count and state != "SessionStarted": 
                         result = True
                     else:
                         if connect_threshold >= defined_connection_threshold and increase_check > 1:
@@ -3694,10 +3700,11 @@ class CLI():
                     print_update()
                         
                 if result or tolerance_result or allocated_time > max_timer or increase_check > 8: # 8*5=40
+                    no_new_status = "error" if state not in break_states else state
                     if increase_check > 3:
                         self.functions.print_cmd_status({
                             "text_start": "No new nodes discovered for ~40 seconds",
-                            "status": "error",
+                            "status": no_new_status,
                             "status_color": "red",
                             "newLine": True
                         })

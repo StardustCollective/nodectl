@@ -918,7 +918,7 @@ class Upgrader():
             "newline": True,
         })
 
-        remove_ntp_services()
+        remove_ntp_services(self.log)
         handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
 
@@ -1253,6 +1253,7 @@ class Upgrader():
     
     def complete_process(self):
         self.functions.print_clear_line()
+        states = self.functions.get_node_states("on_network",True)
         
         if self.nodectl_only:
             print("")
@@ -1277,7 +1278,6 @@ class Upgrader():
                             "profile": item["profile"],
                             "simple": True
                         })
-                        states = ["Ready","Observing","WaitingForObserving","WaitingForReady","DownloadInProgress"]
                         if state not in states:
                             self.log.logger.warn("There may have been a timeout with the join state during installation")
                             self.functions.print_paragraphs([

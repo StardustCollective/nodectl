@@ -848,7 +848,7 @@ class Installer():
                             "status": "complete",
                             "newline": True
                         })
-        remove_ntp_services()
+        remove_ntp_services(self.log)
         handle_time_setup(self.functions,self.options.quick_install,False,self.options.quiet,self.log)
         
 

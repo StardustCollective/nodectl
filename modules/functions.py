@@ -5,13 +5,11 @@ import urllib3
 import csv
 import yaml
 import select
-import subprocess
 import socket
 import validators
 import uuid
 import glob
 import distro
-import requests
 
 import pytz
 from tzlocal import get_localzone
@@ -29,7 +27,7 @@ from re import match, sub, compile
 from textwrap import TextWrapper
 from requests import get, Session
 from requests.exceptions import HTTPError, RequestException
-from subprocess import Popen, PIPE, call, run, check_output
+from subprocess import Popen, PIPE, call, run, check_output, CalledProcessError, DEVNULL, STDOUT
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
@@ -93,8 +91,8 @@ class Functions():
         self.nodectl_includes_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs/includes"
         self.nodectl_download_url = f"https://github.com/stardustCollective/nodectl/releases/download/{self.node_nodectl_version}"
         # Tessellation reusable lists
-        self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
-        self.pre_consensus_list = ["DownloadInProgress","WaitingForReady","WaitingForObserving","Observing"]
+        self.not_on_network_list = self.get_node_states("not_on_network",True)
+        self.pre_consensus_list = self.get_node_states("pre_consensus",True)
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
         self.session_timeout = 2 # seconds
@@ -427,7 +425,7 @@ class Functions():
             }
 
 
-    def get_node_states(self,types="all"):
+    def get_node_states(self,types="all",state_list=False):
         if types == "all":
             node_states = [
                 ('Initial','i*'),
@@ -448,13 +446,43 @@ class Functions():
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]
-        elif types == "on_network":
+        elif types == "on_network" or types== "pre_consensus":
             node_states = [
                 ('Observing','ob*'),
                 ('WaitingForReady','wr*'),
                 ('WaitingForObserving','wo*'),
+                ('DownloadInProgress','dp*'),
                 ('Ready',''),
             ]
+            if types == "pre_consensus":
+                node_states.pop()
+        elif types == "not_on_network":
+            node_states = [
+                ('Initial','i*'),
+                ('ReadyToJoin','rj*'),
+                ('StartingSession','ss*'),
+                ('SessionStarted','s*'),
+                ('ApiNotResponding','ar*'),
+                ('Offline','o*'),
+                ('ApiNotReady','a*'),
+            ]
+        elif types == "stuck_in_states":
+            node_states = [
+                ('Initial','i*'),
+                ('ReadyToJoin','rj*'),
+                ('StartingSession','ss*'),
+                ('SessionStarted','s*'),
+                ('Offline','o*'),
+                ('ApiNotReady','a*'),
+                ('ApiNotResponding','ar*'),
+            ]
+        elif types == "past_dip":
+            node_states = [
+                ('WaitingForObserving','wr*'),
+                ('Observing',''),
+                ('WaitingForReady','wr*'),
+                ('Ready',''),
+            ]            
         elif types == "past_observing":
             node_states = [
                 ('WaitingForReady','wr*'),
@@ -465,8 +493,16 @@ class Functions():
                 ('ReadyToJoin','rj*'),
                 ('Ready',''),
             ]            
+        elif types == "nodectl_only":
+            node_states = [
+                ('ApiNotReady','a*'),
+                ('ApiNotResponding','ar*'),
+                ('SessionIgnored','si*'),
+                ('SessionNotFound','snf*'),
+            ]            
         
-                        
+        if state_list:
+            return list(list(zip(*node_states))[0])
         return node_states
     
     
@@ -2458,7 +2494,7 @@ class Functions():
             "profile": profile,
             "simple": True,
         })
-        continue_states = ["Observing","Ready","WaitingForReady","WaitingForObserving","DownloadInProgress"] 
+        continue_states = self.get_node_states("on_network",True) 
         if state not in continue_states or "active" not in self.config_obj["global_elements"]["node_service_status"][profile]:
             self.print_paragraphs([
                 [" PROBLEM FOUND ",0,"grey,on_red","bold"], ["",1],
@@ -3908,10 +3944,10 @@ class Functions():
         working_directory = command_obj.get("working_directory",None)
         
         if proc_action == "clear":
-            subprocess.run('clear', shell=True)
+            run('clear', shell=True)
             return
         
-        if proc_action == "timeout":
+        if "timeout" in proc_action:
             if working_directory == None:
                 p = Popen(shlexsplit(bashCommand), stdout=PIPE, stderr=PIPE)
             else:
@@ -3936,68 +3972,68 @@ class Functions():
             results = []
             for n, cmd in enumerate(bashCommand):
                 if n == 0:
-                    results.append(subprocess.Popen(cmd, stdout=subprocess.PIPE))
+                    results.append(Popen(cmd, stdout=PIPE))
                     continue
-                results.append(subprocess.Popen(bashCommand[n],stdin=results[n-1].stdout, stdout=subprocess.PIPE))
+                results.append(Popen(bashCommand[n],stdin=results[n-1].stdout, stdout=PIPE))
                 
             output, _ = results[-1].communicate()
             return output.decode()
 
         if proc_action == "subprocess_co":
             try:
-                output = subprocess.check_output(bashCommand, shell=True, text=True)
-            except subprocess.CalledProcessError as e:
+                output = check_output(bashCommand, shell=True, text=True)
+            except CalledProcessError as e:
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
             return output
         
         if proc_action == "subprocess_run":
-            output = subprocess.run(shlexsplit(bashCommand), shell=True, text=True)
+            output = run(shlexsplit(bashCommand), shell=True, text=True)
             return output
         
         if proc_action == "subprocess_run_check_only":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True)
-            except subprocess.CalledProcessError as e:
+                output = run(shlexsplit(bashCommand), check=True)
+            except CalledProcessError as e:
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
                 
         if proc_action == "subprocess_run_pipe":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            except subprocess.CalledProcessError as e:
+                output = run(shlexsplit(bashCommand), check=True, stdout=PIPE, stderr=PIPE)
+            except CalledProcessError as e:
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
                 
         if proc_action == "subprocess_run_only":
             try:
-                output = subprocess.run(shlexsplit(bashCommand))
-            except subprocess.CalledProcessError as e:
+                output = run(shlexsplit(bashCommand))
+            except CalledProcessError as e:
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
         if proc_action == "subprocess_return_code":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            except subprocess.CalledProcessError as e:
+                output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=DEVNULL, check=True)
+            except CalledProcessError as e:
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = e
             return output.returncode
         
         if proc_action == "subprocess_devnull":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
-            except subprocess.CalledProcessError as e:
+                output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=STDOUT, check=True)
+            except CalledProcessError as e:
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output  
               
         if proc_action == "subprocess_run_check_text":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True, text=True)
-            except subprocess.CalledProcessError as e:
+                output = run(shlexsplit(bashCommand), check=True, text=True)
+            except CalledProcessError as e:
                 self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
@@ -4005,9 +4041,9 @@ class Functions():
         if proc_action == "subprocess_capture" or proc_action == "subprocess_rsync":
             verb = "capture" if "capture" in proc_action else "rsync"
             try:
-                result = subprocess.run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
+                result = run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
                 self.log.logger.info(f"{verb} completed successfully.")
-            except subprocess.CalledProcessError as e:
+            except CalledProcessError as e:
                 self.log.logger.warn(f"{verb} failed. Error: {e.stderr}")
             except Exception as e:
                 self.log.logger.warn(f"An error occurred: {str(e)}")

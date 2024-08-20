@@ -59,7 +59,7 @@ class AutoRestart():
             "WaitingForReady_state_enabled": False,
             "WaitingForReady_enabled": False,    
         }
-        
+
         self.persist_alert_file = f"/var/tessellation/nodectl/{self.thread_profile}_alert_report"
 
         self.fork_check_time = {
@@ -138,6 +138,8 @@ class AutoRestart():
             "profile": self.thread_profile,
         })
         
+        self.stuck_in_state_list = self.functions.get_node_states("stuck_in_states",True) 
+        self.pre_consensus_state_list = self.functions.get_node_states("pre_consensus",True)
         self.environment = self.functions.config_obj[self.thread_profile]["environment"]
         
         self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] - starting node services...")
@@ -444,12 +446,11 @@ class AutoRestart():
                     break
             
         if continue_checking:                                        
-            stuck_in_state_list = ["Observing","WaitingForDownload","WaitingForReady"]  
             if session_list["session0"] > session_list["session1"] and session_list['session1'] > 0:
                 self.profile_states[self.node_service.profile]["match"] = False
                 self.profile_states[self.node_service.profile]["action"] = "restart_full"  
                 
-            elif session_list["state1"] in stuck_in_state_list:
+            elif session_list["state1"] in self.stuck_in_state_list:
                 # Check for stuck Session
                 state = session_list["state1"]
                 self.profile_states[self.node_service.profile]["match"] = True
@@ -472,7 +473,7 @@ class AutoRestart():
 
         if self.profile_states[self.node_service.profile]["node_state"] == "Ready":
             self.clear_timers_flags("timers")
-        elif self.profile_states[self.node_service.profile]["node_state"] in ["DownloadInProgress","Observing","WaitingForReady","WaitingForObserving"]:
+        elif self.profile_states[self.node_service.profile]["node_state"] in self.pre_consensus_state_list:
             self.clear_timers_flags("flags")
     
 
@@ -484,7 +485,7 @@ class AutoRestart():
 
     def clear_timers_flags(self, tf_type):
         if tf_type == "timers":
-            for clear_state_time in ["Observing","WaitingForDownload","WaitingForReady"]:
+            for clear_state_time in self.stuck_in_state_list:
                 self.profile_states[self.node_service.profile][f"{clear_state_time}_time"] = 0  
         elif tf_type == "flags":
             for fork_type in ["minority_fork","consensus_fork"]:

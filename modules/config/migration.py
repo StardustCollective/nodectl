@@ -38,7 +38,7 @@ class Migration():
         verify = self.verify_config_type()
         if not verify: return
         self.backup_config()
-        self.handle_keyring()
+        # self.handle_keyring()
         self.create_n_write_yaml()
         self.final_yaml_write_out()
         self.confirm_config()

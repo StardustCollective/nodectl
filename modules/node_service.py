@@ -340,15 +340,19 @@ class Node():
 
     def build_remote_link(self,link_type,interactive):
         not_ready_option = None
-        for n in range(1,4):
+        n = -1
+        try_again = True
+
+        while True:
+            n = n+1
             source_node_list = self.functions.get_api_node_info({
                 "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
                 "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
 
-            if source_node_list == None: 
-                if n < 3:                    
+            if source_node_list == None or not source_node_list: 
+                if n > 2:                    
                     self.error_messages.error_code_messages({
                         "error_code": "ns-634",
                         "line_code": "config_error",
@@ -360,29 +364,31 @@ class Node():
 
             if not self.auto_restart:
                 self.functions.print_cmd_status({
-                    "text_start": f"{link_type.upper()} Link Node in",
+                    "text_start": f"{link_type.upper()} Link Node State:",
                     "brackets": source_node_list[3],
-                    "text_end": "state" if source_node_list[3] == "Ready" else "state | not",
+                    "text_end": "" if source_node_list[3] == "Ready" else "not",
                     "status": "Ready",
                     "status_color": "green" if source_node_list[3] == "Ready" else "red",
                     "newline": True
                 })
 
-            ready_list = ["Ready","WaitingForReady","Observing","WaitingForObserving"]
-            ready_list = ["Ready"]
-            if source_node_list[3] in ready_list:
+            if source_node_list[3] == "Ready":
                 self.log.logger.debug(f"node_service -> build_remote_link -> source node [{source_node_list[3]}] in state [{source_node_list[3]}].")
                 return True
 
             if n > 2:
-                self.log.logger.error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
-                if not self.auto_restart:
-                    self.functions.print_paragraphs([
-                        [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
-                        ["Exiting join process, please try again later or check Node configuration.",2,"red"],
-                    ])
-                    self.functions.print_auto_restart_warning()
-                return False
+                if source_node_list[3] == "WaitingForReady" and try_again:
+                    try_again = False
+                    n = 0  
+                else:                  
+                    self.log.logger.error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
+                    if not self.auto_restart:
+                        self.functions.print_paragraphs([
+                            [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
+                            ["Exiting join process, please try again later or check Node configuration.",2,"red"],
+                        ])
+                        self.functions.print_auto_restart_warning()
+                    return False
             
             error_str = colored("before trying again ","red")+colored(n,"yellow",attrs=["bold"])
             error_str += colored(" of ","red")+colored("3","yellow",attrs=["bold"])
@@ -408,6 +414,7 @@ class Node():
                     "seconds": 30,
                     "phrase": error_str,
                 })
+                if n > 3: break
 
         return False
         
