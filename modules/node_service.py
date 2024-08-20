@@ -345,6 +345,7 @@ class Node():
 
         while True:
             n = n+1
+            user_wait = False
             source_node_list = self.functions.get_api_node_info({
                 "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
                 "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
@@ -408,13 +409,19 @@ class Node():
                     cprint("  Node Operator requested to quit operations","green")
                     exit(0)
 
-                if not_ready_option.upper() == "S": break
+                if not_ready_option.upper() == "S": 
+                    break
+
+                error_str = colored("before trying again ","red")
+                user_wait = True
+
             if not self.auto_restart:
                 self.functions.print_timer({
                     "seconds": 30,
                     "phrase": error_str,
                 })
-                if n > 3: break
+                if n > 3 and not user_wait:
+                    break
 
         return False
         
