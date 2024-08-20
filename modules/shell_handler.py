@@ -1493,6 +1493,19 @@ class ShellHandler:
             
             return
         
+        if action == "clear_alerts":
+            self.functions.print_paragraphs([
+                ["",1],["Clearing auto_restart persistent alert settings.",1],
+            ])
+            for profile in self.profile_names:
+                if path.isfile(f"{self.functions.nodectl_path}{profile}_alert_report"):
+                    remove(f"{self.functions.nodectl_path}{profile}_alert_report")
+                    self.log.logger.info(f"auto_restart_handler -> cleared alerting for profile [{profile}]")
+                else:
+                    self.log.logger.info(f"auto_restart_handler -> did not find persistent alerting for profile [{profile}] - skipped")
+            self.auto_restart_handler("restart",True,True)
+            return
+
         if action == "alert_test" or action == "send_report":
             s_type = "Test alert"
             self.functions.print_paragraphs([

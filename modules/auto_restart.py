@@ -51,6 +51,10 @@ class AutoRestart():
             "Observing_enabled": False,
             "Observing_state_enabled": False,
 
+            "SessionStarted_tolerance": 10*60, 
+            "SessionStarted_enabled": False,
+            "SessionStarted_state_enabled": False,
+
             "WaitingForDownload_tolerance": 6*60,
             "WaitingForDownload_state_enabled": False,
             "WaitingForDownload_enabled": False,    
@@ -465,7 +469,7 @@ class AutoRestart():
                 self.profile_states[self.node_service.profile]["match"] = True
                 self.profile_states[self.node_service.profile]["action"] = "join_only"   
                                     
-            elif session_list["session1"] == 0 or session_list["state1"] == "ApiNotReady" or session_list["state1"] == "SessionStarted" or session_list["state1"] == "Offline":
+            elif session_list["session1"] == 0 or session_list["state1"] == "ApiNotReady" or session_list["state1"] == "Offline":
                 # local service is not started 
                 if session_list["session1"] == 0:
                     self.profile_states[self.node_service.profile]["match"] = False
@@ -868,19 +872,19 @@ class AutoRestart():
                 break
             
             self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] state in [{state}] entering retry looper")
-            if state == "SessionStarted": 
-                session_start_attempts = self.attempts_looper(session_start_attempts,"joining",30,3,False)
-                if session_start_attempts > 2:
-                    self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] state in [{state}]")                    
-                    break
-            else: # if any other state retry
-                attempts = self.attempts_looper(attempts,"silent_restart",5,5,False)
-                if attempts > 4:
-                    if "download" in state.lower() or "waiting" in state.lower() or "observing" in state.lower():
-                        self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] not ready to continue state [{state}] dropping back into restart handler.")
-                    else:
-                        self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] failed, dropping back to restart handler")
-                    break
+            # if state == "SessionStarted": 
+            #     session_start_attempts = self.attempts_looper(session_start_attempts,"joining",30,3,False)
+            #     if session_start_attempts > 2:
+            #         self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] state in [{state}]")                    
+            #         break
+            # else: # if any other state retry
+            attempts = self.attempts_looper(attempts,"silent_restart",5,5,False)
+            if attempts > 4:
+                if "download" in state.lower() or "waiting" in state.lower() or "observing" in state.lower():
+                    self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] not ready to continue state [{state}] dropping back into restart handler.")
+                else:
+                    self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] failed, dropping back to restart handler")
+                break
         
         
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler - completed join attempt | state [{state}] | sleeping [{self.join_pause_timer}] seconds before continuing")

@@ -468,18 +468,15 @@ class Functions():
             ]
         elif types == "stuck_in_states":
             node_states = [
-                ('Initial','i*'),
-                ('ReadyToJoin','rj*'),
-                ('StartingSession','ss*'),
+                ('Observing','ob*'),
+                ('WaitingForDownload','wd*'),
+                ('WaitingForReady','wr*'),
                 ('SessionStarted','s*'),
-                ('Offline','o*'),
-                ('ApiNotReady','a*'),
-                ('ApiNotResponding','ar*'),
             ]
         elif types == "past_dip":
             node_states = [
-                ('WaitingForObserving','wr*'),
-                ('Observing',''),
+                ('WaitingForObserving','wo*'),
+                ('Observing','ob*'),
                 ('WaitingForReady','wr*'),
                 ('Ready',''),
             ]            
