@@ -375,7 +375,8 @@ class Error_codes():
                 ["An API call returned an invalid response.",2,"red","bold"],
                 ["Possible other reasons could be service related? Are you sure:",1,"red","bold"],
                 [" - The",0,"red","bold"],["Node",0,"yellow"], ["service(s) are running?",1,"red","bold"],
-                [" - The",0,"red","bold"],["Edge Point",0,"yellow"], ["API endpoint(s) are available?",2,"red","bold"],
+                [" - The",0,"red","bold"],["Edge Point",0,"yellow"], ["API endpoint(s) are available?",1,"red","bold"],
+                [" - The",0,"red","bold"],["Edge Point",0,"yellow"], ["API endpoint(s) are valid?",2,"red","bold"],
 
                 ["Make sure your",0,"magenta"], ["firewall",0,"magenta","underline"], ["has the proper TCP ports opened.",1,"magenta"],
                 ["See logs for further details",2,"magenta"],

@@ -68,12 +68,11 @@ class Functions():
         self.version_obj = False
         self.cancel_event = False
         self.valid_commands = []
-        
-                        
+
+
     def set_statics(self):
         self.set_install_statics()
-        
-        self.error_messages = Error_codes(self.config_obj)         
+        self.set_error_obj()      
         # versioning
         self.node_nodectl_version = self.version_obj["node_nodectl_version"]
         self.node_nodectl_version_github = self.version_obj["nodectl_github_version"]
@@ -118,6 +117,10 @@ class Functions():
         if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
 
 
+    def set_error_obj(self):
+        self.error_messages = Error_codes(self.config_obj) 
+        return
+    
     def set_install_statics(self):
         self.lb_urls = {
             "testnet": ["l0-lb-testnet.constellationnetwork.io",443],
@@ -816,7 +819,7 @@ class Functions():
                 except Exception as e:
                     self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                     
-                if not cluster_info and n > 1:
+                if not cluster_info and n > 2:
                     if self.auto_restart:
                         return False
                     if random_node and self.config_obj["global_elements"]["use_offline"]:
@@ -832,7 +835,7 @@ class Functions():
                             "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                             "extra2": self.config_obj[profile]["layer"],
                         })
-                if not cluster_info and n > 2:
+                if not cluster_info and n > 0:
                     sleep(.8)
                 else:
                     break
@@ -2523,6 +2526,7 @@ class Functions():
         send_error = False
 
         def print_test_error(errors):
+            self.set_error_obj()
             self.error_messages.error_code_messages({
                 "line_code": "api_error",
                 "error_code": f"fnt-{errors[0]}",
