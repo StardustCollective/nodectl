@@ -1509,7 +1509,7 @@ class CLI():
         print(status_header.rjust(28))
         print(status_results)
 
-        nodectl_only = self.functions.get_node_statues("nodectl_only",True)
+        nodectl_only = self.functions.get_node_states("nodectl_only",True)
         states.pop(0)
         for value in states:
             print_value = value[1]
@@ -4100,11 +4100,14 @@ class CLI():
                     if command == "peers" and len(false_lookups) > 0:
                         return false_lookups
                             
-                    for desired_ip in cluster_ips:
-                        if desired_ip["id"] == nodeid:     
-                            ip_address = desired_ip["ip"]
-                            nodeid_to_ip = True
-                            break
+                    if cluster_ips:
+                        for desired_ip in cluster_ips:
+                            if desired_ip["id"] == nodeid:     
+                                ip_address = desired_ip["ip"]
+                                nodeid_to_ip = True
+                                break
+                    else:
+                        nodeid = colored("not found?","red")
                         
                     if not nodeid_to_ip:
                         ip_address = colored("not found?","red")
