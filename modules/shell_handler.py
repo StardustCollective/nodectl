@@ -182,7 +182,9 @@ class ShellHandler:
         clean_files_list = ["clean_files","_cf"]
         download_commands = ["refresh_binaries","_rtb","update_seedlist","_usl"]
         
-        if self.called_command != "service_restart":
+        if self.called_command == "install" and "--quiet" in self.argv:
+            pass
+        elif self.called_command != "service_restart":
             self.functions.print_clear_line()
         
         if self.called_command in status_commands:
