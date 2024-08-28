@@ -789,6 +789,12 @@ class Configuration():
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found("profile",tdir,"error setting defaults",profile)
 
+            # for installer
+            try:
+                _ = self.config_obj["global_elements"]["jar_fallback"]
+            except:        
+                self.config_obj["global_elements"]["jar_fallback"] = False #initialize
+                
             if "github.com" in self.config_obj[profile]["jar_repository"]:
                 self.config_obj[profile]["jar_github"] = True 
             elif "s3" in self.config_obj[profile]["jar_repository"] and "amazonaws" in self.config_obj[profile]["jar_repository"]:

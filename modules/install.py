@@ -1639,9 +1639,12 @@ class Installer():
         if self.options.json_output:
             with open(f"{self.functions.nodectl_path}node_details.json","w") as node_detail_file:
                 json.dump(node_details,node_detail_file,indent=4)
+            if self.options.quiet:
+                print(f"json output located in {self.functions.nodectl_path}node_details.json\n")
+                print(json.dumps(node_details,indent=4))
 
         if self.options.quiet:
-            print(node_details)
+            # print(node_details) # debug
             return
         
         self.print_main_title()

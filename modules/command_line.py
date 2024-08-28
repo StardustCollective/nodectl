@@ -4216,7 +4216,9 @@ class CLI():
 
 
         # clear anything off the top of screen
-        if not create_csv:
+        if "quiet_install" in list(self.command_obj.values()):
+            pass
+        elif not create_csv:
             self.functions.print_clear_line()
 
         if not is_self and not wallet_only:
