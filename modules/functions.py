@@ -271,7 +271,8 @@ class Functions():
         compare = command_obj.get("compare",False)
         count_only = command_obj.get("count_only",False)
         pull_node_id = command_obj.get("pull_node_id",False)
-            
+        count_consensus = command_obj.get("count_consensus",False)
+
         if not peer_obj:
             ip_address = self.default_edge_point["host"]
             api_port = self.default_edge_point["host_port"]
@@ -312,6 +313,20 @@ class Functions():
                 return(count["nodectl_found_peer_count"])
             else:
                 return count
+        
+        if count_consensus:
+            consensus_count = self.get_cluster_info_list({
+                "ip_address": ip_address,
+                "port": api_port,
+                "api_endpoint": "/consensus/latest/peers",
+                "spinner": False,
+                "attempt_range": 4,
+                "error_secs": 3
+            })
+            try:
+                consensus_count = consensus_count.pop()
+            except:
+                consensus_count = {'nodectl_found_peer_count': "unable to derive"}
         
         peer_list = list()
         state_list = list()
@@ -424,6 +439,7 @@ class Functions():
                 "waitingforobserving_count": len(peers_waitingforobserving),
                 "waitingfordownload_count": len(peers_waitingfordownload),
                 "downloadinprogress_count": len(peers_downloadinprogress),
+                "consensus_count": consensus_count["nodectl_found_peer_count"],
                 "ready_count": len(peers_ready),
                 "node_online": node_online
             }

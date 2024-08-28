@@ -4499,6 +4499,7 @@ class CLI():
                 "peer_obj": target_obj,
                 "edge_obj": source_obj,
                 "profile": self.profile,
+                "count_consensus": True,
             })
 
             if peer_results == "error" or peer_results == None:
@@ -4591,6 +4592,7 @@ class CLI():
                 "header_elements" : {
                     "DownloadInProgress": peer_results["downloadinprogress_count"],
                     "WaitingForDownload": peer_results["waitingfordownload_count"],
+                    "In Consensus": peer_results["consensus_count"],
                 },
                 "spacing": spacing
             },
