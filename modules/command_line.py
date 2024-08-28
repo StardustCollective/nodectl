@@ -1918,7 +1918,15 @@ class CLI():
             self.print_title("POSSIBLE PROFILE ISSUES")
             solo = True
 
-        profile = command_list[command_list.index("-p")+1]
+        try:
+            profile = command_list[command_list.index("-p")+1]
+        except Exception as e:
+            self.functions.print_paragraphs([
+                ["Error:",0,"red","bold"], ["Unable to determine profile issue",1,"red"],
+            ])
+            self.log.logger(f"command_line -> show_profile_issues -> unable to obtain profile, skipping [{e}]")
+            return
+        
         ts.setup_logs({
             "profile": profile,
         })
@@ -2662,10 +2670,15 @@ class CLI():
         try:
             nodectl_uptodate = getattr(versions,env)
         except:
-            versions = self.functions.handle_missing_version(version_class_obj)
-            versions = SimpleNamespace(**versions)
-            nodectl_uptodate = getattr(versions,env)
-
+            try:
+                versions = self.functions.handle_missing_version(version_class_obj)
+                versions = SimpleNamespace(**versions)
+                nodectl_uptodate = getattr(versions,env)
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-2671",
+                    "line_code": "version_fetch",
+                })
 
         nodectl_uptodate = nodectl_uptodate["nodectl"]["nodectl_uptodate"]
         

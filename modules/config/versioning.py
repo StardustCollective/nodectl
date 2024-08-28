@@ -127,7 +127,8 @@ class Versioning():
             if self.called_cmd != "uvos":
                 self.print_error("ver-126","invalid_file_format")
         
-        if not self.force: self.verify_version_object()
+        if not self.force: 
+            self.verify_version_object()
 
         if self.new_creation:
             self.log.logger.debug(f"versioning - called by [{self.logging_name}] - new versioning json object file creation.")

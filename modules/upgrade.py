@@ -175,7 +175,7 @@ class Upgrader():
             print("")
             if self.environment not in list(environments["environment_names"]):
                 self.error_messages.error_code_messages({
-                    "error_code": "sh-441",
+                    "error_code": "upg-178",
                     "line_code": "environment_error",
                     "extra": "upgrade",
                     "extra2": self.environment
@@ -442,7 +442,7 @@ class Upgrader():
         ml_version_found = False
 
         meta_type = self.config_obj["global_elements"]["metagraph_name"]
-        meta_title = " metagraph:"
+        meta_title = "metagraph: "
         is_meta = True
 
         if meta_type == "hypergraph:":
@@ -484,15 +484,25 @@ class Upgrader():
                 dynamic_uri = False
                 download_version = False
 
-            try:
-                found_tess_version = self.version_obj[env][profile]['cluster_tess_version']
-                running_tess_version = self.version_obj[env][profile]["node_tess_version"]
-                metagraph_version = self.version_obj[env][profile]["cluster_metagraph_version"]
-            except:
-                self.error_messages.error_code_messages({
-                    "error_code": "upg-298",
-                    "line_code": "version_fetch"
-                })
+            for n in range(1,4):
+                try:
+                    found_tess_version = self.version_obj[env][profile]['cluster_tess_version']
+                    running_tess_version = self.version_obj[env][profile]["node_tess_version"]
+                    metagraph_version = self.version_obj[env][profile]["cluster_metagraph_version"]
+                except:
+                    if n == 1:
+                        self.version_obj = self.parent.version_class_obj.version_obj
+                    elif n < 3:
+                        self.parent.version_class_obj.called_cmd = "upgrader"
+                        self.parent.version_class_obj.execute_versioning()
+                        self.version_obj = self.parent.version_class_obj.version_obj
+                    else:
+                        self.error_messages.error_code_messages({
+                            "error_code": "upg-298",
+                            "line_code": "version_fetch"
+                        })
+                else:
+                    break
                 
             self.log.logger.info(f"upgrade handling versioning: profile [{profile}] tessellation latest [{found_tess_version}] current: [{running_tess_version}]")
             if is_meta:
@@ -525,10 +535,9 @@ class Upgrader():
             if running_tess_version.lower() == "v":
                 self.version_obj[env][profile]['node_tess_version'] = "unavailable" 
                 
-            meta_title = meta_title.replace(":","").rstrip()
             self.functions.print_cmd_status({
                 "status": running_tess_version,
-                "text_start": f"Current {meta_title}",
+                "text_start": f"Current {meta_title.replace(':','').rstrip()}",
                 "brackets": "Tess",
                 "text_end": f"version",
                 "status_color": "red",
@@ -1284,7 +1293,7 @@ class Upgrader():
                                 ["An issue may have been found during this upgrade",1,"red","bold"],
                                 ["Profile:",0,"magenta"],[item['profile'],1,"yellow","bold"],
                                 ["sudo nodectl status",0], ["- to verify status.",1,"magenta"],
-                                ["sudo nodectl -cc -p <profile_name>",0], ["- to verify connections.",1,"magenta"]
+                                ["sudo nodectl show_profile_issues -p <profile_name>",0], ["- to verify cause.",1,"magenta"]
                             ])
                         else:    
                             self.functions.print_paragraphs([ 

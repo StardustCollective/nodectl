@@ -121,6 +121,7 @@ class Functions():
         self.error_messages = Error_codes(self.config_obj) 
         return
     
+
     def set_install_statics(self):
         self.lb_urls = {
             "testnet": ["l0-lb-testnet.constellationnetwork.io",443],
@@ -1154,7 +1155,10 @@ class Functions():
 
     def get_size(self,start_path = '.',single=False):
         if single:
-            return path.getsize(start_path)
+            try:
+                return path.getsize(start_path)
+            except:
+                return False
         total_size = 0
         for dirpath, dirnames, filenames in walk(start_path):
             for f in filenames:
@@ -3404,18 +3408,6 @@ class Functions():
         # [2] = color (optional default = cyan)
 
         console_size, console_setup = self.set_console_setup(wrapper_obj)
-        # console_size = get_terminal_size()  # columns, lines
-
-        # initial_indent = subsequent_indent = "  "
-        # if wrapper_obj is not None:
-        #         initial_indent = wrapper_obj.get("indent","  ")
-        #         subsequent_indent = wrapper_obj.get("sub_indent","  ")
-                
-        # console_setup = TextWrapper()
-        # console_setup.initial_indent = initial_indent
-        # console_setup.subsequent_indent = subsequent_indent
-        # console_setup.width=(console_size.columns - 2)
-
         attribute = []
         
         try:

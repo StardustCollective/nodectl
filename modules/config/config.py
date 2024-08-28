@@ -284,6 +284,7 @@ class Configuration():
         self.config_obj["global_elements"]["global_cli_pass"] = False # initialize 
         self.config_obj["global_elements"]["global_upgrader"] = False # initialize 
         self.config_obj["global_elements"]["all_global"] = False # initialize 
+        self.config_obj["global_elements"]["jar_fallback"] = False # initialize 
         
         self.validate_global_setting()
         try:
@@ -417,7 +418,7 @@ class Configuration():
                     if req == "token" and line.startswith("  global_elements") or req in line: 
                         do_print = True
                     if req == "basics":
-                        basics = ["profile_enable","environment","description",
+                        basics = ["profile_enable","environment","description","jar_fallback",
                                   "node_type","meta_type","layer","collateral","service",
                                   "yaml_config_name","metagraph_name","local_api","includes",
                                   "developer_mode","log_level","nodectl_yaml"]
@@ -546,7 +547,12 @@ class Configuration():
                 },
             },
             "jar_repository": {
-                "dor-metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
+                "dor-metagraph": {
+                    "mainnet": "github.com/Constellation-Labs/dor-metagraph/",
+                }, 
+                "hypergraph": {
+                    "testnet": "constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet/tessellation/",
+                },
             },
             "edge_point": {
                 "mainnet": "mainnet.constellationnetwork.io",
@@ -721,6 +727,11 @@ class Configuration():
                 error_found("profile","token_identifier","error with profile section",profile)
 
             environment = self.config_obj[profile]["environment"]
+            self.config_obj[profile]["jar_github"] = False 
+            self.config_obj[profile]["jar_s3"] = False 
+            self.config_obj[profile]["jar_fallback_s3"] = False 
+            self.config_obj[profile]["jar_fallback_github"] = False
+            self.config_obj[profile]["jar_fallback_repository"] = "disabled"
 
             layer = int(self.config_obj[profile]["layer"])
             for tdir, def_value in defaults.items():
@@ -733,11 +744,12 @@ class Configuration():
                         elif tdir == "priority_source_file": 
                             self.config_obj[profile][tdir] = f"{metagraph_name}-{def_value}" 
                         elif tdir == "jar_repository": 
+                            exception_repo = "github.com/Constellation-Labs/tessellation/"
                             try:
-                                self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
+                                self.config_obj[profile][tdir] = defaults[tdir][metagraph_name][environment]
                             except:
                                 # hypergraph exception
-                                self.config_obj[profile][tdir] = "github.com/Constellation-Labs/tessellation/"
+                                self.config_obj[profile][tdir] = exception_repo
                         elif "edge_point" in tdir:
                             handle_edge_point(profile,environment, metagraph_name)
                         elif tdir == "seed_location":
@@ -777,10 +789,18 @@ class Configuration():
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found("profile",tdir,"error setting defaults",profile)
 
-            self.config_obj[profile]["jar_github"] = False 
             if "github.com" in self.config_obj[profile]["jar_repository"]:
                 self.config_obj[profile]["jar_github"] = True 
+            elif "s3" in self.config_obj[profile]["jar_repository"] and "amazonaws" in self.config_obj[profile]["jar_repository"]:
+                self.config_obj[profile]["jar_s3"] = True
+            if self.config_obj[profile]["environment"] == "testnet":
+                self.config_obj["global_elements"]["jar_fallback"] = True
+                self.config_obj[profile]["jar_fallback_repository"] = exception_repo
 
+            if "github.com" in self.config_obj[profile]["jar_fallback_repository"]:
+                self.config_obj[profile]["jar_fallback_github"] = True 
+            elif "s3" in self.config_obj[profile]["jar_fallback_repository"] and "amazonaws" in self.config_obj[profile]["jar_fallback_repository"]:
+                self.config_obj[profile]["jar_fallback_s3"] = True
             try:
                 if self.config_obj[profile]["seed_repository"] == "default": 
                     self.config_obj[profile]["seed_repository"] = self.config_obj[profile]["jar_repository"] 
@@ -1153,10 +1173,14 @@ class Configuration():
                 ["jar_location","path_def"],
                 ["jar_path","path_def"], # automated value [not part of yaml]
                 ["jar_repository","host_def"], 
+                ["jar_fallback_repository","host_def"], 
                 ["jar_version","str"],
                 ["jar_file","str"],
                 ["is_jar_static","bool"], # automated value [not part of yaml]
                 ["jar_github","bool"], # automated value [not part of yaml]
+                ["jar_s3","bool"], # automated value [not part of yaml]
+                ["jar_fallback_github","bool"], # automated value [not part of yaml]
+                ["jar_fallback_s3","bool"], # automated value [not part of yaml]
                 ["p12_nodeadmin","str"],
                 ["p12_key_location","path"],
                 ["p12_key_name","str"],
@@ -1216,6 +1240,7 @@ class Configuration():
                 ["developer_mode","bool"],  
                 ["log_level","log_level"],
                 ["use_offline","bool"],
+                ["jar_fallback","bool"], # automated value [not part of yaml]
             ]
         }
         
@@ -1266,10 +1291,15 @@ class Configuration():
 
     def validate_yaml_keys(self):
         missing_list = []
+        missing_list_global = []
         not_in_list = [
             "seed_path","pro_rating_path","static_peer",
             "gl0_link_is_self","ml0_link_is_self",
             "p12_key_store","jar_github", "jar_path",
+            "jar_s3","seed_github","p12_validated",
+            "priority_source_path","is_jar_static","p12_key_alias",
+            "jar_fallback_s3","jar_fallback_github","jar_fallback",
+            "jar_fallback_repository", "jar_fallback_github",
         ]
 
         for config_key, config_value in self.config_obj.items():
@@ -1280,7 +1310,9 @@ class Configuration():
                     missing_list.append([config_key, item])
             if "global" in config_key:
                 section = self.schema[config_key]
-                missing_list = [[config_key, section_item[0]] for section_item in section if section_item[0] not in config_value.keys()]
+                missing_list_global = [[config_key, section_item[0]] for section_item in section if section_item[0] not in config_value.keys()]
+
+        missing_list = missing_list+missing_list_global
 
         if len(missing_list) > 0:
             self.validated = False

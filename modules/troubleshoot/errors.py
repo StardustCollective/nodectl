@@ -517,7 +517,7 @@ class Error_codes():
             self.log.logger.warn("unable to fetch version, exited utility ")
             self.functions.print_paragraphs([
                 ["Tessellation attempted version fetch failed.",2,"red","bold"],
-                ["Please try again. If the issue persists, report this to a Constellation Network Administrator.",2,"magenta","bold"]
+                ["Please try again in a few minutes. If the issue persists, report this to a Constellation Network Administrator.",2,"magenta","bold"]
             ])
 
                         

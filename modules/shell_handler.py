@@ -653,7 +653,8 @@ class ShellHandler:
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf","node_last_snapshot",
-            "execute_starchiver","display_snapshot_chain"
+            "execute_starchiver","display_snapshot_chain",
+            "show_p12_details",
         ]  
 
         option_exceptions = [
@@ -662,8 +663,8 @@ class ShellHandler:
 
         if "-p" in self.argv:
             called_profile = self.argv[self.argv.index("-p")+1]
-            if self.called_command not in need_profile_list: return
             self.functions.check_valid_profile(called_profile)
+            if self.called_command not in need_profile_list: return
         
         if self.called_command in need_profile_list and self.called_command in need_environment_list:
             either_or_hint = True
