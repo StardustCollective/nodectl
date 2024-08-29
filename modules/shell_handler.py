@@ -1168,12 +1168,13 @@ class ShellHandler:
                     "newline": True,
                 })   
                 
-        prompt_str = f"Are you sure you want to continue this {self.install_upgrade}?"
-        self.functions.confirm_action({
-            "yes_no_default": "y",
-            "return_on": "y",
-            "prompt": prompt_str,
-        })
+        if "-y" not in self.argv:
+            prompt_str = f"Are you sure you want to continue this {self.install_upgrade}?"
+            self.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": prompt_str,
+            })
 
 
     def restore_config(self,command_list):

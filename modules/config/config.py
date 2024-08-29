@@ -551,7 +551,7 @@ class Configuration():
                     "mainnet": "github.com/Constellation-Labs/dor-metagraph/",
                 }, 
                 "hypergraph": {
-                    "testnet": "constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet/tessellation/",
+                    "future_place_holder": "future_location",
                 },
             },
             "edge_point": {
@@ -801,7 +801,7 @@ class Configuration():
                 self.config_obj[profile]["jar_s3"] = True
             if self.config_obj[profile]["environment"] == "testnet":
                 self.config_obj["global_elements"]["jar_fallback"] = True
-                self.config_obj[profile]["jar_fallback_repository"] = exception_repo
+                self.config_obj[profile]["jar_fallback_repository"] = "constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet/tessellation/"
 
             if "github.com" in self.config_obj[profile]["jar_fallback_repository"]:
                 self.config_obj[profile]["jar_fallback_github"] = True 

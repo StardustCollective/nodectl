@@ -2011,12 +2011,13 @@ class CLI():
                 [" WARNING ",0,"yellow,on_red","bold"], ["You will need to restart all services after completing this download.",2]
             ])
         
-        self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "y",
-            "prompt": f"Are you sure you want to overwrite Tessellation {confirm_text}?",
-            "exit_if": True,
-        })
+        if not "-y" in argv_list:
+            self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": f"Are you sure you want to overwrite Tessellation {confirm_text}?",
+                "exit_if": True,
+            })
         
         download_obj = {"caller": caller, "action": caller}
         if "-p" in argv_list:  

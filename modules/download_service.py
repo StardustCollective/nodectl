@@ -1,5 +1,6 @@
 from os import path, makedirs, chmod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from termcolor import colored
 from copy import deepcopy
 import requests
 
@@ -40,7 +41,7 @@ class Download():
 
         self.successful = True
         self.skip_asset_check = False
-        self.fallback_done = False
+        self.fallback = False
         self.retries = 3
         self.file_pos = 1
         self.file_count = 0
@@ -96,6 +97,10 @@ class Download():
         
     def set_file_objects(self,fallback=False):
         if self.caller == "update_seedlist": return
+        if self.fallback:
+            self.file_obj = deepcopy(self.file_obj_fallback)
+            return
+        
         repo_location_key = "jar_repository"
         if fallback:
             repo_location_key = "jar_fallback_repository" 
@@ -120,7 +125,7 @@ class Download():
                     pre_uri = self.functions.default_tessellation_repo
 
                 uri = self.set_download_options(
-                    pre_uri, self.tools_version, self.profile_names[0]
+                    pre_uri, self.tools_version, self.profile_names[0], fallback,
                 )
 
                 file_obj = {
@@ -152,7 +157,7 @@ class Download():
                 
             elif self.config_obj[profile]["environment"] == self.environment:
                 uri = self.set_download_options(
-                    self.config_obj[profile][repo_location_key], download_version, profile
+                    self.config_obj[profile][repo_location_key], download_version, profile, fallback,
                 )
 
             file_obj[f'{self.config_obj[profile]["jar_file"]}-cnng{profile}'] = {
@@ -187,7 +192,8 @@ class Download():
 
     def set_seedfile_object(self):
         self.log.logger.debug(f"{self.log_prefix} -> set_seedfile_object -> initiated.")
-        
+        if self.fallback: return
+
         if self.caller == "update_seedlist": self.file_obj = {}
 
         if self.requested_profile: profiles = [self.requested_profile]
@@ -217,7 +223,7 @@ class Download():
                 pass
             else:
                 seed_repo = self.set_download_options(
-                    seed_repo, self.download_version, profile, "seed"
+                    seed_repo, self.download_version, profile, False, "seed"
                 )
                 seed_repo = f"{seed_repo}/{seed_file}"
 
@@ -257,34 +263,57 @@ class Download():
 
 
     def set_default_version(self):
-        try:
-            # readability
-            env = self.functions.environment_name
+        if self.fallback: return
 
-            if self.requested_profile: profile = self.requested_profile
-            else: profile = self.functions.profile_names[0]
+        error_str = "The Download Service module may have conflicted with a parallel running versioning service at the time of the Node Operator's request."
+        for tries in range(0,5):
+            try:
+                # readability
+                env = self.functions.environment_name
 
-            if self.tools_version == "default":
-                self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+                if self.requested_profile: profile = self.requested_profile
+                else: profile = self.functions.profile_names[0]
 
-            if self.download_version == "default":
-                if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
-                    self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+                if self.tools_version == "default":
+                    self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+
+                if self.download_version == "default":
+                    if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
+                        self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+                    else:
+                        self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
+            except Exception as e:
+                if tries < 1:
+                    self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
+                    continue
+                if tries < 2:
+                    self.functions.print_paragraphs([
+                        ["",1],[" STAND BY ",0,"red,on_yellow"],[error_str,1,"yellow"],
+                    ])
+                if tries < 4:
+                    phrase_str = colored("Attempt ","cyan")+colored(tries,"red")+colored(" of ","cyan")+colored("3","red")
+                    self.functions.print_timer({
+                        "p_type": "cmd",
+                        "seconds": 20 if tries < 3 else 60,
+                        "step": -1,
+                        "end_phrase": "...",
+                        "phrase": phrase_str,
+                        "status": "Pausing"
+                    })
+                    self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
                 else:
-                    self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
-        except Exception as e:
-            self.log.logger.error(f"{self.log_prefix} -> set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
-            self.error_messages.error_code_messages({
-                "error_code": "ds-265",
-                "line_code": "unknown_error",
-                "extra": e,
-                "extra2": "The Download Service module may have conflicted with a parallel running versioning service at the time of the Node Operator's request.",
-            })
+                    self.log.logger.error(f"{self.log_prefix} -> set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
+                    self.error_messages.error_code_messages({
+                        "error_code": "ds-265",
+                        "line_code": "unknown_error",
+                        "extra": e,
+                        "extra2": error_str,
+                    })
 
         return
     
 
-    def set_download_options(self,uri,download_version,profile,dtype="repo"):
+    def set_download_options(self, uri, download_version, profile, fallback, dtype="repo"):
         github, s3 = False, False
         if isinstance(self.config_obj["global_elements"]["metagraph_name"],list):
             # future glean version off of a multi metagraph configuration
@@ -298,8 +327,13 @@ class Download():
             if self.config_obj[profile]["seed_github"]: github = True
             uri = self.config_obj[profile]["seed_repository"]
         else:
-            if self.config_obj[profile]["jar_github"]: github = True
-            elif self.config_obj[profile]["jar_s3"]: s3 = True
+            if fallback:
+                if "github.com" in self.config_obj[profile]["jar_fallback_repository"]: github = True
+                elif "s3" in self.config_obj[profile]["jar_fallback_repository"] and "amazonaws" in self.config_obj[profile]["jar_fallback_repository"]:
+                    s3 = True
+            else:
+                if self.config_obj[profile]["jar_github"]: github = True
+                elif self.config_obj[profile]["jar_s3"]: s3 = True
 
         uri = self.functions.cleaner(uri,"trailing_backslash")
         if not uri.startswith("http"): # default to https://
@@ -321,7 +355,8 @@ class Download():
         self.cursor_setup["down"] = len(self.file_obj)+1
         for n, file in enumerate(self.file_obj):
             self.file_obj[file]["pos"] = n
-        if self.config_obj["global_elements"]["jar_fallback"]:
+
+        if self.config_obj["global_elements"]["jar_fallback"] and self.caller != "update_seedlist":
             for n, file in enumerate(self.file_obj_fallback):
                 self.file_obj_fallback[file]["pos"] = n
 
@@ -529,22 +564,22 @@ class Download():
         self.config_obj["global_elements"]["jar_fallback"] = False  # do not allow multiple executions
         file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] == "failed"]
         if len(file_list) > 0:
-            self.file_obj = deepcopy(self.file_obj_fallback)
             print(f"\033[{self.cursor_setup['down']}B", end="", flush=True)
             self.functions.print_paragraphs([
-                ["",1],[" FALLBACK ",0,"yellow,on_red"], ["nodectl identified a fallback for this cluster.",0,"yellow"],
+                ["",2],[" FALLBACK ",0,"yellow,on_red"], ["nodectl identified a fallback for this cluster.",0,"yellow"],
                 ["Attempting secondary download mechanism",1,"yellow"],
             ])
+            self.fallback = True
             self.execute_downloads()
-            self.fallback_done = True
+
 
 
     def file_backup_handler(self,action):
         if not self.backup: 
             self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
             return
-        if self.fallback_done: 
-            self.log.logger.debug(f"{self.log_prefix} file_backup_handler -> skipping redundant restore/backup.")
+        if self.fallback and action == "backup": 
+            self.log.logger.debug(f"{self.log_prefix} file_backup_handler -> skipping redundant backup.")
             return
 
         if action == "restore": 
@@ -558,7 +593,7 @@ class Download():
         
         if len(file_list) > 0:
             if action == "restore":
-                print(f"\033[7B", end="", flush=True)
+                print(f"\033[8B", end="", flush=True)
                 self.cursor_setup = {key: value + 2 for key, value in self.cursor_setup.items() if key != "success"}
                 self.cursor_setup["success"] = False
                 self.cursor_setup["down"] = 0
