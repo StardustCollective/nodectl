@@ -326,7 +326,9 @@ class Functions():
             try:
                 consensus_count = consensus_count.pop()
             except:
-                consensus_count = {'nodectl_found_peer_count': "unable to derive"}
+                consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
+        else:
+            consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
         
         peer_list = list()
         state_list = list()
