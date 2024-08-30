@@ -335,13 +335,16 @@ class Versioning():
                         try: del version_obj[environment]["nodectl"]["version"]
                         except: pass
 
+                    version_type = "versioning_module"
+                    if environment == "testnet": 
+                        version_type = "versioning_module_testnet" # exception
                     up_to_date = [
                         ["nodectl_uptodate", self.version_obj["node_nodectl_version"], self.upgrade_path[environment]["current_stable"],"nodectl version"],
                         ["nodectl_yaml_uptodate", self.version_obj["node_nodectl_yaml_version"],upgrade_path["nodectl_config"],"nodectl yaml version"],
-                        ["tess_uptodate", node_tess_version, version,"tessellation version"],
+                        ["tess_uptodate", node_tess_version, version,version_type],
                     ]
                     for versions in up_to_date:
-                        test = self.functions.is_new_version(versions[1],versions[2],"versioning module",versions[3])
+                        test = self.functions.is_new_version(versions[1],versions[2],"tessellation/nodectl versioning",versions[3])
                         if not test: 
                             test = True
                         if versions[0] == "nodectl_uptodate":

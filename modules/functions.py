@@ -2468,6 +2468,8 @@ class Functions():
                 self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return "current_less"
         except:
+            if version_type == "versioning_module_testnet":
+                return "current_greater"
             return "error"
     
     

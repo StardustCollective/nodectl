@@ -435,6 +435,14 @@ class Installer():
         if self.options.cluster_config.lower() == "q":
             cprint("  Installation cancelled by user\n","red")
             exit(0)
+        if not self.options.quick_install:
+            self.functions.print_cmd_status({
+                "text_start": "Environment chosen",
+                "status": self.options.cluster_config,
+                "status_color": "green",
+                "newline": True,
+            })
+        
         
                 
     def handle_existing(self):
@@ -609,7 +617,15 @@ class Installer():
 
     def download_binaries(self):  
         self.log.logger.info("installer -> installing binaries")
-        download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_metagraph_version"]
+        for _ in range(0,2):
+            try:
+                download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_metagraph_version"]
+            except:
+                self.versioning.called_cmd = "normal"
+                self.version_obj = self.versioning.get_cached_version_obj()
+            else:
+                break
+
         if self.options.metagraph_name == "hypergraph":
             download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"]
 
