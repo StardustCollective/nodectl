@@ -65,8 +65,8 @@ class Installer():
             self.handle_existing()
             self.build_config_file("skeleton")
             self.build_config_file("defaults")
-            self.update_os()
-            self.process_distro_dependencies()
+            # self.update_os()
+            # self.process_distro_dependencies()
             self.download_binaries()
             self.make_swap_file()
             self.setup_user()
@@ -993,6 +993,10 @@ class Installer():
             if self.options.p12_passphrase:
                 self.p12_session.p12_password = self.options.p12_passphrase
             else:
+                if self.p12_migrated: 
+                    self.p12_session.existing_p12 = self.options.p12_destination_path
+                    self.p12_session.p12_migration = True
+                    self.p12_session.user.p12_migration = True
                 self.p12_session.ask_for_keyphrase()
 
             if self.options.p12_alias:
