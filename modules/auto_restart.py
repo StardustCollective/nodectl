@@ -320,6 +320,8 @@ class AutoRestart():
            self.log.logger.debug("=====================================================================================")
            for key,value in self.profile_states[profile].items():
                self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | profile [{profile}] {key} [{value}]")
+           self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | profile [{profile}] cluster version [{self.version_obj[self.environment][self.thread_profile]['cluster_tess_version']}]")
+           self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | profile [{profile}] node version [{self.version_obj[self.environment][self.thread_profile]['node_tess_version']}]")
            self.log.logger.debug("=====================================================================================")
            
         self.node_service.set_profile(self.thread_profile)  ## return the node_service profile to the appropriate profile
@@ -610,6 +612,9 @@ class AutoRestart():
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - testing timing for state [{state}]")
         current_time = time()
         
+        if state == "SessionStarted":
+            self.version_check_handler(True)
+
         if not self.stuck_timers[f"{state}_state_enabled"]:
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - stuck_in_state_handler - enabling timer for state [{state}]")
             self.stuck_timers[f"{state}_state_enabled"] = True
@@ -715,7 +720,7 @@ class AutoRestart():
         return False # wait five minutes first
     
     
-    def version_check_handler(self):
+    def version_check_handler(self,sessionStartedState=False):
         # do not do anything until the versions match
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - initiated - profile [{self.node_service.profile}] ")
         attempts = 1
@@ -764,15 +769,18 @@ class AutoRestart():
             except Exception as e:
                 self.log.logger.critical(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - and we received an error [{e}] - sleeping 10m")
                 sleep(self.sleep_on_critical) # ten minutes
-            self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - versions matched | Hypergraph/metagraph/cluster [{versions[0]}] Node [{versions[1]}] - auto_upgrade setting [{str(self.auto_upgrade)}]")
+            self.log.logger.warn(f"auto_restart - thread [{self.thread_profile}] -  version check handler - profile [{self.node_service.profile}] - versions do not match - versions found | Hypergraph/metagraph/cluster [{versions[0]}] Node [{versions[1]}] - auto_upgrade setting [{str(self.auto_upgrade)}]")
 
             if self.auto_upgrade:
                 notice_warning = "auto_upgrade to obtain "
+                if sessionStartedState:
+                    self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version changed while in [SessionStarted] updating to [restart_full]")
+                    self.profile_states[self.thread_profile]["action"] = "restart_full"
                 auto_upgrade_success = self.node_service.download_constellation_binaries({
                     "caller": "refresh_binaries",
                     "profile": self.thread_profile,
                     "environment": self.environment,
-                })
+                })["success"]
                 if auto_upgrade_success: 
                     self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - versions upgrade successful")
                     break
@@ -859,7 +867,6 @@ class AutoRestart():
             })
 
         attempts = 1
-        session_start_attempts = 1
         while True:
             self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  join handler | profile: [{self.node_service.profile}] [127.0.0.1] port [{self.node_service.api_ports['public']}] - testing or retesting state...")
             self.update_profile_states()
@@ -872,12 +879,6 @@ class AutoRestart():
                 break
             
             self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] state in [{state}] entering retry looper")
-            # if state == "SessionStarted": 
-            #     session_start_attempts = self.attempts_looper(session_start_attempts,"joining",30,3,False)
-            #     if session_start_attempts > 2:
-            #         self.log.logger.warn(f"auto_restart join handler - profile [{self.node_service.profile}] state in [{state}]")                    
-            #         break
-            # else: # if any other state retry
             attempts = self.attempts_looper(attempts,"silent_restart",5,5,False)
             if attempts > 4:
                 if "download" in state.lower() or "waiting" in state.lower() or "observing" in state.lower():

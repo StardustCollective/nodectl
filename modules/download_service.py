@@ -287,9 +287,10 @@ class Download():
                     self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
                     continue
                 if tries < 2:
-                    self.functions.print_paragraphs([
-                        ["",1],[" STAND BY ",0,"red,on_yellow"],[error_str,1,"yellow"],
-                    ])
+                    if not self.auto_restart:
+                        self.functions.print_paragraphs([
+                            ["",1],[" STAND BY ",0,"red,on_yellow"],[error_str,1,"yellow"],
+                        ])
                 if tries < 4:
                     phrase_str = colored("Attempt ","cyan")+colored(tries,"red")+colored(" of ","cyan")+colored("3","red")
                     self.functions.print_timer({
@@ -420,9 +421,19 @@ class Download():
                         if asset["name"] == file_name:
                             self.file_obj[file_key]["remote_size"] = asset["size"]
                             return
-                self.file_obj[file_key]["remote_size"] = False
+                self.log.logger.error(f"{self.log_prefix} -> get_remote_file_size -> failed to retrieve the file size. Status code: {response.status_code}")
+                self.file_obj[file_key]["remote_size"] = -1
                 return 
-               
+            
+        elif "s3" in uri or "amazonaws" in uri:
+            response = requests.head(uri)
+            if response.status_code == 200:
+                    self.file_obj[file_key]["remote_size"] = int(response.headers.get('Content-Length', 0))
+                    return
+            else:
+                self.log.logger.error(f"{self.log_prefix} -> get_remote_file_size -> failed to retrieve the file size. Status code: {response.status_code}")
+                self.file_obj[file_key]["remote_size"] = -1
+                        
         self.file_obj[file_key]["remote_size"] = -1
         return           
 
@@ -457,6 +468,8 @@ class Download():
             for file_name in list(self.file_obj.keys()):
                 if self.file_obj[file_name]["state"] != "disabled":
                     self.get_download_looper(file_name)
+                    self.redundant_check()
+                    test = 1
         else:
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {executor.submit(self.get_download_looper, file_name): file_name for file_name in list(self.file_obj.keys())}
@@ -564,11 +577,12 @@ class Download():
         self.config_obj["global_elements"]["jar_fallback"] = False  # do not allow multiple executions
         file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] == "failed"]
         if len(file_list) > 0:
-            print(f"\033[{self.cursor_setup['down']}B", end="", flush=True)
-            self.functions.print_paragraphs([
-                ["",2],[" FALLBACK ",0,"yellow,on_red"], ["nodectl identified a fallback for this cluster.",0,"yellow"],
-                ["Attempting secondary download mechanism",1,"yellow"],
-            ])
+            if not self.auto_restart:
+                print(f"\033[{self.cursor_setup['down']}B", end="", flush=True)
+                self.functions.print_paragraphs([
+                    ["",2],[" FALLBACK ",0,"yellow,on_red"], ["nodectl identified a fallback for this cluster.",0,"yellow"],
+                    ["Attempting secondary download mechanism",1,"yellow"],
+                ])
             self.fallback = True
             self.execute_downloads()
 
@@ -593,14 +607,15 @@ class Download():
         
         if len(file_list) > 0:
             if action == "restore":
-                print(f"\033[8B", end="", flush=True)
-                self.cursor_setup = {key: value + 2 for key, value in self.cursor_setup.items() if key != "success"}
-                self.cursor_setup["success"] = False
-                self.cursor_setup["down"] = 0
                 self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
-                self.functions.print_paragraphs([
-                    [" NOTE ",0,"yellow,on_red"], ["nodectl will only restore failed files",1,"red"],
-                ])
+                if not self.auto_restart:
+                    print(f"\033[8B", end="", flush=True)
+                    self.cursor_setup = {key: value + 2 for key, value in self.cursor_setup.items() if key != "success"}
+                    self.cursor_setup["success"] = False
+                    self.cursor_setup["down"] = 0
+                    self.functions.print_paragraphs([
+                        [" NOTE ",0,"yellow,on_red"], ["nodectl will only restore failed files",1,"red"],
+                    ])
 
             for file in file_list:
                 print_start, print_complete = False, False
@@ -621,9 +636,11 @@ class Download():
 
 
     def redundant_check(self):
-        self.log.logger.debug(f"{self.log_prefix} extra redundant check initiated")
+        check_action = "auto_restart file size" if self.auto_restart else "extra redundant"
+        self.log.logger.debug(f"{self.log_prefix} {check_action} check initiated")
         for file in self.file_obj.keys():
             if self.file_obj[file]["state"] == "disabled": continue
+            if "seedlist" in str(self.file_obj[file]): continue
             file_size = self.functions.get_size(self.file_obj[file]["dest_path"],True)
             if file_size < 1 and file_size != self.file_obj[file]['remote_size']:
                 file_name = file.replace(f'-cnng{self.file_obj[file]["profile"]}',"")
