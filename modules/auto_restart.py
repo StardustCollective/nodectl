@@ -321,7 +321,6 @@ class AutoRestart():
            for key,value in self.profile_states[profile].items():
                self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | profile [{profile}] {key} [{value}]")
            self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | profile [{profile}] cluster version [{self.version_obj[self.environment][self.thread_profile]['cluster_tess_version']}]")
-           self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  update profile states | profile [{profile}] node version [{self.version_obj[self.environment][self.thread_profile]['node_tess_version']}]")
            self.log.logger.debug("=====================================================================================")
            
         self.node_service.set_profile(self.thread_profile)  ## return the node_service profile to the appropriate profile
