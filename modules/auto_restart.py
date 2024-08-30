@@ -783,6 +783,7 @@ class AutoRestart():
                 })["success"]
                 if auto_upgrade_success: 
                     self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - versions upgrade successful")
+                    update_version_cache()
                     break
                 else: warning = True
             else:
