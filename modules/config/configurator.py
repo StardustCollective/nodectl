@@ -369,6 +369,8 @@ class Configurator():
         self.prepare_configuration("edit_config",False)
         self.move_config_backups()
         
+        self.build_dir_structure()
+
         self.c.functions.print_paragraphs([
             ["",1],[" CONGRATULATIONS ",1,"yellow,on_green"],
             ["A new profile has been created successfully.",2,"green","bold"],
@@ -569,7 +571,7 @@ class Configurator():
 
         
     # =====================================================
-    # P12 BUILD METHODS
+    #  BUILD METHODS
     # =====================================================
     
     def request_p12_details(self,command_obj):
@@ -988,7 +990,63 @@ class Configurator():
                 "newline": True,
             })
         
-                        
+
+    def build_dir_structure(self):
+        self.log.logger.info("configurator -> build_dir_structure -> dynamic elements")
+
+        self.c.functions.print_header_title({
+            "line1": "SETUP DIRECTORIES",
+            "single_line": True,
+            "newline": "both"
+        })
+
+        def progress(text,end):
+            color = "green" if end else "yellow"
+            status = "complete" if end else "building"
+            
+            self.c.functions.print_cmd_status({
+                "text_start": text,
+                "status": status,
+                "status_color": color,
+                "newline": end,
+                "delay": .1,
+            })  
+        
+        self.log.logger.info("configurator -> build_dir_structure -> creating directory structure data, backups, and uploads") 
+
+        m_progress = {
+            "text_start": "Creating",
+            "brackets": "Node",
+            "text_end": "directories",
+            "status": "running",
+            "newline": True
+        }
+        self.c.functions.print_cmd_status(m_progress)
+        
+        dir_obj = {
+            "tessellation": "/var/tessellation/",
+            "nodectl": self.c.functions.nodectl_path,
+        }
+        for profile in self.metagraph_list:
+            dir_obj[f"{profile}_backups"] = self.config_obj[profile]["directory_backups"]
+            dir_obj[f"{profile}_uploads"] = self.config_obj[profile]["directory_uploads"]
+            if self.config_obj[profile]["layer"] < 1:
+                dir_obj[f"{profile}_data_layer0"] = f"/var/tessellation/{profile}/data/snapshot"
+            else:
+                dir_obj[f"{profile}_data_layer1"] = f"/var/tessellation/{profile}/"
+
+        for ux, dir in dir_obj.items():
+            progress(ux,False)
+            if not path.isdir(dir): makedirs(dir)
+            progress(ux,True)
+            
+        self.c.functions.print_cmd_status({
+            **m_progress,
+            "status": "complete",
+            "status_color": "green"
+        })
+     
+
     # =====================================================
     # MANUAL BUILD METHODS
     # =====================================================
