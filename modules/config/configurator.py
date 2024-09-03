@@ -4149,6 +4149,9 @@ class Configurator():
             cleanup = False
             
         if cleanup:
+            clean_action = "complete"
+            clean_color = "green"
+
             self.c.functions.print_paragraphs([
                 ["It is recommended to clean up old profiles to:",1,"magenta"],
                 ["  - Avoid conflicts",1],
@@ -4165,23 +4168,28 @@ class Configurator():
             if self.clean_profiles:
                 for profile in old_profiles:
                     with ThreadPoolExecutor() as executor:
-                        self.c.functions.event = True
-                        _ = executor.submit(self.c.functions.print_spinner,{
-                            "msg": f"removing abandon profile: {profile} ",
-                            "color": "magenta",
-                            })                        
-                        rmtree(f"/var/tessellation/{profile}")
-                
-                        self.c.functions.event = False
-                        self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
-                        self.c.functions.print_cmd_status({
-                            "text_start": "Removed",
-                            "brackets": profile,
-                            "text_end": "profile",
-                            "status": "complete",
-                            "color": "green",
-                            "newline": True,
-                        })
+                        if path.exists(f"/var/tessellation/{profile}"): 
+                            self.c.functions.event = True
+                            _ = executor.submit(self.c.functions.print_spinner,{
+                                "msg": f"removing abandon profile: {profile} ",
+                                "color": "magenta",
+                                }) 
+                            rmtree(f"/var/tessellation/{profile}")
+                            self.c.functions.event = False
+                            self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
+                        else:
+                            self.log.logger.warn(f"configuration attempted to remove abandoned profile [{profile}] but not found, skipping")   
+                            clean_action = "skipped"
+                            clean_color = "yellow"   
+
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Removed",
+                        "brackets": profile,
+                        "text_end": "profile",
+                        "status": clean_action,
+                        "color": clean_color,
+                        "newline": True,
+                    })
             else:
                 self.c.functions.print_paragraphs([
                     ["Skipping profile data cleanup.",1,"magenta","bold"],

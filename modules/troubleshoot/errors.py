@@ -773,7 +773,7 @@ class Error_codes():
             self.log.logger.critical(f"unable to load configuration file, file corrupted, some values invalid, or improperly formatted [cn-config.yaml]")
             if var.extra == "existence":
                 self.functions.print_paragraphs([
-                    ["nodectl attempted load a non-existent configuration!",1,"red","bold"],
+                    ["nodectl attempted load a non-existent",0,"red","bold"],["or",0,"yellow"],["invalid configuration!",1,"red","bold"],
                     ["Please verify that your configuration file is located in the proper directory.",2,"red"],
                     ["directory location:",0,"white","bold"], ["/var/tessellation/nodectl",2],
                     ["This is important to allow the file to properly load.",2,"red","bold"],
