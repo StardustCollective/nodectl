@@ -25,10 +25,11 @@ class Troubleshooter():
 
     def test_for_connect_error(self,lines):
         self.log.logger.info("checking logs for simple error messages")
+        no_of_errors, found = 4, 0
+        end_results, ERROR_list = [], []
 
         for profile, log in self.log_dict.items():
-            ERROR_list = []; two_lines = False
-            
+            ERROR_list = [] # reset
             try:
                 with open(log["app"],"r") as file:
 
@@ -99,8 +100,8 @@ class Troubleshooter():
                                                    
                     # search for more significant errors first verses
                     # last found error.
-                    no_of_errors, found = 4, 0
-                    end_results = []
+                    no_of_errors, found = 4, 0 # reset
+                    end_results = [] # reset
                     for message_test in test_messages:
                         for line in ERROR_list:            
                             # only going to search in reverse

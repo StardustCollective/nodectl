@@ -2822,9 +2822,9 @@ class CLI():
                         ["- malware",1,"magenta"],
                         ["- not an official supported version",2,"magenta"],
                         ["   environment checked:",0],[env,1,"yellow","bold"],
-                        ["        latest version:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
-                        ["current stable version:",0],[self.version_obj[env]["nodectl"]["current_stable"],1,"yellow","bold"],
-                        [" version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
+                        [" version found running:",0],[self.version_obj['node_nodectl_version'],1,"yellow","bold"],
+                        [" required upgrade path:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
+                        ["current stable version:",0],[self.version_obj[env]["nodectl"]["current_stable"],2,"yellow","bold"],
                         ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
                     ])
                     self.invalid_version = True
