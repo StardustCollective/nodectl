@@ -931,6 +931,11 @@ class Upgrader():
         handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
 
+        for profile in self.functions.profile_names:
+            if self.config_obj[profile]["layer"] < 1:
+                if "v3." in self.profile_progress[profile]["download_version"]:
+                    self.cli.cli_execute_directory_restructure()
+
              
     def service_file_manipulation(self):
         # version older than 0.15.0 only

@@ -91,7 +91,7 @@ class CLI():
             })
             self.functions.print_clear_line()
             
-        self.arch = self.functions.get_arch()
+        self.arch = self.functions.get_distro_details()["arch"]
             
             
     # ==========================================
@@ -6049,6 +6049,124 @@ class CLI():
             "bashCommand": bashCommand,
             "proc_action": "subprocess_run",
         })        
+
+
+
+
+
+
+    def cli_execute_directory_restructure(self):
+
+        bits64, amd = False, False
+        
+        self.functions.print_paragraphs([
+            ["Preparing node for snapshot data restructuring.",1,"yellow"],
+        ])
+
+        with ThreadPoolExecutor() as executor:
+            self.functions.status_dots = True
+            prep = {
+                "text_start": "Preparing",
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor.submit(self.functions.print_cmd_status,prep)
+
+            info = self.functions.get_distro_details()
+            bits = info["info"].get('bits')
+            brand = info["info"].get('brand_raw')
+            arch = info["arch"]
+            if "AMD" in brand: amd = True
+            if bits == 64: bits64 = True
+
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                **prep,
+                "newline": True,
+                "status": "complete",
+                "status_color": "green",
+                "dotted_animation": False,
+            })
+
+        for item in [("Architecture",arch),("Brand",brand),("Bits",bits)]:
+            self.functions.print_cmd_status({
+                "text_start": "Found",
+                "brackets": item[0],
+                "status": item[1],
+                "status_color": "grey",
+                "newline": True,
+            })
+
+        with ThreadPoolExecutor() as executor2:
+            self.functions.status_dots = True
+            do_fetch = {
+                "text_start": "Fetching migration tool",
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor2.submit(self.functions.print_cmd_status,do_fetch)
+
+            repo = "https://github.com/Constellation-Labs/snapshot-migration/releases/download/v1.0.0/"
+            if amd: file = "snapshot-migration-tool_linux_amd"
+            else: file = "snapshot-migration-tool_linux_arm"
+            if bits64: file = file+"64"
+            local_path = f"/var/tmp/{file}"
+            repo = f"{repo}{file}"
+
+            self.log.logger.info(f"cli -> execute_directory_restructure -> fetching migration tool -> [{repo}] -> [{local_path}]")
+            self.functions.download_file({
+                "url": repo,
+                "local": local_path,
+            })
+
+            sleep(.5)
+            self.log.logger.debug(f"cli -> execute_directory_restructure -> changing permissions to +x -> [{local_path}]")
+            chmod(local_path, 0o755)
+
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                "text_start": "Fetching migration tool",
+                "dotted_animation": False,
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+            })
+
+        self.functions.print_paragraphs([
+            ["",1], [" WARNING ",0,"red,on_yellow"], ["The migration of the data for v3.x.x",0,"yellow"],
+            ["may take a few minutes to complete. Please exercise patience while this",0,"yellow"],
+            ["critical",0,"red"],["process completes.",2,"yellow"],
+        ])
+
+        with ThreadPoolExecutor() as executor3:
+            self.functions.status_dots = True
+            do_exe = {
+                "text_start": "Executing migration tool",
+                "status": "running",
+                "dotted_animation": True,
+                "status_color": "yellow",
+                "newline": False,
+            }
+            _ = executor3.submit(self.functions.print_cmd_status,do_exe)
+
+            self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> [{local_path}]")
+            _ = self.functions.process_command({
+                "bashCommand": local_path,
+                "proc_action": "subprocess_run_check_only",
+            })
+
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                "text_start": "Executing migration tool",
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+                "dotted_animation": True,
+            })
 
 
     def cli_enable_remote_access(self,command_list):

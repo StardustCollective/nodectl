@@ -10,6 +10,7 @@ import validators
 import uuid
 import glob
 import distro
+import cpuinfo
 
 import pytz
 from tzlocal import get_localzone
@@ -36,7 +37,6 @@ from time import sleep, perf_counter, time
 from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
-from platform import platform
 from urllib.parse import urlparse, urlunparse
 
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir, listdir, remove, chmod, chown
@@ -747,20 +747,13 @@ class Functions():
         
 
     def get_distro_details(self):
+        info = cpuinfo.get_cpu_info()
         return {
-            "arch": self.get_arch(),
-            **distro.lsb_release_info()
+            "arch": info.get('arch'),
+            **distro.lsb_release_info(),
+            "info": info,
         }
 
-
-    def get_arch(self):
-        arch = platform()
-        if "x86_64" in arch:
-            arch = "x86_64"
-        else:
-            arch = "arm64"
-        return arch       
-    
 
     def get_percentage_complete(self, command_obj):
         start = command_obj["start"]

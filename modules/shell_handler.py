@@ -181,7 +181,7 @@ class ShellHandler:
         config_list = ["view_config","validate_config","_vc", "_val"]
         clean_files_list = ["clean_files","_cf"]
         download_commands = ["refresh_binaries","_rtb","update_seedlist","_usl"]
-        
+
         if self.called_command == "install" and "--quiet" in self.argv:
             pass
         elif self.called_command != "service_restart":
@@ -995,7 +995,8 @@ class ShellHandler:
         
         short = True if "-s" in command_list else False
         version_obj = Versioning({"called_cmd": self.called_command})
-        node_arch = self.functions.get_arch()
+        node_arch = self.functions.get_distro_details()["arch"]
+        if "X86" in node_arch: node_arch = node_arch.lower()
         nodectl_version_github = version_obj.version_obj["nodectl_github_version"]
         nodectl_version_full = version_obj.version_obj["node_nodectl_version"]
         
