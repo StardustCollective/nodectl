@@ -3889,7 +3889,7 @@ class CLI():
                 if state in self.functions.not_on_network_list:
                     self.log.logger.debug(f"cli_leave -> leave process complete | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                     self.functions.print_cmd_status({
-                        "status": "out of cluster",
+                        "status": "OutOfCluster",
                         "status_color": "green",
                         "text_start": "Service with profile",
                         "text_start": "cluster status",
@@ -6055,15 +6055,64 @@ class CLI():
 
 
 
-    def cli_execute_directory_restructure(self):
+    def cli_execute_directory_restructure(self, profile):
 
         bits64, amd = False, False
-        
+        data_dir = self.config_obj[profile]["directory_inc_snapshot"]
+
         self.functions.print_paragraphs([
             ["Preparing node for snapshot data restructuring.",1,"yellow"],
+            ["This may take a few minutes, and the screen may not display",0,"red"],
+            ["any output",0,"red"],["please be patient.",1,"red","bold"],
         ])
 
-        with ThreadPoolExecutor() as executor:
+        if not path.isdir(data_dir):
+            self.error_messages.error_code_messages({
+                "error_code": "cli-6069",
+                "line_code": "config_error",
+                "extra": "format",
+                "extra2": "Please join Discord and report this error.",
+            })
+
+        executor0, executor1, executor2, executor3 = False, False, False, False
+        with ThreadPoolExecutor() as executor0:
+            self.functions.status_dots = True
+            test_first = {
+                "text_start": "Verifying requirements",
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor0.submit(self.functions.print_cmd_status,test_first)
+
+            r_color = "magenta"
+            r_status = "executing"
+            r_brackets = "required"
+
+            for item in listdir(data_dir):
+                item_path = path.join(data_dir, item)
+                if path.isdir(item_path):
+                    r_color = "green"
+                    r_brackets = "passed"
+                    r_status = "skipping"
+                    break
+
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                "text_start": "Verifying",
+                "newline": True,
+                "brackets": r_brackets,
+                "status": r_status,
+                "status_color": r_color,
+                "dotted_animation": False,
+            })
+
+        if r_status == "skipping": 
+            self.log.logger.info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
+            return
+
+        with ThreadPoolExecutor() as executor1:
             self.functions.status_dots = True
             prep = {
                 "text_start": "Preparing",
@@ -6072,7 +6121,7 @@ class CLI():
                 "dotted_animation": True,
                 "newline": False,
             }
-            _ = executor.submit(self.functions.print_cmd_status,prep)
+            _ = executor1.submit(self.functions.print_cmd_status,prep)
 
             info = self.functions.get_distro_details()
             bits = info["info"].get('bits')
@@ -6153,11 +6202,14 @@ class CLI():
             }
             _ = executor3.submit(self.functions.print_cmd_status,do_exe)
 
-            self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> [{local_path}]")
-            _ = self.functions.process_command({
-                "bashCommand": local_path,
-                "proc_action": "subprocess_run_check_only",
-            })
+            # https://github.com/Constellation-Labs/snapshot-migration
+            # $ ./snapshot-migration-tool -src ./data/incremental_snapshots
+            bashCommand = f"{local_path} -src {data_dir}"
+            self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> [{bashCommand}]")
+            # _ = self.functions.process_command({
+            #     "bashCommand": bashCommand,
+            #     "proc_action": "subprocess_run_check_only",
+            # })
 
             self.functions.status_dots = False
             self.functions.print_cmd_status({
@@ -6165,8 +6217,22 @@ class CLI():
                 "status": "complete",
                 "status_color": "green",
                 "newline": True,
-                "dotted_animation": True,
             })
+
+        self.functions.print_cmd_status({
+            "text_start": "Clean up migration tool",
+            "status": "running",
+            "status_color": "yellow",
+            "newline": False,
+            "delay": 0.8,
+        })
+        remove(local_path)
+        self.functions.print_cmd_status({
+            "text_start": "Clean up migration tool",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
 
 
     def cli_enable_remote_access(self,command_list):

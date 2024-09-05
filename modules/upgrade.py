@@ -933,8 +933,8 @@ class Upgrader():
 
         for profile in self.functions.profile_names:
             if self.config_obj[profile]["layer"] < 1:
-                if "v3." in self.profile_progress[profile]["download_version"]:
-                    self.cli.cli_execute_directory_restructure()
+                # if "v3." in self.profile_progress[profile]["download_version"]:
+                self.cli.cli_execute_directory_restructure(profile)
 
              
     def service_file_manipulation(self):
