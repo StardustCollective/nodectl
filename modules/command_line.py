@@ -6434,7 +6434,7 @@ class CLI():
                 ["user's home directory, and change the",0,"magenta"],
                 ["permissions for access via a",0,"magenta"], ["non-root",0,"red","bold"], ["user until removed.",2,"magenta"],
 
-                ["Once you have completed the backup of your p12 key store files, it is",0,"green"],
+                ["Once you have completed the backup of your p12 keystore files, it is",0,"green"],
                 ["very",0,"green","bold"], ["important that you return to your Node and re-run",0,"green"],
                 ["this command with the",0,"green"], ["--cleanup",0,"yellow"], ["option, to remove and",0,"green"],
                 ["secure your Node's p12 access to proper status.",2,"green"],

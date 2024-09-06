@@ -717,7 +717,7 @@ def build_help(functions,command_obj):
   show this help screen
   # {colored('sudo nodectl check_minority_fork help','cyan')}
      or
-  # {colored('sudo nodectl -con help','cyan')}
+  # {colored('sudo nodectl -cmf help','cyan')}
   
   execute minority fork check using profile
   # {colored('sudo nodectl check_minority_fork -p <profile_name>','cyan')}  
@@ -2549,7 +2549,7 @@ def build_help(functions,command_obj):
                       verifying the integrity of data.
   Creation Date:  When was the certificate created.
   Version:        The version number of the certificate.
-  Keys Found:     How many keys does this p12 key store file hold.
+  Keys Found:     How many keys does this p12 keystore file hold.
   Signature Algo: Method or algorithm used to generate a digital signature and 
                   verify its authenticity.
   Public Algo:    Public algorithm that is a type of cryptographic algorithm that 

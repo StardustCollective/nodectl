@@ -2454,7 +2454,7 @@ class Configurator():
             self.c.functions.print_paragraphs([
                 ["",1],[" WARNING ",0,"yellow,on_red"], ["Depending on the reason you reached this section",0],
                 ["the default options in",0], ["yellow",0,"yellow"], ["are",0],["suggestions only.",2,"green","bold"],
-                ["Please enter the values that best meet your p12 key store setup.",1,"red","bold"],
+                ["Please enter the values that best meet your p12 keystore setup.",1,"red","bold"],
                 ["-","half"],
             ])
 
@@ -3809,7 +3809,7 @@ class Configurator():
                     [f"Please reset specific",0,"red"], ["dedicated profile",0,"yellow"], 
                     ["passphrases via the configurator to",0,"red"],
                     ["resume nodectl's ability to automate processes that require the",0,"red"],
-                    ["p12",0,"yellow"], ["key store elements to function.",2,"red"],
+                    ["p12",0,"yellow"], ["keystore elements to function.",2,"red"],
 
                     ["Alternatively, you can resume using",0,"red"],
                     ["--pass <passphrase>",0], ["at the command prompt.",2,"red"],

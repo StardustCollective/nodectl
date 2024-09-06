@@ -1358,7 +1358,7 @@ class Installer():
             self.configurator.c.config_obj = self.setup_config.config_obj
             if self.found_errors:
                 self.encryption_performed = False
-                self.log.logger.error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private key store passphrase.  Please fix any issues and use the configure module to encrypt later if desired.")
+                self.log.logger.error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private keystore passphrase.  Please fix any issues and use the configure module to encrypt later if desired.")
             else:
                 self.configurator.prepare_configuration("edit_config")
                 self.configurator.passphrase_enable_disable_encryption("install")
@@ -1704,7 +1704,7 @@ class Installer():
         if not self.encryption_performed:
             self.functions.print_paragraphs([
                 ["",1], [" ENCRYPTION FAILURE ",0,"red,on_yellow"], 
-                ["An issue was detected with the p12 private key store. To encrypt the passphrase, ensure that the passphrase",0,"red"],
+                ["An issue was detected with the p12 private keystore. To encrypt the passphrase, ensure that the passphrase",0,"red"],
                 ["is correct and tested. After confirming the passphrase, you can attempt to encrypt it again.",2,"red"],
 
                 ["You may use the configurator to update the p12 settings and attempt encryption by following",0,"red"],
@@ -1747,7 +1747,7 @@ class Installer():
         ])     
         if not success:
             self.functions.print_paragraphs([
-                ["1",0,"magenta","bold"], [")",-1,"magenta"], ["Correct any errors of your p12 key store.",1,"red"],
+                ["1",0,"magenta","bold"], [")",-1,"magenta"], ["Correct any errors of your p12 keystore.",1,"red"],
             ])  
             next_step = 2   
 

@@ -192,8 +192,8 @@ class Error_codes():
                 
                 ["Check List",1,"cyan","bold,underline"],
                 ["- Verify a validated backup of your p12 file is safely created.",1],
-                ["- Obtain your p12 private key store passphrase",1],
-                ["- Obtain your p12 private key store alias",2],
+                ["- Obtain your p12 private keystore passphrase",1],
+                ["- Obtain your p12 private keystore alias",2],
             ])            
 
 
@@ -538,7 +538,7 @@ class Error_codes():
             
             
         elif var.line_code == "node_id_issue":
-            self.log.logger.critical("tessellation attempted to extract the node id from the configuration p12 private key file:  p12 password is wrong, p12 private key is corrupted, key store location is wrong, or p12 private key file name in the configuration is wrong.")
+            self.log.logger.critical("tessellation attempted to extract the node id from the configuration p12 private key file:  p12 password is wrong, p12 private key is corrupted, keystore location is wrong, or p12 private key file name in the configuration is wrong.")
             self.functions.print_paragraphs([
                 ["Tessellation attempted to extract and derive the",0,"red","bold"], ["nodeid",0,"magenta","bold"],
                 ["from this Node unsuccessfully.",2,"red","bold"],

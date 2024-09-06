@@ -255,7 +255,7 @@ class P12Class():
 
                 existing_unlock = self.unlock()
                 if not existing_unlock:
-                    self.log.logger.warn(f"p12 passphrase invalid, unable to access private key store [{attempt}] of [3]")
+                    self.log.logger.warn(f"p12 passphrase invalid, unable to access private keystore [{attempt}] of [3]")
                     self.functions.print_cmd_status({
                         "text_start": "Unable to unlock p12",
                         "brackets": f"{attempt} of 3",
@@ -269,7 +269,7 @@ class P12Class():
                             ["signatures and authentication challenges against the cluster through retrival of the public node id,",0,"red"],
                             ["seems to be",0,"red"], ["invalid.",2,"red","bold"], 
 
-                            ["The installation will continue; however, retrieval of the p12 key store deatils will fail.",0,"magenta"],
+                            ["The installation will continue; however, retrieval of the p12 keystore deatils will fail.",0,"magenta"],
                             ["Please use the",0,"magenta"], ["configurator",0,"yellow"], ["to update your passphrase at the",0,"magenta"],
                             ["conclustion of the installation.",1,"magenta"],
                             ["Command:",0,"yellow"],["sudo nodectl configure",2],
@@ -284,7 +284,7 @@ class P12Class():
                 else:
                     self.functions.print_cmd_status({
                         "text_start": "Migrating",
-                        "brackets": "p12 key store",
+                        "brackets": "p12 keystore",
                         "status": "unlocked",
                         "status_color": "green",
                         "newline": True,
