@@ -1665,10 +1665,13 @@ class CLI():
         
         
     def show_download_status(self,command_obj):
+        self.functions.check_for_help(self.command_list,"download_status")
+
         download_status = DownloadStatus({
             "parent": self,
             "command_obj": command_obj,
         })
+        
         if command_obj["caller"] == "status":
             ds = download_status.download_status_process()
             return ds
@@ -5492,6 +5495,7 @@ class CLI():
 
     def cli_snapshot_chain(self,command_list):
         debug = False
+        self.functions.check_for_help(command_list,"display_snapshot_chain")
         self.log.logger.info("cli -> display_snapshot_chain initiated.")
 
         fix = True if "--fix" in command_list else False
