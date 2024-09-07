@@ -6055,11 +6055,43 @@ class CLI():
         })        
 
 
+    def cli_execute_directory_restructure(self, profile_argv):
+        profile_error = False
+        profile = None
 
+        if isinstance(profile_argv,str):
+            profile = profile_argv
+        else:
+            try:
+                profile = profile_argv[profile_argv.index("-p")+1]
+            except:
+                profile_error = True
+            else:
+                if profile not in self.profile_names:
+                    profile_error = "profile_error"
+                elif self.config_obj[profile]["layer"] > 0:
+                    profile_error = "invalid_layer"
+                else:
+                    self.functions.print_cmd_status({
+                        "text_start": "Data directory profile",
+                        "status": profile,
+                        "status_color": "yellow",
+                        "newline": True,
+                    })
+                    self.functions.set_default_directories()
+        
+        if profile_error:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-6067",
+                "line_code": profile_error,
+                "extra": profile,
+            })
 
-
-
-    def cli_execute_directory_restructure(self, profile):
+        self.functions.print_header_title({
+            "line1": "Handle Data Restructure",
+            "newline": "both",
+            "single_line": True,
+        })
 
         bits64, amd = False, False
         data_dir = self.config_obj[profile]["directory_inc_snapshot"]

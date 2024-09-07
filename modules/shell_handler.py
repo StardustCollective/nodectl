@@ -439,6 +439,8 @@ class ShellHandler:
             self.cli.show_p12_details(self.argv)
         elif self.called_command == "getting_started":
             self.functions.check_for_help(["help"],"getting_started")
+        elif self.called_command == "migrate_datadir":
+            self.cli.cli_execute_directory_restructure(self.argv)
         elif self.called_command == "test_only":
             self.cli.test_only(self.argv)
 

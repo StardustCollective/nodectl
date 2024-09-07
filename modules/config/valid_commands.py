@@ -44,7 +44,7 @@ def pull_valid_command():
         "logs",
 
         "market",
-        "migrate_node",
+        "migrate_datadir",
 
         "nodeid",
         "nodeid2dag",
