@@ -174,6 +174,7 @@ class AutoRestart():
             "functions": self.functions
         }   
         self.cli = CLI(command_obj)
+        self.cli.functions.set_default_directories()
         
         if not self.functions.config_obj["global_auto_restart"]["on_boot"]: 
             self.on_boot_handler_check = False
@@ -572,7 +573,8 @@ class AutoRestart():
         
         # make sure we don't need to auto_upgrade before we do the restart
         self.version_check_handler()
-        
+        self.v2v3_migration_handler()
+
         if action != "join_only":
             if not self.profile_states[self.node_service.profile]["minority_fork"] and not self.profile_states[self.node_service.profile]["consensus_fork"]:
                 # double check in case network issue caused a false positive
@@ -719,6 +721,23 @@ class AutoRestart():
         return False # wait five minutes first
     
     
+    def v2v3_migration_handler(self):
+        if not self.auto_upgrade: 
+            return
+        self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] - v2 to v3 migration handler - initialized.")
+        for n in range(0,4):
+            migration_success = self.cli.cli_execute_directory_restructure(self.thread_profile)
+            if migration_success == "not_needed":
+                self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - v2 to v3 migration handler - not needed, skipping.")
+                return                
+            if migration_success: 
+                self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - v2 to v3 migration handler - successfully updated.")
+                return
+            if n > 2:
+                self.log.logger.critical(f"auto_restart - thread [{self.thread_profile}] - v2 to v3 migration handler - unable to properly migrate this node - skipping.")
+                return
+            
+
     def version_check_handler(self,sessionStartedState=False):
         # do not do anything until the versions match
         self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - initiated - profile [{self.node_service.profile}] ")

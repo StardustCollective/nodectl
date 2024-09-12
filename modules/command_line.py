@@ -6080,29 +6080,34 @@ class CLI():
                     })
                     self.functions.set_default_directories()
         
-        if profile_error:
+        if profile_error and not self.auto_restart:
             self.error_messages.error_code_messages({
                 "error_code": "cli-6067",
                 "line_code": profile_error,
                 "extra": profile,
             })
+        elif profile_error:
+            return False
 
-        self.functions.print_header_title({
-            "line1": "Handle Data Restructure",
-            "newline": "both",
-            "single_line": True,
-        })
+        if not self.auto_restart:
+            self.functions.print_header_title({
+                "line1": "Handle Data Restructure",
+                "newline": "both",
+                "single_line": True,
+            })
 
         bits64, amd = False, False
         data_dir = self.config_obj[profile]["directory_inc_snapshot"]
 
-        self.functions.print_paragraphs([
-            ["Preparing node for snapshot data restructuring.",1,"yellow"],
-            ["This may take a few minutes, and the screen may not display",0,"red"],
-            ["any output",0,"red"],["please be patient.",1,"red","bold"],
-        ])
+        if not self.auto_restart:
+            self.functions.print_paragraphs([
+                ["Preparing node for snapshot data restructuring.",1,"yellow"],
+                ["This may take a few minutes, and the screen may not display",0,"red"],
+                ["any output",0,"red"],["please be patient.",1,"red","bold"],
+            ])
 
         if not path.isdir(data_dir):
+            if self.auto_restart: return False
             self.error_messages.error_code_messages({
                 "error_code": "cli-6069",
                 "line_code": "config_error",
@@ -6112,20 +6117,22 @@ class CLI():
 
         executor0, executor1, executor2, executor3 = False, False, False, False
         with ThreadPoolExecutor() as executor0:
-            self.functions.status_dots = True
-            test_first = {
-                "text_start": "Verifying requirements",
-                "status": "running",
-                "status_color": "yellow",
-                "dotted_animation": True,
-                "newline": False,
-            }
-            _ = executor0.submit(self.functions.print_cmd_status,test_first)
+            if not self.auto_restart:
+                self.functions.status_dots = True
+                test_first = {
+                    "text_start": "Verifying requirements",
+                    "status": "running",
+                    "status_color": "yellow",
+                    "dotted_animation": True,
+                    "newline": False,
+                }
+                _ = executor0.submit(self.functions.print_cmd_status,test_first)
 
             r_color = "magenta"
             r_status = "executing"
             r_brackets = "required"
 
+            self.log.logger.info(f"cli -> execute_directory_restructure -> testing for migration requirement")
             for item in listdir(data_dir):
                 item_path = path.join(data_dir, item)
                 if path.isdir(item_path):
@@ -6134,30 +6141,32 @@ class CLI():
                     r_status = "skipping"
                     break
 
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                "text_start": "Verifying",
-                "newline": True,
-                "brackets": r_brackets,
-                "status": r_status,
-                "status_color": r_color,
-                "dotted_animation": False,
-            })
+            if not self.auto_restart:
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    "text_start": "Verifying",
+                    "newline": True,
+                    "brackets": r_brackets,
+                    "status": r_status,
+                    "status_color": r_color,
+                    "dotted_animation": False,
+                })
 
         if r_status == "skipping": 
             self.log.logger.info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
-            return
+            if self.auto_restart: return "not_needed"
 
         with ThreadPoolExecutor() as executor1:
-            self.functions.status_dots = True
-            prep = {
-                "text_start": "Preparing",
-                "status": "running",
-                "status_color": "yellow",
-                "dotted_animation": True,
-                "newline": False,
-            }
-            _ = executor1.submit(self.functions.print_cmd_status,prep)
+            if not self.auto_restart:
+                self.functions.status_dots = True
+                prep = {
+                    "text_start": "Preparing",
+                    "status": "running",
+                    "status_color": "yellow",
+                    "dotted_animation": True,
+                    "newline": False,
+                }
+                _ = executor1.submit(self.functions.print_cmd_status,prep)
 
             info = self.functions.get_distro_details()
             bits = info["info"].get('bits')
@@ -6166,34 +6175,38 @@ class CLI():
             if "AMD" in brand: amd = True
             if bits == 64: bits64 = True
 
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                **prep,
-                "newline": True,
-                "status": "complete",
-                "status_color": "green",
-                "dotted_animation": False,
-            })
+            if not self.auto_restart:
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    **prep,
+                    "newline": True,
+                    "status": "complete",
+                    "status_color": "green",
+                    "dotted_animation": False,
+                })
 
-        for item in [("Architecture",arch),("Brand",brand),("Bits",bits)]:
-            self.functions.print_cmd_status({
-                "text_start": "Found",
-                "brackets": item[0],
-                "status": item[1],
-                "status_color": "grey",
-                "newline": True,
-            })
+        if not self.auto_restart:
+            for item in [("Architecture",arch),("Brand",brand),("Bits",bits)]:
+                self.functions.print_cmd_status({
+                    "text_start": "Found",
+                    "brackets": item[0],
+                    "status": item[1],
+                    "status_color": "grey",
+                    "newline": True,
+                })
 
+        self.log.logger.info(f"cli -> execute_directory_restructure -> migration requirement detected, starting migration.")
         with ThreadPoolExecutor() as executor2:
-            self.functions.status_dots = True
-            do_fetch = {
-                "text_start": "Fetching migration tool",
-                "status": "running",
-                "status_color": "yellow",
-                "dotted_animation": True,
-                "newline": False,
-            }
-            _ = executor2.submit(self.functions.print_cmd_status,do_fetch)
+            if not self.auto_restart:
+                self.functions.status_dots = True
+                do_fetch = {
+                    "text_start": "Fetching migration tool",
+                    "status": "running",
+                    "status_color": "yellow",
+                    "dotted_animation": True,
+                    "newline": False,
+                }
+                _ = executor2.submit(self.functions.print_cmd_status,do_fetch)
 
             repo = "https://github.com/Constellation-Labs/snapshot-migration/releases/download/v1.0.0/"
             if amd: file = "snapshot-migration-tool_linux_amd"
@@ -6203,66 +6216,94 @@ class CLI():
             repo = f"{repo}{file}"
 
             self.log.logger.info(f"cli -> execute_directory_restructure -> fetching migration tool -> [{repo}] -> [{local_path}]")
-            self.functions.download_file({
-                "url": repo,
-                "local": local_path,
-            })
+            for n in range(0,4):
+                try:
+                    self.functions.download_file({
+                        "url": repo,
+                        "local": local_path,
+                    })
+                except Exception as e:
+                    if n > 2: 
+                        self.log.logger.critical(f"cli -> execute_directory_restructure -> fetching migration tool FAILED 3x -> [{repo}] -> [{local_path}]")
+                        return False
+                    self.log.logger.error(f"cli -> execute_directory_restructure -> fetching migration tool FAILED -> [{repo}] -> [{local_path}]")
+                else:
+                    self.log.logger.info(f"cli -> execute_directory_restructure -> fetching migration tool SUCCESS -> [{repo}] -> [{local_path}]")
+                    break
 
             sleep(.5)
             self.log.logger.debug(f"cli -> execute_directory_restructure -> changing permissions to +x -> [{local_path}]")
             chmod(local_path, 0o755)
 
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                "text_start": "Fetching migration tool",
-                "dotted_animation": False,
-                "status": "complete",
-                "status_color": "green",
-                "newline": True,
-            })
+            if not self.auto_restart:
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    "text_start": "Fetching migration tool",
+                    "dotted_animation": False,
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True,
+                })
 
-        self.functions.print_paragraphs([
-            ["",1], [" WARNING ",0,"red,on_yellow"], ["The migration of the data for v3.x.x",0,"yellow"],
-            ["may take a few minutes to complete. Please exercise patience while this",0,"yellow"],
-            ["critical",0,"red"],["process completes.",2,"yellow"],
-        ])
+        if not self.auto_restart:
+            self.functions.print_paragraphs([
+                ["",1], [" WARNING ",0,"red,on_yellow"], ["The migration of the data for v3.x.x",0,"yellow"],
+                ["may take a few minutes to complete. Please exercise patience while this",0,"yellow"],
+                ["critical",0,"red"],["process completes.",2,"yellow"],
+            ])
 
         with ThreadPoolExecutor() as executor3:
-            self.functions.status_dots = True
-            do_exe = {
-                "text_start": "Executing migration tool",
-                "status": "running",
-                "dotted_animation": True,
-                "status_color": "yellow",
-                "newline": False,
-            }
-            _ = executor3.submit(self.functions.print_cmd_status,do_exe)
+            if not self.auto_restart:
+                self.functions.status_dots = True
+                do_exe = {
+                    "text_start": "Executing migration tool",
+                    "status": "running",
+                    "dotted_animation": True,
+                    "status_color": "yellow",
+                    "newline": False,
+                }
+                _ = executor3.submit(self.functions.print_cmd_status,do_exe)
 
             # https://github.com/Constellation-Labs/snapshot-migration
             # $ ./snapshot-migration-tool -src ./data/incremental_snapshots
             bashCommand = f"{local_path} -src {data_dir}"
             self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> [{bashCommand}]")
-            # _ = self.functions.process_command({
+            result = 0
+            # result = self.functions.process_command({
             #     "bashCommand": bashCommand,
             #     "proc_action": "subprocess_run_check_only",
             # })
+            status_result = "complete"
+            status_color = "green"
+            if result < 1:
+                self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> completed [success]")
+            else:
+                self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool -> [failed] with error code [{result}]")
+                status_color = "red"
+                status_result = "failed"
+            #   
 
-            self.functions.status_dots = False
+            if not self.auto_restart:
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    "text_start": "Executing migration tool",
+                    "status": status_result,
+                    "status_color": status_color,
+                    "newline": True,
+                })
+
+        if not self.auto_restart:
             self.functions.print_cmd_status({
-                "text_start": "Executing migration tool",
-                "status": "complete",
-                "status_color": "green",
-                "newline": True,
+                "text_start": "Clean up migration tool",
+                "status": "running",
+                "status_color": "yellow",
+                "newline": False,
+                "delay": 0.8,
             })
-
-        self.functions.print_cmd_status({
-            "text_start": "Clean up migration tool",
-            "status": "running",
-            "status_color": "yellow",
-            "newline": False,
-            "delay": 0.8,
-        })
         remove(local_path)
+        if self.auto_restart:
+            if result > 0: return False
+            return True
         self.functions.print_cmd_status({
             "text_start": "Clean up migration tool",
             "status": "complete",
