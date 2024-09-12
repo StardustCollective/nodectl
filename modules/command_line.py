@@ -6125,6 +6125,8 @@ class CLI():
                 ["",1], [" WARNING ",0,"red,on_yellow",'bold'],
                 ["A standalone migration request was possibly detected.",2,"magenta"],
 
+                ["Make sure your Node is offline before continuing",2,"red","bold"],
+
                 ["This process can",0,"yellow"], ["potentially break",0,"red"], ["the node",0,"yellow"],
                 ["if the Node Operator runs this process on a node that does not support",0,"yellow"],
                 ["the data structure of a node with a version lower than",0,"yellow"],
