@@ -724,9 +724,13 @@ class AutoRestart():
     def v2v3_migration_handler(self):
         if not self.auto_upgrade: 
             return
+        self.version_obj = self.versioning.get_cached_version_obj()
         self.log.logger.info(f"auto_restart - thread [{self.thread_profile}] - v2 to v3 migration handler - initialized.")
         for n in range(0,4):
-            migration_success = self.cli.cli_execute_directory_restructure(self.thread_profile)
+            migration_success = self.cli.cli_execute_directory_restructure(
+                self.thread_profile,
+                self.version_obj[self.environment][self.thread_profile]["node_tess_version"],
+            )
             if migration_success == "not_needed":
                 self.log.logger.debug(f"auto_restart - thread [{self.thread_profile}] - v2 to v3 migration handler - not needed, skipping.")
                 return                

@@ -411,10 +411,10 @@ class CLI():
                                 if sessions["state1"] == "ApiNotResponding":
                                     on_network = colored("TryAgainLater","magenta")
                                     join_state = colored(f"ApiNotResponding".ljust(20),"magenta")
-                                elif sessions["state1"] == "WaitingForDownload":
+                                elif sessions["state1"] == "WaitingForDownload" or sessions["state1"] == "SessionStarted":
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                                    on_network = colored("True","red",attrs=["bold"])
-                                elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "SessionStarted" and sessions["state1"] != "Initial":
+                                    on_network = colored("True","magenta",attrs=["bold"])
+                                elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "Initial":
                                     # there are other states other than Ready and Observing when on_network
                                     on_network = colored("True","green")
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"green")
@@ -6055,9 +6055,16 @@ class CLI():
         })        
 
 
-    def cli_execute_directory_restructure(self, profile_argv):
+    def cli_execute_directory_restructure(self, profile_argv,version=False):
         profile_error = False
         profile = None
+
+        if not self.auto_restart:
+            self.functions.print_header_title({
+                "line1": "Handle Data Restructure",
+                "newline": "both",
+                "single_line": True,
+            })
 
         if isinstance(profile_argv,str):
             profile = profile_argv
@@ -6066,19 +6073,18 @@ class CLI():
                 profile = profile_argv[profile_argv.index("-p")+1]
             except:
                 profile_error = True
-            else:
-                if profile not in self.profile_names:
-                    profile_error = "profile_error"
-                elif self.config_obj[profile]["layer"] > 0:
-                    profile_error = "invalid_layer"
-                else:
-                    self.functions.print_cmd_status({
-                        "text_start": "Data directory profile",
-                        "status": profile,
-                        "status_color": "yellow",
-                        "newline": True,
-                    })
-                    self.functions.set_default_directories()
+
+        if profile not in self.profile_names:
+            profile_error = "profile_error"
+        elif self.config_obj[profile]["layer"] > 0:
+            profile_error = "invalid_layer"
+        elif not self.auto_restart:
+            self.functions.print_cmd_status({
+                "text_start": "Data directory profile",
+                "status": profile,
+                "status_color": "yellow",
+                "newline": True,
+            })
         
         if profile_error and not self.auto_restart:
             self.error_messages.error_code_messages({
@@ -6089,21 +6095,63 @@ class CLI():
         elif profile_error:
             return False
 
+        self.functions.set_default_directories()
+
+        run_v = version
+        env = self.config_obj[profile]["environment"]
+
+        if not version:
+            try:
+                self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+                run_v = self.version_obj[env][profile]["node_tess_version"]
+            except Exception as e:
+                self.log.logger.error(f"cli_execute_directory_restructure -> unable to determine versioning -> error [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-6109",
+                    "line_code": "version_fetch",
+                })
+
         if not self.auto_restart:
-            self.functions.print_header_title({
-                "line1": "Handle Data Restructure",
-                "newline": "both",
-                "single_line": True,
+            self.functions.print_cmd_status({
+                "text_start": "Data migration",
+                "brackets": run_v,
+                "status": env,
+                "status_color": "green",
+                "newline": True,
             })
 
+        if not version:
+            self.functions.print_paragraphs([
+                ["",1], [" WARNING ",0,"red,on_yellow",'bold'],
+                ["A standalone migration request was possibly detected.",2,"magenta"],
+
+                ["This process can",0,"yellow"], ["potentially break",0,"red"], ["the node",0,"yellow"],
+                ["if the Node Operator runs this process on a node that does not support",0,"yellow"],
+                ["the data structure of a node with a version lower than",0,"yellow"],
+                ["v3.x.x.",2,"green"],
+                
+                ["Please use caution before proceeding.",1,"magenta"],
+            ])
+            self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": "Migrate data structures?",
+                "prompt_color": "magenta",
+                "exit_if": True,
+            })
+        elif env != "testnet" and "v3" not in version:
+            if not self.auto_restart:
+                cprint("  Migrate not needed","red")
+            return "not_needed"
+        
         bits64, amd = False, False
         data_dir = self.config_obj[profile]["directory_inc_snapshot"]
 
         if not self.auto_restart:
             self.functions.print_paragraphs([
-                ["Preparing node for snapshot data restructuring.",1,"yellow"],
+                ["",1],["Preparing node for snapshot data restructuring.",1,"yellow"],
                 ["This may take a few minutes, and the screen may not display",0,"red"],
-                ["any output",0,"red"],["please be patient.",1,"red","bold"],
+                ["any output during this time.",0,"red"],["Please be patient.",2,"red","bold"],
             ])
 
         if not path.isdir(data_dir):
@@ -6249,7 +6297,7 @@ class CLI():
             self.functions.print_paragraphs([
                 ["",1], [" WARNING ",0,"red,on_yellow"], ["The migration of the data for v3.x.x",0,"yellow"],
                 ["may take a few minutes to complete. Please exercise patience while this",0,"yellow"],
-                ["critical",0,"red"],["process completes.",2,"yellow"],
+                ["process completes.",2,"yellow"],
             ])
 
         with ThreadPoolExecutor() as executor3:
@@ -6268,11 +6316,15 @@ class CLI():
             # $ ./snapshot-migration-tool -src ./data/incremental_snapshots
             bashCommand = f"{local_path} -src {data_dir}"
             self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> [{bashCommand}]")
-            result = 0
-            # result = self.functions.process_command({
-            #     "bashCommand": bashCommand,
-            #     "proc_action": "subprocess_run_check_only",
-            # })
+            result = 1
+            try:
+                result = self.functions.process_command({
+                    "bashCommand": bashCommand,
+                    "proc_action": "subprocess_run_check_only",
+                })
+            except Exception as e:
+                self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool | error [{e}]")
+
             status_result = "complete"
             status_color = "green"
             if result < 1:
