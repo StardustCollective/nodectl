@@ -53,6 +53,7 @@ from .logger import Logging
 #     config
 # new_connect_error
 # network_error
+# node_not_offline
 
 # off_network
 # open_file
@@ -393,6 +394,16 @@ class Error_codes():
                 ["Something isn't quite right?",2,"red","bold"],
                 ["nodectl",0,"red","bold,underline"], ["was unable to download the seed-list associated with the Global Layer0",2,"red","bold"],
                 ["Please check your outbound Internet access and try again later.",2,"yellow","bold"],
+            ])
+            
+            
+        elif var.line_code == "node_not_offline":
+            self.log.logger.critical(f"attempt to execute a command that requires the node to offline found the node in state [{var.extra}].")
+            self.functions.print_paragraphs([
+                [f"This node profile:",0,"red","bold"], [var.extra,2,"magenta","bold"],
+                ["nodectl",0,"red","bold,underline"], ["was unable to execute the requested command because it requires",0,"yellow"],
+                ["the node to be off the network and in",0,"yellow"], ["ApiNotReady",0,"red"], ["state.",2,"yellow"],
+                ["Please",0], ["stop",0,"blue","bold"], ["the profile and try again.",2],
             ])
 
             

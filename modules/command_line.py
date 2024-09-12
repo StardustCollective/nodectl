@@ -6055,9 +6055,10 @@ class CLI():
         })        
 
 
-    def cli_execute_directory_restructure(self, profile_argv,version=False):
+    def cli_execute_directory_restructure(self, profile_argv,version=False,non_interactive=False):
         profile_error = False
         profile = None
+        executor0, executor1, executor2, executor3, executor4 = False, False, False, False, False
 
         if not self.auto_restart:
             self.functions.print_header_title({
@@ -6121,11 +6122,43 @@ class CLI():
             })
 
         if not version:
+            with ThreadPoolExecutor() as executor0:
+                self.functions.status_dots = True
+                test_exe = {
+                    "text_start": "Validating profile",
+                    "brackets": profile,
+                    "status": "running",
+                    "dotted_animation": True,
+                    "status_color": "yellow",
+                    "newline": False,
+                }
+                _ = executor0.submit(self.functions.print_cmd_status,test_exe)
+
+                profile_state = self.functions.test_peer_state({
+                    "profile": profile,
+                    "simple": True,
+                    "current_source_node": "127.0.0.1",
+                    "caller": "cli_stop",
+                })    
+
+                self.functions.status_dots = False
+                if profile_state != "ApiNotReady":
+                    self.error_messages.error_code_messages({
+                        "error_code": "cli-6134",
+                        "line_code": "node_not_offline",
+                        "extra": profile,
+                    })
+                self.functions.print_cmd_status({
+                    **test_exe,
+                    "status": profile_state,
+                    "dotted_animation": False,
+                    "newline": True,
+                    "status_color": "green",
+                })
+
             self.functions.print_paragraphs([
                 ["",1], [" WARNING ",0,"red,on_yellow",'bold'],
                 ["A standalone migration request was possibly detected.",2,"magenta"],
-
-                ["Make sure your Node is offline before continuing",2,"red","bold"],
 
                 ["This process can",0,"yellow"], ["potentially break",0,"red"], ["the node",0,"yellow"],
                 ["if the Node Operator runs this process on a node that does not support",0,"yellow"],
@@ -6134,14 +6167,15 @@ class CLI():
                 
                 ["Please use caution before proceeding.",1,"magenta"],
             ])
-            self.functions.confirm_action({
-                "yes_no_default": "n",
-                "return_on": "y",
-                "prompt": "Migrate data structures?",
-                "prompt_color": "magenta",
-                "exit_if": True,
-            })
-        elif env != "testnet" and "v3" not in version:
+            if not non_interactive:
+                self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": "Migrate data structures?",
+                    "prompt_color": "magenta",
+                    "exit_if": True,
+                })
+        elif env != "testnet" and "v3" != version[:2]:
             if not self.auto_restart:
                 cprint("  Migrate not needed","red")
             return "not_needed"
@@ -6165,8 +6199,7 @@ class CLI():
                 "extra2": "Please join Discord and report this error.",
             })
 
-        executor0, executor1, executor2, executor3 = False, False, False, False
-        with ThreadPoolExecutor() as executor0:
+        with ThreadPoolExecutor() as executor1:
             if not self.auto_restart:
                 self.functions.status_dots = True
                 test_first = {
@@ -6176,20 +6209,17 @@ class CLI():
                     "dotted_animation": True,
                     "newline": False,
                 }
-                _ = executor0.submit(self.functions.print_cmd_status,test_first)
+                _ = executor1.submit(self.functions.print_cmd_status,test_first)
 
             r_color = "magenta"
             r_status = "executing"
             r_brackets = "required"
 
             self.log.logger.info(f"cli -> execute_directory_restructure -> testing for migration requirement")
-            for item in listdir(data_dir):
-                item_path = path.join(data_dir, item)
-                if path.isdir(item_path):
-                    r_color = "green"
-                    r_brackets = "passed"
-                    r_status = "skipping"
-                    break
+            if path.isdir(f"{data_dir}/hash") and path.isdir(f"{data_dir}/ordinal"):
+                r_color = "green"
+                r_brackets = "passed"
+                r_status = "skipping"                
 
             if not self.auto_restart:
                 self.functions.status_dots = False
@@ -6204,9 +6234,9 @@ class CLI():
 
         if r_status == "skipping": 
             self.log.logger.info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
-            if self.auto_restart: return "not_needed"
+            return "not_needed"
 
-        with ThreadPoolExecutor() as executor1:
+        with ThreadPoolExecutor() as executor2:
             if not self.auto_restart:
                 self.functions.status_dots = True
                 prep = {
@@ -6216,7 +6246,7 @@ class CLI():
                     "dotted_animation": True,
                     "newline": False,
                 }
-                _ = executor1.submit(self.functions.print_cmd_status,prep)
+                _ = executor2.submit(self.functions.print_cmd_status,prep)
 
             info = self.functions.get_distro_details()
             bits = info["info"].get('bits')
@@ -6246,7 +6276,7 @@ class CLI():
                 })
 
         self.log.logger.info(f"cli -> execute_directory_restructure -> migration requirement detected, starting migration.")
-        with ThreadPoolExecutor() as executor2:
+        with ThreadPoolExecutor() as executor3:
             if not self.auto_restart:
                 self.functions.status_dots = True
                 do_fetch = {
@@ -6256,7 +6286,7 @@ class CLI():
                     "dotted_animation": True,
                     "newline": False,
                 }
-                _ = executor2.submit(self.functions.print_cmd_status,do_fetch)
+                _ = executor3.submit(self.functions.print_cmd_status,do_fetch)
 
             repo = "https://github.com/Constellation-Labs/snapshot-migration/releases/download/v1.0.0/"
             if amd: file = "snapshot-migration-tool_linux_amd"
@@ -6302,7 +6332,7 @@ class CLI():
                 ["process completes.",2,"yellow"],
             ])
 
-        with ThreadPoolExecutor() as executor3:
+        with ThreadPoolExecutor() as executor4:
             if not self.auto_restart:
                 self.functions.status_dots = True
                 do_exe = {
@@ -6312,7 +6342,7 @@ class CLI():
                     "status_color": "yellow",
                     "newline": False,
                 }
-                _ = executor3.submit(self.functions.print_cmd_status,do_exe)
+                _ = executor4.submit(self.functions.print_cmd_status,do_exe)
 
             # https://github.com/Constellation-Labs/snapshot-migration
             # $ ./snapshot-migration-tool -src ./data/incremental_snapshots
@@ -6324,6 +6354,7 @@ class CLI():
                     "bashCommand": bashCommand,
                     "proc_action": "subprocess_run_check_only",
                 })
+                result = result.returncode
             except Exception as e:
                 self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool | error [{e}]")
 
@@ -6335,7 +6366,6 @@ class CLI():
                 self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool -> [failed] with error code [{result}]")
                 status_color = "red"
                 status_result = "failed"
-            #   
 
             if not self.auto_restart:
                 self.functions.status_dots = False
@@ -6355,15 +6385,16 @@ class CLI():
                 "delay": 0.8,
             })
         remove(local_path)
-        if self.auto_restart:
-            if result > 0: return False
-            return True
-        self.functions.print_cmd_status({
-            "text_start": "Clean up migration tool",
-            "status": "complete",
-            "status_color": "green",
-            "newline": True,
-        })
+        if not self.auto_restart:
+            self.functions.print_cmd_status({
+                "text_start": "Clean up migration tool",
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+            })
+        
+        if result > 0: return False
+        return True
 
 
     def cli_enable_remote_access(self,command_list):

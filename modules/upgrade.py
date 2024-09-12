@@ -1,7 +1,7 @@
 import subprocess
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from os import system, path, makedirs, remove, environ, chmod
+from os import system, path, makedirs, remove, environ, chmod, listdir
 from shutil import copy2, move, rmtree
 from time import sleep
 from termcolor import colored
@@ -931,12 +931,60 @@ class Upgrader():
         handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
 
+        result = False
         for profile in self.functions.profile_names:
             if self.config_obj[profile]["layer"] < 1:
-                self.cli.cli_execute_directory_restructure(
+                result = self.cli.cli_execute_directory_restructure(
                     profile,
-                    self.profile_progress[profile]["download_version"]
+                    self.profile_progress[profile]["download_version"],
+                    self.non_interactive
                 )
+                if result and (self.environment == "testnet" or "v3" == self.profile_progress[profile]["download_version"][:2]):
+                    clean_residual = True
+                    if not self.non_interactive:
+                        self.functions.print_paragraphs([
+                            ["",1],
+                            ["nodectl completed a migration of the snapshot data structure required for this version of Tessellation",2,"magenta"],
+                            ["There may be some residual old snapshots present.",1,"magenta"],
+                            ["nodectl will attempt to clean up and free disk space",2,"magenta"],
+                        ])
+                        if self.functions.confirm_action({
+                            "yes_no_default": "y",
+                            "return_on": "y",
+                            "prompt": "Attempt to clean any residual snapshots?",
+                            "prompt_color": "cyan",
+                            "exit_if": False,
+                        }): clean_residual = False
+
+                    if clean_residual:
+                        with ThreadPoolExecutor() as executor0:
+                            self.functions.status_dots = True
+                            do_exe = {
+                                "text_start": "Cleaning up residual snapshots",
+                                "status": "running",
+                                "dotted_animation": True,
+                                "status_color": "yellow",
+                                "newline": False,
+                            }
+                            _ = executor0.submit(self.functions.print_cmd_status,do_exe)
+
+                            for item in listdir(self.config_obj[profile]["directory_inc_snapshot"]):
+                                item_path = path.join(self.config_obj[profile]["directory_inc_snapshot"], item)
+                                if not path.isdir(item_path):
+                                    remove(item_path)  
+
+                            self.functions.status_dots = False
+                            self.functions.print_cmd_status({
+                                **do_exe,
+                                "status": "complete",
+                                "dotted_animation": False,
+                                "newline": True,
+                                "status_color": "green",
+                            })                                     
+
+        
+
+            
 
              
     def service_file_manipulation(self):
