@@ -6349,14 +6349,19 @@ class CLI():
             bashCommand = f"{local_path} -src {data_dir}"
             self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> [{bashCommand}]")
             result = 1
-            try:
-                result = self.functions.process_command({
-                    "bashCommand": bashCommand,
-                    "proc_action": "subprocess_run_check_only",
-                })
-                result = result.returncode
-            except Exception as e:
-                self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool | error [{e}]")
+
+            for n in range(1,4):
+                try:
+                    result = self.functions.process_command({
+                        "bashCommand": bashCommand,
+                        "proc_action": "subprocess_run_check_only",
+                    })
+                    result = result.returncode
+                except Exception as e:
+                    self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool | attempt [{n}] of [3] | error [{e}]")
+                else:
+                    if result < 1: break
+                    self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool did not return successful completion. | attempt [{n}] of [3] | error [{result}]")
 
             status_result = "complete"
             status_color = "green"

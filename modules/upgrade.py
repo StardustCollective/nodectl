@@ -939,14 +939,27 @@ class Upgrader():
                     self.profile_progress[profile]["download_version"],
                     self.non_interactive
                 )
+                result_color = "yellow"
+                if result and result != "not_needed": 
+                    result = "Successful"
+                    result_color = "green"
+                elif not result:
+                    result = "Failed"
+                    result_color = "red"
                 if result and (self.environment == "testnet" or "v3" == self.profile_progress[profile]["download_version"][:2]):
                     clean_residual = True
                     if not self.non_interactive:
                         self.functions.print_paragraphs([
                             ["",1],
                             ["nodectl completed a migration of the snapshot data structure required for this version of Tessellation",2,"magenta"],
+
                             ["There may be some residual old snapshots present.",1,"magenta"],
-                            ["nodectl will attempt to clean up and free disk space",2,"magenta"],
+                            ["nodectl can attempt to clean up and free disk space",2,"magenta"],
+
+                            ["Migration Status:",0], [result,2,result_color,"bold"],
+
+                            [" WARNING ",0,"red,on_yellow"],["Do not attempt to remove residual old snapshots if the status of migration is",0,"red"],
+                            ["not",0,"magenta","bold"], ["completed.",2,"red"],
                         ])
                         if self.functions.confirm_action({
                             "yes_no_default": "y",
@@ -956,7 +969,7 @@ class Upgrader():
                             "exit_if": False,
                         }): clean_residual = False
 
-                    if clean_residual:
+                    if clean_residual and result != "not_needed":
                         with ThreadPoolExecutor() as executor0:
                             self.functions.status_dots = True
                             do_exe = {
