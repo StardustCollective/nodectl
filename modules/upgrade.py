@@ -940,23 +940,78 @@ class Upgrader():
                     self.non_interactive
                 )
                 result_color = "yellow"
-                if result and result != "not_needed": 
+                if result == "not_needed": 
+                    result_color = "green"
+                elif result: 
                     result = "Successful"
                     result_color = "green"
                 elif not result:
                     result = "Failed"
                     result_color = "red"
+
                 if result and (self.environment == "testnet" or "v3" == self.profile_progress[profile]["download_version"][:2]):
-                    clean_residual = True
-                    if not self.non_interactive:
+                    residual_color = "green"
+                    residual_status = "cleanup_not_needed"
+
+                    with ThreadPoolExecutor() as executor0:
+                        self.functions.status_dots = True
+                        prep = {
+                            "text_start": "Testing Migration Data",
+                            "status": "running",
+                            "status_color": "yellow",
+                            "dotted_animation": True,
+                            "newline": False,
+                        }
+                        _ = executor0.submit(self.functions.print_cmd_status,prep) 
+
+                        if path.exists(f'{self.config_obj[profile]["directory_inc_snapshot"]}/ordinal') and path.exists(f'{self.config_obj[profile]["directory_inc_snapshot"]}/hash'):
+                            for item in listdir(self.config_obj[profile]["directory_inc_snapshot"]):
+                                item_path = path.join(self.config_obj[profile]["directory_inc_snapshot"], item)
+                                if not path.isdir(item_path):
+                                    residual_color = "red"
+                                    residual_status = "needs_cleanup"
+                                    break
+                        else:
+                            residual_color = "red"
+                            residual_status = "migration_failure"
+
+                        self.functions.status_dots = False
+                        self.functions.print_cmd_status({
+                            **prep,
+                            "newline": True,
+                            "status": "complete",
+                            "status_color": "green",
+                            "dotted_animation": False,
+                        })  
+
+                    self.functions.print_cmd_status({
+                        "text_start": "Residual snapshot",
+                        "brackets": "v2 to v3",
+                        "status": residual_status,
+                        "status_color": residual_color,
+                        "newline": True,
+                    })
+
+                    if residual_status == "migration_failure":
                         self.functions.print_paragraphs([
-                            ["",1],
+                            ["",1], [" WARNING ",0,"yellow,on_red","bold"], ["This node's data structure appears not to have been migrated from Tessellation",0,"yellow"],
+                            ["v2.x.x",0,"red"], ["to",0,"yellow"], ["v3.x.x",0,"red"], ["properly. It is recommended that you rerun the upgrade at your earliest convenience.",2,"yellow"],
+                            ["You may also option to run the migration directly and then restart of the node, using the following commands:",1,"magenta"],
+                            ["sudo nodectl migration_datadir -p <profile_name>",1],
+                            ["sudo nodectl restart -p all",2],
+                        ])
+
+                    clean_residual = False
+                    if not self.non_interactive:
+                        if residual_status != "migration_failure": print()
+                        self.functions.print_paragraphs([
                             ["nodectl completed a migration of the snapshot data structure required for this version of Tessellation",2,"magenta"],
 
                             ["There may be some residual old snapshots present.",1,"magenta"],
                             ["nodectl can attempt to clean up and free disk space",2,"magenta"],
 
-                            ["Migration Status:",0], [result,2,result_color,"bold"],
+                            ["   Migration Status:",0], [result,1,result_color,"bold"],
+                            ["Residual Data Found:",0], [residual_status,2,residual_color,"bold"],
 
                             [" WARNING ",0,"red,on_yellow"],["Do not attempt to remove residual old snapshots if the status of migration is",0,"red"],
                             ["not",0,"magenta","bold"], ["completed.",2,"red"],
@@ -967,9 +1022,9 @@ class Upgrader():
                             "prompt": "Attempt to clean any residual snapshots?",
                             "prompt_color": "cyan",
                             "exit_if": False,
-                        }): clean_residual = False
+                        }): clean_residual = True
 
-                    if clean_residual and result != "not_needed":
+                    if clean_residual:
                         with ThreadPoolExecutor() as executor0:
                             self.functions.status_dots = True
                             do_exe = {
@@ -994,10 +1049,6 @@ class Upgrader():
                                 "newline": True,
                                 "status_color": "green",
                             })                                     
-
-        
-
-            
 
              
     def service_file_manipulation(self):
