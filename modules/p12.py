@@ -1,5 +1,5 @@
 from os import environ, path, system, makedirs, getcwd, remove, chmod
-from re import match
+from re import match, search
 from shutil import copy2, move
 from time import sleep
 from getpass import getpass
@@ -265,15 +265,23 @@ class P12Class():
                     })
                     if attempt > 2:
                         self.functions.print_paragraphs([
-                            ["",1], ["WARNING",0,"yellow,on_red"], ["The p12 passphrase responsible for digitial",0,"red"],
-                            ["signatures and authentication challenges against the cluster through retrival of the public node id,",0,"red"],
-                            ["seems to be",0,"red"], ["invalid.",2,"red","bold"], 
+                            ["",1], [" WARNING ",0,"yellow,on_red"], ["The p12 passphrase responsible for digital",0,"red"],
+                            ["signatures and authentication challenges against the cluster, including the retrieval of the public node ID,",0,"red"],
+                            ["appears to be",0,"red"], ["invalid.",2,"red","bold"], 
 
-                            ["The installation will continue; however, retrieval of the p12 keystore deatils will fail.",0,"magenta"],
+                            ["nodectl does not allow",0,"yellow"], ["$",0,"red"], [",",0,"yellow"], ["sectional signs",0,"red"],["or",0,"yellow"],["spaces",0,"red"], 
+                            ["in the passphrase string.",2,"yellow"],
+
+                            ["To ensure best practices, pertaining to the use of nodectl, it is recommended to change your passphrase used to unlock your p12 keystore to one that does not",0],
+                            ["contain these characters.",1],
+                            ["Command:",0,"yellow"],["sudo nodectl passwd12",2,"blue","bold"],
+
+                            ["The installation may continue; however, retrieval of the p12 keystore details will fail.",0,"magenta"],
                             ["Please use the",0,"magenta"], ["configurator",0,"yellow"], ["to update your passphrase at the",0,"magenta"],
-                            ["conclustion of the installation.",1,"magenta"],
-                            ["Command:",0,"yellow"],["sudo nodectl configure",2],
+                            ["conclusion of the installation:",1,"magenta"],
+                            ["Command:",0,"yellow"],["sudo nodectl configure",2,"blue","bold"],
                         ])
+
                         self.functions.confirm_action({
                             "prompt": "Continue installation?",
                             "yes_no_default": "y",

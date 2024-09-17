@@ -403,7 +403,8 @@ class Error_codes():
                 [f"This node profile:",0,"red","bold"], [var.extra,2,"magenta","bold"],
                 ["nodectl",0,"red","bold,underline"], ["was unable to execute the requested command because it requires",0,"yellow"],
                 ["the node to be off the network and in",0,"yellow"], ["ApiNotReady",0,"red"], ["state.",2,"yellow"],
-                ["Please",0], ["stop",0,"blue","bold"], ["the profile and try again.",2],
+                ["Please",0], ["stop",0,"blue","bold"], ["the profile.",1],
+                ["Please",0], ["disable",0,"blue","bold"], ["auto_restart.",2],
             ])
 
             

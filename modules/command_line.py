@@ -2975,7 +2975,7 @@ class CLI():
         profile = command_obj.get("profile",self.profile)
         static_nodeid = command_obj.get("static_nodeid",False)
         check_for_leave = command_obj.get("check_for_leave",False)
-        rebuild, result = True, False
+        leave_first, rebuild, result = False, True, False
     
         sleep(command_obj.get("delay",0))
         
@@ -3008,12 +3008,16 @@ class CLI():
                     ["",1],[" WARNING ",0,"white,on_red"], ["This profile",0],
                     [profile,0,"yellow","bold"], ["is in state:",0], [state,2,"yellow","bold"],
                 ]) 
-                if self.functions.confirm_action({
-                    "yes_no_default": "y",
-                    "return_on": "y",
-                    "prompt": "Do you want to leave first?",
-                    "exit_if": False,
-                }):
+                if "-l" in argv_list or "--leave" in argv_list:
+                    leave_first = True
+                else:
+                    leave_first = self.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "prompt": "Do you want to leave first?",
+                        "exit_if": False,
+                    })
+                if leave_first:
                     self.cli_leave({
                         "secs": 30,
                         "reboot_flag": False,
@@ -6232,6 +6236,7 @@ class CLI():
                     "dotted_animation": False,
                 })
 
+        r_status = "executing"
         if r_status == "skipping": 
             self.log.logger.info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
             return "not_needed"
@@ -6250,7 +6255,7 @@ class CLI():
 
             info = self.functions.get_distro_details()
             bits = info["info"].get('bits')
-            brand = info["info"].get('brand_raw')
+            brand = info["info"].get('vendor_id_raw')
             arch = info["arch"]
             if "AMD" in brand: amd = True
             if bits == 64: bits64 = True
@@ -6267,6 +6272,7 @@ class CLI():
 
         if not self.auto_restart:
             for item in [("Architecture",arch),("Brand",brand),("Bits",bits)]:
+                self.log.logger.info(f"cli -> execute_directory_restructure -> {item[0]}: [{item[1]}]")
                 self.functions.print_cmd_status({
                     "text_start": "Found",
                     "brackets": item[0],
@@ -6274,6 +6280,9 @@ class CLI():
                     "status_color": "grey",
                     "newline": True,
                 })
+
+        if (brand == "AuthenticIntel" or brand == "GenuineIntel") and arch.upper() == "X86_64":
+            brand = "AMD"
 
         self.log.logger.info(f"cli -> execute_directory_restructure -> migration requirement detected, starting migration.")
         with ThreadPoolExecutor() as executor3:
