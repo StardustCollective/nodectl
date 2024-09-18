@@ -6282,7 +6282,7 @@ class CLI():
                 })
 
         if (brand == "AuthenticIntel" or brand == "GenuineIntel") and arch.upper() == "X86_64":
-            brand = "AMD"
+            amd = True
 
         self.log.logger.info(f"cli -> execute_directory_restructure -> migration requirement detected, starting migration.")
         with ThreadPoolExecutor() as executor3:
