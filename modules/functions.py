@@ -647,6 +647,9 @@ class Functions():
 
         if action == "date":
             return new_time.strftime("%Y-%m-%d")
+        elif action == "convert_to_datetime":
+            new_time = datetime.fromtimestamp(new_time)
+            return new_time.strftime(format)
         elif action == "datetime":
             utc_now = datetime.now(pytz.utc)
             if time_zone == "self":

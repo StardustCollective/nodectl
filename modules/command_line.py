@@ -2,12 +2,13 @@ import re
 import base58
 import psutil
 import socket
+import queue
 
 from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, SEEK_END, SEEK_CUR
 from shutil import copy2, move
 from sys import exit
 from types import SimpleNamespace
@@ -28,6 +29,7 @@ from .troubleshoot.logger import Logging
 from .cleaner import Cleaner
 from .troubleshoot.send_logs import Send
 from .troubleshoot.ts import Troubleshooter
+from .find_newest_standalone import find_newest
 
 class TerminateCLIException(Exception): pass
 
@@ -5451,7 +5453,7 @@ class CLI():
         value_only = True if "value_only" in command_list else False
 
         profile = command_list[command_list.index("-p")+1]
-        snapshot_dir = self.set_data_dir(profile)
+        snapshot_dir = self.set_data_dir(profile)+"/hash"
         
         if self.config_obj[profile]["layer"] > 0:
             self.error_messages.error_code_messages({
@@ -5460,21 +5462,37 @@ class CLI():
                 "extra": "1",
             })
 
-        cmd = f'find {snapshot_dir} -maxdepth 1 -type f -printf "%f\n" '
-        cmd += "| grep '^[0-9.]\{1,8\}$' | sort -n | tail -n 1"
-        
+        snapshot_subdirs = [path.join(snapshot_dir, name) for name in listdir(snapshot_dir) if path.isdir(path.join(snapshot_dir, name))]
+
+        self.functions.print_paragraphs([
+            [" WARNING ",0,"red,on_yellow"], ["This may take some time to complete depending on the size of the snapshot state.",1,"light_yellow"],
+            ["The process may take up to 3 minutes.",2,"magenta"],
+        ])
+
         with ThreadPoolExecutor() as executor:
             self.functions.status_dots = True
             status_obj = {
                 "text_start": f"Reviewing snapshots",
                 "status": "please wait",
                 "status_color": "yellow",
+                "timeout": False,
                 "dotted_animation": True,
                 "newline": False,
             }
             _ = executor.submit(self.functions.print_cmd_status,status_obj)
-            possible_end = popen(cmd)
-            possible_end = int(possible_end.read().strip())
+
+            cpu_count = self.functions.get_distro_details()["info"]["count"]-1
+
+            with ProcessPoolExecutor(max_workers=cpu_count) as executor0:
+                results = executor0.map(find_newest, snapshot_subdirs)
+            
+            newest_time, newest_snapshot = 0, None
+            for creation_time, file_path, is_error in results:
+                if is_error:
+                    self.log.logger.error(is_error)
+                elif creation_time > newest_time:
+                    newest_time, newest_snapshot = creation_time, file_path
+
             self.functions.status_dots = False
             self.functions.print_cmd_status({
                 **status_obj,
@@ -5484,17 +5502,29 @@ class CLI():
                 "newline": True,
             })
 
-        if value_only: return snapshot_dir,possible_end
+        if value_only: return snapshot_dir, path.basename(newest_snapshot)
+        elif not newest_snapshot:
+            newest_snapshot = "NotFound"
 
-        print_out_list = [{
-            "PROFILE": profile,
-            "LAST FOUND LOCAL SNAPSHOT": possible_end,
-        }]
+        print("")
+        print_out_list = [
+            {
+                "PROFILE": profile,
+                "TIME STAMP": self.functions.get_date_time({
+                                  "action": "convert_to_datetime",
+                                  "new_time": newest_time,
+                              }),
+            },
+            {
+                "LAST FOUND LOCAL SNAPSHOT": path.basename(newest_snapshot),
+            },
+        ]
     
         for header_elements in print_out_list:
             self.functions.print_show_output({
                 "header_elements" : header_elements
             }) 
+        print("")
 
 
     def cli_snapshot_chain(self,command_list):
@@ -6210,6 +6240,7 @@ class CLI():
                     "text_start": "Verifying requirements",
                     "status": "running",
                     "status_color": "yellow",
+                    "timeout": False,
                     "dotted_animation": True,
                     "newline": False,
                 }
@@ -6249,6 +6280,7 @@ class CLI():
                     "status": "running",
                     "status_color": "yellow",
                     "dotted_animation": True,
+                    "timeout": False,
                     "newline": False,
                 }
                 _ = executor2.submit(self.functions.print_cmd_status,prep)
@@ -6348,6 +6380,7 @@ class CLI():
                     "text_start": "Executing migration tool",
                     "status": "running",
                     "dotted_animation": True,
+                    "timeout": False,
                     "status_color": "yellow",
                     "newline": False,
                 }
