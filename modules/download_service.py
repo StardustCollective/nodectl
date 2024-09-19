@@ -383,7 +383,7 @@ class Download():
             makedirs(file_path_only)
         
         if self.file_obj[file_key]["state"] == "disabled":
-            self.log.logger.warn(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_key]['type']}] disabled, skipping.")
+            self.log.logger.warning(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_key]['type']}] disabled, skipping.")
             return
 
         try:
@@ -448,7 +448,7 @@ class Download():
         
         file_path = self.file_obj[file_key]["dest_path"]
         if self.file_obj[file_key]["state"] == "disabled": 
-            self.log.logger.warn(f"download_service -> test_file_size -> {file_name} -> was determined to be [disabled] -> skipping")
+            self.log.logger.warning(f"download_service -> test_file_size -> {file_name} -> was determined to be [disabled] -> skipping")
             return True # skip test
         
         if path.exists(file_path):
@@ -590,7 +590,7 @@ class Download():
 
     def file_backup_handler(self,action):
         if not self.backup: 
-            self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
+            self.log.logger.warning(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
             return
         if self.fallback and action == "backup": 
             self.log.logger.debug(f"{self.log_prefix} file_backup_handler -> skipping redundant backup.")
@@ -607,7 +607,7 @@ class Download():
         
         if len(file_list) > 0:
             if action == "restore":
-                self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
+                self.log.logger.warning(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
                 if not self.auto_restart:
                     print(f"\033[8B", end="", flush=True)
                     self.cursor_setup = {key: value + 2 for key, value in self.cursor_setup.items() if key != "success"}

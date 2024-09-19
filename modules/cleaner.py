@@ -209,7 +209,7 @@ class Cleaner():
                         }
                         log_path_list.append(log_dict)
                     else:
-                        self.log.logger.warn(f"during a log cleanup attempt a directory was not found and skipped [{dirs[profile][c_dir]}]")
+                        self.log.logger.warning(f"during a log cleanup attempt a directory was not found and skipped [{dirs[profile][c_dir]}]")
         elif dir_type == "config_change":
             log_path_list.append({
                 "layer": "na",
@@ -283,7 +283,7 @@ class Cleaner():
 
                 except:
                     if dir_type == "config_change":
-                        self.log.logger.warn("during configuration change unable to find file to replace.")
+                        self.log.logger.warning("during configuration change unable to find file to replace.")
                         pass
                     else:
                         self.error_messages.error_code_messages({

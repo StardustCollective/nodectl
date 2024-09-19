@@ -544,7 +544,7 @@ class ShellHandler:
                 self.auto_restart_enabled = True
             
         if self.called_command in kill_auto_restart_commands:
-            self.log.logger.warn(f"cli request {self.called_command} received. DISABLING auto_restart if enabled")
+            self.log.logger.warning(f"cli request {self.called_command} received. DISABLING auto_restart if enabled")
             self.auto_restart_handler("disable",True)
                 
 
@@ -1287,7 +1287,7 @@ class ShellHandler:
             "yes_no_default": "n",
         }):
             restore_file = restore_dict[str(option)]
-            self.log.logger.warn(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
+            self.log.logger.warning(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
             try:
                 backup_dir = self.config_obj[self.functions.default_profile]["directory_backups"]
             except:
@@ -1591,7 +1591,7 @@ class ShellHandler:
                     [str(self.auto_restart_pid),-1,"green","bold"],
                     ["] found already.",-1,"yellow"],["",1]
                 ])
-            self.log.logger.warn(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
+            self.log.logger.warning(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
             return
         
         _ = self.functions.process_command({

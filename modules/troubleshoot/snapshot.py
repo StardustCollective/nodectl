@@ -31,7 +31,7 @@ def process_snap_files(files, snapshot_dir, log, find_inode):
                 result[inode]["stamp"].append(file_mtime)
 
         except Exception as e:
-            log.logger.warn(f"snaphost --> Error processing file {ord_hash_name}: {e}")
+            log.logger.warning(f"snaphost --> Error processing file {ord_hash_name}: {e}")
     
     return result
 
@@ -182,7 +182,7 @@ def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_day
                 "status_color": "red",
                 "newline": True,
             })
-            log.logger.warn(f"snaphost --> removing snapshot {info_path}")
+            log.logger.warning(f"snaphost --> removing snapshot {info_path}")
             if not debug: 
                 remove(info_path)
 
@@ -211,7 +211,7 @@ def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_day
                                 "status_color": "red",
                                 "newline": True,
                             })
-                            log.logger.warn(f"snaphost --> removing snapshot {info_path}")
+                            log.logger.warning(f"snaphost --> removing snapshot {info_path}")
                             if not debug: 
                                 remove(info_path)
         if count > 0:
@@ -236,7 +236,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
                 if old_days > 0 and stamp < threshold_time: # -1 is disabled
                         old_count += 2
                         oe = "old ordinal element"
-                        log.logger.warn(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
+                        log.logger.warning(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
                 elif int(ord_hash) < start:
                     skip = True
                 else:
@@ -258,7 +258,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
                 "status_color": "red",
                 "newline": True,
             })
-            log.logger.warn(f"snapshot --> removing ordinal {snap_to_remove}")
+            log.logger.warning(f"snapshot --> removing ordinal {snap_to_remove}")
             count += 1
             if not debug and path.isfile(snap_to_remove): 
                 remove(snap_to_remove)
@@ -454,7 +454,7 @@ def discover_snapshots(snapshot_dir, functions, log, inode=False):
                     except Exception as e:
                         log.logger.error(f"unable to determine snapshot data type, skipping [{ordhash}]")
         except:
-            log.logger.warn(f"snapshots --> unable to open or find snapshot items in [{snapshot_dir}]")
+            log.logger.warning(f"snapshots --> unable to open or find snapshot items in [{snapshot_dir}]")
 
         num_workers = cpu_count()
         chunk_size = len(files) // num_workers

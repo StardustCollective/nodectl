@@ -23,6 +23,7 @@ from .node_service import Node
 from .config.valid_commands import pull_valid_command
 from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
 from .config.time_setup import remove_ntp_services, handle_time_setup
+from .config.networking import disable_ipv6
 
 class Installer():
 
@@ -38,6 +39,7 @@ class Installer():
         self.found_errors = False
         self.p12_migrated = False
         self.encryption_performed = False
+        self.need_reboot = False
 
         self.action = "install"
         self.metagraph_name = None
@@ -85,7 +87,7 @@ class Installer():
         continue_warn = False
 
         if distro_name not in ["Ubuntu","Debian"]:
-            self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+            self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
             if not self.options.quiet:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], 
@@ -98,7 +100,7 @@ class Installer():
                 continue_warn = True
         if "Ubuntu" in distro_name:
             if ".10" in distro_version:
-                self.log.logger.warn(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
+                self.log.logger.warning(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
@@ -112,7 +114,7 @@ class Installer():
                     ])  
                     continue_warn = True
             elif "22.04" not in distro_version and "20.04" not in distro_version and "18.04" not in distro_version:
-                self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+                self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
@@ -301,7 +303,7 @@ class Installer():
                 self.options_dict["json_output"] = True
                 continue
             if o_option == "quiet" and "--quiet" in self.argv_list: 
-                self.log.logger.warn("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
+                self.log.logger.warning("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
                 self.options_dict["quiet"] = True
                 self.options_dict["confirm_install"] = True
                 continue
@@ -327,7 +329,7 @@ class Installer():
         if self.options.quick_install:
             self.log.logger.info("installer identified quick installation")
             if self.options.p12_destination_path and not self.options.p12_alias:
-                self.log.logger.warn("installer -> p12 alias not supplied - will try to derive it dynamically.")
+                self.log.logger.warning("installer -> p12 alias not supplied - will try to derive it dynamically.")
 
 
     def handle_option_validation(self):
@@ -466,11 +468,11 @@ class Installer():
         
         if len(found_files) > 0 or len(found_files2) > 0:
             if len(found_files) > 0:
-                self.log.logger.warn("install found possible existing tessellation core components")
+                self.log.logger.warning("install found possible existing tessellation core components")
             if len(found_files2) > 0:
-                self.log.logger.warn("install found possible existing nodectl service components")
+                self.log.logger.warning("install found possible existing nodectl service components")
             if self.options.quick_install:
-                self.log.logger.warn("install -> quick_install -> Found possible existing installation and configuration files, removing previous elements.")
+                self.log.logger.warning("install -> quick_install -> Found possible existing installation and configuration files, removing previous elements.")
             else:
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING ",0,"yellow,on_red"], ["An existing Tessellation installation may be present on this server.  Preforming a fresh installation on top of an existing installation can produce",0,"red"],
@@ -866,6 +868,7 @@ class Installer():
                         })
         remove_ntp_services(self.log)
         handle_time_setup(self.functions,self.options.quick_install,False,self.options.quiet,self.log)
+        self.need_reboot = disable_ipv6(self.log,self.functions,False,self.options.quick_install)
         
 
     def make_swap_file(self):
@@ -882,10 +885,10 @@ class Installer():
             self.functions.print_cmd_status(progress)
 
         if path.isfile("/swapfile"):
-            self.log.logger.warn("installer -> swap file already exists - install skipping action")
+            self.log.logger.warning("installer -> swap file already exists - install skipping action")
             result = "already exists"
             color = "magenta"
-            self.log.logger.warn("Installation making swap file skipped because already detected")
+            self.log.logger.warning("Installation making swap file skipped because already detected")
         else:
             self.log.logger.info("Installation making swap file")
 
@@ -1048,7 +1051,7 @@ class Installer():
             try:
                 self.options.p12_passphrase = self.p12_session.p12_password
             except:
-                self.log.logger.warn("installer unable to obtain p12 passphrase, unexpected results on the installer may be presented, but may not affect the installation.")
+                self.log.logger.warning("installer unable to obtain p12 passphrase, unexpected results on the installer may be presented, but may not affect the installation.")
                 
         try:
             self.options.p12_alias = self.p12_session.show_p12_details(
@@ -1066,7 +1069,7 @@ class Installer():
         if verify:
             if verify != self.options.p12_alias:
                 self.log.logger.error(f"installer -> found requested option alias [{verify}] but found [{self.options.p12_alias}] error found [{'true' if not self.found_errors else 'false'}]")
-                self.log.logger.warn(f"installer ->  using found [{self.options.p12_alias}] which might cause user errors in the future.  Important, if this was a quick installation, nodectl will create a default alias that may not match a migrated p12 file, without an alias supplied; in this case, this warning can be ignored.")
+                self.log.logger.warning(f"installer ->  using found [{self.options.p12_alias}] which might cause user errors in the future.  Important, if this was a quick installation, nodectl will create a default alias that may not match a migrated p12 file, without an alias supplied; in this case, this warning can be ignored.")
 
         if self.options.quick_install: return
 
@@ -1759,6 +1762,15 @@ class Installer():
             [f"{next_step+4}",0,"magenta","bold"], [")",-1,"magenta"], [f"Log out and log back in with as {self.options.user} with your new {self.options.user} password.",2,"cyan"],
             ["enod!",2,"white","bold"],
         ])     
+
+        if self.need_reboot:
+            self.functions.print_paragraphs([
+                [" IMPORTANT ",0,"yellow,on_blue"], 
+                ["nodectl made some VPS distribution level modifications that may not apply until after a",0,"blue","bold"],
+                ["reboot",0,"red","bold"],["is issued.",0,"blue","bold"],["Only",0,"yellow","bold"],["in the event the node does not behave properly",0,"blue","bold"],
+                ["after this installation is completed, a reboot may rectify any issues.",1,"blue","bold"],
+                ["Recommended:",0], ["sudo nodectl reboot",2,"magenta"],
+            ])
 
         self.log.logger.info("nodectl installation completed in []")   
         

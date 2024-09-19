@@ -94,7 +94,7 @@ class Troubleshooter():
                             try:
                                 ERROR_list.append(json.loads(line))
                             except json.JSONDecodeError as e:
-                                self.log.logger.warn(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
+                                self.log.logger.warning(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
                             if lines != "all" and n > lines-1: 
                                 break
                                                    

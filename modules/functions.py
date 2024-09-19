@@ -838,7 +838,7 @@ class Functions():
                     if self.auto_restart:
                         return False
                     if random_node and self.config_obj["global_elements"]["use_offline"]:
-                        self.log.logger.warn("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
+                        self.log.logger.warning("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
                         random_node = False
                         self.config_obj[profile]["edge_point"] = self.get_ext_ip()
                         self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
@@ -914,7 +914,7 @@ class Functions():
                         return node[desired_key]
                     
                 except Exception as e:
-                    self.log.logger.warn(f"unable to find a Node with a State object, trying again | error {e}")
+                    self.log.logger.warning(f"unable to find a Node with a State object, trying again | error {e}")
                     sleep(1)
                 if n > 9:
                     self.log.logger.error(f"unable to find a Node on the current cluster with [{desired_key}] == [{desired_value}]") 
@@ -967,7 +967,7 @@ class Functions():
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
                 if n == tolerance-1:
-                    self.log.logger.warn(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
+                    self.log.logger.warning(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
                     return None
                 sleep(1.5)
             else:
@@ -983,7 +983,7 @@ class Functions():
             for info in info_list:
                 result_list.append(session[info])
         except:
-            self.log.logger.warn(f"Node was not able to retrieve [{info}] of [{info_list}] returning None")
+            self.log.logger.warning(f"Node was not able to retrieve [{info}] of [{info_list}] returning None")
             return "LB_Not_Ready"
         else:
             if "reason" in session.keys():
@@ -1058,7 +1058,7 @@ class Functions():
                         else:
                             self.event = False
                             return
-                    self.log.logger.warn(f"attempt to pull details for LB failed, trying again - attempt [{n+1}] of [10] - sleeping [{var.error_secs}s]")
+                    self.log.logger.warning(f"attempt to pull details for LB failed, trying again - attempt [{n+1}] of [10] - sleeping [{var.error_secs}s]")
                     sleep(var.error_secs)
                 else:
                     if "consensus" in var.api_endpoint:
@@ -1068,7 +1068,7 @@ class Functions():
                             "nodectl_found_peer_count": len(results)
                         })
                     except:
-                        self.log.logger.warn("network may have become unavailable during cluster_info_list verification checking.")
+                        self.log.logger.warning("network may have become unavailable during cluster_info_list verification checking.")
                         results = [{"nodectl_found_peer_count": 0}]
                 finally:
                     session.close()
@@ -1143,7 +1143,7 @@ class Functions():
                 delay_second_char=0.75,
             )
         except Exception as e:
-            self.log.logger.warn(f"functions -> spinner exited with [{e}]")
+            self.log.logger.warning(f"functions -> spinner exited with [{e}]")
             
         if options[0] == "any_key" and quit_with_exception:
             if parent:
@@ -1234,7 +1234,7 @@ class Functions():
             results = session.get(uri, timeout=self.session_timeout).json()
             results = results[get_results]
         except Exception as e:
-            self.log.logger.warn(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
+            self.log.logger.warning(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
             sleep(error_secs)
         else:
             if return_type == "raw":
@@ -1269,7 +1269,7 @@ class Functions():
                     for n,f_path in enumerate(Path(f'/{i_path}').rglob(file)):
                         possible_found[f"{n+1}"] = f"{f_path}"
             except:
-                self.log.logger.warn(f"unable to process path search | [/{i_path}/]")
+                self.log.logger.warning(f"unable to process path search | [/{i_path}/]")
             
         for i, file in possible_found.items():
             file = file.replace("//","/")
@@ -1388,7 +1388,7 @@ class Functions():
                     details = self.get_from_api(f_url,"yaml")
                     main_key = list(details.keys())
                     if len(main_key) > 1:
-                        self.log.logger.warn(f"config --> while handling includes, an invalid include file was loaded and ignored. [{main_key}]")
+                        self.log.logger.warning(f"config --> while handling includes, an invalid include file was loaded and ignored. [{main_key}]")
                     else:
                         self.config_obj["global_elements"][main_key[0]] = {}
                         for key, value in details[main_key[0]].items():
@@ -1400,7 +1400,7 @@ class Functions():
             self.log.logger.info(f'configuration -> no includes directory found; however, includes has been found as [{self.config_obj["global_elements"]["includes"]}] skipping local includes.')     
             return
 
-        self.log.logger.warn("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
+        self.log.logger.warning("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
         yaml_data = {}
         try:
             for filename in listdir(self.default_includes_path):
@@ -1415,10 +1415,10 @@ class Functions():
                                 **yaml_data,
                             }
                         except Exception as e:
-                            self.log.logger.warn(f"functions -> get_includes -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
+                            self.log.logger.warning(f"functions -> get_includes -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
                             continue
         except Exception as e:
-            self.log.logger.warn("functions -> get_includes -> found possible empty includes, nothing to do")
+            self.log.logger.warning("functions -> get_includes -> found possible empty includes, nothing to do")
 
         return
     
@@ -1673,7 +1673,7 @@ class Functions():
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warn("functions -> unable to sync the clock with the network, skipping")
+            self.log.logger.warning("functions -> unable to sync the clock with the network, skipping")
             return False
         else:
             result = result.stdout.decode().strip()
@@ -1687,7 +1687,7 @@ class Functions():
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warn("functions -> unable to sync the clock with the network, skipping")
+            self.log.logger.warning("functions -> unable to sync the clock with the network, skipping")
             return False
         else:
             track_output = track_output.stdout.decode().strip()
@@ -1699,7 +1699,7 @@ class Functions():
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warn("functions -> unable to view sources of the clock with the network, skipping")
+            self.log.logger.warning("functions -> unable to view sources of the clock with the network, skipping")
             return False
         else:
             source_output = source_output.stdout.decode().strip()
@@ -1772,7 +1772,7 @@ class Functions():
                 token = session[key]
             except Exception as e:
                 try:
-                    self.log.logger.warn(f"Peer did not return a token | reason [{session['reason']} error [{e}]]")
+                    self.log.logger.warning(f"Peer did not return a token | reason [{session['reason']} error [{e}]]")
                     session_obj[f"session{i}"] = f"{i}"
                 except:
                     if self.auto_restart:
@@ -1898,7 +1898,7 @@ class Functions():
                 except:
                     self.log.logger.error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
                     if n == 9:
-                        self.log.logger.warn(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
+                        self.log.logger.warning(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
                 finally:
@@ -2278,7 +2278,7 @@ class Functions():
                 session.timeout = 2
                 health = session.get(uri, timeout=self.session_timeout)
             except:
-                self.log.logger.warn(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
+                self.log.logger.warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if n > 2:
                     if not self.auto_restart:
                         self.network_unreachable_looper()
@@ -2286,7 +2286,7 @@ class Functions():
                 pass
             else:  
                 if health.status_code != 200:
-                    self.log.logger.warn(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
+                    self.log.logger.warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
                     if n > 2:
                         if not self.auto_restart:
                             self.network_unreachable_looper()
@@ -2458,10 +2458,10 @@ class Functions():
                 self.log.logger.info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return False            
             elif version.parse(current) > version.parse(remote):
-                self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                self.log.logger.warning(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return "current_greater"
             else:
-                self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                self.log.logger.warning(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return "current_less"
         except:
             if version_type == "versioning_module_testnet":
@@ -2473,7 +2473,7 @@ class Functions():
         try:
             version.Version(check_version)
         except Exception as e:
-            self.log.logger.warn(f"is_version_valid returned False [{check_version}] e [{e}]")
+            self.log.logger.warning(f"is_version_valid returned False [{check_version}] e [{e}]")
             return False
         else:
             check_version = check_version.split(".")
@@ -2657,7 +2657,7 @@ class Functions():
                             if api_not_ready_flag: 
                                 cpu, mem, _ = self.check_cpu_memory_thresholds()
                                 if not cpu or not mem: 
-                                    self.log.logger.warn("functions -> test peer state -> setting status to [ApiNotReponding]")
+                                    self.log.logger.warning("functions -> test peer state -> setting status to [ApiNotReponding]")
                                     results['node_state_src'] = "ApiNotResponding"
                                     results['node_state_edge'] = "ApiNotResponding"
                                 break_while = True
@@ -2925,7 +2925,7 @@ class Functions():
         rows = command_obj.get("rows",False)
 
         if row and rows or not full_path:
-            self.log.logger("csv error detected, cannot write or row and rows in the same call.")
+            self.log.logger.error("csv error detected, cannot write or row and rows in the same call.")
             self.error_messages.error_code({
                 "line_code": "fnt-1795",
                 "error_code": "internal_error"
@@ -3532,7 +3532,7 @@ class Functions():
             if newline == "bottom" or newline == "both":
                 print("")
         except Exception as e:
-            self.log.logger.warn(f"functions -> spinner -> errored with [{e}]")
+            self.log.logger.warning(f"functions -> spinner -> errored with [{e}]")
             return
             
     
@@ -3864,7 +3864,7 @@ class Functions():
            
     def network_unreachable_looper(self):
             seconds = 30
-            self.log.logger.warn("network has become unreachable, starting retry loop to avoid error")
+            self.log.logger.warning("network has become unreachable, starting retry loop to avoid error")
             if not self.auto_restart:
                 progress = {
                     "text_start": "Network unreachable pausing until reachable",
@@ -3967,7 +3967,7 @@ class Functions():
                 timer.start()
                 # stdout, stderr = p.communicate()
             except Exception as e:
-                self.log.logger.warn(f"function process command errored out with [{e}]")
+                self.log.logger.warning(f"function process command errored out with [{e}]")
             finally:
                 timer.cancel()
         
@@ -3992,7 +3992,7 @@ class Functions():
             try:
                 output = check_output(bashCommand, shell=True, text=True)
             except CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
             return output
         
         if proc_action == "subprocess_run":
@@ -4003,7 +4003,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True)
             except CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
                 
@@ -4011,7 +4011,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True, stdout=PIPE, stderr=PIPE)
             except CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
                 
@@ -4019,7 +4019,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand))
             except CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
@@ -4027,7 +4027,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=DEVNULL, check=True)
             except CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = e
             return output.returncode
         
@@ -4035,7 +4035,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=STDOUT, check=True)
             except CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output  
               
@@ -4043,7 +4043,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True, text=True)
             except CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
 
@@ -4053,9 +4053,9 @@ class Functions():
                 result = run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
                 self.log.logger.info(f"{verb} completed successfully.")
             except CalledProcessError as e:
-                self.log.logger.warn(f"{verb} failed. Error: {e.stderr}")
+                self.log.logger.warning(f"{verb} failed. Error: {e.stderr}")
             except Exception as e:
-                self.log.logger.warn(f"An error occurred: {str(e)}")
+                self.log.logger.warning(f"An error occurred: {str(e)}")
             return result
 
         if autoSplit:
@@ -4080,7 +4080,7 @@ class Functions():
                                     stdout=PIPE,
                                     stderr=PIPE)
             except Exception as e:
-                self.log.logger.warn(f"function process command errored out with [{e}]")
+                self.log.logger.warning(f"function process command errored out with [{e}]")
                 skip = True
            
         if not skip:     
@@ -4094,7 +4094,7 @@ class Functions():
             result, err = p.communicate()
 
             if err and log_error:
-                self.log.logger.warn(f"process command [Bash Command] err: [{err}].")
+                self.log.logger.warning(f"process command [Bash Command] err: [{err}].")
                 
             if return_error:
                 return err.decode('utf-8')

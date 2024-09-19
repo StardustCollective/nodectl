@@ -247,10 +247,10 @@ class Configuration():
             self.log.logger.debug(f"configuration module found {self.called_command} request, skipping migration attempts.")
         elif not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             if self.called_command == "auto_restart": 
-                self.log.logger.warn(f"configuration validator found migration path for nodectl version [{nodectl_version}] - auto_restart detected, ignoring")
+                self.log.logger.warning(f"configuration validator found migration path for nodectl version [{nodectl_version}] - auto_restart detected, ignoring")
                 exit(0)
             elif self.called_command == "upgrade_nodectl": 
-                    self.log.logger.warn(f"configuration validator found migration path for nodectl version [{nodectl_version}] - nodectl_upgrade detected, by-passing")
+                    self.log.logger.warning(f"configuration validator found migration path for nodectl version [{nodectl_version}] - nodectl_upgrade detected, by-passing")
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], ["upgrade may be required!",1,"yellow"],
                     ])
@@ -675,14 +675,14 @@ class Configuration():
                 try:
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = defaults["token_coin_id"][metagraph_name]
                 except:
-                    self.log.logger.warn("config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
+                    self.log.logger.warning("config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs"
 
         if self.config_obj["global_elements"]["metagraph_token_identifier"] == "default":
             try:
                 self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][metagraph_name]
             except:
-                self.log.logger.warn("config -> during configuration setup, nodectl could not determine the token identifier")
+                self.log.logger.warning("config -> during configuration setup, nodectl could not determine the token identifier")
                 error_found("global","metagraph_token_identifier")
 
         for profile in self.metagraph_list:
@@ -759,7 +759,7 @@ class Configuration():
                             try:
                                 self.config_obj[profile][tdir] = def_value[metagraph_name]
                             except:
-                                self.log.logger.warn("config -> during configuration setup, nodectl could not determine collateral setting to [0]")
+                                self.log.logger.warning("config -> during configuration setup, nodectl could not determine collateral setting to [0]")
                                 self.config_obj[profile][tdir] = 0                            
                         elif tdir == "service":
                             try:
@@ -781,7 +781,7 @@ class Configuration():
                             try:
                                 self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
                             except:
-                                self.log.logger.warn("config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
+                                self.log.logger.warning("config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
                                 self.config_obj[profile][tdir] = "constellation-labs"                            
                         else: 
                             self.config_obj[profile][tdir] = def_value  
@@ -1070,7 +1070,7 @@ class Configuration():
                 if write_out:  
                     g_done_ip, g_done_key, g_done_port, current_profile, skip_write = False, False, False, False, False
                     m_done_ip, m_done_key, m_done_port = False, False, False
-                    self.log.logger.warn("config -> found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
+                    self.log.logger.warning("config -> found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
                     f = open(f"{self.functions.nodectl_path}cn-config.yaml")
                     with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
                         for line in f:
@@ -1431,7 +1431,7 @@ class Configuration():
             except Exception as e:
                 self.log.logger.critical(f"configuration format failure detected | exception [{e}]")
                 if self.action == "edit_config_from_new":
-                    self.log.logger.warn("configuration -> configuration override detected, ignoring error and continuing.")
+                    self.log.logger.warning("configuration -> configuration override detected, ignoring error and continuing.")
                     # since we have an error, we will bypass the p12 details and assume they are global
                     self.config_obj[profile]["global_p12_all_global"] = True
                     continue
@@ -1745,7 +1745,7 @@ class Configuration():
         try:
             profile = self.functions.clear_global_profiles(self.config_obj)[0]
         except:
-            self.log.logger.warn("config --> unable to determine backup location, skipping cleanup.")
+            self.log.logger.warning("config --> unable to determine backup location, skipping cleanup.")
             return
         
         source = glob("/var/tessellation/nodectl/*backup*")

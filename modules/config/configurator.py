@@ -186,7 +186,7 @@ class Configurator():
         try:
             self.hypergraph = self.c.config_obj["global_elements"]["metagraph_name"]
         except:
-            self.log.logger.warn("configurator -> prepare_config -> missing Hypergraph/metagraph type")
+            self.log.logger.warning("configurator -> prepare_config -> missing Hypergraph/metagraph type")
 
         self.c.config_obj["global_elements"] = {"caller":"config"}
         self.c.functions.log = self.log
@@ -3653,7 +3653,7 @@ class Configurator():
         enable = False if self.c.config_obj["global_p12"]["encryption"] else True
 
         if self.action == "install" and not enable:
-            self.log.logger.warn("configurator -> During install or upgrade -> encryption found enabled already.")
+            self.log.logger.warning("configurator -> During install or upgrade -> encryption found enabled already.")
             return
         
         efp = "/etc/security/"
@@ -3718,7 +3718,7 @@ class Configurator():
             if not efp_error: 
                 try: remove(effp)  
                 except:
-                    self.log.logger.warn("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
+                    self.log.logger.warning("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
             if efp_error:
                 self.log.logger.error("configurator -> encryption service -> unable to find necessary file system distribution file security. Is this a Debian OS?")
                 self.error_messages.error_code_messages({
@@ -3745,7 +3745,7 @@ class Configurator():
                     else:
                         if not self.quick_install:
                             cprint("\n  please wait...","magenta")
-                            self.log.logger.warn(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
+                            self.log.logger.warning(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
 
                 if fe == "skip": continue
 
@@ -4120,7 +4120,7 @@ class Configurator():
         #     if old_profile not in self.config_obj.keys():
         #         cleanup = True
         #         clean_up_old_list.append(old_profile)
-        #         self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
+        #         self.log.logger.warning(f"configuration found abandoned profile [{old_profile}]")
         
         # for old_profile in clean_up_old_list:
         #     self.c.functions.print_cmd_status({
@@ -4136,7 +4136,7 @@ class Configurator():
         old_profiles = self.c.functions.clear_global_profiles(old_profiles)
         try:
             for old_profile in old_profiles:
-                self.log.logger.warn(f"configuration found possible abandoned profile [{old_profile}]")
+                self.log.logger.warning(f"configuration found possible abandoned profile [{old_profile}]")
                 self.c.functions.print_cmd_status({
                     "text_start": "Abandoned",
                     "brackets": old_profile,
@@ -4178,7 +4178,7 @@ class Configurator():
                             self.c.functions.event = False
                             self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
                         else:
-                            self.log.logger.warn(f"configuration attempted to remove abandoned profile [{profile}] but not found, skipping")   
+                            self.log.logger.warning(f"configuration attempted to remove abandoned profile [{profile}] but not found, skipping")   
                             clean_action = "skipped"
                             clean_color = "yellow"   
 
@@ -4244,7 +4244,7 @@ class Configurator():
                         "layer": self.old_last_cnconfig[old_profile]["layer"],
                         "env": self.old_last_cnconfig[old_profile]["environment"],
                     })
-                    self.log.logger.warn(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
+                    self.log.logger.warning(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
 
         for profile in self.metagraph_list:
             self.config_obj[profile]["service"] = self.c.setup_config_vars({
@@ -4349,7 +4349,7 @@ class Configurator():
                 
                 for lookup_path in found_snap_list:
                     if path.isdir(lookup_path) and listdir(lookup_path):
-                        self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
+                        self.log.logger.warning("configurator found snapshots during creation of a new configuration.")
                         found_snap = True
                 
                     if found_snap:
@@ -4758,7 +4758,7 @@ class Configurator():
         if backup_dir == "default": backup_dir = "/var/tessellation/backups/"  
                   
         if backup_dir == "empty":
-            self.log.logger.warn("backup migration skipped.")
+            self.log.logger.warning("backup migration skipped.")
             if self.detailed:
                 self.c.functions.print_paragraphs([
                     ["",1], ["While attempting to migrate backups from a temporary location the Configurator was not able",0,"red"],

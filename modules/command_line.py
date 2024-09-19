@@ -1546,7 +1546,7 @@ class CLI():
                                 "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                                 "extra2": self.config_obj[profile]["layer"],
                             })
-                        self.log.logger.warn("cli -> show_seedlist_participation -> LB may not be accessible, trying local.")
+                        self.log.logger.warning("cli -> show_seedlist_participation -> LB may not be accessible, trying local.")
                         self.config_obj[profile]["edge_point"] = self.functions.get_ext_ip()
                         self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
                         self.config_obj[profile]["static_peer"] = True 
@@ -1608,7 +1608,10 @@ class CLI():
         
         more_break = 1
         print_title = False
-        do_more = False if "-np" in command_list else True
+        do_more = True
+
+        if "-np" in command_list or "--np" in command_list:
+            do_more = False
         if do_more:
             console_size = get_terminal_size()
             more_break = round((console_size.lines-20)/6)
@@ -1880,7 +1883,7 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         self.log.logger.info(f"show_dip_error -> initiated - profile [{profile}]")
         
-        bashCommand = f"grep -a -B 15 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
+        bashCommand = f"grep -a -B 50 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 50"
     
         results = self.functions.process_command({
             "bashCommand": bashCommand,
@@ -1916,6 +1919,7 @@ class CLI():
 
 
     def show_profile_issues(self,command_list,ts=False):
+        self.functions.check_for_help(command_list,"show_profile_issues")
         solo = False
         lines = command_list[command_list.index("--lines")+1] if "--lines" in command_list else 149
         if not ts:
@@ -1929,7 +1933,7 @@ class CLI():
             self.functions.print_paragraphs([
                 ["Error:",0,"red","bold"], ["Unable to determine profile issue",1,"red"],
             ])
-            self.log.logger(f"command_line -> show_profile_issues -> unable to obtain profile, skipping [{e}]")
+            self.log.logger.warning(f"command_line -> show_profile_issues -> unable to obtain profile, skipping [{e}]")
             return
         
         ts.setup_logs({
@@ -2813,7 +2817,7 @@ class CLI():
             try:
                 nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
             except:
-                self.log.logger.warn("check_for_new_version -> unable to determine if [nodectl] version is up to date... skipping")
+                self.log.logger.warning("check_for_new_version -> unable to determine if [nodectl] version is up to date... skipping")
                 nodectl_version_check = "unknown"
 
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
@@ -2850,7 +2854,7 @@ class CLI():
             try:
                 tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
             except:
-                self.log.logger.warn("check_for_new_version -> unable to determine if [Tessellation] version is up to date... skipping")
+                self.log.logger.warning("check_for_new_version -> unable to determine if [Tessellation] version is up to date... skipping")
                 tess_version_check = "unknown"
             if tess_version_check == "current_less" and not self.check_versions_called:
                     self.functions.print_clear_line()
@@ -3271,7 +3275,7 @@ class CLI():
                             
                             if state != "Ready":
                                 link_profile = link_profiles[f"{link_type}_profile"]
-                                self.log.logger.warn(f"cli_restart -> restart_only with join requested for a profile that is dependent on other profiles | [{profile}] link profile [{link_profile}]")
+                                self.log.logger.warning(f"cli_restart -> restart_only with join requested for a profile that is dependent on other profiles | [{profile}] link profile [{link_profile}]")
                                 self.functions.print_paragraphs([
                                     ["",1], 
                                     [" WARNING ",2,"white,on_red"], 
@@ -3567,7 +3571,7 @@ class CLI():
         })
 
         if state == "Ready":
-            self.log.logger.warn(f"cli_join -> profile already in proper state, nothing to do | profile [{self.profile}] state [{state}]")
+            self.log.logger.warning(f"cli_join -> profile already in proper state, nothing to do | profile [{self.profile}] state [{state}]")
             self.functions.print_paragraphs([
                 ["Profile already in",0,"green"],
                 [" Ready ",0,"grey,on_green","bold"],
@@ -3576,7 +3580,7 @@ class CLI():
             return
         
         if state == "ApiNotReady":
-            self.log.logger.warn(f"cli_join -> service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
+            self.log.logger.warning(f"cli_join -> service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
             self.functions.print_paragraphs([
                 ["Profile state in",0,"red"], [state,0,"red","bold"],
                 ["state, cannot join",1,"red"], ["Attempting to start service [",0],
@@ -3744,7 +3748,7 @@ class CLI():
                         ["Please contact technical support in the Discord Channels for more help.",1],
                     ])                    
                 if snapshot_issues == "dip_break":
-                    self.log.logger.warn(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
+                    self.log.logger.warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
                     self.functions.print_paragraphs([
                         ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],["state.",2],
                         ["This is",0], ["not",0,"green","bold"], ["an issue; however, Nodes may take",0],
@@ -3752,7 +3756,7 @@ class CLI():
                         ["watching for peers process during this join in order to avoid undesirable wait times.",1],
                     ])       
             elif not result and tolerance_result:
-                self.log.logger.warn(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
+                self.log.logger.warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1],["nodectl tolerance connection status of [",0,],
@@ -3863,7 +3867,7 @@ class CLI():
             while True:
                 self.log.logger.info(f"cli_leave -> leave in progress | profile [{profile}] port [{api_port}] | ip [127.0.0.1]")
                 if start > max_retries+1:
-                    self.log.logger.warn(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
+                    self.log.logger.warning(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
                     call_leave_cluster()
 
                 self.functions.print_cmd_status({
@@ -3909,7 +3913,7 @@ class CLI():
                 elif leave_obj: break
                 elif start > 1:
                     if backup_line: print(f'\x1b[1A', end='')
-                    self.log.logger.warn(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
+                    self.log.logger.warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                     self.functions.print_cmd_status({
                         "text_start": f"{profile} not out of cluster",
                         "text_color": "red",
@@ -3919,7 +3923,7 @@ class CLI():
                     })  
                 
                 if start > 4:
-                    self.log.logger.warn(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
+                    self.log.logger.warning(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
                     if print_timer:
                         self.functions.print_cmd_status({
                             "text_start": "Unable to gracefully leave",
@@ -3948,7 +3952,7 @@ class CLI():
                     try: 
                         timestamp = leave_obj["@timestamp"]
                     except:
-                        self.log.logger.warn(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
+                        self.log.logger.warning(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
                         leave_str = "to allow Node to gracefully leave"
                         skip_log_lookup = True
                         sleep(.5)
@@ -3987,7 +3991,7 @@ class CLI():
                                 
                         state = self.functions.test_peer_state(get_state_obj)
                         if state not in self.functions.not_on_network_list and start > 2: 
-                            self.log.logger.warn(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
+                            self.log.logger.warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                             sleep(.1) 
                             skip_log_lookup = True      
                             backup_line = True  
@@ -4148,7 +4152,7 @@ class CLI():
                         ip_address = nodeid[1]
                         nodeid = nodeid[0]
                     except:
-                        self.log.logger.warn(f"attempt to access api returned no response | command [{command}] ip [{ip_address}]")
+                        self.log.logger.warning(f"attempt to access api returned no response | command [{command}] ip [{ip_address}]")
                         nodeid = colored("Unable To Retrieve","red")
                 self.functions.event = False           
         else:
@@ -6267,7 +6271,6 @@ class CLI():
                     "dotted_animation": False,
                 })
 
-        r_status = "executing"
         if r_status == "skipping": 
             self.log.logger.info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
             return "not_needed"
@@ -6840,7 +6843,7 @@ class CLI():
                 backup_dir = self.functions.config_obj[profile]["directory_backups"]
             
             if not path.exists(backup_dir) and not uninstall:
-                self.log.logger.warn(f"backup dir did not exist, attempting to create [{backup_dir}]")
+                self.log.logger.warning(f"backup dir did not exist, attempting to create [{backup_dir}]")
                 makedirs(backup_dir)
 
             self.log.logger.info(f"creating a backup of the sshd.config file to [{backup_dir}]")
@@ -6870,11 +6873,11 @@ class CLI():
                                 verb = "no"
                                 if path.isfile(f"{upath}.ssh/authorized_keys"):
                                     move(f"{upath}.ssh/authorized_keys",f"{upath}.ssh/backup_authorized_keys")
-                                    self.log.logger.warn(f"cli -> found and renamed authorized_keys file | user {user}")
+                                    self.log.logger.warning(f"cli -> found and renamed authorized_keys file | user {user}")
                                 else:
                                     self.log.logger.critical(f"cli -> could not find an authorized_key file to update | {user}")
                             if user == "root":
-                                self.log.logger.warn(f"cli -> setting PermitRootLogin to [{verb}] | user [{user}]")
+                                self.log.logger.warning(f"cli -> setting PermitRootLogin to [{verb}] | user [{user}]")
                                 newfile.write(f"PermitRootLogin {verb}\n")
                             else:
                                 newfile.write(f"{line}")
@@ -6884,16 +6887,16 @@ class CLI():
                         
                     elif action == "disable_user_auth":
                         if line.startswith("PubkeyAuthentication") or line.startswith("#PubkeyAuthentication"):
-                            self.log.logger.warn(f"cli -> found and enabled PubkeyAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and enabled PubkeyAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"PubkeyAuthentication yes\n")
                         elif line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
-                            self.log.logger.warn(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"PasswordAuthentication no\n")
                         elif line.startswith("KbdInteractiveAuthentication") or line.startswith("#KbdInteractiveAuthentication"):
-                            self.log.logger.warn(f"cli -> found and disabled KbdInteractiveAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and disabled KbdInteractiveAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"KbdInteractiveAuthentication no\n")
                         elif line.startswith("ChallengeResponseAuthentication") or line.startswith("#ChallengeResponseAuthentication"):
-                            self.log.logger.warn(f"cli -> found and disabled ChallengeResponseAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and disabled ChallengeResponseAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"ChallengeResponseAuthentication no\n")
                         else:
                             newfile.write(f"{line}")
@@ -6901,7 +6904,7 @@ class CLI():
                     elif action == "port":
                         action_print = action
                         if not "GatewayPorts" in line and (line.startswith("Port") or line.startswith("#Port")):
-                            self.log.logger.warn(f"cli -> found and updated the Port settings for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and updated the Port settings for SSH protocol daemon | sshd_config")
                             newfile.write(f"Port {port_no}\n")
                         else:
                             newfile.write(f"{line}")
@@ -6919,7 +6922,7 @@ class CLI():
                     with open("/tmp/sshd_config-new2","w") as newfile:
                         for line in f:
                             if line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
-                                self.log.logger.warn(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | 50-cloud-init.conf")
+                                self.log.logger.warning(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | 50-cloud-init.conf")
                                 newfile.write(f"PasswordAuthentication no\n")
                             else:
                                 newfile.write(f"{line}")
@@ -7238,7 +7241,7 @@ class CLI():
                 ["file version:",0],[node_nodectl_version,2,"blue","bold"],
             ])
 
-            self.log.logger.warn(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
+            self.log.logger.warning(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
             if path.isfile(f"{backup_location}nodectl_{node_nodectl_version}"):
                 move(f"{backup_location}nodectl_{node_nodectl_version}","/usr/local/bin/nodectl")
 

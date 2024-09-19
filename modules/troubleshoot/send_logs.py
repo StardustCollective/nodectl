@@ -302,7 +302,7 @@ class Send():
             ])
 
         # clean up
-        self.log.logger.warn(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
+        self.log.logger.warning(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
         rmtree(tar_package['tar_creation_path'])
 
         self.functions.print_paragraphs([
@@ -448,7 +448,7 @@ class Send():
                 return False
                           
         except Exception as e:
-            self.log.logger.warn(f"send_logs -> Reached an Exception -> error: [{e}]")  
+            self.log.logger.warning(f"send_logs -> Reached an Exception -> error: [{e}]")  
             if thread: self.functions.event = False  
             return False     
         

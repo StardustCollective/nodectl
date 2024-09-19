@@ -122,7 +122,7 @@ class Migration():
             ))
             if yaml_version == "current_less":
                 # This version of nodectl needs to follow an upgrade path to migrate properly
-                self.log.logger.warn(f'migration module determined incorrect nodectl yaml version | [{self.config_obj["global_elements"]["nodectl_yaml"]}]')
+                self.log.logger.warning(f'migration module determined incorrect nodectl yaml version | [{self.config_obj["global_elements"]["nodectl_yaml"]}]')
                 upgrade_error = True
         except:
             upgrade_error = True
@@ -233,7 +233,7 @@ class Migration():
             "delay": .8
         })
         
-        self.log.logger.warn("backing up cn-config.yaml file to default backup directory from original configuration, this file should be removed at a later date.")
+        self.log.logger.warning("backing up cn-config.yaml file to default backup directory from original configuration, this file should be removed at a later date.")
         
         self.functions.print_paragraphs([
             ["",1], [" DANGER ",0,"yellow,on_red"], ["The backup configuration YAML file",0,"red","bold"], 

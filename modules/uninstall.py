@@ -108,7 +108,7 @@ def remove_data(functions,log,install=False,quiet=False):
     try:
         node_admins = [functions.config_obj["global_p12"]["nodeadmin"]]
     except:
-        log.logger.warn(f"{install_type} -> did not find any existing Node admins")
+        log.logger.warning(f"{install_type} -> did not find any existing Node admins")
 
     if install:
         retain_log = True
@@ -159,7 +159,7 @@ def remove_data(functions,log,install=False,quiet=False):
         if not quiet:
             print(colored("  Handling removal of existing Node data","cyan"),end="\r")
         if path.isdir("/home/nodeadmin"):
-            log.logger.warn(f"{install_type} -> found nodeadmin user, removed")
+            log.logger.warning(f"{install_type} -> found nodeadmin user, removed")
             remove_admins(functions,["nodeadmin"],log,True)
     else:
         for profile in functions.profile_names:
@@ -296,7 +296,7 @@ def remove_data(functions,log,install=False,quiet=False):
 
     for log_item in log_list:
         if log_item[0] == "info": log.logger.info(log_item[1])
-        if log_item[0] == "warn": log.logger.warn(log_item[1])
+        if log_item[0] == "warn": log.logger.warning(log_item[1])
 
     if not install:
         return node_admins # for remove_admins function
@@ -370,7 +370,7 @@ def remove_admins(functions,node_admins,log,install=False):
                     "proc_action": "subprocess_run_pipe", 
                 })      
                 if not result:
-                    log.logger.warn(f"{install_type} -> unable to remove [{node_admin}] user, please review server structure and perform manual removal if necessary.")
+                    log.logger.warning(f"{install_type} -> unable to remove [{node_admin}] user, please review server structure and perform manual removal if necessary.")
                     if not install:
                         functions.print_paragraphs([
                             [" WARNING ",0,"yellow,on_red"], ["unable to remove",0,"red"],
@@ -434,7 +434,7 @@ def stop_services(functions, node_service,log):
     except:
         status = "incomplete"
         color = "magenta"
-        log.logger.warn("uninstaller -> may have been an issue stopping and disabling the auto_restart or upgrader service.")
+        log.logger.warning("uninstaller -> may have been an issue stopping and disabling the auto_restart or upgrader service.")
     functions.print_cmd_status({
         "text_start": "Stopping updater service",
         "status": status,

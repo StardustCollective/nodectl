@@ -22,7 +22,7 @@ def prepare_datetime_stamp(functions,time_zone,log):
         except Exception as e:
             time_zone_str = ", ".join(pytz.all_timezones)
             log.logger.error(f"alerting module -> setting time stamp error skipping [{time_zone}] error [{e}]")
-            log.logger.warn(f"alerting module -> available timezones are: [{time_zone_str}]")
+            log.logger.warning(f"alerting module -> available timezones are: [{time_zone_str}]")
             local_stamp = "Disabled"
 
     return (utc_stamp, local_stamp)

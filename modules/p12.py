@@ -178,7 +178,7 @@ class P12Class():
                     if self.validate_value("^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
                         self.log.logger.info(f"p12 file accepted [{value}]")
                         break
-                    self.log.logger.warn("invalid p12 file name inputted")
+                    self.log.logger.warning("invalid p12 file name inputted")
                     cprint("  File name seems invalid, try again","red")
 
        
@@ -255,7 +255,7 @@ class P12Class():
 
                 existing_unlock = self.unlock()
                 if not existing_unlock:
-                    self.log.logger.warn(f"p12 passphrase invalid, unable to access private keystore [{attempt}] of [3]")
+                    self.log.logger.warning(f"p12 passphrase invalid, unable to access private keystore [{attempt}] of [3]")
                     self.functions.print_cmd_status({
                         "text_start": "Unable to unlock p12",
                         "brackets": f"{attempt} of 3",
@@ -364,7 +364,7 @@ class P12Class():
                     self.config_obj[profile]["p12_validated"] = valid
                 break
 
-            self.log.logger.warn(f"invalid keyphrase entered [{attempts}] of 3")
+            self.log.logger.warning(f"invalid keyphrase entered [{attempts}] of 3")
             self.functions.print_clear_line()
             print(f"{colored('  Passphrase invalid, please try again attempt [','red',attrs=['bold'])}{colored(attempts,'yellow')}{colored('] of 3','red',attrs=['bold'])}")
             passwd = False
@@ -443,7 +443,7 @@ class P12Class():
         else:
             msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
             msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
-            self.log.logger.warn(msg)
+            self.log.logger.warning(msg)
         
         self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
         return False
@@ -628,11 +628,11 @@ class P12Class():
 
         if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
             if self.quick_install:
-                self.log.logger.warn(f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
+                self.log.logger.warning(f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
                 if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
                     remove(f"{self.p12_file_location}/{self.p12_filename}")
             else:
-                self.log.logger.warn(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
+                self.log.logger.warning(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
                 print_exists_warning = True
                 result = "exists skipping"
                 color = "magenta"

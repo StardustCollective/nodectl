@@ -264,7 +264,7 @@ class Node():
             })
             
         if path.exists(self.env_conf_file):
-            self.log.logger.warn(f"found possible abandoned environment file [{self.env_conf_file}] removing.")
+            self.log.logger.warning(f"found possible abandoned environment file [{self.env_conf_file}] removing.")
             remove(self.env_conf_file)
             
         with open(self.env_conf_file,"w") as f:
@@ -468,7 +468,7 @@ class Node():
                         ["Skipping service change request [",0,"yellow"], [service_display,-1,], ["] because the service is already set to",-1,"yellow"],
                         [self.functions.config_obj["global_elements"]['node_service_status'][profile],1,"yellow"]
                     ])
-                self.log.logger.warn(f"change service state [{service_display}] request aborted because service [inactive (dead)]")
+                self.log.logger.warning(f"change service state [{service_display}] request aborted because service [inactive (dead)]")
                 return
             
             self.build_environment_vars({"profile": profile})
@@ -479,7 +479,7 @@ class Node():
 
         if action == "stop":
             if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] > 0:
-                self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
+                self.log.logger.warning(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_cmd_status({
@@ -829,7 +829,7 @@ class Node():
                 
             result = "done".ljust(32)
         else:
-            self.log.logger.warn("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
+            self.log.logger.warning("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
             try: return_str = found_link_types.pop()
             except: return_str = self.profile
             else:

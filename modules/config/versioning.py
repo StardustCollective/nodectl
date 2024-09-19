@@ -206,13 +206,13 @@ class Versioning():
             state = self.functions.test_peer_state(test_obj)
             
             if isinstance(state,tuple):
-                self.log.logger.warn(f"versioning -> error detected [code:{state[0]}] with [{state[1]}] so the version object was not updated.  This could lead to invalid output from nodectl, or unexpected outcomes; however, most of the time this will not affect nodectl administration.")
+                self.log.logger.warning(f"versioning -> error detected [code:{state[0]}] with [{state[1]}] so the version object was not updated.  This could lead to invalid output from nodectl, or unexpected outcomes; however, most of the time this will not affect nodectl administration.")
                 return
             
             if state == "ApiNotResponding" and self.called_cmd == "uvos": 
                 # after installation there should be a version obj already created
                 # no need to update file while Node is not online.
-                self.log.logger.warn(f"versioning - versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")
+                self.log.logger.warning(f"versioning - versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")
                 exit(0)                    
                     
             if self.show_spinner:  
@@ -451,11 +451,11 @@ class Versioning():
             session = self.functions.set_request_session()
             pre_release = session.get(pre_release_uri, timeout=self.session_timeout).json()
         except Exception as e:
-            self.log.logger.warn(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
+            self.log.logger.warning(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
         else:
             try:
                 if "API rate limit" in pre_release["message"]:
-                    self.log.logger.warn(f"function - pull_upgrade_path - unable to determine if pre-release | [{pre_release['message']}]")
+                    self.log.logger.warning(f"function - pull_upgrade_path - unable to determine if pre-release | [{pre_release['message']}]")
                     pre_release["prerelease"] = "Unknown"
             except: pass
         finally:
