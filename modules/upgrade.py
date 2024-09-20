@@ -1000,25 +1000,27 @@ class Upgrader():
                         clean_residual = False
                         if not self.non_interactive:
                             if residual_status != "migration_failure": print()
-                            self.functions.print_paragraphs([
-                                ["nodectl completed a migration of the snapshot data structure required for this version of Tessellation",2,"magenta"],
+                            if residual_status != "cleanup_not_needed":
+                                self.functions.print_paragraphs([
+                                    ["nodectl completed a migration of the snapshot data structure required for this version of Tessellation",2,"magenta"],
 
-                                ["There may be some residual old snapshots present.",1,"magenta"],
-                                ["nodectl can attempt to clean up and free disk space",2,"magenta"],
+                                    ["There may be some residual old snapshots present.",1,"magenta"],
+                                    ["nodectl can attempt to clean up and free disk space",2,"magenta"],
 
-                                ["   Migration Status:",0], [result,1,result_color,"bold"],
-                                ["Residual Data Found:",0], [residual_status,2,residual_color,"bold"],
+                                    ["   Migration Status:",0], [result,1,result_color,"bold"],
+                                    ["Residual Data Found:",0], [residual_status,2,residual_color,"bold"],
 
-                                [" WARNING ",0,"red,on_yellow"],["Do not attempt to remove residual old snapshots if the status of migration is",0,"red"],
-                                ["not",0,"magenta","bold"], ["completed.",2,"red"],
-                            ])
-                            if self.functions.confirm_action({
-                                "yes_no_default": "y",
-                                "return_on": "y",
-                                "prompt": "Attempt to clean any residual snapshots?",
-                                "prompt_color": "cyan",
-                                "exit_if": False,
-                            }): clean_residual = True
+                                    [" WARNING ",0,"red,on_yellow"],["Do not attempt to remove residual old snapshots if the status of migration is",0,"red"],
+                                    ["not",0,"magenta","bold"], ["completed.",2,"red"],
+                                ])
+                            else:
+                                if self.functions.confirm_action({
+                                    "yes_no_default": "y",
+                                    "return_on": "y",
+                                    "prompt": "Attempt to clean any residual snapshots?",
+                                    "prompt_color": "cyan",
+                                    "exit_if": False,
+                                }): clean_residual = True
 
                         if clean_residual:
                             with ThreadPoolExecutor() as executor0:
