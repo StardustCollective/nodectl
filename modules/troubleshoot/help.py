@@ -219,7 +219,9 @@ def build_help(functions,command_obj):
     
     disable_root_ssh | - have nodectl restrict access to your root user
     
-    enable_root_ssh  | - have nodectl reenable access to your root user    
+    enable_root_ssh  | - have nodectl reenable access to your root user 
+
+    ipv6 | - enable or disable ipv6 configuration on VPS
     
     change_ssh_port -p <port> | - change the port number used to access your
                                Node via the SSH protocol.  The port number
@@ -2760,6 +2762,30 @@ def build_help(functions,command_obj):
     
   The {colored("enable_root_ssh","cyan")} command will do the opposite of the disable command.
   
+  ''' 
+        
+        
+    if extended == "ipv6":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command takes 2 possible arguments. 
+  
+  {colored("WARNING:","red",attrs=['bold'])} This command will manipulate non-Tessellation Constellation 
+  Network files on your VPS.
+
+  required:
+  {colored('enable','green')}  | enable IPv6 configurations
+  {colored('disable','green')} | disable IPv6 configurations
+
+  optional:
+  {colored('--ni','green')} | non-interactive (confirm all options)
+
+  The {colored("ipv6","cyan")} command will enable or disable {colored("GRUB","cyan")} and {colored("sysctl","cyan")} IPv6 configuration files 
+  to either enable or disable (depending on the option provided) the VPS’s ability 
+  to use IPv6.
+
+  If the VPS was built without IPv6 during instantiation, this command 
+  will have no effect.
   ''' 
   
     if extended in simple_command_list:

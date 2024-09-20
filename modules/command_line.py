@@ -30,6 +30,8 @@ from .cleaner import Cleaner
 from .troubleshoot.send_logs import Send
 from .troubleshoot.ts import Troubleshooter
 from .find_newest_standalone import find_newest
+from .config.ipv6 import enable_disable_ipv6
+
 
 class TerminateCLIException(Exception): pass
 
@@ -4704,6 +4706,27 @@ class CLI():
         
         return
                      
+
+    def cli_handle_ipv6(self,argv_list):
+        self.functions.check_for_help(argv_list, "ipv6")
+        self.log.logger.info("command_line -> request to handle ipv6 issued")
+
+        non_interactive = True if "--ni" in argv_list or "-ni" in argv_list else False
+
+        if "enable" in argv_list:
+            action = "enable"
+        elif "disable" in argv_list:
+            action = "disable"
+        else:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4723",
+                "line_code": "invalid_option",
+                "extra": "'enable' or 'disable' not found",
+                "extra2": "valid options include 'enable' and 'disable'",
+            })
+        enable_disable_ipv6(action,self.log,self.functions,non_interactive)
+        return
+
 
     def cli_upgrade_vps(self,argv_list):
         self.functions.check_for_help(argv_list, "upgrade_vps")

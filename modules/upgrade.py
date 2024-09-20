@@ -1,24 +1,18 @@
-import subprocess
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from os import system, path, makedirs, remove, environ, chmod, listdir
-from shutil import copy2, move, rmtree
+from os import path, makedirs, remove, listdir
+from shutil import copy2, rmtree
 from time import sleep
 from termcolor import colored
 from re import match
-from hurry.filesize import size, alternative
 from copy import deepcopy
 
 from .troubleshoot.errors import Error_codes
 from .p12 import P12Class
-from .command_line import CLI
 from .troubleshoot.logger import Logging
-from .config.config import Configuration
 from .config.configurator import Configurator
-from .config.valid_commands import pull_valid_command
 from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
 from .config.time_setup import remove_ntp_services, handle_time_setup
-from .config.networking import disable_ipv6
+
 
 class Upgrader():
 
@@ -35,7 +29,6 @@ class Upgrader():
         
         self.debug = command_obj.get("debug",False)
         self.cli_global_pass = False
-        self.need_reboot = False
         self.step = 1
         self.status = "" #empty
         self.node_id = ""
@@ -930,7 +923,6 @@ class Upgrader():
         })
 
         remove_ntp_services(self.log)
-        self.need_reboot = disable_ipv6(self.log,self.functions,self.non_interactive,False)
         handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
 
@@ -1438,12 +1430,11 @@ class Upgrader():
             ["Optionally, please log out and back in in order to update your environment to teach nodectl about any new auto_completion tasks.",2,"yellow"]
         ])
 
-        if self.need_reboot:
+        if path.exists('/var/run/reboot-required'):
             self.functions.print_paragraphs([
                 [" IMPORTANT ",0,"yellow,on_blue"], 
-                ["nodectl made some VPS distribution level modifications that may not apply until after a",0,"blue","bold"],
-                ["reboot",0,"red","bold"],["is issued.",0,"blue","bold"],["Only",0,"yellow","bold"],["in the event the node does not behave properly",0,"blue","bold"],
-                ["after this upgrade is completed, a reboot may rectify any issues.",1,"blue","bold"],
+                ["nodectl determined that VPS distribution level modifications may not have been applied yet. A",0,"blue","bold"],
+                ["reboot",0,"red","bold"],["is necessary.",0,"blue","bold"],
                 ["Recommended:",0], ["sudo nodectl reboot",2,"magenta"],
             ])
         

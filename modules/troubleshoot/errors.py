@@ -686,7 +686,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_option":
-            self.log.logger.critical(f"invalid option value [{var.extra}], you reached this error because nodectl cannot use this option in the current command request.")
+            self.log.logger.critical(f"invalid option value [{var.extra}], you reached this error because nodectl cannot use this option or the correct option is missing in the current command request.")
             self.functions.print_paragraphs([
                 ["System detected an attempt to use an invalid command line option.",0,"red","bold"],
                 ["Additionally, the option [or combination of options] may cause harm to the Node",0,"red","bold"],

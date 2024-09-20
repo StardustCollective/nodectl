@@ -23,7 +23,7 @@ from .node_service import Node
 from .config.valid_commands import pull_valid_command
 from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
 from .config.time_setup import remove_ntp_services, handle_time_setup
-from .config.networking import disable_ipv6
+
 
 class Installer():
 
@@ -39,7 +39,6 @@ class Installer():
         self.found_errors = False
         self.p12_migrated = False
         self.encryption_performed = False
-        self.need_reboot = False
 
         self.action = "install"
         self.metagraph_name = None
@@ -868,7 +867,6 @@ class Installer():
                         })
         remove_ntp_services(self.log)
         handle_time_setup(self.functions,self.options.quick_install,False,self.options.quiet,self.log)
-        self.need_reboot = disable_ipv6(self.log,self.functions,False,self.options.quick_install)
         
 
     def make_swap_file(self):
@@ -1763,12 +1761,11 @@ class Installer():
             ["enod!",2,"white","bold"],
         ])     
 
-        if self.need_reboot:
+        if path.exists('/var/run/reboot-required'):
             self.functions.print_paragraphs([
                 [" IMPORTANT ",0,"yellow,on_blue"], 
-                ["nodectl made some VPS distribution level modifications that may not apply until after a",0,"blue","bold"],
-                ["reboot",0,"red","bold"],["is issued.",0,"blue","bold"],["Only",0,"yellow","bold"],["in the event the node does not behave properly",0,"blue","bold"],
-                ["after this installation is completed, a reboot may rectify any issues.",1,"blue","bold"],
+                ["nodectl determined that VPS distribution level modifications may not have been applied yet. A",0,"blue","bold"],
+                ["reboot",0,"red","bold"],["is necessary.",0,"blue","bold"],
                 ["Recommended:",0], ["sudo nodectl reboot",2,"magenta"],
             ])
 

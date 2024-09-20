@@ -36,6 +36,7 @@ def pull_valid_command():
 
         "id",
         "install",
+        "ipv6",
 
         "join",
 

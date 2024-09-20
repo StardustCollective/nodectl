@@ -437,6 +437,8 @@ class ShellHandler:
             self.cli.show_dip_error(self.argv)
         elif self.called_command == "show_p12_details" or self.called_command == "_spd":
             self.cli.show_p12_details(self.argv)
+        elif self.called_command == "ipv6":
+            self.cli.cli_handle_ipv6(self.argv)
         elif self.called_command == "getting_started":
             self.functions.check_for_help(["help"],"getting_started")
         elif self.called_command == "migrate_datadir":
