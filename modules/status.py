@@ -2,7 +2,7 @@ from os import system, popen, path
 from subprocess import Popen, check_output, PIPE, run
 from hurry.filesize import size, alternative
 from sys import exit
-
+from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 from datetime import datetime
 
 from .troubleshoot.errors import Error_codes
@@ -110,10 +110,7 @@ class Status():
                 self.parse_uptime_load()
 
         self.distro_value = self.functions.get_distro_details()
- 
-            
-
-      
+       
         
     def parse_uptime_load(self):
 
@@ -244,7 +241,7 @@ class Status():
                 if dirs[profile][profile_dir] == "disabled": continue
                 if profile_dir == "directory_inc_snapshot" and not self.non_interactive:
                     self.functions.print_paragraphs([
-                        [" WARNING ",0,"yellow,on_blue"], ["The health feature reviews the status",0,"red"],
+                        ["",1],[" WARNING ",0,"yellow,on_blue"], ["The health feature reviews the status",0,"red"],
                         ["of the node's snapshot chain. This may take up to",0,"red"], 
                         ["six",0,"yellow","bold"],["to",0,"red"],["ten",0,"yellow","bold"],
                         ["minutes.",1,"red"]
@@ -258,25 +255,35 @@ class Status():
                         dir_sizes.append((profile_dir,"skipped"))
                         continue 
 
-                c_obj = {
-                    "text_start": "Calculating",
-                    "brackets": profile_dir,
-                    "status": "running",
-                    "newline": False,
-                    "status_color": "yellow",
-                }
-                self.functions.print_cmd_status(c_obj)                            
+                with ThreadPoolExecutor() as executor:
+                    self.functions.status_dots = True
+                    c_obj = {
+                        "text_start": "Calculating",
+                        "brackets": profile_dir,
+                        "status": "running",
+                        "timeout": False,
+                        "dotted_animation": True,
+                        "newline": False,
+                        "status_color": "yellow",
+                    }
+                    _ = executor.submit(self.functions.print_cmd_status,c_obj)
 
-                # dsize = self.functions.get_dir_size(dirs[profile][profile_dir],workers)
-                dsize = 0
-                dsize = run(['du', '-sb', dirs[profile][profile_dir]], stdout=PIPE)
-                dsize = int(dsize.stdout.split()[0])
-                dsize = size(dsize,system=alternative)
-                dir_sizes.append((profile_dir, dsize))
+                    # dsize = self.functions.get_dir_size(dirs[profile][profile_dir],workers)
+                    dsize = 0
+                    dsize = run(['du', '-sb', dirs[profile][profile_dir]], stdout=PIPE)
+                    dsize = int(dsize.stdout.split()[0])
+                    dsize = size(dsize,system=alternative)
+                    dir_sizes.append((profile_dir, dsize))
+                    
+                    self.functions.status_dots = False
+
                 c_obj["status"] = "Complete" 
                 c_obj["status_color"] = "green"
                 c_obj["newline"] = True
+                c_obj["dotted_animation"] = False
+                c_obj["timeout"] = False
                 self.functions.print_cmd_status(c_obj)
+
             self.profile_sizes[profile] = dir_sizes
             dir_sizes = [] # reset
 
