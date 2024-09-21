@@ -569,7 +569,7 @@ class ShellHandler:
 
     def check_diskspace(self):
         warning_threshold = 84
-        main_threshold = 40
+        main_threshold = 94
         size_str = self.functions.check_dev_device().strip()
         size = int(size_str.split(" ")[0].replace("%",""))
         
