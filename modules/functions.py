@@ -29,7 +29,7 @@ from textwrap import TextWrapper
 from requests import get, Session
 from requests.exceptions import HTTPError, RequestException
 from subprocess import Popen, PIPE, call, run, check_output, CalledProcessError, DEVNULL, STDOUT
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
 from copy import copy, deepcopy
@@ -1184,16 +1184,34 @@ class Functions():
         return total_size  
     
     
-    def get_dir_size(self, r_path="."):
+    def get_dir_size(self, r_path=".",workers=False):
         total = 0
-        if path.exists(r_path):
-            with scandir(r_path) as it:
-                for entry in it:
-                    if entry.is_file():
-                        total += entry.stat().st_size
-                    elif entry.is_dir():
-                        total += self.get_dir_size(entry.path)
+        if not workers:
+            if path.exists(r_path):
+                with scandir(r_path) as it:
+                    for entry in it:
+                        if entry.is_file():
+                            total += entry.stat().st_size
+                        elif entry.is_dir():
+                            total += self.get_dir_size(entry.path)
+            return total
+
+        def find_paths(r_dir):
+            for dirpath, _, filenames in walk(r_dir):
+                for filename in filenames:
+                    yield path.join(dirpath, filename)
+        def get_size(r_dir_size):
+            return path.getsize(r_dir_size)
+            
+        total = 0
+        # file_paths = list(find_paths(r_path),"paths")
+        # with ProcessPoolExecutor(max_workers=workers) as executor:
+        #     sizes = list(executor.map(find_paths, file_paths))
+        for file_path in find_paths(r_path):
+            total += get_size(file_path)
+        
         return total
+        # return sum(sizes)
 
  
     def get_snapshot(self,command_obj):

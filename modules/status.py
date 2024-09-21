@@ -103,6 +103,8 @@ class Status():
                     uptime_seconds = float(uptime_file.readline().split()[0])
                     self.current_result = str(int(uptime_seconds /(60*60*24)))
                 self.parse_uptime_load()
+
+        self.distro_value = self.functions.get_distro_details()
  
             
     def check_dev_device(self):
@@ -231,14 +233,17 @@ class Status():
         dirs = self.functions.get_dirs_by_profile({"profile": "all"})
         dir_sizes = list()
         self.profile_sizes = dict()
-        
+        workers = self.distro_value["info"]["count"]
+
         for profile in dirs:
             for profile_dir in dirs[profile].keys():
-                dsize = self.functions.get_dir_size(dirs[profile][profile_dir])
+                dsize = self.functions.get_dir_size(dirs[profile][profile_dir],workers)
                 dsize = size(dsize,system=alternative)
                 dir_sizes.append((profile_dir, dsize))
             self.profile_sizes[profile] = dir_sizes
             dir_sizes = [] # reset
+
+        return
 
             
 if __name__ == "__main__":
