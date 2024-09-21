@@ -745,26 +745,8 @@ class CLI():
             [" WARNING ",0,"yellow,on_blue"], ["The health feature reviews the status",0,"red"],
             ["of the node's snapshot chain.  This may take a long time.",1,"red"], 
         ])
-        with ThreadPoolExecutor() as executor:
-            self.functions.status_dots = True
-            status_obj = {
-                "text_start": f"Calculating health stats",
-                "status": "running",
-                "timeout": False,
-                "status_color": "yellow",
-                "dotted_animation": True,
-                "newline": False,
-            }
-            _ = executor.submit(self.functions.print_cmd_status,status_obj)
-            status = Status(self.functions)
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                **status_obj,
-                "status": "completed",
-                "status_color": "green",
-                "dotted_animation": False,
-                "newline": True,
-            })
+
+        status = Status(self.functions)
 
         self.functions.print_header_title({
             "line1": "NODE BASIC HEALTH",
@@ -1199,8 +1181,18 @@ class CLI():
     def show_security(self, command_list):
         self.functions.check_for_help(command_list,"sec")
         self.log.logger.info(f"Show security request made.")
-        status = Status(self.functions)
         
+        with ThreadPoolExecutor() as executor:
+            self.functions.event = True
+            _ = executor.submit(self.functions.print_spinner,{
+                "msg": f"Reviewing [VPS security], please wait ",
+                "color": "magenta",
+            })              
+            status = Status(self.functions)
+            status.called_command = self.command_obj["command"]
+            status.execute_status()
+            self.functions.event = False
+
         print_out_list = [
             {
                 "header_elements" : {

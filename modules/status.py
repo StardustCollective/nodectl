@@ -30,9 +30,11 @@ class Status():
         self.last_action = "none"
         self.error_count = 0
         self.process_memory = {}
-        
         self.mem_swap_min = 1000000
+
+        self.called_command = None
         self.log_found_flag = False
+
         self.uptime = 30
         self.load = .7
 
@@ -47,8 +49,11 @@ class Status():
         })  
         
         self.functions.get_service_status()
+
+
+    def execute_status(self):
         self.get_server_details()
-        self.get_status_dir_sizes()
+        if self.called_command != "sec": self.get_status_dir_sizes()
         self.security_check()
 
 

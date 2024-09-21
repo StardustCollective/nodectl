@@ -1204,15 +1204,17 @@ class Functions():
             return path.getsize(r_dir_size)
             
         total = 0
-        # file_paths = list(find_paths(r_path),"paths")
-        # with ProcessPoolExecutor(max_workers=workers) as executor:
-        #     sizes = list(executor.map(find_paths, file_paths))
-        for file_path in find_paths(r_path):
-            total += get_size(file_path)
-        
-        return total
-        # return sum(sizes)
+        file_paths = list(find_paths(r_path))
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            sizes = list(executor.map(get_size, file_paths))
 
+        return sum(sizes)
+
+        # for file_path in find_paths(r_path):
+        #     total += get_size(file_path)
+        
+        # return total
+    
  
     def get_snapshot(self,command_obj):
         action = command_obj.get("action","latest")
