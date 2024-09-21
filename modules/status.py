@@ -1,5 +1,5 @@
 from os import system, popen, path
-from subprocess import Popen, check_output, PIPE
+from subprocess import Popen, check_output, PIPE, run
 from hurry.filesize import size, alternative
 from sys import exit
 
@@ -85,7 +85,7 @@ class Status():
             
 
     def get_server_details(self):
-        self.hd_space = self.check_dev_device()
+        self.hd_space = self.functions.check_dev_device()
         self.command_list = {
             "memory": "free | awk '{print $4}'",
             "uptime": "uptime",
@@ -112,12 +112,7 @@ class Status():
         self.distro_value = self.functions.get_distro_details()
  
             
-    def check_dev_device(self):
-        cmd = 'df -h | awk \'$NF=="/"{print $5 " of " $2}\''
-        device = popen(cmd)
-        device = device.read()
-        if device: return device
-        return "unknown"
+
       
         
     def parse_uptime_load(self):
@@ -240,11 +235,48 @@ class Status():
         self.profile_sizes = dict()
         workers = self.distro_value["info"]["count"]
 
+        self.functions.print_paragraphs([
+            ["Calculating directory sizes...",1],
+        ])
+        self.functions.status_single_file = True
         for profile in dirs:
             for profile_dir in dirs[profile].keys():
-                dsize = self.functions.get_dir_size(dirs[profile][profile_dir],workers)
+                if dirs[profile][profile_dir] == "disabled": continue
+                if profile_dir == "directory_inc_snapshot" and not self.non_interactive:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"yellow,on_blue"], ["The health feature reviews the status",0,"red"],
+                        ["of the node's snapshot chain. This may take up to",0,"red"], 
+                        ["six",0,"yellow","bold"],["to",0,"red"],["ten",0,"yellow","bold"],
+                        ["minutes.",1,"red"]
+                    ])    
+                    if self.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "n",
+                        "prompt": f"Calculate this directory size?",
+                        "exit_if": False,
+                    }): 
+                        dir_sizes.append((profile_dir,"skipped"))
+                        continue 
+
+                c_obj = {
+                    "text_start": "Calculating",
+                    "brackets": profile_dir,
+                    "status": "running",
+                    "newline": False,
+                    "status_color": "yellow",
+                }
+                self.functions.print_cmd_status(c_obj)                            
+
+                # dsize = self.functions.get_dir_size(dirs[profile][profile_dir],workers)
+                dsize = 0
+                dsize = run(['du', '-sb', dirs[profile][profile_dir]], stdout=PIPE)
+                dsize = int(dsize.stdout.split()[0])
                 dsize = size(dsize,system=alternative)
                 dir_sizes.append((profile_dir, dsize))
+                c_obj["status"] = "Complete" 
+                c_obj["status_color"] = "green"
+                c_obj["newline"] = True
+                self.functions.print_cmd_status(c_obj)
             self.profile_sizes[profile] = dir_sizes
             dir_sizes = [] # reset
 

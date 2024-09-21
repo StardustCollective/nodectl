@@ -150,6 +150,7 @@ class ShellHandler:
         self.check_skip_services()
         self.check_for_static_peer()
         self.handle_versioning()
+        self.check_diskspace()
         self.check_for_profile_requirements()
 
         if "all" in self.argv:
@@ -565,6 +566,26 @@ class ShellHandler:
         if self.called_command in dont_skip_service_list:
             self.skip_services = False
                 
+
+    def check_diskspace(self):
+        warning_threshold = 84
+        main_threshold = 40
+        size_str = self.functions.check_dev_device().strip()
+        size = int(size_str.split(" ")[0].replace("%",""))
+        
+        if size > main_threshold:
+            self.log.logger.critical(f"shell_handler -> disk check -> {size_str}")
+            self.functions.print_paragraphs([
+                [" CRITICAL ",0,"yellow,on_red"], ["Disk Space:",0,"magenta"],
+                [size_str,1,"red"]
+            ])
+        elif size > warning_threshold:
+            self.log.logger.warning(f"shell_handler -> disk check -> {size_str}")
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["Disk Space:",0,"yellow"],
+                [size_str,1,"magenta"]
+            ])
+
 
     def check_all_profile(self):
         # do we want to skip loading the node service obj?

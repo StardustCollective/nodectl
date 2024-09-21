@@ -741,12 +741,11 @@ class CLI():
         self.functions.check_for_help(command_list,"health")
         self.log.logger.info(f"show health requested")
 
-        self.functions.print_paragraphs([
-            [" WARNING ",0,"yellow,on_blue"], ["The health feature reviews the status",0,"red"],
-            ["of the node's snapshot chain.  This may take a long time.",1,"red"], 
-        ])
-
         status = Status(self.functions)
+        status.called_command = self.command_obj["command"]
+        status.non_interactive = True if "--ni" in command_list else False
+        status.execute_status()
+
 
         self.functions.print_header_title({
             "line1": "NODE BASIC HEALTH",
@@ -773,50 +772,49 @@ class CLI():
             },
         ]
         
-        if self.command_obj["command"] != "sec":
-            for n, profile in enumerate(status.profile_sizes.keys()):
-                dyn_dict = {}
-                section_dict = {}
+        for n, profile in enumerate(status.profile_sizes.keys()):
+            dyn_dict = {}
+            section_dict = {}
 
-                size_list = status.profile_sizes[profile]
+            size_list = status.profile_sizes[profile]
 
-                profile_title = "PROFILE" if n == 0 else "\n  PROFILE"
-                print_out_list.append({
-                    "header_elements": {profile_title: colored(profile,'green',attrs=['bold'])},
-                    "spacing": 15
-                })
-                
-                while True:
-                    if len(size_list) > 0:
-                        for _ in range(0,4):
-                            if len(size_list) == 0:
-                                break
-                            tup = size_list.pop()
-                            section_dict[tup[0].upper().replace("DIRECTORY_","")] = tup[1]
-                        dyn_dict["header_elements"] = section_dict
-                        dyn_dict["spacing"] = 15
-                        print_out_list.append(dyn_dict)
-                        section_dict = {}; dyn_dict = {}
-                    else:
-                        break
-
-                for key, value in status.process_memory.items():
-                    if key == profile:
-                        if "-1" in value["RSS"]: value["RSS"] = "not running"
-                        if "-1" in value["VMS"]: value["VMS"] = "not running"
-                        dyn_dict["header_elements"] = {
-                            "JAR PROCESS": value["jar_file"],
-                            "RSS": value["RSS"],
-                            "VMS": value["VMS"],
-                        }
-                        dyn_dict["spacing"] = 15
-                        print_out_list.append(dyn_dict)
-                
-            for header_elements in print_out_list:
-                self.functions.print_show_output({
-                    "header_elements" : header_elements
+            profile_title = "PROFILE" if n == 0 else "\n  PROFILE"
+            print_out_list.append({
+                "header_elements": {profile_title: colored(profile,'green',attrs=['bold'])},
+                "spacing": 15
             })
-        
+            
+            while True:
+                if len(size_list) > 0:
+                    for _ in range(0,4):
+                        if len(size_list) == 0:
+                            break
+                        tup = size_list.pop()
+                        section_dict[tup[0].upper().replace("DIRECTORY_","")] = tup[1]
+                    dyn_dict["header_elements"] = section_dict
+                    dyn_dict["spacing"] = 15
+                    print_out_list.append(dyn_dict)
+                    section_dict = {}; dyn_dict = {}
+                else:
+                    break
+
+            for key, value in status.process_memory.items():
+                if key == profile:
+                    if "-1" in value["RSS"]: value["RSS"] = "not running"
+                    if "-1" in value["VMS"]: value["VMS"] = "not running"
+                    dyn_dict["header_elements"] = {
+                        "JAR PROCESS": value["jar_file"],
+                        "RSS": value["RSS"],
+                        "VMS": value["VMS"],
+                    }
+                    dyn_dict["spacing"] = 15
+                    print_out_list.append(dyn_dict)
+            
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+        })
+    
 
     def show_cpu_memory(self, command_list):
         self.functions.check_for_help(command_list,"show_cpu_memory")

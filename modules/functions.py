@@ -39,7 +39,7 @@ from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
 from urllib.parse import urlparse, urlunparse
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir, listdir, remove, chmod, chown
+from os import system, getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chmod, chown
 from pwd import getpwnam
 from grp import getgrnam
 from shutil import copy2, move
@@ -1168,6 +1168,12 @@ class Functions():
 
 
     def get_size(self,start_path = '.',single=False):
+        try:
+            single = self.status_single_file
+        except:
+            # this is an exception for health command
+            pass
+
         if single:
             try:
                 return path.getsize(start_path)
@@ -1183,7 +1189,13 @@ class Functions():
         
         return total_size  
     
-    
+
+    def get_paths(self, r_dir):
+        for dirpath, _, filenames in walk(r_dir):
+            for filename in filenames:
+                yield path.join(dirpath, filename)
+
+
     def get_dir_size(self, r_path=".",workers=False):
         total = 0
         if not workers:
@@ -1195,27 +1207,24 @@ class Functions():
                         elif entry.is_dir():
                             total += self.get_dir_size(entry.path)
             return total
-
-        def find_paths(r_dir):
-            for dirpath, _, filenames in walk(r_dir):
-                for filename in filenames:
-                    yield path.join(dirpath, filename)
-        def get_size(r_dir_size):
-            return path.getsize(r_dir_size)
-            
-        total = 0
-        file_paths = list(find_paths(r_path))
-        with ProcessPoolExecutor(max_workers=workers) as executor:
-            sizes = list(executor.map(get_size, file_paths))
-
-        return sum(sizes)
-
-        # for file_path in find_paths(r_path):
-        #     total += get_size(file_path)
         
-        # return total
+        total = 0
+        file_paths = list(self.get_paths(r_path))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            sizes = list(executor.map(self.get_size, file_paths))
+
+        sizes = [0 if x is False else x for x in sizes]
+        return sum(sizes)
     
- 
+
+    def check_dev_device(self):
+        cmd = 'df -h | awk \'$NF=="/"{print $5 " of " $2}\''
+        device = popen(cmd)
+        device = device.read()
+        if device: return device
+        return "unknown"
+    
+    
     def get_snapshot(self,command_obj):
         action = command_obj.get("action","latest")
         ordinal = command_obj.get("ordinal",False)
