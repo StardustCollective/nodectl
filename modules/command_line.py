@@ -1965,7 +1965,15 @@ class CLI():
             self.functions.print_paragraphs([
                 ["",1], ["The following was identified in the logs",2,"red"],
             ])
-            results = self.functions.remove_duplicates("list_of_dicts",results)
+            try:
+                results = self.functions.remove_duplicates("list_of_dicts",results)
+            except Exception as e:
+                self.log.logger.critical(f"show_profile_issues -> attempted to remove duplicate error messages which resulted in [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-1973",
+                    "line_code": "unknown_error",
+                    "extra": e,
+                })
 
             for result in results:
                 error_msg = str(result['error_msg'])
