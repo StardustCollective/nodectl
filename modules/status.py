@@ -242,9 +242,9 @@ class Status():
                 if profile_dir == "directory_inc_snapshot" and not self.non_interactive:
                     self.functions.print_paragraphs([
                         ["",1],[" WARNING ",0,"yellow,on_blue"], ["The health feature reviews the status",0,"red"],
-                        ["of the node's snapshot chain. This may take up to",0,"red"], 
-                        ["six",0,"yellow","bold"],["to",0,"red"],["ten",0,"yellow","bold"],
-                        ["minutes.",1,"red"]
+                        ["of the node's snapshot chain. This could take up to",0,"red"], 
+                        ["ten",0,"yellow","bold"],["minutes",0,"red"], ["to complete, but typically it should be under",0,"red"],
+                        ["two",0,"yellow","bold"],["minutes on a properly spec'd VPS.",1,"red"],
                     ])    
                     if self.functions.confirm_action({
                         "yes_no_default": "y",
