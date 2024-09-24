@@ -5648,9 +5648,9 @@ class CLI():
         self.functions.print_paragraphs([
             [" PATIENCE ",0,"yellow,on_red"],["This could take up to",0],
             ["fifteen",0,"yellow"], ["minutes to complete the entire process.",2],
-            ["In the event the process takes longer than the alloted timers (for slower nodes), the",0,"magenta"],
+            ["In the event the process takes longer than the allotted timers (for slower nodes), the",0,"magenta"],
             ["screen may go blank, please do not interrupt the process and allow it to continue",0,"magenta"],
-            ["until complete:",0,"magenta"], ["A reasonable extra time frame should be alloted before manually cancelling",0,"yellow"],
+            ["until complete:",0,"magenta"], ["A reasonable extra time frame should be allotted before manually cancelling",0,"yellow"],
             ["this snapshot state analysis.",2,"yellow"],
         ])
 

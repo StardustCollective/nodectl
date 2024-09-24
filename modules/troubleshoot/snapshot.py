@@ -1,6 +1,6 @@
 import json
 
-from os import stat, path, remove, walk
+from os import stat, path, remove, walk, get_terminal_size
 from time import time
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 from termcolor import colored, cprint
@@ -370,14 +370,29 @@ def print_report(count_results, fix, snapshot_dir, functions):
             "newline": True,
         })
 
+
     if len(count_results["invalid_hash_ord_list"]) > 0:
-        functions.print_paragraphs([
-            [" ",1], ["Invalid Ordinal -> Hash List",1,"red","bold"],
-            ["root path:",0], [snapshot_dir,1,"yellow"],
-        ])
-        for invalid_hash in count_results["invalid_hash_ord_list"]:
-            invalid_hash = invalid_hash.replace(snapshot_dir,"")
-            cprint(f"  {invalid_hash}","red")
+        if functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt": f'Display [{count_results["solo_count"]}] invalid items?',
+            "exit_if": False,
+        }):
+            functions.print_paragraphs([
+                [" ",1], ["Invalid Ordinal -> Hash List",1,"red","bold"],
+                ["root path:",0], [snapshot_dir,1,"yellow"],
+            ])
+            for item, invalid_hash in enumerate(count_results["invalid_hash_ord_list"]):
+                console_size = get_terminal_size()
+                more_break = round(console_size.lines)-20 
+                if item % more_break == 0 and item > 0:
+                    more = functions.print_any_key({
+                        "quit_option": "q",
+                        "newline": "both",
+                    })
+                    if more: break                                
+                invalid_hash = invalid_hash.replace(snapshot_dir,"")
+                cprint(f"  {invalid_hash}","red")
 
 
 def print_full_snapshot_report(results, file_len, cols, functions, np, logs):
