@@ -3007,6 +3007,7 @@ class Functions():
         p_type = command_obj.get("p_type","trad")
         step = command_obj.get("step",1)
         status = command_obj.get("status","preparing")
+        use_minutes = command_obj.get("use_minutes",False)
 
         if step > 0: 
             end_range = start+seconds
@@ -3024,6 +3025,15 @@ class Functions():
 
         for s in range(start,end_range+1,step):
             if self.cancel_event: break
+            ss = s
+            count_verb = "seconds"
+            if use_minutes:
+                if s > 59:
+                    count_verb = "minutes"
+                    minutes = ss // 60
+                    seconds = ss % 60
+                    ss = f"{minutes:02d}:{seconds:02d}"
+
                 
             if not self.auto_restart:
                 if p_type == "trad":
@@ -3032,11 +3042,11 @@ class Functions():
                             colored(f"{s}","yellow"),
                             colored("of","magenta"),
                             colored(f"{end_range_print}","yellow"),
-                            colored(f"seconds {phrase}","magenta"), end='\r')
+                            colored(f"{count_verb} {phrase}","magenta"), end='\r')
                 elif p_type == "cmd":
                     self.print_cmd_status({
                         "text_start": phrase,
-                        "brackets": str(s),
+                        "brackets": str(ss),
                         "text_end": end_phrase,
                         "status": status,
                     })

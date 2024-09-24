@@ -5646,31 +5646,43 @@ class CLI():
         })
 
         self.functions.print_paragraphs([
-            [" PATIENCE ",0,"yellow,on_red"],["This could take over",0],
-            ["3",0,"yellow"], ["minutes to complete the entire process.",1],
+            [" PATIENCE ",0,"yellow,on_red"],["This could take up to",0],
+            ["fifteen",0,"yellow"], ["minutes to complete the entire process.",2],
+            ["In the event the process takes longer than the alloted timers (for slower nodes), the",0,"magenta"],
+            ["screen may go blank, please do not interrupt the process and allow it to continue",0,"magenta"],
+            ["until complete:",0,"magenta"], ["A reasonable extra time frame should be alloted before manually cancelling",0,"yellow"],
+            ["this snapshot state analysis.",2,"yellow"],
         ])
 
+        self.functions.print_cmd_status({
+            "text_start": "Beginning discovery",
+            "newline": True,
+        })
         results = discover_snapshots(snapshot_dir, self.functions, self.log)
-        
+
         if not results["valid"]:
             count_results = set_count_dict()
             merged_dict = {}
         else:
-            merged_dict, count_results = merge_snap_results(results,self.functions,self.log,debug)
+            count_results = results
+        #   merged_dict, count_results = merge_snap_results(results,self.functions,self.log,debug)
 
         snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
         count_results["old_days"] = old_days
 
-        start = count_results["ord_lowest"]
-        if start < 0: count_results["ord_lowest"] = "n/a"
+        start = count_results["lowest_no_inode"]
+        if start is None: count_results["lowest_no_inode"] = "n/a"
 
-        if results["max_ordinal"] > count_results["ord_highest"]:
-            count_results["ord_highest"] = results["max_ordinal"]
+        # if results["max_ordinal"] > count_results["ord_highest"]:
+        #     count_results["ord_highest"] = results["max_ordinal"]
         end = count_results["ord_highest"]
         if end < 0: count_results["ord_highest"] = "n/a"
 
         self.print_title("ANALYSIS RESULTS")
-        print_report(count_results, fix, self.functions)
+        print_report(count_results, fix, snapshot_dir, self.functions)
+
+        exit(0)
+        # do not go any further - until removal process is refactored
 
         p_status = colored("True","green")
         if count_results["solo_count"] > 0 or count_results["day_0_old"] < 1: 
