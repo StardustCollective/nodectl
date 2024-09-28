@@ -3334,17 +3334,21 @@ class Functions():
 
         if r_and_q:
             if r_and_q == "both" or r_and_q == "r":
-                self.print_paragraphs([
+                menu_item = [
                     ["",1],["R",0,color,"bold"], [")",-1,color], [f"eturn to {return_where} Menu",-1,color], ["",1],
-                ])
+                ]
+                if color == "blue": menu_item[3] = [f"eturn to {return_where} Menu",-1,color,"bold"]
+                self.print_paragraphs(menu_item)
                 prefix_list.append("R")
                 options.append("r")
                 newline = False
             if r_and_q == "both" or r_and_q == "q":
                 if newline: print("")
-                self.print_paragraphs([
+                menu_item = [
                     ["Q",-1,color,"bold"], [")",-1,color], ["uit",-1,color], ["",2],                
-                ])
+                ]
+                if color == "blue": menu_item[2] = ["uit",-1,color,"bold"]
+                self.print_paragraphs(menu_item)
                 prefix_list.append("Q")
                 options.append("q")
         else:
