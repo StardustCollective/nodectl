@@ -16,6 +16,7 @@ def pull_valid_command():
         "check_connection",
         "check_seedlist_participation",
         "check_tcp_ports",
+        "console",
 
         "dag",
         "disable_root_ssh",
@@ -46,6 +47,7 @@ def pull_valid_command():
 
         "market",
         "migrate_datadir",
+        "mobile",
 
         "nodeid",
         "nodeid2dag",

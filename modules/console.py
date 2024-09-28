@@ -1,0 +1,148 @@
+from time import sleep, perf_counter
+from datetime import datetime, timedelta
+from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, SEEK_END, SEEK_CUR
+from shutil import copy2, move
+from sys import exit, setrecursionlimit
+from types import SimpleNamespace
+from getpass import getpass
+from termcolor import colored, cprint
+from secrets import compare_digest
+from copy import deepcopy
+from scapy.all import sniff
+from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
+from .troubleshoot.logger import Logging
+
+class Menu():
+    def __init__(self,command_obj) -> None:
+        self.log = Logging()
+        self.config_obj = command_obj["config_obj"]
+        self.profile_names = command_obj["profile_names"]
+        self.functions = command_obj["functions"]
+
+        self.main_options = []
+        self.main_options_bl = []
+        self.main_options_l0 = []
+
+
+    def per_profile(self,cmd,i_options,layer0):
+        for profile in self.profile_names:
+            if layer0 and self.config_obj[profile]["layer"] > 0:
+                continue
+            i_options.append(f"{cmd} -p {profile}")
+        return i_options
+
+
+    def create_menu(self):
+        options = []
+        for cmd in self.main_options:
+            if cmd in self.main_options_bl:
+                options = self.per_profile(cmd,options,False)
+            elif cmd in self.main_options_l0:
+                options = self.per_profile(cmd,options,True)
+            else:
+                options.append(cmd)
+
+        return options
+
+
+    def build_root_menu(self):
+        while True:
+            self.functions.print_header_title({
+                "line1": "CONSOLE MENU",
+                "single_line": True,
+                "newline": "both",
+            })
+
+            self.main_options = [
+                "status -p all",
+                "status",
+                "check_consensus",
+                "blank_spacer",
+                "restart",
+                "blank_spacer",
+                "upgrade --ni",
+                "upgrade_nodectl",
+                "upgrade_vps --ni",
+                "blank_spacer",
+                "check_versions",
+                "auto_restart restart",
+                "list",
+                "blank_spacer",
+                "GENERAL COMMANDS",
+                "TROUBLESHOOT COMMANDS",
+            ]
+            self.main_options_bl = ["status","restart"] # both layers
+            self.main_options_l0 = ["check_consensus"]
+            options = self.create_menu()
+
+            choice = self.handle_choice(options,"q")
+            choice = self.build_submenus(choice)
+            if (isinstance(choice,tuple) and choice[0] != 'r') or choice == "q":
+                break
+        return choice
+
+
+    def build_general_menu(self):
+        self.main_options = [
+            "reboot",
+            "view_config",
+            "refresh_binaries",
+            "price",
+            "blank_spacer",
+            "export_private_key",
+            "dag"]
+        self.main_options_bl = ["export_private_key","dag"]
+        self.main_options_l0 = []
+
+    def build_troubleshoot_menu(self):
+        self.main_options = [
+            "show_cpu_memory",
+            "blank_spacer",
+            "peers",
+            "blank_spacer",
+            "check_connection",
+            "blank_spacer",
+            "show_profile_issues",
+            "blank_spacer",
+            "show_dip_error",
+            "logs"
+        ]
+        self.main_options_bl = ["peers","check_connection","show_profile_issues","logs"] # both layers
+        self.main_options_l0 = ["show_dip_error"]
+
+
+    def build_submenus(self,choice):
+        if choice[0] == "GENERAL": 
+            self.build_general_menu()
+        elif choice[0] == "TROUBLESHOOT": 
+            self.build_troubleshoot_menu()
+        else:
+            return choice
+
+        self.functions.print_header_title({
+            "line1": f"{choice[0]} MENU",
+            "single_line": True,
+            "newline": "both",
+        })
+
+        return self.handle_choice(self.create_menu(),"both")
+    
+
+    def handle_choice(self, options, r_and_q):
+        choice = self.functions.print_option_menu({
+                "options": options,
+                "return_value": True,
+                "let_or_num": "let",
+                "prepend_let": True,
+                "return_where": "Edit",
+                "color": "blue",
+                "r_and_q": r_and_q,
+                "return_where": "Main"
+            })
+        
+        if choice != "q": 
+            choice = choice.split(" ")
+            if len(choice) > 1:
+                choice = (choice[1],choice[2:])
+
+        return choice

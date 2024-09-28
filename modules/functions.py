@@ -3288,6 +3288,7 @@ class Functions():
         options_org = command_obj.get("options")
         options = deepcopy(options_org) # options relative to self.profile_names
         let_or_num = command_obj.get("let_or_num","num")
+        prepend_let = command_obj.get("prepend_let", False)
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")
         color = command_obj.get("color","cyan")
@@ -3300,16 +3301,36 @@ class Functions():
         
         prefix_list = []
         spacing = 0
+        blank = 0
+
+        if prepend_let:
+            i = 0
+            for n in range(len(options)):
+                if options[n] == "blank_spacer": continue
+                while chr(97 + i) in ["q","r"]:
+                    i +=1
+                letter = chr(97 + i)  # 97 is 'a'
+                options[n] = f"{letter} {options[n]}"  
+                i += 1
+
         for n, option in enumerate(options):
+            if "blank_spacer" in option: 
+                print("")
+                blank += 1
+                continue
+            if blank > 0: n -= blank
             prefix_list.append(str(n+1))
             if let_or_num == "let":
                 prefix_list[n] = option[0].upper()
                 option = option[1::]
                 spacing = -1
-            self.print_paragraphs([
+        
+            menu_item = [
                 [prefix_list[n],-1,color,"bold"],[")",-1,color],
                 [option,spacing,color], ["",1],
-            ])
+            ]
+            if color == "blue": menu_item[2] = [option,spacing,color,"bold"]
+            self.print_paragraphs(menu_item)
 
         if r_and_q:
             if r_and_q == "both" or r_and_q == "r":

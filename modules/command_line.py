@@ -2,7 +2,6 @@ import re
 import base58
 import psutil
 import socket
-import queue
 
 from hashlib import sha256
 
@@ -10,7 +9,7 @@ from time import sleep, perf_counter
 from datetime import datetime, timedelta
 from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, SEEK_END, SEEK_CUR
 from shutil import copy2, move
-from sys import exit
+from sys import exit, setrecursionlimit
 from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
@@ -31,7 +30,7 @@ from .troubleshoot.send_logs import Send
 from .troubleshoot.ts import Troubleshooter
 from .find_newest_standalone import find_newest
 from .config.ipv6 import enable_disable_ipv6
-
+from .console import Menu
 
 class TerminateCLIException(Exception): pass
 
@@ -746,7 +745,6 @@ class CLI():
         status.non_interactive = True if "--ni" in command_list else False
         status.execute_status()
 
-
         self.functions.print_header_title({
             "line1": "NODE BASIC HEALTH",
             "single_line": True,
@@ -1075,8 +1073,7 @@ class CLI():
                     "quit_option": "q",
                     "newline": "both",
                 })
-                if more:
-                    break
+                if more: break
                 print_header = True
                 
             print_peer = f"{peer}:{public_port}" 
@@ -3474,6 +3471,19 @@ class CLI():
             do_reboot()
             
       
+    def cli_console(self,command_list) -> tuple:
+        self.functions.check_for_help(command_list,"cli_console")
+        console = Menu({
+            "config_obj": self.config_obj,
+            "profile_names": self.profile_names,
+            "functions": self.functions,
+        })
+
+        choice = console.build_root_menu()
+        if choice == "q": exit(0)
+        return choice
+    
+
     def cli_join(self,command_obj):
         argv_list = command_obj.get("argv_list")
         self.functions.check_for_help(argv_list,"join")
