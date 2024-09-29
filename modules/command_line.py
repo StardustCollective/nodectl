@@ -29,7 +29,7 @@ from .cleaner import Cleaner
 from .troubleshoot.send_logs import Send
 from .troubleshoot.ts import Troubleshooter
 from .find_newest_standalone import find_newest
-from .config.ipv6 import enable_disable_ipv6
+from .config.ipv6 import handle_ipv6
 from .console import Menu
 
 class TerminateCLIException(Exception): pass
@@ -4727,7 +4727,9 @@ class CLI():
 
         non_interactive = True if "--ni" in argv_list or "-ni" in argv_list else False
 
-        if "enable" in argv_list:
+        if "status" in argv_list:
+            action = "status"
+        elif "enable" in argv_list:
             action = "enable"
         elif "disable" in argv_list:
             action = "disable"
@@ -4735,10 +4737,10 @@ class CLI():
             self.error_messages.error_code_messages({
                 "error_code": "cli-4723",
                 "line_code": "invalid_option",
-                "extra": "'enable' or 'disable' not found",
-                "extra2": "valid options include 'enable' and 'disable'",
+                "extra": "'status', 'enable' or 'disable' not found",
+                "extra2": "valid options include 'status', 'enable' and 'disable'",
             })
-        enable_disable_ipv6(action,self.log,self.functions,non_interactive)
+        handle_ipv6(action,self.log,self.functions,non_interactive)
         return
 
 
