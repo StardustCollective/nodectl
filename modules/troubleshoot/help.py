@@ -50,9 +50,11 @@ def build_help(functions,command_obj):
         ["optional:",0],["--pass",0,"yellow"],["<passphrase>",1],
         ["    note:",0],["--pass will override the configuration's passphrase entry",2,"magenta"],
         ["optional:",0],["--peer",0,"yellow"],["<static_peer_ip>",1],
-        ["    note:",0],["--peer will override the configuration's random Node selection feature",2,"magenta"],
+        ["    note:",0],["--peer will override the configuration's random Node",1,"magenta"],
+        ["          selection feature",2,"magenta"],
         ["optional:",0],["--port",0,"yellow"],["<static_peer_tcp_port>",1],
-        ["    note:",0],["--port can be used with the --peer Node uses a non-default port.",2,"magenta"],
+        ["    note:",0],["--port can be used with the --peer option if the Node",1,"magenta"],
+        ["          uses a non-default port.",2,"magenta"],
         ["See extended help for more details including",0],["required",0,"blue","bold"], 
         ["parameters per command.",2],
         ["command: ",0], ["sudo nodectl <command> help",2,"yellow","bold"],
@@ -221,7 +223,7 @@ def build_help(functions,command_obj):
     
     enable_root_ssh  | - have nodectl reenable access to your root user 
 
-    ipv6 | - enable or disable ipv6 configuration on VPS
+    ipv6 | - status, enable or disable ipv6 configuration on VPS
     
     change_ssh_port -p <port> | - change the port number used to access your
                                Node via the SSH protocol.  The port number
@@ -2774,8 +2776,9 @@ def build_help(functions,command_obj):
   Network files on your VPS.
 
   required:
-  {colored('enable','green')}  | enable IPv6 configurations
+  {colored('status','green')}  | show IPv6 configuration status 
   {colored('disable','green')} | disable IPv6 configurations
+  {colored('enable','green')}  | enable IPv6 configurations
 
   optional:
   {colored('--ni','green')} | non-interactive (confirm all options)
@@ -2786,6 +2789,23 @@ def build_help(functions,command_obj):
 
   If the VPS was built without IPv6 during instantiation, this command 
   will have no effect.
+  ''' 
+          
+    if extended == "console" or extended == "mobile":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command does not accept any arguments.
+
+  This command provides a single-click alphabetical menu of the most common 
+  commands used for administering your node with nodectl.
+
+  The key difference between the {colored('console','cyan')} and {colored('mobile','cyan')} commands is that the {colored('console','cyan')} 
+  command will issue a single command request and then return to the command prompt. 
+  The {colored('mobile','cyan')} command, on the other hand, iterates through multiple requests without 
+  returning to the command prompt, allowing Node Operators on mobile devices to issue 
+  fewer commands (and do less thumb typing) by returning to the main menu after 
+  each command.
+
   ''' 
   
     if extended in simple_command_list:

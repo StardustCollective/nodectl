@@ -3472,7 +3472,7 @@ class CLI():
             
       
     def cli_console(self,command_list) -> tuple:
-        self.functions.check_for_help(command_list,"cli_console")
+        self.functions.check_for_help(command_list,self.primary_command)
         console = Menu({
             "config_obj": self.config_obj,
             "profile_names": self.profile_names,

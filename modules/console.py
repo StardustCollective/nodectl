@@ -58,6 +58,7 @@ class Menu():
                 "status",
                 "check_consensus",
                 "blank_spacer",
+                "restart -p all",
                 "restart",
                 "blank_spacer",
                 "upgrade --ni",
