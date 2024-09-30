@@ -63,6 +63,9 @@ class Configuration():
                 
         if "view" in self.action or self.action == "-vc":
             self.view_yaml_config("normal")
+            if "mobile" in self.argv_list:
+                self.requested_configuration = False
+                return
         
         self.validated = True
         self.profile_check = False
@@ -362,6 +365,7 @@ class Configuration():
 
     def view_yaml_config(self,action):
         print_req = "all"
+        if self.called_command == "view-config": self.called_command = "view_config"
         if self.called_command == "view_config" or self.called_command == "-vc":
             self.build_function_obj({
                 "global_elements": {"caller":"config"},
@@ -475,9 +479,10 @@ class Configuration():
         else:
             self.send_error("cfg-220") 
 
-        if action == "migrate":
+        if action == "migrate" or "mobile" in self.argv_list:
             self.functions.print_any_key({})
             return
+
         exit(0)
                 
         

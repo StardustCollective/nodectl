@@ -1193,7 +1193,7 @@ def build_help(functions,command_obj):
         extended = "view_config"
         help_text += title(extended)
         help_text += f'''
-  The {colored(extended,'cyan')} command does not take any arguments.
+  The {colored(extended,'cyan')} command does not require any arguments.
   
   nodectl uses a configuration file in YAML format.
   This command will offer the Node Operator the ability to review
@@ -1217,7 +1217,7 @@ def build_help(functions,command_obj):
   {colored('--pro','cyan')} : view PRO score details
   {colored('--json','cyan')} : view config in json format + internal flags
 
-  optional option:
+  optional alias option:
   {colored('-vc','green')} 
   
   

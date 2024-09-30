@@ -22,6 +22,12 @@ class Menu():
         self.main_options = []
         self.main_options_bl = []
         self.main_options_l0 = []
+        self.main_options_env_bl = []
+        self.main_options_env_l0 = []
+
+        self.argv = []
+        for _ in range(0,7):
+            self.argv.append("empty")
 
 
     def per_profile(self,cmd,i_options,layer0):
@@ -32,6 +38,14 @@ class Menu():
         return i_options
 
 
+    def per_environment(self,cmd,i_options,layer0):
+        for profile in self.profile_names:
+            if layer0 and self.config_obj[profile]["layer"] > 0:
+                continue
+            i_options.append(f"{cmd} -e {self.config_obj[profile]['environment']}")
+        return i_options
+
+
     def create_menu(self):
         options = []
         for cmd in self.main_options:
@@ -39,6 +53,11 @@ class Menu():
                 options = self.per_profile(cmd,options,False)
             elif cmd in self.main_options_l0:
                 options = self.per_profile(cmd,options,True)
+            
+            if cmd in self.main_options_env_bl:
+                options = self.per_environment(cmd,options,False)
+            elif cmd in self.main_options_env_l0:
+                options = self.per_environment(cmd,options,True)
             else:
                 options.append(cmd)
 
@@ -86,14 +105,20 @@ class Menu():
     def build_general_menu(self):
         self.main_options = [
             "reboot",
-            "view_config",
             "refresh_binaries",
-            "price",
+            "blank_spacer",
+            "view_config",
+            "view_config --basics",
+            "view_config --passphrase",
             "blank_spacer",
             "export_private_key",
-            "dag"]
+            "blank_spacer",
+            "price",
+            "dag",
+        ]
         self.main_options_bl = ["export_private_key","dag"]
         self.main_options_l0 = []
+        self.main_options_env_l0 = ["refresh_binaries"]
 
     def build_troubleshoot_menu(self):
         self.main_options = [
@@ -106,7 +131,7 @@ class Menu():
             "show_profile_issues",
             "blank_spacer",
             "show_dip_error",
-            "logs"
+            "logs",
         ]
         self.main_options_bl = ["peers","check_connection","show_profile_issues","logs"] # both layers
         self.main_options_l0 = ["show_dip_error"]
@@ -141,9 +166,17 @@ class Menu():
                 "return_where": "Main"
             })
         
-        if choice != "q": 
+        if choice != "q" and choice != "r": 
             choice = choice.split(" ")
+            self.functions.print_paragraphs([
+                ["Option Chosen:",0,"yellow"], [choice[1],2],
+            ])
+
             if len(choice) > 1:
-                choice = (choice[1],choice[2:])
+                choice_argv = choice[2:]
+                for i,argv in enumerate(choice_argv):
+                    self.argv[i] = argv
+
+            choice = (choice[1],self.argv)
 
         return choice

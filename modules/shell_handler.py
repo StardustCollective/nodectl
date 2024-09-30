@@ -197,6 +197,8 @@ class ShellHandler:
                 if self.called_command == "mobile": 
                     cli_iterative = self.called_command 
                 self.called_command, self.argv = self.cli.cli_console(self.argv)
+                if "view_config" in self.called_command:
+                    return ['main.py',self.called_command] + self.argv
 
             if self.called_command in status_commands:
                 try: profile = self.argv[self.argv.index("-p")+1]
@@ -600,7 +602,7 @@ class ShellHandler:
         # do we want to skip loading the node service obj?
         all_profile_allow_list = [
             "restart","restart_only","slow_restart","-sr","join","status",
-            "show_profile_issues",
+            "show_profile_issues","console","mobile",
         ]
         if self.called_command in all_profile_allow_list:
             return

@@ -11,12 +11,18 @@ debug = False
 
 def cli_commands(argv_list):
     current_shell = False
+    return_caller = False
+
     try:
         _ = argv_list[1]
     except:
         argv_list = ["main_error","main_error"]
         
     while True:
+        if return_caller:
+            if "mobile" in argv_list: 
+                argv_list = return_caller+["mobile"]
+                return_caller = ["main.py","mobile"]
         try:
             skip_config_list = ["install","verify_nodectl","-vn","restore_config"]
             exception_list = [
@@ -42,6 +48,8 @@ def cli_commands(argv_list):
                     }) 
                     if config_needed.requested_configuration:
                         Configurator(["-e"])
+                    elif return_caller:
+                        argv_list = return_caller
             else:
                 if "main_error" not in argv_list and argv_list[1] not in exclude_config:
                     config = Configuration({
@@ -61,7 +69,7 @@ def cli_commands(argv_list):
                         "config_obj": {"global_elements":{"caller":caller}}
                     },False)
             if current_shell:        
-                current_shell.start_cli(argv_list)
+                return_caller = current_shell.start_cli(argv_list)
                 
         except KeyboardInterrupt:
             log = Logging()

@@ -3368,6 +3368,7 @@ class Functions():
         if not return_value:
             return option
         for return_option in options:
+            if return_option == "blank_spacer": continue
             if let_or_num == "let":
                 if option.lower() == return_option[0].lower():
                     return return_option
