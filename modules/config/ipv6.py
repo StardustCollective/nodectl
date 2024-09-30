@@ -1,5 +1,6 @@
 import subprocess
 import os
+import sys
 
 def handle_ipv6(action, log, functions, non_interactive):
     log.logger.info(f"handle_ipv6 -> modify [/etc/sysctl.conf] to disable IPv6.")
@@ -111,7 +112,7 @@ net.ipv6.conf.lo.disable_ipv6 = 1
                 "header_elements" : header_elements
         })
         print("")
-        exit(0)
+        sys.exit(0)
 
     if action == "disable" and 'ipv6.disable=1' not in grub_content:
         log.logger.info("handle_ipv6 -> Modify GRUB to disable IPv6.")

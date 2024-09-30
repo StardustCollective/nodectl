@@ -9,7 +9,7 @@ from time import sleep, perf_counter
 from datetime import datetime, timedelta
 from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, SEEK_END, SEEK_CUR
 from shutil import copy2, move
-from sys import exit, setrecursionlimit
+from sys import exit
 from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored, cprint
