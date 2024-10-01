@@ -701,7 +701,7 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl create_p12','cyan')}  
 
   build a new p12 file using a keystore file named test.p12 and
-  the file location /tmp/my_new_p12_files.
+  the file location = /tmp/my_new_p12_files.
   # {colored('sudo nodectl create_p12 --file test.p12 --location /tmp/my_new_p12_files/','cyan')}  
       '''
       
