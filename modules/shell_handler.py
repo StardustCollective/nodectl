@@ -138,7 +138,8 @@ class ShellHandler:
             verify_command = ["verify_nodectl","_vn","-vn"]
             if argv[1] in verify_command:
                 self.functions.auto_restart = False
-                self.digital_signature(argv)
+                return_caller = self.digital_signature(argv)
+                if return_caller: return return_caller
                 exit(0)
             elif self.called_command == "restore_config":
                 self.restore_config(self.argv)
@@ -566,7 +567,7 @@ class ShellHandler:
     def check_skip_services(self):
         # do we want to skip loading the node service obj?
         dont_skip_service_list = [
-            "status","_s","quick_status","_qs","reboot","uptime",
+            "status","_s","quick_status","_qs","reboot","uptime","revision",
             "start","stop","restart","slow_restart","_sr","mobile","console",
             "restart_only","auto_restart","service_restart", # not meant to be started from cli
             "join","id", "nodeid", "dag", "passwd12","export_private_key",
@@ -1181,6 +1182,20 @@ class ShellHandler:
         for file in [f"nodecl_{node_arch}","nodectl_public"]:
             if path.isfile(f'/var/tmp/{file}'):
                 remove(f'/var/tmp/{file}')
+
+        if bg == "on_red":
+            self.functions.print_paragraphs([
+                ["Would you like to attempt to update the binary hash by downloading this version of nodectl over itself?",1],
+            ])
+            self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt_color": "magenta",
+                "prompt": "Overwrite nodectl?",
+                "exit_if": True,
+            })  
+            return "revision"  
+        return False      
     
             
     def confirm_int_upg(self):
