@@ -314,7 +314,7 @@ class ShellHandler:
                     "version": "v2.13.1",
                     "new_command": "display_snapshot_chain",
                 })
-            elif self.called_command == "upgrade_nodectl":
+            elif self.called_command == "upgrade_nodectl" or self.called_command == "revision":
                 self.set_version_obj_class()
                 return_value = self.cli.upgrade_nodectl({
                     "version_class_obj": self.version_class_obj,

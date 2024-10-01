@@ -7084,11 +7084,18 @@ class CLI():
     def upgrade_nodectl(self,command_obj):
         argv_list = command_obj["argv_list"]
         custom_version, upgrade_chosen = False, False
+
+        self.functions.print_header_title({
+            "line1": "UPGRADE NODECTL",
+            "show_titles": False,
+            "newline": "bottom",
+        })
+        
         env_set = set()
         
         if command_obj["help"] == "help" or "help" in argv_list:
             self.functions.print_help({
-                "extended": "upgrade_nodectl"
+                "extended": self.primary_command
             })
 
         try:
@@ -7114,8 +7121,12 @@ class CLI():
             version_obj = version_obj[environment_name]
 
 
-
-        if "-v" in argv_list: 
+        if self.primary_command == "revision":
+            custom_version = self.version_obj["node_nodectl_version"]
+            self.functions.print_paragraphs([
+                ["Upgrading nodectl over itself!",2,"yellow"],
+            ])
+        elif "-v" in argv_list: 
             custom_version = argv_list[argv_list.index("-v")+1]
             custom_version = custom_version.lower()
             if custom_version[0] != "v":

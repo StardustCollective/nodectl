@@ -216,6 +216,8 @@ def build_help(functions,command_obj):
                                   for latest release of Tessellation
                               
     upgrade_nodectl | - upgrade nodectl to latest version
+    revision        | - upgrade nodectl to a revision of the current version
+
     upgrade_path    | - check nodectl upgrade path and verify where
                         current version is in relationship to the path
     
@@ -1564,6 +1566,27 @@ def build_help(functions,command_obj):
   
   execute an upgrade of nodectl to version "v2.12.0"
   # {colored('sudo nodectl upgrade_nodectl -v v2.12.0','cyan')}
+
+  '''    
+        
+        
+    if extended == "revision":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored('revision','cyan')} command will launch the process requirements
+  to upgrade the nodectl binary on your Node to a revision of the same version.
+
+  This may be necessary if the digital hash signatures are invalid, you were 
+  using a pre-release version that has been revised before stable release, or 
+  your nodectl binary is not properly working.
+    
+  usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl revision help','cyan')}
+  
+  execute a revision upgrade of nodectl
+  # {colored('sudo nodectl revision','cyan')}
 
   '''    
         
