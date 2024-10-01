@@ -472,7 +472,7 @@ class ShellHandler:
             self.handle_exit(return_value,cli_iterative)
             if cli_iterative: 
                 self.called_command = cli_iterative
-                self.functions.print_any_key({}) 
+                self.functions.print_any_key({"newline": "top"}) 
             else:
                 break
         
@@ -534,9 +534,10 @@ class ShellHandler:
 
     def check_auto_restart(self,action="start"):
         # do we need to make sure auto_restart is turned off?
-        if action == "end":
+        if action == "end" or action == "mobile":
             if self.auto_restart_enabled and self.called_command != "auto_restart":
                 self.auto_restart_handler("enable",True)
+                if action == "mobile": return
                 exit(0)
                 
         kill_auto_restart_commands = [
@@ -1679,7 +1680,9 @@ class ShellHandler:
 
 
     def handle_exit(self,value,cli_iterative):
-        self.check_auto_restart("end")
+        if cli_iterative != "mobile":
+            cli_iterative = "end"
+        self.check_auto_restart(cli_iterative)
         if cli_iterative: return
         exit(value)
         
