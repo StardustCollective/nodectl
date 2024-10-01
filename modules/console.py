@@ -85,6 +85,7 @@ class Menu():
                 "blank_spacer",
                 "upgrade --ni",
                 "upgrade_nodectl",
+                "revision",
                 "upgrade_vps --ni",
                 "blank_spacer",
                 "check_versions",
@@ -142,7 +143,7 @@ class Menu():
         ]
         self.main_options_bl = ["peers","check_connection","show_profile_issues","logs"] # both layers
         self.main_options_l0 = ["show_dip_error"]
-        self.main_options_skip = ["peers","check_connection","show_profile_issues","show_dip_error"]
+        self.main_options_skip = ["peers","check_connection","show_profile_issues","show_dip_error","logs"]
 
 
     def build_submenus(self,choice):
