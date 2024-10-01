@@ -24,6 +24,7 @@ class Menu():
         self.main_options_l0 = []
         self.main_options_env_bl = []
         self.main_options_env_l0 = []
+        self.main_options_skip = []
 
         self.argv = []
         for _ in range(0,7):
@@ -58,6 +59,8 @@ class Menu():
                 options = self.per_environment(cmd,options,False)
             elif cmd in self.main_options_env_l0:
                 options = self.per_environment(cmd,options,True)
+            elif cmd in self.main_options_skip: 
+                continue
             else:
                 options.append(cmd)
 
@@ -93,6 +96,8 @@ class Menu():
             ]
             self.main_options_bl = ["status","restart"] # both layers
             self.main_options_l0 = ["check_consensus"]
+            self.main_options_skip = ["status","restart","check_consensus"]
+
             options = self.create_menu()
 
             choice = self.handle_choice(options,"q")
@@ -119,6 +124,8 @@ class Menu():
         self.main_options_bl = ["export_private_key","dag"]
         self.main_options_l0 = []
         self.main_options_env_l0 = ["refresh_binaries"]
+        self.main_options_skip = ["export_private_key"]
+
 
     def build_troubleshoot_menu(self):
         self.main_options = [
@@ -135,6 +142,7 @@ class Menu():
         ]
         self.main_options_bl = ["peers","check_connection","show_profile_issues","logs"] # both layers
         self.main_options_l0 = ["show_dip_error"]
+        self.main_options_skip = ["peers","check_connection","show_profile_issues","show_dip_error"]
 
 
     def build_submenus(self,choice):

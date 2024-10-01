@@ -2770,7 +2770,7 @@ def build_help(functions,command_obj):
     if extended == "ipv6":
         help_text += title(extended)
         help_text += f'''
-  The {colored(extended,'cyan')} command takes 2 possible arguments. 
+  The {colored(extended,'cyan')} command takes multiple arguments. 
   
   {colored("WARNING:","red",attrs=['bold'])} This command will manipulate non-Tessellation Constellation 
   Network files on your VPS.
