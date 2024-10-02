@@ -1057,6 +1057,9 @@ class ShellHandler:
             "status_color": "red",
             "delay": 0.3
         }
+
+        files = [file[0] for file in cmds]
+
         for n, cmd in enumerate(cmds): 
             self.functions.print_cmd_status({
                 **progress,
@@ -1082,7 +1085,7 @@ class ShellHandler:
                     "line_code": "download_invalid",
                     "extra": url,
                 })
-            
+
             if cmd[2] == "none":
                 self.functions.print_cmd_status({
                     "text_start": cmd[1],
@@ -1094,6 +1097,7 @@ class ShellHandler:
                 text_output = Path(full_file_path).read_text().lstrip()
                 if n != 1: text_output = text_output.replace(" ","")
                 if cmd[3] not in text_output:
+                    self.functions.remove_files(files,"digital_signature",False,True)
                     send_error(f"invalid {cmd[2]} downloaded or unable to download")
                 outputs.append(text_output.replace("-----BEGINPUBLICKEY-----","").replace("-----ENDPUBLICKEY-----","").replace("\n",""))
 
@@ -1173,15 +1177,6 @@ class ShellHandler:
             [f" {verb} ",1,f"blue,{bg}","bold"],
             [error_line,1,"red"]
         ])
-                 
-        #clean up
-        self.log.logger.info("cleaning up digital signature check files.")
-        for cmd in cmds[1:]:
-            if path.isfile(f'/var/tmp/{cmd[0]}'):
-                remove(f'/var/tmp/{cmd[0]}')
-        for file in [f"nodecl_{node_arch}","nodectl_public"]:
-            if path.isfile(f'/var/tmp/{file}'):
-                remove(f'/var/tmp/{file}')
 
         if bg == "on_red":
             self.functions.print_paragraphs([
@@ -1195,6 +1190,7 @@ class ShellHandler:
                 "exit_if": True,
             })  
             return "revision"  
+        
         return False      
     
             

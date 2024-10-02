@@ -994,9 +994,10 @@ class Functions():
 
     def get_from_api(self,url,utype,tolerance=5):
         
+        is_json = True if utype == "json" else False
         for n in range(1,tolerance+2):
             try:
-                session = self.set_request_session(True if utype == "json" else False)
+                session = self.set_request_session(False,is_json)
                 session.timeout = 2
                 if utype == "json":
                     response = session.get(url, timeout=self.session_timeout).json()
@@ -1257,7 +1258,7 @@ class Functions():
             return_type = "dict"
         
         try:
-            session = self.set_request_session(json)
+            session = self.set_request_session(False,json)
             session.verify = False
             session.timeout = 2
             results = session.get(uri, timeout=self.session_timeout).json()
@@ -1655,13 +1656,17 @@ class Functions():
         })
         
 
-    def set_request_session(self,json=False):
+    def set_request_session(self,local_file=False,json=False):
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0"
         }
-        
+
+        if local_file and path.isfile(f"{local_file}.etag"):
+            with open(f"{local_file}.etag",'r') as etag_f:
+                get_headers['If-None-Match'] = etag_f.read().strip()
+
         if json:
             get_headers.update({
                 'Accept': 'application/json',
@@ -3859,7 +3864,7 @@ class Functions():
             cleaned_url = urlunparse((parsed_url.scheme, parsed_url.netloc, cleaned_path,
                           parsed_url.params, parsed_url.query, parsed_url.fragment))
             return cleaned_url
-        
+
 
     def confirm_action(self,command_obj):
         self.log.logger.debug("confirm action request")
@@ -3955,7 +3960,8 @@ class Functions():
                 self.print_clear_line()
                 
 
-    def remove_files(self, file_or_list, caller, is_glob=False):
+    def remove_files(self, file_or_list, caller, is_glob=False, etag=False):
+        self.log.logger.info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
         files = file_or_list
         result = True
 
@@ -3963,6 +3969,11 @@ class Functions():
             files = glob.glob(is_glob)
         elif not isinstance(file_or_list,list):
             files = [file_or_list]
+
+        if etag:
+            e_files = deepcopy(files)
+            for file in e_files:
+                files.append(f"{file}.etag")
 
         for file in files:
             try:
@@ -3984,14 +3995,23 @@ class Functions():
         url = command_obj["url"]
         local = command_obj.get("local",path.split(url)[1])
         do_raise = False
+        etag = None
         try:
-            session = self.set_request_session()
+            session = self.set_request_session(local)
             session.verify = True
-            with session.get(url,stream=True) as response:
-                response.raise_for_status()
-                with open(local,'wb') as output_file:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        output_file.write(chunk)
+            params = {'random': random.randint(10000, 20000)}
+            with session.get(url,params=params, stream=True) as response:
+                if response.status_code == 304: # file did not change
+                    self.log.logger.warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
+                else:
+                    response.raise_for_status()
+                    etag = response.headers.get("ETag")
+                    with open(local,'wb') as output_file:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            output_file.write(chunk)
+                    if etag:
+                        with open(f'{local}.etag','w') as output_file_etag:
+                            output_file_etag.write(etag)
             self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
         except HTTPError as e:
             self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
@@ -3999,6 +4019,8 @@ class Functions():
         except RequestException as e:
             self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
             do_raise = True
+        finally:
+            session.close()
 
         if do_raise:
             raise

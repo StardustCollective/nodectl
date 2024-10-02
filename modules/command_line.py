@@ -6485,12 +6485,13 @@ class CLI():
                 "newline": False,
                 "delay": 0.8,
             })
-        remove(local_path)
+
+        c_result = self.functions.remove_files(local_path,"cli_execute_directory_restructure",False,False)
         if not self.auto_restart:
             self.functions.print_cmd_status({
                 "text_start": "Clean up migration tool",
-                "status": "complete",
-                "status_color": "green",
+                "status": "complete" if c_result else "failed",
+                "status_color": "green" if c_result else "red",
                 "newline": True,
             })
         
