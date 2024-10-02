@@ -4003,14 +4003,15 @@ class Functions():
             with session.get(url,params=params, stream=True) as response:
                 if response.status_code == 304: # file did not change
                     self.log.logger.warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
-                response.raise_for_status()
-                etag = response.headers.get("ETag")
-                with open(local,'wb') as output_file:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        output_file.write(chunk)
-                if etag:
-                    with open(f'{local}.etag','w') as output_file_etag:
-                        output_file_etag.write(etag)
+                else:
+                    response.raise_for_status()
+                    etag = response.headers.get("ETag")
+                    with open(local,'wb') as output_file:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            output_file.write(chunk)
+                    if etag:
+                        with open(f'{local}.etag','w') as output_file_etag:
+                            output_file_etag.write(etag)
             self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
         except HTTPError as e:
             self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
