@@ -1058,7 +1058,7 @@ class ShellHandler:
             "delay": 0.3
         }
 
-        files = [file[0] for file in cmds]
+        files = [f"/var/tmp/{file[0]}" for file in cmds]
 
         for n, cmd in enumerate(cmds): 
             self.functions.print_cmd_status({
