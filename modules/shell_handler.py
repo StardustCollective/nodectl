@@ -212,7 +212,7 @@ class ShellHandler:
                     "called": self.called_command,
                     "command_list": self.argv
                 })
-
+            elif self.called_command in service_change_commands:
                 if not self.help_requested:            
                     if self.called_command == "start":
                         self.cli.cli_start({
