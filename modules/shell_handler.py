@@ -1180,7 +1180,7 @@ class ShellHandler:
             [error_line,1,"red"]
         ])
 
-        if bg == "on_red":
+        if bg == "on_red" and "--skip_override" not in command_list:
             self.functions.print_paragraphs([
                 ["Would you like to attempt to update the binary hash by downloading this version of nodectl over itself?",1],
             ])

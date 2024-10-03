@@ -1117,7 +1117,7 @@ else
 fi
 
 sudo nodectl update_version_object --force
-sudo nodectl verify_nodectl
+sudo nodectl verify_nodectl --skip_override
 sudo nodectl version
 echo ""
 '''
