@@ -85,6 +85,8 @@ class Menu():
                 "blank_spacer",
                 "upgrade --ni",
                 "upgrade_nodectl",
+                "blank_spacer",
+                "verify_nodectl",
                 "revision",
                 "upgrade_vps --ni",
                 "blank_spacer",

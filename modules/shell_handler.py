@@ -322,6 +322,9 @@ class ShellHandler:
                     "argv_list": self.argv,
                     "help": self.argv[0]
                 })
+                if return_value == "return_caller":
+                    return_value = False
+                    cli_iterative = False
             elif self.called_command in ssh_commands:
                 self.cli.ssh_configure({
                     "command": self.called_command,

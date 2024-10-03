@@ -7323,6 +7323,7 @@ class CLI():
         except Exception as e:
             self.log.logger.error(f"upgrade_nodectl nodectl method unable to clean up files : error [{e}]")
             
+        if "return_caller" in argv_list: return "return_caller"
         return 0 
 
     # ==========================================
