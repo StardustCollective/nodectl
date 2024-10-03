@@ -118,6 +118,7 @@ class Menu():
             "view_config",
             "view_config --basics",
             "view_config --passphrase",
+            "view_config --section global_elements",
             "blank_spacer",
             "export_private_key",
             "blank_spacer",

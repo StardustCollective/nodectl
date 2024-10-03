@@ -322,7 +322,7 @@ class ShellHandler:
                     "argv_list": self.argv,
                     "help": self.argv[0]
                 })
-                if "return_caller" in return_value:
+                if return_value and "return_caller" in return_value:
                     cli_iterative = False
                     if "mobile" in return_value:
                         cli_iterative = "mobile_revision"
@@ -1708,7 +1708,7 @@ class ShellHandler:
 
 
     def handle_exit(self,value,cli_iterative):
-        if "mobile" not in cli_iterative:
+        if not isinstance(cli_iterative, bool) and "mobile" not in cli_iterative:
             cli_iterative = "end"
         self.check_auto_restart(cli_iterative)
         if cli_iterative: return
