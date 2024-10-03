@@ -163,8 +163,13 @@ class Functions():
         # https://www.coingecko.com/api/documentation
         # curl -X 'GET' \ 'https://api.coingecko.com/api/v3/coins/list?include_platform=false' \ -H 'accept: application/json'
         # https://api.coingecko.com/api/v3/coins/list?include_platform=false
-        from .data.coingecko_coin_list import coin_gecko_db
-        return coin_gecko_db
+        try:
+            from .data.coingecko_coin_list import coin_gecko_db
+            return coin_gecko_db
+        except Exception as e:
+            self.log.logger.error(f"functions -> get_local_coin_db -> error occurerd, skipping with error [{e}]")
+            cprint("  An unknown error occured, please try again","red")
+        
 
 
     def get_crypto_price(self):
