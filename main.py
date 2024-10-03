@@ -20,11 +20,13 @@ def cli_commands(argv_list):
         
     while True:
         if return_caller:
-            if "mobile" in argv_list: 
+            if "revision" in return_caller:
+                argv_list = ["main.py","revision","return_caller"]
+                if "mobile" in return_caller: 
+                    argv_list.append("mobile")
+            elif "mobile" in argv_list: 
                 argv_list = return_caller+["mobile"]
                 return_caller = ["main.py","mobile"]
-            elif return_caller == "revision":
-                argv_list = ["main.py","revision"]
         try:
             skip_config_list = ["install","verify_nodectl","-vn","restore_config"]
             exception_list = [

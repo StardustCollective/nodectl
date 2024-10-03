@@ -198,7 +198,7 @@ class ShellHandler:
                 if self.called_command == "mobile": 
                     cli_iterative = self.called_command 
                 self.called_command, self.argv = self.cli.cli_console(self.argv)
-                if "view_config" in self.called_command:
+                if self.called_command in ["view_config","verify_nodectl"]:
                     return ['main.py',self.called_command] + self.argv
 
             if self.called_command in status_commands:
@@ -322,8 +322,10 @@ class ShellHandler:
                     "argv_list": self.argv,
                     "help": self.argv[0]
                 })
-                if return_value == "return_caller":
+                if "return_caller" in return_value:
                     cli_iterative = False
+                    if "mobile" in return_value:
+                        cli_iterative = "mobile_revision"
             elif self.called_command in ssh_commands:
                 self.cli.ssh_configure({
                     "command": self.called_command,
@@ -474,8 +476,13 @@ class ShellHandler:
         
             self.handle_exit(return_value,cli_iterative)
             if cli_iterative: 
-                self.called_command = cli_iterative
-                self.functions.print_any_key({"newline": "top"}) 
+                if cli_iterative in ["mobile_revision", "mobile_success"]:
+                    self.called_command = "mobile"
+                else:
+                    self.called_command = cli_iterative
+
+                if cli_iterative != "mobile_revision":
+                    self.functions.print_any_key({"newline": "top"})
             else:
                 break
         
@@ -1184,15 +1191,23 @@ class ShellHandler:
             self.functions.print_paragraphs([
                 ["Would you like to attempt to update the binary hash by downloading this version of nodectl over itself?",1],
             ])
-            self.functions.confirm_action({
+            if self.functions.confirm_action({
                 "yes_no_default": "n",
                 "return_on": "y",
                 "prompt_color": "magenta",
                 "prompt": "Overwrite nodectl?",
-                "exit_if": True,
-            })  
-            return "revision"  
+                "exit_if": False,
+            }):  
+                if "mobile" in command_list: return ["mobile","revision"]
+                return ["revision"]  
+            elif "mobile" in command_list: return ["mobile"]
+            else: 
+                cprint("  Terminated by user","green")
+                exit(0)
         
+        if "mobile" in command_list: 
+            self.functions.print_any_key({})
+            return ["mobile_success"]
         return False      
     
             
@@ -1693,7 +1708,7 @@ class ShellHandler:
 
 
     def handle_exit(self,value,cli_iterative):
-        if cli_iterative != "mobile":
+        if "mobile" not in cli_iterative:
             cli_iterative = "end"
         self.check_auto_restart(cli_iterative)
         if cli_iterative: return
