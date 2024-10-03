@@ -316,11 +316,19 @@ class ShellHandler:
                     "new_command": "display_snapshot_chain",
                 })
             elif self.called_command == "upgrade_nodectl" or self.called_command == "revision":
+                try:
+                    help_option = self.argv[0]
+                except:
+                    help_option = self.called_command
+
+                if self.called_command == "revision":
+                    # mobile iterative double-check
+                    self.cli.primary_command = "revision" 
                 self.set_version_obj_class()
                 return_value = self.cli.upgrade_nodectl({
                     "version_class_obj": self.version_class_obj,
                     "argv_list": self.argv,
-                    "help": self.argv[0]
+                    "help": help_option,
                 })
                 if return_value and "return_caller" in return_value:
                     cli_iterative = False
