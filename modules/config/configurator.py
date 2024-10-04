@@ -2107,6 +2107,7 @@ class Configurator():
                 "local_time_zone","begin_alert_utc","end_alert_utc","report_hour_utc"
             ]
             self.alerting_config = {item: False for item in alert_list}
+            self.alerting_config["enable"] = "True"
         else:
             self.c.functions.print_paragraphs([
                 ["Alerting was detected as:",0],[f"{self.alerting_config['enable']}",1,"yellow"],
@@ -2155,7 +2156,7 @@ class Configurator():
         description7 = "What hour in UTC 24 hour format, do you want the daily report to be sent.  Each day, nodectl till send the report "
         description7 += "only once, as soon as the configured UTC hour is reached."
 
-        if self.alerting_config["enable"] and do_edit:
+        if self.alerting_config and self.alerting_config["enable"] and do_edit:
             questions = {
                 "gmail": {
                     "question": f"  {colored('Enter a forwarding','cyan')} {colored('gmail','yellow')} {colored('account','cyan')}",
