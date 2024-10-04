@@ -2140,6 +2140,7 @@ class Configurator():
             for r in self.alerting_config["recipients"]:
                 default_recipients = default_recipients+","+r
             default_recipients = default_recipients[1:]
+            default_recipients = default_recipients.replace(" ","")
 
         description0 = "This is the gmail account that you setup with the App password and created for your App password token through."
         description1 = "This is the App password token you created during the initial gmail account setup."
@@ -2153,7 +2154,7 @@ class Configurator():
         description4 += "Constellation Network's documentation hub: https://docs.constellationnetwork.io/validate/quick-start/alerting-quickstart"
         description5 = "What hour in UTC 24 hour format, do you want alerting to start.  Enter 0 for always."
         description6 = "What hour in UTC 24 hour format, do you want alerting to end.  Enter 0 for always."
-        description7 = "What hour in UTC 24 hour format, do you want the daily report to be sent.  Each day, nodectl till send the report "
+        description7 = "What hour in UTC 24 hour format, do you want the daily report to be sent.  Each day, nodectl will send the report "
         description7 += "only once, as soon as the configured UTC hour is reached."
 
         if self.alerting_config and self.alerting_config["enable"] and do_edit:
