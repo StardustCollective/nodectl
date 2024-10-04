@@ -10,8 +10,7 @@ global debug
 debug = False
 
 def cli_commands(argv_list):
-    current_shell = False
-    return_caller = False
+    current_shell, return_caller = False, False
 
     try:
         _ = argv_list[1]
@@ -20,11 +19,18 @@ def cli_commands(argv_list):
         
     while True:
         if return_caller:
-            if "revision" in return_caller:
-                argv_list = ["main.py","revision","return_caller"]
-                if "mobile" in return_caller: 
-                    argv_list.append("mobile")
-            elif "mobile" in argv_list: 
+            poss_cmds = ["revision","configure"]
+            found_mobile = True if "mobile" in argv_list else False
+            for cmd in poss_cmds:
+                if cmd in return_caller:
+                    if "revision" in return_caller:
+                        argv_list = ["main.py","revision","return_caller"]
+                    elif "configure" in return_caller:
+                        argv_list = return_caller+["return_caller"]
+                    if "mobile" in return_caller: 
+                        argv_list.append("mobile")
+                        found_mobile = False
+            if found_mobile or "mobile" in argv_list: 
                 argv_list = return_caller+["mobile"]
                 return_caller = ["main.py","mobile"]
         try:
@@ -39,7 +45,8 @@ def cli_commands(argv_list):
             
             if argv_list[1] in exception_list:
                 if argv_list[1] == "configure":
-                    Configurator(argv_list)
+                    argv_list = Configurator(argv_list)
+                    if argv_list.mobile: argv_list = ["main.py","mobile"]
                 elif argv_list[1] in skip_config_list:
                     current_shell = ShellHandler({
                         "config_obj": {"global_elements":{"caller": argv_list[1]}},

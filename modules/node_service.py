@@ -503,7 +503,7 @@ class Node():
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "subprocess_run_check_text" if action == "stop" else "wait",
-            "timeout": 5 if action == "stop" else 180
+            "timeout": 30 if action == "stop" else 180
         })
 
         if action == "start":
@@ -1064,7 +1064,21 @@ nodectl:
     developer_mode: nodegaragedevelopermode
     log_level: nodegarageloglevel
 '''
-        
+        if var.file == "alerting":
+            cur_file = '''---
+alerting:
+  enable: True
+  gmail: 'nodegarageemail'
+  token: 'nodegaragegmailtoken'
+  send_method: 'nodegaragemethod' # 'multi' or 'single'
+  recipients:
+    - 'nodegarageemailone'
+  begin_alert_utc: nodegaragebegin  # 0-23 or 'disable'
+  end_alert_utc: nodegarageend   # 0-23 or 'disable'
+  report_hour_utc: nodegaragereport  # 0-23 or 'disable'
+  local_time_zone: 'nodeagaragelocaltimezone'            
+'''    
+    
         if var.file == "uninstall_nodectl":
             cur_file = '''#!/bin/bash
 sleep 1
@@ -1121,6 +1135,7 @@ sudo nodectl verify_nodectl --skip_override
 sudo nodectl version
 echo ""
 '''
+
             if var.upgrade_required:
                 cur_file2 = '''
 echo "  ${blue}This version of nodectl requires a nodectl_only upgrade be performed"

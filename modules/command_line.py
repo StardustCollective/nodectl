@@ -1901,7 +1901,7 @@ class CLI():
                 if "Unexpected failure" in line: color = "red"
                 if "CannotFetchSnapshot" in line: color = "yellow"
                 self.functions.print_paragraphs([
-                    ["=","half","bold","blue"],
+                    ["=","half","blue","bold"],
                     [str(line),1,color],
                 ])
         

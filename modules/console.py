@@ -112,6 +112,8 @@ class Menu():
 
     def build_general_menu(self):
         self.main_options = [
+            "configure -e -cb -d",
+            "blank_spacer",
             "reboot",
             "refresh_binaries",
             "blank_spacer",

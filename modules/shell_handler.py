@@ -198,7 +198,7 @@ class ShellHandler:
                 if self.called_command == "mobile": 
                     cli_iterative = self.called_command 
                 self.called_command, self.argv = self.cli.cli_console(self.argv)
-                if self.called_command in ["view_config","verify_nodectl"]:
+                if self.called_command in ["view_config","verify_nodectl","configure"]:
                     return ['main.py',self.called_command] + self.argv
 
             if self.called_command in status_commands:
