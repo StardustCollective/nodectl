@@ -1068,16 +1068,15 @@ class ShellHandler:
             "upper": False,
         })  
         cprint("  Please choose node type to test:","blue",attrs=["bold"])
-        # option = self.functions.print_option_menu({
-        #     "options": [
-        #         "Hybrid Dual Layer",
-        #         "Dor Validator",
-        #     ],
-        #     "let_or_num": "let",
-        #     "r_and_q": "q",
-        #     "color": "cyan",
-        # }).lower()
-        option = "d"
+        option = self.functions.print_option_menu({
+            "options": [
+                "Hybrid Dual Layer",
+                "Dor Validator",
+            ],
+            "let_or_num": "let",
+            "r_and_q": "q",
+            "color": "cyan",
+        }).lower()
 
         try:
             debian = True
