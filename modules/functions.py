@@ -1674,9 +1674,9 @@ class Functions():
             "Expires": "0"
         }
 
-        if local_file and path.isfile(f"{local_file}.etag"):
-            with open(f"{local_file}.etag",'r') as etag_f:
-                get_headers['If-None-Match'] = etag_f.read().strip()
+        # if local_file and path.isfile(f"{local_file}.etag"):
+        #     with open(f"{local_file}.etag",'r') as etag_f:
+        #         get_headers['If-None-Match'] = etag_f.read().strip()
 
         if json:
             get_headers.update({
