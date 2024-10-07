@@ -1880,7 +1880,7 @@ class ShellHandler:
             cli_iterative = "end"
         self.check_auto_restart(cli_iterative)
         if cli_iterative: return
-        if value == "return_caller": exit(0)
+        if value == "return_caller": exit(0) # don't display
         exit(value)
         
         
