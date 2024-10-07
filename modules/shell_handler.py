@@ -1078,6 +1078,11 @@ class ShellHandler:
             "color": "cyan",
         }).lower()
 
+        node_type = "Hybrid"
+        if option == "d":
+            node_type = "Dor"
+
+
         try:
             debian = True
             if specs["distributor_id"] == "Ubuntu":
@@ -1146,6 +1151,9 @@ class ShellHandler:
             specs = {key: value for key, value in specs.items() if 'layer0' not in key}
 
         passed = True
+        self.functions.print_paragraphs([
+            ["Node type:",0], [node_type,1,"yellow"],
+        ])
         for item, value in possible_issues.items():
             p_item = item
             if "layer0" in item: p_item = item.replace("layer0_","")
