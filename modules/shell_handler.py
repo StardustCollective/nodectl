@@ -135,6 +135,11 @@ class ShellHandler:
                 self.show_version()
                 exit(0)
 
+            if argv[1] == "verify_specs":
+                self.functions.auto_restart = False
+                self.verify_specs()
+                exit(0)
+
             verify_command = ["verify_nodectl","_vn","-vn"]
             if argv[1] in verify_command:
                 self.functions.auto_restart = False
@@ -1037,6 +1042,154 @@ class ShellHandler:
                 "header_elements" : header_elements
             })
             
+
+    def verify_specs(self):
+        specs = self.functions.get_distro_details()
+        info = specs["info"]
+        memory = self.functions.get_memory().total
+        disk = self.functions.get_disk().total
+        specs["cpu_count"] = specs["info"]["count"]
+
+        possible_issues = {
+            "release": False,
+            "debian": False,
+            "layer0_disk": False,
+            "layer1_disk": False,
+            "layer0_memory": False,
+            "layer1_memory": False,
+            "layer0_cpu_count": False, 
+            "layer1_cpu_count": False, 
+        }
+
+        self.functions.print_header_title({
+            "line1": "VERIFY NODECTL SPECS",
+            "line2": "Pre-installation Tool",
+            "newline": "top",
+            "upper": False,
+        })  
+        cprint("  Please choose node type to test:","blue",attrs=["bold"])
+        # option = self.functions.print_option_menu({
+        #     "options": [
+        #         "Hybrid Dual Layer",
+        #         "Dor Validator",
+        #     ],
+        #     "let_or_num": "let",
+        #     "r_and_q": "q",
+        #     "color": "cyan",
+        # }).lower()
+        option = "d"
+
+        try:
+            debian = True
+            if specs["distributor_id"] == "Ubuntu":
+                specs["debian"] = specs["distributor_id"]
+                if specs["release"] == "24.04":
+                    possible_issues["release"] = specs["release"]
+            elif specs["distributor_id"] == "Debian":
+                specs["debian"] = specs["distributor_id"]
+                if specs["release"] == "12":
+                    possible_issues["release"] = specs["release"]
+            else:
+                debian = False
+        except:
+            debian = True
+            if specs["id"] == "Ubuntu":
+                if specs["release"] == "24.04":
+                    possible_issues["release"] = specs["release"]
+            elif specs["id"] == "Debian":
+                if specs["release"] == "12":
+                    possible_issues["release"] = specs["release"]
+            else:
+                debian = False
+        if not debian:
+            possible_issues["debian"] = "Not a Debian release"
+
+        if info["bits"] != 64:
+            possible_issues["bits"] = info["bits"]
+
+        specs["layer1_cpu_count"] = info["count"]
+        if info["count"] < 4:
+            possible_issues["layer1_cpu_count"] =info["count"]
+        specs["layer0_cpu_count"] = info["count"]
+        if info["count"] < 8:
+            possible_issues["layer0_cpu_count"] =info["count"]
+
+        specs["layer1_memory"] = memory
+        if memory < 4100000000: # 4G == 4294967296
+            possible_issues["layer1_memory"] = memory
+        specs["layer0_memory"] = memory
+        if memory < 8200000000: # 8G == 8589934592
+            possible_issues["layer0_memory"] = memory
+
+        specs["layer0_disk"] = disk
+        if disk < 320000000000: # 320G = 343597383680
+            possible_issues["layer0_disk"]
+        specs["layer1_disk"] = disk
+        if disk < 83000000000: # 80G = 85899345920
+            possible_issues["layer1_disk"]
+
+        requirements = {
+            "release": "11" if specs["distributor_id"] == "Debian" else "22.04",
+            "debian": "Debian",
+            "layer0_disk": 343597383680,
+            "layer1_disk": 85899345920,
+            "layer0_memory": 8589934592,
+            "layer1_memory": 4294967296,
+            "layer0_cpu_count": 8, 
+            "layer1_cpu_count": 4,             
+        }
+
+        if option == "h":
+            possible_issues = {key: value for key, value in possible_issues.items() if 'layer1' not in key}
+            specs = {key: value for key, value in specs.items() if 'layer1' not in key}
+        else:
+            possible_issues = {key: value for key, value in possible_issues.items() if 'layer0' not in key}
+            specs = {key: value for key, value in specs.items() if 'layer0' not in key}
+
+        passed = True
+        for item, value in possible_issues.items():
+            p_item = item
+            if "layer0" in item: p_item = item.replace("layer0_","")
+            if "layer1" in item: p_item = item.replace("layer1_","")
+            if not value:
+                self.functions.print_cmd_status({
+                    "text_start": p_item,
+                    "brackets": str(specs[item]),
+                    "status": "passed",
+                    "status_color": "green",
+                    "newline": True,
+                    "delay": 0.8,
+                })
+            else:
+                passed = False
+                self.functions.print_cmd_status({
+                    "text_start": p_item,
+                    "brackets": str(specs[item]),
+                    "status": "failed",
+                    "status_color": "red",
+                    "newline": True,
+                })                
+                self.functions.print_cmd_status({
+                    "text_start": p_item,
+                    "brackets": str(requirements[item]),
+                    "status": "required",
+                    "status_color": "yellow",
+                    "newline": True,
+                    "delay": 0.8,
+                })                
+        
+        if passed:
+            self.functions.print_paragraphs([
+                ["",1],[" SUCCESS ",0,"yellow,on_green","bold"],
+                ["This node meets are necessary specifications to run as a node.",2,"green"],
+            ])
+        else:
+            self.functions.print_paragraphs([
+                ["",1],[" FAILURE ",0,"yellow,on_red"],
+                ["This node",0,"red"], ["does not",0,"red","bold"],
+                ["meet the necessary specifications to run as a node.",2,"red"],
+            ])
+
 
     def digital_signature(self,command_list):
         self.log.logger.info("Attempting to verify nodectl binary against code signed signature.")

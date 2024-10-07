@@ -96,6 +96,7 @@ def pull_valid_command():
         "view_config",
         "validate_config",
         "verify_nodectl",
+        "verify_specs",
 
         "whoami",
     ]

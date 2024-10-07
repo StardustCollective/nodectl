@@ -22,7 +22,7 @@ from cryptography.fernet import Fernet
 import base64
 
 from scapy.all import TCP
-from psutil import Process, cpu_percent, virtual_memory, process_iter, AccessDenied, NoSuchProcess
+from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
@@ -170,7 +170,6 @@ class Functions():
             self.log.logger.error(f"functions -> get_local_coin_db -> error occurerd, skipping with error [{e}]")
             cprint("  An unknown error occured, please try again","red")
         
-
 
     def get_crypto_price(self):
         # The last element is used for balance calculations
@@ -1468,6 +1467,13 @@ class Functions():
         # })     
         # return versioning.get_version_obj()
 
+
+    def get_memory(self):
+        return virtual_memory()
+    
+    def get_disk(self):
+        return disk_usage('/')
+    
 
     # =============================
     # setter functions

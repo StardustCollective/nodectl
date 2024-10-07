@@ -41,7 +41,7 @@ def cli_commands(argv_list):
                 "view_config","view-config","-vc",
             ]
             exception_list += skip_config_list
-            exclude_config = ["-v","_v","version"]
+            exclude_config = ["-v","_v","version","verify_specs"]
             
             if argv_list[1] in exception_list:
                 if argv_list[1] == "configure":
