@@ -5,7 +5,7 @@
   "testnet": {
     "version": "v2.15.1",
     "upgrade": "False",
-    "current_stable": "v2.15.0"
+    "current_stable": "v2.15.1"
   },
   "mainnet": {
     "version": "v2.15.1",
