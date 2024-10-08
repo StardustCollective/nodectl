@@ -123,5 +123,7 @@ def pull_valid_command():
     
     return (valid_commands,valid_short_cuts,service_cmds,removed_cmds)
     
-
+    
+if __name__ == "__main__":
+    print("This module is not designed to be run independently, please refer to the documentation")  
     

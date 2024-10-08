@@ -158,3 +158,6 @@ def reboot_request(functions, need_reboot):
             ["reboot",0,"red","bold"],["is necessary.",1,"blue","bold"],
             ["Recommended:",0], ["sudo nodectl reboot",2,"magenta"],
         ])
+
+if __name__ == "__main__":
+    print("This module is not designed to be run independently, please refer to the documentation")  

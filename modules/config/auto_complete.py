@@ -63,3 +63,7 @@ def ac_write_file(auto_path,auto_complete_file,functions):
         "bashCommand": f"sudo -u {username} -i bash -c '. /etc/bash_completion'",
         "proc_action": "subprocess_devnull",
     })
+
+
+if __name__ == "__main__":
+    print("This module is not designed to be run independently, please refer to the documentation")   
