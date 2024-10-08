@@ -192,7 +192,6 @@ class Versioning():
             return 
         
         try:
-            raise
             with ThreadPoolExecutor() as executor:
                 # set default variables
                 self.functions.version_obj = self.version_obj
