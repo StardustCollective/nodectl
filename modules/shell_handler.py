@@ -1875,13 +1875,13 @@ class ShellHandler:
         self.version_class_obj = Versioning({"called_cmd": "setup_only"})
 
 
-    def handle_exit(self,value,cli_iterative):
-        if not isinstance(cli_iterative, bool) and "mobile" not in cli_iterative:
+    def handle_exit(self,return_value,cli_iterative):
+        if (not isinstance(cli_iterative, bool) and "mobile" not in cli_iterative) or isinstance(return_value,int):
             cli_iterative = "end"
         self.check_auto_restart(cli_iterative)
         if cli_iterative: return
-        if value == "return_caller": exit(0) # don't display
-        exit(value)
+        if return_value == "return_caller": exit(0) # don't display
+        exit(return_value)
         
         
 if __name__ == "__main__":
