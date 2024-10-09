@@ -565,14 +565,21 @@ class ShellHandler:
 
     def check_auto_restart(self,action="start"):
         # do we need to make sure auto_restart is turned off?
+
+        skip_enable_restart_commands = ["leave","stop"]
         if action == "end" or action == "mobile":
             if self.auto_restart_enabled and self.called_command != "auto_restart":
-                self.auto_restart_handler("enable",True)
+                if self.called_command in skip_enable_restart_commands:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"yellow,on_red"], [""]
+                    ])
+                else:
+                    self.auto_restart_handler("enable",True)
                 if action == "mobile": return
-                exit(0)
+                exit(0) 
                 
         kill_auto_restart_commands = [
-            "restart_only","slow_restart","-sr",
+            "restart_only","slow_restart","-sr","upgrade",
             "leave","start","stop","restart","join", 
             "nodectl_upgrade","upgrade_nodectl_testnet",
             "execute_starchiver", "display_snapshot_chain",
@@ -1885,12 +1892,7 @@ class ShellHandler:
 
 
     def handle_exit(self,return_value,cli_iterative):
-        if not self.mobile:
-            if not isinstance(cli_iterative, bool):
-                cli_iterative = "end"
-            elif isinstance(return_value,int):
-                cli_iterative = False
-        self.check_auto_restart(cli_iterative)
+        self.check_auto_restart("end")
         if cli_iterative: return
         if return_value == "return_caller": exit(0) # don't display
         exit(return_value)

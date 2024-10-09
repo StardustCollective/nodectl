@@ -1218,7 +1218,6 @@ class Upgrader():
         # process = leave, stop, start, join
         # status = True or False
         if action == "get": return self.profile_progress[profile][process]
-        
         self.profile_progress[profile][process] = status
         return
             
@@ -1297,18 +1296,30 @@ class Upgrader():
             profile,self.cli.node_service.check_for_ReadyToJoin("upgrade")
         )
         
-        color = "red"
-        state = "failed"
-        if self.get_update_core_statuses("get", "ready_to_join", profile):
-            color = "green"
-            state = "ReadyToJoin"
-        
-        self.functions.print_cmd_status({
-            **cmd_status,
-            "status": state,
-            "status_color": color,
-            "newline": True
-        })
+        for n in range(0,3):
+            color = "red"
+            state = "failed"
+            if self.get_update_core_statuses("get", "ready_to_join", profile):
+                color = "green"
+                state = "ReadyToJoin"
+            
+            self.functions.print_cmd_status({
+                **cmd_status,
+                "status": state,
+                "status_color": color,
+                "newline": True
+            })
+            if color == "red":
+                self.functions.print_timer({
+                    "p_type": "cmd",
+                    "seconds": 6,
+                    "step": -1,
+                    "phrase": "Waiting",
+                    "end_phrase": "for status change",
+                    "status": "Pausing",
+                })   
+            else:
+                break             
         
         service = self.functions.pull_profile({
             "req": "service",
