@@ -356,7 +356,6 @@ else
 fi
 
 sudo nodectl update_version_object --force
-sudo nodectl auto_restart restart
 sudo nodectl verify_nodectl --skip_override
 sudo nodectl version
 echo ""
