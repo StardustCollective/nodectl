@@ -407,12 +407,14 @@ class ShellHandler:
                     })
                 else:
                     self.auto_restart_handler(self.argv[0],True,True)
+                    exit(0)
             elif self.called_command == "service_restart":
                 if self.argv[0] == "--variable1=enable": self.argv[0] = "enable" # on-boot 
                 if self.argv[0] != "enable":
                     self.log.logger.error(f"start cli --> invalid request [{self.argv[0]}]")
                     exit(0)
                 self.auto_restart_handler("service_start",True)
+                exit(0)
             elif self.called_command == "api_server":
                 self.api_service_handler()
             elif self.called_command == "log" or self.called_command == "logs":
@@ -1729,6 +1731,7 @@ class ShellHandler:
                     "header_elements" : header_elements,
             })          
             
+            if restart_request: return "auto_restart"
             return
         
         if action == "clear_alerts":
