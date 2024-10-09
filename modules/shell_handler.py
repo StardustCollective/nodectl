@@ -56,6 +56,7 @@ class ShellHandler:
         self.auto_restart_quiet = False
         self.environment_requested = None
         self.called_command = None
+        self.mobile = False
         
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.node_service = "" #empty
@@ -201,6 +202,7 @@ class ShellHandler:
             
             if self.called_command == "console" or self.called_command == "mobile":
                 if self.called_command == "mobile": 
+                    self.mobile = True
                     cli_iterative = self.called_command 
                 self.called_command, self.argv = self.cli.cli_console(self.argv)
                 if self.called_command in ["view_config","verify_nodectl","configure"]:
@@ -1883,10 +1885,11 @@ class ShellHandler:
 
 
     def handle_exit(self,return_value,cli_iterative):
-        if not isinstance(cli_iterative, bool) and "mobile" not in cli_iterative:
-            cli_iterative = "end"
-        if isinstance(return_value,int):
-            cli_iterative = False
+        if not self.mobile:
+            if not isinstance(cli_iterative, bool):
+                cli_iterative = "end"
+            elif isinstance(return_value,int):
+                cli_iterative = False
         self.check_auto_restart(cli_iterative)
         if cli_iterative: return
         if return_value == "return_caller": exit(0) # don't display
