@@ -1879,8 +1879,10 @@ class ShellHandler:
 
 
     def handle_exit(self,return_value,cli_iterative):
-        if (not isinstance(cli_iterative, bool) and "mobile" not in cli_iterative) or isinstance(return_value,int):
+        if not isinstance(cli_iterative, bool) and "mobile" not in cli_iterative:
             cli_iterative = "end"
+        if isinstance(return_value,int):
+            cli_iterative = False
         self.check_auto_restart(cli_iterative)
         if cli_iterative: return
         if return_value == "return_caller": exit(0) # don't display
