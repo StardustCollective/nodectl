@@ -571,7 +571,9 @@ class ShellHandler:
             if self.auto_restart_enabled and self.called_command != "auto_restart":
                 if self.called_command in skip_enable_restart_commands:
                     self.functions.print_paragraphs([
-                        [" WARNING ",0,"yellow,on_red"], [""]
+                        [" WARNING ",0,"yellow,on_red"], ["The",0,"red"],
+                        [self.called_command,0,"yellow"], 
+                        ["command will not re-engage the auto_restart feature of nodectl.",1,"red"],
                     ])
                 else:
                     self.auto_restart_handler("enable",True)

@@ -3667,6 +3667,13 @@ class CLI():
                             tolerance_result = False # force last error to print
                             break
                         wfd_count += 1
+                    if state == "Offline":
+                        self.functions.print_paragraphs([
+                            ["",1],["Please start the node first.",1,"yellow,on_red"],
+                        ])
+                        result = False
+                        tolerance_result = False
+                        break
                     if state == "SessionStarted":
                         if ss_count > ss_max:
                             result = False
