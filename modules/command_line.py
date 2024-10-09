@@ -3515,6 +3515,7 @@ class CLI():
         
         defined_connection_threshold = .8
         max_timer = 300
+        offline_msg = False
         peer_count, old_peer_count, src_peer_count, increase_check = 0, 0, 0, 0
         
         gl0_link = self.functions.config_obj[called_profile]["gl0_link_enable"]
@@ -3668,9 +3669,7 @@ class CLI():
                             break
                         wfd_count += 1
                     if state == "Offline":
-                        self.functions.print_paragraphs([
-                            ["",1],["Please start the node first.",1,"yellow,on_red"],
-                        ])
+                        offline_msg = True
                         result = False
                         tolerance_result = False
                         break
@@ -3797,6 +3796,10 @@ class CLI():
                     
                     [" NOTE ",0,"grey,on_green"], ["Missing a few Nodes on the Hypergraph independent of the network, is",0,"green"],
                     ["not an issue.  There will be other Nodes leaving and joining the network; possibly, at all times.",1,"green"],
+                ])
+            if offline_msg:
+                self.functions.print_paragraphs([
+                    ["",1],[" Please start the node first. ",1,"yellow,on_red"],
                 ])
                 
         print("")
