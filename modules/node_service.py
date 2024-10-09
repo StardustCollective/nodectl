@@ -850,11 +850,8 @@ class Node():
         var.environment_name = command_obj.get("environment_name","mainnet")
         var.upgrade_required = command_obj.get("upgrade_required",False)
         var.pre_release = command_obj.get("pre_release",False)
-        
+
         return create_files(self.functions,var)        
-
-        
-
     
     
 if __name__ == "__main__":

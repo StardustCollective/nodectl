@@ -23,7 +23,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.14.1"
+        nodectl_version = "v2.15.1"
         nodectl_yaml_version = "v2.1.1"
                 
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
@@ -324,7 +324,6 @@ class Versioning():
                         if not last_environment or last_environment != self.config_obj[profile]["environment"]:
                             try:
                                 version_obj["upgrade_path"] = upgrade_path["path"]
-                                version_obj[environment]["nodectl"]["latest_nodectl_version"] = upgrade_path[environment]["version"]
                                 version_obj[environment]["nodectl"]["current_stable"] = upgrade_path[environment]["current_stable"]
                                 version_obj[environment]["nodectl"]["nodectl_prerelease"] = upgrade_path["nodectl_pre_release"]
                                 version_obj[environment]["nodectl"]["nodectl_remote_config"] = upgrade_path["nodectl_config"]
@@ -439,7 +438,7 @@ class Versioning():
                     "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
                     "remote_yaml_version": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
                     f"{environment}": {
-                        "version": self.old_version_obj[environment]["nodectl"]["latest_nodectl_version"],
+                        "version": self.old_version_obj["node_nodectl_version"],
                         "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],
                         "upgrade": self.old_version_obj[environment]["nodectl"]["upgrade"]
                     }
@@ -514,7 +513,7 @@ class Versioning():
             "node_upgrade_path_yaml_version",
         ]    
         nodectl_keys = [
-            "latest_nodectl_version","nodectl_prerelease","nodectl_remote_config",
+            "current_stable","nodectl_prerelease","nodectl_remote_config",
             "upgrade","nodectl_uptodate"
         ]
         tess_keys = [

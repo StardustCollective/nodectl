@@ -220,6 +220,7 @@ class Configuration():
                 "config_obj": self.config_obj,
                 "print_messages": False,
                 "called_cmd": called_cmd,
+                "force": True if any(item in self.argv_list for item in ["-f","--force"]) else False
             })
         self.functions.version_obj = self.versioning.get_version_obj()
         self.functions.set_statics()

@@ -2846,7 +2846,7 @@ class CLI():
                     "text_start": "A new version of",
                     "brackets": "nodectl",
                     "text_end": "was detected",
-                    "status": self.version_obj[env]['nodectl']['latest_nodectl_version'],
+                    "status": self.version_obj[env]['nodectl']['current_stable'],
                     "status_color": "yellow",
                     "newline": True,
                 })
@@ -7121,7 +7121,6 @@ class CLI():
             version_obj = self.functions.handle_missing_version(command_obj["version_class_obj"])
             version_obj = version_obj[environment_name]
 
-
         if self.primary_command == "revision":
             custom_version = self.version_obj["node_nodectl_version"]
             self.functions.print_paragraphs([
@@ -7160,7 +7159,12 @@ class CLI():
         self.functions.print_clear_line()
 
         def print_prerelease():
-            if version_obj["nodectl"]["nodectl_prerelease"]:
+            if version_obj["nodectl"]["nodectl_prerelease"] == 'Unknown':
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"yellow,on_red"], ["This version may not be valid, or could not be found, cancelling update.",1,"red","bold"],
+                ])   
+                exit(0)             
+            elif version_obj["nodectl"]["nodectl_prerelease"]:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
@@ -7177,9 +7181,9 @@ class CLI():
                     })
                 self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
 
-        latest_nodectl = version_obj["nodectl"]["latest_nodectl_version"]
+        latest_nodectl = version_obj["nodectl"]["current_stable"]
         node_nodectl_version = self.version_obj['node_nodectl_version']
-        
+
         if nodectl_uptodate and nodectl_uptodate != "current_less" and not custom_version:
             self.log.logger.error(f"Upgrade nodectl to new version request not needed {node_nodectl_version}.")
             up_to_date = "is already up to date..."
@@ -7198,10 +7202,14 @@ class CLI():
             self.functions.print_paragraphs([
                 [" WARNING ",0,"yellow,on_red"], ["You are about to upgrade nodectl.",1,"green","bold"],
                 ["You are currently on:",0], [environment_name.upper(),1,"yellow"],
-                ["  current version:",0], [node_nodectl_version,1,"yellow"],
-                ["available version:",0], [latest_nodectl,1,"yellow"],
-                ["   latest release:",0], [self.version_obj["upgrade_path"][0],1,"yellow"],
+                ["      current version:",0], [node_nodectl_version,1,"yellow"],
+                ["latest stable version:",0], [latest_nodectl,1,"yellow"],
+                ["    last upgrade path:",0], [self.version_obj["upgrade_path"][0],2,"yellow"],
+
+                ["This node should be",0,"blue","bold"], ["equal to or greater than the last upgrade path",0,"yellow"], 
+                ["before attempting to update to the latest stable version.",1,"blue","bold"],
             ])
+
             if latest_nodectl != self.version_obj["node_nodectl_version"]:
                 upgrade_chosen = False
                 if node_nodectl_version == self.version_obj["upgrade_path"][0]:
@@ -7244,6 +7252,8 @@ class CLI():
                         return 0
                     elif int(option) == 2:
                         upgrade_chosen = latest_nodectl
+            elif not upgrade_chosen:
+                upgrade_chosen = latest_nodectl
                 
         self.functions.confirm_action({
             "yes_no_default": "n",
