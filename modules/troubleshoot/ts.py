@@ -66,7 +66,7 @@ class Troubleshooter():
                         },
                         {
                             "find":"Unauthorized for request",
-                            "user_msg": "Access Permission - Unauthorized",
+                            "user_msg": "Not joined properly to the cluster and received: Access Permission - Unauthorized",
                             "error_msg": "join_error",
                             "rank": 1,
                         },

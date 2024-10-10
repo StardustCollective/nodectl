@@ -495,8 +495,8 @@ class ShellHandler:
                     "extended": self.called_command,
                 })
         
-            self.handle_exit(return_value,cli_iterative)
-            if cli_iterative: 
+            self.handle_exit(return_value)
+            if self.mobile: 
                 if cli_iterative in ["mobile_revision", "mobile_success"]:
                     self.called_command = "mobile"
                 else:
@@ -577,7 +577,7 @@ class ShellHandler:
                     ])
                 else:
                     self.auto_restart_handler("enable",True)
-                if action == "mobile": return
+                if self.mobile: return
                 exit(0) 
                 
         kill_auto_restart_commands = [
@@ -1893,9 +1893,9 @@ class ShellHandler:
         self.version_class_obj = Versioning({"called_cmd": "setup_only"})
 
 
-    def handle_exit(self,return_value,cli_iterative):
+    def handle_exit(self,return_value):
         self.check_auto_restart("end")
-        if cli_iterative: return
+        if self.mobile: return
         if return_value == "return_caller": exit(0) # don't display
         exit(return_value)
         
