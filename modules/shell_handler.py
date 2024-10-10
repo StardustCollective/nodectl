@@ -413,7 +413,8 @@ class ShellHandler:
                     })
                 else:
                     self.auto_restart_handler(self.argv[0],True,True)
-                    exit(0)
+                    if not self.mobile:
+                        exit(0)
             elif self.called_command == "service_restart":
                 if self.argv[0] == "--variable1=enable": self.argv[0] = "enable" # on-boot 
                 if self.argv[0] != "enable":
