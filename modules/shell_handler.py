@@ -202,11 +202,13 @@ class ShellHandler:
             
             if self.called_command == "console" or self.called_command == "mobile":
                 if self.called_command == "mobile": 
-                    self.mobile = True
+                    self.mobile, self.cli.mobile = True, True
                     cli_iterative = self.called_command 
                 self.called_command, self.argv = self.cli.cli_console(self.argv)
                 if self.called_command in ["view_config","verify_nodectl","configure"]:
                     return ['main.py',self.called_command] + self.argv
+                else:
+                    self.check_auto_restart() # retest if auto_restart needs to be disabled
 
             if self.called_command in status_commands:
                 try: profile = self.argv[self.argv.index("-p")+1]
@@ -336,6 +338,7 @@ class ShellHandler:
                     # mobile iterative double-check
                     self.cli.primary_command = "revision" 
                 self.set_version_obj_class()
+                self.cli.mobile = True
                 return_value = self.cli.upgrade_nodectl({
                     "version_class_obj": self.version_class_obj,
                     "argv_list": self.argv,
@@ -582,10 +585,10 @@ class ShellHandler:
                 exit(0) 
                 
         kill_auto_restart_commands = [
-            "restart_only","slow_restart","-sr","upgrade",
+            "restart_only","slow_restart","-sr","_sr",
             "leave","start","stop","restart","join", 
-            "nodectl_upgrade","upgrade_nodectl_testnet",
-            "execute_starchiver", "display_snapshot_chain",
+            "upgrade_nodectl","upgrade","execute_starchiver",
+            "display_snapshot_chain",
         ]
             
         print_quiet_auto_restart = [

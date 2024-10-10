@@ -58,6 +58,7 @@ class CLI():
         self.skip_build = False
         self.check_versions_called = False
         self.invalid_version = False
+        self.mobile = False
         self.caller = "cli"
         self.version_class_obj = None
         self.current_try = 0
@@ -1271,8 +1272,12 @@ class CLI():
                 "prompt_color": "magenta",
                 "options": ["1","2","3","4","5","Q"],
                 "quit_option": "Q",
+                "mobile": self.mobile
             })
-
+            if option == "q":
+                if self.mobile: return
+                exit(0)
+                
             option_match = {
                 "1": f"{self.functions.nodectl_path}nodectl.log",
                 "2": f"/var/tessellation/{profile}/logs/app.log",
@@ -2024,12 +2029,15 @@ class CLI():
             ])
         
         if not "-y" in argv_list:
-            self.functions.confirm_action({
+            confirm = self.functions.confirm_action({
                 "yes_no_default": "n",
                 "return_on": "y",
                 "prompt": f"Are you sure you want to overwrite Tessellation {confirm_text}?",
-                "exit_if": True,
+                "exit_if": False,
             })
+            if not confirm:
+                if self.mobile: return
+                exit(0)
         
         download_obj = {"caller": caller, "action": caller}
         if "-p" in argv_list:  
@@ -7265,11 +7273,16 @@ class CLI():
             elif not upgrade_chosen:
                 upgrade_chosen = latest_nodectl
                 
-        self.functions.confirm_action({
+        confirm = self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
-            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')} {colored('?','cyan')}"
+            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')} {colored('?','cyan')}",
+            "exit_if": False,
         })
+        if not confirm:
+            if self.mobile: return
+            cprint("  Action cancelled by Node Operator.","red")
+            exit(0)
         
         self.functions.print_paragraphs([
             ["Upgrading nodectl version from",0], [f"{node_nodectl_version}",0,"yellow"], ["to",0],

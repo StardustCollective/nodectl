@@ -408,6 +408,7 @@ def auto_complete():
     local install_opts="nodegarageinstalloptions"
     local upgrade_opts="nodegarageupgradeoptions"
     local viewconfig_opts="nodegarageviewconfigoptions"
+    local autorestart_opts="nodegarageautorestartoptions"
     local displaychain_opts="nodegaragedisplaychainoptions"
     local find_opts="nodegaragefindoptions"
     local default_opts="help"
@@ -462,6 +463,14 @@ def auto_complete():
                     ;;
                 *)
                     COMPREPLY=($(compgen -W "${upgrade_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        auto_restart)
+            case "${prev}" in
+                *)
+                    COMPREPLY=($(compgen -W "${autorestart_opts}" -- ${cur}))
                     return 0
                     ;;
             esac

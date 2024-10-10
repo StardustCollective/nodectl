@@ -1116,6 +1116,7 @@ class Functions():
         quit_with_exception = command_obj.get("quit_with_exception",False)
         parent = command_obj.get("parent",False)
         display = command_obj.get("display",True)
+        mobile = command_obj.get("mobile",False)
 
         self.key_pressed = None
         if prompt == None: prompt = ""
@@ -1165,6 +1166,7 @@ class Functions():
                     parent.terminate_program = True
                     parent.clear_and_exit(False)
                 raise TerminateFunctionsException("spinner cancel")
+            if mobile: return "q"
             exit(0)
             
         try: _ = self.key_pressed.lower()  # avoid NoneType error

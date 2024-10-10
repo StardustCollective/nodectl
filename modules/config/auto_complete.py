@@ -41,6 +41,8 @@ def ac_build_script(cli,auto_path):
 
     displaychain_options = "-p --np --json_output --full_report --days, --json_output"
 
+    autorestart_options = "status enable disable alert_test send_report clear_alerts"
+
     find_options = "-s -t"
     auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
     auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)
@@ -48,6 +50,7 @@ def ac_build_script(cli,auto_path):
     auto_complete_file = auto_complete_file.replace("nodegarageviewconfigoptions",viewconfig_options)
     auto_complete_file = auto_complete_file.replace("nodegaragedisplaychainoptions",displaychain_options)
     auto_complete_file = auto_complete_file.replace("nodegaragefindoptions",find_options)
+    auto_complete_file = auto_complete_file.replace("nodegarageautorestartoptions",autorestart_options)
     auto_complete_file = auto_complete_file.replace('\\n', '\n')    
 
     return auto_complete_file
