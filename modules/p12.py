@@ -391,7 +391,14 @@ class P12Class():
                 
 
     def unlock(self):
-        bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
+        return_result = False
+        passfile = "/var/tessellation/nodectl/ncpef.13aes"
+        with open(passfile,"w") as f:
+            f.write(self.entered_p12_keyphrase)
+        chmod(passfile,0o600)
+
+        # bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
+        bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'file:{passfile}'"
         
         # check p12 against method 1
         results = self.functions.process_command({
@@ -401,52 +408,59 @@ class P12Class():
         })
         if "friendlyName" in str(results):
             self.log.logger.info("p12 file unlocked successfully - openssl")
-            return True
+            return_result = True
         
         # check p12 against method 2
-        bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
-        results = self.functions.process_command({
-            "bashCommand": bashCommand2,
-            "proc_action": "wait"
-        })
-        if "Valid from:" in str(results):
-            self.log.logger.info("p12 file unlocked successfully - keytool")
-            return True
+        if not return_result:
+            # bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
+            bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
+            results = self.functions.process_command({
+                "bashCommand": bashCommand2,
+                "proc_action": "wait"
+            })
+            if "Valid from:" in str(results):
+                self.log.logger.info("p12 file unlocked successfully - keytool")
+                return_result = True
         
-        # check p12 against method 2a
-        bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass "{self.entered_p12_keyphrase}" -storetype PKCS12'
-        results = self.functions.process_command({
-            "bashCommand": bashCommand2,
-            "proc_action": "wait"
-        })
-        if "Valid from:" in str(results):
-            self.log.logger.info("p12 file unlocked successfully - keytool")
-            return True
+        # check p12 against method 2a (add quotes)
+        # if not return_result:
+        #     # bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass "{self.entered_p12_keyphrase}" -storetype PKCS12'
+        #     bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file "{passfile}" -storetype PKCS12'
+        #     results = self.functions.process_command({
+        #         "bashCommand": bashCommand2,
+        #         "proc_action": "wait"
+        #     })
+        #     if "Valid from:" in str(results):
+        #         self.log.logger.info("p12 file unlocked successfully - keytool")
+        #         return_result = True
         
         # check p12 against method 3
-        bashCommand = "openssl version"
-        results = self.functions.process_command({
-            "bashCommand": bashCommand,
-            "proc_action": "subprocess_co", 
-            "return_error": True
-        })
-        if "OpenSSL 3" in results:        
-            bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -legacy")
+        if not return_result:
+            bashCommand = "openssl version"
             results = self.functions.process_command({
-                "bashCommand": bashCommand3,
-                "proc_action": "wait", 
+                "bashCommand": bashCommand,
+                "proc_action": "subprocess_co", 
                 "return_error": True
             })
-            if not "Invalid password" in str(results):
-                self.log.logger.info("p12 file unlocked successfully - openssl")
-                return True
-        else:
-            msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
-            msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
-            self.log.logger.warning(msg)
+            if "OpenSSL 3" in results:        
+                bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -legacy")
+                results = self.functions.process_command({
+                    "bashCommand": bashCommand3,
+                    "proc_action": "wait", 
+                    "return_error": True
+                })
+                if not "Invalid password" in str(results):
+                    self.log.logger.info("p12 file unlocked successfully - openssl")
+                    return_result = True
+            else:
+                msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
+                msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
+                self.log.logger.warning(msg)
         
-        self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
-        return False
+        remove(passfile)
+        if not return_result: 
+            self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
+        return return_result
 
       
     def set_variables(self,is_global,profile):
