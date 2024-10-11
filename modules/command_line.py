@@ -2807,7 +2807,7 @@ class CLI():
 
     def check_for_new_versions(self,command_obj):
         profile = command_obj.get("profile","default")
-        nodectl_version_check = False
+        nodectl_version_shown, nodectl_version_check = False, False
         caller = command_obj.get("caller",None)
         
         if caller in ["_sl","send_logs"]: return # send_logs command exception
@@ -2850,18 +2850,19 @@ class CLI():
                     self.invalid_version = True
                     return
             if nodectl_version_check == "current_less" and not self.check_versions_called:
-                self.functions.print_cmd_status({
-                    "text_start": "A new version of",
-                    "brackets": "nodectl",
-                    "text_end": "was detected",
-                    "status": self.version_obj[env]['nodectl']['current_stable'],
-                    "status_color": "yellow",
-                    "newline": True,
-                })
-                self.functions.print_paragraphs([
-                    ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",2,"green"]
-                ])
-
+                if not nodectl_version_shown:
+                    self.functions.print_cmd_status({
+                        "text_start": "A new version of",
+                        "brackets": "nodectl",
+                        "text_end": "was detected",
+                        "status": self.version_obj[env]['nodectl']['current_stable'],
+                        "status_color": "yellow",
+                        "newline": True,
+                    })
+                    self.functions.print_paragraphs([
+                        ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",2,"green"]
+                    ])
+                nodectl_version_shown = True
             try:
                 tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
             except:
