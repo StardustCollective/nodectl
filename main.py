@@ -33,6 +33,8 @@ def cli_commands(argv_list):
             if found_mobile or "mobile" in argv_list: 
                 argv_list = return_caller+["mobile"]
                 return_caller = ["main.py","mobile"]
+            elif "verify_nodectl" in return_caller:
+                argv_list = return_caller
         try:
             skip_config_list = ["install","verify_nodectl","-vn","restore_config"]
             exception_list = [
