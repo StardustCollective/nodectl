@@ -3487,7 +3487,7 @@ class CLI():
             "functions": self.functions,
         })
 
-        choice = console.build_root_menu()
+        choice = console.build_root_menu(self.primary_command)
         if choice == "q": exit(0)
         return choice
     

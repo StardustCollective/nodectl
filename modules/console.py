@@ -67,10 +67,10 @@ class Menu():
         return options
 
 
-    def build_root_menu(self):
+    def build_root_menu(self,cmd):
         while True:
             self.functions.print_header_title({
-                "line1": "CONSOLE MENU",
+                "line1": f"{cmd.upper()} MENU",
                 "single_line": True,
                 "newline": "both",
             })
