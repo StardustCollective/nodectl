@@ -3884,6 +3884,7 @@ class Functions():
         
         yes_no_default = command_obj.get("yes_no_default")
         return_on = command_obj.get("return_on")
+        incorrect_input = command_obj.get("incorrect_input","incorrect input")
         
         prompt = command_obj.get("prompt")
         prompt_color = command_obj.get("prompt_color","cyan")
@@ -3909,7 +3910,7 @@ class Functions():
                 break
             confirm = confirm.lower() if not strict else confirm
             if confirm not in valid_options:
-                print(colored("  incorrect input","red"))
+                print(colored(f"  {incorrect_input}","red"))
             else:
                 break
             

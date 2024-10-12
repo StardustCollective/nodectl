@@ -54,7 +54,8 @@ def start_uninstall(functions,log):
         "return_on": "CONSTELLATION",
         "strict": True,
         "prompt_color": "red",
-        "prompt": "Uninstall this Constellation Network Node?", 
+        "prompt": "Uninstall this Constellation Network Node?",
+        "incorrect_input": "incorrect input must be 'CONSTELLATION'", 
         "exit_if": True
     })
 

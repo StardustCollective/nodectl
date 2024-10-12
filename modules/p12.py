@@ -406,7 +406,7 @@ class P12Class():
         return_result = False
         passfile = self.create_pass_file()
 
-        bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'file:{passfile}'"
+        bashCommand1 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
         
         # check p12 against method 1
         results = self.functions.process_command({
@@ -440,13 +440,13 @@ class P12Class():
                 "return_error": True
             })
             if "OpenSSL 3" in results:        
-                bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -legacy")
+                bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -provider default -provider legacy")
                 results = self.functions.process_command({
                     "bashCommand": bashCommand3,
                     "proc_action": "wait", 
                     "return_error": True
                 })
-                if not "Invalid password" in str(results):
+                if not "invalid password" in str(results.lower()):
                     self.log.logger.info("p12 file unlocked successfully - openssl")
                     return_result = True
                 else:
