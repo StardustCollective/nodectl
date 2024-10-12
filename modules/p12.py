@@ -271,7 +271,7 @@ class P12Class():
                             ["signatures and authentication challenges against the cluster, including the retrieval of the public node ID,",0,"red"],
                             ["appears to be",0,"red"], ["invalid.",2,"red","bold"], 
 
-                            ["nodectl does not allow",0,"yellow"], ["$",0,"red"], [",",0,"yellow"], ["sectional signs",0,"red"],["or",0,"yellow"],["spaces",0,"red"], 
+                            ["nodectl does not allow",0,"yellow"], ["sectional signs",0,"red"],["or",0,"yellow"],["spaces",0,"red"], 
                             ["in the passphrase string.",2,"yellow"],
 
                             ["To ensure best practices, pertaining to the use of nodectl, it is recommended to change your passphrase used to unlock your p12 keystore to one that does not",0],
@@ -406,7 +406,6 @@ class P12Class():
         return_result = False
         passfile = self.create_pass_file()
 
-        # bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
         bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'file:{passfile}'"
         
         # check p12 against method 1
@@ -416,12 +415,12 @@ class P12Class():
             "return_error": True
         })
         if "friendlyName" in str(results):
-            self.log.logger.info("p12 file unlocked successfully - openssl")
+            self.log.logger.info("p12 file unlocked successfully - [openssl]")
             return_result = True
         
         # check p12 against method 2
         if not return_result:
-            # bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
+            self.log.logger.error("p12 file unlocked failed with method 1 [openssl]")
             bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
             results = self.functions.process_command({
                 "bashCommand": bashCommand2,
@@ -431,20 +430,9 @@ class P12Class():
                 self.log.logger.info("p12 file unlocked successfully - keytool")
                 return_result = True
         
-        # check p12 against method 2a (add quotes)
-        # if not return_result:
-        #     # bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass "{self.entered_p12_keyphrase}" -storetype PKCS12'
-        #     bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file "{passfile}" -storetype PKCS12'
-        #     results = self.functions.process_command({
-        #         "bashCommand": bashCommand2,
-        #         "proc_action": "wait"
-        #     })
-        #     if "Valid from:" in str(results):
-        #         self.log.logger.info("p12 file unlocked successfully - keytool")
-        #         return_result = True
-        
         # check p12 against method 3
         if not return_result:
+            self.log.logger.error("p12 file unlocked failed with method 2 [keytool]")
             bashCommand = "openssl version"
             results = self.functions.process_command({
                 "bashCommand": bashCommand,
@@ -461,9 +449,12 @@ class P12Class():
                 if not "Invalid password" in str(results):
                     self.log.logger.info("p12 file unlocked successfully - openssl")
                     return_result = True
+                else:
+                    self.log.logger.error("p12 file unlocked failed with method 3a [openssl legacy]")
             else:
                 msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
                 msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
+                self.log.logger.error("p12 file unlocked failed with all attempts.")
                 self.log.logger.warning(msg)
         
         remove(passfile)

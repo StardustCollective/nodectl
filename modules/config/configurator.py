@@ -4013,7 +4013,6 @@ class Configurator():
                             ["unable to be verified. The encryption operation was cancelled to avoid disabling nodectl's ability to validate the",0,"red"],
                             ["p12 file on this Node. You can try again or change your p12 passphrase. The passphrase should not contain:",1,"red"],
                             ["  - spaces",1,"yellow"],
-                            ["  - $ (dollar signs)",1,"yellow"],
                             ["  - single or double quotes",1,"yellow"],
                             ["  - section signs",2,"yellow"],
                             ["sudo nodectl passwd12",2],
