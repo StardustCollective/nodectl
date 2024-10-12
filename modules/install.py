@@ -1753,11 +1753,25 @@ class Installer():
             next_step = 2   
 
         self.functions.print_paragraphs([
-            [f"{next_step}",0,"magenta","bold"], [")",-1,"magenta"], ["Submit your NodeID to Constellation Admins.",1,"cyan"],
-            [f"{next_step+1}",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node.",1,"cyan"],
-            [f"{next_step+2}",0,"magenta","bold"], [")",-1,"magenta"], [f"sudo nodectl check_seedlist -p {metagraph_list[0]}",1,"cyan"],
-            [f"{next_step+3}",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",1,"cyan"],
-            [f"{next_step+4}",0,"magenta","bold"], [")",-1,"magenta"], [f"Log out and log back in with as {self.options.user} with your new {self.options.user} password.",2,"cyan"],
+            [f"{next_step}",0,"magenta","bold"], [")",-1,"magenta"], ["Submit nodeid to Constellation Discord Admins.",1,"cyan"],
+        ])     
+        if self.options.environment == "mainnet":
+            self.functions.print_paragraphs([
+                [f"{next_step+1 }",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node's wallet.",1,"cyan"],
+            ])
+        else:     
+            self.functions.print_paragraphs([
+                [f"{next_step+1}",0,"magenta","bold"], [")",-1,"magenta"], ["Update your Lattice account to provide:",1,"cyan"],
+                ["   - DAG wallet to prove collateralize requirements.",1,"cyan"],
+                [f"   - {self.options.environment} nodeid.",1,"cyan"],
+            ])
+        self.functions.print_paragraphs([
+            [f"{next_step+2}",0,"magenta","bold"], [")",-1,"magenta"], [f"Log out of the VPS.",1,"cyan"],
+            [f"{next_step+3}",0,"magenta","bold"], [")",-1,"magenta"], [f"Log in as {self.options.user}.",1,"cyan"],
+            [f"{next_step+4}",0,"magenta","bold"], [")",-1,"magenta"], ["Wait for next cluster restart.",1,"cyan"],
+            [f"{next_step+5}",0,"magenta","bold"], [")",-1,"magenta"], ["Confirm your node's status:.",1,"cyan"],
+            [f"   - Command:",0,"blue","bold"], [f"sudo nodectl check_seedlist -p {metagraph_list[0]}",1,"cyan"],
+            [f"   - Command:",0,"blue","bold"], ["sudo nodectl restart -p all",2,"cyan"],
             ["enod!",2,"white","bold"],
         ])     
 

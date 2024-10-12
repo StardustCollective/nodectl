@@ -1,3 +1,4 @@
+import uuid
 from os import environ, path, system, makedirs, getcwd, remove, chmod
 from re import match, search
 from shutil import copy2, move
@@ -5,7 +6,8 @@ from time import sleep
 from getpass import getpass
 from termcolor import colored, cprint
 from types import SimpleNamespace
-
+from uuid import uuid4
+from random import randint
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
@@ -390,12 +392,19 @@ class P12Class():
         return self.entered_p12_keyphrase
                 
 
-    def unlock(self):
-        return_result = False
-        passfile = "/var/tessellation/nodectl/ncpef.13aes"
+    def create_pass_file(self):
+        random_extension = f"{randint(12, 1300)}aes"
+        random_file = f"cnng_{uuid4()}.txt"
+        passfile = f"/var/tessellation/nodectl/{random_file}.{random_extension}"
         with open(passfile,"w") as f:
             f.write(self.entered_p12_keyphrase)
         chmod(passfile,0o600)
+        return passfile
+    
+
+    def unlock(self):
+        return_result = False
+        passfile = self.create_pass_file()
 
         # bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
         bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'file:{passfile}'"
@@ -821,12 +830,16 @@ class P12Class():
         elif self.config_obj["global_p12"]["encryption"] and not self.solo:
             p12_passwd = attempt_decrypt(profile,p12_passwd.strip())
 
+        self.entered_p12_keyphrase = p12_passwd
+        passfile = self.create_pass_file()
         for _ in range(0,2):
-            bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"
+            # bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"
+            bashCommand = f"keytool -list -v -keystore {p12_location} -storepass:file {passfile} -storetype PKCS12"
             result_str = self.functions.process_command({
                 "bashCommand": bashCommand,
                 "proc_action": "wait",
             })
+            remove(passfile)
             results = result_str.split("\n")
             if not "keytool error" in result_str:
                 break
