@@ -298,7 +298,7 @@ class Installer():
             if o_option == "override" and "--override" in self.argv_list: 
                 self.options_dict["override"] = True
                 continue
-            if o_option == "json-output" and "--json-output" in self.argv_list: 
+            if (o_option == "json-output" and "--json-output" in self.argv_list) or (o_option == "json_output" and "--json_output" in self.argv_list): 
                 self.options_dict["json_output"] = True
                 continue
             if o_option == "quiet" and "--quiet" in self.argv_list: 
@@ -306,6 +306,11 @@ class Installer():
                 self.options_dict["quiet"] = True
                 self.options_dict["confirm_install"] = True
                 continue
+            if (o_option == "p12-passphrase" and "--p12-passphrase" in self.argv_list) or (o_option == "user-password" and "--user-password" in self.argv_list):
+                value = self.argv_list[self.argv_list.index(f"--{o_option}")+1]
+                if value.startswith('"') and value.endswith('"') or (value.startswith("'") and value.endswith("'")):
+                    self.argv_list[self.argv_list.index(f"--{o_option}")+1] = self.functions.cleaner(value,"remove_surrounding")
+
             self.options_dict[o_option] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
 
         self.options_dict = { key.replace("-","_"): value for key, value in self.options_dict.items() }

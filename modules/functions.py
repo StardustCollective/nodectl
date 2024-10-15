@@ -3877,6 +3877,8 @@ class Functions():
             cleaned_url = urlunparse((parsed_url.scheme, parsed_url.netloc, cleaned_path,
                           parsed_url.params, parsed_url.query, parsed_url.fragment))
             return cleaned_url
+        elif action == "remove_surrounding": # removing first and last - used for single and doubleq quotes mostly
+            return line[1:-1]
 
 
     def confirm_action(self,command_obj):
