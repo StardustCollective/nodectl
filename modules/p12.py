@@ -124,9 +124,14 @@ class P12Class():
         
         def test_for_exist():
             p12_full_path = f"/home/{self.user.username}/tessellation/{self.p12_filename}"
+
             if path.exists(p12_full_path):
                 status = "skipped"
                 status_color = "red"
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"white,on_red"], ["existing p12 found.",1,"red"],
+                    ["p12 found:",0,"blue",'bold'],[p12_full_path,1,"yellow"],
+                ])
                 cprint("  Existing p12 file found.","red",attrs=["bold"])
                 confirm = self.functions.confirm_action({
                     "yes_no_default": "y",
@@ -152,11 +157,20 @@ class P12Class():
                     "status_color": status_color,
                     "newline": True,
                 })
-                if not confirm:
-                    self.functions.print_paragraphs([
-                      [" WARNING ",0,"white,on_red"], ["existing p12 not removed",0,"red"],
-                      ["unexpected results may ensue...",1,"red"],  
-                    ])
+
+                if confirm: return True
+
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"white,on_red"], ["existing p12 not removed",1,"red"],
+                ])
+                confirm = self.functions.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": "Continue?",
+                    "exit_if": True
+                })
+
+                return False
                 
         while True:
             cprint("  Please enter a name for your p12","magenta")
@@ -164,8 +178,7 @@ class P12Class():
             value = input(ask_question)
             if value == "" or not value:
                 self.p12_filename = default_value
-                test_for_exist()
-                break
+                if test_for_exist(): break
             else:
                 prompt_str = colored("Please confirmed that: ",'cyan')+colored(value,"yellow",attrs=['bold'])+colored(" is correct","cyan")
                 confirm = self.functions.confirm_action({

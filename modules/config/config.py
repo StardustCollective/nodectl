@@ -178,7 +178,10 @@ class Configuration():
                 })
                 self.do_validation = False
             else:
-                self.send_error("cfg-99") 
+                extra2 = None
+                if self.called_command == "create_p12":
+                    extra2 = "To create a p12 keystore, nodectl needs dependencies that require a nodectl installation first, please issue: sudo nodectl install (optionally add --quick-install option)"
+                self.send_error("cfg-99","existence_hint",extra2) 
 
         try:
             self.yaml_dict = yaml.safe_load(yaml_data)

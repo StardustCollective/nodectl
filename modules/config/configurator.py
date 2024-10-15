@@ -2231,7 +2231,7 @@ class Configurator():
 
         alerting_file = alerting_file.replace(f"enable: {data['enable']}", f"enable: {self.alerting_config['enable']}")
         alerting_file = alerting_file.replace("nodegarageemail",data["gmail"])
-        alerting_file = alerting_file.replace("nodegaragegmailtoken",data["token"])
+        alerting_file = alerting_file.replace("nodegaragegmailtoken",f"{data['token']}")
         alerting_file = alerting_file.replace("nodegaragemethod",data["send_method"])
         alerting_file = alerting_file.replace("nodegaragebegin",str(data["begin_alert_utc"]))
         alerting_file = alerting_file.replace("nodegarageend",str(data["end_alert_utc"]))
@@ -2749,6 +2749,7 @@ class Configurator():
                         self.c.functions.print_paragraphs([[description,2,"white","bold"]])
                     if v_type == "pass":
                         input_value = getpass(question)
+                        input_value = f"{input_value}"
                     else:
                         input_value = input(question)
                         if v_type == "bool":
@@ -3792,6 +3793,7 @@ class Configurator():
         try:
             enc_pass = self.c.config_obj[profile][pass_key].strip()
             enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+            enc_pass = f"{enc_pass}"
         except:
             self.log.logger.error("Unable to find passphrase in configuration file.")
             pass_error = True
@@ -3825,10 +3827,10 @@ class Configurator():
                 pass1 = getpass(f"  p12 passphrase: ")
                 pass1 = self.c.p12.keyphrase_validate({
                     "profile": "global" if profile == "global_p12" else profile,
-                    "passwd": pass1,
+                    "passwd": f"{pass1}",
                     "operation": "encryption",
                 })
-                pass3 = pass1.strip()
+                pass3 = f"{pass1.strip()}"
         
         if not self.quick_install and first_run:
             print("")
@@ -3850,7 +3852,7 @@ class Configurator():
             })    
 
         try:
-            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": default_seed})
+            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": f"{pass3}", "salt2": default_seed})
             if not hashed: raise Exception("hashing issue")
             if not enc_key: raise Exception("encryption generation issue")
         except Exception as e:
@@ -3895,7 +3897,7 @@ class Configurator():
 
         fe = fe.strip()
 
-        return fe, pass3
+        return fe, f"{pass3}"
 
 
     def passphrase_enable_disable_encryption(self,caller):
@@ -3987,6 +3989,7 @@ class Configurator():
                 for n in range(0,3):
                     fe, pass3 = self.perform_encryption(profile,encryption_obj,effp,pass3,caller)
                     if fe == "skip": break
+                    pass3 = f"{pass3}"
 
                     sleep(.8)
                     test_p = self.c.functions.get_persist_hash({
@@ -4031,14 +4034,14 @@ class Configurator():
                         **self.config_obj_apply,
                         f"{profile}": {
                             "encryption": "True",
-                            "passphrase": fe,
+                            "passphrase": f"{fe}",
                         }
                     } 
                 else:
                     self.config_obj_apply = {
                         **self.config_obj_apply,
                         f"{profile}": {
-                            "p12_passphrase": fe,
+                            "p12_passphrase": f"{fe}",
                         }
                     } 
                 if not self.quick_install:
