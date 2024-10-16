@@ -171,7 +171,8 @@ class P12Class():
                 })
 
                 return False
-                
+            return True
+            
         while True:
             cprint("  Please enter a name for your p12","magenta")
             ask_question = colored("  private key file [","magenta")+colored(default_value,"yellow",attrs=["bold"])+colored("] : ","magenta")

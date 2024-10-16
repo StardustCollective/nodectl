@@ -221,7 +221,7 @@ class Installer():
                         "return_key": True,
                     })
                     if next_step == "q": 
-                        cprint("  Installation existed by Node Operator request","green",attrs="bold")
+                        cprint("  Installation exited on Node Operator request","green",attrs=["bold"])
                         exit(0)
 
                     print("")

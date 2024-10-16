@@ -456,7 +456,8 @@ class Error_codes():
             self.log.logger.critical("password validation check failed.")
             self.functions.print_paragraphs([
                 ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
-                ["was detected?",0,"red"],
+                ["was detected?",1,"red"],
+                ["Note:",0,"yellow"], ["§ [sectional signs] are not supported by nodectl.",2,"magenta"],
             ])            
             
         elif var.line_code == "invalid_address":

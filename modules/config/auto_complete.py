@@ -41,7 +41,7 @@ def ac_build_script(cli,auto_path):
 
     displaychain_options = "-p --np --json_output --full_report --days, --json_output"
 
-    autorestart_options = "status enable disable alert_test send_report clear_alerts"
+    autorestart_options = "status enable disable alert_test send_report clear_alerts restart"
 
     find_options = "-s -t"
     auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
