@@ -1220,6 +1220,14 @@ class ShellHandler:
 
 
     def digital_signature(self,command_list):
+        if "--skip_validation" in command_list:
+            self.functions.print_paragraphs([
+                ["  WARNING ",0,"white,on_yellow"],
+                ["Digital signature verification skipped by user request",1,"red"],
+            ])
+            return
+        found_error = False
+
         self.log.logger.info("Attempting to verify nodectl binary against code signed signature.")
         self.functions.check_for_help(command_list,"verify_nodectl")
         self.functions.print_header_title({
@@ -1239,7 +1247,7 @@ class ShellHandler:
         outputs, urls = [], []
         cmds = [  # must be in this order
             [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
-            [ f'{nodectl_version_github}_{node_arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA256"],
+            [ f'{nodectl_version_github}_{node_arch}.sha256',"fetching digital signature hash","BINARY HASH",("SHA2-256","SHA256")],
             [ f"{nodectl_version_github}_{node_arch}.sig","fetching digital signature","none","none"],
         ]
                 
@@ -1294,7 +1302,15 @@ class ShellHandler:
             else:
                 text_output = Path(full_file_path).read_text().lstrip()
                 if n != 1: text_output = text_output.replace(" ","")
-                if cmd[3] not in text_output:
+                if isinstance(cmd[3],tuple):
+                    found_error = True
+                    for s in cmd[3]:
+                        if s in text_output: 
+                            found_error = False
+                            break
+                elif cmd[3] not in text_output:
+                    found_error = True
+                if found_error:
                     self.functions.remove_files(files,"digital_signature",False,True)
                     send_error(f"invalid {cmd[2]} downloaded or unable to download")
                 outputs.append(text_output.replace("-----BEGINPUBLICKEY-----","").replace("-----ENDPUBLICKEY-----","").replace("\n",""))
