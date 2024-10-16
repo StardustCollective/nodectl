@@ -479,15 +479,23 @@ class P12Class():
     def set_variables(self,is_global,profile):
         # version >= 1.11.0
         self.log.logger.info("p12 file importing variables.")
-        if is_global:
-            self.path_to_p12 = self.config_obj["global_p12"]["key_location"]
-            self.p12_filename = self.config_obj["global_p12"]["key_name"]
-        else:
-            self.path_to_p12 = self.config_obj[profile]["p12_key_location"]
-            self.p12_filename = self.config_obj[profile]["p12_key_name"]
+        try:
+            if is_global:
+                self.path_to_p12 = self.config_obj["global_p12"]["key_location"]
+                self.p12_filename = self.config_obj["global_p12"]["key_name"]
+            else:
+                self.path_to_p12 = self.config_obj[profile]["p12_key_location"]
+                self.p12_filename = self.config_obj[profile]["p12_key_name"]
 
-        if not self.path_to_p12.endswith("/"):
-            self.path_to_p12 = f"{self.path_to_p12}/"
+            if not self.path_to_p12.endswith("/"):
+                self.path_to_p12 = f"{self.path_to_p12}/"
+        except Exception as e:
+            self.log.logger.critical(f"P12Class -> set variables -> unable to scrap valid entries from configuration [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "p-494",
+                "line_code": "invalid_configuration_request",
+                "extra": "p12 location details",
+            })
         
         
     def export_private_key_from_p12(self):

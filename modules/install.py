@@ -274,7 +274,7 @@ class Installer():
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
             "--quick-install", "--normal", "--json-output",
-            "--confirm","--override","--quiet",
+            "--confirm","--override","--quiet","--skip_encryption",
         ]
         
         self.options_dict["quick_install"] = False
@@ -284,6 +284,7 @@ class Installer():
         self.options_dict["override"] = False
         self.options_dict["quiet"] = False
         self.options_dict["json_output"] = False
+        self.options_dict["skip_encryption"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
             if o_option == "quick-install" and "--quick-install" in self.argv_list: 
@@ -298,8 +299,11 @@ class Installer():
             if o_option == "override" and "--override" in self.argv_list: 
                 self.options_dict["override"] = True
                 continue
-            if (o_option == "json-output" and "--json-output" in self.argv_list) or (o_option == "json_output" and "--json_output" in self.argv_list): 
+            if (o_option == "json_output" and "--json-output" in self.argv_list) or (o_option == "json_output" and "--json_output" in self.argv_list): 
                 self.options_dict["json_output"] = True
+                continue
+            if (o_option == "skip_encryption" and "--skip-encryption" in self.argv_list) or (o_option == "skip_encryption" and "--skip_encryption" in self.argv_list): 
+                self.options_dict["skip_encryption"] = True
                 continue
             if o_option == "quiet" and "--quiet" in self.argv_list: 
                 self.log.logger.warning("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
@@ -1338,24 +1342,27 @@ class Installer():
         if self.options.quick_install:
             self.configurator.quick_install = True
             self.configurator.detailed = False
-            encrypt = True
+            encrypt = False if self.options.skip_encryption else True
         else:
-            self.functions.print_header_title({
-                "line1": "ENCRYPTION SERVICES",
-                "single_line": True,
-                "newline": "both"
-            })
-            self.functions.print_paragraphs([
-                ["Do you want to encrypt the passphrase in your",0],
-                ["cn-config.yaml",0,"yellow"], ["configuration file?",1],
-            ])
-            encrypt = self.functions.confirm_action({
-                "yes_no_default": "y",
-                "return_on": "y",
-                "prompt": "Encrypt?",
-                "prompt_color": "magenta",
-                "exit_if": False,
-            })
+            if self.options.skip_encrytpion:
+                encrypt = False
+            else:
+                self.functions.print_header_title({
+                    "line1": "ENCRYPTION SERVICES",
+                    "single_line": True,
+                    "newline": "both"
+                })
+                self.functions.print_paragraphs([
+                    ["Do you want to encrypt the passphrase in your",0],
+                    ["cn-config.yaml",0,"yellow"], ["configuration file?",1],
+                ])
+                encrypt = self.functions.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": "Encrypt?",
+                    "prompt_color": "magenta",
+                    "exit_if": False,
+                })
 
         if encrypt:
             self.encryption_performed = True
