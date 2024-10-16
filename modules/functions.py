@@ -3881,6 +3881,13 @@ class Functions():
             return line[1:-1]
 
 
+    def escape_strings(self, input_string):
+        special_chars = r'\\|\'|"|\$|&|\||>|<|;|\(|\)|\[|\]|\*|\?|~|!|#| '
+        escaped_string = sub(f"([{special_chars}])", r'\\\1', input_string)
+
+        return escaped_string
+    
+
     def confirm_action(self,command_obj):
         self.log.logger.debug("confirm action request")
         

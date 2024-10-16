@@ -561,6 +561,8 @@ class P12Class():
         env_vars = command_obj.get("env_vars",False)
         return_success = command_obj.get("return_success",False)
         ext_p12 = command_obj.get("ext_p12",False)
+        caller = command_obj.get("caller",False)
+        self.log.logger.debug(f"p12 --> config environment export requested by [{caller}]")
 
         pass1 = None
         enc = False
@@ -659,7 +661,10 @@ class P12Class():
             }
             self.functions.print_cmd_status(progress)
 
-        self.extract_export_config_env({"env_vars":True})
+        self.extract_export_config_env({
+            "env_vars":True,
+            "caller": "generate",
+        })
 
         if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
             if self.quick_install:
@@ -943,7 +948,10 @@ class P12Class():
                 self.p12_filename = path.split(p12_location)[1]
                 self.p12_password = p12_passwd
                 self.key_alias = p12_output_dict["alias"]
-                self.extract_export_config_env({"env_vars":True})
+                self.extract_export_config_env({
+                    "env_vars":True,
+                    "caller": "show_p12_details",
+                })
                 cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
                 node_id = self.functions.process_command({
                     "bashCommand": cmd,

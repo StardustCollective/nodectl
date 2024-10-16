@@ -81,7 +81,7 @@ def cli_commands(argv_list):
                     current_shell = ShellHandler({
                         "config_obj": {"global_elements":{"caller":caller}}
                     },False)
-            if current_shell:        
+            if current_shell:  
                 return_caller = current_shell.start_cli(argv_list)
                 
         except KeyboardInterrupt:

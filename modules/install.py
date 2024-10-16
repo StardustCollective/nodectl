@@ -321,7 +321,6 @@ class Installer():
         self.options_dict["environment"] = False
         self.options_dict["metagraph_name"] = False
         self.options_dict["existing_p12"] = False
-
         self.options = SimpleNamespace(**self.options_dict)
         self.handle_quiet_mode()
 
@@ -452,7 +451,6 @@ class Installer():
                 "status_color": "green",
                 "newline": True,
             })
-        
         
                 
     def handle_existing(self):
@@ -1000,7 +998,7 @@ class Installer():
             if generate and not self.options.existing_p12:
                 self.p12_session.p12_file_location, self.p12_session.p12_filename = path.split(self.options.p12_destination_path) 
                 self.p12_session.key_alias = self.options.p12_alias
-                self.p12_session.p12_password = self.options.p12_passphrase
+                self.p12_session.p12_password = f"{self.options.p12_passphrase}"
                 self.p12_session.generate()
                 self.options.existing_p12 = True
         else:
@@ -1039,7 +1037,7 @@ class Installer():
                 self.options.p12_destination_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
                 self.options.p12_destination_path = self.functions.cleaner(self.options.p12_destination_path,"double_slash")
             if not self.options.p12_passphrase:
-                self.options.p12_passphrase = self.p12_session.p12_password
+                self.options.p12_passphrase = f"{self.p12_session.p12_password}"
             if not self.options.p12_alias and not self.options.existing_p12:
                 self.options.p12_alias = self.p12_session.key_alias
        
@@ -1056,7 +1054,7 @@ class Installer():
 
         if not self.options.p12_passphrase:
             try:
-                self.options.p12_passphrase = self.p12_session.p12_password
+                self.options.p12_passphrase = f"{self.p12_session.p12_password}"
             except:
                 self.log.logger.warning("installer unable to obtain p12 passphrase, unexpected results on the installer may be presented, but may not affect the installation.")
                 
@@ -1487,7 +1485,7 @@ class Installer():
                 self.p12_session.key_alias = self.options.p12_alias
 
             if self.p12_session.p12_password == "blank" or self.p12_session.p12_password == "":
-                self.p12_session.p12_password = self.options.p12_passphrase
+                self.p12_session.p12_password = f"{self.options.p12_passphrase}"
 
             if not self.options.p12_destination_path:
                 self.options.p12_destination_path = f"{self.p12_session.p12_file_location}{self.p12_session.p12_filename}"
