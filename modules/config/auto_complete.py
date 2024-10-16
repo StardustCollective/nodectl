@@ -32,7 +32,7 @@ def ac_build_script(cli,auto_path):
     valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
 
     install_options = "--normal --quick-install --user --p12-destination-path --user-password " # make sure ends with a space
-    install_options += "--p12-passphrase --p12-migration-path --p12-alias --cluster-config --confirm --quiet" 
+    install_options += "--p12-passphrase --p12-migration-path --p12-alias --cluster-config --confirm --quiet --skip_encryption" 
     
     upgrade_options = "--ni --nodectl_only --pass -v -f"
 
