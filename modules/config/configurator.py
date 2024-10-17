@@ -926,7 +926,6 @@ class Configurator():
     
     
     def passphrase_quote_test(self,pass_line):
-        # deprecating until removal
         if "passphrase:" not in pass_line: return pass_line
         if "None" in pass_line: return pass_line
         pass_line = pass_line.split(":")

@@ -1491,7 +1491,7 @@ class Installer():
                 self.options.p12_destination_path = f"{self.p12_session.p12_file_location}{self.p12_session.p12_filename}"
 
             p12_replace_list = [
-                ("passphrase", f'"{self.p12_session.p12_password}"'),
+                ("passphrase", f"'{self.p12_session.p12_password}'"),
                 ("key_location",self.p12_session.p12_file_location),
                 ("key_name", self.p12_session.p12_filename),
                 ("key_alias",self.p12_session.key_alias),
