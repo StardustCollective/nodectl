@@ -457,7 +457,10 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
                 ["was detected?",1,"red"],
-                ["Note:",0,"yellow"], ["§ [sectional signs] are not supported by nodectl.",2,"magenta"],
+                ["Note:",0,"yellow"], ["§ [sectional signs] are not supported by nodectl.",1,"magenta"],
+                ["      Spaces are not supported.",1,"magenta"],
+                ["      Double Quotes are not supported.",1,"magenta"],
+                ["      Single Quotes are not supported.",2,"magenta"],
             ])            
             
         elif var.line_code == "invalid_address":

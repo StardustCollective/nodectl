@@ -1472,7 +1472,8 @@ class Functions():
 
     def get_memory(self):
         return virtual_memory()
-    
+
+
     def get_disk(self):
         return disk_usage('/')
     
@@ -3984,6 +3985,8 @@ class Functions():
                 
 
     def remove_files(self, file_or_list, caller, is_glob=False, etag=False):
+        # is_glob:  False is not in use; directory location if to be used
+        # etag: if etags are associated with the file to remove
         self.log.logger.info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
         files = file_or_list
         result = True

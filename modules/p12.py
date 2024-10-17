@@ -1,5 +1,5 @@
 import uuid
-from os import environ, path, system, makedirs, getcwd, remove, chmod
+from os import environ, path, system, makedirs, mkdir, getcwd, remove, chmod
 from re import match, search
 from shutil import copy2, move
 from time import sleep
@@ -37,9 +37,11 @@ class P12Class():
         self.quick_install = False
         self.p12_migration = False
         self.solo = False # part of install or solo request to create p12
+        self.secure_mount_exists = False
 
         self.error_messages = Error_codes(self.functions) 
-        
+        self.handle_pass_file(False)
+
         if "profile" in command_obj:
             self.profile = command_obj["profile"]
 
@@ -406,19 +408,39 @@ class P12Class():
         return self.entered_p12_keyphrase
                 
 
-    def create_pass_file(self):
-        random_extension = f"{randint(12, 1300)}aes"
-        random_file = f"cnng_{uuid4()}.txt"
-        passfile = f"/var/tessellation/nodectl/{random_file}.{random_extension}"
-        with open(passfile,"w") as f:
-            f.write(self.entered_p12_keyphrase)
-        chmod(passfile,0o600)
-        return passfile
-    
+    def handle_pass_file(self,create=True):
+        nodectl_secure_mount = "/mnt/nodectlsecure"
+        if create:
+            if not self.secure_mount_exists:
+                with open("/proc/mounts","r") as found_mounts:
+                    f_mount = found_mounts.read()
+                    if nodectl_secure_mount in f_mount:
+                        self.secure_mount_exists = True
+            if not self.secure_mount_exists:
+                if not path.exists(nodectl_secure_mount): #double check
+                    mkdir(nodectl_secure_mount)
+                    chmod(nodectl_secure_mount,0o700)
+                _ = self.functions.process_command({
+                    "bashCommand": f"sudo mount -t tmpfs -o size=1M,mode=0700 tmpfs {nodectl_secure_mount}",
+                    "proc_action": "subprocess_run_check_only",
+                })    
+
+            passfile = f"{nodectl_secure_mount}/{uuid4()}"
+            with open(passfile,"w") as f:
+                f.write(self.entered_p12_keyphrase)
+            chmod(passfile,0o600)
+            return passfile
+        else:
+            self.functions.remove_files(
+                None,
+                "cleanup_function",
+                f"{nodectl_secure_mount}/*", 
+            )
+
 
     def unlock(self):
         return_result = False
-        passfile = self.create_pass_file()
+        passfile = self.handle_pass_file()
 
         bashCommand1 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
         
@@ -471,7 +493,7 @@ class P12Class():
                 self.log.logger.error("p12 file unlocked failed with all attempts.")
                 self.log.logger.warning(msg)
         
-        remove(passfile)
+        self.handle_pass_file(False)
         if not return_result: 
             self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
         return return_result
@@ -849,27 +871,27 @@ class P12Class():
             p12_passwd = attempt_decrypt(profile,p12_passwd.strip())
 
         self.entered_p12_keyphrase = p12_passwd
-        passfile = self.create_pass_file()
+        passfile = self.handle_pass_file()
         for _ in range(0,2):
-            # bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"
             bashCommand = f"keytool -list -v -keystore {p12_location} -storepass:file {passfile} -storetype PKCS12"
             result_str = self.functions.process_command({
                 "bashCommand": bashCommand,
                 "proc_action": "wait",
             })
-            remove(passfile)
             results = result_str.split("\n")
             if not "keytool error" in result_str:
                 break
             try:
                 p12_passwd = attempt_decrypt(profile,p12_passwd)
             except:
+                self.handle_pass_file(False)
                 self.log.logger.critical("p12 module was unable to process this p12 file")
                 if "--installer" in command_list: raise Exception
                 self.error_messages.error_code_messages({
                     "error_code": "p-725",
                     "line_code": "invalid_passphrase",
                 })
+        self.handle_pass_file(False)
 
         if not results or results == "":
             if "--config" in command_list:
