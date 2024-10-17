@@ -1,5 +1,5 @@
 from os import system
-from sys import exit
+import sys
 from termcolor import colored, cprint
 from types import SimpleNamespace
 
@@ -859,11 +859,10 @@ class Error_codes():
         
         self.functions.print_paragraphs([
             ["If you feel this message is in error, please contact an administrator for support.",2,"blue","bold"],
-            ["TERMINATING",0,"yellow,on_red","bold"], ["nodectl",0,"yellow","bold"]                           
+            [" TERMINATING ",0,"yellow,on_red","bold"], ["nodectl",1,"yellow","bold"]                           
         ])
 
-        exit("  nodectl exiting on critical error.")  
-
+        sys.exit("  nodectl exited on critical error.")
         
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")        

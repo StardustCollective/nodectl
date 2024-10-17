@@ -1407,6 +1407,7 @@ class Functions():
                 "line_code": "system_error",
                 "extra": "encryption generation issue.",
             })
+            exit(0)
 
 
     def get_includes(self,remote=False):

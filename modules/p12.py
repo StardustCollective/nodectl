@@ -803,7 +803,7 @@ class P12Class():
             "pub_alg", "version", "value", "entry_number", "creation_date", "entry_type"
         ]
         p12_output_dict = {key: "unknown" for key in p12_values}
-        return_alias, return_pass, alias_only = False, False, False
+        passfile, return_alias, return_pass, alias_only = False, False, False, False
 
 
         def attempt_decrypt(profile,p12_passwd):
@@ -871,8 +871,10 @@ class P12Class():
             p12_passwd = attempt_decrypt(profile,p12_passwd.strip())
 
         self.entered_p12_keyphrase = p12_passwd
-        passfile = self.handle_pass_file()
         for _ in range(0,2):
+            if not path.isfile(passfile):
+                passfile = self.handle_pass_file()
+            
             bashCommand = f"keytool -list -v -keystore {p12_location} -storepass:file {passfile} -storetype PKCS12"
             result_str = self.functions.process_command({
                 "bashCommand": bashCommand,
@@ -883,14 +885,17 @@ class P12Class():
                 break
             try:
                 p12_passwd = attempt_decrypt(profile,p12_passwd)
-            except:
+                self.entered_p12_keyphrase = p12_passwd
+            except Exception as e:
                 self.handle_pass_file(False)
-                self.log.logger.critical("p12 module was unable to process this p12 file")
+                self.log.logger.critical(f"p12 module was unable to process this p12 file [{e}]")
                 if "--installer" in command_list: raise Exception
                 self.error_messages.error_code_messages({
                     "error_code": "p-725",
                     "line_code": "invalid_passphrase",
                 })
+            finally:
+                self.handle_pass_file(False)
         self.handle_pass_file(False)
 
         if not results or results == "":
@@ -972,7 +977,7 @@ class P12Class():
                 self.p12_password = p12_passwd
                 self.key_alias = p12_output_dict["alias"]
                 self.extract_export_config_env({
-                    "env_vars":True,
+                    "env_vars": True,
                     "caller": "show_p12_details",
                 })
                 cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
