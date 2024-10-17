@@ -925,6 +925,17 @@ class Configurator():
         self.preserve_pass = True  
     
     
+    def passphrase_quote_test(self,pass_line):
+        # deprecating until removal
+        if "passphrase:" not in pass_line: return pass_line
+        if "None" in pass_line: return pass_line
+        pass_line = pass_line.split(":")
+        pass_line[1] = pass_line[1].replace("\n","").strip() # remove "\n" and spaces
+        if pass_line[1].startswith("'") and pass_line[1].endswith("'"): return
+        pass_line[1] = f"'{pass_line[1]}'\n"
+        return f"{pass_line[0]}: {pass_line[1]}"
+
+
     def apply_vars_to_config(self):
         ignore_list = []
         search_dup_only = False
@@ -934,6 +945,7 @@ class Configurator():
                 search_dup_only = True
             for p_key, p_value in values.items():
                     replace_line = f"    {p_key}: {p_value}\n"
+                    replace_line = self.passphrase_quote_test(replace_line)
                     if search_dup_only: replace_line = False
                     _ , ignore_line = self.c.functions.test_or_replace_line_in_file({
                         "file_path": self.yaml_path,
@@ -948,10 +960,12 @@ class Configurator():
             search_dup_only = False
             if "global" in profile:  # key
                 for item, value in values.items():
+                    replace_line = f"    {item}: {value}\n"
+                    replace_line = self.passphrase_quote_test(replace_line)                    
                     self.c.functions.test_or_replace_line_in_file({
                         "file_path": self.yaml_path,
                         "search_line": f"    {item}:",
-                        "replace_line": f"    {item}: {value}\n",
+                        "replace_line": replace_line,
                         "skip_backup": True,
                     })
                     

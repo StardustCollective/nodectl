@@ -1916,7 +1916,9 @@ class ShellHandler:
 
 
     def handle_exit(self,return_value):
-        if return_value != "skip_auto_restart_restart":
+        if return_value == "skip_auto_restart_restart":
+            return_value = 0
+        else:
             self.check_auto_restart("end")
         if self.mobile: return
         if return_value == "return_caller": exit(0) # don't display
