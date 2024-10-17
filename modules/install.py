@@ -1342,7 +1342,7 @@ class Installer():
             self.configurator.detailed = False
             encrypt = False if self.options.skip_encryption else True
         else:
-            if self.options.skip_encrytpion:
+            if self.options.skip_encryption:
                 encrypt = False
             else:
                 self.functions.print_header_title({
