@@ -297,11 +297,12 @@ class Upgrader():
             else:
                 self.log.logger.warning(f"an attempt to upgrade with an older nodectl detected {current}")  
                 prompt_str = f"Are you sure you want to continue this upgrade?"
-                self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt": prompt_str,
-                })
+                if not "-y" in self.argv_list: 
+                    self.functions.confirm_action({
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "prompt": prompt_str,
+                    })
             self.log.logger.warning(f"upgrade executed with an older version of nodectl [{current}]") 
 
         self.functions.print_cmd_status({

@@ -7322,10 +7322,7 @@ class CLI():
             file.write(upgrade_file)
         file.close
         sleep(1)  
-        self.functions.process_command({
-            "bashCommand": "chmod +x /var/tmp/upgrade-nodectl",
-            "proc_action": "wait"
-        })  
+        chmod("/var/tmp/upgrade-nodectl",0o755)
         
         _ = self.functions.process_command({
             "bashCommand": "sudo /var/tmp/upgrade-nodectl",
@@ -7351,6 +7348,12 @@ class CLI():
         else:
             self.log.logger.info(f"Upgrade of nodectl to new version successfully completed")
         
+        return_value = False
+        if path.isfile("/var/tessellation/nodectl/cnng_upgrade_results.txt"):
+            with open("/var/tessellation/nodectl/cnng_upgrade_results.txt","r") as f:
+                return_value = f.read().strip()
+            remove("/var/tessellation/nodectl/cnng_upgrade_results.txt")
+
         try: 
             remove("/var/tmp/upgrade-nodectl")
             self.log.logger.info("upgrade_nodectl files cleaned up successfully.")
@@ -7360,7 +7363,7 @@ class CLI():
         if "return_caller" in argv_list: 
             if "mobile" in argv_list: return ["mobile","return_caller"]
             return "return_caller"
-        return 0 
+        return return_value if return_value else 0
 
     # ==========================================
     # reusable methods

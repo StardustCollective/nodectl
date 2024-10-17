@@ -371,8 +371,9 @@ read -e -p "  ${pink}Press ${yellow}Y ${pink}then ${yellow}[ENTER] ${pink}to upg
 
 if [[ ("$CHOICE" == "y" || "$CHOICE" == "Y") ]]; then
     echo "${clr}"
-    sudo nodectl upgrade --nodectl_only
+    sudo nodectl upgrade --nodectl_only -y
 fi
+echo "$CHOICE" > /var/tessellation/nodectl/cnng_upgrade_results.txt
 echo "${clr}"
 exit 0
 

@@ -348,6 +348,8 @@ class ShellHandler:
                     cli_iterative = False
                     if "mobile" in return_value:
                         cli_iterative = "mobile_revision"
+                if return_value == "y": # upgrade requested - auto_restart already restarted
+                    return_value = "skip_auto_restart_restart"
             elif self.called_command in ssh_commands:
                 self.cli.ssh_configure({
                     "command": self.called_command,
@@ -1914,7 +1916,8 @@ class ShellHandler:
 
 
     def handle_exit(self,return_value):
-        self.check_auto_restart("end")
+        if return_value != "skip_auto_restart_restart":
+            self.check_auto_restart("end")
         if self.mobile: return
         if return_value == "return_caller": exit(0) # don't display
         exit(return_value)

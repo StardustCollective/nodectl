@@ -4160,6 +4160,7 @@ class Functions():
                 self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
+        
 
         if proc_action == "subprocess_capture" or proc_action == "subprocess_rsync":
             verb = "capture" if "capture" in proc_action else "rsync"
