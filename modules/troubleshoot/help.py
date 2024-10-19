@@ -1477,6 +1477,7 @@ def build_help(functions,command_obj):
   optional:
   {colored(' -w <DAG_address>','green')}
   {colored(' -b ','green')} ( brief )
+  {colored(' --balance ','green')} ( balance only )
   {colored('-np ','green')} ( no pagination )
   {colored('--csv','green')} create csv output instead of print out
   {colored('--output <file_name>','green')} used with --csv to create

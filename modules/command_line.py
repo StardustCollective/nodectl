@@ -1064,8 +1064,8 @@ class CLI():
                     "argv_list": ["-p",profile,"-t",peer,"--port",public_port,"-l"]
                 })
                 if isinstance(nodeid,list):
-                    nodeid = "error"
-                    wallet = "error"
+                    nodeid = "UnableToReach"
+                    wallet = "UnableToReach"
                 else:
                     wallet = self.cli_nodeid2dag([nodeid, "return_only"])
                 
@@ -1100,8 +1100,8 @@ class CLI():
                 status_results = f"  {print_peer: <{spacing}}"                        
             else:
                 spacing = 23
-                if nodeid != "error": nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
-                if nodeid != "error": wallet = f"{wallet[0:8]}....{wallet[-8:]}"
+                if nodeid != "UnableToReach": nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
+                if nodeid != "UnableToReach": wallet = f"{wallet[0:8]}....{wallet[-8:]}"
                 status_results = f"  {print_peer: <{spacing}}"                      
                 status_results += f"{nodeid: <{spacing}}"                      
                 status_results += f"{wallet: <{spacing}}"        
@@ -4054,9 +4054,16 @@ class CLI():
         nodeid = ""
         ip_address = "127.0.0.1" # default
         is_global = True
+        balance_only = False
         api_port, nodeid_to_ip, target, is_self, cmd, print_out_list = False, False, False, False, False, False
-        wallet_only = True if "-w" in argv_list else False
-        title = "NODE ID" if command == "nodeid" else "DAG ADDRESS"
+        wallet_only = True if "-w" in argv_list or "--wallet" in argv_list else False
+
+        if command == "nodeid": 
+            title = "NODE ID"
+        else:
+            title = "DAG ADDRESS"
+            if "--balance" in argv_list: 
+                balance_only = True
         file, create_csv = False, False
         false_lookups = []
 
@@ -4270,7 +4277,7 @@ class CLI():
         elif not create_csv:
             self.functions.print_clear_line()
 
-        if not is_self and not wallet_only:
+        if not is_self and not wallet_only and not balance_only:
             print_out_list = [
                 {
                     "header_elements" : {
@@ -4279,17 +4286,18 @@ class CLI():
                 },
             ]
         if not skip_display:
-            if not outside_node_request and not create_csv:            
-                if not file: self.show_ip([None])
-                print_out_list = [
-                    {
-                        "header_elements" : {
-                            "P12 FILENAME": p12.p12_filename,
-                            "P12 LOCATION": p12.path_to_p12,
+            if not outside_node_request and not create_csv:
+                if not balance_only:            
+                    if not file: self.show_ip([None])
+                    print_out_list = [
+                        {
+                            "header_elements" : {
+                                "P12 FILENAME": p12.p12_filename,
+                                "P12 LOCATION": p12.path_to_p12,
+                            },
+                            "spacing": 30
                         },
-                        "spacing": 30
-                    },
-                ]
+                    ]
 
             if print_out_list:
                 for header_elements in print_out_list:
@@ -4337,7 +4345,7 @@ class CLI():
                             ]
                         ]
                 })
-            else:
+            elif not balance_only:
                 for header_elements in print_out_list:
                     self.functions.print_show_output({
                         "header_elements" : header_elements
@@ -4353,7 +4361,7 @@ class CLI():
                             "IN CONSENSUS": consensus,
                         }
                     ]
-                    if self.config_obj[profile]["layer"] > 0:
+                    if self.config_obj[profile]["layer"] > 0 or balance_only:
                         print_out_list[0].pop("IN CONSENSUS", None)
                 
                     for header_elements in print_out_list:
@@ -4361,7 +4369,7 @@ class CLI():
                             "header_elements" : header_elements
                         })  
                                     
-                if not "-b" in argv_list:
+                if not "-b" in argv_list and not balance_only:
                     total_rewards = 0
                     data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"],profile)
                     elapsed = data["elapsed_time"]

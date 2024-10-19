@@ -2827,12 +2827,15 @@ class Configurator():
     def edit_config(self):
         # self.action = "edit"
         return_option = "init"
-        
+        option = "init"
+
         while True:
             self.prepare_configuration("edit_config",True)
             self.metagraph_list = self.c.metagraph_list
             
-            if self.action == "edit_profile" or self.action == "edit_change_profile":
+            if return_option == "m":
+                option = "m"
+            elif self.action == "edit_profile" or self.action == "edit_change_profile" or option == "e":
                 option = "e"
             elif self.action == "dev_mode" or self.action == "includes_section":
                 option = "de"
@@ -2923,7 +2926,7 @@ class Configurator():
             elif option == "m":
                 self.action = False
                 self.setup()
-            if option == "q": 
+            if option == "q" or self.quit_mobile or (self.mobile and (return_option != "pe" and return_option != "m")): 
                 self.quit_configurator()
                 return # if mobile this will 
 
@@ -2966,6 +2969,8 @@ class Configurator():
             self.edit_config()
         if choice == "q": 
             self.quit_configurator()
+            if self.mobile: 
+                return "qp"
             
         self.profile_to_edit = choice
         return choice
@@ -2992,8 +2997,10 @@ class Configurator():
                 self.profile_to_edit = profile
             else:
                 profile = self.edit_profiles()
-            
-                         
+
+        if self.mobile and profile == "qp":
+            return "e"
+               
         section_change_names = [
             ("System Service",4),
             ("Directory Structure",5),
@@ -3071,13 +3078,15 @@ class Configurator():
             option_list.extend(options2)
             
             prompt = colored("  Enter an option: ","magenta",attrs=["bold"])
-            option = input(prompt)
+            option = input(prompt).lower()
         
             if option == "m": 
                 self.action = "edit"
                 return "m"
             elif option == "p": 
                 self.action = "edit_profile"
+                if self.mobile: 
+                    return "pe"
                 return "e"
             elif option == "h": 
                 self.move_config_backups()
@@ -3085,7 +3094,9 @@ class Configurator():
                 self.c.functions.config_obj["global_elements"]["metagraph_name"] = "None"
                 self.c.functions.profile_names = self.metagraph_list
                 self.c.functions.check_for_help(["help"],"configure")
-            elif option == "q": self.quit_configurator()
+            elif option == "q": 
+                self.quit_configurator()
+                if self.mobile: return
             elif option == "r":
                 self.c.view_yaml_config("migrate")
                 print_config_section()
