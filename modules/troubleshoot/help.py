@@ -421,19 +421,19 @@ def build_help(functions,command_obj):
   {colored('*','green')}   > Indicates the ip searched against
         was either the edge and source ip
   {colored('i','green')}   > Initial State
-  {colored('rj','green')}  > ReadyToJoin State
+  {colored('rtj','green')}  > ReadyToJoin State
   {colored('ss','green')}  > StartingSession State
   {colored('s','green')}   > SessionStarted State
   {colored('rd','green')}  > ReadyToDownload State
-  {colored('wd','green')}  > WaitingForDownload State
-  {colored('wr','green')}  > WaitingForReady State
-  {colored('dp','green')}  > DownloadInProgress State
+  {colored('wfd','green')}  > WaitingForDownload State
+  {colored('wfr','green')}  > WaitingForReady State
+  {colored('dip','green')}  > DownloadInProgress State
   {colored('ob','green')}  > Observing State
       > Ready
   {colored('l','green')}   > Leaving State
   {colored('o','green')}   > Offline State
-  {colored('a','green')}   > ApiNotReady State (nodectl only)
-  {colored('a','green')}   > ApiNotResponding State (nodectl only)
+  {colored('ar','green')}   > ApiNotReady State (nodectl only)
+  {colored('anr','green')}   > ApiNotResponding State (nodectl only)
 
   {colored("If Node shows False","white",attrs=['bold'])}
   ===================
@@ -847,7 +847,7 @@ def build_help(functions,command_obj):
   *   > Indicates the ip searched against
         was either the edge and source ip
   i   > Initial State
-  rj  > ReadyToJoin State
+  rtj > ReadyToJoin State
   ss  > StartingSession State
   l   > Leaving State
   s   > SessionStarted State

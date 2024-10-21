@@ -1691,8 +1691,16 @@ class CLI():
         title = "NODE P12"
         profile = self.functions.default_profile
         snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
-        create_csv = False
-        
+        target_dag_addr, create_csv = False, False
+
+        def send_error(code, line="input_error", extra=None, extra2=None):
+            self.error_messages.error_code_messages({
+                "error_code": code,
+                "line_code": line,
+                "extra": extra,
+                "extra2": extra2,
+            })   
+
         try:
             if int(snapshot_size) > 375 or int(snapshot_size) < 1:
                 self.functions.print_paragraphs([
@@ -1704,11 +1712,7 @@ class CLI():
                 cprint("  show_current_reward -s option must be in range between [10] and [375]","red",attrs=["bold"])
                 return
         except:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-826",
-                "line_code": "input_error",
-                "extra": None,
-            })            
+            send_error("cmd-825")
         
         data = self.get_and_verify_snapshots(snapshot_size, self.config_obj[profile]["environment"],profile)        
             
@@ -1727,6 +1731,16 @@ class CLI():
                 "argv_list": ["-p",profile]
             })
             search_dag_addr = self.nodeid.strip("\n")
+            search_dag_addr = self.cli_nodeid2dag([search_dag_addr,"return_only"])
+
+        if "--target" in command_list or "-t" in command_list:
+            try:
+                target_dag_addr = command_list[command_list.index("-t")+1]
+            except:
+                try:
+                    target_dag_addr = command_list[command_list.index("--target")+1]
+                except:
+                    send_error("cmd-1741","input_error","target","must be a valid DAG wallet address")
 
         if "--csv" in command_list:
             self.functions.print_cmd_status({
@@ -1740,11 +1754,8 @@ class CLI():
             if "--output" in command_list:
                 csv_file_name = command_list[command_list.index("--output")+1]
                 if "/" in csv_file_name:
-                    self.error_messages.error_code_messages({
-                        "error_code": "cmd-442",
-                        "line_code": "invalid_output_file",
-                        "extra": csv_file_name
-                    })
+                    send_error("cmd-442","invalid_output_file",csv_file_name)
+
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
                 csv_file_name = f"{prefix}-{search_dag_addr[0:8]}-{search_dag_addr[-8:]}-rewards-data.csv"
@@ -1758,10 +1769,17 @@ class CLI():
                     color = "green"; found = "TRUE"
                 else:
                     reward_amount[reward["destination"]] = reward["amount"]
-        try:
-            first = reward_amount.popitem()  
-        except:
-            first = [0,0]
+
+        if target_dag_addr:
+            for target in reward_amount.keys():
+                if target == target_dag_addr:
+                    first = [target, reward_amount[target]]
+                    break
+        else:
+            try:
+                first = reward_amount.popitem()  
+            except:
+                first = [0,0]
 
         title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"   
         
@@ -1836,6 +1854,9 @@ class CLI():
                 self.functions.print_show_output({
                     "header_elements" : header_elements,
                 })   
+
+        if target_dag_addr:
+            return
         
         do_more = False if "-np" in command_list else True
         if do_more:
@@ -2510,7 +2531,7 @@ class CLI():
         else:
             node_obj_list[0]["missed_ip_count"] = len(node_obj_list[0]["missed_ips"])
     
-        # add state labels (*,i*,rj*,ss*,l*,s*,o*)
+        # add state labels (*,i*,rtj*,ss*,l*,s*,o*)
         for s in range(0,2):
             missed_set = set()    
             ss = 1 if s == 0 else 0

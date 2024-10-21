@@ -455,20 +455,20 @@ class Functions():
         if types == "all":
             node_states = [
                 ('Initial','i*'),
-                ('ReadyToJoin','rj*'),
+                ('ReadyToJoin','rtj*'),
                 ('StartingSession','ss*'),
                 ('SessionStarted','s*'),
-                ('ReadyToDownload','rd*'),
-                ('WaitingForDownload','wd*'),
-                ('DownloadInProgress','dp*'),
+                ('ReadyToDownload','rtd*'),
+                ('WaitingForDownload','wfd*'),
+                ('DownloadInProgress','dip*'),
                 ('Observing','ob*'),
                 ('WaitingForReady','wr*'),
                 ('WaitingForObserving','wo*'),
                 ('Ready',''),
                 ('Leaving','l*'),
                 ('Offline','o*'),
-                ('ApiNotReady','a*'),
-                ('ApiNotResponding','ar*'),
+                ('ApiNotReady','ar*'),
+                ('ApiNotResponding','anr*'),
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]
@@ -485,41 +485,41 @@ class Functions():
         elif types == "not_on_network":
             node_states = [
                 ('Initial','i*'),
-                ('ReadyToJoin','rj*'),
+                ('ReadyToJoin','rtj*'),
                 ('StartingSession','ss*'),
                 ('SessionStarted','s*'),
-                ('ApiNotResponding','ar*'),
+                ('ApiNotResponding','anr*'),
                 ('Offline','o*'),
-                ('ApiNotReady','a*'),
+                ('ApiNotReady','ar*'),
             ]
         elif types == "stuck_in_states":
             node_states = [
                 ('Observing','ob*'),
-                ('WaitingForDownload','wd*'),
-                ('WaitingForReady','wr*'),
+                ('WaitingForDownload','wfd*'),
+                ('WaitingForReady','wfr*'),
                 ('SessionStarted','s*'),
             ]
         elif types == "past_dip":
             node_states = [
-                ('WaitingForObserving','wo*'),
+                ('WaitingForObserving','wfo*'),
                 ('Observing','ob*'),
-                ('WaitingForReady','wr*'),
+                ('WaitingForReady','wfr*'),
                 ('Ready',''),
             ]            
         elif types == "past_observing":
             node_states = [
-                ('WaitingForReady','wr*'),
+                ('WaitingForReady','wfr*'),
                 ('Ready',''),
             ]            
         elif types == "ready_states":
             node_states = [
-                ('ReadyToJoin','rj*'),
+                ('ReadyToJoin','rtj*'),
                 ('Ready',''),
             ]            
         elif types == "nodectl_only":
             node_states = [
-                ('ApiNotReady','a*'),
-                ('ApiNotResponding','ar*'),
+                ('ApiNotReady','ar*'),
+                ('ApiNotResponding','anr*'),
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]            
