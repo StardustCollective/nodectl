@@ -949,6 +949,7 @@ class CLI():
         sip = {}
         nodeid = csv_file_name = ""
         is_basic = create_csv = False
+        state, i_state = False, False
         
         if "--csv" in command_list:
             if not "--output" in command_list:
@@ -999,6 +1000,19 @@ class CLI():
             self.cli_find(count_args)
             return
         
+        if "--state" in command_list:
+            i_state = command_list[command_list.index("--state")+1]
+            states = self.functions.get_node_states("on_network_and_stuck")
+            state = next((s[0] for s in states if i_state == s[1].replace("*", "")), False)
+
+            if not state:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-1008",
+                    "line_code": "invalid_option",
+                    "extra": i_state,
+                    "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd",
+                })
+        
         try:
             if sip["ip"] == "self": sip["ip"] = self.functions.get_ext_ip()
         except: 
@@ -1025,8 +1039,20 @@ class CLI():
                 "line_code": "ip_not_found",
                 "extra": sip,
                 "extra2": None
-            })      
-                  
+            })     
+
+        lookup = "peer_list"
+        search_title = "all peers"
+        if i_state:
+            search_title = state
+            lookup = f"{state.lower()}"
+            
+        self.functions.print_header_title({
+            "line1": f"SHOW PEERS - {search_title}",
+            "single_line": True,
+            "newline": "both"  
+        })     
+
         print_out_list = [
             {
                 "PROFILE": profile,
@@ -1053,8 +1079,8 @@ class CLI():
         else:
             status_header += f"{peer_title2: <36}"
             status_header += f"{peer_title3: <36}"
-        
-        for item, peer in enumerate(peer_results["peer_list"]):
+
+        for item, peer in enumerate(peer_results[lookup]):
             public_port = peer_results["peers_publicport"][item]
             
             if not is_basic:

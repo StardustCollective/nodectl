@@ -472,16 +472,18 @@ class Functions():
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]
-        elif types == "on_network" or types== "pre_consensus":
+        elif types == "on_network" or types == "pre_consensus" or types == "on_network_and_stuck":
             node_states = [
                 ('Observing','ob*'),
-                ('WaitingForReady','wr*'),
-                ('WaitingForObserving','wo*'),
-                ('DownloadInProgress','dp*'),
+                ('WaitingForReady','wfr*'),
+                ('WaitingForObserving','wfo*'),
+                ('DownloadInProgress','dip*'),
                 ('Ready',''),
             ]
             if types == "pre_consensus":
                 node_states.pop()
+            elif types == "on_network_and_stuck":
+                node_states.append(("WaitingForDownload",'wfd*'))
         elif types == "not_on_network":
             node_states = [
                 ('Initial','i*'),

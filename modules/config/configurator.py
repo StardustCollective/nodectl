@@ -2926,7 +2926,7 @@ class Configurator():
             elif option == "m":
                 self.action = False
                 self.setup()
-            if option == "q" or self.quit_mobile or (self.mobile and (return_option != "pe" and return_option != "m")): 
+            if option == "q" or self.quit_mobile or (self.mobile and (return_option != "pe" and return_option != "m")):
                 self.quit_configurator()
                 return # if mobile this will 
 
@@ -2967,7 +2967,7 @@ class Configurator():
         if choice == "r": 
             self.action = "edit"
             self.edit_config()
-        if choice == "q": 
+        if choice == "q" or self.quit_mobile: 
             self.quit_configurator()
             if self.mobile: 
                 return "qp"
@@ -2999,7 +2999,7 @@ class Configurator():
                 profile = self.edit_profiles()
 
         if self.mobile and profile == "qp":
-            return "e"
+            return "pe"
                
         section_change_names = [
             ("System Service",4),
@@ -4914,7 +4914,7 @@ class Configurator():
         if path.isfile(self.yaml_path): 
             if path.isfile(self.yaml_path):
                 remove(self.yaml_path)
-        if requested:
+        if requested and not self.quit_mobile:
             cprint("  Configurator exited upon Node Operator request","green")
         if self.mobile: 
             self.quit_mobile = True

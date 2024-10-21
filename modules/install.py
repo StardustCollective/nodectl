@@ -805,9 +805,9 @@ class Installer():
         if not self.options.quick_install:
             print("")
             self.functions.print_header_title({
-            "line1": "SYSTEM REQUIREMENTS",
-            "single_line": True,
-            "newline": "both"  
+                "line1": "SYSTEM REQUIREMENTS",
+                "single_line": True,
+                "newline": "both"  
             })
         
         self.packages = {
