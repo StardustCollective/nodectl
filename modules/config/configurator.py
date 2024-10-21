@@ -4526,6 +4526,10 @@ class Configurator():
                     })
                     self.log.logger.warning(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
 
+        if not self.config_obj:
+            self.config_obj = deepcopy(self.c.config_obj)
+            self.config_obj["global_elements"] = self.c.yaml_dict["nodectl"]["global_elements"]
+            
         for profile in self.metagraph_list:
             self.config_obj[profile]["service"] = self.c.setup_config_vars({
                 "key": "default_service",
