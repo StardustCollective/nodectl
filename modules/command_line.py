@@ -4820,8 +4820,8 @@ class CLI():
                 "extra": "--grub, --sysctl, --all",
                 "extra2": "non-interactive requires valid options '--grub', '--sysctl', or '--all'",
             })
-            
-        handle_ipv6(action,self.log,self.functions,self.error_messages, argv_list)
+
+        handle_ipv6(action,self.log,self.functions,argv_list)
         return
 
 
