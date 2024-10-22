@@ -4799,8 +4799,6 @@ class CLI():
         self.functions.check_for_help(argv_list, "ipv6")
         self.log.logger.info("command_line -> request to handle ipv6 issued")
 
-        non_interactive = True if "--ni" in argv_list or "-ni" in argv_list else False
-
         if "status" in argv_list:
             action = "status"
         elif "enable" in argv_list:
@@ -4814,7 +4812,16 @@ class CLI():
                 "extra": "'status', 'enable' or 'disable' not found",
                 "extra2": "valid options include 'status', 'enable' and 'disable'",
             })
-        handle_ipv6(action,self.log,self.functions,non_interactive)
+        
+        if "--ni" in argv_list and not "--grub" in argv_list and not "--sysctl" in argv_list and not "--all" in argv_list:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4723",
+                "line_code": "invalid_option",
+                "extra": "--grub, --sysctl, --all",
+                "extra2": "non-interactive requires valid options '--grub', '--sysctl', or '--all'",
+            })
+            
+        handle_ipv6(action,self.log,self.functions,self.error_messages, argv_list)
         return
 
 
@@ -7300,8 +7307,8 @@ class CLI():
                     })
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], ["downgrading to a previous version of nodectl may cause",0,"red"],
-                        ["undesirable effects.",0,"red"], ["It is recommended to upgrade to a newer known version or to",0],
-                        ["reinstall a fresh copy at a lower version that suits your needs.",2]
+                        ["undesirable effects.",0,"red"], ["It is recommended to upgrade to a newer stable version or to",0],
+                        ["reinstall a fresh copy of nodectl, at a lower version that suits your needs.",2]
                     ])
                     
                     option_one = self.version_obj["upgrade_path"][0]

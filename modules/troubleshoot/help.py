@@ -2806,6 +2806,9 @@ def build_help(functions,command_obj):
 
   optional:
   {colored('--ni','green')} | non-interactive (confirm all options)
+  {colored('--sysctl','green')} | recommended method 
+  {colored('--grub','green')} | proceed with caution
+  {colored('--all','green')} | use both systctl and grub (caution)
 
   The {colored("ipv6","cyan")} command will enable or disable {colored("GRUB","cyan")} and {colored("sysctl","cyan")} IPv6 configuration files 
   to either enable or disable (depending on the option provided) the VPS’s ability 
@@ -2813,6 +2816,9 @@ def build_help(functions,command_obj):
 
   If the VPS was built without IPv6 during instantiation, this command 
   will have no effect.
+
+  {colored('CAUTION','red')} using this command as it can render your node 
+  inaccessible; recovery will need to be done through the VPS console.
   ''' 
           
     if extended == "console" or extended == "mobile":
