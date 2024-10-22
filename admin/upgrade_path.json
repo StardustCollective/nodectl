@@ -11,13 +11,13 @@
   },
   "mainnet": {
     "version": "v2.15.1",
-    "upgrade": "False",
-    "current_stable": "v2.15.0"
+    "upgrade": "True",
+    "current_stable": "v2.15.1"
   },
   "integrationnet": {
     "version": "v2.15.1",
-    "upgrade": "False",
-    "current_stable": "v2.15.0"
+    "upgrade": "True",
+    "current_stable": "v2.15.1"
   },
   "nodectl_config": "v2.1.1",
 
