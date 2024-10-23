@@ -110,6 +110,7 @@ def get_update_type(action, functions):
     })
     update_type = update_type.replace("(caution)","").replace("(recommended)","").strip()
 
+    if update_type == "both": update_type = "all"
     if update_type == "quit":
         functions.print_paragraphs([
             ["Operation cancelled by user.",1,"red"]
