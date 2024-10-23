@@ -5,19 +5,19 @@
   ],
 
   "testnet": {
-    "version": "v2.15.1",
+    "version": "v2.15.2",
     "upgrade": "True",
-    "current_stable": "v2.15.1"
+    "current_stable": "v2.15.2"
   },
   "mainnet": {
-    "version": "v2.15.1",
+    "version": "v2.15.2",
     "upgrade": "True",
-    "current_stable": "v2.15.1"
+    "current_stable": "v2.15.2"
   },
   "integrationnet": {
-    "version": "v2.15.1",
+    "version": "v2.15.2",
     "upgrade": "True",
-    "current_stable": "v2.15.1"
+    "current_stable": "v2.15.2"
   },
   "nodectl_config": "v2.1.1",
 
