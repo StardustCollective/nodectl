@@ -386,6 +386,8 @@ class ShellHandler:
                 return_value = self.cli.show_current_snapshot_proofs(self.argv)
             elif self.called_command == "check_connection" or self.called_command == "_cc":
                 self.cli.check_connection(self.argv)
+            elif self.called_command == "show_distro":
+                self.cli.show_distro_elements(self.argv)
             elif self.called_command == "display_snapshot_chain":
                 self.cli.cli_snapshot_chain(self.argv)
             elif self.called_command == "node_last_snapshot":

@@ -22,6 +22,7 @@ from cryptography.fernet import Fernet
 import base64
 
 from scapy.all import TCP
+from hurry.filesize import size, alternative
 from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
 from getpass import getuser
 from re import match, sub, compile
@@ -1758,6 +1759,10 @@ class Functions():
 
         return result, track_output, source_output
         
+    
+    def set_byte_size(self,bits):
+        return size(bits,system=alternative)
+    
     # =============================
     # pull functions
     # ============================= 

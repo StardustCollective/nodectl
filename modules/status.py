@@ -1,6 +1,5 @@
 from os import system, popen, path
 from subprocess import Popen, check_output, PIPE, run
-from hurry.filesize import size, alternative
 from sys import exit
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 from datetime import datetime
@@ -99,8 +98,8 @@ class Status():
                 _ , _ , self.process_memory = self.functions.check_cpu_memory_thresholds()
                 for key, value in self.process_memory.items():
                     if key == "thresholds": continue
-                    self.process_memory[key]["RSS"] = size(value["RSS"],system=alternative)
-                    self.process_memory[key]["VMS"] = size(value["VMS"],system=alternative)
+                    self.process_memory[key]["RSS"] = self.functions.set_byte_size(value["RSS"])
+                    self.process_memory[key]["VMS"] = self.functions.set_byte_size(value["VMS"])
                 self.memory_percent = self.process_memory["thresholds"]["mem_percent"]
                 self.cpu_percent = self.process_memory["thresholds"]["cpu_percent"]
             elif key == "uptime":
@@ -272,7 +271,7 @@ class Status():
                     dsize = 0
                     dsize = run(['du', '-sb', dirs[profile][profile_dir]], stdout=PIPE)
                     dsize = int(dsize.stdout.split()[0])
-                    dsize = size(dsize,system=alternative)
+                    dsize = self.functions.set_byte_size(dsize)
                     dir_sizes.append((profile_dir, dsize))
                     
                     self.functions.status_dots = False
