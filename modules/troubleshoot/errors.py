@@ -1,5 +1,5 @@
 from os import system
-from sys import exit
+import sys
 from termcolor import colored, cprint
 from types import SimpleNamespace
 
@@ -456,7 +456,11 @@ class Error_codes():
             self.log.logger.critical("password validation check failed.")
             self.functions.print_paragraphs([
                 ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
-                ["was detected?",0,"red"],
+                ["was detected?",1,"red"],
+                ["Note:",0,"yellow"], ["§ [sectional signs] are not supported by nodectl.",1,"magenta"],
+                ["      Spaces are not supported.",1,"magenta"],
+                ["      Double Quotes are not supported.",1,"magenta"],
+                ["      Single Quotes are not supported.",2,"magenta"],
             ])            
             
         elif var.line_code == "invalid_address":
@@ -783,7 +787,7 @@ class Error_codes():
 
         elif var.line_code == "config_error":
             self.log.logger.critical(f"unable to load configuration file, file corrupted, some values invalid, or improperly formatted [cn-config.yaml]")
-            if var.extra == "existence":
+            if var.extra == "existence" or var.extra == "existence_hint":
                 self.functions.print_paragraphs([
                     ["nodectl attempted load a non-existent",0,"red","bold"],["or",0,"yellow"],["invalid configuration!",1,"red","bold"],
                     ["Please verify that your configuration file is located in the proper directory.",2,"red"],
@@ -803,22 +807,23 @@ class Error_codes():
                     ["Please try the installation again",2,"magenta"],
                     ["If the error persists, please seek help in the official Constellation Discord server.",2,"yellow"], 
                 ])
-            if var.extra == "format" or var.extra2 == "existence":
-                self.functions.print_paragraphs([
-                    ["nodectl attempted to load an invalid configuration!",1,"red","bold"],
-                    ["Please verify that your configuration",0,"red"], ["yaml",0,"red","underline"],
-                    ["file is in the proper format.",2,"red"],
-                    
-                    ["This error may have been caused by",0,"magenta"], ["manual intervention",0, "red","underline"],
-                    ["of the configuration file. Manual editing on the configuration file should be left to advanced Administrators only.",2,"magenta"],
-                    ["The configuration file may have been corrupted due to an interruption during configuration by nodectl.",2,"magenta"],
-                    ["Alternatively, it is advised to attempt to correct issues via nodectl's configure option or use nodectl to build a new configuration.",2,"magenta"],
-                    
-                    ["Use command:",0,"yellow"], ["sudo nodectl configure",1],
-                    ["If you are attempting to configure your Node and receive this error...",1,"magenta"],
-                    ["Use command:",0,"yellow"], ["sudo nodectl upgrade",1],
-                    ["Otherwise, seek help in the Constellation Network official Discord or reinstall nodectl.",2,"magenta"],
-                ])
+            if var.extra == "format" or var.extra == "existence_hint" or var.extra2 == "existence":
+                if var.extra != "existence_hint":
+                    self.functions.print_paragraphs([
+                        ["nodectl attempted to load an invalid configuration!",1,"red","bold"],
+                        ["Please verify that your configuration",0,"red"], ["yaml",0,"red","underline"],
+                        ["file is in the proper format.",2,"red"],
+                        
+                        ["This error may have been caused by",0,"magenta"], ["manual intervention",0, "red","underline"],
+                        ["of the configuration file. Manual editing on the configuration file should be left to advanced Administrators only.",2,"magenta"],
+                        ["The configuration file may have been corrupted due to an interruption during configuration by nodectl.",2,"magenta"],
+                        ["Alternatively, it is advised to attempt to correct issues via nodectl's configure option or use nodectl to build a new configuration.",2,"magenta"],
+                        
+                        ["Use command:",0,"yellow"], ["sudo nodectl configure",1],
+                        ["If you are attempting to configure your Node and receive this error...",1,"magenta"],
+                        ["Use command:",0,"yellow"], ["sudo nodectl upgrade",1],
+                        ["Otherwise, seek help in the Constellation Network official Discord or reinstall nodectl.",2,"magenta"],
+                    ])
                 if var.extra2 != "existence":
                     self.functions.print_paragraphs([
                         ["Hint:",0], [var.extra2,1,"yellow"],
@@ -854,11 +859,10 @@ class Error_codes():
         
         self.functions.print_paragraphs([
             ["If you feel this message is in error, please contact an administrator for support.",2,"blue","bold"],
-            ["TERMINATING",0,"yellow,on_red","bold"], ["nodectl",0,"yellow","bold"]                           
+            [" TERMINATING ",0,"yellow,on_red","bold"], ["nodectl",1,"yellow","bold"]                           
         ])
 
-        exit("  nodectl exiting on critical error.")  
-
+        sys.exit("  nodectl exited on critical error.")
         
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")        

@@ -16,6 +16,8 @@ def pull_valid_command():
         "check_connection",
         "check_seedlist_participation",
         "check_tcp_ports",
+        "configure",
+        "console",
 
         "dag",
         "disable_root_ssh",
@@ -46,6 +48,7 @@ def pull_valid_command():
 
         "market",
         "migrate_datadir",
+        "mobile",
 
         "nodeid",
         "nodeid2dag",
@@ -63,11 +66,13 @@ def pull_valid_command():
         "restart",
         "restart_only",
         "restore_config",
+        "revision",
 
         "show_service_status",
         "show_service_log",
         "send_logs",
         "show_dip_error",
+        "show_distro",
         "start",
         "stop",
         "show_current_rewards",
@@ -93,6 +98,7 @@ def pull_valid_command():
         "view_config",
         "validate_config",
         "verify_nodectl",
+        "verify_specs",
 
         "whoami",
     ]
@@ -119,5 +125,7 @@ def pull_valid_command():
     
     return (valid_commands,valid_short_cuts,service_cmds,removed_cmds)
     
-
+    
+if __name__ == "__main__":
+    print("This module is not designed to be run independently, please refer to the documentation")  
     

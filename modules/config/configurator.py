@@ -62,6 +62,8 @@ class Configurator():
         self.dev_enable_disable = False
         self.requested_profile = None
         self.header_title = None
+        self.mobile = False
+        self.quit_mobile = False
         self.installer = False
         self.quick_install = False
         self.encryption_failed = True
@@ -72,6 +74,7 @@ class Configurator():
         self.detailed = "init"
         if "-a" in argv_list: self.detailed = False
         elif "-d" in argv_list: self.detailed = True
+        if "mobile" in argv_list: self.mobile = True
 
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
@@ -188,6 +191,12 @@ class Configurator():
         except:
             self.log.logger.warning("configurator -> prepare_config -> missing Hypergraph/metagraph type")
 
+        try:
+            self.alerting_config = {**self.c.config_obj["global_elements"]["alerting"]}
+        except:
+            self.log.logger.debug("configuration did not find any alerting configuration")
+            self.alerting_config = False
+
         self.c.config_obj["global_elements"] = {"caller":"config"}
         self.c.functions.log = self.log
         self.c.functions.version_obj = versioning.version_obj
@@ -296,6 +305,7 @@ class Configurator():
             elif option.lower() == "e":
                 self.is_new_config = False
                 self.edit_config()
+                if self.quit_mobile: return
                 
             option = "reset"
     
@@ -569,7 +579,20 @@ class Configurator():
         if self.action == "new":
             self.migrate.keep_pass_visible = True
 
-        
+    
+    def build_shell_obj(self):
+        try:
+            shell = ShellHandler({
+                "config_obj": self.c.config_obj
+                },False)
+        except:
+            from ..shell_handler import ShellHandler
+            shell = ShellHandler({
+                "config_obj": self.c.config_obj
+                },False)
+        return shell
+    
+
     # =====================================================
     #  BUILD METHODS
     # =====================================================
@@ -902,6 +925,16 @@ class Configurator():
         self.preserve_pass = True  
     
     
+    def passphrase_quote_test(self,pass_line):
+        if "passphrase:" not in pass_line: return pass_line
+        if "None" in pass_line: return pass_line
+        pass_line = pass_line.split(":")
+        pass_line[1] = pass_line[1].replace("\n","").strip() # remove "\n" and spaces
+        if pass_line[1].startswith("'") and pass_line[1].endswith("'"): return
+        pass_line[1] = f"'{pass_line[1]}'\n"
+        return f"{pass_line[0]}: {pass_line[1]}"
+
+
     def apply_vars_to_config(self):
         ignore_list = []
         search_dup_only = False
@@ -911,6 +944,7 @@ class Configurator():
                 search_dup_only = True
             for p_key, p_value in values.items():
                     replace_line = f"    {p_key}: {p_value}\n"
+                    replace_line = self.passphrase_quote_test(replace_line)
                     if search_dup_only: replace_line = False
                     _ , ignore_line = self.c.functions.test_or_replace_line_in_file({
                         "file_path": self.yaml_path,
@@ -925,10 +959,12 @@ class Configurator():
             search_dup_only = False
             if "global" in profile:  # key
                 for item, value in values.items():
+                    replace_line = f"    {item}: {value}\n"
+                    replace_line = self.passphrase_quote_test(replace_line)                    
                     self.c.functions.test_or_replace_line_in_file({
                         "file_path": self.yaml_path,
                         "search_line": f"    {item}:",
-                        "replace_line": f"    {item}: {value}\n",
+                        "replace_line": replace_line,
                         "skip_backup": True,
                     })
                     
@@ -2037,6 +2073,251 @@ class Configurator():
             "defaults": defaults,
             "is_global": True if profile == "global_elements" else False
         })
+        
+        
+    def manual_setup_alerting(self,profile="Global"):
+
+        self.header_title = {
+            "line1": "SETUP ALERTING",
+            "line2": "Online Alerting",
+            "show_titles": False,
+            "clear": True,
+            "newline": "both",
+        }
+
+        defaults, questions, manual = False, False, False
+        do_edit = True
+        
+        self.manual_section_header(profile,"ALERTING SETUP")
+
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1],["Setting up OR enabling alerting on your node provides added confidence that your node is properly",0,"white","bold"],
+                ["connected to the clusters. It is important to note that alerting is done directly from the node and",0,"white","bold"],
+                ["connected to the clusters. It is important to note that alerting is done directly from the node.",2,"white","bold"],
+                ["ALERTING WILL NOT DETECT IF YOUR NODE IS DISCONNECTED FROM THE INTERNET.",2,"red","bold"],
+                ["The alerting only detects cluster-related outages.",2,"white","bold"],
+                ["Additionally, the alerting module offers daily reports that provide a simple overview of your node's",0,"white","bold"],
+                ["status, delivered at a time you choose according to the setup configuration.",2,"white","bold"],
+            ])
+
+        if not self.alerting_config:
+            self.c.functions.print_paragraphs([
+                [" New Configuration Detected! ",1,"green,on_yellow"],
+                ["Or invalid configuration detected that will be overwritten.",2,"red"],
+                ["STEP ONE",1,"magenta","bold"], ["-","half","magenta"],["Please refer to the",0,"white","bold"],["Constellation Network",0,"blue","bold"],
+                ["documentation hub to follow the quick start guide to prepare your:",1,"white","bold"],
+                ["  - gmail account",1,"yellow"],
+                ["  - gmail Pass token",1,"yellow"],
+                ["  - proper timezone identification identifier",2,"yellow"],
+                ["https://docs.constellationnetwork.io/validate/quick-start/alerting-quickstart",2,"blue","bold"],
+                ["Save these values to your notes and then return to this process upon completion.",2,"white","bold"],
+            ])
+            self.c.functions.print_any_key({})
+            default_recipients = ""
+            alert_list = [
+                "gmail","token","send_method","gmail","token","recipients",
+                "local_time_zone","begin_alert_utc","end_alert_utc","report_hour_utc"
+            ]
+            self.alerting_config = {item: False for item in alert_list}
+            self.alerting_config["enable"] = "True"
+        else:
+            self.c.functions.print_paragraphs([
+                ["Alerting was detected as:",0],[f"{self.alerting_config['enable']}",1,"yellow"],
+            ])
+            if self.alerting_config["enable"]:
+                if self.c.functions.confirm_action({
+                    "prompt": "Disable alerting?",
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "exit_if": False
+                }):
+                    self.alerting_config["enable"] = False
+            else:
+                if self.c.functions.confirm_action({
+                    "prompt": "Enable alerting?",
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "exit_if": False
+                }):
+                    self.alerting_config["enable"] = True
+                if self.c.functions.confirm_action({
+                    "prompt": "Update configuration?",
+                    "yes_no_default": "n",
+                    "return_on": "n",
+                    "exit_if": False
+                }):
+                    do_edit = False
+
+            default_recipients = ""
+            for r in self.alerting_config["recipients"]:
+                default_recipients = default_recipients+","+r
+            default_recipients = default_recipients[1:]
+            default_recipients = default_recipients.replace(" ","")
+
+        description0 = "This is the gmail account that you setup with the App password and created for your App password token through."
+        description1 = "This is the App password token you created during the initial gmail account setup."
+        description2 = "'multi' (recommended) send strategy will send a single email per email address.  The 'single' send strategy will "
+        description2 += "Send a single message to all emails in the same message."
+        description3 = "What email addresses do you want the alerts and daily report sent to?  If you have multiple emails that will "
+        description3 += "receiving messages from the alerting module such as a mobile provider email and a local email, you must separate "
+        description3 += "each email by a comma. example) 'email1@gmail.com,email2@yahoo.com'."
+        description4 = "In order to make your alerts more reader friendly, nodectl will convert the default UTC time utilized by the node "
+        description4 += "into your local time zone for you. You should have retrieved this string value from the quick start guide on "
+        description4 += "Constellation Network's documentation hub: https://docs.constellationnetwork.io/validate/quick-start/alerting-quickstart"
+        description5 = "What hour in UTC 24 hour format, do you want alerting to start.  Enter 0 for always."
+        description6 = "What hour in UTC 24 hour format, do you want alerting to end.  Enter 0 for always."
+        description7 = "What hour in UTC 24 hour format, do you want the daily report to be sent.  Each day, nodectl will send the report "
+        description7 += "only once, as soon as the configured UTC hour is reached."
+
+        if self.alerting_config and self.alerting_config["enable"] and do_edit:
+            questions = {
+                "gmail": {
+                    "question": f"  {colored('Enter a forwarding','cyan')} {colored('gmail','yellow')} {colored('account','cyan')}",
+                    "description": description0,
+                    "required": False,
+                    "default": self.alerting_config["gmail"] if self.alerting_config["gmail"] else ""
+                },
+                "token": {
+                    "question": f"  {colored('Enter your gmail','cyan')} {colored('token','yellow')} {colored('App password','cyan')}",
+                    "description": description1,
+                    "required": False,
+                    "default": self.alerting_config["token"] if self.alerting_config["token"] else ""
+                },
+                "send_method": {
+                    "question": f"  {colored('Enter desired','cyan')} {colored('send','yellow')} {colored('method','cyan')}",
+                    "description": description2,
+                    "required": False,
+                    "default": self.alerting_config["send_method"] if self.alerting_config["token"] else "multi"
+                },
+                "recipients": {
+                    "question": f"  {colored('Enter','cyan')} {colored('ALL','yellow')} {colored('recipient emails separated by commas','cyan')}",
+                    "description": description3,
+                    "required": False,
+                    "default": default_recipients
+                },
+                "local_time_zone": {
+                    "question": f"  {colored('Enter your local','cyan')} {colored('timezone','yellow')} {colored('identifier','cyan')}",
+                    "description": description4,
+                    "required": False,
+                    "default": self.alerting_config["local_time_zone"] if self.alerting_config["local_time_zone"] else "UTC"
+                },
+                "begin_alert_utc": {
+                    "question": f"  {colored('What 24 hour format do you want alerts to','cyan')} {colored('begin','yellow')} {colored('alerting','cyan')}",
+                    "description": description5,
+                    "required": False,
+                    "default": self.alerting_config["begin_alert_utc"] if self.alerting_config["begin_alert_utc"] else 0
+                },
+                "end_alert_utc": {
+                    "question": f"  {colored('What 24 hour format do you want alerts to','cyan')} {colored('end','yellow')} {colored('alerting','cyan')}",
+                    "description": description6,
+                    "required": False,
+                    "default": self.alerting_config["end_alert_utc"] if self.alerting_config["end_alert_utc"] else 0
+                },
+                "report_hour_utc": {
+                    "question": f"  {colored('What 24 hour format hour would you like your daily','cyan')} {colored('report','yellow')} {colored('sent','cyan')}",
+                    "description": description7,
+                    "required": False,
+                    "default": self.alerting_config["report_hour_utc"] if self.alerting_config["report_hour_utc"] else 18
+                },
+            }    
+
+            self.manual_append_build_apply({
+                "questions": questions, 
+                "profile": profile,
+                "defaults": defaults,
+                "is_global": True,
+                "apply": False  # don't apply this will be done later
+            })
+            data = deepcopy(self.config_obj_apply["Global"])
+        else:
+            data = deepcopy(self.alerting_config)
+                
+        if self.alerting_config["enable"]: data["enable"] = "False" # opposite
+        else: data["enable"] = "True"
+
+        if not self.node_service:
+            self.prepare_node_service_obj()
+        alerting_file = self.node_service.create_files({
+            "file": "alerting",
+        })
+
+        alerting_file = alerting_file.replace(f"enable: {data['enable']}", f"enable: {self.alerting_config['enable']}")
+        alerting_file = alerting_file.replace("nodegarageemail",data["gmail"])
+        alerting_file = alerting_file.replace("nodegaragegmailtoken",f"{data['token']}")
+        alerting_file = alerting_file.replace("nodegaragemethod",data["send_method"])
+        alerting_file = alerting_file.replace("nodegaragebegin",str(data["begin_alert_utc"]))
+        alerting_file = alerting_file.replace("nodegarageend",str(data["end_alert_utc"]))
+        alerting_file = alerting_file.replace("nodegaragereport",str(data["report_hour_utc"]))
+        alerting_file = alerting_file.replace("nodeagaragelocaltimezone",data["local_time_zone"])
+
+        if isinstance(data["recipients"],str):
+            emails = data["recipients"].split(",")
+        else:
+            emails = data["recipients"]
+
+        invalid = []
+        recipient_values = ""
+        for email in emails:
+            recipient_values += f"    - \'{email}\'\n"
+            if not isinstance(email,str) or "@" not in email:
+                invalid.append(f"{email}: invalid source gmail address format detected..")
+
+        # validate requirements before continuing
+        for key,value in data.items():
+            if key == "enable":
+                if value != "True" and value != "False":
+                    invalid.append("enable is not 'True' or 'False'.")
+            if key == "gmail":
+                if not isinstance(value,str) or "@" not in value:
+                    invalid.append(f"{value}: invalid source gmail address format detected.")
+            if key == "send_method":
+                if value != "multi" and value != "single":
+                    invalid.append(f"send_method: {value}': must be 'multi' or 'single' only.")
+            if key in ["begin_alert_utc","end_alert_utc","report_hour_utc"]:
+                try:
+                    i_value = int(value)
+                    if i_value < 0 or i_value > 24:
+                        raise
+                except:
+                    invalid.append(f"{key} is not a valid integer between 0 and 24")
+
+        if len(invalid) > 0:
+            cprint("  ERRORS DETECTED","red",attrs=["bold"])
+            cprint("  ---------------","red",attrs=["bold"])
+            for error in invalid:
+                cprint(f"  {error}","red")
+            cprint("\n  ABORTING CONFIGURATION CHANGES\n","red",attrs=["bold"])
+            self.c.functions.print_any_key({})
+            return
+        
+        if not path.exists(self.c.functions.default_includes_path):
+            makedirs(self.c.functions.default_includes_path)
+
+        final_alerting_file = ""
+        for line in alerting_file.split("\n"):
+            if "    - \'" not in line: 
+                final_alerting_file += line+"\n"
+            else: 
+                final_alerting_file += recipient_values
+
+        with open(f"{self.c.functions.default_includes_path}alerting.yaml","w") as file:
+            file.write(final_alerting_file)
+
+        print("")
+        self.c.functions.print_cmd_status({
+            "text_start": "Alerting configuration built",
+            "status": "complete",
+            "newline": True,
+        })
+
+        shell = self.build_shell_obj()
+        shell.profile_names = self.metagraph_list
+        shell.auto_restart_handler("enable")
+        self.c.functions.print_paragraphs([
+            ["",1],["auto_restart service restarted to enable or disable alerting.",1],
+        ])
+        self.c.functions.print_any_key({})
 
   
     def manual_build_dirs(self,profile=False):   
@@ -2104,7 +2385,7 @@ class Configurator():
             "defaults": defaults,
             "apply": False  # don't apply this will be done later
         })
- 
+
  
     def manual_build_file_repo(self, file_repo_type, profile=False): 
         if file_repo_type == "pro_rating" and self.c.config_obj[profile]["layer"] > 0:
@@ -2481,6 +2762,7 @@ class Configurator():
                         self.c.functions.print_paragraphs([[description,2,"white","bold"]])
                     if v_type == "pass":
                         input_value = getpass(question)
+                        input_value = f"{input_value}"
                     else:
                         input_value = input(question)
                         if v_type == "bool":
@@ -2545,12 +2827,15 @@ class Configurator():
     def edit_config(self):
         # self.action = "edit"
         return_option = "init"
-        
+        option = "init"
+
         while True:
             self.prepare_configuration("edit_config",True)
             self.metagraph_list = self.c.metagraph_list
             
-            if self.action == "edit_profile" or self.action == "edit_change_profile":
+            if return_option == "m":
+                option = "m"
+            elif self.action == "edit_profile" or self.action == "edit_change_profile" or option == "e":
                 option = "e"
             elif self.action == "dev_mode" or self.action == "includes_section":
                 option = "de"
@@ -2580,7 +2865,7 @@ class Configurator():
                 })
 
                 # options = ["E","A","G","R","L","M","Q"]
-                options = ["E","G","R","L","P","M","Q","T","I"]
+                options = ["E","G","R","L","P","M","N","Q","T","I"]
                 if return_option.upper() not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
@@ -2591,6 +2876,7 @@ class Configurator():
                         ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Configuration",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
                         ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
+                        ["N",-1,"magenta","bold"], [")",-1,"magenta"], ["Setup Alerti",0,"magenta"], ["n",-1,"magenta","underline"],["g",-1,"magenta"],["",1],
                         ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
                         ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
                     ])
@@ -2636,10 +2922,13 @@ class Configurator():
             elif option == "l": self.manual_log_level()
             elif option == "i": self.manual_define_token_identifier("global_elements")
             elif option == "t": self.manual_define_token_coin("global_elements")
+            elif option == "n": self.manual_setup_alerting()
             elif option == "m":
                 self.action = False
                 self.setup()
-            if option == "q": self.quit_configurator()
+            if option == "q" or self.quit_mobile or (self.mobile and (return_option != "pe" and return_option != "m")):
+                self.quit_configurator()
+                return # if mobile this will 
 
                 
     def edit_profiles(self):
@@ -2678,8 +2967,10 @@ class Configurator():
         if choice == "r": 
             self.action = "edit"
             self.edit_config()
-        if choice == "q": 
+        if choice == "q" or self.quit_mobile: 
             self.quit_configurator()
+            if self.mobile: 
+                return "qp"
             
         self.profile_to_edit = choice
         return choice
@@ -2706,8 +2997,10 @@ class Configurator():
                 self.profile_to_edit = profile
             else:
                 profile = self.edit_profiles()
-            
-                         
+
+        if self.mobile and profile == "qp":
+            return "pe"
+               
         section_change_names = [
             ("System Service",4),
             ("Directory Structure",5),
@@ -2785,13 +3078,15 @@ class Configurator():
             option_list.extend(options2)
             
             prompt = colored("  Enter an option: ","magenta",attrs=["bold"])
-            option = input(prompt)
+            option = input(prompt).lower()
         
             if option == "m": 
                 self.action = "edit"
                 return "m"
             elif option == "p": 
                 self.action = "edit_profile"
+                if self.mobile: 
+                    return "pe"
                 return "e"
             elif option == "h": 
                 self.move_config_backups()
@@ -2799,7 +3094,9 @@ class Configurator():
                 self.c.functions.config_obj["global_elements"]["metagraph_name"] = "None"
                 self.c.functions.profile_names = self.metagraph_list
                 self.c.functions.check_for_help(["help"],"configure")
-            elif option == "q": self.quit_configurator()
+            elif option == "q": 
+                self.quit_configurator()
+                if self.mobile: return
             elif option == "r":
                 self.c.view_yaml_config("migrate")
                 print_config_section()
@@ -3069,16 +3366,7 @@ class Configurator():
                     restart_error = True
 
             if not restart_error:
-                try:
-                    shell = ShellHandler({
-                        "config_obj": self.c.config_obj
-                        },False)
-                except:
-                    from ..shell_handler import ShellHandler
-                    shell = ShellHandler({
-                        "config_obj": self.c.config_obj
-                        },False)
-
+                shell = self.build_shell_obj()
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 # auto restart
@@ -3477,16 +3765,7 @@ class Configurator():
             })
             
             if self.c.config_obj["global_auto_restart"]["auto_restart"] == True:
-                try:
-                    shell = ShellHandler({
-                        "config_obj": self.c.config_obj
-                        },False)
-                except:
-                    from ..shell_handler import ShellHandler
-                    shell = ShellHandler({
-                        "config_obj": self.c.config_obj
-                        },False)
-
+                shell = self.build_shell_obj()
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 self.c.functions.print_cmd_status({
@@ -3538,6 +3817,7 @@ class Configurator():
         try:
             enc_pass = self.c.config_obj[profile][pass_key].strip()
             enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+            enc_pass = f"{enc_pass}"
         except:
             self.log.logger.error("Unable to find passphrase in configuration file.")
             pass_error = True
@@ -3571,10 +3851,10 @@ class Configurator():
                 pass1 = getpass(f"  p12 passphrase: ")
                 pass1 = self.c.p12.keyphrase_validate({
                     "profile": "global" if profile == "global_p12" else profile,
-                    "passwd": pass1,
+                    "passwd": f"{pass1}",
                     "operation": "encryption",
                 })
-                pass3 = pass1.strip()
+                pass3 = f"{pass1.strip()}"
         
         if not self.quick_install and first_run:
             print("")
@@ -3596,7 +3876,7 @@ class Configurator():
             })    
 
         try:
-            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": default_seed})
+            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": f"{pass3}", "salt2": default_seed})
             if not hashed: raise Exception("hashing issue")
             if not enc_key: raise Exception("encryption generation issue")
         except Exception as e:
@@ -3641,7 +3921,7 @@ class Configurator():
 
         fe = fe.strip()
 
-        return fe, pass3
+        return fe, f"{pass3}"
 
 
     def passphrase_enable_disable_encryption(self,caller):
@@ -3733,6 +4013,7 @@ class Configurator():
                 for n in range(0,3):
                     fe, pass3 = self.perform_encryption(profile,encryption_obj,effp,pass3,caller)
                     if fe == "skip": break
+                    pass3 = f"{pass3}"
 
                     sleep(.8)
                     test_p = self.c.functions.get_persist_hash({
@@ -3759,7 +4040,6 @@ class Configurator():
                             ["unable to be verified. The encryption operation was cancelled to avoid disabling nodectl's ability to validate the",0,"red"],
                             ["p12 file on this Node. You can try again or change your p12 passphrase. The passphrase should not contain:",1,"red"],
                             ["  - spaces",1,"yellow"],
-                            ["  - $ (dollar signs)",1,"yellow"],
                             ["  - single or double quotes",1,"yellow"],
                             ["  - section signs",2,"yellow"],
                             ["sudo nodectl passwd12",2],
@@ -3778,14 +4058,14 @@ class Configurator():
                         **self.config_obj_apply,
                         f"{profile}": {
                             "encryption": "True",
-                            "passphrase": fe,
+                            "passphrase": f"{fe}",
                         }
                     } 
                 else:
                     self.config_obj_apply = {
                         **self.config_obj_apply,
                         f"{profile}": {
-                            "p12_passphrase": fe,
+                            "p12_passphrase": f"{fe}",
                         }
                     } 
                 if not self.quick_install:
@@ -4246,6 +4526,10 @@ class Configurator():
                     })
                     self.log.logger.warning(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
 
+        if not self.config_obj:
+            self.config_obj = deepcopy(self.c.config_obj)
+            self.config_obj["global_elements"] = self.c.yaml_dict["nodectl"]["global_elements"]
+            
         for profile in self.metagraph_list:
             self.config_obj[profile]["service"] = self.c.setup_config_vars({
                 "key": "default_service",
@@ -4630,8 +4914,11 @@ class Configurator():
         if path.isfile(self.yaml_path): 
             if path.isfile(self.yaml_path):
                 remove(self.yaml_path)
-        if requested:
+        if requested and not self.quit_mobile:
             cprint("  Configurator exited upon Node Operator request","green")
+        if self.mobile: 
+            self.quit_mobile = True
+            return
         exit(0)  
         
 

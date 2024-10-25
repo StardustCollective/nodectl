@@ -2,7 +2,6 @@ import re
 import base58
 import psutil
 import socket
-import queue
 
 from hashlib import sha256
 
@@ -30,8 +29,8 @@ from .cleaner import Cleaner
 from .troubleshoot.send_logs import Send
 from .troubleshoot.ts import Troubleshooter
 from .find_newest_standalone import find_newest
-from .config.ipv6 import enable_disable_ipv6
-
+from .config.ipv6 import handle_ipv6
+from .console import Menu
 
 class TerminateCLIException(Exception): pass
 
@@ -59,6 +58,7 @@ class CLI():
         self.skip_build = False
         self.check_versions_called = False
         self.invalid_version = False
+        self.mobile = False
         self.caller = "cli"
         self.version_class_obj = None
         self.current_try = 0
@@ -746,7 +746,6 @@ class CLI():
         status.non_interactive = True if "--ni" in command_list else False
         status.execute_status()
 
-
         self.functions.print_header_title({
             "line1": "NODE BASIC HEALTH",
             "single_line": True,
@@ -950,6 +949,7 @@ class CLI():
         sip = {}
         nodeid = csv_file_name = ""
         is_basic = create_csv = False
+        state, i_state = False, False
         
         if "--csv" in command_list:
             if not "--output" in command_list:
@@ -1000,6 +1000,19 @@ class CLI():
             self.cli_find(count_args)
             return
         
+        if "--state" in command_list:
+            i_state = command_list[command_list.index("--state")+1]
+            states = self.functions.get_node_states("on_network_and_stuck")
+            state = next((s[0] for s in states if i_state == s[1].replace("*", "")), False)
+
+            if not state:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-1008",
+                    "line_code": "invalid_option",
+                    "extra": i_state,
+                    "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd",
+                })
+        
         try:
             if sip["ip"] == "self": sip["ip"] = self.functions.get_ext_ip()
         except: 
@@ -1026,8 +1039,20 @@ class CLI():
                 "line_code": "ip_not_found",
                 "extra": sip,
                 "extra2": None
-            })      
-                  
+            })     
+
+        lookup = "peer_list"
+        search_title = "all peers"
+        if i_state:
+            search_title = state
+            lookup = f"{state.lower()}"
+            
+        self.functions.print_header_title({
+            "line1": f"SHOW PEERS - {search_title}",
+            "single_line": True,
+            "newline": "both"  
+        })     
+
         print_out_list = [
             {
                 "PROFILE": profile,
@@ -1054,8 +1079,8 @@ class CLI():
         else:
             status_header += f"{peer_title2: <36}"
             status_header += f"{peer_title3: <36}"
-        
-        for item, peer in enumerate(peer_results["peer_list"]):
+
+        for item, peer in enumerate(peer_results[lookup]):
             public_port = peer_results["peers_publicport"][item]
             
             if not is_basic:
@@ -1065,8 +1090,8 @@ class CLI():
                     "argv_list": ["-p",profile,"-t",peer,"--port",public_port,"-l"]
                 })
                 if isinstance(nodeid,list):
-                    nodeid = "error"
-                    wallet = "error"
+                    nodeid = "UnableToReach"
+                    wallet = "UnableToReach"
                 else:
                     wallet = self.cli_nodeid2dag([nodeid, "return_only"])
                 
@@ -1075,8 +1100,7 @@ class CLI():
                     "quit_option": "q",
                     "newline": "both",
                 })
-                if more:
-                    break
+                if more: break
                 print_header = True
                 
             print_peer = f"{peer}:{public_port}" 
@@ -1102,8 +1126,8 @@ class CLI():
                 status_results = f"  {print_peer: <{spacing}}"                        
             else:
                 spacing = 23
-                if nodeid != "error": nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
-                if nodeid != "error": wallet = f"{wallet[0:8]}....{wallet[-8:]}"
+                if nodeid != "UnableToReach": nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
+                if nodeid != "UnableToReach": wallet = f"{wallet[0:8]}....{wallet[-8:]}"
                 status_results = f"  {print_peer: <{spacing}}"                      
                 status_results += f"{nodeid: <{spacing}}"                      
                 status_results += f"{wallet: <{spacing}}"        
@@ -1274,8 +1298,12 @@ class CLI():
                 "prompt_color": "magenta",
                 "options": ["1","2","3","4","5","Q"],
                 "quit_option": "Q",
+                "mobile": self.mobile
             })
-
+            if option == "q":
+                if self.mobile: return
+                exit(0)
+                
             option_match = {
                 "1": f"{self.functions.nodectl_path}nodectl.log",
                 "2": f"/var/tessellation/{profile}/logs/app.log",
@@ -1689,8 +1717,16 @@ class CLI():
         title = "NODE P12"
         profile = self.functions.default_profile
         snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
-        create_csv = False
-        
+        target_dag_addr, create_csv = False, False
+
+        def send_error(code, line="input_error", extra=None, extra2=None):
+            self.error_messages.error_code_messages({
+                "error_code": code,
+                "line_code": line,
+                "extra": extra,
+                "extra2": extra2,
+            })   
+
         try:
             if int(snapshot_size) > 375 or int(snapshot_size) < 1:
                 self.functions.print_paragraphs([
@@ -1702,11 +1738,7 @@ class CLI():
                 cprint("  show_current_reward -s option must be in range between [10] and [375]","red",attrs=["bold"])
                 return
         except:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-826",
-                "line_code": "input_error",
-                "extra": None,
-            })            
+            send_error("cmd-825")
         
         data = self.get_and_verify_snapshots(snapshot_size, self.config_obj[profile]["environment"],profile)        
             
@@ -1725,6 +1757,16 @@ class CLI():
                 "argv_list": ["-p",profile]
             })
             search_dag_addr = self.nodeid.strip("\n")
+            search_dag_addr = self.cli_nodeid2dag([search_dag_addr,"return_only"])
+
+        if "--target" in command_list or "-t" in command_list:
+            try:
+                target_dag_addr = command_list[command_list.index("-t")+1]
+            except:
+                try:
+                    target_dag_addr = command_list[command_list.index("--target")+1]
+                except:
+                    send_error("cmd-1741","input_error","target","must be a valid DAG wallet address")
 
         if "--csv" in command_list:
             self.functions.print_cmd_status({
@@ -1738,11 +1780,8 @@ class CLI():
             if "--output" in command_list:
                 csv_file_name = command_list[command_list.index("--output")+1]
                 if "/" in csv_file_name:
-                    self.error_messages.error_code_messages({
-                        "error_code": "cmd-442",
-                        "line_code": "invalid_output_file",
-                        "extra": csv_file_name
-                    })
+                    send_error("cmd-442","invalid_output_file",csv_file_name)
+
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
                 csv_file_name = f"{prefix}-{search_dag_addr[0:8]}-{search_dag_addr[-8:]}-rewards-data.csv"
@@ -1756,10 +1795,17 @@ class CLI():
                     color = "green"; found = "TRUE"
                 else:
                     reward_amount[reward["destination"]] = reward["amount"]
-        try:
-            first = reward_amount.popitem()  
-        except:
-            first = [0,0]
+
+        if target_dag_addr:
+            for target in reward_amount.keys():
+                if target == target_dag_addr:
+                    first = [target, reward_amount[target]]
+                    break
+        else:
+            try:
+                first = reward_amount.popitem()  
+            except:
+                first = [0,0]
 
         title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"   
         
@@ -1834,6 +1880,9 @@ class CLI():
                 self.functions.print_show_output({
                     "header_elements" : header_elements,
                 })   
+
+        if target_dag_addr:
+            return
         
         do_more = False if "-np" in command_list else True
         if do_more:
@@ -1904,7 +1953,7 @@ class CLI():
                 if "Unexpected failure" in line: color = "red"
                 if "CannotFetchSnapshot" in line: color = "yellow"
                 self.functions.print_paragraphs([
-                    ["=","half","bold","blue"],
+                    ["=","half","blue","bold"],
                     [str(line),1,color],
                 ])
         
@@ -1995,6 +2044,10 @@ class CLI():
             ])
 
 
+    def show_distro(self):
+        pass
+
+    
     # ==========================================
     # update commands
     # ==========================================
@@ -2027,12 +2080,15 @@ class CLI():
             ])
         
         if not "-y" in argv_list:
-            self.functions.confirm_action({
+            confirm = self.functions.confirm_action({
                 "yes_no_default": "n",
                 "return_on": "y",
                 "prompt": f"Are you sure you want to overwrite Tessellation {confirm_text}?",
-                "exit_if": True,
+                "exit_if": False,
             })
+            if not confirm:
+                if self.mobile: return
+                exit(0)
         
         download_obj = {"caller": caller, "action": caller}
         if "-p" in argv_list:  
@@ -2505,7 +2561,7 @@ class CLI():
         else:
             node_obj_list[0]["missed_ip_count"] = len(node_obj_list[0]["missed_ips"])
     
-        # add state labels (*,i*,rj*,ss*,l*,s*,o*)
+        # add state labels (*,i*,rtj*,ss*,l*,s*,o*)
         for s in range(0,2):
             missed_set = set()    
             ss = 1 if s == 0 else 0
@@ -2802,7 +2858,7 @@ class CLI():
 
     def check_for_new_versions(self,command_obj):
         profile = command_obj.get("profile","default")
-        nodectl_version_check = False
+        nodectl_version_shown, nodectl_version_check = False, False
         caller = command_obj.get("caller",None)
         
         if caller in ["_sl","send_logs"]: return # send_logs command exception
@@ -2845,18 +2901,19 @@ class CLI():
                     self.invalid_version = True
                     return
             if nodectl_version_check == "current_less" and not self.check_versions_called:
-                self.functions.print_cmd_status({
-                    "text_start": "A new version of",
-                    "brackets": "nodectl",
-                    "text_end": "was detected",
-                    "status": self.version_obj[env]['nodectl']['latest_nodectl_version'],
-                    "status_color": "yellow",
-                    "newline": True,
-                })
-                self.functions.print_paragraphs([
-                    ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",2,"green"]
-                ])
-
+                if not nodectl_version_shown:
+                    self.functions.print_cmd_status({
+                        "text_start": "A new version of",
+                        "brackets": "nodectl",
+                        "text_end": "was detected",
+                        "status": self.version_obj[env]['nodectl']['current_stable'],
+                        "status_color": "yellow",
+                        "newline": True,
+                    })
+                    self.functions.print_paragraphs([
+                        ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",2,"green"]
+                    ])
+                nodectl_version_shown = True
             try:
                 tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
             except:
@@ -3474,6 +3531,19 @@ class CLI():
             do_reboot()
             
       
+    def cli_console(self,command_list) -> tuple:
+        self.functions.check_for_help(command_list,self.primary_command)
+        console = Menu({
+            "config_obj": self.config_obj,
+            "profile_names": self.profile_names,
+            "functions": self.functions,
+        })
+
+        choice = console.build_root_menu(self.primary_command)
+        if choice == "q": exit(0)
+        return choice
+    
+
     def cli_join(self,command_obj):
         argv_list = command_obj.get("argv_list")
         self.functions.check_for_help(argv_list,"join")
@@ -3505,6 +3575,7 @@ class CLI():
         
         defined_connection_threshold = .8
         max_timer = 300
+        offline_msg = False
         peer_count, old_peer_count, src_peer_count, increase_check = 0, 0, 0, 0
         
         gl0_link = self.functions.config_obj[called_profile]["gl0_link_enable"]
@@ -3657,6 +3728,11 @@ class CLI():
                             tolerance_result = False # force last error to print
                             break
                         wfd_count += 1
+                    if state == "Offline":
+                        offline_msg = True
+                        result = False
+                        tolerance_result = False
+                        break
                     if state == "SessionStarted":
                         if ss_count > ss_max:
                             result = False
@@ -3780,6 +3856,10 @@ class CLI():
                     
                     [" NOTE ",0,"grey,on_green"], ["Missing a few Nodes on the Hypergraph independent of the network, is",0,"green"],
                     ["not an issue.  There will be other Nodes leaving and joining the network; possibly, at all times.",1,"green"],
+                ])
+            if offline_msg:
+                self.functions.print_paragraphs([
+                    ["",1],[" Please start the node first. ",1,"yellow,on_red"],
                 ])
                 
         print("")
@@ -4025,9 +4105,16 @@ class CLI():
         nodeid = ""
         ip_address = "127.0.0.1" # default
         is_global = True
+        balance_only = False
         api_port, nodeid_to_ip, target, is_self, cmd, print_out_list = False, False, False, False, False, False
-        wallet_only = True if "-w" in argv_list else False
-        title = "NODE ID" if command == "nodeid" else "DAG ADDRESS"
+        wallet_only = True if "-w" in argv_list or "--wallet" in argv_list else False
+
+        if command == "nodeid": 
+            title = "NODE ID"
+        else:
+            title = "DAG ADDRESS"
+            if "--balance" in argv_list: 
+                balance_only = True
         file, create_csv = False, False
         false_lookups = []
 
@@ -4241,7 +4328,7 @@ class CLI():
         elif not create_csv:
             self.functions.print_clear_line()
 
-        if not is_self and not wallet_only:
+        if not is_self and not wallet_only and not balance_only:
             print_out_list = [
                 {
                     "header_elements" : {
@@ -4250,17 +4337,18 @@ class CLI():
                 },
             ]
         if not skip_display:
-            if not outside_node_request and not create_csv:            
-                if not file: self.show_ip([None])
-                print_out_list = [
-                    {
-                        "header_elements" : {
-                            "P12 FILENAME": p12.p12_filename,
-                            "P12 LOCATION": p12.path_to_p12,
+            if not outside_node_request and not create_csv:
+                if not balance_only:            
+                    if not file: self.show_ip([None])
+                    print_out_list = [
+                        {
+                            "header_elements" : {
+                                "P12 FILENAME": p12.p12_filename,
+                                "P12 LOCATION": p12.path_to_p12,
+                            },
+                            "spacing": 30
                         },
-                        "spacing": 30
-                    },
-                ]
+                    ]
 
             if print_out_list:
                 for header_elements in print_out_list:
@@ -4308,7 +4396,7 @@ class CLI():
                             ]
                         ]
                 })
-            else:
+            elif not balance_only:
                 for header_elements in print_out_list:
                     self.functions.print_show_output({
                         "header_elements" : header_elements
@@ -4324,7 +4412,7 @@ class CLI():
                             "IN CONSENSUS": consensus,
                         }
                     ]
-                    if self.config_obj[profile]["layer"] > 0:
+                    if self.config_obj[profile]["layer"] > 0 or balance_only:
                         print_out_list[0].pop("IN CONSENSUS", None)
                 
                     for header_elements in print_out_list:
@@ -4332,7 +4420,7 @@ class CLI():
                             "header_elements" : header_elements
                         })  
                                     
-                if not "-b" in argv_list:
+                if not "-b" in argv_list and not balance_only:
                     total_rewards = 0
                     data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"],profile)
                     elapsed = data["elapsed_time"]
@@ -4715,9 +4803,9 @@ class CLI():
         self.functions.check_for_help(argv_list, "ipv6")
         self.log.logger.info("command_line -> request to handle ipv6 issued")
 
-        non_interactive = True if "--ni" in argv_list or "-ni" in argv_list else False
-
-        if "enable" in argv_list:
+        if "status" in argv_list:
+            action = "status"
+        elif "enable" in argv_list:
             action = "enable"
         elif "disable" in argv_list:
             action = "disable"
@@ -4725,10 +4813,19 @@ class CLI():
             self.error_messages.error_code_messages({
                 "error_code": "cli-4723",
                 "line_code": "invalid_option",
-                "extra": "'enable' or 'disable' not found",
-                "extra2": "valid options include 'enable' and 'disable'",
+                "extra": "'status', 'enable' or 'disable' not found",
+                "extra2": "valid options include 'status', 'enable' and 'disable'",
             })
-        enable_disable_ipv6(action,self.log,self.functions,non_interactive)
+        
+        if "--ni" in argv_list and not "--grub" in argv_list and not "--sysctl" in argv_list and not "--all" in argv_list:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4723",
+                "line_code": "invalid_option",
+                "extra": "--grub, --sysctl, --all",
+                "extra2": "non-interactive requires valid options '--grub', '--sysctl', or '--all'",
+            })
+
+        handle_ipv6(action,self.log,self.functions,argv_list)
         return
 
 
@@ -6473,12 +6570,13 @@ class CLI():
                 "newline": False,
                 "delay": 0.8,
             })
-        remove(local_path)
+
+        c_result = self.functions.remove_files(local_path,"cli_execute_directory_restructure",False,False)
         if not self.auto_restart:
             self.functions.print_cmd_status({
                 "text_start": "Clean up migration tool",
-                "status": "complete",
-                "status_color": "green",
+                "status": "complete" if c_result else "failed",
+                "status_color": "green" if c_result else "red",
                 "newline": True,
             })
         
@@ -7072,11 +7170,18 @@ class CLI():
     def upgrade_nodectl(self,command_obj):
         argv_list = command_obj["argv_list"]
         custom_version, upgrade_chosen = False, False
+
+        self.functions.print_header_title({
+            "line1": "UPGRADE NODECTL",
+            "show_titles": False,
+            "newline": "bottom",
+        })
+        
         env_set = set()
         
         if command_obj["help"] == "help" or "help" in argv_list:
             self.functions.print_help({
-                "extended": "upgrade_nodectl"
+                "extended": self.primary_command
             })
 
         try:
@@ -7101,9 +7206,12 @@ class CLI():
             version_obj = self.functions.handle_missing_version(command_obj["version_class_obj"])
             version_obj = version_obj[environment_name]
 
-
-
-        if "-v" in argv_list: 
+        if self.primary_command == "revision":
+            custom_version = self.version_obj["node_nodectl_version"]
+            self.functions.print_paragraphs([
+                ["Upgrading nodectl over itself!",2,"yellow"],
+            ])
+        elif "-v" in argv_list: 
             custom_version = argv_list[argv_list.index("-v")+1]
             custom_version = custom_version.lower()
             if custom_version[0] != "v":
@@ -7136,7 +7244,12 @@ class CLI():
         self.functions.print_clear_line()
 
         def print_prerelease():
-            if version_obj["nodectl"]["nodectl_prerelease"]:
+            if version_obj["nodectl"]["nodectl_prerelease"] == 'Unknown':
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"yellow,on_red"], ["This version may not be valid, or could not be found, cancelling update.",1,"red","bold"],
+                ])   
+                exit(0)             
+            elif version_obj["nodectl"]["nodectl_prerelease"]:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
@@ -7153,9 +7266,9 @@ class CLI():
                     })
                 self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
 
-        latest_nodectl = version_obj["nodectl"]["latest_nodectl_version"]
+        latest_nodectl = version_obj["nodectl"]["current_stable"]
         node_nodectl_version = self.version_obj['node_nodectl_version']
-        
+
         if nodectl_uptodate and nodectl_uptodate != "current_less" and not custom_version:
             self.log.logger.error(f"Upgrade nodectl to new version request not needed {node_nodectl_version}.")
             up_to_date = "is already up to date..."
@@ -7174,10 +7287,14 @@ class CLI():
             self.functions.print_paragraphs([
                 [" WARNING ",0,"yellow,on_red"], ["You are about to upgrade nodectl.",1,"green","bold"],
                 ["You are currently on:",0], [environment_name.upper(),1,"yellow"],
-                ["  current version:",0], [node_nodectl_version,1,"yellow"],
-                ["available version:",0], [latest_nodectl,1,"yellow"],
-                ["   latest release:",0], [self.version_obj["upgrade_path"][0],1,"yellow"],
+                ["      current version:",0], [node_nodectl_version,1,"yellow"],
+                ["latest stable version:",0], [latest_nodectl,1,"yellow"],
+                ["    last upgrade path:",0], [self.version_obj["upgrade_path"][0],2,"yellow"],
+
+                ["This node should be",0,"blue","bold"], ["equal to or greater than the last upgrade path",0,"yellow"], 
+                ["before attempting to update to the latest stable version.",1,"blue","bold"],
             ])
+
             if latest_nodectl != self.version_obj["node_nodectl_version"]:
                 upgrade_chosen = False
                 if node_nodectl_version == self.version_obj["upgrade_path"][0]:
@@ -7194,8 +7311,8 @@ class CLI():
                     })
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], ["downgrading to a previous version of nodectl may cause",0,"red"],
-                        ["undesirable effects.",0,"red"], ["It is recommended to upgrade to a newer known version or to",0],
-                        ["reinstall a fresh copy at a lower version that suits your needs.",2]
+                        ["undesirable effects.",0,"red"], ["It is recommended to upgrade to a newer stable version or to",0],
+                        ["reinstall a fresh copy of nodectl, at a lower version that suits your needs.",2]
                     ])
                     
                     option_one = self.version_obj["upgrade_path"][0]
@@ -7220,12 +7337,19 @@ class CLI():
                         return 0
                     elif int(option) == 2:
                         upgrade_chosen = latest_nodectl
+            elif not upgrade_chosen:
+                upgrade_chosen = latest_nodectl
                 
-        self.functions.confirm_action({
+        confirm = self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
-            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')} {colored('?','cyan')}"
+            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')} {colored('?','cyan')}",
+            "exit_if": False,
         })
+        if not confirm:
+            if self.mobile: return
+            cprint("  Action cancelled by Node Operator.","red")
+            exit(0)
         
         self.functions.print_paragraphs([
             ["Upgrading nodectl version from",0], [f"{node_nodectl_version}",0,"yellow"], ["to",0],
@@ -7264,10 +7388,7 @@ class CLI():
             file.write(upgrade_file)
         file.close
         sleep(1)  
-        self.functions.process_command({
-            "bashCommand": "chmod +x /var/tmp/upgrade-nodectl",
-            "proc_action": "wait"
-        })  
+        chmod("/var/tmp/upgrade-nodectl",0o755)
         
         _ = self.functions.process_command({
             "bashCommand": "sudo /var/tmp/upgrade-nodectl",
@@ -7293,13 +7414,22 @@ class CLI():
         else:
             self.log.logger.info(f"Upgrade of nodectl to new version successfully completed")
         
+        return_value = False
+        if path.isfile("/var/tessellation/nodectl/cnng_upgrade_results.txt"):
+            with open("/var/tessellation/nodectl/cnng_upgrade_results.txt","r") as f:
+                return_value = f.read().strip()
+            remove("/var/tessellation/nodectl/cnng_upgrade_results.txt")
+
         try: 
             remove("/var/tmp/upgrade-nodectl")
             self.log.logger.info("upgrade_nodectl files cleaned up successfully.")
         except Exception as e:
             self.log.logger.error(f"upgrade_nodectl nodectl method unable to clean up files : error [{e}]")
             
-        return 0 
+        if "return_caller" in argv_list: 
+            if "mobile" in argv_list: return ["mobile","return_caller"]
+            return "return_caller"
+        return return_value if return_value else 0
 
     # ==========================================
     # reusable methods

@@ -22,7 +22,7 @@ from cryptography.fernet import Fernet
 import base64
 
 from scapy.all import TCP
-from psutil import Process, cpu_percent, virtual_memory, process_iter, AccessDenied, NoSuchProcess
+from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
@@ -163,9 +163,13 @@ class Functions():
         # https://www.coingecko.com/api/documentation
         # curl -X 'GET' \ 'https://api.coingecko.com/api/v3/coins/list?include_platform=false' \ -H 'accept: application/json'
         # https://api.coingecko.com/api/v3/coins/list?include_platform=false
-        from .data.coingecko_coin_list import coin_gecko_db
-        return coin_gecko_db
-
+        try:
+            from .data.coingecko_coin_list import coin_gecko_db
+            return coin_gecko_db
+        except Exception as e:
+            self.log.logger.error(f"functions -> get_local_coin_db -> error occurerd, skipping with error [{e}]")
+            cprint("  An unknown error occured, please try again","red")
+        
 
     def get_crypto_price(self):
         # The last element is used for balance calculations
@@ -451,71 +455,73 @@ class Functions():
         if types == "all":
             node_states = [
                 ('Initial','i*'),
-                ('ReadyToJoin','rj*'),
+                ('ReadyToJoin','rtj*'),
                 ('StartingSession','ss*'),
                 ('SessionStarted','s*'),
-                ('ReadyToDownload','rd*'),
-                ('WaitingForDownload','wd*'),
-                ('DownloadInProgress','dp*'),
+                ('ReadyToDownload','rtd*'),
+                ('WaitingForDownload','wfd*'),
+                ('DownloadInProgress','dip*'),
                 ('Observing','ob*'),
                 ('WaitingForReady','wr*'),
                 ('WaitingForObserving','wo*'),
                 ('Ready',''),
                 ('Leaving','l*'),
                 ('Offline','o*'),
-                ('ApiNotReady','a*'),
-                ('ApiNotResponding','ar*'),
+                ('ApiNotReady','ar*'),
+                ('ApiNotResponding','anr*'),
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]
-        elif types == "on_network" or types== "pre_consensus":
+        elif types == "on_network" or types == "pre_consensus" or types == "on_network_and_stuck":
             node_states = [
                 ('Observing','ob*'),
-                ('WaitingForReady','wr*'),
-                ('WaitingForObserving','wo*'),
-                ('DownloadInProgress','dp*'),
+                ('WaitingForReady','wfr*'),
+                ('WaitingForObserving','wfo*'),
+                ('DownloadInProgress','dip*'),
                 ('Ready',''),
             ]
             if types == "pre_consensus":
                 node_states.pop()
+            elif types == "on_network_and_stuck":
+                node_states.append(("WaitingForDownload",'wfd*'))
         elif types == "not_on_network":
             node_states = [
                 ('Initial','i*'),
-                ('ReadyToJoin','rj*'),
+                ('ReadyToJoin','rtj*'),
                 ('StartingSession','ss*'),
                 ('SessionStarted','s*'),
-                ('ApiNotResponding','ar*'),
+                ('ApiNotResponding','anr*'),
                 ('Offline','o*'),
-                ('ApiNotReady','a*'),
+                ('ApiNotReady','ar*'),
             ]
         elif types == "stuck_in_states":
             node_states = [
                 ('Observing','ob*'),
-                ('WaitingForDownload','wd*'),
-                ('WaitingForReady','wr*'),
+                ('WaitingForDownload','wfd*'),
+                ('WaitingForReady','wfr*'),
                 ('SessionStarted','s*'),
             ]
         elif types == "past_dip":
             node_states = [
-                ('WaitingForObserving','wo*'),
+                ('WaitingForObserving','wfo*'),
                 ('Observing','ob*'),
-                ('WaitingForReady','wr*'),
+                ('WaitingForReady','wfr*'),
                 ('Ready',''),
             ]            
         elif types == "past_observing":
             node_states = [
-                ('WaitingForReady','wr*'),
+                ('WaitingForReady','wfr*'),
                 ('Ready',''),
             ]            
         elif types == "ready_states":
             node_states = [
-                ('ReadyToJoin','rj*'),
+                ('ReadyToJoin','rtj*'),
                 ('Ready',''),
             ]            
         elif types == "nodectl_only":
             node_states = [
-                ('ApiNotReady','a*'),
-                ('ApiNotResponding','ar*'),
+                ('ApiNotReady','ar*'),
+                ('ApiNotResponding','anr*'),
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]            
@@ -994,9 +1000,10 @@ class Functions():
 
     def get_from_api(self,url,utype,tolerance=5):
         
+        is_json = True if utype == "json" else False
         for n in range(1,tolerance+2):
             try:
-                session = self.set_request_session(True if utype == "json" else False)
+                session = self.set_request_session(False,is_json)
                 session.timeout = 2
                 if utype == "json":
                     response = session.get(url, timeout=self.session_timeout).json()
@@ -1111,6 +1118,7 @@ class Functions():
         quit_with_exception = command_obj.get("quit_with_exception",False)
         parent = command_obj.get("parent",False)
         display = command_obj.get("display",True)
+        mobile = command_obj.get("mobile",False)
 
         self.key_pressed = None
         if prompt == None: prompt = ""
@@ -1160,6 +1168,7 @@ class Functions():
                     parent.terminate_program = True
                     parent.clear_and_exit(False)
                 raise TerminateFunctionsException("spinner cancel")
+            if mobile: return "q"
             exit(0)
             
         try: _ = self.key_pressed.lower()  # avoid NoneType error
@@ -1257,7 +1266,7 @@ class Functions():
             return_type = "dict"
         
         try:
-            session = self.set_request_session(json)
+            session = self.set_request_session(False,json)
             session.verify = False
             session.timeout = 2
             results = session.get(uri, timeout=self.session_timeout).json()
@@ -1400,6 +1409,7 @@ class Functions():
                 "line_code": "system_error",
                 "extra": "encryption generation issue.",
             })
+            exit(0)
 
 
     def get_includes(self,remote=False):
@@ -1462,6 +1472,14 @@ class Functions():
         # })     
         # return versioning.get_version_obj()
 
+
+    def get_memory(self):
+        return virtual_memory()
+
+
+    def get_disk(self):
+        return disk_usage('/')
+    
 
     # =============================
     # setter functions
@@ -1655,13 +1673,17 @@ class Functions():
         })
         
 
-    def set_request_session(self,json=False):
+    def set_request_session(self,local_file=False,json=False):
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0"
         }
-        
+
+        # if local_file and path.isfile(f"{local_file}.etag"):
+        #     with open(f"{local_file}.etag",'r') as etag_f:
+        #         get_headers['If-None-Match'] = etag_f.read().strip()
+
         if json:
             get_headers.update({
                 'Accept': 'application/json',
@@ -2392,7 +2414,9 @@ class Functions():
             
     def check_for_help(self,argv_list,extended):
         nodectl_version_only = False
-        if extended == "configure": nodectl_version_only = True
+        extended_list = ["configure","verify_specs"]
+        if extended in extended_list: 
+            nodectl_version_only = True
         
         if "help" in argv_list:
             self.print_help({
@@ -3288,6 +3312,7 @@ class Functions():
         options_org = command_obj.get("options")
         options = deepcopy(options_org) # options relative to self.profile_names
         let_or_num = command_obj.get("let_or_num","num")
+        prepend_let = command_obj.get("prepend_let", False)
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")
         color = command_obj.get("color","cyan")
@@ -3300,30 +3325,54 @@ class Functions():
         
         prefix_list = []
         spacing = 0
+        blank = 0
+
+        if prepend_let:
+            i = 0
+            for n in range(len(options)):
+                if options[n] == "blank_spacer": continue
+                while chr(97 + i) in ["q","r"]:
+                    i +=1
+                letter = chr(97 + i)  # 97 is 'a'
+                options[n] = f"{letter} {options[n]}"  
+                i += 1
+
         for n, option in enumerate(options):
+            if "blank_spacer" in option: 
+                print("")
+                blank += 1
+                continue
+            if blank > 0: n -= blank
             prefix_list.append(str(n+1))
             if let_or_num == "let":
                 prefix_list[n] = option[0].upper()
                 option = option[1::]
                 spacing = -1
-            self.print_paragraphs([
+        
+            menu_item = [
                 [prefix_list[n],-1,color,"bold"],[")",-1,color],
                 [option,spacing,color], ["",1],
-            ])
+            ]
+            if color == "blue": menu_item[2] = [option,spacing,color,"bold"]
+            self.print_paragraphs(menu_item)
 
         if r_and_q:
             if r_and_q == "both" or r_and_q == "r":
-                self.print_paragraphs([
+                menu_item = [
                     ["",1],["R",0,color,"bold"], [")",-1,color], [f"eturn to {return_where} Menu",-1,color], ["",1],
-                ])
+                ]
+                if color == "blue": menu_item[3] = [f"eturn to {return_where} Menu",-1,color,"bold"]
+                self.print_paragraphs(menu_item)
                 prefix_list.append("R")
                 options.append("r")
                 newline = False
             if r_and_q == "both" or r_and_q == "q":
                 if newline: print("")
-                self.print_paragraphs([
+                menu_item = [
                     ["Q",-1,color,"bold"], [")",-1,color], ["uit",-1,color], ["",2],                
-                ])
+                ]
+                if color == "blue": menu_item[2] = ["uit",-1,color,"bold"]
+                self.print_paragraphs(menu_item)
                 prefix_list.append("Q")
                 options.append("q")
         else:
@@ -3343,6 +3392,7 @@ class Functions():
         if not return_value:
             return option
         for return_option in options:
+            if return_option == "blank_spacer": continue
             if let_or_num == "let":
                 if option.lower() == return_option[0].lower():
                     return return_option
@@ -3833,13 +3883,23 @@ class Functions():
             cleaned_url = urlunparse((parsed_url.scheme, parsed_url.netloc, cleaned_path,
                           parsed_url.params, parsed_url.query, parsed_url.fragment))
             return cleaned_url
-        
+        elif action == "remove_surrounding": # removing first and last - used for single and doubleq quotes mostly
+            return line[1:-1]
+
+
+    def escape_strings(self, input_string):
+        special_chars = r'\\|\'|"|\$|&|\||>|<|;|\(|\)|\[|\]|\*|\?|~|!|#| '
+        escaped_string = sub(f"([{special_chars}])", r'\\\1', input_string)
+
+        return escaped_string
+    
 
     def confirm_action(self,command_obj):
         self.log.logger.debug("confirm action request")
         
         yes_no_default = command_obj.get("yes_no_default")
         return_on = command_obj.get("return_on")
+        incorrect_input = command_obj.get("incorrect_input","incorrect input")
         
         prompt = command_obj.get("prompt")
         prompt_color = command_obj.get("prompt_color","cyan")
@@ -3865,7 +3925,7 @@ class Functions():
                 break
             confirm = confirm.lower() if not strict else confirm
             if confirm not in valid_options:
-                print(colored("  incorrect input","red"))
+                print(colored(f"  {incorrect_input}","red"))
             else:
                 break
             
@@ -3929,7 +3989,10 @@ class Functions():
                 self.print_clear_line()
                 
 
-    def remove_files(self, file_or_list, caller, is_glob=False):
+    def remove_files(self, file_or_list, caller, is_glob=False, etag=False):
+        # is_glob:  False is not in use; directory location if to be used
+        # etag: if etags are associated with the file to remove
+        self.log.logger.info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
         files = file_or_list
         result = True
 
@@ -3937,6 +4000,11 @@ class Functions():
             files = glob.glob(is_glob)
         elif not isinstance(file_or_list,list):
             files = [file_or_list]
+
+        if etag:
+            e_files = deepcopy(files)
+            for file in e_files:
+                files.append(f"{file}.etag")
 
         for file in files:
             try:
@@ -3958,14 +4026,23 @@ class Functions():
         url = command_obj["url"]
         local = command_obj.get("local",path.split(url)[1])
         do_raise = False
+        etag = None
         try:
-            session = self.set_request_session()
+            session = self.set_request_session(local)
             session.verify = True
-            with session.get(url,stream=True) as response:
-                response.raise_for_status()
-                with open(local,'wb') as output_file:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        output_file.write(chunk)
+            params = {'random': random.randint(10000, 20000)}
+            with session.get(url,params=params, stream=True) as response:
+                if response.status_code == 304: # file did not change
+                    self.log.logger.warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
+                else:
+                    response.raise_for_status()
+                    etag = response.headers.get("ETag")
+                    with open(local,'wb') as output_file:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            output_file.write(chunk)
+                    if etag:
+                        with open(f'{local}.etag','w') as output_file_etag:
+                            output_file_etag.write(etag)
             self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
         except HTTPError as e:
             self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
@@ -3973,6 +4050,8 @@ class Functions():
         except RequestException as e:
             self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
             do_raise = True
+        finally:
+            session.close()
 
         if do_raise:
             raise
@@ -4085,6 +4164,7 @@ class Functions():
                 self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
+        
 
         if proc_action == "subprocess_capture" or proc_action == "subprocess_rsync":
             verb = "capture" if "capture" in proc_action else "rsync"

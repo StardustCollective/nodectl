@@ -63,6 +63,9 @@ class Configuration():
                 
         if "view" in self.action or self.action == "-vc":
             self.view_yaml_config("normal")
+            if "mobile" in self.argv_list:
+                self.requested_configuration = False
+                return
         
         self.validated = True
         self.profile_check = False
@@ -175,7 +178,10 @@ class Configuration():
                 })
                 self.do_validation = False
             else:
-                self.send_error("cfg-99") 
+                extra2 = None
+                if self.called_command == "create_p12":
+                    extra2 = "To create a p12 keystore, nodectl needs dependencies that require a nodectl installation first, please issue: sudo nodectl install (optionally add --quick-install option)"
+                self.send_error("cfg-99","existence_hint",extra2) 
 
         try:
             self.yaml_dict = yaml.safe_load(yaml_data)
@@ -217,6 +223,7 @@ class Configuration():
                 "config_obj": self.config_obj,
                 "print_messages": False,
                 "called_cmd": called_cmd,
+                "force": True if any(item in self.argv_list for item in ["-f","--force"]) else False
             })
         self.functions.version_obj = self.versioning.get_version_obj()
         self.functions.set_statics()
@@ -362,6 +369,7 @@ class Configuration():
 
     def view_yaml_config(self,action):
         print_req = "all"
+        if self.called_command == "view-config": self.called_command = "view_config"
         if self.called_command == "view_config" or self.called_command == "-vc":
             self.build_function_obj({
                 "global_elements": {"caller":"config"},
@@ -475,9 +483,10 @@ class Configuration():
         else:
             self.send_error("cfg-220") 
 
-        if action == "migrate":
+        if action == "migrate" or "mobile" in self.argv_list:
             self.functions.print_any_key({})
             return
+
         exit(0)
                 
         

@@ -32,7 +32,7 @@ def ac_build_script(cli,auto_path):
     valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
 
     install_options = "--normal --quick-install --user --p12-destination-path --user-password " # make sure ends with a space
-    install_options += "--p12-passphrase --p12-migration-path --p12-alias --cluster-config --confirm --quiet" 
+    install_options += "--p12-passphrase --p12-migration-path --p12-alias --cluster-config --confirm --quiet --skip_encryption" 
     
     upgrade_options = "--ni --nodectl_only --pass -v -f"
 
@@ -41,6 +41,8 @@ def ac_build_script(cli,auto_path):
 
     displaychain_options = "-p --np --json_output --full_report --days, --json_output"
 
+    autorestart_options = "status enable disable alert_test send_report clear_alerts restart"
+
     find_options = "-s -t"
     auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
     auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)
@@ -48,6 +50,7 @@ def ac_build_script(cli,auto_path):
     auto_complete_file = auto_complete_file.replace("nodegarageviewconfigoptions",viewconfig_options)
     auto_complete_file = auto_complete_file.replace("nodegaragedisplaychainoptions",displaychain_options)
     auto_complete_file = auto_complete_file.replace("nodegaragefindoptions",find_options)
+    auto_complete_file = auto_complete_file.replace("nodegarageautorestartoptions",autorestart_options)
     auto_complete_file = auto_complete_file.replace('\\n', '\n')    
 
     return auto_complete_file
@@ -63,3 +66,7 @@ def ac_write_file(auto_path,auto_complete_file,functions):
         "bashCommand": f"sudo -u {username} -i bash -c '. /etc/bash_completion'",
         "proc_action": "subprocess_devnull",
     })
+
+
+if __name__ == "__main__":
+    print("This module is not designed to be run independently, please refer to the documentation")   
