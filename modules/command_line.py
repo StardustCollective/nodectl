@@ -1492,10 +1492,11 @@ class CLI():
             ["sudo nodectl configure",2,"cyan","bold"],
         ])
 
-        self.show_distro_elements()
+        self.show_distro_elements(["list"])
 
 
-    def show_distro_elements(self):
+    def show_distro_elements(self,command_list):
+        self.functions.check_for_help(command_list,"show_distro")
         distro_items = self.functions.get_distro_details()
         print_out_list = [
             {
@@ -1508,6 +1509,43 @@ class CLI():
                 "spacing": 19,
             },
         ]
+        if not "list" in command_list: 
+            print_out_list.append({
+                "header_elements": {
+                    "BRAND": distro_items["info"]["brand_raw"],
+                },
+                "spacing": 19,
+            })
+            print_out_list.append({
+                "header_elements": {
+                    "CPU COUNT": distro_items["info"]["count"],
+                    "ARCH BITS": distro_items["info"]["bits"],
+                    "VENDOR ID": distro_items["info"]["vendor_id_raw"],
+                },
+                "spacing": 19,
+            })
+            print_out_list.append({
+                "header_elements": {
+                    "CPU MODEL": distro_items["info"]["model"],
+                    "CPU FAMILY": distro_items["info"]["family"],
+                },
+                "spacing": 19,
+            })
+            print_out_list.append({
+                "header_elements": {
+                    "L1 DATA CACHE": self.functions.set_byte_size(distro_items["info"]["l1_data_cache_size"]),
+                    "L1 INST CACHE": self.functions.set_byte_size(distro_items["info"]["l1_instruction_cache_size"]),
+                    "WSL": f'{distro_items["info"]["wsl"]}'
+                },
+                "spacing": 19,
+            })
+            print_out_list.append({
+                "header_elements": {
+                    "L3 CACHE": self.functions.set_byte_size(distro_items["info"]["l3_cache_size"]),
+                    "L2 CACHE": self.functions.set_byte_size(distro_items["info"]["l2_cache_size"]),
+                },
+                "spacing": 19,
+            })
 
         for header_elements in print_out_list:
             self.functions.print_show_output({
@@ -2044,10 +2082,6 @@ class CLI():
             ])
 
 
-    def show_distro(self):
-        pass
-
-    
     # ==========================================
     # update commands
     # ==========================================

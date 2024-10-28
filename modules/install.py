@@ -844,13 +844,14 @@ class Installer():
                             "status_color": "yellow",
                         })
                             
-                    bashCommand = f"apt-get install -y {package}"
+                    bashCommand = f"apt install -y {package}"
                     if package == "ntp":
                         bashCommand += " ntpdate -oDpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'"
 
                     self.functions.process_command({
                         "bashCommand": bashCommand,
-                        "proc_action": "timeout",
+                        #"proc_action": "timeout",
+                        "proc_action": "subprocess_run_pipe_text",
                     })
                     
                     while True:
@@ -858,7 +859,8 @@ class Installer():
                         bashCommand = f"dpkg -s {package}"
                         result = self.functions.process_command({
                             "bashCommand": bashCommand,
-                            "proc_action": "timeout",
+                            #"proc_action": "timeout",
+                            "proc_action": "subprocess_run_pipe_text",
                         })
                         if "install ok installed" in str(result):
                             self.packages[f'{package}'] = True

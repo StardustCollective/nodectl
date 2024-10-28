@@ -23,7 +23,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.15.2"
+        nodectl_version = "v2.16.0"
         nodectl_yaml_version = "v2.1.1"
                 
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
@@ -183,10 +183,17 @@ class Versioning():
         return node_tess_version
     
     
+    def write_distro_details(self):
+        info = self.functions.get_distro_details()
+        with open(f"{self.functions.nodectl_path}/cn-distro.json","w") as dfile:
+            json.dump(info, dfile, indent=4)
+
+
     def write_version_obj_file(self):
         self.log.logger.debug(f"versioning - called by [{self.logging_name}] - write_version_obj_file initiated.")
         self.update_required = True
-
+        self.write_distro_details()
+        
         if self.update_file_only:
             self.write_file()
             return 

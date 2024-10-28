@@ -22,6 +22,7 @@ from cryptography.fernet import Fernet
 import base64
 
 from scapy.all import TCP
+from hurry.filesize import size, alternative
 from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
 from getpass import getuser
 from re import match, sub, compile
@@ -756,7 +757,31 @@ class Functions():
         
 
     def get_distro_details(self):
+
+        try:
+            with open(f"{self.nodectl_path}/cn-distro.json","r") as dfile:
+                full_info = json.load(dfile)
+            return full_info
+        except:
+            self.log.logger.info("functions -> get_distro_details -> unable to fetch file, loading manually.")
+
         info = cpuinfo.get_cpu_info()
+        info["wsl"] = False
+
+        try:
+            with open("/proc/version", "r") as f:
+                version_info = f.read().lower()
+                if "microsoft" in version_info or "wsl" in version_info:
+                    info["wsl"] = True
+
+            # alterative test just in case
+            with open("/proc/sys/kernel/osrelease", "r") as f:
+                os_release = f.read().lower()
+                if "microsoft" in os_release:
+                    info["wsl"] = True
+        except FileNotFoundError:
+            self.log.logger.error("functions -> get_distro_details -> unable to find proc file -> Is this a Linux distribution?")
+
         return {
             "arch": info.get('arch'),
             **distro.lsb_release_info(),
@@ -1758,6 +1783,10 @@ class Functions():
 
         return result, track_output, source_output
         
+    
+    def set_byte_size(self,bits):
+        return size(bits,system=alternative)
+    
     # =============================
     # pull functions
     # ============================= 
@@ -2757,6 +2786,8 @@ class Functions():
 
 
     def test_hostname_or_ip(self, hostname, http=True):
+        return_true_list = ["none","default","disabled"]
+        if hostname.lower() in return_true_list: return True
         try:
             socket.gethostbyaddr(hostname)
         except:
@@ -4128,6 +4159,14 @@ class Functions():
         if proc_action == "subprocess_run_pipe":
             try:
                 output = run(shlexsplit(bashCommand), check=True, stdout=PIPE, stderr=PIPE)
+            except CalledProcessError as e:
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
+                output = False
+            return output
+                
+        if proc_action == "subprocess_run_pipe_text":
+            try:
+                output = run(shlexsplit(bashCommand), text=True, stdout=PIPE, stderr=PIPE)
             except CalledProcessError as e:
                 self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False

@@ -25,7 +25,7 @@ def build_help(functions,command_obj):
       "health","sec","price","markets", "upgrade_path","display_snapshot_chain",
       "check_seedlist_participation", "check_version", "uptime","uninstall",
       "show_cpu_memory","execute_starchiver","backup_config", "node_last_snapshot",
-      "verify_specs"
+      "verify_specs","show_distro",
     ]
     
     functions.print_paragraphs([
