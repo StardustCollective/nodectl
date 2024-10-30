@@ -1,6 +1,7 @@
 import json
 import distro
 import modules.uninstall as uninstaller
+import apt
 
 from os import makedirs, system, path, environ, get_terminal_size, chmod
 from shutil import copy2, move, rmtree
@@ -9,6 +10,7 @@ from termcolor import colored, cprint
 from types import SimpleNamespace
 from collections import OrderedDict
 
+from .suppress_output import SuppressOutput
 from .troubleshoot.errors import Error_codes
 from concurrent.futures import ThreadPoolExecutor
 from .p12 import P12Class
@@ -91,7 +93,7 @@ class Installer():
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], 
                     ["nodectl was developed to run on",0,"red"],
-                    ["Ubuntu",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                    ["Ubuntu",0,"yellow"], ["or",0,"red"], ["Debian 11",0,"yellow"],
                     ["Linux distributions.  Install results may vary if an install",0,"red"],
                     ["is performed on a non-supported distribution.",2,"red"],
                     ["Distribution found:",0],[distro_name,2,"yellow"],
@@ -112,29 +114,30 @@ class Installer():
 
                     ])  
                     continue_warn = True
-            elif "22.04" not in distro_version and "20.04" not in distro_version and "18.04" not in distro_version:
+            elif "20.04" in distro_version and "18.04" in distro_version:
                 self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
                         ["nodectl was developed to run on",0,"red"],
-                        ["Ubuntu 22.04",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                        ["Ubuntu 22.04 or 24.04",0,"yellow"], ["or",0,"red"], ["Debian 12",0,"yellow"],
                         ["Linux distributions.  Install results may vary if an install",0,"red"],
                         ["is performed on a non-supported distribution.",2,"red"],
                         ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
 
                     ])  
-                    if "24.04" in distro_version:
-                        self.functions.print_paragraphs([
-                            ["Ubuntu 24.04 will be supported as soon as all necessary packages",0],
-                            ["used to allow the needed functionality are updated and supported by 24.04.",1],
-                            ["Ubuntu 22.04 LTS will reach its end of life in April 2032.",2]
-
-                        ])  
-                    continue_warn = True
+        elif "Debian" in distro_name and ("10" in distro_version or "11" in distro_version):
+            self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name} {distro_version}")
+            if not self.options.quiet:
+                self.functions.print_paragraphs([
+                    ["Debain distributions less than Debian 12 are no longer supported.",0],
+                    ["It is suggested to utilize Debian 12 to install your node.",1],
+                    ["Failure to adhere to the recommended distributions can lead to unexpected results.",2,"magenta"],
+                ])  
+                continue_warn = True            
 
         if continue_warn: 
-            self.options.quick_install = self.functions.confirm_action({
+            self.functions.confirm_action({
                 "yes_no_default": "y",
                 "return_on": "y",
                 "exit_if": True,
@@ -801,6 +804,7 @@ class Installer():
            
     def process_distro_dependencies(self):
         self.log.logger.info("installer -> downloading and installing dependency binaries")
+        cache = apt.Cache()
 
         if not self.options.quick_install:
             print("")
@@ -818,62 +822,72 @@ class Installer():
             "wget": False,
             "tree": False,
         }
-                
-        environ['DEBIAN_FRONTEND'] = 'noninteractive' 
 
         for package, value in self.packages.items():
+            status, status_color = "complete", "green"
             if value == False:
-                if package == "openjdk-11-jdk" and not self.options.quiet:
-                    print(colored(f"  {package}","cyan",attrs=['bold']),end=" ")
-                    print(colored("may take a few minutes to install".ljust(40),"cyan"),end=" ")
-                    print(" ".ljust(10))
+                cache.update()
+                cache.open()
+                if package in cache:
+                    pkg = cache[package]
+                    if pkg.is_installed:
+                        self.packages[package] = True
+                        status, status_color = "notNeeded", "green"
+                        self.log.logger.info(f"{package} is already installed.")   
+                    elif package == "openjdk-11-jdk" and not self.options.quiet:
+                        print(colored(f"  {package}","cyan",attrs=['bold']),end=" ")
+                        print(colored("may take a few minutes to install".ljust(40),"cyan"),end=" ")
+                        print(" ".ljust(10))
 
-                self.log.logger.info(f"installation process installing [{package}]")
-                with ThreadPoolExecutor() as executor:
-                    self.functions.status_dots = True
-                    self.log.logger.info(f"updating the Debian operating system.")
-                    environ['DEBIAN_FRONTEND'] = 'noninteractive'
-                    
-                    if not self.options.quiet:
-                        _ = executor.submit(self.functions.print_cmd_status,{
-                            "text_start": "Installing dependency",
-                            "brackets": package,
-                            "dotted_animation": True,
-                            "timeout": False,
-                            "status": "installing",
-                            "status_color": "yellow",
-                        })
-                            
-                    bashCommand = f"apt install -y {package}"
-                    if package == "ntp":
-                        bashCommand += " ntpdate -oDpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'"
+                    self.log.logger.info(f"installation process installing [{package}]")
+                    with ThreadPoolExecutor() as executor:
+                        self.functions.status_dots = True
+                        self.log.logger.info(f"updating the Debian operating system.")
+                        environ['DEBIAN_FRONTEND'] = 'noninteractive'
+                        
+                        if not self.options.quiet:
+                            _ = executor.submit(self.functions.print_cmd_status,{
+                                "text_start": "Installing dependency",
+                                "brackets": package,
+                                "dotted_animation": True,
+                                "timeout": False,
+                                "status": "installing",
+                                "status_color": "yellow",
+                            })
 
-                    self.functions.process_command({
-                        "bashCommand": bashCommand,
-                        #"proc_action": "timeout",
-                        "proc_action": "subprocess_run_pipe_text",
-                    })
-                    
-                    while True:
-                        sleep(2)
-                        bashCommand = f"dpkg -s {package}"
-                        result = self.functions.process_command({
-                            "bashCommand": bashCommand,
-                            #"proc_action": "timeout",
-                            "proc_action": "subprocess_run_pipe_text",
-                        })
-                        if "install ok installed" in str(result):
-                            self.packages[f'{package}'] = True
-                            break   
+                        if self.packages[package] == False:
+                            try:
+                                #with SuppressOutput():
+                                pkg.mark_install()
+                                try:
+                                    cache.commit()
+                                    cache.open()  
+                                    pkg = cache[package] # update
+                                    if pkg.is_installed:
+                                        self.packages[package] = True
+                                        self.log.logger.info(f"{package} installed successfully.")
+                                    else:
+                                        self.log.logger.error(f"Failed to install [{package}].")
+                                        status, status_color = "failed", "red"
+                                except Exception as e:
+                                    self.log.logger.critical(f"Failed to install [{package}] with error [{e}].")
+                                    status, status_color = "failed", "red"
+                            except Exception as e:
+                                self.log.logger.critical(f"Failed to install [{package}] with error [{e}].")
+                                status, status_color = "failed", "red"
 
-                    self.functions.status_dots = False
-                    if not self.options.quiet:
-                        self.functions.print_cmd_status({
-                            "text_start": "Installing dependency",
-                            "brackets": package,
-                            "status": "complete",
-                            "newline": True
-                        })
+                        self.functions.status_dots = False
+                        if not self.options.quiet:
+                            self.functions.print_cmd_status({
+                                "text_start": "Installing dependency",
+                                "brackets": package,
+                                "status": status,
+                                "status_color": status_color,
+                                "newline": True
+                            })
+                else:
+                    self.log.logger.critical(f"Something went wrong and the package [{package}] was not found in the apt cache.  Please attempt to install manually if able.")
+        
         remove_ntp_services(self.log)
         handle_time_setup(self.functions,self.options.quick_install,False,self.options.quiet,self.log)
         
