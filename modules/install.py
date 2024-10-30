@@ -857,8 +857,8 @@ class Installer():
 
                         if self.packages[package] == False:
                             try:
-                                #with SuppressOutput():
-                                pkg.mark_install()
+                                with SuppressOutput():
+                                    pkg.mark_install()
                                 try:
                                     cache.commit()
                                     cache.open()  
