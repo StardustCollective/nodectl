@@ -409,9 +409,7 @@ class P12Class():
                 
 
     def handle_pass_file(self,create=True):
-        nodectl_secure_mount = "/mnt/nodectlsecure"
-        if self.functions.get_distro_details()["info"]["wsl"]:
-            nodectl_secure_mount = f"/tmp/nodectlsecure"
+        nodectl_secure_mount = "/mnt/nctlram"
 
         if create:
             if not self.secure_mount_exists:
@@ -435,8 +433,9 @@ class P12Class():
             return passfile
         else:
             self.functions.remove_files(
-                f"{nodectl_secure_mount}/*", 
+                nodectl_secure_mount, 
                 "cleanup_function",
+                False, False, True,
             )
 
 

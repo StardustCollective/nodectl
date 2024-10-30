@@ -43,7 +43,7 @@ from urllib.parse import urlparse, urlunparse
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chmod, chown
 from pwd import getpwnam
 from grp import getgrnam
-from shutil import copy2, move
+from shutil import copy2, move, rmtree
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
@@ -4020,7 +4020,7 @@ class Functions():
                 self.print_clear_line()
                 
 
-    def remove_files(self, file_or_list, caller, is_glob=False, etag=False):
+    def remove_files(self, file_or_list, caller, is_glob=False, etag=False, iter_all_files=False):
         # is_glob:  False is not in use; directory location if to be used
         # etag: if etags are associated with the file to remove
         self.log.logger.info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
@@ -4029,6 +4029,16 @@ class Functions():
 
         if is_glob:
             files = glob.glob(is_glob)
+        elif iter_all_files:
+            try:
+                dir_path = Path(file_or_list)
+                for item in dir_path.iterdir():
+                    if item.is_dir(): rmtree(item)
+                    else: item.unlink()
+            except Exception as e:
+                result = False
+                self.log.logger.error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")
+            return result
         elif not isinstance(file_or_list,list):
             files = [file_or_list]
 

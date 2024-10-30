@@ -821,6 +821,7 @@ class Installer():
             "curl": False,
             "wget": False,
             "tree": False,
+            "lnav": False,
         }
 
         for package, value in self.packages.items():
