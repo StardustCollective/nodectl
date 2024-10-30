@@ -1512,12 +1512,15 @@ class CLI():
         if not "list" in command_list: 
             print_out_list.append({
                 "header_elements": {
+<<<<<<< HEAD
                     "BRAND": distro_items["info"]["brand_raw"],
                 },
                 "spacing": 19,
             })
             print_out_list.append({
                 "header_elements": {
+=======
+>>>>>>> 8d0a498d5cf1edd9fb5040a15935fe8c735e67de
                     "CPU COUNT": distro_items["info"]["count"],
                     "ARCH BITS": distro_items["info"]["bits"],
                     "VENDOR ID": distro_items["info"]["vendor_id_raw"],
@@ -1526,6 +1529,10 @@ class CLI():
             })
             print_out_list.append({
                 "header_elements": {
+<<<<<<< HEAD
+=======
+                    "BRAND": distro_items["info"]["brand_raw"],
+>>>>>>> 8d0a498d5cf1edd9fb5040a15935fe8c735e67de
                     "CPU MODEL": distro_items["info"]["model"],
                     "CPU FAMILY": distro_items["info"]["family"],
                 },
@@ -1533,6 +1540,7 @@ class CLI():
             })
             print_out_list.append({
                 "header_elements": {
+<<<<<<< HEAD
                     "L1 DATA CACHE": self.functions.set_byte_size(distro_items["info"]["l1_data_cache_size"]),
                     "L1 INST CACHE": self.functions.set_byte_size(distro_items["info"]["l1_instruction_cache_size"]),
                     "WSL": f'{distro_items["info"]["wsl"]}'
@@ -1541,11 +1549,23 @@ class CLI():
             })
             print_out_list.append({
                 "header_elements": {
+=======
+>>>>>>> 8d0a498d5cf1edd9fb5040a15935fe8c735e67de
                     "L3 CACHE": self.functions.set_byte_size(distro_items["info"]["l3_cache_size"]),
                     "L2 CACHE": self.functions.set_byte_size(distro_items["info"]["l2_cache_size"]),
                 },
                 "spacing": 19,
             })
+<<<<<<< HEAD
+=======
+            print_out_list.append({
+                "header_elements": {
+                    "L1 DATA CACHE": self.functions.set_byte_size(distro_items["info"]["l1_data_cache_size"]),
+                    "L1 INST CACHE": self.functions.set_byte_size(distro_items["info"]["l1_instruction_cache_size"]),
+                },
+                "spacing": 19,
+            })
+>>>>>>> 8d0a498d5cf1edd9fb5040a15935fe8c735e67de
 
         for header_elements in print_out_list:
             self.functions.print_show_output({
