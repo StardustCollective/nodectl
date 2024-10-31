@@ -42,7 +42,7 @@ class Node():
         self.wallet_alias = None
         self.environment_name = None
         self.version_class_obj = None
-
+        self.fallback = False
         # during installation, the nodeid will be blank
         # until after the p12 is created causing the install
         # to create the cnng bash files and then write over it.
@@ -90,7 +90,7 @@ class Node():
             "command_obj": command_obj,
             "version_obj": self.version_obj,
         })
-        
+        self.fallback = download_service.fallback
         return download_service.execute_downloads()
 
 

@@ -650,6 +650,7 @@ class Installer():
             "action": download_action,
             "tools_version": self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"],
         })
+
         status = "complete" if pos["success"] else "failed"
         sleep(.8)
         if not self.options.quiet:
@@ -826,6 +827,7 @@ class Installer():
 
         for package, value in self.packages.items():
             status, status_color = "complete", "green"
+            pause = False
             if value == False:
                 cache.update()
                 cache.open()
@@ -833,8 +835,9 @@ class Installer():
                     pkg = cache[package]
                     if pkg.is_installed:
                         self.packages[package] = True
-                        status, status_color = "notNeeded", "green"
-                        self.log.logger.info(f"{package} is already installed.")   
+                        status, status_color = "installExists", "green"
+                        self.log.logger.info(f"{package} is already installed.") 
+                        pause = True
                     elif package == "openjdk-11-jdk" and not self.options.quiet:
                         print(colored(f"  {package}","cyan",attrs=['bold']),end=" ")
                         print(colored("may take a few minutes to install".ljust(40),"cyan"),end=" ")
@@ -873,11 +876,14 @@ class Installer():
                                 except Exception as e:
                                     self.log.logger.critical(f"Failed to install [{package}] with error [{e}].")
                                     status, status_color = "failed", "red"
+                                    pause = True
                             except Exception as e:
                                 self.log.logger.critical(f"Failed to install [{package}] with error [{e}].")
                                 status, status_color = "failed", "red"
+                                pause = True
 
                         self.functions.status_dots = False
+                        if pause: sleep(1)
                         if not self.options.quiet:
                             self.functions.print_cmd_status({
                                 "text_start": "Installing dependency",

@@ -409,7 +409,7 @@ class P12Class():
                 
 
     def handle_pass_file(self,create=True):
-        nodectl_secure_mount = "/mnt/nctlram"
+        nodectl_secure_mount = "/tmp/nctlram"
 
         if create:
             if not self.secure_mount_exists:

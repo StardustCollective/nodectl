@@ -4031,6 +4031,9 @@ class Functions():
             files = glob.glob(is_glob)
         elif iter_all_files:
             try:
+                if not path.exists(file_or_list):
+                    self.log.logger.debug(f"functions --> remove_files --> caller [{caller}] -> path doesn't exist")
+                    return True
                 dir_path = Path(file_or_list)
                 for item in dir_path.iterdir():
                     if item.is_dir(): rmtree(item)
