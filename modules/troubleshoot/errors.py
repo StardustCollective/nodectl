@@ -156,7 +156,7 @@ class Error_codes():
                 self.functions.print_paragraphs([
                     [f"{var.extra}",2,"yellow","bold"],
                 ])            
-                if var.extra != "Missing Directories" and var.extra != None:
+                if var.extra != "Missing Directories":
                     self.functions.print_paragraphs([
                         ["Legacy Node files were found on this VPS",2,"red","bold"], 
                     ])            
@@ -824,7 +824,7 @@ class Error_codes():
                         ["Use command:",0,"yellow"], ["sudo nodectl upgrade",1],
                         ["Otherwise, seek help in the Constellation Network official Discord or reinstall nodectl.",2,"magenta"],
                     ])
-                if var.extra2 != "existence" and var.extra2 != None:
+                if var.extra2 != "existence":
                     self.functions.print_paragraphs([
                         ["Hint:",0], [var.extra2,1,"yellow"],
                     ])
@@ -837,7 +837,7 @@ class Error_codes():
                     ["It is suggested that you join the appropriate Discord channel and",0,"magenta"],
                     ["and contact a Constellation Administrator.",2,"magenta"],
                 ])
-            elif var.extra2 and var.extra2 != None:
+            elif var.extra2:
                 self.log.logger.error(f"error code [{self.error_code}] error found [{var.extra2}]")
            
         self.print_error()

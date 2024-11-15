@@ -193,7 +193,7 @@ class P12Class():
                 if confirm:
                     self.p12_filename = value
                     test_for_exist()
-                    if self.validate_value("^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
+                    if self.validate_value(r"^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
                         self.log.logger.info(f"p12 file accepted [{value}]")
                         break
                     self.log.logger.warning("invalid p12 file name inputted")
@@ -409,7 +409,9 @@ class P12Class():
                 
 
     def handle_pass_file(self,create=True):
-        nodectl_secure_mount = "/tmp/nctlram"
+        nodectl_secure_mount = "/mnt/nodectlsecure"
+        if self.functions.get_distro_details()["info"]["wsl"]:
+            nodectl_secure_mount = f"/tmp/nodectlsecure"
 
         if create:
             if not self.secure_mount_exists:
@@ -433,9 +435,8 @@ class P12Class():
             return passfile
         else:
             self.functions.remove_files(
-                nodectl_secure_mount, 
+                f"{nodectl_secure_mount}/*", 
                 "cleanup_function",
-                False, False, True,
             )
 
 

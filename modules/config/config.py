@@ -1021,7 +1021,7 @@ class Configuration():
         # configuration key word "self" for linking to global l0
         self.log.logger.debug("[setup_self_settings] method called.")
         def grab_nodeid(profile):
-            pattern = "^[a-fA-F0-9]{128}$"
+            pattern = r"^[a-fA-F0-9]{128}$"
             self.p12.set_variables(False,profile)
             for _ in range(0,3):
                 self.p12.extract_export_config_env({
@@ -1645,12 +1645,12 @@ class Configuration():
                                 else: title = "invalid host or ip"
                             
                             elif req_type == "128hex":
-                                pattern = "^[a-fA-F0-9]{128}$"
+                                pattern = r"^[a-fA-F0-9]{128}$"
                                 if not match(pattern,test_value) and test_value != "self": title = "invalid nodeid"
                                 else: validated = True 
                             
                             elif req_type == "wallet":
-                                pattern = "^DAG[0-9][A-Za-z0-9]{36}"
+                                pattern = r"^DAG[0-9][A-Za-z0-9]{36}"
                                 if test_value == "global" or test_value == "disable": validated = True
                                 elif not match(pattern,test_value): title = "invalid token identifier"
                                 else: validated = True 
@@ -1688,7 +1688,7 @@ class Configuration():
                                     title = "invalid configuration file"
                                     
                             elif req_type == "mem_size":
-                                if not match("^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
+                                if not match(r"^(?:[0-9]){1,4}[MKG]{1}$",str(test_value)): title = "memory sizing format"
                                 else: validated = True
                             
                             elif req_type == "log_level":

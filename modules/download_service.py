@@ -91,11 +91,6 @@ class Download():
         self.file_fallback_handler()
         self.file_backup_handler("restore")
 
-        if self.fallback:
-            self.cursor_setup["up"] = self.cursor_setup["up"]+7
-            self.cursor_setup["clear"] = self.cursor_setup["clear"]+7
-            self.cursor_setup["reset"] = self.cursor_setup["reset"]+7
-
         return self.cursor_setup
 
     # Setters
@@ -582,16 +577,15 @@ class Download():
         self.config_obj["global_elements"]["jar_fallback"] = False  # do not allow multiple executions
         file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] == "failed"]
         if len(file_list) > 0:
-            nl = 2
-            if "install" in self.action: nl = 1
             if not self.auto_restart:
                 print(f"\033[{self.cursor_setup['down']}B", end="", flush=True)
                 self.functions.print_paragraphs([
-                    ["",nl],[" FALLBACK ",0,"yellow,on_red"], ["nodectl identified a fallback for this cluster.",0,"yellow"],
+                    ["",2],[" FALLBACK ",0,"yellow,on_red"], ["nodectl identified a fallback for this cluster.",0,"yellow"],
                     ["Attempting secondary download mechanism",1,"yellow"],
                 ])
             self.fallback = True
             self.execute_downloads()
+
 
 
     def file_backup_handler(self,action):

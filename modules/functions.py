@@ -43,7 +43,7 @@ from urllib.parse import urlparse, urlunparse
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chmod, chown
 from pwd import getpwnam
 from grp import getgrnam
-from shutil import copy2, move, rmtree
+from shutil import copy2, move
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
@@ -2566,11 +2566,11 @@ class Functions():
     
     def is_valid_address(self,v_type,return_on,address):
         valid = False
-        reg_expression = "^[D][A][G][a-zA-Z0-9]{37}$"
+        reg_expression = r"^[D][A][G][a-zA-Z0-9]{37}$"
         if v_type == "nodeid":
             reg_expression = "^[a-f0-9]{128}$"
         if v_type == "ip_address":
-            reg_expression = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+            reg_expression = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
             
         if match(reg_expression,address):
             valid = True
@@ -3879,7 +3879,7 @@ class Functions():
 
     def cleaner(self, line, action, char=None):
         if action == "dag_count":
-            cleaned_line = sub('\D', '', line)
+            cleaned_line = sub(r'\D', '', line)
             return cleaned_line[6:]
         elif action == "ansi_escape":
             ansi_escape = compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
@@ -4020,7 +4020,7 @@ class Functions():
                 self.print_clear_line()
                 
 
-    def remove_files(self, file_or_list, caller, is_glob=False, etag=False, iter_all_files=False):
+    def remove_files(self, file_or_list, caller, is_glob=False, etag=False):
         # is_glob:  False is not in use; directory location if to be used
         # etag: if etags are associated with the file to remove
         self.log.logger.info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
@@ -4029,19 +4029,6 @@ class Functions():
 
         if is_glob:
             files = glob.glob(is_glob)
-        elif iter_all_files:
-            try:
-                if not path.exists(file_or_list):
-                    self.log.logger.debug(f"functions --> remove_files --> caller [{caller}] -> path doesn't exist")
-                    return True
-                dir_path = Path(file_or_list)
-                for item in dir_path.iterdir():
-                    if item.is_dir(): rmtree(item)
-                    else: item.unlink()
-            except Exception as e:
-                result = False
-                self.log.logger.error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")
-            return result
         elif not isinstance(file_or_list,list):
             files = [file_or_list]
 
@@ -4203,7 +4190,7 @@ class Functions():
         
         if proc_action == "subprocess_devnull":
             try:
-                output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=STDOUT, check=True)
+                output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=DEVNULL, check=True)
             except CalledProcessError as e:
                 self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False

@@ -128,7 +128,7 @@ class Send():
                     choice_input = colored(f"  Please enter in the {verb} date you are searching for: ","cyan")
                     inputted_date = input(choice_input)
                     verb = "start" if choice == "d" else verb 
-                    if match("^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$",inputted_date):
+                    if match(r"^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$",inputted_date):
                         dates_obj[verb] = inputted_date
                         break
                     cprint("  invalid date, try again","red")
