@@ -6,7 +6,7 @@
 ## TL;DR
 nodectl is a command line utility designed to run on a Debian Linux operating system.  It is specifically designed to enhance and simplify the creation, day-to-day management, and upgrade of a **Constellation Network Validator [ or Genesis] Node**.
 
-Detailed instructions on usage and features can be found on [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/nodes)
+Detailed instructions on usage and features can be found on [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/validate)
 
 ## NODECTL CODE DETAILS
 
@@ -22,7 +22,7 @@ With this in mind, **nodectl** was created to take a true **Systems and Site Rel
 
 ## Usage
 
-Extensive help has been written up and offered through [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/valdiate).  
+Extensive help has been written up and offered through [Constellation Network's Documentation hub](https://docs.constellationnetwork.io/validate).  
 
 *In order to avoid making necessary updates in multiple locations, this open source project's documentation pertaining to the operations of use of nodectl will be present on Constellation Network's Documentation Hub:*
 
