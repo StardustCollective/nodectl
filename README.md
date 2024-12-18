@@ -1,5 +1,5 @@
 # Constellation Network
-### nodectl `v2.0.0`
+### nodectl `v2`
 
 # Description
 
