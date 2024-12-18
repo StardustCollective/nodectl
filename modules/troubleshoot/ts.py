@@ -25,10 +25,11 @@ class Troubleshooter():
 
     def test_for_connect_error(self,lines):
         self.log.logger.info("checking logs for simple error messages")
+        no_of_errors, found = 4, 0
+        end_results, ERROR_list = [], []
 
         for profile, log in self.log_dict.items():
-            ERROR_list = []; two_lines = False
-            
+            ERROR_list = [] # reset
             try:
                 with open(log["app"],"r") as file:
 
@@ -58,11 +59,6 @@ class Troubleshooter():
                             "rank": 1,
                         },
                         {
-                            "find":"not in seedlist",
-                            "user_msg": "This Node is not authorized to join the cluster. Seed list issue.",
-                            "error_msg": "join_error",
-                        },
-                        {
                             "find":"Address already in use",
                             "user_msg": "Connection Issue - Server reboot may be required.",
                             "error_msg": "Unhandled Exception during runtime",
@@ -70,7 +66,7 @@ class Troubleshooter():
                         },
                         {
                             "find":"Unauthorized for request",
-                            "user_msg": "Access Permission - Unauthorized",
+                            "user_msg": "Not joined properly to the cluster and received: Access Permission - Unauthorized",
                             "error_msg": "join_error",
                             "rank": 1,
                         },
@@ -98,14 +94,14 @@ class Troubleshooter():
                             try:
                                 ERROR_list.append(json.loads(line))
                             except json.JSONDecodeError as e:
-                                self.log.logger.warn(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
+                                self.log.logger.warning(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
                             if lines != "all" and n > lines-1: 
                                 break
                                                    
                     # search for more significant errors first verses
                     # last found error.
-                    no_of_errors, found = 4, 0
-                    end_results = []
+                    no_of_errors, found = 4, 0 # reset
+                    end_results = [] # reset
                     for message_test in test_messages:
                         for line in ERROR_list:            
                             # only going to search in reverse

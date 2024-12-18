@@ -1,23 +1,18 @@
-import subprocess
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from os import system, path, makedirs, remove, environ, chmod
-from shutil import copy2, move, rmtree
+from os import path, makedirs, remove, listdir
+from shutil import copy2, rmtree
 from time import sleep
 from termcolor import colored
 from re import match
-from hurry.filesize import size, alternative
 from copy import deepcopy
 
 from .troubleshoot.errors import Error_codes
 from .p12 import P12Class
-from .command_line import CLI
 from .troubleshoot.logger import Logging
-from .config.config import Configuration
 from .config.configurator import Configurator
-from .config.valid_commands import pull_valid_command
 from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
 from .config.time_setup import remove_ntp_services, handle_time_setup
+
 
 class Upgrader():
 
@@ -175,7 +170,7 @@ class Upgrader():
             print("")
             if self.environment not in list(environments["environment_names"]):
                 self.error_messages.error_code_messages({
-                    "error_code": "sh-441",
+                    "error_code": "upg-178",
                     "line_code": "environment_error",
                     "extra": "upgrade",
                     "extra2": self.environment
@@ -292,7 +287,7 @@ class Upgrader():
                 skip_warning_messages = False
                 
             if self.forced or skip_warning_messages:
-                self.log.logger.warn(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
+                self.log.logger.warning(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, developer mode, or extra parameters were supplied to",0],
                     [f"this {self.install_upgrade}.",1],
@@ -300,14 +295,15 @@ class Upgrader():
                     ["own risk and decision.",2,"yellow","bold"]
                 ])
             else:
-                self.log.logger.warn(f"an attempt to upgrade with an older nodectl detected {current}")  
+                self.log.logger.warning(f"an attempt to upgrade with an older nodectl detected {current}")  
                 prompt_str = f"Are you sure you want to continue this upgrade?"
-                self.functions.confirm_action({
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "prompt": prompt_str,
-                })
-            self.log.logger.warn(f"upgrade executed with an older version of nodectl [{current}]") 
+                if not "-y" in self.argv_list: 
+                    self.functions.confirm_action({
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "prompt": prompt_str,
+                    })
+            self.log.logger.warning(f"upgrade executed with an older version of nodectl [{current}]") 
 
         self.functions.print_cmd_status({
             **progress,
@@ -442,7 +438,7 @@ class Upgrader():
         ml_version_found = False
 
         meta_type = self.config_obj["global_elements"]["metagraph_name"]
-        meta_title = " metagraph:"
+        meta_title = "metagraph: "
         is_meta = True
 
         if meta_type == "hypergraph:":
@@ -484,15 +480,25 @@ class Upgrader():
                 dynamic_uri = False
                 download_version = False
 
-            try:
-                found_tess_version = self.version_obj[env][profile]['cluster_tess_version']
-                running_tess_version = self.version_obj[env][profile]["node_tess_version"]
-                metagraph_version = self.version_obj[env][profile]["cluster_metagraph_version"]
-            except:
-                self.error_messages.error_code_messages({
-                    "error_code": "upg-298",
-                    "line_code": "version_fetch"
-                })
+            for n in range(1,4):
+                try:
+                    found_tess_version = self.version_obj[env][profile]['cluster_tess_version']
+                    running_tess_version = self.version_obj[env][profile]["node_tess_version"]
+                    metagraph_version = self.version_obj[env][profile]["cluster_metagraph_version"]
+                except:
+                    if n == 1:
+                        self.version_obj = self.parent.version_class_obj.version_obj
+                    elif n < 3:
+                        self.parent.version_class_obj.called_cmd = "upgrader"
+                        self.parent.version_class_obj.execute_versioning()
+                        self.version_obj = self.parent.version_class_obj.version_obj
+                    else:
+                        self.error_messages.error_code_messages({
+                            "error_code": "upg-298",
+                            "line_code": "version_fetch"
+                        })
+                else:
+                    break
                 
             self.log.logger.info(f"upgrade handling versioning: profile [{profile}] tessellation latest [{found_tess_version}] current: [{running_tess_version}]")
             if is_meta:
@@ -525,10 +531,9 @@ class Upgrader():
             if running_tess_version.lower() == "v":
                 self.version_obj[env][profile]['node_tess_version'] = "unavailable" 
                 
-            meta_title = meta_title.replace(":","").rstrip()
             self.functions.print_cmd_status({
                 "status": running_tess_version,
-                "text_start": f"Current {meta_title}",
+                "text_start": f"Current {meta_title.replace(':','').rstrip()}",
                 "brackets": "Tess",
                 "text_end": f"version",
                 "status_color": "red",
@@ -918,14 +923,136 @@ class Upgrader():
             "newline": True,
         })
 
-        remove_ntp_services()
+        remove_ntp_services(self.log)
         handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
+
+        result = False
+        if not self.nodectl_only:
+            for profile in self.functions.profile_names:
+                if self.config_obj[profile]["layer"] < 1:
+                    result = self.cli.cli_execute_directory_restructure(
+                        profile,
+                        self.profile_progress[profile]["download_version"],
+                        self.non_interactive
+                    )
+                    result_color = "yellow"
+                    if result == "not_needed": 
+                        result_color = "green"
+                    elif result: 
+                        result = "Successful"
+                        result_color = "green"
+                    elif not result:
+                        result = "Failed"
+                        result_color = "red"
+
+                    if result and (self.environment == "testnet" or "v3" == self.profile_progress[profile]["download_version"][:2]):
+                        residual_color = "green"
+                        residual_status = "cleanup_not_needed"
+
+                        with ThreadPoolExecutor() as executor0:
+                            self.functions.status_dots = True
+                            prep = {
+                                "text_start": "Testing Migration Data",
+                                "status": "running",
+                                "status_color": "yellow",
+                                "dotted_animation": True,
+                                "newline": False,
+                            }
+                            _ = executor0.submit(self.functions.print_cmd_status,prep) 
+
+                            if path.exists(f'{self.config_obj[profile]["directory_inc_snapshot"]}/ordinal') and path.exists(f'{self.config_obj[profile]["directory_inc_snapshot"]}/hash'):
+                                for item in listdir(self.config_obj[profile]["directory_inc_snapshot"]):
+                                    item_path = path.join(self.config_obj[profile]["directory_inc_snapshot"], item)
+                                    if not path.isdir(item_path):
+                                        residual_color = "red"
+                                        residual_status = "needs_cleanup"
+                                        break
+                            else:
+                                residual_color = "red"
+                                residual_status = "migration_failure"
+
+                            self.functions.status_dots = False
+                            self.functions.print_cmd_status({
+                                **prep,
+                                "newline": True,
+                                "status": "complete",
+                                "status_color": "green",
+                                "dotted_animation": False,
+                            })  
+
+                        self.functions.print_cmd_status({
+                            "text_start": "Residual snapshot",
+                            "brackets": "v2 to v3",
+                            "status": residual_status,
+                            "status_color": residual_color,
+                            "newline": True,
+                        })
+
+                        if residual_status == "migration_failure":
+                            self.functions.print_paragraphs([
+                                ["",1], [" WARNING ",0,"yellow,on_red","bold"], ["This node's data structure appears not to have been migrated from Tessellation",0,"yellow"],
+                                ["v2.x.x",0,"red"], ["to",0,"yellow"], ["v3.x.x",0,"red"], ["properly. It is recommended that you rerun the upgrade at your earliest convenience.",2,"yellow"],
+                                ["You may also option to run the migration directly and then restart of the node, using the following commands:",1,"magenta"],
+                                ["sudo nodectl migration_datadir -p <profile_name>",1],
+                                ["sudo nodectl restart -p all",2],
+                            ])
+
+                        clean_residual = False
+                        if not self.non_interactive:
+                            if residual_status != "migration_failure": print()
+                            if residual_status != "cleanup_not_needed":
+                                self.functions.print_paragraphs([
+                                    ["nodectl completed a migration of the snapshot data structure required for this version of Tessellation",2,"magenta"],
+
+                                    ["There may be some residual old snapshots present.",1,"magenta"],
+                                    ["nodectl can attempt to clean up and free disk space",2,"magenta"],
+
+                                    ["   Migration Status:",0], [result,1,result_color,"bold"],
+                                    ["Residual Data Found:",0], [residual_status,2,residual_color,"bold"],
+
+                                    [" WARNING ",0,"red,on_yellow"],["Do not attempt to remove residual old snapshots if the status of migration is",0,"red"],
+                                    ["not",0,"magenta","bold"], ["completed.",2,"red"],
+                                ])
+                            else:
+                                if self.functions.confirm_action({
+                                    "yes_no_default": "y",
+                                    "return_on": "y",
+                                    "prompt": "Attempt to clean any residual snapshots?",
+                                    "prompt_color": "cyan",
+                                    "exit_if": False,
+                                }): clean_residual = True
+
+                        if clean_residual:
+                            with ThreadPoolExecutor() as executor0:
+                                self.functions.status_dots = True
+                                do_exe = {
+                                    "text_start": "Cleaning up residual snapshots",
+                                    "status": "running",
+                                    "dotted_animation": True,
+                                    "status_color": "yellow",
+                                    "newline": False,
+                                }
+                                _ = executor0.submit(self.functions.print_cmd_status,do_exe)
+
+                                for item in listdir(self.config_obj[profile]["directory_inc_snapshot"]):
+                                    item_path = path.join(self.config_obj[profile]["directory_inc_snapshot"], item)
+                                    if not path.isdir(item_path):
+                                        remove(item_path)  
+
+                                self.functions.status_dots = False
+                                self.functions.print_cmd_status({
+                                    **do_exe,
+                                    "status": "complete",
+                                    "dotted_animation": False,
+                                    "newline": True,
+                                    "status_color": "green",
+                                })                                     
 
              
     def service_file_manipulation(self):
         # version older than 0.15.0 only
-        self.log.logger.warn(f"upgrader removing older <2.x.x service file if exists.")
+        self.log.logger.warning(f"upgrader removing older <2.x.x service file if exists.")
         
         # legacy service files
         progress = {
@@ -1092,7 +1219,6 @@ class Upgrader():
         # process = leave, stop, start, join
         # status = True or False
         if action == "get": return self.profile_progress[profile][process]
-        
         self.profile_progress[profile][process] = status
         return
             
@@ -1171,18 +1297,30 @@ class Upgrader():
             profile,self.cli.node_service.check_for_ReadyToJoin("upgrade")
         )
         
-        color = "red"
-        state = "failed"
-        if self.get_update_core_statuses("get", "ready_to_join", profile):
-            color = "green"
-            state = "ReadyToJoin"
-        
-        self.functions.print_cmd_status({
-            **cmd_status,
-            "status": state,
-            "status_color": color,
-            "newline": True
-        })
+        for n in range(0,3):
+            color = "red"
+            state = "failed"
+            if self.get_update_core_statuses("get", "ready_to_join", profile):
+                color = "green"
+                state = "ReadyToJoin"
+            
+            self.functions.print_cmd_status({
+                **cmd_status,
+                "status": state,
+                "status_color": color,
+                "newline": True
+            })
+            if color == "red":
+                self.functions.print_timer({
+                    "p_type": "cmd",
+                    "seconds": 6,
+                    "step": -1,
+                    "phrase": "Waiting",
+                    "end_phrase": "for status change",
+                    "status": "Pausing",
+                })   
+            else:
+                break             
         
         service = self.functions.pull_profile({
             "req": "service",
@@ -1235,7 +1373,7 @@ class Upgrader():
                         "argv_list": ["-p",profile]
                     })
                 else:
-                    self.log.logger.warn(f"There was an issue found with the API status [{profile}]")
+                    self.log.logger.warning(f"There was an issue found with the API status [{profile}]")
                     self.functions.print_paragraphs([
                         ["Issues were found with the API while attempting to join [",0,"red"], [profile,0,"yellow"],
                         ["]. The join process cannot be completed for this profile.  Continuing upgrade...",2,"red"],
@@ -1253,6 +1391,7 @@ class Upgrader():
     
     def complete_process(self):
         self.functions.print_clear_line()
+        states = self.functions.get_node_states("on_network",True)
         
         if self.nodectl_only:
             print("")
@@ -1277,14 +1416,13 @@ class Upgrader():
                             "profile": item["profile"],
                             "simple": True
                         })
-                        states = ["Ready","Observing","WaitingForObserving","WaitingForReady","DownloadInProgress"]
                         if state not in states:
-                            self.log.logger.warn("There may have been a timeout with the join state during installation")
+                            self.log.logger.warning("There may have been a timeout with the join state during installation")
                             self.functions.print_paragraphs([
                                 ["An issue may have been found during this upgrade",1,"red","bold"],
                                 ["Profile:",0,"magenta"],[item['profile'],1,"yellow","bold"],
                                 ["sudo nodectl status",0], ["- to verify status.",1,"magenta"],
-                                ["sudo nodectl -cc -p <profile_name>",0], ["- to verify connections.",1,"magenta"]
+                                ["sudo nodectl show_profile_issues -p <profile_name>",0], ["- to verify cause.",1,"magenta"]
                             ])
                         else:    
                             self.functions.print_paragraphs([ 
@@ -1305,10 +1443,18 @@ class Upgrader():
             ["Upgrade has completed!",2,"green","bold"],
             ["Optionally, please log out and back in in order to update your environment to teach nodectl about any new auto_completion tasks.",2,"yellow"]
         ])
+
+        if path.exists('/var/run/reboot-required'):
+            self.functions.print_paragraphs([
+                [" IMPORTANT ",0,"yellow,on_blue"], 
+                ["nodectl determined that VPS distribution level modifications may not have been applied yet. A",0,"blue","bold"],
+                ["reboot",0,"red","bold"],["is necessary.",0,"blue","bold"],
+                ["Recommended:",0], ["sudo nodectl reboot",2,"magenta"],
+            ])
         
         
     def print_warning_for_old_code(self):
-        self.log.logger.warn("A legacy service was found [node.service]")
+        self.log.logger.warning("A legacy service was found [node.service]")
         self.functions.print_paragraphs([
             ["This seems to be an older Node? Please make sure you adhere to the correct upgrade path.  Unexpected results may ensue, if this upgrade is continued.",1,"red"],
         ])
@@ -1452,7 +1598,7 @@ class Upgrader():
             ["cn-config.yaml",0,"yellow"], ["configuration file?",1,"magenta"],
         ])
         if self.non_interactive:
-            self.log.logger.warn("upgrade -> non-interactive mode detected, encryption of passphrase feature skipped.")
+            self.log.logger.warning("upgrade -> non-interactive mode detected, encryption of passphrase feature skipped.")
             self.functions.print_paragraphs([
                 ["non-interactive mode detected, nodectl is skipping passphrase and encryption request.",1,"red"]
             ])
@@ -1500,4 +1646,4 @@ class Upgrader():
 
         
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")
+    print("This class module is not designed to be run independently, please refer to the documentation")        

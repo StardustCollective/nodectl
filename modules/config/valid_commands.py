@@ -15,7 +15,9 @@ def pull_valid_command():
         "clean_files",
         "check_connection",
         "check_seedlist_participation",
-        
+        "check_tcp_ports",
+        "console",
+
         "dag",
         "disable_root_ssh",
         "download_status",
@@ -35,6 +37,7 @@ def pull_valid_command():
 
         "id",
         "install",
+        "ipv6",
 
         "join",
 
@@ -43,7 +46,8 @@ def pull_valid_command():
         "logs",
 
         "market",
-        "migrate_node",
+        "migrate_datadir",
+        "mobile",
 
         "nodeid",
         "nodeid2dag",
@@ -61,6 +65,7 @@ def pull_valid_command():
         "restart",
         "restart_only",
         "restore_config",
+        "revision",
 
         "show_service_status",
         "show_service_log",
@@ -91,6 +96,7 @@ def pull_valid_command():
         "view_config",
         "validate_config",
         "verify_nodectl",
+        "verify_specs",
 
         "whoami",
     ]
@@ -99,11 +105,12 @@ def pull_valid_command():
         "service_restart",
         "uvos","test_only",
     ]
+    
     valid_short_cuts = [
         "_sr","_s","_qs","_cv","_vc","_val","_cf",
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
-        "_sde","_usl","_con","_cmf","_spd",
+        "_sde","_usl","_con","_cmf","_spd", "_ctp",
         "log","prices","markets","_sss","_snt",
     ]
     
@@ -116,5 +123,7 @@ def pull_valid_command():
     
     return (valid_commands,valid_short_cuts,service_cmds,removed_cmds)
     
-
+    
+if __name__ == "__main__":
+    print("This module is not designed to be run independently, please refer to the documentation")  
     

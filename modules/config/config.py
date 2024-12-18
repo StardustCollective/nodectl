@@ -63,6 +63,9 @@ class Configuration():
                 
         if "view" in self.action or self.action == "-vc":
             self.view_yaml_config("normal")
+            if "mobile" in self.argv_list:
+                self.requested_configuration = False
+                return
         
         self.validated = True
         self.profile_check = False
@@ -175,7 +178,10 @@ class Configuration():
                 })
                 self.do_validation = False
             else:
-                self.send_error("cfg-99") 
+                extra2 = None
+                if self.called_command == "create_p12":
+                    extra2 = "To create a p12 keystore, nodectl needs dependencies that require a nodectl installation first, please issue: sudo nodectl install (optionally add --quick-install option)"
+                self.send_error("cfg-99","existence_hint",extra2) 
 
         try:
             self.yaml_dict = yaml.safe_load(yaml_data)
@@ -217,6 +223,7 @@ class Configuration():
                 "config_obj": self.config_obj,
                 "print_messages": False,
                 "called_cmd": called_cmd,
+                "force": True if any(item in self.argv_list for item in ["-f","--force"]) else False
             })
         self.functions.version_obj = self.versioning.get_version_obj()
         self.functions.set_statics()
@@ -247,10 +254,10 @@ class Configuration():
             self.log.logger.debug(f"configuration module found {self.called_command} request, skipping migration attempts.")
         elif not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             if self.called_command == "auto_restart": 
-                self.log.logger.warn(f"configuration validator found migration path for nodectl version [{nodectl_version}] - auto_restart detected, ignoring")
+                self.log.logger.warning(f"configuration validator found migration path for nodectl version [{nodectl_version}] - auto_restart detected, ignoring")
                 exit(0)
             elif self.called_command == "upgrade_nodectl": 
-                    self.log.logger.warn(f"configuration validator found migration path for nodectl version [{nodectl_version}] - nodectl_upgrade detected, by-passing")
+                    self.log.logger.warning(f"configuration validator found migration path for nodectl version [{nodectl_version}] - nodectl_upgrade detected, by-passing")
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], ["upgrade may be required!",1,"yellow"],
                     ])
@@ -284,6 +291,7 @@ class Configuration():
         self.config_obj["global_elements"]["global_cli_pass"] = False # initialize 
         self.config_obj["global_elements"]["global_upgrader"] = False # initialize 
         self.config_obj["global_elements"]["all_global"] = False # initialize 
+        self.config_obj["global_elements"]["jar_fallback"] = False # initialize 
         
         self.validate_global_setting()
         try:
@@ -361,6 +369,7 @@ class Configuration():
 
     def view_yaml_config(self,action):
         print_req = "all"
+        if self.called_command == "view-config": self.called_command = "view_config"
         if self.called_command == "view_config" or self.called_command == "-vc":
             self.build_function_obj({
                 "global_elements": {"caller":"config"},
@@ -417,7 +426,7 @@ class Configuration():
                     if req == "token" and line.startswith("  global_elements") or req in line: 
                         do_print = True
                     if req == "basics":
-                        basics = ["profile_enable","environment","description",
+                        basics = ["profile_enable","environment","description","jar_fallback",
                                   "node_type","meta_type","layer","collateral","service",
                                   "yaml_config_name","metagraph_name","local_api","includes",
                                   "developer_mode","log_level","nodectl_yaml"]
@@ -474,9 +483,10 @@ class Configuration():
         else:
             self.send_error("cfg-220") 
 
-        if action == "migrate":
+        if action == "migrate" or "mobile" in self.argv_list:
             self.functions.print_any_key({})
             return
+
         exit(0)
                 
         
@@ -546,7 +556,12 @@ class Configuration():
                 },
             },
             "jar_repository": {
-                "dor-metagraph": "github.com/Constellation-Labs/dor-metagraph/", 
+                "dor-metagraph": {
+                    "mainnet": "github.com/Constellation-Labs/dor-metagraph/",
+                }, 
+                "hypergraph": {
+                    "future_place_holder": "future_location",
+                },
             },
             "edge_point": {
                 "mainnet": "mainnet.constellationnetwork.io",
@@ -586,6 +601,7 @@ class Configuration():
                 "dor-metagraph": 0,
             },
             "service": {
+                # make sure to update configurator 'cleanup_service_file'
                 "hypergraph": {
                     "mainnet": "node_l",
                     "testnet": "node_l",
@@ -634,7 +650,11 @@ class Configuration():
                     service = defaults["service"][one_off["graph"]]
                     service = service[one_off["env"]]
                     service = f"{service}{one_off['layer']}"
-                    return service if service == one_off["service"] else False 
+                    try:
+                        if one_off["cleanup"]: 
+                            return service
+                    except:
+                        return service if service == one_off["service"] else False 
                 except: return False                                               
             if one_off["key"] == "default_tcp":
                 result_set = list()
@@ -664,14 +684,14 @@ class Configuration():
                 try:
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = defaults["token_coin_id"][metagraph_name]
                 except:
-                    self.log.logger.warn("config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
+                    self.log.logger.warning("config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs"
 
         if self.config_obj["global_elements"]["metagraph_token_identifier"] == "default":
             try:
                 self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][metagraph_name]
             except:
-                self.log.logger.warn("config -> during configuration setup, nodectl could not determine the token identifier")
+                self.log.logger.warning("config -> during configuration setup, nodectl could not determine the token identifier")
                 error_found("global","metagraph_token_identifier")
 
         for profile in self.metagraph_list:
@@ -716,6 +736,11 @@ class Configuration():
                 error_found("profile","token_identifier","error with profile section",profile)
 
             environment = self.config_obj[profile]["environment"]
+            self.config_obj[profile]["jar_github"] = False 
+            self.config_obj[profile]["jar_s3"] = False 
+            self.config_obj[profile]["jar_fallback_s3"] = False 
+            self.config_obj[profile]["jar_fallback_github"] = False
+            self.config_obj[profile]["jar_fallback_repository"] = "disabled"
 
             layer = int(self.config_obj[profile]["layer"])
             for tdir, def_value in defaults.items():
@@ -728,11 +753,12 @@ class Configuration():
                         elif tdir == "priority_source_file": 
                             self.config_obj[profile][tdir] = f"{metagraph_name}-{def_value}" 
                         elif tdir == "jar_repository": 
+                            exception_repo = "github.com/Constellation-Labs/tessellation/"
                             try:
-                                self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
+                                self.config_obj[profile][tdir] = defaults[tdir][metagraph_name][environment]
                             except:
                                 # hypergraph exception
-                                self.config_obj[profile][tdir] = "github.com/Constellation-Labs/tessellation/"
+                                self.config_obj[profile][tdir] = exception_repo
                         elif "edge_point" in tdir:
                             handle_edge_point(profile,environment, metagraph_name)
                         elif tdir == "seed_location":
@@ -742,7 +768,7 @@ class Configuration():
                             try:
                                 self.config_obj[profile][tdir] = def_value[metagraph_name]
                             except:
-                                self.log.logger.warn("config -> during configuration setup, nodectl could not determine collateral setting to [0]")
+                                self.log.logger.warning("config -> during configuration setup, nodectl could not determine collateral setting to [0]")
                                 self.config_obj[profile][tdir] = 0                            
                         elif tdir == "service":
                             try:
@@ -764,7 +790,7 @@ class Configuration():
                             try:
                                 self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
                             except:
-                                self.log.logger.warn("config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
+                                self.log.logger.warning("config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
                                 self.config_obj[profile][tdir] = "constellation-labs"                            
                         else: 
                             self.config_obj[profile][tdir] = def_value  
@@ -772,10 +798,24 @@ class Configuration():
                     self.log.logger.error(f"setting up configuration variables error detected [{e}]")
                     error_found("profile",tdir,"error setting defaults",profile)
 
-            self.config_obj[profile]["jar_github"] = False 
+            # for installer
+            try:
+                _ = self.config_obj["global_elements"]["jar_fallback"]
+            except:        
+                self.config_obj["global_elements"]["jar_fallback"] = False #initialize
+                
             if "github.com" in self.config_obj[profile]["jar_repository"]:
                 self.config_obj[profile]["jar_github"] = True 
+            elif "s3" in self.config_obj[profile]["jar_repository"] and "amazonaws" in self.config_obj[profile]["jar_repository"]:
+                self.config_obj[profile]["jar_s3"] = True
+            if self.config_obj[profile]["environment"] == "testnet":
+                self.config_obj["global_elements"]["jar_fallback"] = True
+                self.config_obj[profile]["jar_fallback_repository"] = "constellationlabs-dag.s3.us-west-1.amazonaws.com/testnet/tessellation/"
 
+            if "github.com" in self.config_obj[profile]["jar_fallback_repository"]:
+                self.config_obj[profile]["jar_fallback_github"] = True 
+            elif "s3" in self.config_obj[profile]["jar_fallback_repository"] and "amazonaws" in self.config_obj[profile]["jar_fallback_repository"]:
+                self.config_obj[profile]["jar_fallback_s3"] = True
             try:
                 if self.config_obj[profile]["seed_repository"] == "default": 
                     self.config_obj[profile]["seed_repository"] = self.config_obj[profile]["jar_repository"] 
@@ -1039,7 +1079,7 @@ class Configuration():
                 if write_out:  
                     g_done_ip, g_done_key, g_done_port, current_profile, skip_write = False, False, False, False, False
                     m_done_ip, m_done_key, m_done_port = False, False, False
-                    self.log.logger.warn("config -> found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
+                    self.log.logger.warning("config -> found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
                     f = open(f"{self.functions.nodectl_path}cn-config.yaml")
                     with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
                         for line in f:
@@ -1148,10 +1188,14 @@ class Configuration():
                 ["jar_location","path_def"],
                 ["jar_path","path_def"], # automated value [not part of yaml]
                 ["jar_repository","host_def"], 
+                ["jar_fallback_repository","host_def"], 
                 ["jar_version","str"],
                 ["jar_file","str"],
                 ["is_jar_static","bool"], # automated value [not part of yaml]
                 ["jar_github","bool"], # automated value [not part of yaml]
+                ["jar_s3","bool"], # automated value [not part of yaml]
+                ["jar_fallback_github","bool"], # automated value [not part of yaml]
+                ["jar_fallback_s3","bool"], # automated value [not part of yaml]
                 ["p12_nodeadmin","str"],
                 ["p12_key_location","path"],
                 ["p12_key_name","str"],
@@ -1211,6 +1255,7 @@ class Configuration():
                 ["developer_mode","bool"],  
                 ["log_level","log_level"],
                 ["use_offline","bool"],
+                ["jar_fallback","bool"], # automated value [not part of yaml]
             ]
         }
         
@@ -1261,10 +1306,15 @@ class Configuration():
 
     def validate_yaml_keys(self):
         missing_list = []
+        missing_list_global = []
         not_in_list = [
             "seed_path","pro_rating_path","static_peer",
             "gl0_link_is_self","ml0_link_is_self",
             "p12_key_store","jar_github", "jar_path",
+            "jar_s3","seed_github","p12_validated",
+            "priority_source_path","is_jar_static","p12_key_alias",
+            "jar_fallback_s3","jar_fallback_github","jar_fallback",
+            "jar_fallback_repository", "jar_fallback_github",
         ]
 
         for config_key, config_value in self.config_obj.items():
@@ -1275,7 +1325,9 @@ class Configuration():
                     missing_list.append([config_key, item])
             if "global" in config_key:
                 section = self.schema[config_key]
-                missing_list = [[config_key, section_item[0]] for section_item in section if section_item[0] not in config_value.keys()]
+                missing_list_global = [[config_key, section_item[0]] for section_item in section if section_item[0] not in config_value.keys()]
+
+        missing_list = missing_list+missing_list_global
 
         if len(missing_list) > 0:
             self.validated = False
@@ -1388,7 +1440,7 @@ class Configuration():
             except Exception as e:
                 self.log.logger.critical(f"configuration format failure detected | exception [{e}]")
                 if self.action == "edit_config_from_new":
-                    self.log.logger.warn("configuration -> configuration override detected, ignoring error and continuing.")
+                    self.log.logger.warning("configuration -> configuration override detected, ignoring error and continuing.")
                     # since we have an error, we will bypass the p12 details and assume they are global
                     self.config_obj[profile]["global_p12_all_global"] = True
                     continue
@@ -1702,7 +1754,7 @@ class Configuration():
         try:
             profile = self.functions.clear_global_profiles(self.config_obj)[0]
         except:
-            self.log.logger.warn("config --> unable to determine backup location, skipping cleanup.")
+            self.log.logger.warning("config --> unable to determine backup location, skipping cleanup.")
             return
         
         source = glob("/var/tessellation/nodectl/*backup*")

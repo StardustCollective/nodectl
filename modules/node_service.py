@@ -10,6 +10,7 @@ from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .troubleshoot.ts import Troubleshooter
 from .download_service import Download
+from .config.create_files import create_files
 
 class Node():
         
@@ -264,7 +265,7 @@ class Node():
             })
             
         if path.exists(self.env_conf_file):
-            self.log.logger.warn(f"found possible abandoned environment file [{self.env_conf_file}] removing.")
+            self.log.logger.warning(f"found possible abandoned environment file [{self.env_conf_file}] removing.")
             remove(self.env_conf_file)
             
         with open(self.env_conf_file,"w") as f:
@@ -340,15 +341,20 @@ class Node():
 
     def build_remote_link(self,link_type,interactive):
         not_ready_option = None
-        for n in range(1,4):
+        n = -1
+        try_again = True
+
+        while True:
+            n = n+1
+            user_wait = False
             source_node_list = self.functions.get_api_node_info({
                 "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
                 "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
                 "info_list": ["id","host","p2pPort","state"]
             })
 
-            if source_node_list == None: 
-                if n < 3:                    
+            if source_node_list == None or not source_node_list: 
+                if n > 2:                    
                     self.error_messages.error_code_messages({
                         "error_code": "ns-634",
                         "line_code": "config_error",
@@ -360,29 +366,31 @@ class Node():
 
             if not self.auto_restart:
                 self.functions.print_cmd_status({
-                    "text_start": f"{link_type.upper()} Link Node in",
+                    "text_start": f"{link_type.upper()} Link Node State:",
                     "brackets": source_node_list[3],
-                    "text_end": "state" if source_node_list[3] == "Ready" else "state | not",
+                    "text_end": "" if source_node_list[3] == "Ready" else "not",
                     "status": "Ready",
                     "status_color": "green" if source_node_list[3] == "Ready" else "red",
                     "newline": True
                 })
 
-            ready_list = ["Ready","WaitingForReady","Observing","WaitingForObserving"]
-            ready_list = ["Ready"]
-            if source_node_list[3] in ready_list:
+            if source_node_list[3] == "Ready":
                 self.log.logger.debug(f"node_service -> build_remote_link -> source node [{source_node_list[3]}] in state [{source_node_list[3]}].")
                 return True
 
             if n > 2:
-                self.log.logger.error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
-                if not self.auto_restart:
-                    self.functions.print_paragraphs([
-                        [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
-                        ["Exiting join process, please try again later or check Node configuration.",2,"red"],
-                    ])
-                    self.functions.print_auto_restart_warning()
-                return False
+                if source_node_list[3] == "WaitingForReady" and try_again:
+                    try_again = False
+                    n = 0  
+                else:                  
+                    self.log.logger.error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
+                    if not self.auto_restart:
+                        self.functions.print_paragraphs([
+                            [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
+                            ["Exiting join process, please try again later or check Node configuration.",2,"red"],
+                        ])
+                        self.functions.print_auto_restart_warning()
+                    return False
             
             error_str = colored("before trying again ","red")+colored(n,"yellow",attrs=["bold"])
             error_str += colored(" of ","red")+colored("3","yellow",attrs=["bold"])
@@ -402,12 +410,19 @@ class Node():
                     cprint("  Node Operator requested to quit operations","green")
                     exit(0)
 
-                if not_ready_option.upper() == "S": break
+                if not_ready_option.upper() == "S": 
+                    break
+
+                error_str = colored("before trying again ","red")
+                user_wait = True
+
             if not self.auto_restart:
                 self.functions.print_timer({
                     "seconds": 30,
                     "phrase": error_str,
                 })
+                if n > 3 and not user_wait:
+                    break
 
         return False
         
@@ -454,7 +469,7 @@ class Node():
                         ["Skipping service change request [",0,"yellow"], [service_display,-1,], ["] because the service is already set to",-1,"yellow"],
                         [self.functions.config_obj["global_elements"]['node_service_status'][profile],1,"yellow"]
                     ])
-                self.log.logger.warn(f"change service state [{service_display}] request aborted because service [inactive (dead)]")
+                self.log.logger.warning(f"change service state [{service_display}] request aborted because service [inactive (dead)]")
                 return
             
             self.build_environment_vars({"profile": profile})
@@ -465,7 +480,7 @@ class Node():
 
         if action == "stop":
             if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] > 0:
-                self.log.logger.warn(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
+                self.log.logger.warning(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_cmd_status({
@@ -489,12 +504,15 @@ class Node():
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "subprocess_run_check_text" if action == "stop" else "wait",
-            "timeout": 5 if action == "stop" else 180
+            "timeout": 30 if action == "stop" else 180
         })
 
         if action == "start":
             # clean up for a little more security of passphrases and cleaner installation
-            self.functions.remove_files([self.env_conf_file,self.temp_bash_file],f"change_service_state [{caller}]")
+            self.functions.remove_files(
+                [self.env_conf_file,self.temp_bash_file],
+                f"change_service_state [{caller}]"
+            )
         
         
     def leave_cluster(self,command_obj):
@@ -776,7 +794,7 @@ class Node():
                         "phrase": "Pausing",
                         "p_type": "cmd",
                         "step": -1,
-                        "end_phrase": f"of {cprint('8','cyan',attr=['bold'])} seconds"
+                        "end_phrase": f"of {cprint('8','cyan',attrs=['bold'])} seconds"
                     })
             
             if exception_found and action == "auto_join":
@@ -815,7 +833,7 @@ class Node():
                 
             result = "done".ljust(32)
         else:
-            self.log.logger.warn("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
+            self.log.logger.warning("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
             try: return_str = found_link_types.pop()
             except: return_str = self.profile
             else:
@@ -835,452 +853,8 @@ class Node():
         var.environment_name = command_obj.get("environment_name","mainnet")
         var.upgrade_required = command_obj.get("upgrade_required",False)
         var.pre_release = command_obj.get("pre_release",False)
-        
-        cur_file2 = "" # initialize
-        
-        if var.file == "service_file":
-            cur_file = f'''[Unit]
-Description=nodegarageservicedescription
-StartLimitBurst=50
-StartLimitIntervalSec=0
 
-[Service]
-Type=forking
-EnvironmentFile={self.functions.nodectl_path}profile_nodegarageworkingdir.conf
-WorkingDirectory=/var/tessellation/nodegarageworkingdir
-ExecStart={self.functions.nodectl_path}nodegarageexecstartbash
-SuccessExitStatus=143
-
-[Install]
-WantedBy=multi-user.target
-'''
-     
-        if var.file == "service_bash":
-            cur_file = '''#!/bin/bash
-            
-# This file is used by the [nodegarageservicename] profile
-# to run your Node's debian service.
-#
-# Node Operators should not alter this file;
-# rather, utilize the: 'sudo nodectl configure' command to
-# alter this file and avoid undesired affects.
-# =========================================================
-
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' nodegaragetessbinaryfilepath run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
-'''
-
-        if var.file == "auto_restart_service_log":
-            cur_file = '''#!/bin/bash
-formatted_date=$(date "+%b %d %H:%M:%S")
-pid=$$
-echo "$formatted_date [$pid]: INFO : systemd saw auto_restart service has been started or restarted." >> /var/tessellation/nodectl/nodectl.log
-'''        
-
-        if var.file == "service_restart":
-            cur_file = '''[Unit]
-Description=Constellation Node auto_restart service
-StartLimitBurst=50
-StartLimitIntervalSec=15
-After=multi-user.target
-
-[Service]
-Type=Simple
-WorkingDirectory=/usr/local/bin
-Environment="SCRIPT_ARGS=%I"
-ExecStartPre=/var/tessellation/nodectl/auto_restart_logger.sh
-ExecStart=nodectl service_restart $SCRIPT_ARGS
-Restart=always
-RestartSec=15
-RuntimeMaxSec=3600
-ExecStop=/bin/true
-
-[Install]
-WantedBy=multi-user.target
-'''
-        
-        if var.file == "version_service":
-            cur_file = '''[Unit]
-Description=Constellation Node version update service
-After=multi-user.target
-
-[Service]
-Type=simple
-WorkingDirectory=/usr/local/bin
-ExecStart=nodectl uvos
-Restart=always
-RestartSec=2m
-ExecStop=/bin/true
-
-[Install]
-WantedBy=multi-user.target
-'''
-        
-        if var.file == "config_yaml_init":
-            cur_file = '''---
-# NODECTL CONFIGURATION FILE
-# @netmet72
-# =========================================================
-# IMPORTANT IMPORTANT IMPORTANT IMPORTANT
-#
-# It is discouraged to update this file manually.  nodectl may
-# update this file through automation at any time, causing any
-# changes you make to be lost.
-#
-# Do NOT update this file unless you know what you are
-# doing !!  Please see the Constellation Network
-# documentation hub for details on how to configure
-# this file.
-# =========================================================
-# Network cluster sections isolated by profile key name
-# =========================================================
-# Custom Options and Environment Variables
-# ---------------------------------------------------------
-# Required arguments must be listed BEFORE any custom
-# entered options or environment variables !!
-#
-# Failure to do so may create undesired results from
-# nodectl (especially the configurator) the Node Operator
-# should use the configurator over manually updating this
-# config file.
-# ---------------------------------------------------------
-# Required arguments
-# ---------------------------------------------------------
-# custom_args_enable: True (or False)
-# custom_env_vars_enable: True (or False)
-# ---------------------------------------------------------
-# MANUAL ENTRY MUST PREFIX "custom_args_" to your arg
-# custom_args_var1: value1
-# custom_args_var2: value2
-# MANUAL ENTRY MUST PREFIX "custom_env_var_" to your env_var
-# ---------------------------------------------------------
-# MANUAL ENTRY MUST BE IN CORRECT ORDER FOR CONFIGURATOR
-# TO WORK PROPERLY.
-# custom_args_enable followed by all custom_args
-# custom_env_vars_enabled followed by all custom_env_var
-# Failure to do so will lead to unexpected behavior
-# ---------------------------------------------------------
-# Examples)
-# custom_env_vars_CL_SNAPSHOT_STORED_PATH: /location1/here/
-# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_STORED_PATH: /location2/here/
-# custom_env_vars_CL_INCREMENTAL_SNAPSHOT_TMP_STORED_PATH: /location3/here/
-# =========================================================
-
-nodectl:
-'''
-        
-        if var.file == "config_yaml_profile":
-            cur_file = '''  nodegarageprofile:
-    profile_enable: nodegarageenable
-    environment: nodegarageenvironment
-    description: nodegaragedescription
-    node_type: nodegaragenodetype
-    meta_type: nodegaragemetatype
-    layer: nodegarageblocklayer
-    collateral: nodegaragecollateral
-    service: nodegarageservice
-    edge_point: nodegarageedgepointhost
-    edge_point_tcp_port: nodegarageedgepointtcpport
-    public_port: nodegaragepublic
-    p2p_port: nodegaragep2p
-    cli_port: nodegaragecli
-    gl0_link_enable: nodegaragegl0linkenable
-    gl0_link_key: nodegaragegl0linkkey
-    gl0_link_host: nodegaragegl0linkhost
-    gl0_link_port: nodegaragegl0linkport
-    gl0_link_profile: nodegaragegl0linkprofile
-    ml0_link_enable: nodegarageml0linkenable
-    ml0_link_key: nodegarageml0linkkey
-    ml0_link_host: nodegarageml0linkhost
-    ml0_link_port: nodegarageml0linkport
-    ml0_link_profile: nodegarageml0linkprofile
-    token_identifier: nodegaragetokenidentifier
-    token_coin_id: nodegaragemetatokencoinid
-    directory_backups: nodegaragedirectorybackups
-    directory_uploads: nodegaragedirectoryuploads
-    java_xms: nodegaragexms
-    java_xmx: nodegaragexmx
-    java_xss: nodegaragexss
-    jar_location: nodegaragejarlocation
-    jar_repository: nodegaragejarrepository
-    jar_version: nodeagaragejarversion
-    jar_file: nodegaragejarfile
-    p12_nodeadmin: nodegaragep12nodeadmin
-    p12_key_location: nodegaragep12keylocation
-    p12_key_name: nodegaragep12keyname
-    p12_passphrase: nodegaragep12passphrase
-    seed_location: nodegarageseedlocation
-    seed_repository: nodegarageseedrepository
-    seed_version: nodegarageseedversion
-    seed_file: nodegarageseedfile
-    pro_rating_location: nodegarageratinglocation
-    pro_rating_file: nodegarageratingfile
-    priority_source_location: nodegarageprioritysourcelocation
-    priority_source_repository: nodegarageprioritysourcerepository
-    priority_source_file: nodegarageprioritysourcefile
-    custom_args_enable: nodegaragecustomargsenable
-    custom_env_vars_enable: nodegaragecustomenvvarsenable
-'''
-        
-        if var.file == "config_yaml_autorestart":
-            cur_file = '''  global_auto_restart:
-    auto_restart: nodegarageeautoenable
-    auto_upgrade: nodegarageautoupgrade
-    on_boot: nodegarageonboot
-    rapid_restart: nodegaragerapidrestart
-'''
-        
-        if var.file == "config_yaml_p12":
-            cur_file = '''  global_p12:
-    nodeadmin: nodegaragep12nodeadmin
-    key_location: nodegaragep12keylocation
-    key_name: nodegaragep12keyname
-    passphrase: nodegaragep12passphrase
-    encryption: nodegaragep12encryption
-'''
-        
-        if var.file == "config_yaml_global_elements":
-            cur_file = '''  global_elements:
-    yaml_config_name: nodegarageyamlconfigname
-    metagraph_name: nodegaragemetagraphname
-    metagraph_token_identifier: nodegaragemetatokenidentifier
-    metagraph_token_coin_id: nodegaragemetagraphtokencoinid     
-    local_api: nodegaragelocalapi
-    includes: nodegarageincludes
-    nodectl_yaml: nodegaragenodectlyaml
-    developer_mode: nodegaragedevelopermode
-    log_level: nodegarageloglevel
-'''
-        
-        if var.file == "uninstall_nodectl":
-            cur_file = '''#!/bin/bash
-sleep 1
-red='\033[1;31m'
-blue='\033[1;36m'
-green='\033[1;32m'
-clr='\033[0m'
-
-if [ -f "/usr/local/bin/nodectl" ]; then
-  rm -f /usr/local/bin/nodectl
-  echo "  ${blue}Removing nodectl binary........................ ${green}complete${clr}"
-else
-  echo "  ${blue}Removing nodectl binary........................ ${red}failed${clr}"
-fi
-rm -f "$0"
-'''
-
-        elif var.file == "upgrade":
-            url = "https://github.com/stardustCollective/nodectl/releases/download/NODECTL_VERSION/nodectl_ARCH"
-            cur_file = '''#!/bin/bash
-
-red='\033[1;31m'
-blue='\033[1;36m'
-pink='\033[1;35m'
-green='\033[1;32m'
-yellow='\033[1;33m'
-clr='\033[0m'
-'''
-            cur_file += f'''
-sudo mv /usr/local/bin/nodectl NODECTL_BACKUPnodectl_NODECTL_OLD
-sleep 2
-sudo wget {url} -P /usr/local/bin -O /usr/local/bin/nodectl -o /dev/null
-sleep 1
-'''
-            cur_file += '''
-sudo chmod +x /usr/local/bin/nodectl
-echo ""
-echo "  ${green}COMPLETED! nodectl upgraded to NODECTL_VERSION ${clr}"
-sleep 1
-
-if [ -e "/usr/local/bin/nodectl" ]; then
-    size=$(stat -c %s "/usr/local/bin/nodectl")
-    if [ "$size" -eq 0 ]; then
-       echo "  ${red}Error found, file did not download properly, please try again."
-       exit 0
-    fi
-else
-    echo "  ${red}Error found, file did not download properly, please try again."
-    exit 0
-fi
-
-sudo nodectl update_version_object --force
-sudo nodectl verify_nodectl
-sudo nodectl version
-echo ""
-'''
-            if var.upgrade_required:
-                cur_file2 = '''
-echo "  ${blue}This version of nodectl requires a nodectl_only upgrade be performed"
-echo "  ${blue}on your Node.\n"
-read -e -p "  ${pink}Press ${yellow}Y ${pink}then ${yellow}[ENTER] ${pink}to upgrade or ${yellow}N ${pink}then ${yellow}[ENTER] ${pink}to cancel:${blue} " CHOICE
-
-if [[ ("$CHOICE" == "y" || "$CHOICE" == "Y") ]]; then
-    echo "${clr}"
-    sudo nodectl upgrade --nodectl_only
-fi
-echo "${clr}"
-exit 0
-
-'''
-            else:
-                cur_file2 += '''
-echo "  ${yellow}This version of nodectl ${pink}DOES NOT ${yellow}require an upgrade be performed"
-read -e -p "  ${blue}Press ${yellow}[ENTER] ${blue}to continue...${clr}" CHOICE
-echo "${clr}"
-exit 0
-'''
-
-        if var.file == "auto_complete":
-            cur_file = '''_nodectl_complete()
-{
-    local cur prev words cword opts
-    _get_comp_words_by_ref -n : cur prev words cword
-
-    # Only proceed if 'nodectl' is the command or follows 'sudo'
-    if [[ ! " ${words[@]} " =~ " nodectl " ]]; then
-        return 0
-    fi
-
-    # Commands for 'nodectl'
-    local commands="nodegaragelocalcommands"
-
-    # Options for each command
-    local install_opts="nodegarageinstalloptions"
-    local upgrade_opts="nodegarageupgradeoptions"
-    local viewconfig_opts="nodegarageviewconfigoptions"
-    local displaychain_opts="nodegaragedisplaychainoptions"
-    local find_opts="nodegaragefindoptions"
-    local default_opts="help"
-
-    # Determine the current command
-    local current_command=""
-    for word in ${words[@]}; do
-        if [[ " ${commands} " == *" ${word} "* ]]; then
-            current_command=${word}
-            break
-        fi
-    done
-
-    case "${current_command}" in
-        install)
-            case "${prev}" in
-                --user)
-                    COMPREPLY=($(compgen -W "<user_name>" -- ${cur}))
-                    return 0
-                    ;;
-                --p12-destination-path)
-                    COMPREPLY=($(compgen -W "<path_to_where_p12_lives>" -- ${cur}))
-                    return 0
-                    ;;
-                --user-password)
-                    COMPREPLY=($(compgen -W "<user_password>" -- ${cur}))
-                    return 0
-                    ;;
-                --p12-passphrase)
-                    COMPREPLY=($(compgen -W "<p12_passphrase>" -- ${cur}))
-                    return 0
-                    ;;
-                --p12-migration-path)
-                    COMPREPLY=($(compgen -W "<path_to_file_p12_being_migrated>" -- ${cur}))
-                    return 0
-                    ;;
-                --p12-alias)
-                    COMPREPLY=($(compgen -W "<p12_alias_name>" -- ${cur}))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=($(compgen -W "${install_opts}" -- ${cur}))
-                    return 0
-                    ;;
-            esac
-            ;;
-        upgrade)
-            case "${prev}" in
-                --pass)
-                    COMPREPLY=($(compgen -W "<password>" -- ${cur}))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=($(compgen -W "${upgrade_opts}" -- ${cur}))
-                    return 0
-                    ;;
-            esac
-            ;;
-        view_config|-vc)
-            case "${prev}" in
-                --section)
-                    COMPREPLY=($(compgen -W "<section_name>" -- ${cur}))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=($(compgen -W "${viewconfig_opts}" -- ${cur}))
-                    return 0
-                    ;;
-            esac
-            ;;
-        display_snapshot_chain)
-            case "${prev}" in
-                -p)
-                    COMPREPLY=($(compgen -W "<profile>" -- ${cur}))
-                    return 0
-                    ;;
-                --days)
-                    COMPREPLY=($(compgen -W "<number_of_days>" -- ${cur}))
-                    return 0
-                    ;;
-                --json_output)
-                    COMPREPLY=($(compgen -W "<file_name or path>" -- ${cur}))
-                    COMPREPLY=($(compgen -W "--pretty_print" -- ${cur}))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=($(compgen -W "${displaychain_opts}" -- ${cur}))
-                    return 0
-                    ;;
-            esac
-            ;;
-        find_options)
-            case "${prev}" in
-                -t)
-                    COMPREPLY=($(compgen -W "<<target_ip_nodeid, ordinal <ordinal_number>, or hash <hash_number>>" -- ${cur}))
-                    return 0
-                    ;;
-                -s)
-                    COMPREPLY=($(compgen -W "<source_ip_nodeid>" -- ${cur}))
-                    return 0
-                    ;;
-                --days)
-                    COMPREPLY=($(compgen -W "<number_of_days>" -- ${cur}))
-                    return 0
-                    ;;
-                --json_output)
-                    COMPREPLY=($(compgen -W "<file_name or path>" -- ${cur}))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=($(compgen -W "${displaychain_opts}" -- ${cur}))
-                    return 0
-                    ;;
-            esac
-            ;;
-        *)
-            ;;
-        
-    esac
-
-    if [[ ${cur} == -* ]] ; then
-        COMPREPLY=($(compgen -W "${default_opts}"))
-        return 0
-    fi
-
-    if [[ $cword -eq 2 ]]; then
-        COMPREPLY=($(compgen -W "${commands}" -- ${cur}))
-        return 0
-    fi
-}
-
-complete -F _nodectl_complete sudo
-'''
-        return cur_file+cur_file2
+        return create_files(self.functions,var)        
     
     
 if __name__ == "__main__":

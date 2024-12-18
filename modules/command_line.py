@@ -1,12 +1,13 @@
 import re
 import base58
 import psutil
+import socket
 
 from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, SEEK_END, SEEK_CUR
 from shutil import copy2, move
 from sys import exit
 from types import SimpleNamespace
@@ -14,6 +15,7 @@ from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
 from copy import deepcopy
+from scapy.all import sniff
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 
 from modules.p12 import P12Class
@@ -26,6 +28,9 @@ from .troubleshoot.logger import Logging
 from .cleaner import Cleaner
 from .troubleshoot.send_logs import Send
 from .troubleshoot.ts import Troubleshooter
+from .find_newest_standalone import find_newest
+from .config.ipv6 import handle_ipv6
+from .console import Menu
 
 class TerminateCLIException(Exception): pass
 
@@ -53,6 +58,7 @@ class CLI():
         self.skip_build = False
         self.check_versions_called = False
         self.invalid_version = False
+        self.mobile = False
         self.caller = "cli"
         self.version_class_obj = None
         self.current_try = 0
@@ -89,7 +95,7 @@ class CLI():
             })
             self.functions.print_clear_line()
             
-        self.arch = self.functions.get_arch()
+        self.arch = self.functions.get_distro_details()["arch"]
             
             
     # ==========================================
@@ -409,21 +415,21 @@ class CLI():
                                 if sessions["state1"] == "ApiNotResponding":
                                     on_network = colored("TryAgainLater","magenta")
                                     join_state = colored(f"ApiNotResponding".ljust(20),"magenta")
-                                elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "SessionStarted" and sessions["state1"] != "Initial":
+                                elif sessions["state1"] == "WaitingForDownload" or sessions["state1"] == "SessionStarted":
+                                    join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+                                    on_network = colored("True","magenta",attrs=["bold"])
+                                elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "Initial":
                                     # there are other states other than Ready and Observing when on_network
                                     on_network = colored("True","green")
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"green")
                                     if sessions["state1"] == "Observing" or sessions["state1"] == "WaitingForReady":
                                         join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                                # elif sessions["state1"] == "Ready":
-                                #     join_state = colored(f"{sessions['state1']}".ljust(20),"green",attrs=['bold'])
-                                #     on_network = colored("True","green",attrs=["bold"])
                                 else:
                                     node_session = colored("SessionIgnored".ljust(20," "),"red")
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"red")
                             if sessions["session0"] != sessions["session1"] and sessions["state1"] == "Ready":
                                     on_network = colored("False","red")
-                                    join_state = colored(f"{sessions['state1']} (off-cluster)".ljust(20),"yellow")
+                                    join_state = colored(f"{sessions['state1']} (forked)".ljust(20),"yellow")
                                             
                         if sessions["session1"] == 0:
                             node_session = colored("SessionNotFound".ljust(20," "),"red")
@@ -472,7 +478,7 @@ class CLI():
                         if print_title:
                             self.functions.print_states()
                             self.functions.print_paragraphs([
-                                ["Current Session:",0,"magenta"], ["The Metagraph cluster session",1],
+                                ["Current Session:",0,"magenta"], ["The metagraph cluster session",1],
                                 ["  Found Session:",0,"magenta"], ["Node's current cluster session",1],
                                 [" Latest Ordinal:",0,"magenta"], ["Node consensus ordinal",1],
                                 ["      Last DLed:",0,"magenta"], ["Last found ordinal downloaded by Node",1],
@@ -735,25 +741,10 @@ class CLI():
         self.functions.check_for_help(command_list,"health")
         self.log.logger.info(f"show health requested")
 
-        with ThreadPoolExecutor() as executor:
-            self.functions.status_dots = True
-            status_obj = {
-                "text_start": f"Calculating health stats",
-                "status": "running",
-                "status_color": "yellow",
-                "dotted_animation": True,
-                "newline": False,
-            }
-            _ = executor.submit(self.functions.print_cmd_status,status_obj)
-            status = Status(self.functions)
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                **status_obj,
-                "status": "completed",
-                "status_color": "green",
-                "dotted_animation": False,
-                "newline": True,
-            })
+        status = Status(self.functions)
+        status.called_command = self.command_obj["command"]
+        status.non_interactive = True if "--ni" in command_list else False
+        status.execute_status()
 
         self.functions.print_header_title({
             "line1": "NODE BASIC HEALTH",
@@ -765,9 +756,15 @@ class CLI():
             {
                 "header_elements" : {
                     "DISK USAGE": status.hd_space.strip("\n"),
-                    "15M CPU": status.usage,
+                    "CPU USAGE": status.usage,
                     "UPTIME_DAYS": status.system_up_time,
+                },
+                "spacing": 15,
+            },
+            {
+                "header_elements" : {
                     "MEMORY": status.memory,
+                    "MEMORY %": f"{status.memory_percent}%",
                     "SWAP": status.swap,
                 },
                 "spacing": 15,
@@ -816,7 +813,7 @@ class CLI():
             self.functions.print_show_output({
                 "header_elements" : header_elements
         })
-        
+    
 
     def show_cpu_memory(self, command_list):
         self.functions.check_for_help(command_list,"show_cpu_memory")
@@ -952,6 +949,7 @@ class CLI():
         sip = {}
         nodeid = csv_file_name = ""
         is_basic = create_csv = False
+        state, i_state = False, False
         
         if "--csv" in command_list:
             if not "--output" in command_list:
@@ -1002,6 +1000,19 @@ class CLI():
             self.cli_find(count_args)
             return
         
+        if "--state" in command_list:
+            i_state = command_list[command_list.index("--state")+1]
+            states = self.functions.get_node_states("on_network_and_stuck")
+            state = next((s[0] for s in states if i_state == s[1].replace("*", "")), False)
+
+            if not state:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-1008",
+                    "line_code": "invalid_option",
+                    "extra": i_state,
+                    "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd",
+                })
+        
         try:
             if sip["ip"] == "self": sip["ip"] = self.functions.get_ext_ip()
         except: 
@@ -1028,8 +1039,20 @@ class CLI():
                 "line_code": "ip_not_found",
                 "extra": sip,
                 "extra2": None
-            })      
-                  
+            })     
+
+        lookup = "peer_list"
+        search_title = "all peers"
+        if i_state:
+            search_title = state
+            lookup = f"{state.lower()}"
+            
+        self.functions.print_header_title({
+            "line1": f"SHOW PEERS - {search_title}",
+            "single_line": True,
+            "newline": "both"  
+        })     
+
         print_out_list = [
             {
                 "PROFILE": profile,
@@ -1056,8 +1079,8 @@ class CLI():
         else:
             status_header += f"{peer_title2: <36}"
             status_header += f"{peer_title3: <36}"
-        
-        for item, peer in enumerate(peer_results["peer_list"]):
+
+        for item, peer in enumerate(peer_results[lookup]):
             public_port = peer_results["peers_publicport"][item]
             
             if not is_basic:
@@ -1067,8 +1090,8 @@ class CLI():
                     "argv_list": ["-p",profile,"-t",peer,"--port",public_port,"-l"]
                 })
                 if isinstance(nodeid,list):
-                    nodeid = "error"
-                    wallet = "error"
+                    nodeid = "UnableToReach"
+                    wallet = "UnableToReach"
                 else:
                     wallet = self.cli_nodeid2dag([nodeid, "return_only"])
                 
@@ -1077,8 +1100,7 @@ class CLI():
                     "quit_option": "q",
                     "newline": "both",
                 })
-                if more:
-                    break
+                if more: break
                 print_header = True
                 
             print_peer = f"{peer}:{public_port}" 
@@ -1104,8 +1126,8 @@ class CLI():
                 status_results = f"  {print_peer: <{spacing}}"                        
             else:
                 spacing = 23
-                if nodeid != "error": nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
-                if nodeid != "error": wallet = f"{wallet[0:8]}....{wallet[-8:]}"
+                if nodeid != "UnableToReach": nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
+                if nodeid != "UnableToReach": wallet = f"{wallet[0:8]}....{wallet[-8:]}"
                 status_results = f"  {print_peer: <{spacing}}"                      
                 status_results += f"{nodeid: <{spacing}}"                      
                 status_results += f"{wallet: <{spacing}}"        
@@ -1181,8 +1203,18 @@ class CLI():
     def show_security(self, command_list):
         self.functions.check_for_help(command_list,"sec")
         self.log.logger.info(f"Show security request made.")
-        status = Status(self.functions)
         
+        with ThreadPoolExecutor() as executor:
+            self.functions.event = True
+            _ = executor.submit(self.functions.print_spinner,{
+                "msg": f"Reviewing [VPS security], please wait ",
+                "color": "magenta",
+            })              
+            status = Status(self.functions)
+            status.called_command = self.command_obj["command"]
+            status.execute_status()
+            self.functions.event = False
+
         print_out_list = [
             {
                 "header_elements" : {
@@ -1266,8 +1298,12 @@ class CLI():
                 "prompt_color": "magenta",
                 "options": ["1","2","3","4","5","Q"],
                 "quit_option": "Q",
+                "mobile": self.mobile
             })
-
+            if option == "q":
+                if self.mobile: return
+                exit(0)
+                
             option_match = {
                 "1": f"{self.functions.nodectl_path}nodectl.log",
                 "2": f"/var/tessellation/{profile}/logs/app.log",
@@ -1501,7 +1537,7 @@ class CLI():
         print(status_header.rjust(28))
         print(status_results)
 
-        nodectl_only = ["ApiNotReady","ApiNotResponding","SessionIgnored","SessionNotFound"]
+        nodectl_only = self.functions.get_node_states("nodectl_only",True)
         states.pop(0)
         for value in states:
             print_value = value[1]
@@ -1536,7 +1572,7 @@ class CLI():
                                 "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                                 "extra2": self.config_obj[profile]["layer"],
                             })
-                        self.log.logger.warn("cli -> show_seedlist_participation -> LB may not be accessible, trying local.")
+                        self.log.logger.warning("cli -> show_seedlist_participation -> LB may not be accessible, trying local.")
                         self.config_obj[profile]["edge_point"] = self.functions.get_ext_ip()
                         self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
                         self.config_obj[profile]["static_peer"] = True 
@@ -1598,7 +1634,10 @@ class CLI():
         
         more_break = 1
         print_title = False
-        do_more = False if "-np" in command_list else True
+        do_more = True
+
+        if "-np" in command_list or "--np" in command_list:
+            do_more = False
         if do_more:
             console_size = get_terminal_size()
             more_break = round((console_size.lines-20)/6)
@@ -1657,10 +1696,13 @@ class CLI():
         
         
     def show_download_status(self,command_obj):
+        self.functions.check_for_help(self.command_list,"download_status")
+
         download_status = DownloadStatus({
             "parent": self,
             "command_obj": command_obj,
         })
+        
         if command_obj["caller"] == "status":
             ds = download_status.download_status_process()
             return ds
@@ -1675,8 +1717,16 @@ class CLI():
         title = "NODE P12"
         profile = self.functions.default_profile
         snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
-        create_csv = False
-        
+        target_dag_addr, create_csv = False, False
+
+        def send_error(code, line="input_error", extra=None, extra2=None):
+            self.error_messages.error_code_messages({
+                "error_code": code,
+                "line_code": line,
+                "extra": extra,
+                "extra2": extra2,
+            })   
+
         try:
             if int(snapshot_size) > 375 or int(snapshot_size) < 1:
                 self.functions.print_paragraphs([
@@ -1688,11 +1738,7 @@ class CLI():
                 cprint("  show_current_reward -s option must be in range between [10] and [375]","red",attrs=["bold"])
                 return
         except:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-826",
-                "line_code": "input_error",
-                "extra": None,
-            })            
+            send_error("cmd-825")
         
         data = self.get_and_verify_snapshots(snapshot_size, self.config_obj[profile]["environment"],profile)        
             
@@ -1711,6 +1757,16 @@ class CLI():
                 "argv_list": ["-p",profile]
             })
             search_dag_addr = self.nodeid.strip("\n")
+            search_dag_addr = self.cli_nodeid2dag([search_dag_addr,"return_only"])
+
+        if "--target" in command_list or "-t" in command_list:
+            try:
+                target_dag_addr = command_list[command_list.index("-t")+1]
+            except:
+                try:
+                    target_dag_addr = command_list[command_list.index("--target")+1]
+                except:
+                    send_error("cmd-1741","input_error","target","must be a valid DAG wallet address")
 
         if "--csv" in command_list:
             self.functions.print_cmd_status({
@@ -1724,11 +1780,8 @@ class CLI():
             if "--output" in command_list:
                 csv_file_name = command_list[command_list.index("--output")+1]
                 if "/" in csv_file_name:
-                    self.error_messages.error_code_messages({
-                        "error_code": "cmd-442",
-                        "line_code": "invalid_output_file",
-                        "extra": csv_file_name
-                    })
+                    send_error("cmd-442","invalid_output_file",csv_file_name)
+
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
                 csv_file_name = f"{prefix}-{search_dag_addr[0:8]}-{search_dag_addr[-8:]}-rewards-data.csv"
@@ -1742,10 +1795,17 @@ class CLI():
                     color = "green"; found = "TRUE"
                 else:
                     reward_amount[reward["destination"]] = reward["amount"]
-        try:
-            first = reward_amount.popitem()  
-        except:
-            first = [0,0]
+
+        if target_dag_addr:
+            for target in reward_amount.keys():
+                if target == target_dag_addr:
+                    first = [target, reward_amount[target]]
+                    break
+        else:
+            try:
+                first = reward_amount.popitem()  
+            except:
+                first = [0,0]
 
         title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"   
         
@@ -1820,6 +1880,9 @@ class CLI():
                 self.functions.print_show_output({
                     "header_elements" : header_elements,
                 })   
+
+        if target_dag_addr:
+            return
         
         do_more = False if "-np" in command_list else True
         if do_more:
@@ -1867,7 +1930,7 @@ class CLI():
         profile = command_list[command_list.index("-p")+1]
         self.log.logger.info(f"show_dip_error -> initiated - profile [{profile}]")
         
-        bashCommand = f"grep -a -B 15 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 21"
+        bashCommand = f"grep -a -B 50 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 50"
     
         results = self.functions.process_command({
             "bashCommand": bashCommand,
@@ -1890,7 +1953,7 @@ class CLI():
                 if "Unexpected failure" in line: color = "red"
                 if "CannotFetchSnapshot" in line: color = "yellow"
                 self.functions.print_paragraphs([
-                    ["=","half","bold","blue"],
+                    ["=","half","blue","bold"],
                     [str(line),1,color],
                 ])
         
@@ -1903,6 +1966,7 @@ class CLI():
 
 
     def show_profile_issues(self,command_list,ts=False):
+        self.functions.check_for_help(command_list,"show_profile_issues")
         solo = False
         lines = command_list[command_list.index("--lines")+1] if "--lines" in command_list else 149
         if not ts:
@@ -1910,7 +1974,15 @@ class CLI():
             self.print_title("POSSIBLE PROFILE ISSUES")
             solo = True
 
-        profile = command_list[command_list.index("-p")+1]
+        try:
+            profile = command_list[command_list.index("-p")+1]
+        except Exception as e:
+            self.functions.print_paragraphs([
+                ["Error:",0,"red","bold"], ["Unable to determine profile issue",1,"red"],
+            ])
+            self.log.logger.warning(f"command_line -> show_profile_issues -> unable to obtain profile, skipping [{e}]")
+            return
+        
         ts.setup_logs({
             "profile": profile,
         })
@@ -1942,7 +2014,15 @@ class CLI():
             self.functions.print_paragraphs([
                 ["",1], ["The following was identified in the logs",2,"red"],
             ])
-            results = self.functions.remove_duplicates("list_of_dicts",results)
+            try:
+                results = self.functions.remove_duplicates("list_of_dicts",results)
+            except Exception as e:
+                self.log.logger.critical(f"show_profile_issues -> attempted to remove duplicate error messages which resulted in [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-1973",
+                    "line_code": "unknown_error",
+                    "extra": e,
+                })
 
             for result in results:
                 error_msg = str(result['error_msg'])
@@ -1995,12 +2075,16 @@ class CLI():
                 [" WARNING ",0,"yellow,on_red","bold"], ["You will need to restart all services after completing this download.",2]
             ])
         
-        self.functions.confirm_action({
-            "yes_no_default": "n",
-            "return_on": "y",
-            "prompt": f"Are you sure you want to overwrite Tessellation {confirm_text}?",
-            "exit_if": True,
-        })
+        if not "-y" in argv_list:
+            confirm = self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": f"Are you sure you want to overwrite Tessellation {confirm_text}?",
+                "exit_if": False,
+            })
+            if not confirm:
+                if self.mobile: return
+                exit(0)
         
         download_obj = {"caller": caller, "action": caller}
         if "-p" in argv_list:  
@@ -2260,11 +2344,9 @@ class CLI():
             # "missed_ip_count": 0,
             # "full_connection": True,
             # "full_connection_color": "green"
-            
-        self.log.logger.info(f"Check connection request made. | {edge}")
-              
+
+
         def print_results(node_obj_list,secondFlag):
-            
             for n in range(0,5):
                 if n == 0:
                     header_elements = {
@@ -2371,7 +2453,8 @@ class CLI():
                             print(f"  {ip2.ljust(22)}{ip1}")
                 except:
                     pass
-        
+
+
         self.functions.check_for_help(command_list,"check_connection")
         self.set_profile(command_list[command_list.index("-p")+1])
         
@@ -2381,6 +2464,8 @@ class CLI():
             edge = command_list[command_list.index("-e")+1]
            
         edge = "127.0.0.1" if not edge else edge
+        self.log.logger.info(f"Check connection request made. | {edge}")
+
         node_list = [source,edge]
         flip_flop = []
 
@@ -2396,6 +2481,13 @@ class CLI():
             })
             flip_flop.append(node_obj)
         
+        if True in flip_flop or False in flip_flop:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-2392",
+                "line_code": "invalid_peer_address",
+                "extra": node_list[1],
+            })
+
         try:
             for node_obj in flip_flop:
                 valid = node_obj["specific_ip_found"]
@@ -2465,7 +2557,7 @@ class CLI():
         else:
             node_obj_list[0]["missed_ip_count"] = len(node_obj_list[0]["missed_ips"])
     
-        # add state labels (*,i*,rj*,ss*,l*,s*,o*)
+        # add state labels (*,i*,rtj*,ss*,l*,s*,o*)
         for s in range(0,2):
             missed_set = set()    
             ss = 1 if s == 0 else 0
@@ -2646,10 +2738,15 @@ class CLI():
         try:
             nodectl_uptodate = getattr(versions,env)
         except:
-            versions = self.functions.handle_missing_version(version_class_obj)
-            versions = SimpleNamespace(**versions)
-            nodectl_uptodate = getattr(versions,env)
-
+            try:
+                versions = self.functions.handle_missing_version(version_class_obj)
+                versions = SimpleNamespace(**versions)
+                nodectl_uptodate = getattr(versions,env)
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-2671",
+                    "line_code": "version_fetch",
+                })
 
         nodectl_uptodate = nodectl_uptodate["nodectl"]["nodectl_uptodate"]
         
@@ -2721,7 +2818,7 @@ class CLI():
                     ["",1], ["Upgrade cannot continue. Exiting...",1,"red","bold"],
                 ])
                 self.functions.print_auto_restart_warning()
-                exit("  auto restart enabled error")
+                exit("  auto restart enablement error")
 
         if called_command == "upgrade_path":
             self.functions.print_cmd_status({
@@ -2757,7 +2854,7 @@ class CLI():
 
     def check_for_new_versions(self,command_obj):
         profile = command_obj.get("profile","default")
-        nodectl_version_check = False
+        nodectl_version_shown, nodectl_version_check = False, False
         caller = command_obj.get("caller",None)
         
         if caller in ["_sl","send_logs"]: return # send_logs command exception
@@ -2778,7 +2875,7 @@ class CLI():
             try:
                 nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
             except:
-                self.log.logger.warn("check_for_new_version -> unable to determine if [nodectl] version is up to date... skipping")
+                self.log.logger.warning("check_for_new_version -> unable to determine if [nodectl] version is up to date... skipping")
                 nodectl_version_check = "unknown"
 
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
@@ -2792,30 +2889,31 @@ class CLI():
                         ["- malware",1,"magenta"],
                         ["- not an official supported version",2,"magenta"],
                         ["   environment checked:",0],[env,1,"yellow","bold"],
-                        ["        latest version:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
-                        ["current stable version:",0],[self.version_obj[env]["nodectl"]["current_stable"],1,"yellow","bold"],
-                        [" version found running:",0],[self.version_obj['node_nodectl_version'],2,"yellow","bold"],
+                        [" version found running:",0],[self.version_obj['node_nodectl_version'],1,"yellow","bold"],
+                        [" required upgrade path:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
+                        ["current stable version:",0],[self.version_obj[env]["nodectl"]["current_stable"],2,"yellow","bold"],
                         ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
                     ])
                     self.invalid_version = True
                     return
             if nodectl_version_check == "current_less" and not self.check_versions_called:
-                self.functions.print_cmd_status({
-                    "text_start": "A new version of",
-                    "brackets": "nodectl",
-                    "text_end": "was detected",
-                    "status": self.version_obj[env]['nodectl']['latest_nodectl_version'],
-                    "status_color": "yellow",
-                    "newline": True,
-                })
-                self.functions.print_paragraphs([
-                    ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",2,"green"]
-                ])
-
+                if not nodectl_version_shown:
+                    self.functions.print_cmd_status({
+                        "text_start": "A new version of",
+                        "brackets": "nodectl",
+                        "text_end": "was detected",
+                        "status": self.version_obj[env]['nodectl']['current_stable'],
+                        "status_color": "yellow",
+                        "newline": True,
+                    })
+                    self.functions.print_paragraphs([
+                        ["To upgrade issue:",0], [f"sudo nodectl upgrade_nodectl",2,"green"]
+                    ])
+                nodectl_version_shown = True
             try:
                 tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
             except:
-                self.log.logger.warn("check_for_new_version -> unable to determine if [Tessellation] version is up to date... skipping")
+                self.log.logger.warning("check_for_new_version -> unable to determine if [Tessellation] version is up to date... skipping")
                 tess_version_check = "unknown"
             if tess_version_check == "current_less" and not self.check_versions_called:
                     self.functions.print_clear_line()
@@ -2942,7 +3040,7 @@ class CLI():
         profile = command_obj.get("profile",self.profile)
         static_nodeid = command_obj.get("static_nodeid",False)
         check_for_leave = command_obj.get("check_for_leave",False)
-        rebuild, result = True, False
+        leave_first, rebuild, result = False, True, False
     
         sleep(command_obj.get("delay",0))
         
@@ -2968,18 +3066,23 @@ class CLI():
                 "caller": "cli_stop",
             })     
             self.log.logger.info(f"cli_stop -> found state | profile [{profile}] | state [{state}]")
-            states = ["Ready","WaitingForReady","Observing","WaitingForObserving","DownloadInProgress"]
+            states = self.functions.get_node_states("on_network",True)
+
             if state in states:
                 self.functions.print_paragraphs([
                     ["",1],[" WARNING ",0,"white,on_red"], ["This profile",0],
                     [profile,0,"yellow","bold"], ["is in state:",0], [state,2,"yellow","bold"],
                 ]) 
-                if self.functions.confirm_action({
-                    "yes_no_default": "y",
-                    "return_on": "y",
-                    "prompt": "Do you want to leave first?",
-                    "exit_if": False,
-                }):
+                if "-l" in argv_list or "--leave" in argv_list:
+                    leave_first = True
+                else:
+                    leave_first = self.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "prompt": "Do you want to leave first?",
+                        "exit_if": False,
+                    })
+                if leave_first:
                     self.cli_leave({
                         "secs": 30,
                         "reboot_flag": False,
@@ -3231,7 +3334,7 @@ class CLI():
                             
                             if state != "Ready":
                                 link_profile = link_profiles[f"{link_type}_profile"]
-                                self.log.logger.warn(f"cli_restart -> restart_only with join requested for a profile that is dependent on other profiles | [{profile}] link profile [{link_profile}]")
+                                self.log.logger.warning(f"cli_restart -> restart_only with join requested for a profile that is dependent on other profiles | [{profile}] link profile [{link_profile}]")
                                 self.functions.print_paragraphs([
                                     ["",1], 
                                     [" WARNING ",2,"white,on_red"], 
@@ -3273,7 +3376,7 @@ class CLI():
                         "simple": True,
                     })
 
-                    ready_states = list(zip(*self.functions.get_node_states("ready_states")))[0]
+                    ready_states = self.functions.get_node_states("ready_states",True)
                     if peer_test_results in ready_states:  # ReadyToJoin and Ready
                         self.log.logger.debug(f"cli_restart -> found state [{peer_test_results}] profile [{profile}]")
                         break
@@ -3424,6 +3527,19 @@ class CLI():
             do_reboot()
             
       
+    def cli_console(self,command_list) -> tuple:
+        self.functions.check_for_help(command_list,self.primary_command)
+        console = Menu({
+            "config_obj": self.config_obj,
+            "profile_names": self.profile_names,
+            "functions": self.functions,
+        })
+
+        choice = console.build_root_menu(self.primary_command)
+        if choice == "q": exit(0)
+        return choice
+    
+
     def cli_join(self,command_obj):
         argv_list = command_obj.get("argv_list")
         self.functions.check_for_help(argv_list,"join")
@@ -3445,28 +3561,34 @@ class CLI():
             
         result, snapshot_issues, tolerance_result = False, False, False
         first_attempt = True
-        wfd_count, wfd_max = 0, 3  # WaitingForDownload
+
+        # every 4 seconds updated
+        wfd_count, wfd_max = 0, 5  # WaitingForDownload
         dip_count, dip_max = 0, 8 # DownloadInProgress
-        ss_count, ss_max = 0, 3 # SessionStarted
+        ss_count, ss_max = 0, 35 # SessionStarted 
         
         attempt = ""
         
         defined_connection_threshold = .8
         max_timer = 300
+        offline_msg = False
         peer_count, old_peer_count, src_peer_count, increase_check = 0, 0, 0, 0
         
         gl0_link = self.functions.config_obj[called_profile]["gl0_link_enable"]
         ml0_link = self.functions.config_obj[called_profile]["ml0_link_enable"]
 
-        states = list(zip(*self.functions.get_node_states("on_network")))[0]
-        break_states = list(zip(*self.functions.get_node_states("past_observing")))[0]
+        states = self.functions.get_node_states("on_network",True)
+        break_states = self.functions.get_node_states("past_observing",True)
                 
         def print_update():
             nonlocal first_attempt
             if first_attempt:
                 first_attempt = False
                 self.functions.print_paragraphs([
-                    [" Max Timer ",0,"yellow,on_blue"],["300",0,"yellow"], ["seconds",1]
+                    ["",1],["State:",0,"magenta"], ["SessionStarted",0,"yellow"], ["may take up to",0,"magenta"],
+                    ["120+",0,"yellow"],["seconds to properly synchronize with peers to enhance join accuracy.",1,"magenta"],
+                    [" Max Timer ",0,"yellow,on_blue"],["300",0,"yellow"], ["seconds",1],
+                    ["-","half","blue","bold"],
                 ])
                 
             self.functions.print_clear_line()
@@ -3522,7 +3644,7 @@ class CLI():
         })
 
         if state == "Ready":
-            self.log.logger.warn(f"cli_join -> profile already in proper state, nothing to do | profile [{self.profile}] state [{state}]")
+            self.log.logger.warning(f"cli_join -> profile already in proper state, nothing to do | profile [{self.profile}] state [{state}]")
             self.functions.print_paragraphs([
                 ["Profile already in",0,"green"],
                 [" Ready ",0,"grey,on_green","bold"],
@@ -3531,7 +3653,7 @@ class CLI():
             return
         
         if state == "ApiNotReady":
-            self.log.logger.warn(f"cli_join -> service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
+            self.log.logger.warning(f"cli_join -> service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
             self.functions.print_paragraphs([
                 ["Profile state in",0,"red"], [state,0,"red","bold"],
                 ["state, cannot join",1,"red"], ["Attempting to start service [",0],
@@ -3602,6 +3724,11 @@ class CLI():
                             tolerance_result = False # force last error to print
                             break
                         wfd_count += 1
+                    if state == "Offline":
+                        offline_msg = True
+                        result = False
+                        tolerance_result = False
+                        break
                     if state == "SessionStarted":
                         if ss_count > ss_max:
                             result = False
@@ -3662,7 +3789,7 @@ class CLI():
                             
                 try:
                     connect_threshold = peer_count/src_peer_count
-                    if peer_count >= src_peer_count: 
+                    if peer_count >= src_peer_count and state != "SessionStarted": 
                         result = True
                     else:
                         if connect_threshold >= defined_connection_threshold and increase_check > 1:
@@ -3678,10 +3805,11 @@ class CLI():
                     print_update()
                         
                 if result or tolerance_result or allocated_time > max_timer or increase_check > 8: # 8*5=40
+                    no_new_status = "error" if state not in break_states else state
                     if increase_check > 3:
                         self.functions.print_cmd_status({
                             "text_start": "No new nodes discovered for ~40 seconds",
-                            "status": "error",
+                            "status": no_new_status,
                             "status_color": "red",
                             "newLine": True
                         })
@@ -3698,7 +3826,7 @@ class CLI():
                         ["Please contact technical support in the Discord Channels for more help.",1],
                     ])                    
                 if snapshot_issues == "dip_break":
-                    self.log.logger.warn(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
+                    self.log.logger.warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
                     self.functions.print_paragraphs([
                         ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],["state.",2],
                         ["This is",0], ["not",0,"green","bold"], ["an issue; however, Nodes may take",0],
@@ -3706,7 +3834,7 @@ class CLI():
                         ["watching for peers process during this join in order to avoid undesirable wait times.",1],
                     ])       
             elif not result and tolerance_result:
-                self.log.logger.warn(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
+                self.log.logger.warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1],["nodectl tolerance connection status of [",0,],
@@ -3724,6 +3852,10 @@ class CLI():
                     
                     [" NOTE ",0,"grey,on_green"], ["Missing a few Nodes on the Hypergraph independent of the network, is",0,"green"],
                     ["not an issue.  There will be other Nodes leaving and joining the network; possibly, at all times.",1,"green"],
+                ])
+            if offline_msg:
+                self.functions.print_paragraphs([
+                    ["",1],[" Please start the node first. ",1,"yellow,on_red"],
                 ])
                 
         print("")
@@ -3817,7 +3949,7 @@ class CLI():
             while True:
                 self.log.logger.info(f"cli_leave -> leave in progress | profile [{profile}] port [{api_port}] | ip [127.0.0.1]")
                 if start > max_retries+1:
-                    self.log.logger.warn(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
+                    self.log.logger.warning(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
                     call_leave_cluster()
 
                 self.functions.print_cmd_status({
@@ -3852,7 +3984,7 @@ class CLI():
                 if state in self.functions.not_on_network_list:
                     self.log.logger.debug(f"cli_leave -> leave process complete | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                     self.functions.print_cmd_status({
-                        "status": "out of cluster",
+                        "status": "OutOfCluster",
                         "status_color": "green",
                         "text_start": "Service with profile",
                         "text_start": "cluster status",
@@ -3863,7 +3995,7 @@ class CLI():
                 elif leave_obj: break
                 elif start > 1:
                     if backup_line: print(f'\x1b[1A', end='')
-                    self.log.logger.warn(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
+                    self.log.logger.warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                     self.functions.print_cmd_status({
                         "text_start": f"{profile} not out of cluster",
                         "text_color": "red",
@@ -3873,7 +4005,7 @@ class CLI():
                     })  
                 
                 if start > 4:
-                    self.log.logger.warn(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
+                    self.log.logger.warning(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
                     if print_timer:
                         self.functions.print_cmd_status({
                             "text_start": "Unable to gracefully leave",
@@ -3902,7 +4034,7 @@ class CLI():
                     try: 
                         timestamp = leave_obj["@timestamp"]
                     except:
-                        self.log.logger.warn(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
+                        self.log.logger.warning(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
                         leave_str = "to allow Node to gracefully leave"
                         skip_log_lookup = True
                         sleep(.5)
@@ -3941,7 +4073,7 @@ class CLI():
                                 
                         state = self.functions.test_peer_state(get_state_obj)
                         if state not in self.functions.not_on_network_list and start > 2: 
-                            self.log.logger.warn(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
+                            self.log.logger.warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                             sleep(.1) 
                             skip_log_lookup = True      
                             backup_line = True  
@@ -3969,9 +4101,16 @@ class CLI():
         nodeid = ""
         ip_address = "127.0.0.1" # default
         is_global = True
+        balance_only = False
         api_port, nodeid_to_ip, target, is_self, cmd, print_out_list = False, False, False, False, False, False
-        wallet_only = True if "-w" in argv_list else False
-        title = "NODE ID" if command == "nodeid" else "DAG ADDRESS"
+        wallet_only = True if "-w" in argv_list or "--wallet" in argv_list else False
+
+        if command == "nodeid": 
+            title = "NODE ID"
+        else:
+            title = "DAG ADDRESS"
+            if "--balance" in argv_list: 
+                balance_only = True
         file, create_csv = False, False
         false_lookups = []
 
@@ -4077,11 +4216,14 @@ class CLI():
                     if command == "peers" and len(false_lookups) > 0:
                         return false_lookups
                             
-                    for desired_ip in cluster_ips:
-                        if desired_ip["id"] == nodeid:     
-                            ip_address = desired_ip["ip"]
-                            nodeid_to_ip = True
-                            break
+                    if cluster_ips:
+                        for desired_ip in cluster_ips:
+                            if desired_ip["id"] == nodeid:     
+                                ip_address = desired_ip["ip"]
+                                nodeid_to_ip = True
+                                break
+                    else:
+                        nodeid = colored("not found?","red")
                         
                     if not nodeid_to_ip:
                         ip_address = colored("not found?","red")
@@ -4099,7 +4241,7 @@ class CLI():
                         ip_address = nodeid[1]
                         nodeid = nodeid[0]
                     except:
-                        self.log.logger.warn(f"attempt to access api returned no response | command [{command}] ip [{ip_address}]")
+                        self.log.logger.warning(f"attempt to access api returned no response | command [{command}] ip [{ip_address}]")
                         nodeid = colored("Unable To Retrieve","red")
                 self.functions.event = False           
         else:
@@ -4177,10 +4319,12 @@ class CLI():
 
 
         # clear anything off the top of screen
-        if not create_csv:
+        if "quiet_install" in list(self.command_obj.values()):
+            pass
+        elif not create_csv:
             self.functions.print_clear_line()
 
-        if not is_self and not wallet_only:
+        if not is_self and not wallet_only and not balance_only:
             print_out_list = [
                 {
                     "header_elements" : {
@@ -4189,17 +4333,18 @@ class CLI():
                 },
             ]
         if not skip_display:
-            if not outside_node_request and not create_csv:            
-                if not file: self.show_ip([None])
-                print_out_list = [
-                    {
-                        "header_elements" : {
-                            "P12 FILENAME": p12.p12_filename,
-                            "P12 LOCATION": p12.path_to_p12,
+            if not outside_node_request and not create_csv:
+                if not balance_only:            
+                    if not file: self.show_ip([None])
+                    print_out_list = [
+                        {
+                            "header_elements" : {
+                                "P12 FILENAME": p12.p12_filename,
+                                "P12 LOCATION": p12.path_to_p12,
+                            },
+                            "spacing": 30
                         },
-                        "spacing": 30
-                    },
-                ]
+                    ]
 
             if print_out_list:
                 for header_elements in print_out_list:
@@ -4247,7 +4392,7 @@ class CLI():
                             ]
                         ]
                 })
-            else:
+            elif not balance_only:
                 for header_elements in print_out_list:
                     self.functions.print_show_output({
                         "header_elements" : header_elements
@@ -4263,7 +4408,7 @@ class CLI():
                             "IN CONSENSUS": consensus,
                         }
                     ]
-                    if self.config_obj[profile]["layer"] > 0:
+                    if self.config_obj[profile]["layer"] > 0 or balance_only:
                         print_out_list[0].pop("IN CONSENSUS", None)
                 
                     for header_elements in print_out_list:
@@ -4271,7 +4416,7 @@ class CLI():
                             "header_elements" : header_elements
                         })  
                                     
-                if not "-b" in argv_list:
+                if not "-b" in argv_list and not balance_only:
                     total_rewards = 0
                     data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"],profile)
                     elapsed = data["elapsed_time"]
@@ -4393,10 +4538,20 @@ class CLI():
         self.log.logger.debug("find request initiated...")
         self.functions.check_for_help(argv_list,"find")
         ordhash_lookup = False
-
+        list_file = False
+        
         self.profile = argv_list[argv_list.index("-p")+1]
         source_obj = "empty"
 
+        if "--file" in argv_list:
+            list_file = argv_list[argv_list.index("--file")+1]
+            if not path.isfile(list_file):
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-4414",
+                    "line_code": "file_not_found",
+                    "extra": list_file,
+                })
+            
         if "-s"  in argv_list:
             source_obj = {"ip": "127.0.0.1"} if argv_list[argv_list.index("-s")+1] == "self" else {"ip": argv_list[argv_list.index("-s")+1]}
 
@@ -4443,47 +4598,78 @@ class CLI():
                 "profile": self.profile,
             })
 
-        peer_results = self.node_service.functions.get_peer_count({
-            "peer_obj": target_obj,
-            "edge_obj": source_obj,
-            "profile": self.profile,
-        })
-
-        if peer_results == "error" or peer_results == None:
-            self.log.logger.error(f"show count | attempt to access peer count function failed")
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-217",
-                "line_code": "service",
-                "extra": None,
-                "extra2": None
+        def pull_peer_results(target_ip, target_obj,source_obj):
+            peer_results = self.node_service.functions.get_peer_count({
+                "peer_obj": target_obj,
+                "edge_obj": source_obj,
+                "profile": self.profile,
+                "count_consensus": True,
             })
 
-        node_found_color = "green" if peer_results["node_online"] == True else "red"
-        if target_obj["ip"] == "127.0.0.1" or target_obj["ip"] == "self":
-            target_ip = self.ip_address
-        if source_obj["ip"] == "127.0.0.1" or source_obj["ip"] == "self":
-            source_obj["ip"] = self.ip_address
+            if peer_results == "error" or peer_results == None:
+                self.log.logger.error(f"show count | attempt to access peer count function failed")
+                self.error_messages.error_code_messages({
+                    "error_code": "cmd-217",
+                    "line_code": "service",
+                    "extra": None,
+                    "extra2": None
+                })
 
-        id_ip = "ID"
-        if len(target_ip) > 127:
-            id_ip = "IP"
-            target_ip_id = self.functions.get_info_from_edge_point({
-                "profile": self.profile,
-                "caller": "cli_find",
-                "desired_key": "ip",
-                "specific_ip": target_ip,
-            })            
-            target_ip = f"{target_ip[:8]}...{target_ip[-8:]}"
-        else:
-            try:
+            node_found_color = "green" if peer_results["node_online"] == True else "red"
+            if target_obj["ip"] == "127.0.0.1" or target_obj["ip"] == "self":
+                target_ip = self.ip_address
+            if source_obj["ip"] == "127.0.0.1" or source_obj["ip"] == "self":
+                source_obj["ip"] = self.ip_address
+
+            id_ip = "ID"
+            if len(target_ip) > 127:
+                id_ip = "IP"
                 target_ip_id = self.functions.get_info_from_edge_point({
                     "profile": self.profile,
                     "caller": "cli_find",
-                    "desired_key": "id",
+                    "desired_key": "ip",
                     "specific_ip": target_ip,
-                })
-            except:
-                target_ip_id = "unknown"
+                })            
+                target_ip = f"{target_ip[:8]}...{target_ip[-8:]}"
+            else:
+                try:
+                    target_ip_id = self.functions.get_info_from_edge_point({
+                        "profile": self.profile,
+                        "caller": "cli_find",
+                        "desired_key": "id",
+                        "specific_ip": target_ip,
+                    })
+                except:
+                    target_ip_id = "unknown"
+            return peer_results, id_ip, target_ip_id, target_ip, node_found_color
+
+        if list_file:
+            list_results = []
+            with open(list_file,"r") as find_file:
+                results = find_file.readlines()
+                for n, list_node in enumerate(results):
+                    list_node = list_node.strip("\n")
+                    if len(list_node) != 128:
+                        self.error_messages.error_code_messages({
+                            "error_code": "cli_4520",
+                            "line_code": "invalid_nodeid",
+                            "extra": list_node,
+                        })
+                    list_node_obj = {"ip": list_node}
+                    if n > 0:
+                        peer_results_f, _, _, target_ip_f, node_found_color = pull_peer_results(list_node, list_node_obj, source_obj)
+                        list_results.append(
+                            ( peer_results_f['node_online'], 
+                              target_ip_f, 
+                              source_obj['ip'],
+                              node_found_color
+                            )
+                        )
+                    else:
+                        peer_results, id_ip, target_ip_id, target_ip, node_found_color = pull_peer_results(list_node, list_node_obj, source_obj) 
+                    
+        else:
+            peer_results, id_ip, target_ip_id, target_ip, node_found_color = pull_peer_results(target_ip, target_obj, source_obj) 
 
         if "return_only" in argv_list:
             return target_ip_id
@@ -4510,6 +4696,7 @@ class CLI():
                 "header_elements" : {
                     "DownloadInProgress": peer_results["downloadinprogress_count"],
                     "WaitingForDownload": peer_results["waitingfordownload_count"],
+                    "In Consensus": peer_results["consensus_count"],
                 },
                 "spacing": spacing
             },
@@ -4521,6 +4708,22 @@ class CLI():
                 },
                 "spacing": spacing
             },
+        ]
+
+        if list_file:
+            for multi_result in list_results:
+                print_out_list = print_out_list + [
+                    {
+                        "header_elements" : {
+                            "-SKIP_HEADER1-": multi_result[1],
+                            "-SKIP_HEADER2-": source_obj["ip"],
+                            "-SKIP_HEADER3-": colored(f"{str(multi_result[0]).ljust(spacing)}",multi_result[3]),
+                        },
+                        "spacing": spacing
+                    }
+                ]
+
+        print_out_list = print_out_list+[
             {
                 "header_elements" : {
                     f"TARGET {id_ip}": target_ip_id,
@@ -4591,6 +4794,36 @@ class CLI():
         
         return
                      
+
+    def cli_handle_ipv6(self,argv_list):
+        self.functions.check_for_help(argv_list, "ipv6")
+        self.log.logger.info("command_line -> request to handle ipv6 issued")
+
+        if "status" in argv_list:
+            action = "status"
+        elif "enable" in argv_list:
+            action = "enable"
+        elif "disable" in argv_list:
+            action = "disable"
+        else:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4723",
+                "line_code": "invalid_option",
+                "extra": "'status', 'enable' or 'disable' not found",
+                "extra2": "valid options include 'status', 'enable' and 'disable'",
+            })
+        
+        if "--ni" in argv_list and not "--grub" in argv_list and not "--sysctl" in argv_list and not "--all" in argv_list:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-4723",
+                "line_code": "invalid_option",
+                "extra": "--grub, --sysctl, --all",
+                "extra2": "non-interactive requires valid options '--grub', '--sysctl', or '--all'",
+            })
+
+        handle_ipv6(action,self.log,self.functions,argv_list)
+        return
+
 
     def cli_upgrade_vps(self,argv_list):
         self.functions.check_for_help(argv_list, "upgrade_vps")
@@ -5019,7 +5252,169 @@ class CLI():
                     })
                 else: break
                   
-                             
+
+    def cli_check_tcp_ports(self,command_obj):
+        caller = command_obj.get("caller","check_tcp_ports")
+        argv_list = command_obj.get("argv_list",[])   
+        self.functions.check_for_help(argv_list,"check_tcp_ports")
+
+        self.print_title("TCP PORT TESTING")
+
+        timeout = 10 if not "-t" in argv_list else argv_list[argv_list.index("-t")+1]
+        try: timeout = int(timeout)
+        except: 
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"yellow,on_red"], 
+                ["Invalid timeout detected, reverting to default 10 seconds",1,"red"]
+            ])
+            timeout = 10
+
+        self.tcp_test_results = {
+            "data_found": True,
+            "recv_data_found": False,
+            "send_data_found": False,
+            "ext_int": False,
+        }
+
+        self.functions.print_cmd_status({
+            "text_start": "External Interface IP",
+            "status": self.ip_address,
+            "status_color": "yellow",
+            "newline": True,
+        })
+
+        with ThreadPoolExecutor() as executor:
+            self.functions.event = False
+            _ = executor.submit(self.functions.print_spinner,{
+                "msg": f"Identifying network interfaces",
+                "color": "magenta",
+            }) 
+            interface = False
+            for interface, addrs in psutil.net_if_addrs().items():
+                for addr in addrs:
+                    if addr.family == socket.AF_INET:
+                        if addr.address == self.ip_address:
+                            self.tcp_test_results["ext_int"] = interface 
+            self.functions.event = False
+            if not interface:
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-5038",
+                    "line_code": "network_error",
+                    "extra": caller
+                })
+            self.functions.print_cmd_status({
+                "text_start": "Identifying network interface",
+                "status": interface,
+                "status_color": "green",
+                "newline": True,
+            })
+
+        with ThreadPoolExecutor() as executor:
+            self.functions.event = True
+            _ = executor.submit(self.functions.print_spinner,{
+                "msg": f"Sniffing interface: [{interface}]",
+                "color": "magenta",
+            }) 
+
+            initial_stats = psutil.net_io_counters(pernic=True).get(interface)
+            self.functions.event = False
+
+        self.functions.print_cmd_status({
+            "text_start": f"Sniffing interface",
+            "brackets": interface,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
+        if initial_stats is None:
+                self.tcp_test_results["data_found"] = False
+        else:
+            with ThreadPoolExecutor() as executor:
+                self.functions.event = True
+
+                int_str = colored(interface,"yellow",attrs=["bold"])
+                int_str_end = colored("]","magenta")
+                _ = executor.submit(self.functions.print_spinner,{
+                    "msg": f"Testing send/receive: [{int_str}{int_str_end}",
+                    "color": "magenta",
+                }) 
+
+                initial_bytes_sent = initial_stats.bytes_sent
+                initial_bytes_recv = initial_stats.bytes_recv
+                
+                sleep(1.5)
+                
+                current_stats = psutil.net_io_counters(pernic=True).get(interface)
+                if current_stats is None:
+                    self.tcp_test_results["data_found"] = False
+                else:
+                    if current_stats.bytes_sent > initial_bytes_sent:
+                        self.tcp_test_results["send_data_found"] = True
+                    if current_stats.bytes_recv > initial_bytes_recv:
+                        self.tcp_test_results["recv_data_found"] = True
+                self.functions.event = False
+
+            self.functions.print_cmd_status({
+                "text_start": f"Please wait",
+                "brackets": str(timeout),
+                "text_end": "seconds per interface",
+                "newline": True,
+            })
+            for self.profile in self.profile_names:
+                self.set_profile_api_ports()
+                del self.api_ports["cli"]
+                self.functions.parent = self
+                for self.functions.port_int in self.api_ports.values():
+                    with ThreadPoolExecutor() as executor:
+                        self.functions.event = True
+                        port_int_str = colored(self.functions.port_int,"yellow",attrs=["bold"])
+                        port_close_str = colored("]","magenta")
+                        port_int_str_end = colored("send/receive on [","magenta")+colored(interface,"yellow",attrs=["bold"])+colored("]","magenta")
+                        _ = executor.submit(self.functions.print_spinner,{
+                            "msg": f"Sniffing Port [{port_int_str}{port_close_str} {port_int_str_end}",
+                            "color": "magenta",
+                        }) 
+                        sniff(iface=interface, prn=self.functions.test_for_tcp_packet, filter="tcp", timeout=timeout)
+                        self.functions.event = False
+                        self.functions.print_cmd_status({
+                            "text_start": f"Sniffing tcp packets",
+                            "brackets": str(self.functions.port_int),
+                            "status": "complete",
+                            "status_color": "green",
+                            "newline": True,
+                        })
+        print("")
+
+        print_out_list = [
+            {
+                "EXTERNAL IP": self.ip_address,
+                "EXTERNAL INTERFACE": interface,
+                "INTERFACE TRAFFIC": colored(str(self.tcp_test_results["data_found"]),"green" if self.tcp_test_results["data_found"] else "red"),
+            },
+        ]
+        for port, values in self.tcp_test_results.items():
+            try: int(port)
+            except: continue
+            inbound = colored(str(values["found_destination"]),"green" if values["found_destination"] else "red")
+            outbound = colored(str(values["found_source"]),"green" if values["found_source"] else "red")
+            print_obj = {
+                "header_elements": {
+                    f"TCP {port} INBOUND": inbound, 
+                    f"TCP {port} OUTBOUND": outbound,
+                },
+                "value_spacing_only": True,
+                "spacing": 29,
+            }
+            print_out_list.append(print_obj)
+
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })
+        print("")
+
+                            
     def passwd12(self,command_list):
         self.log.logger.info("passwd12 command called by user")
         self.functions.check_for_help(command_list,"passwd12")
@@ -5182,7 +5577,7 @@ class CLI():
         value_only = True if "value_only" in command_list else False
 
         profile = command_list[command_list.index("-p")+1]
-        snapshot_dir = self.set_data_dir(profile)
+        snapshot_dir = self.set_data_dir(profile)+"/hash"
         
         if self.config_obj[profile]["layer"] > 0:
             self.error_messages.error_code_messages({
@@ -5191,21 +5586,37 @@ class CLI():
                 "extra": "1",
             })
 
-        cmd = f'find {snapshot_dir} -maxdepth 1 -type f -printf "%f\n" '
-        cmd += "| grep '^[0-9.]\{1,8\}$' | sort -n | tail -n 1"
-        
+        snapshot_subdirs = [path.join(snapshot_dir, name) for name in listdir(snapshot_dir) if path.isdir(path.join(snapshot_dir, name))]
+
+        self.functions.print_paragraphs([
+            [" WARNING ",0,"red,on_yellow"], ["This may take some time to complete depending on the size of the snapshot state.",1,"light_yellow"],
+            ["The process may take up to 3 minutes.",2,"magenta"],
+        ])
+
         with ThreadPoolExecutor() as executor:
             self.functions.status_dots = True
             status_obj = {
                 "text_start": f"Reviewing snapshots",
                 "status": "please wait",
                 "status_color": "yellow",
+                "timeout": False,
                 "dotted_animation": True,
                 "newline": False,
             }
             _ = executor.submit(self.functions.print_cmd_status,status_obj)
-            possible_end = popen(cmd)
-            possible_end = int(possible_end.read().strip())
+
+            cpu_count = self.functions.get_distro_details()["info"]["count"]-1
+
+            with ProcessPoolExecutor(max_workers=cpu_count) as executor0:
+                results = executor0.map(find_newest, snapshot_subdirs)
+            
+            newest_time, newest_snapshot = 0, None
+            for creation_time, file_path, is_error in results:
+                if is_error:
+                    self.log.logger.error(is_error)
+                elif creation_time > newest_time:
+                    newest_time, newest_snapshot = creation_time, file_path
+
             self.functions.status_dots = False
             self.functions.print_cmd_status({
                 **status_obj,
@@ -5215,21 +5626,34 @@ class CLI():
                 "newline": True,
             })
 
-        if value_only: return snapshot_dir,possible_end
+        if value_only: return snapshot_dir, path.basename(newest_snapshot)
+        elif not newest_snapshot:
+            newest_snapshot = "NotFound"
 
-        print_out_list = [{
-            "PROFILE": profile,
-            "LAST FOUND LOCAL SNAPSHOT": possible_end,
-        }]
+        print("")
+        print_out_list = [
+            {
+                "PROFILE": profile,
+                "TIME STAMP": self.functions.get_date_time({
+                                  "action": "convert_to_datetime",
+                                  "new_time": newest_time,
+                              }),
+            },
+            {
+                "LAST FOUND LOCAL SNAPSHOT": path.basename(newest_snapshot),
+            },
+        ]
     
         for header_elements in print_out_list:
             self.functions.print_show_output({
                 "header_elements" : header_elements
             }) 
+        print("")
 
 
     def cli_snapshot_chain(self,command_list):
         debug = False
+        self.functions.check_for_help(command_list,"display_snapshot_chain")
         self.log.logger.info("cli -> display_snapshot_chain initiated.")
 
         fix = True if "--fix" in command_list else False
@@ -5315,31 +5739,43 @@ class CLI():
         })
 
         self.functions.print_paragraphs([
-            [" PATIENCE ",0,"yellow,on_red"],["This could take over",0],
-            ["3",0,"yellow"], ["minutes to complete the entire process.",1],
+            [" PATIENCE ",0,"yellow,on_red"],["This could take up to",0],
+            ["fifteen",0,"yellow"], ["minutes to complete the entire process.",2],
+            ["In the event the process takes longer than the allotted timers (for slower nodes), the",0,"magenta"],
+            ["screen may go blank, please do not interrupt the process and allow it to continue",0,"magenta"],
+            ["until complete:",0,"magenta"], ["A reasonable extra time frame should be allotted before manually cancelling",0,"yellow"],
+            ["this snapshot state analysis.",2,"yellow"],
         ])
 
+        self.functions.print_cmd_status({
+            "text_start": "Beginning discovery",
+            "newline": True,
+        })
         results = discover_snapshots(snapshot_dir, self.functions, self.log)
-        
+
         if not results["valid"]:
             count_results = set_count_dict()
             merged_dict = {}
         else:
-            merged_dict, count_results = merge_snap_results(results,self.functions,self.log,debug)
+            count_results = results
+        #   merged_dict, count_results = merge_snap_results(results,self.functions,self.log,debug)
 
         snapshot_info_dir = snapshot_dir.replace("incremental_snapshot","snapshot_info")
         count_results["old_days"] = old_days
 
-        start = count_results["ord_lowest"]
-        if start < 0: count_results["ord_lowest"] = "n/a"
+        start = count_results["lowest_no_inode"]
+        if start is None: count_results["lowest_no_inode"] = "n/a"
 
-        if results["max_ordinal"] > count_results["ord_highest"]:
-            count_results["ord_highest"] = results["max_ordinal"]
+        # if results["max_ordinal"] > count_results["ord_highest"]:
+        #     count_results["ord_highest"] = results["max_ordinal"]
         end = count_results["ord_highest"]
         if end < 0: count_results["ord_highest"] = "n/a"
 
         self.print_title("ANALYSIS RESULTS")
-        print_report(count_results, fix, self.functions)
+        print_report(count_results, fix, snapshot_dir, self.functions)
+
+        exit(0)
+        # do not go any further - until removal process is refactored
 
         p_status = colored("True","green")
         if count_results["solo_count"] > 0 or count_results["day_0_old"] < 1: 
@@ -5789,6 +6225,361 @@ class CLI():
         })        
 
 
+    def cli_execute_directory_restructure(self, profile_argv,version=False,non_interactive=False):
+        profile_error = False
+        profile = None
+        executor0, executor1, executor2, executor3, executor4 = False, False, False, False, False
+
+        if not self.auto_restart:
+            self.functions.print_header_title({
+                "line1": "Handle Data Restructure",
+                "newline": "both",
+                "single_line": True,
+            })
+
+        if isinstance(profile_argv,str):
+            profile = profile_argv
+        else:
+            try:
+                profile = profile_argv[profile_argv.index("-p")+1]
+            except:
+                profile_error = True
+
+        if profile not in self.profile_names:
+            profile_error = "profile_error"
+        elif self.config_obj[profile]["layer"] > 0:
+            profile_error = "invalid_layer"
+        elif not self.auto_restart:
+            self.functions.print_cmd_status({
+                "text_start": "Data directory profile",
+                "status": profile,
+                "status_color": "yellow",
+                "newline": True,
+            })
+        
+        if profile_error and not self.auto_restart:
+            self.error_messages.error_code_messages({
+                "error_code": "cli-6067",
+                "line_code": profile_error,
+                "extra": profile,
+            })
+        elif profile_error:
+            return False
+
+        self.functions.set_default_directories()
+
+        run_v = version
+        env = self.config_obj[profile]["environment"]
+
+        if not version:
+            try:
+                self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+                run_v = self.version_obj[env][profile]["node_tess_version"]
+            except Exception as e:
+                self.log.logger.error(f"cli_execute_directory_restructure -> unable to determine versioning -> error [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "cli-6109",
+                    "line_code": "version_fetch",
+                })
+
+        if not self.auto_restart:
+            self.functions.print_cmd_status({
+                "text_start": "Data migration",
+                "brackets": run_v,
+                "status": env,
+                "status_color": "green",
+                "newline": True,
+            })
+
+        if not version:
+            with ThreadPoolExecutor() as executor0:
+                self.functions.status_dots = True
+                test_exe = {
+                    "text_start": "Validating profile",
+                    "brackets": profile,
+                    "status": "running",
+                    "dotted_animation": True,
+                    "status_color": "yellow",
+                    "newline": False,
+                }
+                _ = executor0.submit(self.functions.print_cmd_status,test_exe)
+
+                profile_state = self.functions.test_peer_state({
+                    "profile": profile,
+                    "simple": True,
+                    "current_source_node": "127.0.0.1",
+                    "caller": "cli_stop",
+                })    
+
+                self.functions.status_dots = False
+                if profile_state != "ApiNotReady":
+                    self.error_messages.error_code_messages({
+                        "error_code": "cli-6134",
+                        "line_code": "node_not_offline",
+                        "extra": profile,
+                    })
+                self.functions.print_cmd_status({
+                    **test_exe,
+                    "status": profile_state,
+                    "dotted_animation": False,
+                    "newline": True,
+                    "status_color": "green",
+                })
+
+            self.functions.print_paragraphs([
+                ["",1], [" WARNING ",0,"red,on_yellow",'bold'],
+                ["A standalone migration request was possibly detected.",2,"magenta"],
+
+                ["This process can",0,"yellow"], ["potentially break",0,"red"], ["the node",0,"yellow"],
+                ["if the Node Operator runs this process on a node that does not support",0,"yellow"],
+                ["the data structure of a node with a version lower than",0,"yellow"],
+                ["v3.x.x.",2,"green"],
+                
+                ["Please use caution before proceeding.",1,"magenta"],
+            ])
+            if not non_interactive:
+                self.functions.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "prompt": "Migrate data structures?",
+                    "prompt_color": "magenta",
+                    "exit_if": True,
+                })
+        elif env != "testnet" and "v3" != version[:2]:
+            if not self.auto_restart:
+                cprint("  Migrate not needed","red")
+            return "not_needed"
+        
+        bits64, amd = False, False
+        data_dir = self.config_obj[profile]["directory_inc_snapshot"]
+
+        if not self.auto_restart:
+            self.functions.print_paragraphs([
+                ["",1],["Preparing node for snapshot data restructuring.",1,"yellow"],
+                ["This may take a few minutes, and the screen may not display",0,"red"],
+                ["any output during this time.",0,"red"],["Please be patient.",2,"red","bold"],
+            ])
+
+        if not path.isdir(data_dir):
+            if self.auto_restart: return False
+            self.error_messages.error_code_messages({
+                "error_code": "cli-6069",
+                "line_code": "config_error",
+                "extra": "format",
+                "extra2": "Please join Discord and report this error.",
+            })
+
+        with ThreadPoolExecutor() as executor1:
+            if not self.auto_restart:
+                self.functions.status_dots = True
+                test_first = {
+                    "text_start": "Verifying requirements",
+                    "status": "running",
+                    "status_color": "yellow",
+                    "timeout": False,
+                    "dotted_animation": True,
+                    "newline": False,
+                }
+                _ = executor1.submit(self.functions.print_cmd_status,test_first)
+
+            r_color = "magenta"
+            r_status = "executing"
+            r_brackets = "required"
+
+            self.log.logger.info(f"cli -> execute_directory_restructure -> testing for migration requirement")
+            if path.isdir(f"{data_dir}/hash") and path.isdir(f"{data_dir}/ordinal"):
+                r_color = "green"
+                r_brackets = "passed"
+                r_status = "skipping"                
+
+            if not self.auto_restart:
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    "text_start": "Verifying",
+                    "newline": True,
+                    "brackets": r_brackets,
+                    "status": r_status,
+                    "status_color": r_color,
+                    "dotted_animation": False,
+                })
+
+        if r_status == "skipping": 
+            self.log.logger.info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
+            return "not_needed"
+
+        with ThreadPoolExecutor() as executor2:
+            if not self.auto_restart:
+                self.functions.status_dots = True
+                prep = {
+                    "text_start": "Preparing",
+                    "status": "running",
+                    "status_color": "yellow",
+                    "dotted_animation": True,
+                    "timeout": False,
+                    "newline": False,
+                }
+                _ = executor2.submit(self.functions.print_cmd_status,prep)
+
+            info = self.functions.get_distro_details()
+            bits = info["info"].get('bits')
+            brand = info["info"].get('vendor_id_raw')
+            arch = info["arch"]
+            if "AMD" in brand: amd = True
+            if bits == 64: bits64 = True
+
+            if not self.auto_restart:
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    **prep,
+                    "newline": True,
+                    "status": "complete",
+                    "status_color": "green",
+                    "dotted_animation": False,
+                })
+
+        if not self.auto_restart:
+            for item in [("Architecture",arch),("Brand",brand),("Bits",bits)]:
+                self.log.logger.info(f"cli -> execute_directory_restructure -> {item[0]}: [{item[1]}]")
+                self.functions.print_cmd_status({
+                    "text_start": "Found",
+                    "brackets": item[0],
+                    "status": item[1],
+                    "status_color": "grey",
+                    "newline": True,
+                })
+
+        if (brand == "AuthenticIntel" or brand == "GenuineIntel") and arch.upper() == "X86_64":
+            amd = True
+
+        self.log.logger.info(f"cli -> execute_directory_restructure -> migration requirement detected, starting migration.")
+        with ThreadPoolExecutor() as executor3:
+            if not self.auto_restart:
+                self.functions.status_dots = True
+                do_fetch = {
+                    "text_start": "Fetching migration tool",
+                    "status": "running",
+                    "status_color": "yellow",
+                    "dotted_animation": True,
+                    "newline": False,
+                }
+                _ = executor3.submit(self.functions.print_cmd_status,do_fetch)
+
+            repo = "https://github.com/Constellation-Labs/snapshot-migration/releases/download/v1.0.0/"
+            if amd: file = "snapshot-migration-tool_linux_amd"
+            else: file = "snapshot-migration-tool_linux_arm"
+            if bits64: file = file+"64"
+            local_path = f"/var/tmp/{file}"
+            repo = f"{repo}{file}"
+
+            self.log.logger.info(f"cli -> execute_directory_restructure -> fetching migration tool -> [{repo}] -> [{local_path}]")
+            for n in range(0,4):
+                try:
+                    self.functions.download_file({
+                        "url": repo,
+                        "local": local_path,
+                    })
+                except Exception as e:
+                    if n > 2: 
+                        self.log.logger.critical(f"cli -> execute_directory_restructure -> fetching migration tool FAILED 3x -> [{repo}] -> [{local_path}]")
+                        return False
+                    self.log.logger.error(f"cli -> execute_directory_restructure -> fetching migration tool FAILED -> [{repo}] -> [{local_path}]")
+                else:
+                    self.log.logger.info(f"cli -> execute_directory_restructure -> fetching migration tool SUCCESS -> [{repo}] -> [{local_path}]")
+                    break
+
+            sleep(.5)
+            self.log.logger.debug(f"cli -> execute_directory_restructure -> changing permissions to +x -> [{local_path}]")
+            chmod(local_path, 0o755)
+
+            if not self.auto_restart:
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    "text_start": "Fetching migration tool",
+                    "dotted_animation": False,
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True,
+                })
+
+        if not self.auto_restart:
+            self.functions.print_paragraphs([
+                ["",1], [" WARNING ",0,"red,on_yellow"], ["The migration of the data for v3.x.x",0,"yellow"],
+                ["may take a few minutes to complete. Please exercise patience while this",0,"yellow"],
+                ["process completes.",2,"yellow"],
+            ])
+
+        with ThreadPoolExecutor() as executor4:
+            if not self.auto_restart:
+                self.functions.status_dots = True
+                do_exe = {
+                    "text_start": "Executing migration tool",
+                    "status": "running",
+                    "dotted_animation": True,
+                    "timeout": False,
+                    "status_color": "yellow",
+                    "newline": False,
+                }
+                _ = executor4.submit(self.functions.print_cmd_status,do_exe)
+
+            # https://github.com/Constellation-Labs/snapshot-migration
+            # $ ./snapshot-migration-tool -src ./data/incremental_snapshots
+            bashCommand = f"{local_path} -src {data_dir}"
+            self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> [{bashCommand}]")
+            result = 1
+
+            for n in range(1,4):
+                try:
+                    result = self.functions.process_command({
+                        "bashCommand": bashCommand,
+                        "proc_action": "subprocess_run_check_only",
+                    })
+                    result = result.returncode
+                except Exception as e:
+                    self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool | attempt [{n}] of [3] | error [{e}]")
+                else:
+                    if result < 1: break
+                    self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool did not return successful completion. | attempt [{n}] of [3] | error [{result}]")
+
+            status_result = "complete"
+            status_color = "green"
+            if result < 1:
+                self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> completed [success]")
+            else:
+                self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool -> [failed] with error code [{result}]")
+                status_color = "red"
+                status_result = "failed"
+
+            if not self.auto_restart:
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    "text_start": "Executing migration tool",
+                    "status": status_result,
+                    "status_color": status_color,
+                    "newline": True,
+                })
+
+        if not self.auto_restart:
+            self.functions.print_cmd_status({
+                "text_start": "Clean up migration tool",
+                "status": "running",
+                "status_color": "yellow",
+                "newline": False,
+                "delay": 0.8,
+            })
+
+        c_result = self.functions.remove_files(local_path,"cli_execute_directory_restructure",False,False)
+        if not self.auto_restart:
+            self.functions.print_cmd_status({
+                "text_start": "Clean up migration tool",
+                "status": "complete" if c_result else "failed",
+                "status_color": "green" if c_result else "red",
+                "newline": True,
+            })
+        
+        if result > 0: return False
+        return True
+
+
     def cli_enable_remote_access(self,command_list):
         if "help" in command_list:
             pass
@@ -5988,7 +6779,7 @@ class CLI():
                 ["user's home directory, and change the",0,"magenta"],
                 ["permissions for access via a",0,"magenta"], ["non-root",0,"red","bold"], ["user until removed.",2,"magenta"],
 
-                ["Once you have completed the backup of your p12 key store files, it is",0,"green"],
+                ["Once you have completed the backup of your p12 keystore files, it is",0,"green"],
                 ["very",0,"green","bold"], ["important that you return to your Node and re-run",0,"green"],
                 ["this command with the",0,"green"], ["--cleanup",0,"yellow"], ["option, to remove and",0,"green"],
                 ["secure your Node's p12 access to proper status.",2,"green"],
@@ -6185,7 +6976,7 @@ class CLI():
                 backup_dir = self.functions.config_obj[profile]["directory_backups"]
             
             if not path.exists(backup_dir) and not uninstall:
-                self.log.logger.warn(f"backup dir did not exist, attempting to create [{backup_dir}]")
+                self.log.logger.warning(f"backup dir did not exist, attempting to create [{backup_dir}]")
                 makedirs(backup_dir)
 
             self.log.logger.info(f"creating a backup of the sshd.config file to [{backup_dir}]")
@@ -6215,11 +7006,11 @@ class CLI():
                                 verb = "no"
                                 if path.isfile(f"{upath}.ssh/authorized_keys"):
                                     move(f"{upath}.ssh/authorized_keys",f"{upath}.ssh/backup_authorized_keys")
-                                    self.log.logger.warn(f"cli -> found and renamed authorized_keys file | user {user}")
+                                    self.log.logger.warning(f"cli -> found and renamed authorized_keys file | user {user}")
                                 else:
                                     self.log.logger.critical(f"cli -> could not find an authorized_key file to update | {user}")
                             if user == "root":
-                                self.log.logger.warn(f"cli -> setting PermitRootLogin to [{verb}] | user [{user}]")
+                                self.log.logger.warning(f"cli -> setting PermitRootLogin to [{verb}] | user [{user}]")
                                 newfile.write(f"PermitRootLogin {verb}\n")
                             else:
                                 newfile.write(f"{line}")
@@ -6229,16 +7020,16 @@ class CLI():
                         
                     elif action == "disable_user_auth":
                         if line.startswith("PubkeyAuthentication") or line.startswith("#PubkeyAuthentication"):
-                            self.log.logger.warn(f"cli -> found and enabled PubkeyAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and enabled PubkeyAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"PubkeyAuthentication yes\n")
                         elif line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
-                            self.log.logger.warn(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"PasswordAuthentication no\n")
                         elif line.startswith("KbdInteractiveAuthentication") or line.startswith("#KbdInteractiveAuthentication"):
-                            self.log.logger.warn(f"cli -> found and disabled KbdInteractiveAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and disabled KbdInteractiveAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"KbdInteractiveAuthentication no\n")
                         elif line.startswith("ChallengeResponseAuthentication") or line.startswith("#ChallengeResponseAuthentication"):
-                            self.log.logger.warn(f"cli -> found and disabled ChallengeResponseAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and disabled ChallengeResponseAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"ChallengeResponseAuthentication no\n")
                         else:
                             newfile.write(f"{line}")
@@ -6246,7 +7037,7 @@ class CLI():
                     elif action == "port":
                         action_print = action
                         if not "GatewayPorts" in line and (line.startswith("Port") or line.startswith("#Port")):
-                            self.log.logger.warn(f"cli -> found and updated the Port settings for SSH protocol daemon | sshd_config")
+                            self.log.logger.warning(f"cli -> found and updated the Port settings for SSH protocol daemon | sshd_config")
                             newfile.write(f"Port {port_no}\n")
                         else:
                             newfile.write(f"{line}")
@@ -6264,7 +7055,7 @@ class CLI():
                     with open("/tmp/sshd_config-new2","w") as newfile:
                         for line in f:
                             if line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
-                                self.log.logger.warn(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | 50-cloud-init.conf")
+                                self.log.logger.warning(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | 50-cloud-init.conf")
                                 newfile.write(f"PasswordAuthentication no\n")
                             else:
                                 newfile.write(f"{line}")
@@ -6375,11 +7166,18 @@ class CLI():
     def upgrade_nodectl(self,command_obj):
         argv_list = command_obj["argv_list"]
         custom_version, upgrade_chosen = False, False
+
+        self.functions.print_header_title({
+            "line1": "UPGRADE NODECTL",
+            "show_titles": False,
+            "newline": "bottom",
+        })
+        
         env_set = set()
         
         if command_obj["help"] == "help" or "help" in argv_list:
             self.functions.print_help({
-                "extended": "upgrade_nodectl"
+                "extended": self.primary_command
             })
 
         try:
@@ -6404,9 +7202,12 @@ class CLI():
             version_obj = self.functions.handle_missing_version(command_obj["version_class_obj"])
             version_obj = version_obj[environment_name]
 
-
-
-        if "-v" in argv_list: 
+        if self.primary_command == "revision":
+            custom_version = self.version_obj["node_nodectl_version"]
+            self.functions.print_paragraphs([
+                ["Upgrading nodectl over itself!",2,"yellow"],
+            ])
+        elif "-v" in argv_list: 
             custom_version = argv_list[argv_list.index("-v")+1]
             custom_version = custom_version.lower()
             if custom_version[0] != "v":
@@ -6439,7 +7240,12 @@ class CLI():
         self.functions.print_clear_line()
 
         def print_prerelease():
-            if version_obj["nodectl"]["nodectl_prerelease"]:
+            if version_obj["nodectl"]["nodectl_prerelease"] == 'Unknown':
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"yellow,on_red"], ["This version may not be valid, or could not be found, cancelling update.",1,"red","bold"],
+                ])   
+                exit(0)             
+            elif version_obj["nodectl"]["nodectl_prerelease"]:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
@@ -6456,9 +7262,9 @@ class CLI():
                     })
                 self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
 
-        latest_nodectl = version_obj["nodectl"]["latest_nodectl_version"]
+        latest_nodectl = version_obj["nodectl"]["current_stable"]
         node_nodectl_version = self.version_obj['node_nodectl_version']
-        
+
         if nodectl_uptodate and nodectl_uptodate != "current_less" and not custom_version:
             self.log.logger.error(f"Upgrade nodectl to new version request not needed {node_nodectl_version}.")
             up_to_date = "is already up to date..."
@@ -6477,10 +7283,14 @@ class CLI():
             self.functions.print_paragraphs([
                 [" WARNING ",0,"yellow,on_red"], ["You are about to upgrade nodectl.",1,"green","bold"],
                 ["You are currently on:",0], [environment_name.upper(),1,"yellow"],
-                ["  current version:",0], [node_nodectl_version,1,"yellow"],
-                ["available version:",0], [latest_nodectl,1,"yellow"],
-                ["   latest release:",0], [self.version_obj["upgrade_path"][0],1,"yellow"],
+                ["      current version:",0], [node_nodectl_version,1,"yellow"],
+                ["latest stable version:",0], [latest_nodectl,1,"yellow"],
+                ["    last upgrade path:",0], [self.version_obj["upgrade_path"][0],2,"yellow"],
+
+                ["This node should be",0,"blue","bold"], ["equal to or greater than the last upgrade path",0,"yellow"], 
+                ["before attempting to update to the latest stable version.",1,"blue","bold"],
             ])
+
             if latest_nodectl != self.version_obj["node_nodectl_version"]:
                 upgrade_chosen = False
                 if node_nodectl_version == self.version_obj["upgrade_path"][0]:
@@ -6497,8 +7307,8 @@ class CLI():
                     })
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"red,on_yellow"], ["downgrading to a previous version of nodectl may cause",0,"red"],
-                        ["undesirable effects.",0,"red"], ["It is recommended to upgrade to a newer known version or to",0],
-                        ["reinstall a fresh copy at a lower version that suits your needs.",2]
+                        ["undesirable effects.",0,"red"], ["It is recommended to upgrade to a newer stable version or to",0],
+                        ["reinstall a fresh copy of nodectl, at a lower version that suits your needs.",2]
                     ])
                     
                     option_one = self.version_obj["upgrade_path"][0]
@@ -6523,12 +7333,19 @@ class CLI():
                         return 0
                     elif int(option) == 2:
                         upgrade_chosen = latest_nodectl
+            elif not upgrade_chosen:
+                upgrade_chosen = latest_nodectl
                 
-        self.functions.confirm_action({
+        confirm = self.functions.confirm_action({
             "yes_no_default": "n",
             "return_on": "y",
-            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')} {colored('?','cyan')}"
+            "prompt": f"Upgrade to {colored(upgrade_chosen,'yellow')} {colored('?','cyan')}",
+            "exit_if": False,
         })
+        if not confirm:
+            if self.mobile: return
+            cprint("  Action cancelled by Node Operator.","red")
+            exit(0)
         
         self.functions.print_paragraphs([
             ["Upgrading nodectl version from",0], [f"{node_nodectl_version}",0,"yellow"], ["to",0],
@@ -6567,10 +7384,7 @@ class CLI():
             file.write(upgrade_file)
         file.close
         sleep(1)  
-        self.functions.process_command({
-            "bashCommand": "chmod +x /var/tmp/upgrade-nodectl",
-            "proc_action": "wait"
-        })  
+        chmod("/var/tmp/upgrade-nodectl",0o755)
         
         _ = self.functions.process_command({
             "bashCommand": "sudo /var/tmp/upgrade-nodectl",
@@ -6583,7 +7397,7 @@ class CLI():
                 ["file version:",0],[node_nodectl_version,2,"blue","bold"],
             ])
 
-            self.log.logger.warn(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
+            self.log.logger.warning(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
             if path.isfile(f"{backup_location}nodectl_{node_nodectl_version}"):
                 move(f"{backup_location}nodectl_{node_nodectl_version}","/usr/local/bin/nodectl")
 
@@ -6596,13 +7410,22 @@ class CLI():
         else:
             self.log.logger.info(f"Upgrade of nodectl to new version successfully completed")
         
+        return_value = False
+        if path.isfile("/var/tessellation/nodectl/cnng_upgrade_results.txt"):
+            with open("/var/tessellation/nodectl/cnng_upgrade_results.txt","r") as f:
+                return_value = f.read().strip()
+            remove("/var/tessellation/nodectl/cnng_upgrade_results.txt")
+
         try: 
             remove("/var/tmp/upgrade-nodectl")
             self.log.logger.info("upgrade_nodectl files cleaned up successfully.")
         except Exception as e:
             self.log.logger.error(f"upgrade_nodectl nodectl method unable to clean up files : error [{e}]")
             
-        return 0 
+        if "return_caller" in argv_list: 
+            if "mobile" in argv_list: return ["mobile","return_caller"]
+            return "return_caller"
+        return return_value if return_value else 0
 
     # ==========================================
     # reusable methods

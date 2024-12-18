@@ -1,11 +1,13 @@
-from os import environ, path, system, makedirs, getcwd, remove, chmod
-from re import match
+import uuid
+from os import environ, path, system, makedirs, mkdir, getcwd, remove, chmod
+from re import match, search
 from shutil import copy2, move
 from time import sleep
 from getpass import getpass
 from termcolor import colored, cprint
 from types import SimpleNamespace
-
+from uuid import uuid4
+from random import randint
 from .functions import Functions
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
@@ -33,10 +35,13 @@ class P12Class():
         self.config_obj = self.functions.config_obj 
         self.profile = self.functions.default_profile
         self.quick_install = False
+        self.p12_migration = False
         self.solo = False # part of install or solo request to create p12
+        self.secure_mount_exists = False
 
         self.error_messages = Error_codes(self.functions) 
-        
+        self.handle_pass_file(False)
+
         if "profile" in command_obj:
             self.profile = command_obj["profile"]
 
@@ -121,9 +126,14 @@ class P12Class():
         
         def test_for_exist():
             p12_full_path = f"/home/{self.user.username}/tessellation/{self.p12_filename}"
+
             if path.exists(p12_full_path):
                 status = "skipped"
                 status_color = "red"
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"white,on_red"], ["existing p12 found.",1,"red"],
+                    ["p12 found:",0,"blue",'bold'],[p12_full_path,1,"yellow"],
+                ])
                 cprint("  Existing p12 file found.","red",attrs=["bold"])
                 confirm = self.functions.confirm_action({
                     "yes_no_default": "y",
@@ -149,20 +159,29 @@ class P12Class():
                     "status_color": status_color,
                     "newline": True,
                 })
-                if not confirm:
-                    self.functions.print_paragraphs([
-                      [" WARNING ",0,"white,on_red"], ["existing p12 not removed",0,"red"],
-                      ["unexpected results may ensue...",1,"red"],  
-                    ])
-                
+
+                if confirm: return True
+
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"white,on_red"], ["existing p12 not removed",1,"red"],
+                ])
+                confirm = self.functions.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": "Continue?",
+                    "exit_if": True
+                })
+
+                return False
+            return True
+            
         while True:
             cprint("  Please enter a name for your p12","magenta")
             ask_question = colored("  private key file [","magenta")+colored(default_value,"yellow",attrs=["bold"])+colored("] : ","magenta")
             value = input(ask_question)
             if value == "" or not value:
                 self.p12_filename = default_value
-                test_for_exist()
-                break
+                if test_for_exist(): break
             else:
                 prompt_str = colored("Please confirmed that: ",'cyan')+colored(value,"yellow",attrs=['bold'])+colored(" is correct","cyan")
                 confirm = self.functions.confirm_action({
@@ -177,7 +196,7 @@ class P12Class():
                     if self.validate_value("^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
                         self.log.logger.info(f"p12 file accepted [{value}]")
                         break
-                    self.log.logger.warn("invalid p12 file name inputted")
+                    self.log.logger.warning("invalid p12 file name inputted")
                     cprint("  File name seems invalid, try again","red")
 
        
@@ -222,16 +241,20 @@ class P12Class():
 
 
     def ask_for_keyphrase(self):
+        p12_verb = "create a"
+        if self.existing_p12:
+            p12_verb = "verify the"
+
         if self.quick_install:
             self.functions.print_paragraphs([
-                ["We need to create passphrase for our p12 file.",1],
+                [f"We need to {p12_verb} passphrase for our p12 file.",1],
             ])
         else:
             self.user.print_password_descriptions(10,"passphrase",True)
             self.functions.print_paragraphs([
                 ["This passphrase will allow you to authenticate to the",0], ["Hypergrpah",0,"yellow","bold"],[".",-1],["",1],
                 ["This passphrase will allow you to authenticate to your Node's",0], ["Wallet",0,"yellow","bold"],[".",-1],["",1],
-                ["You should create a",0], ["unique",0,"yellow","bold"], ["passphrase and write it down!",2],
+                [f"You should {p12_verb}",0], ["unique",0,"yellow","bold"], ["passphrase and write it down!",2],
                 ["We recommend you save this to a secure location and, do",0], ["NOT",0,"yellow,on_red","bold,underline"],
                 ["forget the passphrase!",2],
                 ["In your notes:",1,"white","bold"],
@@ -241,10 +264,61 @@ class P12Class():
 
         self.log.logger.info("p12 passphrase input requested")
         
-        if self.existing_p12:
-            self.user.migrating_p12 = True
-        self.p12_password = self.user.get_verify_password(10,"your p12 private key","passphrase")
-        
+        for attempt in range(1,4):
+            self.p12_password = self.user.get_verify_password(10,"your p12 private key","passphrase")
+            if self.p12_migration:
+                self.path_to_p12 = path.dirname(self.existing_p12)+"/"
+                self.p12_filename = path.basename(self.existing_p12)
+                self.entered_p12_keyphrase = self.p12_password
+
+                existing_unlock = self.unlock()
+                if not existing_unlock:
+                    self.log.logger.warning(f"p12 passphrase invalid, unable to access private keystore [{attempt}] of [3]")
+                    self.functions.print_cmd_status({
+                        "text_start": "Unable to unlock p12",
+                        "brackets": f"{attempt} of 3",
+                        "status": "Try Again" if attempt < 3 else "Failed",
+                        "status_color": "magenta" if attempt < 3 else "red",
+                        "newline": True,
+                    })
+                    if attempt > 2:
+                        self.functions.print_paragraphs([
+                            ["",1], [" WARNING ",0,"yellow,on_red"], ["The p12 passphrase responsible for digital",0,"red"],
+                            ["signatures and authentication challenges against the cluster, including the retrieval of the public node ID,",0,"red"],
+                            ["appears to be",0,"red"], ["invalid.",2,"red","bold"], 
+
+                            ["nodectl does not allow",0,"yellow"], ["sectional signs",0,"red"],["or",0,"yellow"],["spaces",0,"red"], 
+                            ["in the passphrase string.",2,"yellow"],
+
+                            ["To ensure best practices, pertaining to the use of nodectl, it is recommended to change your passphrase used to unlock your p12 keystore to one that does not",0],
+                            ["contain these characters.",1],
+                            ["Command:",0,"yellow"],["sudo nodectl passwd12",2,"blue","bold"],
+
+                            ["The installation may continue; however, retrieval of the p12 keystore details will fail.",0,"magenta"],
+                            ["Please use the",0,"magenta"], ["configurator",0,"yellow"], ["to update your passphrase at the",0,"magenta"],
+                            ["conclusion of the installation:",1,"magenta"],
+                            ["Command:",0,"yellow"],["sudo nodectl configure",2,"blue","bold"],
+                        ])
+
+                        self.functions.confirm_action({
+                            "prompt": "Continue installation?",
+                            "yes_no_default": "y",
+                            "return_on": "y",
+                            "exit_if": True
+                        })
+                        break
+                else:
+                    self.functions.print_cmd_status({
+                        "text_start": "Migrating",
+                        "brackets": "p12 keystore",
+                        "status": "unlocked",
+                        "status_color": "green",
+                        "newline": True,
+                    })
+                    break
+            else:
+                break
+
         
     def keyphrase_validate(self,command_obj):
         operation = command_obj["operation"]
@@ -308,7 +382,7 @@ class P12Class():
                     self.config_obj[profile]["p12_validated"] = valid
                 break
 
-            self.log.logger.warn(f"invalid keyphrase entered [{attempts}] of 3")
+            self.log.logger.warning(f"invalid keyphrase entered [{attempts}] of 3")
             self.functions.print_clear_line()
             print(f"{colored('  Passphrase invalid, please try again attempt [','red',attrs=['bold'])}{colored(attempts,'yellow')}{colored('] of 3','red',attrs=['bold'])}")
             passwd = False
@@ -334,8 +408,41 @@ class P12Class():
         return self.entered_p12_keyphrase
                 
 
+    def handle_pass_file(self,create=True):
+        nodectl_secure_mount = "/mnt/nodectlsecure"
+        if create:
+            if not self.secure_mount_exists:
+                with open("/proc/mounts","r") as found_mounts:
+                    f_mount = found_mounts.read()
+                    if nodectl_secure_mount in f_mount:
+                        self.secure_mount_exists = True
+            if not self.secure_mount_exists:
+                if not path.exists(nodectl_secure_mount): #double check
+                    mkdir(nodectl_secure_mount)
+                    chmod(nodectl_secure_mount,0o700)
+                _ = self.functions.process_command({
+                    "bashCommand": f"sudo mount -t tmpfs -o size=1M,mode=0700 tmpfs {nodectl_secure_mount}",
+                    "proc_action": "subprocess_run_check_only",
+                })    
+
+            passfile = f"{nodectl_secure_mount}/{uuid4()}"
+            with open(passfile,"w") as f:
+                f.write(self.entered_p12_keyphrase)
+            chmod(passfile,0o600)
+            return passfile
+        else:
+            self.functions.remove_files(
+                None,
+                "cleanup_function",
+                f"{nodectl_secure_mount}/*", 
+            )
+
+
     def unlock(self):
-        bashCommand1 = f"openssl pkcs12 -in '{self.path_to_p12}{self.p12_filename}' -clcerts -nokeys -passin 'pass:{self.entered_p12_keyphrase}'"
+        return_result = False
+        passfile = self.handle_pass_file()
+
+        bashCommand1 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
         
         # check p12 against method 1
         results = self.functions.process_command({
@@ -344,67 +451,74 @@ class P12Class():
             "return_error": True
         })
         if "friendlyName" in str(results):
-            self.log.logger.info("p12 file unlocked successfully - openssl")
-            return True
+            self.log.logger.info("p12 file unlocked successfully - [openssl]")
+            return_result = True
         
         # check p12 against method 2
-        bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass {self.entered_p12_keyphrase} -storetype PKCS12"
-        results = self.functions.process_command({
-            "bashCommand": bashCommand2,
-            "proc_action": "wait"
-        })
-        if "Valid from:" in str(results):
-            self.log.logger.info("p12 file unlocked successfully - keytool")
-            return True
-        
-        # check p12 against method 2a
-        bashCommand2 = f'keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass "{self.entered_p12_keyphrase}" -storetype PKCS12'
-        results = self.functions.process_command({
-            "bashCommand": bashCommand2,
-            "proc_action": "wait"
-        })
-        if "Valid from:" in str(results):
-            self.log.logger.info("p12 file unlocked successfully - keytool")
-            return True
+        if not return_result:
+            self.log.logger.error("p12 file unlocked failed with method 1 [openssl]")
+            bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
+            results = self.functions.process_command({
+                "bashCommand": bashCommand2,
+                "proc_action": "wait"
+            })
+            if "Valid from:" in str(results):
+                self.log.logger.info("p12 file unlocked successfully - keytool")
+                return_result = True
         
         # check p12 against method 3
-        bashCommand = "openssl version"
-        results = self.functions.process_command({
-            "bashCommand": bashCommand,
-            "proc_action": "subprocess_co", 
-            "return_error": True
-        })
-        if "OpenSSL 3" in results:        
-            bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -legacy")
+        if not return_result:
+            self.log.logger.error("p12 file unlocked failed with method 2 [keytool]")
+            bashCommand = "openssl version"
             results = self.functions.process_command({
-                "bashCommand": bashCommand3,
-                "proc_action": "wait", 
+                "bashCommand": bashCommand,
+                "proc_action": "subprocess_co", 
                 "return_error": True
             })
-            if not "Invalid password" in str(results):
-                self.log.logger.info("p12 file unlocked successfully - openssl")
-                return True
-        else:
-            msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
-            msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
-            self.log.logger.warn(msg)
+            if "OpenSSL 3" in results:        
+                bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -provider default -provider legacy")
+                results = self.functions.process_command({
+                    "bashCommand": bashCommand3,
+                    "proc_action": "wait", 
+                    "return_error": True
+                })
+                if not "invalid password" in str(results.lower()):
+                    self.log.logger.info("p12 file unlocked successfully - openssl")
+                    return_result = True
+                else:
+                    self.log.logger.error("p12 file unlocked failed with method 3a [openssl legacy]")
+            else:
+                msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
+                msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
+                self.log.logger.error("p12 file unlocked failed with all attempts.")
+                self.log.logger.warning(msg)
         
-        self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
-        return False
+        self.handle_pass_file(False)
+        if not return_result: 
+            self.log.logger.info("p12 file authentication failed - keytool and openssl tried")
+        return return_result
 
       
     def set_variables(self,is_global,profile):
         # version >= 1.11.0
         self.log.logger.info("p12 file importing variables.")
-        if is_global:
-            self.path_to_p12 = self.config_obj["global_p12"]["key_location"]
-            self.p12_filename = self.config_obj["global_p12"]["key_name"]
-        else:
-            self.path_to_p12 = self.config_obj[profile]["p12_key_location"]
-            self.p12_filename = self.config_obj[profile]["p12_key_name"]
+        try:
+            if is_global:
+                self.path_to_p12 = self.config_obj["global_p12"]["key_location"]
+                self.p12_filename = self.config_obj["global_p12"]["key_name"]
+            else:
+                self.path_to_p12 = self.config_obj[profile]["p12_key_location"]
+                self.p12_filename = self.config_obj[profile]["p12_key_name"]
 
-        if not self.path_to_p12.endswith("/"):
-            self.path_to_p12 = f"{self.path_to_p12}/"
+            if not self.path_to_p12.endswith("/"):
+                self.path_to_p12 = f"{self.path_to_p12}/"
+        except Exception as e:
+            self.log.logger.critical(f"P12Class -> set variables -> unable to scrap valid entries from configuration [{e}]")
+            self.error_messages.error_code_messages({
+                "error_code": "p-494",
+                "line_code": "invalid_configuration_request",
+                "extra": "p12 location details",
+            })
         
         
     def export_private_key_from_p12(self):
@@ -470,6 +584,8 @@ class P12Class():
         env_vars = command_obj.get("env_vars",False)
         return_success = command_obj.get("return_success",False)
         ext_p12 = command_obj.get("ext_p12",False)
+        caller = command_obj.get("caller",False)
+        self.log.logger.debug(f"p12 --> config environment export requested by [{caller}]")
 
         pass1 = None
         enc = False
@@ -568,15 +684,18 @@ class P12Class():
             }
             self.functions.print_cmd_status(progress)
 
-        self.extract_export_config_env({"env_vars":True})
+        self.extract_export_config_env({
+            "env_vars":True,
+            "caller": "generate",
+        })
 
         if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
             if self.quick_install:
-                self.log.logger.warn(f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
+                self.log.logger.warning(f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
                 if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
                     remove(f"{self.p12_file_location}/{self.p12_filename}")
             else:
-                self.log.logger.warn(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
+                self.log.logger.warning(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
                 print_exists_warning = True
                 result = "exists skipping"
                 color = "magenta"
@@ -684,7 +803,7 @@ class P12Class():
             "pub_alg", "version", "value", "entry_number", "creation_date", "entry_type"
         ]
         p12_output_dict = {key: "unknown" for key in p12_values}
-        return_alias, return_pass, alias_only = False, False, False
+        passfile, return_alias, return_pass, alias_only = False, False, False, False
 
 
         def attempt_decrypt(profile,p12_passwd):
@@ -751,8 +870,12 @@ class P12Class():
         elif self.config_obj["global_p12"]["encryption"] and not self.solo:
             p12_passwd = attempt_decrypt(profile,p12_passwd.strip())
 
+        self.entered_p12_keyphrase = p12_passwd
         for _ in range(0,2):
-            bashCommand = f"keytool -list -v -keystore {p12_location} -storepass {p12_passwd} -storetype PKCS12" # > /dev/null 2>&1"
+            if not path.isfile(passfile):
+                passfile = self.handle_pass_file()
+            
+            bashCommand = f"keytool -list -v -keystore {p12_location} -storepass:file {passfile} -storetype PKCS12"
             result_str = self.functions.process_command({
                 "bashCommand": bashCommand,
                 "proc_action": "wait",
@@ -762,13 +885,18 @@ class P12Class():
                 break
             try:
                 p12_passwd = attempt_decrypt(profile,p12_passwd)
-            except:
-                self.log.logger.critical("p12 module was unable to process this p12 file")
+                self.entered_p12_keyphrase = p12_passwd
+            except Exception as e:
+                self.handle_pass_file(False)
+                self.log.logger.critical(f"p12 module was unable to process this p12 file [{e}]")
                 if "--installer" in command_list: raise Exception
                 self.error_messages.error_code_messages({
                     "error_code": "p-725",
                     "line_code": "invalid_passphrase",
                 })
+            finally:
+                self.handle_pass_file(False)
+        self.handle_pass_file(False)
 
         if not results or results == "":
             if "--config" in command_list:
@@ -848,7 +976,10 @@ class P12Class():
                 self.p12_filename = path.split(p12_location)[1]
                 self.p12_password = p12_passwd
                 self.key_alias = p12_output_dict["alias"]
-                self.extract_export_config_env({"env_vars":True})
+                self.extract_export_config_env({
+                    "env_vars": True,
+                    "caller": "show_p12_details",
+                })
                 cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
                 node_id = self.functions.process_command({
                     "bashCommand": cmd,

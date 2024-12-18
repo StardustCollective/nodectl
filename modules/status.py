@@ -1,8 +1,8 @@
 from os import system, popen, path
-from subprocess import Popen, check_output, PIPE
+from subprocess import Popen, check_output, PIPE, run
 from hurry.filesize import size, alternative
 from sys import exit
-
+from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 from datetime import datetime
 
 from .troubleshoot.errors import Error_codes
@@ -30,9 +30,11 @@ class Status():
         self.last_action = "none"
         self.error_count = 0
         self.process_memory = {}
-        
         self.mem_swap_min = 1000000
+
+        self.called_command = None
         self.log_found_flag = False
+
         self.uptime = 30
         self.load = .7
 
@@ -47,8 +49,11 @@ class Status():
         })  
         
         self.functions.get_service_status()
+
+
+    def execute_status(self):
         self.get_server_details()
-        self.get_status_dir_sizes()
+        if self.called_command != "sec": self.get_status_dir_sizes()
         self.security_check()
 
 
@@ -80,7 +85,7 @@ class Status():
             
 
     def get_server_details(self):
-        self.hd_space = self.check_dev_device()
+        self.hd_space = self.functions.check_dev_device()
         self.command_list = {
             "memory": "free | awk '{print $4}'",
             "uptime": "uptime",
@@ -96,53 +101,31 @@ class Status():
                     if key == "thresholds": continue
                     self.process_memory[key]["RSS"] = size(value["RSS"],system=alternative)
                     self.process_memory[key]["VMS"] = size(value["VMS"],system=alternative)
+                self.memory_percent = self.process_memory["thresholds"]["mem_percent"]
+                self.cpu_percent = self.process_memory["thresholds"]["cpu_percent"]
             elif key == "uptime":
-                # fix problem with uptime less than 1 day
-                result_stream = popen("uptime")
-                result_test = result_stream.read()
-                if "day" in result_test:
-                    command = "uptime | awk '{print $3\" \"$12}'"
-                elif "min" in result_test:
-                    command = "uptime | awk '{print $3\" \"$11}'"
-                else:
-                    command = "uptime | awk '{print $3\" \"$10}'"
-                result_stream = popen(command)
-                self.current_result = result_stream.read()
+                with open('/proc/uptime','r') as uptime_file:
+                    uptime_seconds = float(uptime_file.readline().split()[0])
+                    self.current_result = str(int(uptime_seconds /(60*60*24)))
                 self.parse_uptime_load()
- 
-            
-    def check_dev_device(self):
-        cmd = 'df -h | awk \'$NF=="/"{print $5 " of " $2}\''
-        device = popen(cmd)
-        device = device.read()
-        if device: return device
-        return "unknown"
-      
+
+        self.distro_value = self.functions.get_distro_details()
+       
         
     def parse_uptime_load(self):
-        details = self.current_result.split(" ")
-        details[0] = self.functions.cleaner(details[0],"new_line")
-        details[0] = self.functions.cleaner(details[0],"commas")
-        details[1] = self.functions.cleaner(details[1],"new_line")
-        details[1] = self.functions.cleaner(details[1],"commas")
 
-        try: 
-            int(details[0])
-        except:
-            details[0] = 1
-
-        if int(details[0]) > self.uptime:
-            self.system_up_time = f"WARN@{details[0]}"
+        if  int(self.current_result) > self.uptime:
+            self.system_up_time = f"WARN@{str(self.current_result)}"
         else:
-            self.system_up_time = f"OK@{details[0]}"
+            self.system_up_time = f"OK@{str(self.current_result)}"
 
-        if float(details[1]) > float(self.load):
-            self.usage = f"WARN@{details[1]}"
+        if float(self.cpu_percent/100) > float(self.load):
+            self.usage = f"WARN@{self.cpu_percent}%"
         else:
-            self.usage = f"OK@{details[1]}" 
+            self.usage = f"OK@{self.cpu_percent}%" 
             
-        self.usage = self.usage.strip("\n")
-        self.system_up_time = self.system_up_time.strip("\n")
+        # self.usage = self.usage.strip("\n")
+        # self.system_up_time = self.system_up_time.strip("\n")
 
 
     def parse_memory(self,memory):
@@ -247,14 +230,64 @@ class Status():
         dirs = self.functions.get_dirs_by_profile({"profile": "all"})
         dir_sizes = list()
         self.profile_sizes = dict()
-        
+        workers = self.distro_value["info"]["count"]
+
+        self.functions.print_paragraphs([
+            ["Calculating directory sizes...",1],
+        ])
+        self.functions.status_single_file = True
         for profile in dirs:
             for profile_dir in dirs[profile].keys():
-                dsize = self.functions.get_dir_size(dirs[profile][profile_dir])
-                dsize = size(dsize,system=alternative)
-                dir_sizes.append((profile_dir, dsize))
+                if dirs[profile][profile_dir] == "disabled": continue
+                if profile_dir == "directory_inc_snapshot" and not self.non_interactive:
+                    self.functions.print_paragraphs([
+                        ["",1],[" WARNING ",0,"yellow,on_blue"], ["The health feature reviews the status",0,"red"],
+                        ["of the node's snapshot chain. This could take up to",0,"red"], 
+                        ["ten",0,"yellow","bold"],["minutes",0,"red"], ["to complete, but typically it should be under",0,"red"],
+                        ["two",0,"yellow","bold"],["minutes on a properly spec'd VPS.",1,"red"],
+                    ])    
+                    if self.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "n",
+                        "prompt": f"Calculate this directory size?",
+                        "exit_if": False,
+                    }): 
+                        dir_sizes.append((profile_dir,"skipped"))
+                        continue 
+
+                with ThreadPoolExecutor() as executor:
+                    self.functions.status_dots = True
+                    c_obj = {
+                        "text_start": "Calculating",
+                        "brackets": profile_dir,
+                        "status": "running",
+                        "timeout": False,
+                        "dotted_animation": True,
+                        "newline": False,
+                        "status_color": "yellow",
+                    }
+                    _ = executor.submit(self.functions.print_cmd_status,c_obj)
+
+                    # dsize = self.functions.get_dir_size(dirs[profile][profile_dir],workers)
+                    dsize = 0
+                    dsize = run(['du', '-sb', dirs[profile][profile_dir]], stdout=PIPE)
+                    dsize = int(dsize.stdout.split()[0])
+                    dsize = size(dsize,system=alternative)
+                    dir_sizes.append((profile_dir, dsize))
+                    
+                    self.functions.status_dots = False
+
+                c_obj["status"] = "Complete" 
+                c_obj["status_color"] = "green"
+                c_obj["newline"] = True
+                c_obj["dotted_animation"] = False
+                c_obj["timeout"] = False
+                self.functions.print_cmd_status(c_obj)
+
             self.profile_sizes[profile] = dir_sizes
             dir_sizes = [] # reset
+
+        return
 
             
 if __name__ == "__main__":
