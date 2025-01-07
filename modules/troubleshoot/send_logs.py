@@ -128,7 +128,7 @@ class Send():
                     choice_input = colored(f"  Please enter in the {verb} date you are searching for: ","cyan")
                     inputted_date = input(choice_input)
                     verb = "start" if choice == "d" else verb 
-                    if match(r"^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$",inputted_date):
+                    if match("^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$",inputted_date):
                         dates_obj[verb] = inputted_date
                         break
                     cprint("  invalid date, try again","red")
@@ -309,10 +309,25 @@ class Send():
             ["Log tarball created and also located:",0,"green"],
             [tar_dest,1],
             ["file:",0,"green"],[tar_file_name,2],
-            ["You can also utilize the",0],["prepare_file_download",0,"yellow"],
-            ["command to setup this file for download to your local system.",1],
-            ["Command:",0,"magenta"], ["sudo nodectl prepare_file_download help",1,"yellow"],
-        ])     
+        ])   
+
+        self.functions.print_paragraphs([
+            ["You have the option to prepare this newly created file for manual download",0],
+            ["directly from the root of your nodeadmin account.",0],
+            ["This approach allows you to easily sftp/scp into your system and download the file",0],
+            ["without concern for file ownership or file permissions.",1],
+            ["Reference:",0,"blue","bold"], ["sudo nodectl prepare_file_download help",1,"yellow"],
+        ])
+
+        confirm = self.functions.confirm_action({
+            "prompt": "Prepare file for manual download?",
+            "yes_no_default": "n",
+            "return_on": "y",
+            "exit_if": False,
+        })
+        if confirm:
+            return f"{tar_dest}{tar_file_name}"
+        return False  
         
         
     def listing_setup(self, location_date_input):

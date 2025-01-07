@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 import base64
 
-from scapy.all import TCP
+from scapy.all import TCP, sniff
 from hurry.filesize import size, alternative
 from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
 from getpass import getuser
@@ -39,6 +39,7 @@ from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
 from urllib.parse import urlparse, urlunparse
+from functools import partial
 
 from os import system, getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chmod, chown
 from pwd import getpwnam
@@ -925,6 +926,8 @@ class Functions():
                     specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
                     for i_node in cluster_info_tmp:
                         if specific_ip == i_node[id_ip]:
+                            if caller == "status" and self.config_obj[profile]["public_port"] != i_node["publicPort"]:
+                                continue
                             node = i_node
                             break
 
@@ -1866,14 +1869,6 @@ class Functions():
                             "state0": "EdgePointDown", #remote
                             "state1": "EdgePointDown" #local                        
                         }
-                        # return {
-                        #     "node0": nodes[0],
-                        #     "node1": nodes[1],
-                        #     "session0": 0,
-                        #     "session1": 0,
-                        #     "state0": "NetworkUnreachable", #remote
-                        #     "state1": "NetworkUnreachable" #local                        
-                        # }
                     except:
                         self.error_messages.error_code_messages({
                             "error_code": "fnt-958",
@@ -2566,11 +2561,11 @@ class Functions():
     
     def is_valid_address(self,v_type,return_on,address):
         valid = False
-        reg_expression = r"^[D][A][G][a-zA-Z0-9]{37}$"
+        reg_expression = "^[D][A][G][a-zA-Z0-9]{37}$"
         if v_type == "nodeid":
             reg_expression = "^[a-f0-9]{128}$"
         if v_type == "ip_address":
-            reg_expression = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+            reg_expression = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
             
         if match(reg_expression,address):
             valid = True
@@ -2786,8 +2781,8 @@ class Functions():
 
 
     def test_hostname_or_ip(self, hostname, http=True):
-        return_true_list = ["none","default","disabled"]
-        if hostname.lower() in return_true_list: return True
+        return_false_list = ["none","default","disabled"]
+        if hostname.lower() in return_false_list: return True
         try:
             socket.gethostbyaddr(hostname)
         except:
@@ -2973,26 +2968,47 @@ class Functions():
             return True
         return False
      
+           
+    def test_for_tcp_packet(self, command_obj):
+        interface = command_obj.get("interface", False)
+        timeout = command_obj.get("timeout", 10)
+        tcp_test_results = command_obj.get("tcp_test_results", {})
+        port_int = command_obj["port_int"]
+        packet_type = f"tcp port {port_int}"  # Filter by TCP and specific port
 
-    def test_for_tcp_packet(self, packet):
-        # set self.parent before calling test_for_tcp_packets
-        try: _ = self.parent.tcp_test_results[self.port_int]
-        except:
-            self.parent.tcp_test_results[self.port_int] = {
-                "found_destination": False,
-                "found_source": False
-            }
+        def process_packet(details, packet):
+            tcp_test_results, port_int = details
 
-        if TCP in packet:
-            if packet[TCP].dport in [self.port_int]:
-                self.log.logger.debug(f"functions -> test_for_tcp_packet -> TCP destination packet found: {packet.summary()}")
-                self.parent.tcp_test_results[self.port_int]["found_destination"] = True
-            if packet[TCP].sport in [self.port_int]:
-                self.log.logger.debug(f"functions -> test_for_tcp_packet -> TCP source packet found: {packet.summary()}")
-                self.parent.tcp_test_results[self.port_int]["found_source"] = True
-        
-        return
-            
+            self.log.logger.debug(f"Packet received: {packet.summary()}")
+
+            try:
+                if TCP in packet:
+                    if packet[TCP].dport == port_int:
+                        self.log.logger.debug(f"TCP destination packet matched: {packet.summary()}")
+                        tcp_test_results[port_int]["found_destination"] = True
+                    if packet[TCP].sport == port_int:
+                        self.log.logger.debug(f"TCP source packet matched: {packet.summary()}")
+                        tcp_test_results[port_int]["found_source"] = True
+            except Exception as e:
+                self.log.logger.error(f"Error processing packet: {e}")
+                tcp_test_results[port_int]["found_destination"] = False
+                tcp_test_results[port_int]["found_source"] = False
+
+        details = [tcp_test_results, port_int]
+        self.log.logger.debug(f"Starting sniff on {interface} for {packet_type} with timeout {timeout} seconds.")
+        results = sniff(
+            iface=interface,
+            prn=partial(process_packet, details),
+            filter=packet_type,
+            timeout=timeout
+        )
+
+        if len(results) == 0:
+            self.log.logger.warning(f"No packets captured on {interface} for {packet_type} within {timeout} seconds.")
+            tcp_test_results[port_int]["found_destination"] = False
+            tcp_test_results[port_int]["found_source"] = False
+
+        return tcp_test_results
 
     # =============================
     # create functions
@@ -3063,6 +3079,7 @@ class Functions():
         step = command_obj.get("step",1)
         status = command_obj.get("status","preparing")
         use_minutes = command_obj.get("use_minutes",False)
+        text_color = command_obj.get("text_color","magenta")
 
         if step > 0: 
             end_range = start+seconds
@@ -3089,21 +3106,24 @@ class Functions():
                     seconds = ss % 60
                     ss = f"{minutes:02d}:{seconds:02d}"
 
-                
+            if s < 10: s = f"0{s}"
+            if ss < 10: ss = f"0{ss}"
+
             if not self.auto_restart:
                 if p_type == "trad":
                     self.print_clear_line()
-                    print(colored(f"  Pausing:","magenta"),
+                    print(colored(f"  Pausing:",text_color),
                             colored(f"{s}","yellow"),
-                            colored("of","magenta"),
+                            colored("of",text_color),
                             colored(f"{end_range_print}","yellow"),
-                            colored(f"{count_verb} {phrase}","magenta"), end='\r')
+                            colored(f"{count_verb} {phrase}",text_color), end='\r')
                 elif p_type == "cmd":
                     self.print_cmd_status({
                         "text_start": phrase,
                         "brackets": str(ss),
                         "text_end": end_phrase,
                         "status": status,
+                        "text_color": text_color,
                     })
             sleep(1) 
 
@@ -3879,7 +3899,7 @@ class Functions():
 
     def cleaner(self, line, action, char=None):
         if action == "dag_count":
-            cleaned_line = sub(r'\D', '', line)
+            cleaned_line = sub('\D', '', line)
             return cleaned_line[6:]
         elif action == "ansi_escape":
             ansi_escape = compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
@@ -4020,7 +4040,7 @@ class Functions():
                 self.print_clear_line()
                 
 
-    def remove_files(self, file_or_list, caller, is_glob=False, etag=False):
+    def remove_files(self, file_or_list, caller, is_glob=False, etag=False, widcard=False):
         # is_glob:  False is not in use; directory location if to be used
         # etag: if etags are associated with the file to remove
         self.log.logger.info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
@@ -4028,7 +4048,11 @@ class Functions():
         result = True
 
         if is_glob:
-            files = glob.glob(is_glob)
+            if widcard:
+                files = files.replace("*","")
+                files = glob.glob(path.join(files,"*"))
+            else:
+                files = glob.glob(is_glob)
         elif not isinstance(file_or_list,list):
             files = [file_or_list]
 
@@ -4164,14 +4188,6 @@ class Functions():
                 output = False
             return output
                 
-        if proc_action == "subprocess_run_pipe_text":
-            try:
-                output = run(shlexsplit(bashCommand), text=True, stdout=PIPE, stderr=PIPE)
-            except CalledProcessError as e:
-                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
-                output = False
-            return output
-                
         if proc_action == "subprocess_run_only":
             try:
                 output = run(shlexsplit(bashCommand))
@@ -4190,7 +4206,7 @@ class Functions():
         
         if proc_action == "subprocess_devnull":
             try:
-                output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=DEVNULL, check=True)
+                output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=STDOUT, check=True)
             except CalledProcessError as e:
                 self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False

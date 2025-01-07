@@ -1108,26 +1108,26 @@ class ShellHandler:
         if option == "d":
             node_type = "Dor"
 
+
         try:
             debian = True
-            major, minor = map(int, specs["release"].split('.'))
             if specs["distributor_id"] == "Ubuntu":
                 specs["debian"] = specs["distributor_id"]
-                if major < 22 or minor != 4:
+                if specs["release"] == "24.04":
                     possible_issues["release"] = specs["release"]
             elif specs["distributor_id"] == "Debian":
                 specs["debian"] = specs["distributor_id"]
-                if major < 12:
+                if specs["release"] == "12":
                     possible_issues["release"] = specs["release"]
             else:
                 debian = False
         except:
             debian = True
             if specs["id"] == "Ubuntu":
-                if major < 22 or minor != 4:
+                if specs["release"] == "24.04":
                     possible_issues["release"] = specs["release"]
             elif specs["id"] == "Debian":
-                if major < 12:
+                if specs["release"] == "12":
                     possible_issues["release"] = specs["release"]
             else:
                 debian = False

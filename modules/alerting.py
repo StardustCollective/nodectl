@@ -33,7 +33,11 @@ def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
 
     utc_time, local_time = prepare_datetime_stamp(functions, comm_obj["local_time_zone"], log)
 
+    title = False if comm_obj["title"] == None or comm_obj["title"] == "None" else comm_obj["title"]
+
     body = f"NODECTL {'UP' if alert_profile == 'clear' else 'DOWN'} ALERT\n"
+    if title:
+        body += f"Title: {title}\n"
     body += f"Cluster: {env}\n"
     body += f"Profile: {profile}\n"
     body += f"\nUTC: {utc_time}\n"
@@ -77,6 +81,7 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
         dag_addr = cli.cli_nodeid2dag([nodeid,"return_only"])
         full_amount = 0
         reward_items = []
+        title = False if comm_obj["title"] == None or comm_obj["title"] == "None" else comm_obj["title"]
 
         for data in report_data["data"]:
             for reward in data["rewards"]:
@@ -106,6 +111,8 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
         return # skip report if an error occurred
     
     body = "NODECTL REPORT\n"
+    if title:
+        body += f"Title: {title}\n"
     body += f"Cluster: {env}\n"
     body += f"Profile: {profile}\n\n"
 

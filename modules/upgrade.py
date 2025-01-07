@@ -426,7 +426,7 @@ class Upgrader():
 
 
     def validate_node_id(self,node_id):
-        if match(r"[0-9a-fA-F]{128}$",node_id):
+        if match("[0-9a-fA-F]{128}$",node_id):
             return True
         return False
         

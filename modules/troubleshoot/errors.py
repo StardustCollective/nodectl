@@ -761,7 +761,11 @@ class Error_codes():
             elif var.extra2 == "p12":
                 self.functions.print_paragraphs([
                     ["A valid p12 file was not found.",2,"red","bold"],
-                ])                 
+                ])    
+            elif var.extra2 == "file_write":
+                self.functions.print_paragraphs([
+                    ["Unable to write necessary files. Please confirm disk space requirements.",2,"red","bold"],
+                ])                              
             self.functions.print_paragraphs([
                 ["Please review your",0], ["cn-config.yaml",0,"yellow","bold"], ["file, before continuing.",2]
             ]) 

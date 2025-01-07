@@ -208,7 +208,7 @@ class UserClass:
         # name = p12 or username
         # type = password, keyphrase, or passphrase
         
-        pattern = r"^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[#?!@$%^&*-])[A-Za-z0-9#?!@$%^&*-]+$" # no single quotes, double quotes, spaces or periods.
+        pattern = "^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[#?!@$%^&*-])[A-Za-z0-9#?!@$%^&*-]+$" # no single quotes, double quotes, spaces or periods.
         conjunction = "an" if length < 10 else "a"
         cprint(f">> Please enter {conjunction} {length} character minimum","magenta")
         first = f">> {type} for {name}: "

@@ -15,7 +15,6 @@ from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
 from copy import deepcopy
-from scapy.all import sniff
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 
 from modules.p12 import P12Class
@@ -4348,11 +4347,29 @@ class CLI():
                 "profile": profile,
             })
                     
-            wallet_balance = self.functions.pull_node_balance({
-                "ip_address": ip_address,
-                "wallet": nodeid.strip(),
-                "environment": self.config_obj[profile]["environment"]
-            })
+            for n in range(0,3):
+                wallet_balance = self.functions.pull_node_balance({
+                    "ip_address": ip_address,
+                    "wallet": nodeid.strip(),
+                    "environment": self.config_obj[profile]["environment"]
+                })
+                if n < 2 and int(wallet_balance["balance_dag"]) < 1:
+                    self.log.logger.warning("cli_grab_id --> wallet balance came back as 0, trying again before reporting 0 balance.")
+                    if n < 1:
+                        sleep(.8) # avoid asking too fast
+                    else:
+                        self.functions.print_paragraphs([
+                            ["Balance has come back a",0,"red"], ["0",0,"yellow"], ["after 2 attempts. Making",0,"red"],
+                            ["final attempt to find a balance before continuing, after pause to avoid perceived API violations.",1,"red"],
+                        ])
+                        self.functions.print_timer({
+                            "p_type": "cmd",
+                            "seconds": 45,
+                            "status": "pausing",
+                            "step": -1,
+                            "phrase": "Waiting",
+                            "end_phrase": "before trying again",
+                        })
             wallet_balance = SimpleNamespace(**wallet_balance)
 
 
@@ -5151,7 +5168,8 @@ class CLI():
             exit(0)
 
         if nodeid and not self.functions.is_valid_address("nodeid",True,nodeid):
-            if caller != "check_consensus": return False
+            if caller != "check_consensus": 
+                return False
             self.error_messages.error_code_messages({
                 "error_code": "cli-4079",
                 "line_code": "input_error",
@@ -5230,7 +5248,7 @@ class CLI():
                                                 
                     consensus = self.functions.get_info_from_edge_point({
                         "profile": profile,
-                        "caller": "status",
+                        "caller": caller,
                         "api_endpoint_type": "consensus",
                         "threaded": True if not self.auto_restart else False,
                         "specific_ip": ip_address,
@@ -5288,16 +5306,33 @@ class CLI():
                         "phrase": "Waiting",
                         "end_phrase": "before updating",
                     })
-                else: break
+                else: 
+                    break
                   
 
     def cli_check_tcp_ports(self,command_obj):
         caller = command_obj.get("caller","check_tcp_ports")
         argv_list = command_obj.get("argv_list",[])   
         self.functions.check_for_help(argv_list,"check_tcp_ports")
+        profile = "all"
+        profile_names = self.profile_names
+
+        if "-p" in argv_list:
+            profile = argv_list[argv_list.index("-p")+1]
+            if profile not in self.profile_names:
+                self.error_messages.error_code_messages({
+                    "error_code": "profile_error",
+                    "extra": profile,
+                })
+            profile_names = [profile]
 
         self.print_title("TCP PORT TESTING")
 
+        timeout = 10
+        if "-t" in argv_list:
+             timeout = argv_list[argv_list.index("-t")+1]           
+        elif "--timeout" in argv_list:
+            timeout = argv_list[argv_list.index("--timeout")+1]
         timeout = 10 if not "-t" in argv_list else argv_list[argv_list.index("-t")+1]
         try: timeout = int(timeout)
         except: 
@@ -5307,7 +5342,7 @@ class CLI():
             ])
             timeout = 10
 
-        self.tcp_test_results = {
+        tcp_test_results = {
             "data_found": True,
             "recv_data_found": False,
             "send_data_found": False,
@@ -5332,7 +5367,7 @@ class CLI():
                 for addr in addrs:
                     if addr.family == socket.AF_INET:
                         if addr.address == self.ip_address:
-                            self.tcp_test_results["ext_int"] = interface 
+                            tcp_test_results["ext_int"] = interface 
             self.functions.event = False
             if not interface:
                 self.error_messages.error_code_messages({
@@ -5350,7 +5385,7 @@ class CLI():
         with ThreadPoolExecutor() as executor:
             self.functions.event = True
             _ = executor.submit(self.functions.print_spinner,{
-                "msg": f"Sniffing interface: [{interface}]",
+                "msg": f"Sniffing interface: [{interface}] ...",
                 "color": "magenta",
             }) 
 
@@ -5358,7 +5393,7 @@ class CLI():
             self.functions.event = False
 
         self.functions.print_cmd_status({
-            "text_start": f"Sniffing interface",
+            "text_start": f"Sniffing full interface",
             "brackets": interface,
             "status": "complete",
             "status_color": "green",
@@ -5366,16 +5401,25 @@ class CLI():
         })
 
         if initial_stats is None:
-                self.tcp_test_results["data_found"] = False
+                tcp_test_results["data_found"] = False
         else:
             with ThreadPoolExecutor() as executor:
                 self.functions.event = True
 
+                self.functions.print_paragraphs([
+                    ["",1],["TCP PORT CHECK ON",0],[f" {profile.upper()} ",0,"white,on_blue"],["TCP PORT ASSIGNMENTS.",1]
+                ])
+
                 int_str = colored(interface,"yellow",attrs=["bold"])
                 int_str_end = colored("]","magenta")
-                _ = executor.submit(self.functions.print_spinner,{
-                    "msg": f"Testing send/receive: [{int_str}{int_str_end}",
-                    "color": "magenta",
+
+                _ = executor.submit(self.functions.print_timer,{
+                    "p_type": "cmd",
+                    "seconds": timeout,
+                    "step": -1,
+                    "status": "sniffing",
+                    "phrase": f"Interface send/receive:",
+                    "end_phrase": f"[{int_str}{int_str_end} ... ",
                 }) 
 
                 initial_bytes_sent = initial_stats.bytes_sent
@@ -5385,12 +5429,12 @@ class CLI():
                 
                 current_stats = psutil.net_io_counters(pernic=True).get(interface)
                 if current_stats is None:
-                    self.tcp_test_results["data_found"] = False
+                    tcp_test_results["data_found"] = False
                 else:
                     if current_stats.bytes_sent > initial_bytes_sent:
-                        self.tcp_test_results["send_data_found"] = True
+                        tcp_test_results["send_data_found"] = True
                     if current_stats.bytes_recv > initial_bytes_recv:
-                        self.tcp_test_results["recv_data_found"] = True
+                        tcp_test_results["recv_data_found"] = True
                 self.functions.event = False
 
             self.functions.print_cmd_status({
@@ -5399,25 +5443,36 @@ class CLI():
                 "text_end": "seconds per interface",
                 "newline": True,
             })
-            for self.profile in self.profile_names:
+            for self.profile in profile_names:
                 self.set_profile_api_ports()
                 del self.api_ports["cli"]
-                self.functions.parent = self
-                for self.functions.port_int in self.api_ports.values():
+                for port_int in self.api_ports.values():
                     with ThreadPoolExecutor() as executor:
                         self.functions.event = True
-                        port_int_str = colored(self.functions.port_int,"yellow",attrs=["bold"])
+                        port_int_str = colored(port_int,"yellow",attrs=["bold"])
                         port_close_str = colored("]","magenta")
-                        port_int_str_end = colored("send/receive on [","magenta")+colored(interface,"yellow",attrs=["bold"])+colored("]","magenta")
-                        _ = executor.submit(self.functions.print_spinner,{
-                            "msg": f"Sniffing Port [{port_int_str}{port_close_str} {port_int_str_end}",
-                            "color": "magenta",
+                        port_int_str_end = colored("I/O on [","magenta")+colored(interface,"yellow",attrs=["bold"])+colored("]","magenta")
+
+                        _ = executor.submit(self.functions.print_timer,{
+                            "p_type": "cmd",
+                            "seconds": timeout,
+                            "step": -1,
+                            "status": "sniffing",
+                            "phrase": f"Port: [{port_int_str}{port_close_str} {port_int_str_end} ... ",
+                            
                         }) 
-                        sniff(iface=interface, prn=self.functions.test_for_tcp_packet, filter="tcp", timeout=timeout)
+                        tcp_test_results[port_int] = {}
+                        tcp_test_results = self.functions.test_for_tcp_packet({
+                            "tcp_test_results": tcp_test_results,
+                            "timeout": timeout,
+                            "interface": interface,
+                            "port_int": port_int
+                        })
+                        sleep(.5)
                         self.functions.event = False
                         self.functions.print_cmd_status({
                             "text_start": f"Sniffing tcp packets",
-                            "brackets": str(self.functions.port_int),
+                            "brackets": str(port_int),
                             "status": "complete",
                             "status_color": "green",
                             "newline": True,
@@ -5428,10 +5483,10 @@ class CLI():
             {
                 "EXTERNAL IP": self.ip_address,
                 "EXTERNAL INTERFACE": interface,
-                "INTERFACE TRAFFIC": colored(str(self.tcp_test_results["data_found"]),"green" if self.tcp_test_results["data_found"] else "red"),
+                "INTERFACE TRAFFIC": colored(str(tcp_test_results["data_found"]),"green" if tcp_test_results["data_found"] else "red"),
             },
         ]
-        for port, values in self.tcp_test_results.items():
+        for port, values in tcp_test_results.items():
             try: int(port)
             except: continue
             inbound = colored(str(values["found_destination"]),"green" if values["found_destination"] else "red")
@@ -7140,6 +7195,7 @@ class CLI():
 
 
     def prepare_and_send_logs(self, command_list):
+        result = False
         self.functions.check_for_help(command_list,"send_logs")    
         send = Send({
             "config_obj": self.functions.config_obj,
@@ -7148,7 +7204,14 @@ class CLI():
         })             
         if "scrap" in command_list: self.send = send
         else:
-            send.prepare_and_send_logs()
+            result = send.prepare_and_send_logs()
+        
+        if result:
+            command_list = [
+                "--type","file",
+                result,
+            ]
+            self.cli_prepare_file_download(command_list)
 
 
     def backup_config(self,command_list):

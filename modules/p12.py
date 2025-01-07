@@ -193,7 +193,7 @@ class P12Class():
                 if confirm:
                     self.p12_filename = value
                     test_for_exist()
-                    if self.validate_value(r"^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
+                    if self.validate_value("^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
                         self.log.logger.info(f"p12 file accepted [{value}]")
                         break
                     self.log.logger.warning("invalid p12 file name inputted")
@@ -413,6 +413,13 @@ class P12Class():
         if self.functions.get_distro_details()["info"]["wsl"]:
             nodectl_secure_mount = f"/tmp/nodectlsecure"
 
+        def remove():
+            self.functions.remove_files(
+                f"{nodectl_secure_mount}/*", 
+                "cleanup_function",
+                True, False, True,
+            )
+
         if create:
             if not self.secure_mount_exists:
                 with open("/proc/mounts","r") as found_mounts:
@@ -429,15 +436,24 @@ class P12Class():
                 })    
 
             passfile = f"{nodectl_secure_mount}/{uuid4()}"
-            with open(passfile,"w") as f:
-                f.write(self.entered_p12_keyphrase)
-            chmod(passfile,0o600)
+            for n in range(0,3):
+                try:
+                    with open(passfile,"w") as f:
+                        f.write(self.entered_p12_keyphrase)
+                    chmod(passfile,0o600)
+                except:
+                    self.log.logger.error("handle_pass_file -> error with passphrase authentication file write.")
+                    if n > 0:
+                        self.error_messages.error_code_messages({
+                            "error_code": "p-441",
+                            "line_code": "open_file",
+                            "extra": "/mnt/nodectlsecure/*",
+                            "extra2": "file_write",
+                        })
+                    remove()
             return passfile
         else:
-            self.functions.remove_files(
-                f"{nodectl_secure_mount}/*", 
-                "cleanup_function",
-            )
+            remove()
 
 
     def unlock(self):

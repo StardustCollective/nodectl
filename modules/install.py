@@ -97,7 +97,6 @@ class Installer():
                     ["Distribution found:",0],[distro_name,2,"yellow"],
                 ])
                 continue_warn = True
-                
         if "Ubuntu" in distro_name:
             if ".10" in distro_version:
                 self.log.logger.warning(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
@@ -113,33 +112,25 @@ class Installer():
 
                     ])  
                     continue_warn = True
-            elif "24.04" not in distro_version and "22.04" not in distro_version and "20.04" not in distro_version and "18.04" not in distro_version:
+            elif "22.04" not in distro_version and "20.04" not in distro_version and "18.04" not in distro_version:
                 self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
                         ["nodectl was developed to run on",0,"red"],
-                        ["Ubuntu 22.04",0,"yellow"], ["and higher or",0,"red"], 
-                        ["Debian 12",0,"yellow"], ["or higher",0,"red"],
-                        ["Linux distributions. Install results may vary if an install",0,"red"],
+                        ["Ubuntu 22.04",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
+                        ["Linux distributions.  Install results may vary if an install",0,"red"],
                         ["is performed on a non-supported distribution.",2,"red"],
                         ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
 
                     ])  
-                    continue_warn = True
-        elif "Debian" in distro_name:
-            if "12" not in distro_version:
-                self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
-                if not self.options.quiet:
-                    self.functions.print_paragraphs([
-                        [" WARNING ",0,"yellow,on_red"], 
-                        ["nodectl was developed to run on",0,"red"],
-                        ["Debian 12",0,"yellow"], 
-                        ["Linux distributions. Install results may vary if an install",0,"red"],
-                        ["is performed on a non-supported distribution.",2,"red"],
-                        ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
+                    if "24.04" in distro_version:
+                        self.functions.print_paragraphs([
+                            ["Ubuntu 24.04 will be supported as soon as all necessary packages",0],
+                            ["used to allow the needed functionality are updated and supported by 24.04.",1],
+                            ["Ubuntu 22.04 LTS will reach its end of life in April 2032.",2]
 
-                    ])  
+                        ])  
                     continue_warn = True
 
         if continue_warn: 
@@ -853,14 +844,13 @@ class Installer():
                             "status_color": "yellow",
                         })
                             
-                    bashCommand = f"apt install -y {package}"
+                    bashCommand = f"apt-get install -y {package}"
                     if package == "ntp":
                         bashCommand += " ntpdate -oDpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'"
 
                     self.functions.process_command({
                         "bashCommand": bashCommand,
-                        #"proc_action": "timeout",
-                        "proc_action": "subprocess_run_pipe_text",
+                        "proc_action": "timeout",
                     })
                     
                     while True:
@@ -868,8 +858,7 @@ class Installer():
                         bashCommand = f"dpkg -s {package}"
                         result = self.functions.process_command({
                             "bashCommand": bashCommand,
-                            #"proc_action": "timeout",
-                            "proc_action": "subprocess_run_pipe_text",
+                            "proc_action": "timeout",
                         })
                         if "install ok installed" in str(result):
                             self.packages[f'{package}'] = True

@@ -259,6 +259,10 @@ def build_help(functions,command_obj):
     sync_node_time | force a sync between the Node and NTP servers connected to the
                      atomic clocks
 
+    check_tcp_ports | test if your node is able to communicate with the rest of the
+                      network properly.  Nodes use TCP/IP for public and peer to peer
+                      communications.  This command tests of the TCP ports I/O
+
     health  | - show basic health elements of your Node
               - show the current 15 minute CPU load and 
                 if WARNING or LOW
@@ -541,6 +545,37 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl configure -a -ep','cyan')}  
         '''
   
+    if extended == "check_tcp_ports":
+      help_text += title("Check TCP ports")
+      help_text += f'''
+  This command is a debug command used to help troubleshoot
+  nodes with communication issues.  As an example) Your node
+  is stuck in  {colored('SessionStarted','cyan')}.
+    
+  optional:
+  {colored('-p <profile_name>','green')}
+  {colored('-t [--timeout] <timeout in seconds>','green')}
+
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl check_tcp_ports help','cyan')}
+  
+  execute standard tcp port check
+  # {colored('sudo nodectl check_tcp_ports','cyan')}  
+
+  execute tcp port check on profile 'dag-l0'
+  # {colored('sudo nodectl check_tcp_ports -p dag-l0','cyan')}  
+
+  execute standard tcp port check with a 30 second timeout
+  # {colored('sudo nodectl check_tcp_ports -t 30','cyan')}  
+  # {colored('sudo nodectl check_tcp_ports --timeout 30','cyan')}  
+
+  execute tcp port check on profile 'dag-l0' with 30 second timeout
+  # {colored('sudo nodectl check_tcp_ports -p dag-l0 -t 30','cyan')}
+  # {colored('sudo nodectl check_tcp_ports -p dag-l0 --timeout 30','cyan')}   
+      '''
+
     if extended == "send_logs":
       help_text += title("Send Logs")
       help_text += f'''
