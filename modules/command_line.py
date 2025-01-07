@@ -474,6 +474,16 @@ class CLI():
                         system_boot = datetime.fromtimestamp(system_boot)
                         system_boot = system_boot.strftime("%Y-%m-%d %H:%M:%S")
                         
+                        if called_command == "alerting":
+                            return {
+                                "system_boot": system_boot,
+                                "system_uptime": system_uptime,
+                                "restart_time": restart_time,
+                                "uptime": uptime,
+                                "cluster_restart_time": cluster_restart_time,
+                                "cluster_uptime": cluster_uptime,
+                            }
+                        
                         if print_title:
                             self.functions.print_states()
                             self.functions.print_paragraphs([

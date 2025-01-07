@@ -283,7 +283,7 @@ class AutoRestart():
         if not self.alerting["enable"]: return
 
         #validate alerting
-        necessary_items = ["enable","gmail","token","send_method","recipients","begin_alert_utc","end_alert_utc","report_hour_utc","local_time_zone","title"]
+        necessary_items = ["enable","gmail","token","send_method","recipients","begin_alert_utc","end_alert_utc","report_hour_utc","local_time_zone","label"]
         found_items = list(self.config_obj["global_elements"]["alerting"].keys())
         if set(necessary_items) != set(found_items):
             self.log.logger.error(f"auto_restart - thread [{self.thread_profile}] - invalid alerting configuration found alerting is [disabled]")

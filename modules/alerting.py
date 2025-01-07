@@ -33,11 +33,11 @@ def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
 
     utc_time, local_time = prepare_datetime_stamp(functions, comm_obj["local_time_zone"], log)
 
-    title = False if comm_obj["title"] == None or comm_obj["title"] == "None" else comm_obj["title"]
+    label = False if comm_obj["label"] == None or comm_obj["label"] == "None" else comm_obj["label"]
 
     body = f"NODECTL {'UP' if alert_profile == 'clear' else 'DOWN'} ALERT\n"
-    if title:
-        body += f"Title: {title}\n"
+    if label:
+        body += f"Title: {label}\n"
     body += f"Cluster: {env}\n"
     body += f"Profile: {profile}\n"
     body += f"\nUTC: {utc_time}\n"
@@ -75,23 +75,31 @@ def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
 
 def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profile, env, log, direct=False):
     try:
-        report_data = cli.get_and_verify_snapshots(530,env,profile)
         cli.node_service = node_service
         nodeid = cli.cli_find(["-p",profile,"-t","self","return_only"])
         dag_addr = cli.cli_nodeid2dag([nodeid,"return_only"])
         full_amount = 0
         reward_items = []
-        title = False if comm_obj["title"] == None or comm_obj["title"] == "None" else comm_obj["title"]
-
-        for data in report_data["data"]:
-            for reward in data["rewards"]:
-                if reward["destination"] == dag_addr:
-                    full_amount += reward["amount"]
-                    reward_items.append((data["timestamp"],reward["amount"]))
+        label = False if comm_obj["label"] == None or comm_obj["label"] == "None" else comm_obj["label"]
 
         if direct:
             alert_profile["local_node"] = functions.get_ext_ip()
             alert_profile["node_state"] = alert_profile["state1"]
+
+        times = cli.show_system_status({
+            "spinner": False,
+            "threaded": False,
+            "called": "alerting",
+        })
+
+        if comm_obj["report_currency"]:
+            report_data = cli.get_and_verify_snapshots(530,env,profile)
+
+            for data in report_data["data"]:
+                for reward in data["rewards"]:
+                    if reward["destination"] == dag_addr:
+                        full_amount += reward["amount"]
+                        reward_items.append((data["timestamp"],reward["amount"]))
             
         wallet_balance = functions.pull_node_balance({
             "ip_address": alert_profile["local_node"],
@@ -100,46 +108,56 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
         })
 
         price = float(wallet_balance["token_price"].replace("$",""))
-        full_dag_amount = "{:,.3f}".format(full_amount/1e8)
-        full_usd_amount = "$"+"{:,.3f}".format((full_amount/1e8)*price)
 
-        start = report_data["start_time"].strftime('%Y-%m-%d %H:%M:%S')
-        end = report_data["end_time"].strftime('%Y-%m-%d %H:%M:%S')
+        if comm_obj["report_currency"]:
+            full_dag_amount = "{:,.3f}".format(full_amount/1e8)
+            full_usd_amount = "$"+"{:,.3f}".format((full_amount/1e8)*price)
+
+            start = report_data["start_time"].strftime('%Y-%m-%d %H:%M:%S')
+            end = report_data["end_time"].strftime('%Y-%m-%d %H:%M:%S')
 
     except Exception as e:
         log.logger.error(f"alerting -> send report failed with [{e}]")
         return # skip report if an error occurred
     
     body = "NODECTL REPORT\n"
-    if title:
-        body += f"Title: {title}\n"
+    if label:
+        body += f"Label: {label}\n"
     body += f"Cluster: {env}\n"
     body += f"Profile: {profile}\n\n"
 
     body += f"Status: {alert_profile['node_state']}\n\n"
 
-    body += f"Wallet: {dag_addr}\n"
-    body += f"Wallet Balance: {wallet_balance['balance_dag']}\n"
-    body += f"Wallet Balance: {wallet_balance['balance_usd']}\n"
+    if comm_obj["report_currency"]:
+        body += f"Wallet: {dag_addr}\n"
+        body += f"Wallet Balance: {wallet_balance['balance_dag']}\n"
+        body += f"Wallet Balance: {wallet_balance['balance_usd']}\n"
 
     body += f"{wallet_balance['token_symbol']} Price: ${price}\n\n"
-    body += f"Snapshot History Size [SHZ]: 530\n"
-    body += f"start: {start}\n"
-    body += f"end: {end}\n"
-    body += f"SHZ {wallet_balance['token_symbol']} Earned: {full_dag_amount}\n"
-    body += f"SHZ {wallet_balance['token_symbol']} USD: {full_usd_amount}\n\n"
+
+    body += f"Cluster Uptime: {times['cluster_uptime']}\n"
+    body += f"Node Uptime: {times['uptime']}\n"
+    body += f"VPS Uptime: {times['system_uptime']}\n\n"
+    
+    if comm_obj["report_currency"]:
+        body += f"Snapshot History Size [SHZ]: 530\n"
+        body += f"start: {start}\n"
+        body += f"end: {end}\n"
+        body += f"SHZ {wallet_balance['token_symbol']} Earned: {full_dag_amount}\n"
+        body += f"SHZ {wallet_balance['token_symbol']} USD: {full_usd_amount}\n\n"
 
     utc_time, local_time = prepare_datetime_stamp(functions, comm_obj["local_time_zone"], log)
     body += f"UTC: {utc_time}\n"
     body += f"{local_time}\n\n"
 
-    body += "Last 10 Transactions\n"
-    body += "====================\n"
+    if comm_obj["report_currency"]:
+        body += "Last 10 Transactions\n"
+        body += "====================\n"
 
-    for n, item in enumerate(reward_items):
-        body += f"{item[0]}: {item[1]/1e8}\n"
-        if n > 10:
-            break
+        for n, item in enumerate(reward_items):
+            body += f"{item[0]}: {item[1]/1e8}\n"
+            if n > 10:
+                break
         
     body += f"\nEnd Report"
     send_email(comm_obj,body,log)
@@ -181,20 +199,3 @@ def send_email(comm_obj,body,log):
         sleep(2)
     
     server.quit()
-
-
-
-
-# action:
-# ep_wait
-# NoActionNeeded
-# layer0_wait
-# layer1_wait
-# restart_full
-
-# match:
-# consensus_fork
-# minority_fork
-
-
-
