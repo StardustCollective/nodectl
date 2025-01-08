@@ -4900,7 +4900,7 @@ class Configurator():
                 self.c.functions.print_timer({
                     "seconds": 40,
                     "phrase": "Gracefully",
-                    "step": -1,
+                    "step": 1,
                     "end_phrase": "leaving cluster"
                 })
                     
