@@ -116,7 +116,8 @@ class Functions():
         
         self.auto_restart = True if self.config_obj["global_elements"]["caller"] == "auto_restart" else False
         ignore_defaults = ["config","install","installer","auto_restart","ts","debug"]
-        if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
+        if self.config_obj["global_elements"]["caller"] not in ignore_defaults: 
+            self.set_default_variables({})
 
 
     def set_error_obj(self):
@@ -1489,17 +1490,6 @@ class Functions():
 
         return
     
-
-    def get_version(self):
-        pass
-        # versioning = Versioning({
-        #     "config_obj": self.config_obj,
-        #     "show_spinner": False,
-        #     "print_messages": False,
-        #     "called_cmd": "functions",
-        # })     
-        # return versioning.get_version_obj()
-
 
     def get_memory(self):
         return virtual_memory()

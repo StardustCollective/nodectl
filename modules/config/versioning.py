@@ -64,6 +64,8 @@ class Versioning():
         self.date_time = None
         self.session_timeout = 2
 
+        self.nodeids = {}
+
         self.nodectl_static_versions = {
             "node_nodectl_version": nodectl_version,
             "node_nodectl_yaml_version": nodectl_yaml_version,  
@@ -169,7 +171,7 @@ class Versioning():
         self.force = False # do not leave forced on
         
         
-    def pull_from_jar(self,jar_path):
+    def pull_version_from_jar(self,jar_path):
         self.log.logger.debug(f"versioning - called by [{self.logging_name}] - pulling tessellation version for jar file [{jar_path}].")
         bashCommand = f"/usr/bin/java -jar {jar_path} --version"
         node_tess_version = self.functions.process_command({
@@ -183,6 +185,43 @@ class Versioning():
         return node_tess_version
     
     
+    def pull_nodeid_from_p12(self):
+        try:
+            from ..command_line import CLI
+
+            self.log.logger.debug(f"versioning - called by [{self.logging_name}] - pulling nodeid from p12 file.")
+            nodeids = {}
+
+            command_obj = {
+                "auto_restart": True,
+                "command": "versioning",
+                "ip_address": "127.0.0.1",
+                "skip_services": True,
+                "auto_restart": True, # avoid threading
+                "functions": self.functions
+            }   
+            self.cli = CLI(command_obj)
+            self.cli.functions.set_default_directories()
+            self.functions.set_default_variables({
+                "profiles_only": True,
+            })
+            for profile in self.functions.profile_names:
+                self.cli.cli_grab_id({
+                    "command": "versioning",
+                    "dag_addr_only": True,
+                    "threading": False,
+                    "profile": profile,
+                })
+                nodeids[profile] = self.cli.nodeid.strip("\n")
+
+            with open(f"{self.functions.nodectl_path}/cn-nodeid.json","w") as dfile:
+                json.dump(nodeids, dfile, indent=4)
+        except Exception as e:
+            self.log.logger.error(f"attempting to pull node id from p12 failed with [{e}]")
+
+        self.log.logger.debug(f"versioning - called by [{self.logging_name}] - found nodeids [{nodeids}]")
+
+
     def write_distro_details(self):
         info = self.functions.get_distro_details()
         with open(f"{self.functions.nodectl_path}/cn-distro.json","w") as dfile:
@@ -193,7 +232,8 @@ class Versioning():
         self.log.logger.debug(f"versioning - called by [{self.logging_name}] - write_version_obj_file initiated.")
         self.update_required = True
         self.write_distro_details()
-        
+        self.pull_nodeid_from_p12()            
+
         if self.update_file_only:
             self.write_file()
             return 
@@ -313,7 +353,7 @@ class Versioning():
                         jar = self.config_obj[profile]["jar_file"]
                         jar_path = self.config_obj[profile]["jar_path"]
                         try:
-                            node_tess_version = self.pull_from_jar(jar_path)            
+                            node_tess_version = self.pull_version_from_jar(jar_path)            
                         except Exception as e:
                             self.log.logger.error(f"attempting to pull node version from jar failed with [{e}]")
                             node_tess_version = "v0.0.0"

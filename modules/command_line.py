@@ -4140,14 +4140,15 @@ class CLI():
         return_success = command_obj.get("return_success",False)
         skip_display = command_obj.get("skip_display",False)
         outside_node_request = command_obj.get("outside_node_request",False)
-        dag_address_only = command_obj.get("dag_addr_only",False)
+        dag_addr_only = command_obj.get("dag_addr_only",False)
         ready_state = command_obj.get("ready_state",False)
         threading = command_obj.get("threading",True)
+        profile = command_obj.get("profile",self.profile)
+        is_global = command_obj.get("is_global",True)
 
-        profile = self.profile # default
         nodeid = ""
         ip_address = "127.0.0.1" # default
-        is_global = True
+
         balance_only = False
         api_port, nodeid_to_ip, target, is_self, cmd, print_out_list = False, False, False, False, False, False
         wallet_only = True if "-w" in argv_list or "--wallet" in argv_list else False
@@ -4321,7 +4322,7 @@ class CLI():
                     
                 self.functions.event = False  
 
-        if dag_address_only:
+        if dag_addr_only:
             return nodeid
         
         if command == "dag":
