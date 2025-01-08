@@ -128,6 +128,8 @@ class Configurator():
             cmd = "--includes"
             self.action = "includes_section"
             send_error = "includes"
+        else:
+            return
 
         try:
             option = argv_list[argv_list.index(cmd)+1]
@@ -4058,12 +4060,14 @@ class Configurator():
                         ])
                         try: remove(effp)
                         except: pass
+                        cprint("  Operation cancelled, please try again.","red")
                         self.c.functions.print_timer({
                             "seconds": 6,
                             "step": -1,
                             "phrase": "",
                             "end_phrase": "pausing",
                         })
+                        return
                 
                 if profile == "global_p12":
                     self.config_obj_apply = {
