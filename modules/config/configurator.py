@@ -119,24 +119,26 @@ class Configurator():
 
     def handle_single_options(self,argv_list):
         send_error = False
+
         if "--developer_mode" in argv_list:
-            try:
-                if argv_list[argv_list.index("--developer_mode")+1] == "enable" or argv_list[argv_list.index("--developer_mode")+1] == "disable":
-                    self.dev_enable_disable = argv_list[argv_list.index("--developer_mode")+1]
-                    self.action = "dev_mode"
-                else:
-                    send_error = "developer_mode"
-            except:
-                send_error = "developer_mode"
-        if "--includes" in argv_list:
-            try:
-                if argv_list[argv_list.index("--includes")+1] == "enable" or argv_list[argv_list.index("--includes")+1] == "disable":
-                    self.dev_enable_disable = argv_list[argv_list.index("--includes")+1]
-                    self.action = "includes_section"
-                else:
-                    send_error = "includes"
-            except:
-                send_error = "includes"
+            cmd = "--developer_mode"
+            self.action = "dev_mode"
+            send_error = "developer_mode"
+        elif "--includes" in argv_list:
+            cmd = "--includes"
+            self.action = "includes_section"
+            send_error = "includes"
+
+        try:
+            option = argv_list[argv_list.index(cmd)+1]
+            if option in ["enable","disable","status"]:
+                self.dev_enable_disable = argv_list[argv_list.index(cmd)+1]
+                if option == "status": 
+                    self.is_file_backedup = True # skip backup for status check
+        except:
+            self.log.logger.error(f"configurator -> handle_single_options -> invalid option: [{option}]")
+        else:
+            send_error = False
 
         if send_error:
             self.error_messages.error_code_messages({
@@ -232,7 +234,7 @@ class Configurator():
             
             paragraphs = [
                 ["Welcome to the",0], ["nodectl",0,"blue","bold,underline"],
-                ["configuration tool.",2],
+                ["configuration tool.",2 if self.dev_enable_disable != "status" else 1],
             ]
             self.c.functions.print_paragraphs(paragraphs)
             
@@ -270,11 +272,12 @@ class Configurator():
             except:
                 pass
 
-            self.c.functions.print_header_title({
-                "line1": "MAIN MENU",
-                "show_titles": False,
-                "newline": top_newline
-            })
+            if self.dev_enable_disable != "status":
+                self.c.functions.print_header_title({
+                    "line1": "MAIN MENU",
+                    "show_titles": False,
+                    "newline": top_newline
+                })
             
 
             if ( self.action == "edit" or self.action == "help" or self.action == "includes_section" or
@@ -3791,18 +3794,27 @@ class Configurator():
             start = "Includes Section"
             key = "includes"
 
-        self.config_obj_apply = {
-            "global_elements": 
-                {f"{key}": "True" if self.dev_enable_disable == "enable" else "False"}
-            }
-        self.apply_vars_to_config()
-        
-        self.c.functions.print_cmd_status({
-            "text_start": start,
-            "status": "enabled" if self.dev_enable_disable == "enable" else "disabled",
-            "status_color": "green" if self.dev_enable_disable == "enable" else "red",
-            "newline": True,
-        })
+
+        if self.dev_enable_disable == "status":
+            self.c.functions.print_cmd_status({
+                "text_start": start,
+                "status": "enabled" if self.c.yaml_dict["nodectl"]["global_elements"]["developer_mode"] else "disabled",
+                "status_color": "green" if self.c.yaml_dict["nodectl"]["global_elements"]["developer_mode"] else "red",
+                "newline": True,
+            })
+        else:    
+            self.config_obj_apply = {
+                "global_elements": 
+                    {f"{key}": "True" if self.dev_enable_disable == "enable" else "False"}
+                }
+            self.apply_vars_to_config()
+            
+            self.c.functions.print_cmd_status({
+                "text_start": start,
+                "status": "enabled" if self.dev_enable_disable == "enable" else "disabled",
+                "status_color": "green" if self.dev_enable_disable == "enable" else "red",
+                "newline": True,
+            })
         
 
     def perform_encryption(self,profile,encryption_obj,effp,pass3,caller):
