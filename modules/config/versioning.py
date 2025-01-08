@@ -185,7 +185,7 @@ class Versioning():
         return node_tess_version
     
     
-    def pull_nodeid_from_p12(self):
+    def pull_p12_details(self):
         try:
             from ..command_line import CLI
 
@@ -232,7 +232,7 @@ class Versioning():
         self.log.logger.debug(f"versioning - called by [{self.logging_name}] - write_version_obj_file initiated.")
         self.update_required = True
         self.write_distro_details()
-        self.pull_nodeid_from_p12()            
+        self.pull_p12_details()            
 
         if self.update_file_only:
             self.write_file()

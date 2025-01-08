@@ -49,9 +49,17 @@ class CLI():
         self.ip_address = command_obj["ip_address"]
         self.primary_command = self.command_obj["command"]
 
+        self.set_variables()
+
+
+    # ==========================================
+    # set commands
+    # ==========================================
+
+    def set_variables(self):
         self.config_obj = self.functions.config_obj
         self.version_obj = self.functions.version_obj
-                
+
         self.slow_flag = False
         self.skip_version_check = False
         self.skip_build = False
@@ -95,11 +103,14 @@ class CLI():
             self.functions.print_clear_line()
             
         self.arch = self.functions.get_distro_details()["arch"]
+
+        node_id_obj_org = self.functions.get_nodeid_from_file()
+        self.node_id_obj = deepcopy(node_id_obj_org)
+        for key, value in node_id_obj_org.items():
+            if "short" not in key:
+                self.node_id_obj[f"{key}_wallet"] = self.cli_nodeid2dag([value,"return_only"])
             
-            
-    # ==========================================
-    # set commands
-    # ==========================================
+
     
     def build_node_class(self):
         command_obj = {
@@ -270,6 +281,8 @@ class CLI():
                 
                 if static_nodeid:
                     node_id = f"{static_nodeid[:8]}...{static_nodeid[-8:]}"
+                elif self.node_id_obj:
+                    node_id = self.node_id_obj[f"{profile}_short"]
                 else:
                     try:
                         node_id = f"{elements[1][:8]}...{elements[1][-8:]}"
@@ -1797,6 +1810,8 @@ class CLI():
             search_dag_addr = command_list[command_list.index("-w")+1]
             self.functions.is_valid_address("dag",False,search_dag_addr)
             title = "REQ WALLET"
+        elif self.node_id_obj:
+            search_dag_addr = self.node_id_obj[f"{profile}_wallet"]
         else:
             self.cli_grab_id({
                 "dag_addr_only": True,
@@ -2685,7 +2700,9 @@ class CLI():
         found = colored("False","red",attrs=["bold"])
         profile = command_list[command_list.index("-p")+1]
         skip = True if "skip_warnings" in command_list else False
-        
+        nodeid, nodeid_short = None, None
+        skip_full_nodeid = False
+
         if not "skip_seedlist_title" in command_list: self.print_title("CHECK SEED LIST REQUEST")
         
         argv_list = []
@@ -2714,10 +2731,14 @@ class CLI():
             return 0
 
         if nodeid:
+            skip_full_nodeid = True
             self.functions.print_paragraphs([
                 ["NODE ID",1,"blue","bold"],
                 [nodeid,1,"white"],
             ])
+        elif self.node_id_obj and "-t" not in argv_list:
+            nodeid = self.node_id_obj[profile]
+            nodeid_short = self.node_id_obj[f"{profile}_short"]
         else:
             self.cli_grab_id({
                 "command":"nodeid",
@@ -2726,6 +2747,7 @@ class CLI():
                 "return_success": "set_value",
             })
             nodeid = self.nodeid
+            nodeid_short = f"{nodeid[:8]}...{nodeid[-8:]}"
                
         if nodeid:
             if not self.functions.is_valid_address("nodeid",True,nodeid):
@@ -2759,10 +2781,19 @@ class CLI():
                 return True
             return False
         
-        print_out_list = [{
-            "NODE ID FOUND ON SEED LIST": found,
-        }]
+        print_out_list = [
+            {
+                "PROFILE": profile,
+                "NODE ID": nodeid_short,
+            },
+            {
+                "NODE ID FOUND ON SEED LIST": found,
+            }
+        ]
     
+        if skip_full_nodeid:
+            print_out_list.pop(0)
+            
         for header_elements in print_out_list:
             self.functions.print_show_output({
                 "header_elements" : header_elements

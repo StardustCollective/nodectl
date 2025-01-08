@@ -560,6 +560,20 @@ class Functions():
         return ip
             
 
+    def get_nodeid_from_file(self):
+        node_id_obj = False
+
+        if path.isfile(f"{self.nodectl_path}cn-nodeid.json"):
+            with open(f"{self.nodectl_path}/cn-nodeid.json","r") as file:
+                node_id_obj_org = json.load(file)
+
+            node_id_obj = deepcopy(node_id_obj_org)
+            for key, value in node_id_obj_org.items():
+                node_id_obj[f"{key}_short"] = f"{value[:8]}...{value[-8:]}"
+
+        return node_id_obj
+
+
     def get_service_name(self,profile):
         try:
             return f"cnng-{self.config_obj[profile]['service']}"
@@ -1253,14 +1267,6 @@ class Functions():
 
         sizes = [0 if x is False else x for x in sizes]
         return sum(sizes)
-    
-
-    def check_dev_device(self):
-        cmd = 'df -h | awk \'$NF=="/"{print $5 " of " $2}\''
-        device = popen(cmd)
-        device = device.read()
-        if device: return device
-        return "unknown"
     
     
     def get_snapshot(self,command_obj):
@@ -2514,6 +2520,14 @@ class Functions():
 
         return cpu_ok, memory_ok, cpu_mem_details
     
+
+    def check_dev_device(self):
+        cmd = 'df -h | awk \'$NF=="/"{print $5 " of " $2}\''
+        device = popen(cmd)
+        device = device.read()
+        if device: return device
+        return "unknown"
+
 
     # =============================
     # is functions
