@@ -86,7 +86,6 @@ nodectl:
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
-    p12_passphrase: global
     seed_location: default
     seed_repository: default
     seed_version: default
@@ -136,7 +135,6 @@ nodectl:
     p12_nodeadmin: global
     p12_key_location: global
     p12_key_name: global
-    p12_passphrase: global
     seed_location: disable
     seed_repository: disable
     seed_version: disable
@@ -157,7 +155,6 @@ nodectl:
     nodeadmin: blank
     key_location: blank
     key_name: blank
-    passphrase: blank
     encryption: False
   global_elements:
     yaml_config_name: integrationnet
