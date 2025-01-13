@@ -644,14 +644,18 @@ class P12Class():
             return
 
         indiv_p12_obj = {"passphrase": pass1}
-        skeys = ["nodeadmin","key_location","key_name","key_alias","key_store"]
+        try:
+            indiv_p12_obj["key_alias"] = self.config_obj[profile]["key_alias"]
+        except:
+            indiv_p12_obj["key_alias"] = self.show_p12_details(["-p", profile, "--alias", "--return", "--config"])
 
         try:
-            for skey in skeys:
+            for skey in ["nodeadmin","key_location","key_name","key_store"]:
                 p12_key = skey
                 if profile != "global_p12": skey = f"p12_{skey}"
                 indiv_p12_obj[p12_key] = self.config_obj[profile][skey] 
-        except:
+        except Exception as e:
+            self.log.logger.critical(f"extract_export_config_env -> unable to extract p12 details from configuration. [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "p-508",
                 "line_code": "invalid_passphrase",

@@ -2,10 +2,9 @@ import yaml
 import json
 
 from termcolor import colored
-from time import sleep, time
-from random import randint
+from time import sleep
 from re import match
-from os import system, path, get_terminal_size, makedirs, listdir
+from os import path, get_terminal_size
 from shutil import copy2, move
 from sys import exit
 from glob import glob
@@ -89,7 +88,6 @@ class Configuration():
         
 
     def build_function_obj(self,config_obj):
-        self.log.logger.debug("[build_function_obj] method called.")
         check_sudo = False
         if not config_obj:
             config_obj = {
@@ -113,7 +111,6 @@ class Configuration():
         
                 
     def implement_config(self):
-        self.log.logger.debug("[implement_config] method called.")
         continue_list = ["normal","edit_config","edit_on_error","edit_config_from_new"]
         
         self.setup_schemas()
@@ -162,7 +159,6 @@ class Configuration():
         
         
     def build_yaml_dict(self,nodectl_only=False,setup_version=True):
-        self.log.logger.debug("[build_yaml_dict] method called.")
         # nodectl_only refers to version fetch type
         self.yaml_file = f'{self.functions.nodectl_path}cn-config.yaml'
         try:
@@ -233,7 +229,6 @@ class Configuration():
 
 
     def check_for_migration(self,check_only=False):
-        self.log.logger.debug("[check_for_migration] method called.")
         nodectl_version = self.functions.version_obj["node_nodectl_version"]
         nodectl_yaml_version = self.functions.version_obj["node_nodectl_yaml_version"]
                  
@@ -279,7 +274,6 @@ class Configuration():
             
             
     def finalize_config_tests(self):
-        self.log.logger.debug("[finalize_config_tests] method called.")
         self.metagraph_list = self.functions.clear_global_profiles(self.config_obj)
         
         try:
@@ -306,7 +300,6 @@ class Configuration():
 
 
     def yaml_passphrase_fix(self):
-        self.log.logger.debug("[yaml_passphrase_fix] method called.")
         temp_file = "/var/tmp/cn-config_temp.yaml"
         skip_values = ["None","global",'"']
         copy2(self.yaml_file,temp_file)
@@ -353,7 +346,6 @@ class Configuration():
         
         
     def migration(self):
-        self.log.logger.debug("[migration] method called.")
         self.functions.config_obj = {
             **self.config_obj,
             **self.functions.config_obj,            
@@ -375,7 +367,6 @@ class Configuration():
         
 
     def view_yaml_config(self,action):
-        self.log.logger.debug("[view_yaml_config] method called.")
         print_req = "all"
         if self.called_command == "view-config": self.called_command = "view_config"
         if self.called_command == "view_config" or self.called_command == "-vc":
@@ -499,7 +490,6 @@ class Configuration():
                 
         
     def handle_cli_passphrase(self):
-        self.log.logger.debug("[handle_cli_passphrase] method called.")
         # grab cli passphrase if present
         if "--pass" in self.argv_list:
             self.config_obj["global_elements"]["global_cli_pass"] = True
@@ -510,7 +500,6 @@ class Configuration():
 
         
     def create_path_variable(self, path, file):
-        self.log.logger.debug("[create_path_variable] method called.")
         try:
             path = f"{path}/{file}" if path[-1] != "/" else f"{path}{file}"
         except:
@@ -524,7 +513,7 @@ class Configuration():
         # one_off: called from migrator to find edge_point* ( introduced >v2.13.0 )
         # sets up the automated values not present in the 
         # yaml file
-        self.log.logger.debug("[setup_config_vars] method called.")
+
         if self.action == "edit_config_from_new": return # updating defaults not necessary
 
         def error_found(
@@ -926,8 +915,8 @@ class Configuration():
             
             
     def prepare_p12(self):
-        self.log.logger.debug("[prepare_p12] method called.")
-       
+        self.log.logger.debug("p12 passphrase setup...")
+           
         p12_obj = {
             "caller": "config",
             "action": "normal_ops",
@@ -939,7 +928,6 @@ class Configuration():
                         
     
     def remove_disabled_profiles(self):
-        self.log.logger.debug("[remove_disabled_profiles] method called.")
         remove_list = []
         
         for profile in self.metagraph_list:
@@ -953,8 +941,6 @@ class Configuration():
 
 
     def is_passphrase_required(self):
-        self.log.logger.debug("[is_passphrase_required] method called.")
-        required = False
         passphrase_required_list = [
             "start","stop","upgrade","restart","check_seedlist",
             "nodeid","id","export_private_key","show_p12_details",
@@ -963,19 +949,12 @@ class Configuration():
             "auto_restart", "refresh_binaries","sec"
         ]                
         if self.called_command in passphrase_required_list:
-            required = True
-        
-        re_enter_passwd_list = ["export_private_key"]
-        if self.called_command in re_enter_passwd_list:
-            required = "force_validate"
-
-        return required
+            return True
+        return False
     
 
     def setup_passwd(self,force=False):
-        self.log.logger.debug("[setup_passwd] method called.")
-        def verify_passwd(passwd, profile,re_enter=False):
-            self.log.logger.debug("[verify_passwd] function called.")
+        def verify_passwd(passwd, profile):
             clear, top_new_line, show_titles = False, False, True 
             if profile == "global" and ( not self.config_obj["global_elements"]["global_upgrader"] or self.argv_list[1] != "upgrade" ):
                 clear = True
@@ -985,9 +964,7 @@ class Configuration():
                 show_titles = False
                 top_new_line = "top"
                 
-            if not passwd or re_enter:
-                self.config_obj["global_p12"]["encryption"] = False
-                passwd = None # if re_enter is True, force re-entry
+            if not passwd:
                 self.functions.print_header_title({
                     "line1": "PASSPHRASE REQUIRED",
                     "line2": profile,
@@ -1002,17 +979,15 @@ class Configuration():
                 "passwd": passwd,
             })   
             return  
-
+            
         passwd = self.config_obj["global_p12"]["passphrase"]
         if passwd == None or passwd == "None":
             self.config_obj["global_elements"]["global_cli_pass"] = True
             passwd = False
 
-        passwd_required = self.is_passphrase_required()
-        if passwd or force:
-            force_validate = True if passwd_required == "force_validate" else False
-            verify_passwd(passwd,"global",force_validate)   
-
+        if self.is_passphrase_required() or force:
+            verify_passwd(passwd,"global")  
+        
         if not self.config_obj["global_elements"]["all_global"]:
             for profile in self.metagraph_list:
                 # print(json.dumps(self.config_obj,indent=3))
@@ -1021,15 +996,14 @@ class Configuration():
                     if passwd == "None" or passwd == None:
                         self.config_obj[profile]["global_p12_cli_pass"] = True
                         passwd = False
-                    if passwd_required():
-                        verify_passwd(passwd,profile,force_validate)
+                    if self.is_passphrase_required():
+                        verify_passwd(passwd,profile)
                 else:
                     self.config_obj[profile]["p12_passphrase"] = self.config_obj["global_p12"]["passphrase"]
 
         
     def setup_self_settings(self):
         # configuration key word "self" for linking to global l0
-        self.log.logger.debug("[setup_self_settings] method called.")
         def grab_nodeid(profile):
             pattern = "^[a-fA-F0-9]{128}$"
             self.p12.set_variables(False,profile)
@@ -1149,7 +1123,6 @@ class Configuration():
     
 
     def setup_p12_aliases(self,profile):
-        self.log.logger.debug("[setup_p12_aliases] method called.")
         argv_list = ["-p", profile, "--alias", "--return", "--config"]
         p12_alias = self.p12.show_p12_details(argv_list)
 
@@ -1171,8 +1144,7 @@ class Configuration():
         self.config_obj[profile][key] = p12_alias
 
 
-    def setup_schemas(self):
-        self.log.logger.debug("[setup_schemas] method called.")   
+    def setup_schemas(self):   
         # ===================================================== 
         # schema order of sections needs to be in the exact
         # same order as the yaml file setup both in the profile
@@ -1297,7 +1269,6 @@ class Configuration():
         
         
     def setup_path_formats(self,profile):
-        self.log.logger.debug("[setup_path_formats] method called.")
         def check_slash(st_val,path_value,s_type):
             if "def" in st_val and path_value == "default": return
             if "dis" in st_val and path_value == "disable": return
@@ -1333,7 +1304,6 @@ class Configuration():
                 
 
     def validate_yaml_keys(self):
-        self.log.logger.debug("[validate_yaml_keys] method called.")
         missing_list = []
         missing_list_global = []
         not_in_list = [
@@ -1398,7 +1368,6 @@ class Configuration():
     
     
     def validate_services(self):
-        self.log.logger.debug("[validate_services] method called.")
         service_names = []
         for i_profile in self.metagraph_list:
             service_names.append(self.config_obj[i_profile]["service"]) 
@@ -1418,7 +1387,6 @@ class Configuration():
         
 
     def validate_global_setting(self):
-        self.log.logger.debug("[validate_global_setting] method called.")
         # key_name, passphrase, and alias all have to match if set to global
         self.config_obj["global_elements"]["all_global"] = True
         self.config_obj["global_elements"]["use_offline"] = True
@@ -1498,7 +1466,6 @@ class Configuration():
                   
 
     def validate_p12_exists(self):
-        self.log.logger.debug("[validate_p12_exists] method called.")
         for profile in self.metagraph_list:
             if not path.isfile(self.config_obj[profile]["p12_key_store"]):
                 self.validated = False
@@ -1515,7 +1482,6 @@ class Configuration():
                     
 
     def validate_link_dependencies(self):
-        self.log.logger.debug("[validate_link_dependencies] method called.")
         # this is done after the disabled profiles are removed.
         for m_or_g in ["ml0","gl0"]:
             link_profiles = []            
@@ -1553,7 +1519,6 @@ class Configuration():
 
         
     def validate_profile_keys(self,profile):
-        self.log.logger.debug("[validate_profile_keys] method called.")
         custom_requirements = ["custom_env_vars_enable","custom_args_enable"]
         found_list = list(self.config_obj[profile])        
         skip = True if "elements" in profile else False
@@ -1585,15 +1550,11 @@ class Configuration():
         
         if "global" not in profile:
             self.validate_profile_types(profile)
-    
-        self.log.logger.debug(f"config -> validate_profile_types -> completed with [{self.validated}]")
         if self.validated:
             self.setup_path_formats(profile)
 
                 
     def validate_profile_types(self,profile,return_on=False):
-        self.log.logger.debug("[validate_profile_types] method called.")
-
         validated, return_on_validated = True, True
         special_case = None
         skip_validation = False
@@ -1734,7 +1695,6 @@ class Configuration():
 
         
     def validate_port_duplicates(self):
-        self.log.logger.debug("[validate_port_duplicates] method called.")
         found_ports = []
         found_keys = []
         error_keys = []
@@ -1767,7 +1727,6 @@ class Configuration():
 
 
     def validate_seedlist_duplicates(self):
-        self.log.logger.debug("[validate_seedlist_duplicates] method called.")
         seeds = []; duplicates = []
         seeds = [self.config_obj[profile]["seed_path"] for profile in self.metagraph_list if "disable" not in self.config_obj[profile]["seed_path"]]
         seeds_set = set(seeds)
@@ -1791,7 +1750,6 @@ class Configuration():
             
 
     def cleanup_backups(self):
-        self.log.logger.debug("[cleanup_backups] method called.")
         try:
             profile = self.functions.clear_global_profiles(self.config_obj)[0]
         except:
@@ -1808,7 +1766,6 @@ class Configuration():
 
 
     def print_report(self):
-        self.log.logger.debug(f"[print_report] method called. skip report [{self.skip_final_report}]")
         if self.skip_final_report:
             return
         

@@ -1,5 +1,4 @@
-import keyring
-from os import system, path, makedirs
+from os import path, makedirs
 from shutil import move
 from .versioning import Versioning
 from ..troubleshoot.logger import Logging
@@ -38,7 +37,6 @@ class Migration():
         verify = self.verify_config_type()
         if not verify: return
         self.backup_config()
-        # self.handle_keyring()
         self.create_n_write_yaml()
         self.final_yaml_write_out()
         self.confirm_config()
@@ -250,20 +248,6 @@ class Migration():
             ["backup location:",0], [f"{path.split(dest)[0]}",1,"magenta"],
         ])
 
-
-    def handle_keyring(self):
-        self.functions.print_paragraphs([
-            [" IMPORTANT ",0,"red,on_yellow"],["Introduced in",0],["v2.15.0",0,"yellow"],
-            ["nodectl will deprecate the SHA2-512 passphrase encryption feature.",2],
-
-            ["nodectl will now rely on the underlining Linux distribution OS level keyring",2],
-
-            ["Linux keyrings are a security feature used to store sensitive information like passwords,",0],
-            ["SSH keys, GPG keys, and certificates in an encrypted form.",2],
-
-            ["nodectl's",0], ["cn-config.yaml",0,"yellow"], ["passphrase key/value pair value will be removed ",0],
-            ["from the configuration permanently, and nodectl will rely on the keyring to fetch the passphrase, moving forward",2]
-        ])
 
     # =======================================================
     # build methods
