@@ -250,7 +250,9 @@ class UserClass:
                 })
         
             if not self.p12_migration:
-                if len(pass1) < length:
+                if len(pass1.strip()) < 1:
+                    results.append("len")
+                elif len(pass1) < length:
                     results.append("len")
                 
                 if not re.match(pattern, pass1) or not re.match(pattern, pass2):

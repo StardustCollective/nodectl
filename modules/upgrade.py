@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from os import path, makedirs, remove, listdir
+from os import path, makedirs, remove, listdir, chmod
 from shutil import copy2, rmtree
 from time import sleep
 from termcolor import colored
@@ -926,7 +926,8 @@ class Upgrader():
         remove_ntp_services(self.log)
         handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
-
+        chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
+        
         result = False
         if not self.nodectl_only:
             for profile in self.functions.profile_names:

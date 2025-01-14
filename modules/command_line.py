@@ -104,12 +104,15 @@ class CLI():
             
         self.arch = self.functions.get_distro_details()["arch"]
 
+        if self.command_obj["caller"] == "installer":
+            return
+        
         node_id_obj_org = self.functions.get_nodeid_from_file()
-        self.node_id_obj = deepcopy(node_id_obj_org)
-        for key, value in node_id_obj_org.items():
-            if "short" not in key:
-                self.node_id_obj[f"{key}_wallet"] = self.cli_nodeid2dag([value,"return_only"])
-            
+        if node_id_obj_org:
+            self.node_id_obj = deepcopy(node_id_obj_org)
+            for key, value in node_id_obj_org.items():
+                if "short" not in key:
+                    self.node_id_obj[f"{key}_wallet"] = self.cli_nodeid2dag([value,"return_only"])
 
     
     def build_node_class(self):

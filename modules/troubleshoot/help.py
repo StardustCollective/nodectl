@@ -1780,6 +1780,9 @@ def build_help(functions,command_obj):
      - 4x vCPU
      - 160Gb HD
      - Internet Access
+
+  Please refer to the {colored('docs.constellationnetwork.ip/validate','green',attrs=['bold'])} 
+  for installation details and quick start guides.  
   '''      
           
     if extended == "upgrade":

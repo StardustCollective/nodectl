@@ -51,6 +51,7 @@ class Download():
             "reset": -1,
             "down": -1,
             "success": True,
+            "failback": False,
         }
 
         self.log.logger.info(f"{self.log_prefix} module initiated")
@@ -90,6 +91,7 @@ class Download():
         self.threaded_download_handler()
         self.file_fallback_handler()
         self.file_backup_handler("restore")
+
 
         return self.cursor_setup
 
@@ -271,8 +273,10 @@ class Download():
                 # readability
                 env = self.functions.environment_name
 
-                if self.requested_profile: profile = self.requested_profile
-                else: profile = self.functions.profile_names[0]
+                if self.requested_profile: 
+                    profile = self.requested_profile
+                else: 
+                    profile = self.functions.profile_names[0]
 
                 if self.tools_version == "default":
                     self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
@@ -469,7 +473,6 @@ class Download():
                 if self.file_obj[file_name]["state"] != "disabled":
                     self.get_download_looper(file_name)
                     self.redundant_check()
-                    test = 1
         else:
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {executor.submit(self.get_download_looper, file_name): file_name for file_name in list(self.file_obj.keys())}
@@ -584,8 +587,8 @@ class Download():
                     ["Attempting secondary download mechanism",1,"yellow"],
                 ])
             self.fallback = True
+            self.cursor_setup["failback"] = True
             self.execute_downloads()
-
 
 
     def file_backup_handler(self,action):
@@ -642,9 +645,13 @@ class Download():
             if self.file_obj[file]["state"] == "disabled": continue
             if "seedlist" in str(self.file_obj[file]): continue
             file_size = self.functions.get_size(self.file_obj[file]["dest_path"],True)
-            if file_size < 1 and file_size != self.file_obj[file]['remote_size']:
-                file_name = file.replace(f'-cnng{self.file_obj[file]["profile"]}',"")
-                self.log.logger.error(f"{self.log_prefix} redundant check method found possible file size issue [{file_name}] file size [{file_size}] remote size [{self.file_obj[file]['remote_size']}]")
+            file_name = file.replace(f'-cnng{self.file_obj[file]["profile"]}',"")
+            try:
+                if not file_size and file_size < 1 and file_size != self.file_obj[file]['remote_size']:
+                    self.log.logger.error(f"{self.log_prefix} redundant check method found possible file size issue [{file_name}] file size [{file_size}] remote size [{self.file_obj[file]['remote_size']}]")
+                    self.file_obj[file]['state'] = "failed"
+            except Exception as e:
+                self.log.logger.error(f"{self.log_prefix} redundant check errored [{file_name}] | error [{e}]")
                 self.file_obj[file]['state'] = "failed"
 
 

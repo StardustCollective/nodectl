@@ -193,7 +193,7 @@ class P12Class():
                 if confirm:
                     self.p12_filename = value
                     test_for_exist()
-                    if self.validate_value("^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
+                    if self.validate_value(r"^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
                         self.log.logger.info(f"p12 file accepted [{value}]")
                         break
                     self.log.logger.warning("invalid p12 file name inputted")
@@ -500,7 +500,7 @@ class P12Class():
                     "proc_action": "wait", 
                     "return_error": True
                 })
-                if not "invalid password" in str(results.lower()):
+                if not "invalid password" in str(results.lower()) and not "error" in str(results.lower()):
                     self.log.logger.info("p12 file unlocked successfully - openssl")
                     return_result = True
                 else:
@@ -707,7 +707,7 @@ class P12Class():
             self.functions.print_cmd_status(progress)
 
         self.extract_export_config_env({
-            "env_vars":True,
+            "env_vars": True,
             "caller": "generate",
         })
 
@@ -730,13 +730,12 @@ class P12Class():
         self.log.logger.info(f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
         # do not use sudo here otherwise the env variables will not be associated
         bashCommand = "java -jar /var/tessellation/cl-keytool.jar generate"
-        self.functions.process_command(({
+        result = self.functions.process_command(({
             "bashCommand": bashCommand,
             "proc_action": "timeout"
         }))
 
         self.log.logger.info(f"p12 file permissions set {self.p12_file_location}/{self.p12_filename}")
-
         self.functions.set_chown(f"{self.p12_file_location}/{self.p12_filename}",self.user.username, self.user.username)
         chmod(f"{self.p12_file_location}/{self.p12_filename}",0o400)
         result = "completed"

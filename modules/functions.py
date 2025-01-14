@@ -27,10 +27,10 @@ from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usag
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
-from requests import get, Session
+from requests import Session
 from requests.exceptions import HTTPError, RequestException
 from subprocess import Popen, PIPE, call, run, check_output, CalledProcessError, DEVNULL, STDOUT
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
 from copy import copy, deepcopy
@@ -41,10 +41,10 @@ from threading import Timer
 from urllib.parse import urlparse, urlunparse
 from functools import partial
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chmod, chown
+from os import getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chown
 from pwd import getpwnam
 from grp import getgrnam
-from shutil import copy2, move
+from shutil import copy2
 from sys import exit, stdout, stdin
 from pathlib import Path
 from types import SimpleNamespace
@@ -147,7 +147,8 @@ class Functions():
         self.default_pro_rating_location = "/var/tessellation"
         self.default_includes_path = '/var/tessellation/nodectl/includes/'
         self.default_tessellation_repo = "https://github.com/Constellation-Labs/tessellation"
-        
+        self.ekf = "/etc/security/cnngsenc.conf"
+
         # constellation specific statics
         self.be_urls = {
             "testnet": "be-testnet.constellationnetwork.io",
@@ -1373,8 +1374,6 @@ class Functions():
         profile = command_obj.get("profile",False)
         test_only = command_obj.get("test_only",False)
 
-        ekf = "/etc/security/cnngsenc.conf"
-
         if not enc_data:
             salt = self.get_uuid()
             salt = f"{salt2[:6]}{salt}"
@@ -1405,14 +1404,14 @@ class Functions():
             enc_data = enc_key.encrypt(pass1.encode()).decode()
             return (enc_data,fernet_key)
 
-        if not path.exists(ekf):
+        if not path.exists(self.ekf):
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1100",
                 "line_code": "system_error",
                 "extra": "encryption issue found, unable to decrypt",
             })
 
-        with open(ekf,"r") as f:
+        with open(self.ekf,"r") as f:
             for line in f.readlines():
                 if profile in line:
                     key = line
@@ -1683,7 +1682,7 @@ class Functions():
                 "replace_line": prompt_update,
             })
         elif is_prompt_there != "file_not_found":
-            if not path.exists(bashrc_file):
+            if not path.isfile(bashrc_file):
                 _ = self.process_command({
                     "bashCommand": f"sudo touch {bashrc_file}",
                     "proc_action": "subprocess_devnull",
@@ -2569,7 +2568,7 @@ class Functions():
         if v_type == "nodeid":
             reg_expression = "^[a-f0-9]{128}$"
         if v_type == "ip_address":
-            reg_expression = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+            reg_expression = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
             
         if match(reg_expression,address):
             valid = True
@@ -3903,7 +3902,7 @@ class Functions():
 
     def cleaner(self, line, action, char=None):
         if action == "dag_count":
-            cleaned_line = sub('\D', '', line)
+            cleaned_line = sub(r'\D', '', line)
             return cleaned_line[6:]
         elif action == "ansi_escape":
             ansi_escape = compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')

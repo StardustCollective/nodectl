@@ -915,8 +915,6 @@ class Configuration():
             
             
     def prepare_p12(self):
-        self.log.logger.debug("p12 passphrase setup...")
-           
         p12_obj = {
             "caller": "config",
             "action": "normal_ops",
@@ -941,20 +939,28 @@ class Configuration():
 
 
     def is_passphrase_required(self):
+        required = False
         passphrase_required_list = [
             "start","stop","upgrade","restart","check_seedlist",
             "nodeid","id","export_private_key","show_p12_details",
             "leave","join", "upgrade",
             "passwd","clean_snapshots","clean_files",
             "auto_restart", "refresh_binaries","sec"
-        ]                
+        ]  
+
         if self.called_command in passphrase_required_list:
-            return True
-        return False
+            required = True
+ 
+        re_enter_passwd_list = ["export_private_key"]
+        if self.called_command in re_enter_passwd_list:
+            required = "force_validate"
+ 
+        return required
     
 
     def setup_passwd(self,force=False):
-        def verify_passwd(passwd, profile):
+        def verify_passwd(passwd, profile,re_enter=False):
+            self.log.logger.debug("[verify_passwd] function called.")
             clear, top_new_line, show_titles = False, False, True 
             if profile == "global" and ( not self.config_obj["global_elements"]["global_upgrader"] or self.argv_list[1] != "upgrade" ):
                 clear = True
@@ -985,8 +991,10 @@ class Configuration():
             self.config_obj["global_elements"]["global_cli_pass"] = True
             passwd = False
 
-        if self.is_passphrase_required() or force:
-            verify_passwd(passwd,"global")  
+        passwd_required = self.is_passphrase_required()
+        if passwd or force:
+            force_validate = True if passwd_required == "force_validate" else False
+            verify_passwd(passwd,"global",force_validate)
         
         if not self.config_obj["global_elements"]["all_global"]:
             for profile in self.metagraph_list:
@@ -996,8 +1004,9 @@ class Configuration():
                     if passwd == "None" or passwd == None:
                         self.config_obj[profile]["global_p12_cli_pass"] = True
                         passwd = False
-                    if self.is_passphrase_required():
-                        verify_passwd(passwd,profile)
+                    if passwd_required():
+                        verify_passwd(passwd,profile,force_validate)
+
                 else:
                     self.config_obj[profile]["p12_passphrase"] = self.config_obj["global_p12"]["passphrase"]
 

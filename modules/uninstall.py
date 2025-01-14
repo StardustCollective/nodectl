@@ -420,28 +420,35 @@ def stop_services(functions, node_service,log):
             "profile": profile,
         })
 
-    status = "complete"
-    color = "green"
-    try:
-        for cmd in [
-            "disable node_version_updater.service",
-            "disable node_restart@.service",
-            "stop node_version_updater.service",
-        ]:
+    for cmd in [
+        ("disable node_version_updater.service","versioning"),
+        ("disable node_restart@.service","auto_restart"),
+        ("disable node_restart.service",None),
+        ("stop node_version_updater.service","versioning"),
+        ("stop node_restart@.service","auto_restart"),
+        ("stop node_restart.service",None),
+    ]:
+        status = "complete"
+        color = "green"
+        try:
             _ = functions.process_command({
-                "bashCommand": f"sudo systemctl {cmd}",
+                "bashCommand": f"sudo systemctl {cmd[0]}",
                 "proc_action": "subprocess_devnull",
             })
-    except:
-        status = "incomplete"
-        color = "magenta"
-        log.logger.warning("uninstaller -> may have been an issue stopping and disabling the auto_restart or upgrader service.")
-    functions.print_cmd_status({
-        "text_start": "Stopping updater service",
-        "status": status,
-        "status_color": color,
-        "newline": True,
-    })
+        except:
+            status = "incomplete"
+            color = "magenta"
+            log.logger.warning(f"uninstaller -> may have been an issue stopping and disabling the {cmd[1]} service.")
+        if cmd[1] is not None:
+            action = "Stopping"
+            if "disable" in cmd[0]:
+                action = "Disabling"
+            functions.print_cmd_status({
+                "text_start": f"{action} {cmd[1]} service",
+                "status": status,
+                "status_color": color,
+                "newline": True,
+            })
 
     with ThreadPoolExecutor() as executor:
         futures = [executor.submit(process_profile, profile) for profile in functions.profile_names]

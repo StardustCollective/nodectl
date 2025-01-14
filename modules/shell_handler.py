@@ -47,7 +47,6 @@ class ShellHandler:
         except:
             self.version_class_obj = command_obj.get("versioning",False)
 
-        self.install_flag = False
         self.restart_flag = False
         self.has_existing_p12 = False
         self.debug = debug
@@ -159,6 +158,7 @@ class ShellHandler:
             self.check_skip_services()
             self.check_for_static_peer()
             self.handle_versioning()
+            self.check_fernet_rotation()
             self.check_diskspace()
             self.check_for_profile_requirements()
 
@@ -644,6 +644,33 @@ class ShellHandler:
             self.functions.print_paragraphs([
                 [" WARNING ",0,"red,on_yellow"], ["Disk Space:",0,"yellow"],
                 [size_str,1,"magenta"]
+            ])
+                
+
+    def check_fernet_rotation(self):
+        if self.called_command == "install" or not self.config_obj["global_p12"]:
+            return
+        
+        warning_threshold = 45
+        main_threshold = 90
+
+        mod_time = path.getmtime(self.functions.ekf)
+        age = self.functions.get_date_time({
+            "action": "get_elapsed",
+            "old_time": datetime.fromtimestamp(mod_time)
+        })
+
+        if age.days > main_threshold:
+            self.log.logger.critical(f"shell_handler -> p12 encryption key rotation check -> age [{age}]")
+            self.functions.print_paragraphs([
+                [" IMPORTANT ",0,"yellow,on_red"], 
+                ["P12 encryption key rotation suggested.",1,"magenta"],
+            ])
+        elif age.days > warning_threshold:
+            self.log.logger.warning(f"shell_handler -> p12 encryption key rotation check -> age [{age}]")
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], 
+                ["Consider P12 passphrase encryption key rotation soon.",1,"magenta"],
             ])
 
 

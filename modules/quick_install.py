@@ -56,6 +56,7 @@ class QuickInstaller():
         for n, t_step in enumerate(self.steps):
             desc = t_step[0]
             code = t_step[2]
+            self.log.logger.debug(f"quick-install --> {desc} | [{code}]")
             if isinstance(t_step[1],tuple):
                 funct = t_step[1][0]
                 parm = t_step[1][1]

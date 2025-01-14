@@ -112,7 +112,7 @@ class Installer():
 
                     ])  
                     continue_warn = True
-            elif "22.04" not in distro_version and "20.04" not in distro_version and "18.04" not in distro_version:
+            elif "22.04" not in distro_version and "24.04" not in distro_version:
                 self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
@@ -124,14 +124,17 @@ class Installer():
                         ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
 
                     ])  
-                    if "24.04" in distro_version:
+                    if "20.04" in distro_version:
                         self.functions.print_paragraphs([
-                            ["Ubuntu 24.04 will be supported as soon as all necessary packages",0],
-                            ["used to allow the needed functionality are updated and supported by 24.04.",1],
-                            ["Ubuntu 22.04 LTS will reach its end of life in April 2032.",2]
-
+                            ["Ubuntu 20.04 is",0], ["end of support",0,"yellow"], ["it is a security vunerablity.",2],
                         ])  
                     continue_warn = True
+        elif "Debian" in distro_name:
+            if "10" in distro_version: 
+                self.functions.print_paragraphs([
+                    ["Debian 10 is",0], ["end of support",0,"yellow"], ["it is a security vunerablity.",2],
+                ])  
+                continue_warn = True
 
         if continue_warn: 
             self.options.quick_install = self.functions.confirm_action({
@@ -151,7 +154,7 @@ class Installer():
         if not self.options.quiet:
             self.functions.print_paragraphs([
                 [" NOTE ",2,"yellow,on_magenta"],
-                ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow,bold"],
+                ["Default options will be enclosed in",0,"magenta"], ["[] (brackets).",0,"yellow","bold"],
                 ["If you want to use the value defined in the brackets, simply hit the",0,"magenta"], ["<enter>",0,"yellow","bold"],
                 ["key to accept said value.",2,"magenta"],
                 
@@ -274,7 +277,8 @@ class Installer():
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
             "--quick-install", "--normal", "--json-output",
-            "--confirm","--override","--quiet","--skip_encryption",
+            "--confirm","--override","--quiet",
+            "--skip-encryption",
         ]
         
         self.options_dict["quick_install"] = False
@@ -299,10 +303,10 @@ class Installer():
             if o_option == "override" and "--override" in self.argv_list: 
                 self.options_dict["override"] = True
                 continue
-            if (o_option == "json_output" and "--json-output" in self.argv_list) or (o_option == "json_output" and "--json_output" in self.argv_list): 
+            if (o_option == "json-output" and "--json-output" in self.argv_list) or (o_option == "json-output" and "--json_output" in self.argv_list): 
                 self.options_dict["json_output"] = True
                 continue
-            if (o_option == "skip_encryption" and "--skip-encryption" in self.argv_list) or (o_option == "skip_encryption" and "--skip_encryption" in self.argv_list): 
+            if (o_option == "skip-encryption" and "--skip-encryption" in self.argv_list) or (o_option == "skip-encryption" and "--skip_encryption" in self.argv_list): 
                 self.options_dict["skip_encryption"] = True
                 continue
             if o_option == "quiet" and "--quiet" in self.argv_list: 
@@ -625,6 +629,16 @@ class Installer():
 
     def download_binaries(self):  
         self.log.logger.info("installer -> installing binaries")
+
+        def handle_failback_pos(pos):
+            new_pos = {}
+            if pos["failback"]:
+                for key in pos.keys():
+                    if key in ["success","failback"]:
+                        new_pos[key] = pos[key]
+                    new_pos[key] = pos[key]+14
+            return new_pos
+        
         for _ in range(0,2):
             try:
                 download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_metagraph_version"]
@@ -648,6 +662,7 @@ class Installer():
             "tools_version": self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"],
         })
         status = "complete" if pos["success"] else "failed"
+        pos = handle_failback_pos(pos)
         sleep(.8)
         if not self.options.quiet:
             if self.options.quick_install:
@@ -1272,7 +1287,11 @@ class Installer():
                         ["allow you to manually supply a full path to your existing p12 file.",2,"white"],
                     ])
 
-            if not self.options.existing_p12 and not self.options.quiet:
+            if self.options_dict["confirm_install"] and not self.options.existing_p12:
+                self.options.existing_p12 = False
+            elif self.options_dict["confirm_install"] and self.options.existing_p12:
+                self.options.existing_p12 = True
+            elif not self.options.existing_p12 and not self.options.quiet:
                 self.options.existing_p12 = self.functions.confirm_action({
                     "yes_no_default": "n",
                     "return_on": "y",
@@ -1404,6 +1423,8 @@ class Installer():
         # replace cli and functions object with newly created obj
         self.cli.node_service.functions = self.cli.functions
         self.cli.node_service.functions.set_statics()
+        self.log.logger.info("installer -> setting cn-config.yaml permissions.")
+        chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
     
 
     def build_config_file(self,action):
