@@ -2122,11 +2122,19 @@ class Configurator():
             default_recipients = ""
             alert_list = [
                 "gmail","token","send_method","gmail","token","recipients",
-                "local_time_zone","begin_alert_utc","end_alert_utc","report_hour_utc"
+                "local_time_zone","begin_alert_utc","end_alert_utc","report_hour_utc",
+                "report_currency","label",
             ]
             self.alerting_config = {item: False for item in alert_list}
             self.alerting_config["enable"] = "True"
         else:
+            try:
+                _ = self.alerting_config["report_currency"]
+            except:
+                # alert feature additions as of v2.16.0
+                self.alerting_config["report_currency"] = True
+                self.alerting_config["label"] = 'None'
+
             self.c.functions.print_paragraphs([
                 ["Alerting was detected as:",0],[f"{self.alerting_config['enable']}",1,"yellow"],
             ])
@@ -2160,6 +2168,14 @@ class Configurator():
             default_recipients = default_recipients[1:]
             default_recipients = default_recipients.replace(" ","")
 
+        report_currency_setting, crs = True, False
+        if self.alerting_config["report_currency"]:
+            report_currency_setting, crs = False, True
+
+        label_default_value = self.alerting_config["label"]
+        if self.alerting_config["label"] == 'None':
+            label_default_value = " None "
+
         description0 = "This is the gmail account that you setup with the App password and created for your App password token through."
         description1 = "This is the App password token you created during the initial gmail account setup."
         description2 = "'multi' (recommended) send strategy will send a single email per email address.  The 'single' send strategy will "
@@ -2174,6 +2190,12 @@ class Configurator():
         description6 = "What hour in UTC 24 hour format, do you want alerting to end.  Enter 0 for always."
         description7 = "What hour in UTC 24 hour format, do you want the daily report to be sent.  Each day, nodectl will send the report "
         description7 += "only once, as soon as the configured UTC hour is reached."
+        description8 = "When working with IntegrationNet or TestNet, you may not want to be alerted to the value of the test $DAG "
+        description8 += "token or how much is held in the wallet. The value of test $DAG does not hold real value and is used by the "
+        description8 += "network for testing only and changes depending on current test or testing being executed against the "
+        description8 += "TestNet/IntegrationNet cluster. If you want to disable this reporting, please set to 'False'."
+        description9 = "If you would like to have a label to identify the node sending alerts or reports, you may enter a string value "
+        description9 += "here. This will be added to the report and alert messages."
 
         if self.alerting_config and self.alerting_config["enable"] and do_edit:
             questions = {
@@ -2201,6 +2223,12 @@ class Configurator():
                     "required": False,
                     "default": default_recipients
                 },
+                "label": {
+                    "question": f"  {colored('Add a label to identify this node or None ','cyan')}",
+                    "description": description9,
+                    "required": False,
+                    "default": self.alerting_config["label"] if label_default_value != " None " else " None "
+                },
                 "local_time_zone": {
                     "question": f"  {colored('Enter your local','cyan')} {colored('timezone','yellow')} {colored('identifier','cyan')}",
                     "description": description4,
@@ -2225,6 +2253,12 @@ class Configurator():
                     "required": False,
                     "default": self.alerting_config["report_hour_utc"] if self.alerting_config["report_hour_utc"] else 18
                 },
+                "report_currency": {
+                    "question": f"  {colored('Set currency reporting to','cyan')} {colored(report_currency_setting,'yellow')} {colored(f'or {crs}','cyan')}",
+                    "description": description8,
+                    "required": False,
+                    "default": "True" if report_currency_setting == "False" else "False"
+                },
             }    
 
             self.manual_append_build_apply({
@@ -2247,14 +2281,17 @@ class Configurator():
             "file": "alerting",
         })
 
+        if data["label"] == " None ": data["label"] = "None"
         alerting_file = alerting_file.replace(f"enable: {data['enable']}", f"enable: {self.alerting_config['enable']}")
         alerting_file = alerting_file.replace("nodegarageemail",data["gmail"])
         alerting_file = alerting_file.replace("nodegaragegmailtoken",f"{data['token']}")
         alerting_file = alerting_file.replace("nodegaragemethod",data["send_method"])
         alerting_file = alerting_file.replace("nodegaragebegin",str(data["begin_alert_utc"]))
         alerting_file = alerting_file.replace("nodegarageend",str(data["end_alert_utc"]))
+        alerting_file = alerting_file.replace("nodegaragecurrencyreport",data["report_currency"])
         alerting_file = alerting_file.replace("nodegaragereport",str(data["report_hour_utc"]))
         alerting_file = alerting_file.replace("nodeagaragelocaltimezone",data["local_time_zone"])
+        alerting_file = alerting_file.replace("nodegaragelabel",data["label"])
 
         if isinstance(data["recipients"],str):
             emails = data["recipients"].split(",")
@@ -2270,7 +2307,7 @@ class Configurator():
 
         # validate requirements before continuing
         for key,value in data.items():
-            if key == "enable":
+            if key == "enable" or key == "report_currency":
                 if value != "True" and value != "False":
                     invalid.append("enable is not 'True' or 'False'.")
             if key == "gmail":
@@ -2279,6 +2316,9 @@ class Configurator():
             if key == "send_method":
                 if value != "multi" and value != "single":
                     invalid.append(f"send_method: {value}': must be 'multi' or 'single' only.")
+            if key == "label":
+                if not isinstance(value,str):
+                    invalid.append(f"label: {value}': must be a string value or 'None'.")
             if key in ["begin_alert_utc","end_alert_utc","report_hour_utc"]:
                 try:
                     i_value = int(value)
