@@ -19,6 +19,7 @@ class UserClass:
         self.error_messages = Error_codes(self.functions) 
         self.version_obj = self.functions.version_obj
         self.cli_obj = cli_obj
+        self.log_key = "main"
         
         self.aws = False
         self.ssh_key = False
@@ -434,7 +435,7 @@ class UserClass:
                     status = "complete"
                     status_color = "green"
                 except:
-                    self.log.logger.error("transfer ssh key -> unable to copy file -> skipping")
+                    self.log.logger[self.log_key].error("transfer ssh key -> unable to copy file -> skipping")
 
             if not self.quick_install:
                 self.functions.print_cmd_status({
@@ -468,7 +469,7 @@ class UserClass:
                     "extra2": None
                 }) 
             else:
-                self.log.logger.error(f"transfer_ssh_key -> quick installer -> unable to read file [{dest_dir_file}]") 
+                self.log.logger[self.log_key].error(f"transfer_ssh_key -> quick installer -> unable to read file [{dest_dir_file}]") 
         
         index_rsa = filedata.find('ssh-rsa')
         index_ed25519 = filedata.find('ssh-ed25519')

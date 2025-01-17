@@ -7,7 +7,9 @@ class Troubleshooter():
     
     def __init__(self,command_obj):    
         self.config_obj = deepcopy(command_obj["config_obj"])
+        self.log_key = self.config_obj["global_elements"]["log_key"]
         self.log = Logging()
+        
         
     def setup_logs(self,command_obj):
         profile_names = list(self.config_obj.keys())
@@ -24,7 +26,7 @@ class Troubleshooter():
 
 
     def test_for_connect_error(self,lines):
-        self.log.logger.info("checking logs for simple error messages")
+        self.log.logger[self.log_key].info("checking logs for simple error messages")
         no_of_errors, found = 4, 0
         end_results, ERROR_list = [], []
 
@@ -94,7 +96,7 @@ class Troubleshooter():
                             try:
                                 ERROR_list.append(json.loads(line))
                             except json.JSONDecodeError as e:
-                                self.log.logger.warning(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
+                                self.log.logger[self.log_key].warning(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
                             if lines != "all" and n > lines-1: 
                                 break
                                                    
@@ -122,9 +124,9 @@ class Troubleshooter():
 
             except Exception as e:
                 try:
-                    self.log.logger.error(f"error attempting to open log file | file [{file}] | error [{e}]")
+                    self.log.logger[self.log_key].error(f"error attempting to open log file | file [{file}] | error [{e}]")
                 except:
-                    self.log.logger.error(f"error attempting to open log file... file not present on system?")
+                    self.log.logger[self.log_key].error(f"error attempting to open log file... file not present on system?")
 
         if found > 0:
             return (profile,end_results)

@@ -42,6 +42,7 @@ class Installer():
 
         self.action = "install"
         self.metagraph_name = None
+        self.log_key = "main"
 
         self.error_messages = Error_codes(self.functions) 
         self.log = Logging()
@@ -85,7 +86,7 @@ class Installer():
         continue_warn = False
 
         if distro_name not in ["Ubuntu","Debian"]:
-            self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
+            self.log.logger[self.log_key].warning(f"Linux Distribution not supported, results may vary: {distro_name}")
             if not self.options.quiet:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], 
@@ -98,7 +99,7 @@ class Installer():
                 continue_warn = True
         if "Ubuntu" in distro_name:
             if ".10" in distro_version:
-                self.log.logger.warning(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
+                self.log.logger[self.log_key].warning(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
@@ -112,7 +113,7 @@ class Installer():
                     ])  
                     continue_warn = True
             elif "22.04" not in distro_version and "24.04" not in distro_version:
-                self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
+                self.log.logger[self.log_key].warning(f"Linux Distribution not supported, results may vary: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
@@ -146,7 +147,7 @@ class Installer():
 
     def setup_install(self):
         self.functions.check_sudo()
-        self.log.logger.debug(f"installation request started - quick install [{self.options.quick_install}]")
+        self.log.logger[self.log_key].debug(f"installation request started - quick install [{self.options.quick_install}]")
         if not self.options.quiet: self.print_main_title()
         self.parent.install_upgrade = "installation"
 
@@ -168,7 +169,7 @@ class Installer():
             ])
 
         if self.options.normal_install:
-            self.log.logger.info("installer -> long normal option chosen by Node Operator option input.")
+            self.log.logger[self.log_key].info("installer -> long normal option chosen by Node Operator option input.")
         elif not self.options.quick_install and not self.options.confirm_install:
             self.functions.print_paragraphs([
                 [" QUICK INSTALL ",0,"yellow,on_blue"], ["nodectl's installer provides a",0,"white","bold"], 
@@ -313,7 +314,7 @@ class Installer():
                 self.options_dict["skip_system_validation"] = True
                 continue
             if o_option == "quiet" and "--quiet" in self.argv_list: 
-                self.log.logger.warning("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
+                self.log.logger[self.log_key].warning("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
                 self.options_dict["quiet"] = True
                 self.options_dict["confirm_install"] = True
                 continue
@@ -332,18 +333,18 @@ class Installer():
         self.handle_quiet_mode()
 
         if self.options.p12_migration_path:
-            self.log.logger.info(f"installer found --p12-migration-path request [{self.options.p12_migration_path}]")
+            self.log.logger[self.log_key].info(f"installer found --p12-migration-path request [{self.options.p12_migration_path}]")
             self.options.existing_p12 = True
 
         if self.options.cluster_config:
-            self.log.logger.info(f"installer found --migration-request request [{self.options.cluster_config}]")
+            self.log.logger[self.log_key].info(f"installer found --migration-request request [{self.options.cluster_config}]")
             self.options.configuration_file = self.options.cluster_config+".yaml"
             self.options.metagraph_name = self.options.cluster_config
 
         if self.options.quick_install:
-            self.log.logger.info("installer identified quick installation")
+            self.log.logger[self.log_key].info("installer identified quick installation")
             if self.options.p12_destination_path and not self.options.p12_alias:
-                self.log.logger.warning("installer -> p12 alias not supplied - will try to derive it dynamically.")
+                self.log.logger[self.log_key].warning("installer -> p12 alias not supplied - will try to derive it dynamically.")
 
 
     def handle_option_validation(self):
@@ -413,7 +414,7 @@ class Installer():
         if (self.options.quick_install and do == False) or self.options.quiet: return
         if self.options.quiet: return
 
-        self.log.logger.info("installer -> setting up cluster environment details.")
+        self.log.logger[self.log_key].info("installer -> setting up cluster environment details.")
 
         if not self.options.cluster_config and not self.options.quick_install:
             self.functions.print_paragraphs([
@@ -466,7 +467,7 @@ class Installer():
         if not self.options.quick_install and not self.options.quiet: 
             self.parent.print_ext_ip()
 
-        self.log.logger.info("installer -> review future node for invalid old Node install or data.")
+        self.log.logger[self.log_key].info("installer -> review future node for invalid old Node install or data.")
 
         found_files = self.functions.get_list_of_files({
             "paths": ["var/tessellation/","home/nodeadmin/tessellation/"],
@@ -481,11 +482,11 @@ class Installer():
         
         if len(found_files) > 0 or len(found_files2) > 0:
             if len(found_files) > 0:
-                self.log.logger.warning("install found possible existing tessellation core components")
+                self.log.logger[self.log_key].warning("install found possible existing tessellation core components")
             if len(found_files2) > 0:
-                self.log.logger.warning("install found possible existing nodectl service components")
+                self.log.logger[self.log_key].warning("install found possible existing nodectl service components")
             if self.options.quick_install:
-                self.log.logger.warning("install -> quick_install -> Found possible existing installation and configuration files, removing previous elements.")
+                self.log.logger[self.log_key].warning("install -> quick_install -> Found possible existing installation and configuration files, removing previous elements.")
             else:
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING ",0,"yellow,on_red"], ["An existing Tessellation installation may be present on this server.  Preforming a fresh installation on top of an existing installation can produce",0,"red"],
@@ -538,7 +539,7 @@ class Installer():
 
 
     def handle_auto_complete(self):
-        self.log.logger.info("installer -> creating auto_complete script")
+        self.log.logger[self.log_key].info("installer -> creating auto_complete script")
 
         if not self.options.quick_install: 
             progress = {
@@ -573,9 +574,9 @@ class Installer():
             ssh_path = f"/home/{self.user.username}/.ssh/"
             size_test = path.getsize(ssh_path)
             if size_test > 0:
-                self.log.logger.info(f"installer -> ssh key transfer validated [{ssh_path}]")
+                self.log.logger[self.log_key].info(f"installer -> ssh key transfer validated [{ssh_path}]")
                 return
-            self.log.logger.error(f"installer -> ssh key transfer validated [{ssh_path}] attempt [{n}] of [3]")
+            self.log.logger[self.log_key].error(f"installer -> ssh key transfer validated [{ssh_path}] attempt [{n}] of [3]")
             if not self.options.quick_install:
                 self.functions.print_cmd_status({
                     "text_start": "Error transfering SSH key",
@@ -586,7 +587,7 @@ class Installer():
                 })
             sleep(.8)
 
-        self.log.logger.error(f"installer -> ssh key transfer failed validatation: please manually verify the authorized_keys file and access to your Node after the installation and before closing the remote terminal. [{ssh_path}]")
+        self.log.logger[self.log_key].error(f"installer -> ssh key transfer failed validatation: please manually verify the authorized_keys file and access to your Node after the installation and before closing the remote terminal. [{ssh_path}]")
         if not self.options.quick_install: 
             self.functions.print_paragraphs([
                 ["",1],[" WARNING ",0,"yellow,on_red"], ["nodectl was unable to successful transfer the",0,"red"],
@@ -602,7 +603,7 @@ class Installer():
 
 
     def populate_node_service(self):
-        self.log.logger.info("installer -> populating node services module")
+        self.log.logger[self.log_key].info("installer -> populating node services module")
         if not self.options.quick_install:                
             progress = {
                 "text_start": "Creating Services",
@@ -631,7 +632,7 @@ class Installer():
     
 
     def download_binaries(self):  
-        self.log.logger.info("installer -> installing binaries")
+        self.log.logger[self.log_key].info("installer -> installing binaries")
 
         def handle_failback_pos(pos):
             new_pos = {}
@@ -696,7 +697,7 @@ class Installer():
     # =====================
 
     def update_os(self):
-        self.log.logger.info("installer -> updating distribution packages list prior to attempting to install dependencies")
+        self.log.logger[self.log_key].info("installer -> updating distribution packages list prior to attempting to install dependencies")
         threading, display = False, False
         if not self.options.quick_install:
             threading, display = True, True
@@ -711,7 +712,7 @@ class Installer():
 
 
     def setup_user(self,quick_ssh=False):
-        self.log.logger.info("installer -> setting up user details.")
+        self.log.logger[self.log_key].info("installer -> setting up user details.")
         if self.options.user:
             self.user.username = self.options.user
         if self.options.user_password:
@@ -743,7 +744,7 @@ class Installer():
 
 
     def create_dynamic_elements(self):
-        self.log.logger.info("installer -> Node structural requirements.")
+        self.log.logger[self.log_key].info("installer -> Node structural requirements.")
 
         if not self.options.quick_install:
             print("")
@@ -790,7 +791,7 @@ class Installer():
                     "delay": .1,
                 })
                     
-        self.log.logger.info("creating directory structure data, backups, and uploads") 
+        self.log.logger[self.log_key].info("creating directory structure data, backups, and uploads") 
         
         dir_obj = {
             "tessellation": "/var/tessellation/",
@@ -819,7 +820,7 @@ class Installer():
         
            
     def process_distro_dependencies(self):
-        self.log.logger.info("installer -> downloading and installing dependency binaries")
+        self.log.logger[self.log_key].info("installer -> downloading and installing dependency binaries")
 
         if not self.options.quick_install:
             print("")
@@ -847,10 +848,10 @@ class Installer():
                     print(colored("may take a few minutes to install".ljust(40),"cyan"),end=" ")
                     print(" ".ljust(10))
 
-                self.log.logger.info(f"installation process installing [{package}]")
+                self.log.logger[self.log_key].info(f"installation process installing [{package}]")
                 with ThreadPoolExecutor() as executor:
                     self.functions.status_dots = True
-                    self.log.logger.info(f"updating the Debian operating system.")
+                    self.log.logger[self.log_key].info(f"updating the Debian operating system.")
                     environ['DEBIAN_FRONTEND'] = 'noninteractive'
                     
                     if not self.options.quiet:
@@ -896,7 +897,7 @@ class Installer():
         
 
     def make_swap_file(self):
-        self.log.logger.info("installer -> preparing to create swapfile")
+        self.log.logger[self.log_key].info("installer -> preparing to create swapfile")
         if not self.options.quick_install:
             self.functions.print_clear_line()
             progress = {
@@ -909,12 +910,12 @@ class Installer():
             self.functions.print_cmd_status(progress)
 
         if path.isfile("/swapfile"):
-            self.log.logger.warning("installer -> swap file already exists - install skipping action")
+            self.log.logger[self.log_key].warning("installer -> swap file already exists - install skipping action")
             result = "already exists"
             color = "magenta"
-            self.log.logger.warning("Installation making swap file skipped because already detected")
+            self.log.logger[self.log_key].warning("Installation making swap file skipped because already detected")
         else:
-            self.log.logger.info("Installation making swap file")
+            self.log.logger[self.log_key].info("Installation making swap file")
 
             for n, cmd in enumerate([
                 "touch /swapfile",
@@ -952,7 +953,7 @@ class Installer():
                     with open("/etc/fstab", 'a') as file:
                         file.write("/swapfile none swap sw 0 0\n")
             except:
-                self.log.logger.error("installation unable to update fstab to enable swapfile properly.")
+                self.log.logger[self.log_key].error("installation unable to update fstab to enable swapfile properly.")
 
             try:
                 if not self.functions.test_or_replace_line_in_file({
@@ -964,7 +965,7 @@ class Installer():
                     with open("/etc/sysctl.conf", 'a') as file:
                         file.write("vm.swappiness=10\n")
             except:
-                self.log.logger.error("installation unable to update systctl to fix swapfile swapiness settings permanently.")
+                self.log.logger[self.log_key].error("installation unable to update systctl to fix swapfile swapiness settings permanently.")
 
             if not self.options.quick_install:
                 self.functions.print_cmd_status({
@@ -979,7 +980,7 @@ class Installer():
                     "proc_action": "subprocess_devnull",
                 })
             except:
-                self.log.logger.error("installation unable to update sysctl to fix swapfile swapiness settings temporarily until next reboot.")            
+                self.log.logger[self.log_key].error("installation unable to update sysctl to fix swapfile swapiness settings temporarily until next reboot.")            
 
         if self.options.quick_install: return
 
@@ -1004,7 +1005,7 @@ class Installer():
     # ===================
         
     def p12_generate_from_install(self,generate=False):
-        self.log.logger.info("installer -> handle p12 generation if required.")
+        self.log.logger[self.log_key].info("installer -> handle p12 generation if required.")
         if self.options.existing_p12 and not self.p12_migrated: 
             self.p12_migrate_existing()
 
@@ -1062,7 +1063,7 @@ class Installer():
        
 
     def p12_derive_alias(self,verify=False):
-        self.log.logger.info("installer -> attempting to derive p12 alias...")
+        self.log.logger[self.log_key].info("installer -> attempting to derive p12 alias...")
         if not self.options.quick_install:
             self.functions.print_cmd_status({
                 "text_start": "Deriving p12 alias",
@@ -1075,14 +1076,14 @@ class Installer():
             try:
                 self.options.p12_passphrase = f"{self.p12_session.p12_password}"
             except:
-                self.log.logger.warning("installer unable to obtain p12 passphrase, unexpected results on the installer may be presented, but may not affect the installation.")
+                self.log.logger[self.log_key].warning("installer unable to obtain p12 passphrase, unexpected results on the installer may be presented, but may not affect the installation.")
                 
         try:
             self.options.p12_alias = self.p12_session.show_p12_details(
                 ["--file",self.options.p12_destination_path,"--installer",self.options.p12_passphrase,"--alias","--return"]
             )
         except:
-            self.log.logger.critical(f"installer was unable to derive the p12 alias from the p12 keystore [{self.options.p12_destination_path}].  Please manually update the configuration in order to properly join the necessary cluster(s).")
+            self.log.logger[self.log_key].critical(f"installer was unable to derive the p12 alias from the p12 keystore [{self.options.p12_destination_path}].  Please manually update the configuration in order to properly join the necessary cluster(s).")
             self.options.p12_alias = "error"
             self.found_errors = True
         else:
@@ -1092,8 +1093,8 @@ class Installer():
 
         if verify:
             if verify != self.options.p12_alias:
-                self.log.logger.error(f"installer -> found requested option alias [{verify}] but found [{self.options.p12_alias}] error found [{'true' if not self.found_errors else 'false'}]")
-                self.log.logger.warning(f"installer ->  using found [{self.options.p12_alias}] which might cause user errors in the future.  Important, if this was a quick installation, nodectl will create a default alias that may not match a migrated p12 file, without an alias supplied; in this case, this warning can be ignored.")
+                self.log.logger[self.log_key].error(f"installer -> found requested option alias [{verify}] but found [{self.options.p12_alias}] error found [{'true' if not self.found_errors else 'false'}]")
+                self.log.logger[self.log_key].warning(f"installer ->  using found [{self.options.p12_alias}] which might cause user errors in the future.  Important, if this was a quick installation, nodectl will create a default alias that may not match a migrated p12 file, without an alias supplied; in this case, this warning can be ignored.")
 
         if self.options.quick_install: return
 
@@ -1205,7 +1206,7 @@ class Installer():
     
     
     def p12_migrate_existing(self):
-        self.log.logger.info("installer -> migrating p12.") 
+        self.log.logger[self.log_key].info("installer -> migrating p12.") 
         if not self.options.p12_migration_path:
             self.p12_display_existing_list()
         if not self.options.existing_p12:
@@ -1255,7 +1256,7 @@ class Installer():
             self.functions.set_chown(dest_p12_destination_path, "root","root")
             self.p12_migrated = True
         except Exception as e:
-            self.log.logger.error("installer -> unable to set permissions, please verify permission settings.")
+            self.log.logger[self.log_key].error("installer -> unable to set permissions, please verify permission settings.")
     
         if self.options.quick_install:
             return
@@ -1273,7 +1274,7 @@ class Installer():
         
 
     def p12_prepare_details(self,action=None):
-        self.log.logger.info("installer -> preparing p12 details.")
+        self.log.logger[self.log_key].info("installer -> preparing p12 details.")
         if action == "init":
             if not self.options.quick_install:
                 if not self.options.existing_p12:
@@ -1356,10 +1357,10 @@ class Installer():
 
     def p12_encrypt_passphrase(self):
         if self.options.p12_alias == "error": 
-            self.log.logger.error("installer -> unable to encrypt passphrase because the p12 file associated with this installation was unable to be authenticated, passphrase could be incorrect")
+            self.log.logger[self.log_key].error("installer -> unable to encrypt passphrase because the p12 file associated with this installation was unable to be authenticated, passphrase could be incorrect")
             return
         
-        self.log.logger.info("installer -> encrypting p12 passphrase.")
+        self.log.logger[self.log_key].info("installer -> encrypting p12 passphrase.")
         if self.options.quick_install:
             self.configurator.quick_install = True
             self.configurator.detailed = False
@@ -1392,7 +1393,7 @@ class Installer():
             self.configurator.c.config_obj = self.setup_config.config_obj
             if self.found_errors:
                 self.encryption_performed = False
-                self.log.logger.error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private keystore passphrase.  Please fix any issues and use the configure module to encrypt later if desired.")
+                self.log.logger[self.log_key].error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private keystore passphrase.  Please fix any issues and use the configure module to encrypt later if desired.")
             else:
                 self.configurator.prepare_configuration("edit_config")
                 self.configurator.passphrase_enable_disable_encryption("install")
@@ -1405,14 +1406,14 @@ class Installer():
     # ===================
                     
     def setup_new_configuration(self):
-        self.log.logger.info("installer -> rebuild node and services configurations.")
+        self.log.logger[self.log_key].info("installer -> rebuild node and services configurations.")
         self.setup_config.config_obj = {
             **self.config_obj,
             **self.setup_config.config_obj,
             **self.functions.config_obj,
             "upgrader": True
         }
-        self.log.logger.info("installer -> populating node service variables for build")
+        self.log.logger[self.log_key].info("installer -> populating node service variables for build")
         self.setup_config.functions.set_install_statics()
         self.setup_config.versioning = self.versioning
         self.setup_config.build_yaml_dict(False,False)
@@ -1427,12 +1428,12 @@ class Installer():
         # replace cli and functions object with newly created obj
         self.cli.node_service.functions = self.cli.functions
         self.cli.node_service.functions.set_statics()
-        self.log.logger.info("installer -> setting cn-config.yaml permissions.")
+        self.log.logger[self.log_key].info("installer -> setting cn-config.yaml permissions.")
         chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
     
 
     def build_config_file(self,action):
-        self.log.logger.info("installer -> rebuild node and services configurations.")
+        self.log.logger[self.log_key].info("installer -> rebuild node and services configurations.")
         skeleton = None
 
         if action == "skeleton" or action == "quick_install":
@@ -1465,7 +1466,7 @@ class Installer():
                     "local": f"{self.functions.nodectl_path}cn-config.yaml"
                 })
             except Exception as e:
-                self.log.logger.critical(f'Unable to download skeleton yaml file from repository [{skeleton_yaml}] with error [{e}]')
+                self.log.logger[self.log_key].critical(f'Unable to download skeleton yaml file from repository [{skeleton_yaml}] with error [{e}]')
                 self.close_threads()
                 self.error_messages.error_code_messages({
                     "error_code": "int-149",
@@ -1541,7 +1542,7 @@ class Installer():
 
     def build_classes(self,p12=False):
         if p12:
-            self.log.logger.info("installer -> generating p12 file object")
+            self.log.logger[self.log_key].info("installer -> generating p12 file object")
             action_obj = {
                 "process": "install",
                 "user_obj": self.user,
@@ -1609,7 +1610,7 @@ class Installer():
     
     
     def uninstall(self):
-        self.log.logger.info("installer -> executing uninstall process.")
+        self.log.logger[self.log_key].info("installer -> executing uninstall process.")
         self.options = SimpleNamespace(quiet=False)
         self.build_classes()
         node_service = Node({"functions": self.functions})
@@ -1624,8 +1625,8 @@ class Installer():
         uninstaller.finish_uninstall(self.functions)
 
         if node_admins[0] == "logger_retention":
-            self.log.logger.info("moving nodectl to /var/tmp and completing uninstall.  Thank you for using nodectl.")
-        self.log.logger.info("uninstaller -> handling removal of nodectl executable ")
+            self.log.logger[self.log_key].info("moving nodectl to /var/tmp and completing uninstall.  Thank you for using nodectl.")
+        self.log.logger[self.log_key].info("uninstaller -> handling removal of nodectl executable ")
         if node_admins[0] == "logger_retention":
             copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
             sleep(.5)
@@ -1673,7 +1674,7 @@ class Installer():
 
     
     def complete_install(self):
-        self.log.logger.info("Installation complete !!!")
+        self.log.logger[self.log_key].info("Installation complete !!!")
 
         success = self.cli.cli_grab_id({
             "command":"nodeid",
@@ -1821,7 +1822,7 @@ class Installer():
                 ["Recommended:",0], ["sudo nodectl reboot",2,"magenta"],
             ])
 
-        self.log.logger.info("nodectl installation completed in []")   
+        self.log.logger[self.log_key].info("nodectl installation completed in []")   
         
         
 if __name__ == "__main__":

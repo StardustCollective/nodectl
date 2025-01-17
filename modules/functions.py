@@ -61,10 +61,22 @@ class Functions():
 
     def __init__(self,config_obj):
         self.sudo_rights = config_obj.get("sudo_rights", True)
+
+        try:
+            self.log_key = config_obj["global_elements"]["log_key"]
+        except:
+            self.log_key = config_obj["log_key"]
+
         if self.sudo_rights:
             self.log = Logging()
         # set self.version_obj before calling set_statics
         self.config_obj = config_obj
+
+        try:
+            self.log_key = config_obj["global_elements"]["log_key"]
+        except:
+            self.log_key = config_obj["log_key"]
+            
         self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
         self.nodectl_code_name = "Princess Warrior"
         self.version_obj = False
@@ -170,7 +182,7 @@ class Functions():
             from .data.coingecko_coin_list import coin_gecko_db
             return coin_gecko_db
         except Exception as e:
-            self.log.logger.error(f"functions -> get_local_coin_db -> error occurerd, skipping with error [{e}]")
+            self.log.logger[self.log_key].error(f"functions -> get_local_coin_db -> error occurerd, skipping with error [{e}]")
             cprint("  An unknown error occured, please try again","red")
         
 
@@ -202,7 +214,7 @@ class Functions():
             # used for debugging to avoid api hitting attempts peridium 
             # coin_prices = {'bitcoin': {'usd': 43097}, 'constellation-labs': {'usd': 0.051318}, 'dor': {'usd': 0.04198262}, 'ethereum': {'usd': 2305.3}, 'lattice-token': {'usd': 0.119092}, 'quant-network': {'usd': 103.24}, 'solana': {'usd': 97.75}}
         except Exception as e:
-            self.log.logger.error(f"coingecko response error | {e}")
+            self.log.logger[self.log_key].error(f"coingecko response error | {e}")
             if not self.auto_restart:
                 cprint("  Unable to process CoinGecko results...","red")
         else:
@@ -244,7 +256,7 @@ class Functions():
                 sleep(1)
                 market_results_cn = self.cg.get_coins_markets(ids="constellation-labs", order='market_cap_desc', vs_currency='usd')
             except Exception as e:
-                self.log.logger.error(f"coingecko response error | {e}")
+                self.log.logger[self.log_key].error(f"coingecko response error | {e}")
                 self.event = False  
                 self.print_clear_line()
                 cprint("  Unable to process CoinGecko results...","red")
@@ -429,7 +441,7 @@ class Functions():
                                 peers_publicport.append(line['publicPort'])
                                 state_list.append(state[1])
             except Exception as e:
-                self.log.logger.error(f"get peer count - an error occurred attempting to review the line items on a /cluster/info api request | error [{e}]")
+                self.log.logger[self.log_key].error(f"get peer count - an error occurred attempting to review the line items on a /cluster/info api request | error [{e}]")
                 pass
             
             return {
@@ -591,7 +603,7 @@ class Functions():
         # this needs to be migrated to node_services
         # move this to node.service
         # =========================
-        self.log.logger.debug("functions [get_service_status]")
+        self.log.logger[self.log_key].debug("functions [get_service_status]")
         self.config_obj["global_elements"]["node_service_status"] = {}
         
         try: _ = self.profile_names
@@ -646,7 +658,7 @@ class Functions():
             if self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] > 0:
                 self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = "n/a"
 
-        self.log.logger.debug(f'get_service_status -> [{service}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][service]}]')
+        self.log.logger[self.log_key].debug(f'get_service_status -> [{service}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][service]}]')
 
 
     def get_date_time(self,command_obj):
@@ -779,7 +791,7 @@ class Functions():
                 full_info = json.load(dfile)
             return full_info
         except:
-            self.log.logger.info("functions -> get_distro_details -> unable to fetch file, loading manually.")
+            self.log.logger[self.log_key].info("functions -> get_distro_details -> unable to fetch file, loading manually.")
 
         info = cpuinfo.get_cpu_info()
         info["wsl"] = False
@@ -796,7 +808,7 @@ class Functions():
                 if "microsoft" in os_release:
                     info["wsl"] = True
         except FileNotFoundError:
-            self.log.logger.error("functions -> get_distro_details -> unable to find proc file -> Is this a Linux distribution?")
+            self.log.logger[self.log_key].error("functions -> get_distro_details -> unable to find proc file -> Is this a Linux distribution?")
 
         return {
             "arch": info.get('arch'),
@@ -851,7 +863,7 @@ class Functions():
         cluster_info = []
         random_node = True
 
-        if caller: self.log.logger.debug(f"get_info_from_edge_point called from [{caller}]")
+        if caller: self.log.logger[self.log_key].debug(f"get_info_from_edge_point called from [{caller}]")
             
         api_str = "/cluster/info"
         if api_endpoint_type == "consensus":
@@ -879,13 +891,13 @@ class Functions():
                         "attempt_range": 7,
                     })
                 except Exception as e:
-                    self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
+                    self.log.logger[self.log_key].error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                     
                 if not cluster_info and n > 2:
                     if self.auto_restart:
                         return False
                     if random_node and self.config_obj["global_elements"]["use_offline"]:
-                        self.log.logger.warning("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
+                        self.log.logger[self.log_key].warning("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
                         random_node = False
                         self.config_obj[profile]["edge_point"] = self.get_ext_ip()
                         self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
@@ -904,15 +916,15 @@ class Functions():
                 
             cluster_info_tmp = deepcopy(cluster_info)
             try:
-                self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
+                self.log.logger[self.log_key].debug(f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
             except:
-                self.log.logger.debug(f"get_info_from_edge_point --> edge_point info request no results")
+                self.log.logger[self.log_key].debug(f"get_info_from_edge_point --> edge_point info request no results")
             
             try:
                 cluster_info_tmp.pop()
             except:
                 if threaded: 
-                    self.log.logger.error("get_info_from_edge_point reached error while threaded, error skipped")
+                    self.log.logger[self.log_key].error("get_info_from_edge_point reached error while threaded, error skipped")
                     cprint("  error attempting to reach edge point","red")
                 else:
                     if self.config_obj["global_elements"]["use_offline"]:
@@ -947,10 +959,10 @@ class Functions():
                             break
 
                 if node == self.ip_address:
-                    self.log.logger.debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked was self, trying again: attempt [{n}] of [{max_range}]")
+                    self.log.logger[self.log_key].debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked was self, trying again: attempt [{n}] of [{max_range}]")
                     continue # avoid picking "ourself"
                 
-                self.log.logger.debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked: [{node}]")
+                self.log.logger[self.log_key].debug(f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked: [{node}]")
                 
                 node["specific_ip_found"] = False
                 if specific_ip:
@@ -963,10 +975,10 @@ class Functions():
                         return node[desired_key]
                     
                 except Exception as e:
-                    self.log.logger.warning(f"unable to find a Node with a State object, trying again | error {e}")
+                    self.log.logger[self.log_key].warning(f"unable to find a Node with a State object, trying again | error {e}")
                     sleep(1)
                 if n > 9:
-                    self.log.logger.error(f"unable to find a Node on the current cluster with [{desired_key}] == [{desired_value}]") 
+                    self.log.logger[self.log_key].error(f"unable to find a Node on the current cluster with [{desired_key}] == [{desired_value}]") 
                     if not self.auto_restart:
                         print(colored("  WARNING:","yellow",attrs=['bold']),colored(f"unable to find node in [{desired_value}]","red"))
                         self.print_timer({
@@ -1014,9 +1026,9 @@ class Functions():
                 r_session.verify = False
                 session = r_session.get(api_url, timeout=self.session_timeout).json()
             except:
-                self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
+                self.log.logger[self.log_key].error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
                 if n == tolerance-1:
-                    self.log.logger.warning(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
+                    self.log.logger[self.log_key].warning(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
                     return None
                 sleep(1.5)
             else:
@@ -1027,12 +1039,12 @@ class Functions():
         if len(session) < 2 and "data" in session.keys():
             session = session["data"]
         
-        self.log.logger.debug(f"get_api_node_info --> session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
+        self.log.logger[self.log_key].debug(f"get_api_node_info --> session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
         try:
             for info in info_list:
                 result_list.append(session[info])
         except:
-            self.log.logger.warning(f"Node was not able to retrieve [{info}] of [{info_list}] returning None")
+            self.log.logger[self.log_key].warning(f"Node was not able to retrieve [{info}] of [{info_list}] returning None")
             return "LB_Not_Ready"
         else:
             if "reason" in session.keys():
@@ -1054,7 +1066,7 @@ class Functions():
                     response = session.get(url, timeout=self.session_timeout)
             except Exception as e:
                 print(response.text)
-                self.log.logger.error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
+                self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
                 if n > tolerance:
                     self.error_messages.error_code_messages({
                         "error_code": "fnt-876",
@@ -1085,7 +1097,7 @@ class Functions():
             
         with ThreadPoolExecutor() as executor:
             do_thread = False # avoid race conditions
-            # self.log.logger.debug(f"auto_restart set to [{self.auto_restart}]")
+            # self.log.logger[self.log_key].debug(f"auto_restart set to [{self.auto_restart}]")
             if not self.auto_restart:
                 if not self.event and spinner:
                     self.event, do_thread = True, True
@@ -1108,7 +1120,7 @@ class Functions():
                         else:
                             self.event = False
                             return
-                    self.log.logger.warning(f"attempt to pull details for LB failed, trying again - attempt [{n+1}] of [10] - sleeping [{var.error_secs}s]")
+                    self.log.logger[self.log_key].warning(f"attempt to pull details for LB failed, trying again - attempt [{n+1}] of [10] - sleeping [{var.error_secs}s]")
                     sleep(var.error_secs)
                 else:
                     if "consensus" in var.api_endpoint:
@@ -1118,7 +1130,7 @@ class Functions():
                             "nodectl_found_peer_count": len(results)
                         })
                     except:
-                        self.log.logger.warning("network may have become unavailable during cluster_info_list verification checking.")
+                        self.log.logger[self.log_key].warning("network may have become unavailable during cluster_info_list verification checking.")
                         results = [{"nodectl_found_peer_count": 0}]
                 finally:
                     session.close()
@@ -1194,7 +1206,7 @@ class Functions():
                 delay_second_char=0.75,
             )
         except Exception as e:
-            self.log.logger.warning(f"functions -> spinner exited with [{e}]")
+            self.log.logger[self.log_key].warning(f"functions -> spinner exited with [{e}]")
             
         if options[0] == "any_key" and quit_with_exception:
             if parent:
@@ -1307,7 +1319,7 @@ class Functions():
             results = session.get(uri, timeout=self.session_timeout).json()
             results = results[get_results]
         except Exception as e:
-            self.log.logger.warning(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
+            self.log.logger[self.log_key].warning(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
             sleep(error_secs)
         else:
             if return_type == "raw":
@@ -1342,7 +1354,7 @@ class Functions():
                     for n,f_path in enumerate(Path(f'/{i_path}').rglob(file)):
                         possible_found[f"{n+1}"] = f"{f_path}"
             except:
-                self.log.logger.warning(f"unable to process path search | [/{i_path}/]")
+                self.log.logger[self.log_key].warning(f"unable to process path search | [/{i_path}/]")
             
         for i, file in possible_found.items():
             file = file.replace("//","/")
@@ -1382,7 +1394,7 @@ class Functions():
                 salt = base64.urlsafe_b64decode(salt)
             # except binascii.Error as e:
             except Exception as e:
-                self.log.logger.critical(f"Invalid salt base64 encoding: {e}")
+                self.log.logger[self.log_key].critical(f"Invalid salt base64 encoding: {e}")
                 self.error_messages.error_code_messages({
                     "error_code": "fnt-1079",
                     "line_code": "system_error",
@@ -1428,14 +1440,14 @@ class Functions():
                 index += length        
             pass1 = ''.join(de_list).encode()
         except:
-            self.log.logger.critical("unable to decrypt passphrase, please verify settings.")
+            self.log.logger[self.log_key].critical("unable to decrypt passphrase, please verify settings.")
             return None
 
         try:
             decrypt_data = enc_key.decrypt(pass1)
             return decrypt_data.decode()
         except Exception as e:  # Catch any exceptions during decryption
-            self.log.logger.critical(f"Decryption failed: [{e}]")
+            self.log.logger[self.log_key].critical(f"Decryption failed: [{e}]")
             if test_only: return False
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1108",
@@ -1460,7 +1472,7 @@ class Functions():
                     details = self.get_from_api(f_url,"yaml")
                     main_key = list(details.keys())
                     if len(main_key) > 1:
-                        self.log.logger.warning(f"config --> while handling includes, an invalid include file was loaded and ignored. [{main_key}]")
+                        self.log.logger[self.log_key].warning(f"config --> while handling includes, an invalid include file was loaded and ignored. [{main_key}]")
                     else:
                         self.config_obj["global_elements"][main_key[0]] = {}
                         for key, value in details[main_key[0]].items():
@@ -1469,16 +1481,16 @@ class Functions():
         if remote == "remote_only": return
 
         if not path.exists(self.default_includes_path):
-            self.log.logger.info(f'configuration -> no includes directory found; however, includes has been found as [{self.config_obj["global_elements"]["includes"]}] skipping local includes.')     
+            self.log.logger[self.log_key].info(f'configuration -> no includes directory found; however, includes has been found as [{self.config_obj["global_elements"]["includes"]}] skipping local includes.')     
             return
 
-        self.log.logger.warning("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
+        self.log.logger[self.log_key].warning("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
         yaml_data = {}
         try:
             for filename in listdir(self.default_includes_path):
                 if filename.endswith('.yaml'):
                     filepath = path.join(self.default_includes_path, filename)
-                    self.log.logger.info(f"functions -> get_includes -> loading local [{filepath}] data into configuration.")
+                    self.log.logger[self.log_key].info(f"functions -> get_includes -> loading local [{filepath}] data into configuration.")
                     with open(filepath, 'r') as file:
                         try:
                             yaml_data = yaml.safe_load(file)
@@ -1487,10 +1499,10 @@ class Functions():
                                 **yaml_data,
                             }
                         except Exception as e:
-                            self.log.logger.warning(f"functions -> get_includes -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
+                            self.log.logger[self.log_key].warning(f"functions -> get_includes -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
                             continue
         except Exception as e:
-            self.log.logger.warning("functions -> get_includes -> found possible empty includes, nothing to do")
+            self.log.logger[self.log_key].warning("functions -> get_includes -> found possible empty includes, nothing to do")
 
         return
     
@@ -1509,7 +1521,7 @@ class Functions():
     
       
     def set_env_variable(self,variable,value):
-        # self.log.logger.debug(f"setting up environment [{variable}]")
+        # self.log.logger[self.log_key].debug(f"setting up environment [{variable}]")
         environ[variable] = f"{value}"
 
     
@@ -1578,7 +1590,7 @@ class Functions():
                                 } 
                                 break # on 1st and lowest layer   
             except Exception as e:
-                self.log.logger.error(f"functions unable to process profile while setting up default values | error [{e}]")
+                self.log.logger[self.log_key].error(f"functions unable to process profile while setting up default values | error [{e}]")
                 if not skip_error:
                     self.error_messages.error_code_messages({
                         "error_code": "fnt-924",
@@ -1738,18 +1750,18 @@ class Functions():
     
 
     def set_time_sync(self):
-        self.log.logger.info("functions -> syncing system clock")
+        self.log.logger[self.log_key].info("functions -> syncing system clock")
         try:
             result = self.process_command({
                 "bashCommand": "chronyc makestep",
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warning("functions -> unable to sync the clock with the network, skipping")
+            self.log.logger[self.log_key].warning("functions -> unable to sync the clock with the network, skipping")
             return False
         else:
             result = result.stdout.decode().strip()
-            self.log.logger.info(f"functions -> time sync'ed with network [{result}]")
+            self.log.logger[self.log_key].info(f"functions -> time sync'ed with network [{result}]")
             if "OK" not in result:
                 return result
             
@@ -1759,11 +1771,11 @@ class Functions():
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warning("functions -> unable to sync the clock with the network, skipping")
+            self.log.logger[self.log_key].warning("functions -> unable to sync the clock with the network, skipping")
             return False
         else:
             track_output = track_output.stdout.decode().strip()
-            self.log.logger.info(f"functions -> track the time sync'ed with network [{track_output}]")
+            self.log.logger[self.log_key].info(f"functions -> track the time sync'ed with network [{track_output}]")
         
         try:
             source_output = self.process_command({
@@ -1771,11 +1783,11 @@ class Functions():
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warning("functions -> unable to view sources of the clock with the network, skipping")
+            self.log.logger[self.log_key].warning("functions -> unable to view sources of the clock with the network, skipping")
             return False
         else:
             source_output = source_output.stdout.decode().strip()
-            self.log.logger.info(f"functions -> time source output sync'ed with network [{source_output}]")
+            self.log.logger[self.log_key].info(f"functions -> time source output sync'ed with network [{source_output}]")
 
         return result, track_output, source_output
         
@@ -1810,7 +1822,7 @@ class Functions():
             "state1": "ApiNotReady" #local
         }
         
-        self.log.logger.debug(f"pull_node_session: session_obj [{session_obj}]")
+        self.log.logger[self.log_key].debug(f"pull_node_session: session_obj [{session_obj}]")
         
         for i,node in enumerate(nodes):
             state = None
@@ -1828,28 +1840,28 @@ class Functions():
                     "simple": True,
                 })
             except Exception as e:
-                self.log.logger.error(f"pull_node_session -> exception | {e}")
+                self.log.logger[self.log_key].error(f"pull_node_session -> exception | {e}")
         
-            self.log.logger.debug(f"pull_node_sessions -> profile [{profile}] node [{node}] state found [{state}] assign to [{i}]")
+            self.log.logger[self.log_key].debug(f"pull_node_sessions -> profile [{profile}] node [{node}] state found [{state}] assign to [{i}]")
             session_obj[f"state{i}"] = state
             url = self.set_api_url(node,port,"/node/info")
-            self.log.logger.debug(f"pull_node_session -> url: {url}")
+            self.log.logger[self.log_key].debug(f"pull_node_session -> url: {url}")
             
             try:
                 r_session = self.set_request_session()
                 r_session.verify = False
                 session = r_session.get(url, timeout=self.session_timeout).json()
             except:
-                self.log.logger.error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
+                self.log.logger[self.log_key].error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
             finally:
                 r_session.close()
 
-            self.log.logger.info(f"pull_node_sessions found session [{session}] returned from test address [{node}] url [{url}] public_api_port [{port}]")
+            self.log.logger[self.log_key].info(f"pull_node_sessions found session [{session}] returned from test address [{node}] url [{url}] public_api_port [{port}]")
             try:
                 token = session[key]
             except Exception as e:
                 try:
-                    self.log.logger.warning(f"Peer did not return a token | reason [{session['reason']} error [{e}]]")
+                    self.log.logger[self.log_key].warning(f"Peer did not return a token | reason [{session['reason']} error [{e}]]")
                     session_obj[f"session{i}"] = f"{i}"
                 except:
                     if self.auto_restart:
@@ -1880,9 +1892,9 @@ class Functions():
             if session_obj["session1"] == None:
                 session_obj["session1"] = 0
         except Exception as e:
-            self.log.logger.debug(f"pull_node_session - error applying session0 and session1 | [{e}]")
+            self.log.logger[self.log_key].debug(f"pull_node_session - error applying session0 and session1 | [{e}]")
         
-        self.log.logger.debug(f"pull_node_session - session being returned [{session_obj}]") 
+        self.log.logger[self.log_key].debug(f"pull_node_session - session being returned [{session_obj}]") 
 
         cpu, memory, _ = self.check_cpu_memory_thresholds()
         if not cpu or not memory:
@@ -1895,10 +1907,10 @@ class Functions():
     
     
     def pull_edge_point(self,i_profile):
-        self.log.logger.debug(f"function - pull edge point device [{i_profile}]")
+        self.log.logger[self.log_key].debug(f"function - pull edge point device [{i_profile}]")
         while True:
             try:
-                self.log.logger.debug(f"function - pull edge point device i_profile [{i_profile}]")
+                self.log.logger[self.log_key].debug(f"function - pull edge point device i_profile [{i_profile}]")
                 return {
                     "remote": self.config_obj[i_profile]["edge_point"],
                     "remote_port": self.config_obj[i_profile]["edge_point_tcp_port"],
@@ -1908,7 +1920,7 @@ class Functions():
                     })
                 }
             except:
-                self.log.logger.error(f"function - pull edge point device - error during [{i_profile}] profile retrieval")
+                self.log.logger[self.log_key].error(f"function - pull edge point device - error during [{i_profile}] profile retrieval")
                 self.error_messages.error_code_messages({
                     "error_code": "fnt-616",
                     "line_code": "profile_error",
@@ -1965,9 +1977,9 @@ class Functions():
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
-                    self.log.logger.error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
+                    self.log.logger[self.log_key].error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
                     if n == 9:
-                        self.log.logger.warning(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
+                        self.log.logger[self.log_key].warning(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
                 finally:
@@ -2024,7 +2036,7 @@ class Functions():
         # req=(str) # what do you want to do?
     
         var = SimpleNamespace(**command_obj)
-        self.log.logger.debug(f"function pull_profile [{var.req}]")
+        self.log.logger[self.log_key].debug(f"function pull_profile [{var.req}]")
         var.profile = command_obj.get("profile",None)
             
         profile = "empty"
@@ -2249,7 +2261,7 @@ class Functions():
         try:
             repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
         except:
-            self.log.logger.error("functions --> pull_remote_profiles --> unable to access network.")
+            self.log.logger[self.log_key].error("functions --> pull_remote_profiles --> unable to access network.")
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1993",
                 "line_code": "off_network",
@@ -2347,7 +2359,7 @@ class Functions():
                 session.timeout = 2
                 health = session.get(uri, timeout=self.session_timeout)
             except:
-                self.log.logger.warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
+                self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if n > 2:
                     if not self.auto_restart:
                         self.network_unreachable_looper()
@@ -2355,7 +2367,7 @@ class Functions():
                 pass
             else:  
                 if health.status_code != 200:
-                    self.log.logger.warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
+                    self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
                     if n > 2:
                         if not self.auto_restart:
                             self.network_unreachable_looper()
@@ -2381,12 +2393,12 @@ class Functions():
             pass
         else:
             if r.status_code == 200:
-                self.log.logger.error(f"check health failed on endpoint [localhost] port [{api_port}]")
+                self.log.logger[self.log_key].error(f"check health failed on endpoint [localhost] port [{api_port}]")
                 return True
         finally:
             session.close()
             
-        self.log.logger.debug(f"check health successful on endpoint [localhost] port [{api_port}]")
+        self.log.logger[self.log_key].debug(f"check health successful on endpoint [localhost] port [{api_port}]")
         return False   
             
         
@@ -2500,21 +2512,21 @@ class Functions():
                 "cpu_percent": cpu_found_percent
             }
 
-        self.log.logger.info(f"functions -> cpu_memory_thresholds -> checked memory and cpu pid values [{cpu_mem_details}]")
+        self.log.logger[self.log_key].info(f"functions -> cpu_memory_thresholds -> checked memory and cpu pid values [{cpu_mem_details}]")
         # ======================================================
 
         if cpu_found_percent > cpu_threshold:
-            self.log.logger.warning(f"functions -> cpu_memory_thresholds -> cpu exceeding max | cpu % [{cpu_found_percent}] | memory % [{memory_found_percent}]")
+            self.log.logger[self.log_key].warning(f"functions -> cpu_memory_thresholds -> cpu exceeding max | cpu % [{cpu_found_percent}] | memory % [{memory_found_percent}]")
             cpu_ok = False
 
         if memory_found_percent > memory_threshold:
-            self.log.logger.warning(f"functions -> cpu_memory_thresholds -> memory exceeding max | memory % [{memory_found_percent}] cpu % [{cpu_found_percent}]")
+            self.log.logger[self.log_key].warning(f"functions -> cpu_memory_thresholds -> memory exceeding max | memory % [{memory_found_percent}] cpu % [{cpu_found_percent}]")
             memory_ok = False
 
         if not cpu_ok and not memory_ok:
-            self.log.logger.error(f"functions -> cpu_memory_thresholds -> system may be unresponsive or intermittently unresponsive")
+            self.log.logger[self.log_key].error(f"functions -> cpu_memory_thresholds -> system may be unresponsive or intermittently unresponsive")
         elif cpu_ok and memory_ok:
-            self.log.logger.info(f"functions -> cpu_memory_thresholds -> checked memory and cpu found [OK] | memory % [{memory_found_percent}] cpu % [{cpu_found_percent}]")
+            self.log.logger[self.log_key].info(f"functions -> cpu_memory_thresholds -> checked memory and cpu found [OK] | memory % [{memory_found_percent}] cpu % [{cpu_found_percent}]")
 
         return cpu_ok, memory_ok, cpu_mem_details
     
@@ -2534,13 +2546,13 @@ class Functions():
     def is_new_version(self,current,remote,caller,version_type):
         try:
             if version.parse(current) == version.parse(remote):
-                self.log.logger.info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                self.log.logger[self.log_key].info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return False            
             elif version.parse(current) > version.parse(remote):
-                self.log.logger.warning(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                self.log.logger[self.log_key].warning(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return "current_greater"
             else:
-                self.log.logger.warning(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                self.log.logger[self.log_key].warning(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return "current_less"
         except:
             if version_type == "versioning_module_testnet":
@@ -2554,7 +2566,7 @@ class Functions():
         try:
             version.Version(check_version)
         except Exception as e:
-            self.log.logger.warning(f"is_version_valid returned False [{check_version}] e [{e}]")
+            self.log.logger[self.log_key].warning(f"is_version_valid returned False [{check_version}] e [{e}]")
             return False
         else:
             check_version = check_version.split(".")
@@ -2658,9 +2670,9 @@ class Functions():
                     "spinner": spinner,
                 })
             except IndexError as e:
-                self.log.logger.error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | caller: [{caller}] current_source_node: [{current_source_node}] | e: {e}")
+                self.log.logger[self.log_key].error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | caller: [{caller}] current_source_node: [{current_source_node}] | e: {e}")
             except Exception as e:
-                self.log.logger.error(f"test_peer_state -> error retrieving get_info_from_edge_point | caller: [{caller}] | current_source_node: [{current_source_node}] | e: {e}")
+                self.log.logger[self.log_key].error(f"test_peer_state -> error retrieving get_info_from_edge_point | caller: [{caller}] | current_source_node: [{current_source_node}] | e: {e}")
                 send_error = (2160,e) # fnt-2160
         
         ip_addresses = [test_address,current_source_node]
@@ -2678,10 +2690,10 @@ class Functions():
                         "spinner": spinner,
                     })
                 except IndexError as e:
-                    self.log.logger.error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | ip_address {ip_addresses[n]} | e: {e}")
+                    self.log.logger[self.log_key].error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | ip_address {ip_addresses[n]} | e: {e}")
                     send_error = (2184,e) # fnt-2184
                 except Exception as e:
-                    self.log.logger.error(f"test_peer_state -> unable to get_info_from_edge_point | ip_address {ip_addresses[n]} | e: [{e}]")
+                    self.log.logger[self.log_key].error(f"test_peer_state -> unable to get_info_from_edge_point | ip_address {ip_addresses[n]} | e: [{e}]")
                     send_error = (2187,e) # fnt-2187
 
         if send_error and not self.auto_restart:
@@ -2721,7 +2733,7 @@ class Functions():
                             session.timeout = 2 
                             state = session.get(uri, timeout=self.session_timeout).json()
                             color = self.change_connection_color(state)
-                            self.log.logger.debug(f"test_peer_state -> uri [{uri}]")
+                            self.log.logger[self.log_key].debug(f"test_peer_state -> uri [{uri}]")
 
                             if n == 1:
                                 results['node_state_src'] = state
@@ -2738,7 +2750,7 @@ class Functions():
                             if api_not_ready_flag: 
                                 cpu, mem, _ = self.check_cpu_memory_thresholds()
                                 if not cpu or not mem: 
-                                    self.log.logger.warning("functions -> test peer state -> setting status to [ApiNotReponding]")
+                                    self.log.logger[self.log_key].warning("functions -> test peer state -> setting status to [ApiNotReponding]")
                                     results['node_state_src'] = "ApiNotResponding"
                                     results['node_state_edge'] = "ApiNotResponding"
                                 break_while = True
@@ -2762,14 +2774,14 @@ class Functions():
                 self.event = False   
 
         if simple:
-            self.log.logger.debug(f"test peer state - simple - returning [{test_address}] [{ip_addresses[0]['publicPort']}] [{results['node_state_edge']}]")
+            self.log.logger[self.log_key].debug(f"test peer state - simple - returning [{test_address}] [{ip_addresses[0]['publicPort']}] [{results['node_state_edge']}]")
             results = results["node_state_edge"]
         else:
             if results["node_on_edge"] and results["node_on_src"]:
                 results["full_connection"] = True
                 results["full_connection_color"] = "green"
         
-        self.log.logger.debug(f"function test_peer_state returning [{results}]")
+        self.log.logger[self.log_key].debug(f"function test_peer_state returning [{results}]")
         return results
 
 
@@ -2983,23 +2995,23 @@ class Functions():
         def process_packet(details, packet):
             tcp_test_results, port_int = details
 
-            self.log.logger.debug(f"Packet received: {packet.summary()}")
+            self.log.logger[self.log_key].debug(f"Packet received: {packet.summary()}")
 
             try:
                 if TCP in packet:
                     if packet[TCP].dport == port_int:
-                        self.log.logger.debug(f"TCP destination packet matched: {packet.summary()}")
+                        self.log.logger[self.log_key].debug(f"TCP destination packet matched: {packet.summary()}")
                         tcp_test_results[port_int]["found_destination"] = True
                     if packet[TCP].sport == port_int:
-                        self.log.logger.debug(f"TCP source packet matched: {packet.summary()}")
+                        self.log.logger[self.log_key].debug(f"TCP source packet matched: {packet.summary()}")
                         tcp_test_results[port_int]["found_source"] = True
             except Exception as e:
-                self.log.logger.error(f"Error processing packet: {e}")
+                self.log.logger[self.log_key].error(f"Error processing packet: {e}")
                 tcp_test_results[port_int]["found_destination"] = False
                 tcp_test_results[port_int]["found_source"] = False
 
         details = [tcp_test_results, port_int]
-        self.log.logger.debug(f"Starting sniff on {interface} for {packet_type} with timeout {timeout} seconds.")
+        self.log.logger[self.log_key].debug(f"Starting sniff on {interface} for {packet_type} with timeout {timeout} seconds.")
         results = sniff(
             iface=interface,
             prn=partial(process_packet, details),
@@ -3008,7 +3020,7 @@ class Functions():
         )
 
         if len(results) == 0:
-            self.log.logger.warning(f"No packets captured on {interface} for {packet_type} within {timeout} seconds.")
+            self.log.logger[self.log_key].warning(f"No packets captured on {interface} for {packet_type} within {timeout} seconds.")
             tcp_test_results[port_int]["found_destination"] = False
             tcp_test_results[port_int]["found_source"] = False
 
@@ -3020,7 +3032,7 @@ class Functions():
     # =============================  
        
     def create_coingecko_obj(self):
-        self.log.logger.info(f"creating CoinGeckoAPI Object")
+        self.log.logger[self.log_key].info(f"creating CoinGeckoAPI Object")
         self.cg = CoinGeckoAPI()   
             
     
@@ -3030,7 +3042,7 @@ class Functions():
         rows = command_obj.get("rows",False)
 
         if row and rows or not full_path:
-            self.log.logger.error("csv error detected, cannot write or row and rows in the same call.")
+            self.log.logger[self.log_key].error("csv error detected, cannot write or row and rows in the same call.")
             self.error_messages.error_code({
                 "line_code": "fnt-1795",
                 "error_code": "internal_error"
@@ -3677,7 +3689,7 @@ class Functions():
             if newline == "bottom" or newline == "both":
                 print("")
         except Exception as e:
-            self.log.logger.warning(f"functions -> spinner -> errored with [{e}]")
+            self.log.logger[self.log_key].warning(f"functions -> spinner -> errored with [{e}]")
             return
             
     
@@ -3696,7 +3708,7 @@ class Functions():
             total_time = total_time/60
             unit = "minutes"
         
-        self.log.logger.info(f"{action} completed in [{total_time}]")
+        self.log.logger[self.log_key].info(f"{action} completed in [{total_time}]")
         self.print_paragraphs([
             ["Total",0], [action,0,"yellow","underline"], ["time:",0],
             [f" {round(total_time,3)} ",0,"grey,on_green","bold"],
@@ -3717,7 +3729,7 @@ class Functions():
             "valid_commands": self.valid_commands
         }
         self.print_clear_line()
-        self.log.logger.info(f"Help file print out")
+        self.log.logger[self.log_key].info(f"Help file print out")
         self.help_text = "" 
         if title:
             self.print_header_title({
@@ -3951,7 +3963,7 @@ class Functions():
     
 
     def confirm_action(self,command_obj):
-        self.log.logger.debug("confirm action request")
+        self.log.logger[self.log_key].debug("confirm action request")
         
         yes_no_default = command_obj.get("yes_no_default")
         return_on = command_obj.get("return_on")
@@ -4019,7 +4031,7 @@ class Functions():
            
     def network_unreachable_looper(self):
             seconds = 30
-            self.log.logger.warning("network has become unreachable, starting retry loop to avoid error")
+            self.log.logger[self.log_key].warning("network has become unreachable, starting retry loop to avoid error")
             if not self.auto_restart:
                 progress = {
                     "text_start": "Network unreachable pausing until reachable",
@@ -4048,7 +4060,7 @@ class Functions():
     def remove_files(self, file_or_list, caller, is_glob=False, etag=False, widcard=False):
         # is_glob:  False is not in use; directory location if to be used
         # etag: if etags are associated with the file to remove
-        self.log.logger.info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
+        self.log.logger[self.log_key].info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
         files = file_or_list
         result = True
 
@@ -4077,7 +4089,7 @@ class Functions():
                     remove(file)
             except OSError as e:
                 result = False
-                self.log.logger.error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")
+                self.log.logger[self.log_key].error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")
 
         return result
     
@@ -4093,7 +4105,7 @@ class Functions():
             params = {'random': random.randint(10000, 20000)}
             with session.get(url,params=params, stream=True) as response:
                 if response.status_code == 304: # file did not change
-                    self.log.logger.warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
+                    self.log.logger[self.log_key].warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
                 else:
                     response.raise_for_status()
                     etag = response.headers.get("ETag")
@@ -4103,12 +4115,12 @@ class Functions():
                     if etag:
                         with open(f'{local}.etag','w') as output_file_etag:
                             output_file_etag.write(etag)
-            self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
+            self.log.logger[self.log_key].info(f"functions --> download_file [{url}] successful output file [{local}]")
         except HTTPError as e:
-            self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+            self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
             do_raise = True
         except RequestException as e:
-            self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+            self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
             do_raise = True
         finally:
             session.close()
@@ -4145,7 +4157,7 @@ class Functions():
                 timer.start()
                 # stdout, stderr = p.communicate()
             except Exception as e:
-                self.log.logger.warning(f"function process command errored out with [{e}]")
+                self.log.logger[self.log_key].warning(f"function process command errored out with [{e}]")
             finally:
                 timer.cancel()
         
@@ -4170,7 +4182,7 @@ class Functions():
             try:
                 output = check_output(bashCommand, shell=True, text=True)
             except CalledProcessError as e:
-                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger[self.log_key].warning(f"functions -> subprocess error -> error [{e}]")
             return output
         
         if proc_action == "subprocess_run":
@@ -4181,7 +4193,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True)
             except CalledProcessError as e:
-                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger[self.log_key].warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
                 
@@ -4189,7 +4201,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True, stdout=PIPE, stderr=PIPE)
             except CalledProcessError as e:
-                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger[self.log_key].warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
                 
@@ -4197,7 +4209,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand))
             except CalledProcessError as e:
-                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger[self.log_key].warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
@@ -4205,7 +4217,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=DEVNULL, check=True)
             except CalledProcessError as e:
-                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger[self.log_key].warning(f"functions -> subprocess error -> error [{e}]")
                 output = e
             return output.returncode
         
@@ -4213,7 +4225,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=STDOUT, check=True)
             except CalledProcessError as e:
-                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger[self.log_key].warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output  
               
@@ -4221,7 +4233,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True, text=True)
             except CalledProcessError as e:
-                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
+                self.log.logger[self.log_key].warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
@@ -4230,11 +4242,11 @@ class Functions():
             verb = "capture" if "capture" in proc_action else "rsync"
             try:
                 result = run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
-                self.log.logger.info(f"{verb} completed successfully.")
+                self.log.logger[self.log_key].info(f"{verb} completed successfully.")
             except CalledProcessError as e:
-                self.log.logger.warning(f"{verb} failed. Error: {e.stderr}")
+                self.log.logger[self.log_key].warning(f"{verb} failed. Error: {e.stderr}")
             except Exception as e:
-                self.log.logger.warning(f"An error occurred: {str(e)}")
+                self.log.logger[self.log_key].warning(f"An error occurred: {str(e)}")
             return result
 
         if autoSplit:
@@ -4259,7 +4271,7 @@ class Functions():
                                     stdout=PIPE,
                                     stderr=PIPE)
             except Exception as e:
-                self.log.logger.warning(f"function process command errored out with [{e}]")
+                self.log.logger[self.log_key].warning(f"function process command errored out with [{e}]")
                 skip = True
            
         if not skip:     
@@ -4273,7 +4285,7 @@ class Functions():
             result, err = p.communicate()
 
             if err and log_error:
-                self.log.logger.warning(f"process command [Bash Command] err: [{err}].")
+                self.log.logger[self.log_key].warning(f"process command [Bash Command] err: [{err}].")
                 
             if return_error:
                 return err.decode('utf-8')

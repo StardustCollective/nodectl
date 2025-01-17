@@ -91,6 +91,14 @@ class Error_codes():
         self.log = Logging()
         self.debug = debug
         self.functions = functions
+        try:
+            self.log_key = functions.config_obj["global_elements"]["log_key"]
+        except:
+            try:
+                self.log_key = functions.log_key
+            except:
+                self.log_key = "main"
+
         try: self.functions.test_valid_functions_obj()
         except:
             # exception for config_obj send instead of functions obj
@@ -126,7 +134,7 @@ class Error_codes():
             ])
             
         elif "install_failed" in str(var.line_code):
-            self.log.logger.critical(f"installation failure [{var.line_code}] with message [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"installation failure [{var.line_code}] with message [{var.extra}]")
             self.functions.print_paragraphs([
                 ["An unrecoverable error occured during the installation.",2,"red","bold"],
                 ["Unable to process some information that is necessary for the installation of Tessellation to be successful.",2,"red","bold"],
@@ -143,7 +151,7 @@ class Error_codes():
             ])
             
         elif "upgrade_needed" in str(var.line_code):
-            self.log.logger.error(f"missing components to the VPS running nodectl.  This may not be a valid configuration? | error code: [{var.line_code}]")
+            self.log.logger[self.log_key].error(f"missing components to the VPS running nodectl.  This may not be a valid configuration? | error code: [{var.line_code}]")
             self.functions.print_paragraphs([
                 ["Possible Upgrade Required!",1,"red","bold"],
                 ["Necessary configuration files or directories are missing.",2,"red","bold"],
@@ -168,7 +176,7 @@ class Error_codes():
 
             
         elif "upgrade_path_needed" in str(var.line_code):
-            self.log.logger.error(f"missing components to the VPS running nodectl. The necessary upgrade path may not have been followed? This may not be a valid configuration? | error code: [{var.line_code}]")
+            self.log.logger[self.log_key].error(f"missing components to the VPS running nodectl. The necessary upgrade path may not have been followed? This may not be a valid configuration? | error code: [{var.line_code}]")
             self.functions.print_paragraphs([
                 
                 ["This version of nodectl has detected that you may be attempting to upgrade from an older incompatible version of nodectl.",0,"red","bold"],
@@ -200,7 +208,7 @@ class Error_codes():
 
 
         elif var.line_code == "environment_error":
-            self.log.logger.critical(f"missing cluster environment variable, unable to continue")
+            self.log.logger[self.log_key].critical(f"missing cluster environment variable, unable to continue")
             self.functions.print_paragraphs([
                 ["nodectl attempted to start a command:",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
                 ["Please verify the network cluster environment variable is correct or present.",2,"red","bold"],
@@ -213,9 +221,9 @@ class Error_codes():
 
 
         elif var.line_code == "auto_restart_error":
-            self.log.logger.critical("auto restart failed to execute properly")
-            self.log.logger.critical(f"profile | {var.extra2}")
-            self.log.logger.critical(f"error | {var.extra}")
+            self.log.logger[self.log_key].critical("auto restart failed to execute properly")
+            self.log.logger[self.log_key].critical(f"profile | {var.extra2}")
+            self.log.logger[self.log_key].critical(f"error | {var.extra}")
             self.functions.print_paragraphs([
                 ["nodectl attempted to execute the auto_restart module and filed with:",2,"red","bold"], 
                 [var.extra,2,"yellow,on_red","bold"],
@@ -225,7 +233,7 @@ class Error_codes():
 
                         
         elif "upgrade_incompatibility" in str(var.line_code):
-            self.log.logger.critical(f"Upgrade cannot continue because nodectl found multiple environments that are not supported by this version of nodectl: environment [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"Upgrade cannot continue because nodectl found multiple environments that are not supported by this version of nodectl: environment [{var.extra}]")
             self.functions.print_paragraphs([
                 ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
 
@@ -239,7 +247,7 @@ class Error_codes():
                         
                         
         elif "network_error" in str(var.line_code):
-            self.log.logger.critical(f"nodectl was unable to determine the external network interface related to the server this Node is running on and cannot continue.")
+            self.log.logger[self.log_key].critical(f"nodectl was unable to determine the external network interface related to the server this Node is running on and cannot continue.")
             self.functions.print_paragraphs([
                 ["NODECTL NETWORKING IDENTIFICATION FAILED.",2,"red","bold"],
 
@@ -251,7 +259,7 @@ class Error_codes():
                         
                         
         elif "upgrade_failure" in str(var.line_code):
-            self.log.logger.critical(f"Upgrade cannot continue because nodectl found issue with node or architecture that is not supported by nodectl. error [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"Upgrade cannot continue because nodectl found issue with node or architecture that is not supported by nodectl. error [{var.extra}]")
             self.functions.print_paragraphs([
                 ["THIS UPGRADE WAS UNABLE TO COMPLETE DUE TO AN UNKNOWN ERROR",2,"red","bold"],
             ])
@@ -275,7 +283,7 @@ class Error_codes():
 
             
         elif "lb_not_up" in str(var.line_code) or "off_network" in str(var.line_code):
-            self.log.logger.critical(f"Edge Device [load balancer] does not seem to be up: {var.extra}")
+            self.log.logger[self.log_key].critical(f"Edge Device [load balancer] does not seem to be up: {var.extra}")
             self.functions.print_paragraphs([
                 ["HALTING ALL ACTIONS",2,"red","bold"],
 
@@ -297,7 +305,7 @@ class Error_codes():
 
 
         elif "verification_failure" in str(var.line_code):
-            self.log.logger.critical(f"Unable to verify nodectl properly, please review and try again | {var.extra}")
+            self.log.logger[self.log_key].critical(f"Unable to verify nodectl properly, please review and try again | {var.extra}")
             self.functions.print_paragraphs([
                 ["HALTING ALL ACTIONS",2,"red","bold"],
                 ["A request to validate the authenticity of nodectl was interrupted or failed.  This does not indicate that",0],
@@ -307,7 +315,7 @@ class Error_codes():
             ])
 
         elif "service" in str(var.line_code):
-            self.log.logger.critical(f"attempt to access the service file seems to have failed. [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"attempt to access the service file seems to have failed. [{var.extra}]")
             self.functions.print_paragraphs([
                 ["Something isn't quite right?",2,"red","bold"],
                 ["Are you sure the",0,"red","bold"], ["Node",0, "yellow","bold,underline"],
@@ -334,7 +342,7 @@ class Error_codes():
             
             
         elif "join_error" in str(var.line_code):
-            self.log.logger.critical(f"attempt to join cluster failed | profile [{var.extra2}].")
+            self.log.logger[self.log_key].critical(f"attempt to join cluster failed | profile [{var.extra2}].")
             self.functions.print_paragraphs([
                 ["Something went wrong during the join to profile:",0,"red","bold"],
                 [var.extra2,2,"yellow","bold"],
@@ -352,7 +360,7 @@ class Error_codes():
             ])
             
         elif "new_connect_error" in str(var.line_code) or "max_retries" in str(var.line_code) or "connect_refused" in str(var.line_code):
-            self.log.logger.critical(f"connection error during the join attempt [{var.extra}] | error: [{var.extra2}]")
+            self.log.logger[self.log_key].critical(f"connection error during the join attempt [{var.extra}] | error: [{var.extra2}]")
             self.functions.print_paragraphs([
                 ["Connection Error during join detected.",2,"red","bold"],
                 ["Are you sure the",0,"red","bold"], ["Node service",0,"yellow","bold"], ["is running?",2,"red","bold"],
@@ -361,7 +369,7 @@ class Error_codes():
             ])
             
         elif "link_to_profile" in str(var.line_code):
-            self.log.logger.critical(f"unable to retrieve port information for profile [{var.extra}] from source profile [{var.extra2}]")
+            self.log.logger[self.log_key].critical(f"unable to retrieve port information for profile [{var.extra}] from source profile [{var.extra2}]")
             self.functions.print_paragraphs([
                 ["Connection Link to Profile Error during join detected.",2,"red","bold"],
                 ["Please verify that your configuration",0,"red","bold"], ["layer0_link",0,"yellow","bold,underline"],
@@ -372,7 +380,7 @@ class Error_codes():
             
             
         elif var.line_code == "api_server_error":
-            self.log.logger.critical(f"API service attempted to be accessed outside of normal parameters, nodectl terminating...")
+            self.log.logger[self.log_key].critical(f"API service attempted to be accessed outside of normal parameters, nodectl terminating...")
             self.functions.print_paragraphs([
                 ["The API service was called incorrectly.",2,"red","bold"],
                 ["Possible other reasons could be service related? Are you sure:",1,"red","bold"],
@@ -383,7 +391,7 @@ class Error_codes():
 
         elif var.line_code == "api_error":
             extra2 = "unknown" if var.extra2 == None else var.extra2
-            self.log.logger.critical(f"API timeout error detected.  url [{extra2}] nodectl terminating...")
+            self.log.logger[self.log_key].critical(f"API timeout error detected.  url [{extra2}] nodectl terminating...")
             self.functions.print_paragraphs([
                 ["Timed Out or Error encountered while waiting for API.",1,"red","bold"],
                 ["An API call returned an invalid response.",2,"red","bold"],
@@ -402,7 +410,7 @@ class Error_codes():
             
             
         elif var.line_code == "seed-list":
-            self.log.logger.critical("attempt to download seed list failed or resulted in a zero file size.")
+            self.log.logger[self.log_key].critical("attempt to download seed list failed or resulted in a zero file size.")
             self.functions.print_paragraphs([
                 ["Something isn't quite right?",2,"red","bold"],
                 ["nodectl",0,"red","bold,underline"], ["was unable to download the seed-list associated with the Global Layer0",2,"red","bold"],
@@ -411,7 +419,7 @@ class Error_codes():
             
             
         elif var.line_code == "node_not_offline":
-            self.log.logger.critical(f"attempt to execute a command that requires the node to offline found the node in state [{var.extra}].")
+            self.log.logger[self.log_key].critical(f"attempt to execute a command that requires the node to offline found the node in state [{var.extra}].")
             self.functions.print_paragraphs([
                 [f"This node profile:",0,"red","bold"], [var.extra,2,"magenta","bold"],
                 ["nodectl",0,"red","bold,underline"], ["was unable to execute the requested command because it requires",0,"yellow"],
@@ -422,7 +430,7 @@ class Error_codes():
 
             
         elif var.line_code == "join":
-            self.log.logger.critical("attempt to join cluster failed.")
+            self.log.logger[self.log_key].critical("attempt to join cluster failed.")
             self.functions.print_paragraphs([
                 ["Something isn't quite right?",2,"red","bold"],
                 ["nodectl",0,"red","bold,underline"], ["detected you are not",0,"red","bold"], ["properly joined to the",0,"red","bold"],
@@ -434,7 +442,7 @@ class Error_codes():
     
             
         elif var.line_code == "ssh_keys":
-            self.log.logger.critical("authorized_keys file missing in the root user directory.")
+            self.log.logger[self.log_key].critical("authorized_keys file missing in the root user directory.")
             self.functions.print_paragraphs([
                 ["authorized keys",0,"yellow","underline"], ["file is missing in the root user directory.",2,"red","bold"],
                 ["Please verify the file is present; as well as, please check your",0,"red","bold"], ["firewall",0,"red","bold,underline"],
@@ -443,7 +451,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_passphrase":
-            self.log.logger.critical("p12 passphrase entered incorrectly too many times!")
+            self.log.logger[self.log_key].critical("p12 passphrase entered incorrectly too many times!")
             if var.extra2 == "wrong":
                 self.functions.print_paragraphs([
                     ["P12",0,"yellow","bold"], ["passphrase",0,"red","bold,underline"], ["was incorrectly entered.",2,"red","bold"],
@@ -466,7 +474,7 @@ class Error_codes():
                 ])                            
             
         elif var.line_code == "invalid_passphrase_pass":
-            self.log.logger.critical("password validation check failed.")
+            self.log.logger[self.log_key].critical("password validation check failed.")
             self.functions.print_paragraphs([
                 ["While comparing passphrases or passwords or validation, an invalid character(s) that did not match an ASCII value",0,"red"],
                 ["was detected?",1,"red"],
@@ -477,7 +485,7 @@ class Error_codes():
             ])            
             
         elif var.line_code == "invalid_address":
-            self.log.logger.critical(f"attempt to use an invalid {var.extra} address detected [{var.extra2}]")
+            self.log.logger[self.log_key].critical(f"attempt to use an invalid {var.extra} address detected [{var.extra2}]")
             self.functions.print_paragraphs([
                 ["Invalid",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["address may have been entered.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered",2,"red","bold"],
@@ -485,7 +493,7 @@ class Error_codes():
             ])            
             
         elif var.line_code == "invalid_peer_address":
-            self.log.logger.critical(f"attempt to use an invalid peer address detected during [{var.extra2}] address: [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"attempt to use an invalid peer address detected during [{var.extra2}] address: [{var.extra}]")
             self.functions.print_paragraphs([
                 ["Invalid peer address may have been entered.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered is online, reachable, and in Ready state.",2,"red","bold"],
@@ -496,7 +504,7 @@ class Error_codes():
             ])            
             
         elif var.line_code == "unknown_error":
-            self.log.logger.critical(f"during execution of nodectl an unknown error was encountered | error [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"during execution of nodectl an unknown error was encountered | error [{var.extra}]")
             self.functions.print_paragraphs([
                 ["An unknown error has occurred?  Please try the previous command request again.  If you continue to encounter",0,"red","bold"],
                 ["this error message, please join the Constellation Official Discord channel for additional help.",2,"red","bold"],
@@ -508,7 +516,7 @@ class Error_codes():
 
 
         elif var.line_code == "possible404":
-            self.log.logger.critical(f"attempt to access an invalid URI failed with error code [{var.extra.text} uri/url [{var.extra2}]")
+            self.log.logger[self.log_key].critical(f"attempt to access an invalid URI failed with error code [{var.extra.text} uri/url [{var.extra2}]")
             self.functions.print_paragraphs([
                 ["Invalid",0,"red","bold"], [var.extra.text,1,"red","bold,underline"], ["URL may have been entered or nodectl could not reach?",2,"red","bold"],
                 ["Please check network connectivity and try again later.",1,"red","bold"],
@@ -517,7 +525,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_user":
-            self.log.logger.critical(f"user not found for process [{var.extra}] username [{var.extra2}]")
+            self.log.logger[self.log_key].critical(f"user not found for process [{var.extra}] username [{var.extra2}]")
             self.functions.print_paragraphs([
                 ["Invalid User:",0,"red","bold"], [var.extra,0,"red","bold"], ["user not found on this VPS or server.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the user is valid.",2,"red","bold"],
@@ -526,7 +534,7 @@ class Error_codes():
             
             
         elif var.line_code == "term":
-            self.log.logger.critical("invalid terminal type, exited utility ")
+            self.log.logger[self.log_key].critical("invalid terminal type, exited utility ")
             self.functions.print_paragraphs([
                 ["Invalid terminal type detected:",0,"yellow"], [var.extra,2,"magenta","bold"],
                 ["Please enable a",0], ["xterm",0,"yellow","bold"], ["terminal session to continue.",2],
@@ -534,7 +542,7 @@ class Error_codes():
             
             
         elif var.line_code == "ip_not_found":
-            self.log.logger.warning("unable to find the external IP address of the Node, there may be internet access issues ensuring, exited utility ")
+            self.log.logger[self.log_key].warning("unable to find the external IP address of the Node, there may be internet access issues ensuring, exited utility ")
             self.functions.print_paragraphs([
                 ["In an attempt to search the current network cluster with an IP address,",0,"red"],
                 [var.extra,0,"yellow","bold"],
@@ -543,7 +551,7 @@ class Error_codes():
             
             
         elif var.line_code == "version_fetch":
-            self.log.logger.warning("unable to fetch version, exited utility ")
+            self.log.logger[self.log_key].warning("unable to fetch version, exited utility ")
             self.functions.print_paragraphs([
                 ["Tessellation attempted version fetch failed.",2,"red","bold"],
                 ["Please try again in a few minutes. If the issue persists, report this to a Constellation Network Administrator.",2,"magenta","bold"]
@@ -551,7 +559,7 @@ class Error_codes():
 
                         
         elif var.line_code == "sudo_error":
-            self.log.logger.critical(f"permissions error detected | {var.extra}")
+            self.log.logger[self.log_key].critical(f"permissions error detected | {var.extra}")
             self.functions.print_paragraphs([
                 ["nodectl attempted to perform actions as a none sudo user.",2,"red","bold"],
                 ["Please try again with the correct user permissions.",2,"magenta","bold"]
@@ -559,7 +567,7 @@ class Error_codes():
             
             
         elif var.line_code == "peer_count_error":
-            self.log.logger.critical("tessellation attempted check peers and failed, this may be an API error, or external access error.")
+            self.log.logger[self.log_key].critical("tessellation attempted check peers and failed, this may be an API error, or external access error.")
             self.functions.print_paragraphs([
                 ["Tessellation attempted check peers and failed.",2,"red","bold"],
                 ["This Node's network configuration may be incorrect, please check profile configuration.",2,"magenta"],
@@ -567,7 +575,7 @@ class Error_codes():
             
             
         elif var.line_code == "node_id_issue":
-            self.log.logger.critical("tessellation attempted to extract the node id from the configuration p12 private key file:  p12 password is wrong, p12 private key is corrupted, keystore location is wrong, or p12 private key file name in the configuration is wrong.")
+            self.log.logger[self.log_key].critical("tessellation attempted to extract the node id from the configuration p12 private key file:  p12 password is wrong, p12 private key is corrupted, keystore location is wrong, or p12 private key file name in the configuration is wrong.")
             self.functions.print_paragraphs([
                 ["Tessellation attempted to extract and derive the",0,"red","bold"], ["nodeid",0,"magenta","bold"],
                 ["from this Node unsuccessfully.",2,"red","bold"],
@@ -609,7 +617,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_tcp_ports":
-            self.log.logger.error("invalid TCP ports found or not entered, displaying error message to user and exiting")
+            self.log.logger[self.log_key].error("invalid TCP ports found or not entered, displaying error message to user and exiting")
             self.functions.print_paragraphs([
                 ["nodectl found an invalid TCP port or port range has been used and cannot continue.",2,"red","bold"],
                 ["ports:",0,"white","bold"], [var.extra,2,"yellow","bold"],
@@ -621,7 +629,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_layer":
-            self.log.logger.error("invalid blockchain layer found, displaying error message to user and exiting")
+            self.log.logger[self.log_key].error("invalid blockchain layer found, displaying error message to user and exiting")
             self.functions.print_paragraphs([
                 ["nodectl found an invalid blockchain layer inputted",2,"red","bold"],
                 ["layer:",0,"white","bold"], [var.extra,2,"yellow","bold"],
@@ -629,7 +637,7 @@ class Error_codes():
             
             
         elif var.line_code == "input_error":
-            self.log.logger.warning(f"invalid input from user was entered for option [{var.extra}], exited utility .")
+            self.log.logger[self.log_key].warning(f"invalid input from user was entered for option [{var.extra}], exited utility .")
             self.functions.print_paragraphs([
                 ["nodectl found an invalid input entered by the Node Operator.",2,"red","bold"],
                 ["Please try again later or issue the",0], ["help",0,"yellow","bold"], 
@@ -642,7 +650,7 @@ class Error_codes():
             
         
         elif var.line_code == "invalid_search":
-            self.log.logger.warning(f"invalid search attempted could not continue.")
+            self.log.logger[self.log_key].warning(f"invalid search attempted could not continue.")
             self.functions.print_paragraphs([
                 ["System has attempted to access a file to perform a search that returned an empty value.",0,"red"],
                 ["or",0,"yellow","bold"], ["the search request was unable to properly find the item or log entry requested.",1,"red"],
@@ -655,7 +663,7 @@ class Error_codes():
                 
                                      
         elif var.line_code == "file_not_found":
-            self.log.logger.warning(f"invalid file location or name [{var.extra}], exited utility .")
+            self.log.logger[self.log_key].warning(f"invalid file location or name [{var.extra}], exited utility .")
             self.functions.print_paragraphs([
                 ["System has attempted to access a file that does not exist.",2,"red","bold"],
                 [" File Name: ",0,"blue,on_yellow","bold"], [var.extra,2],
@@ -668,7 +676,7 @@ class Error_codes():
                 
                                      
         elif var.line_code == "download_invalid":
-            self.log.logger.critical(f"invalid download forced operation to halt. url [{var.extra}], exited utility .")
+            self.log.logger[self.log_key].critical(f"invalid download forced operation to halt. url [{var.extra}], exited utility .")
             self.functions.print_paragraphs([
                 ["System has attempted to access a internet based file for download that may not exist.",2,"red","bold"],
                 [" URL: ",0,"blue,on_yellow","bold"], [var.extra,2],
@@ -681,7 +689,7 @@ class Error_codes():
                         
             
         elif var.line_code == "dependency":
-            self.log.logger.critical(f"an error processing a command outside the realm of nodectl was encountered [{var.extra2}], exited utility .")
+            self.log.logger[self.log_key].critical(f"an error processing a command outside the realm of nodectl was encountered [{var.extra2}], exited utility .")
             self.functions.print_paragraphs([
                 ["An error has occurred while attempting to process a distribution system command.",2,"red","bold"],
                 [" Missing Component: ",0,"blue,on_yellow","bold"], [var.extra,2],
@@ -692,7 +700,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_output_file":
-            self.log.logger.warning(f"invalid file location or name [{var.extra}], exited utility . file not allowed")
+            self.log.logger[self.log_key].warning(f"invalid file location or name [{var.extra}], exited utility . file not allowed")
             self.functions.print_paragraphs([
                 ["System detected an attempt to output data to an invalid output location.",0,"red","bold"],
                 ["nodectl is setup to output files to the default uploads directory.  If an alternate directory location is desired, please modified the",0,"red","bold"],
@@ -703,7 +711,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_option":
-            self.log.logger.critical(f"invalid option value [{var.extra}], you reached this error because nodectl cannot use this option or the correct option is missing in the current command request.")
+            self.log.logger[self.log_key].critical(f"invalid option value [{var.extra}], you reached this error because nodectl cannot use this option or the correct option is missing in the current command request.")
             self.functions.print_paragraphs([
                 ["System detected an attempt to use an invalid command line option.",0,"red","bold"],
                 ["Additionally, the option [or combination of options] may cause harm to the Node",0,"red","bold"],
@@ -717,7 +725,7 @@ class Error_codes():
                 ])             
             
         elif var.line_code == "invalid_configuration_request":
-            self.log.logger.warning(f"invalid profile configuration requested [{var.extra}], exited utility . remote configuration did not exist or could not be processed")
+            self.log.logger[self.log_key].warning(f"invalid profile configuration requested [{var.extra}], exited utility . remote configuration did not exist or could not be processed")
             self.functions.print_paragraphs([
                 ["nodectl unsuccessfully attempted to import data from a configuration file.",0,"red","bold"],
                 ["The remote configuration file does not exist, may be spelled wrong, incorrectly formatted, or incorrectly entered.",2,"red","bold"],
@@ -727,7 +735,7 @@ class Error_codes():
             ]) 
             
         elif var.line_code == "invalid_file_format":
-            self.log.logger.warning(f"invalid file format for file [{var.extra}], exited utility . file could not be processed")
+            self.log.logger[self.log_key].warning(f"invalid file format for file [{var.extra}], exited utility . file could not be processed")
             self.functions.print_paragraphs([
                 ["System detected an attempt to import data from a file or an invalid file format.",0,"red","bold"],
                 ["nodectl is setup to access a file that may have been inputted incorrectly, formatted incorrectly,",0,"red","bold"],
@@ -744,7 +752,7 @@ class Error_codes():
             
         elif var.line_code == "profile_error":
             if var.extra is None: var.extra = "unknown"
-            self.log.logger.critical(f"invalid profile entered for execution [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"invalid profile entered for execution [{var.extra}]")
             self.functions.print_paragraphs([
                 ["Tessellation attempted load a non-existent profile -",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
                 ["Network configuration may be incorrect, please check profile or configuration",2,"red","bold"],
@@ -754,7 +762,7 @@ class Error_codes():
             
         elif var.line_code == "open_file":
             file_word = "p12 file" if var.extra2 == "p12" else "file"
-            self.log.logger.critical(f"unable to read {file_word} [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"unable to read {file_word} [{var.extra}]")
             self.functions.print_paragraphs([
                 [f"Something went wrong attempting to read or open a necessary {file_word}.",2,"red","bold"],
                 ["file:",0,"white","bold"], [var.extra,2,"yellow"],
@@ -784,14 +792,14 @@ class Error_codes():
             ]) 
                         
         elif var.line_code == "download_yaml":
-            self.log.logger.critical(f"unable to download valid configuration file [cn-config.yaml]")
+            self.log.logger[self.log_key].critical(f"unable to download valid configuration file [cn-config.yaml]")
             self.functions.print_paragraphs([
                 ["nodectl installer attempted to download an invalid or non-existent yaml pre-defined configuration.",0,"red"],
                 ["The installer cannot continue, please try installation again or seek assistance from the official Constellation Discord channel.",2,"red"],
             ])
             
         elif var.line_code == "system_error":
-            self.log.logger.critical(f"an unrecoverable system error occurred. [{var.extra}]")
+            self.log.logger[self.log_key].critical(f"an unrecoverable system error occurred. [{var.extra}]")
             self.functions.print_paragraphs([
                 ["nodectl attempted to issue an invalid, or non-executable command.",0,"red"],
                 ["This could be due to a customized configuration on your Debian Linux distro or other non-default setup?",2,"red"],
@@ -803,7 +811,7 @@ class Error_codes():
                 ])  
 
         elif var.line_code == "config_error":
-            self.log.logger.critical(f"unable to load configuration file, file corrupted, some values invalid, or improperly formatted [cn-config.yaml]")
+            self.log.logger[self.log_key].critical(f"unable to load configuration file, file corrupted, some values invalid, or improperly formatted [cn-config.yaml]")
             if var.extra == "existence" or var.extra == "existence_hint":
                 self.functions.print_paragraphs([
                     ["nodectl attempted load a non-existent",0,"red","bold"],["or",0,"yellow"],["invalid configuration!",1,"red","bold"],
@@ -847,7 +855,7 @@ class Error_codes():
                     ])
 
             if var.extra == "configurator":
-                self.log.logger.error(f"configurator error found [{extra2}]")
+                self.log.logger[self.log_key].error(f"configurator error found [{extra2}]")
                 self.functions.print_paragraphs([
                     ["During an attempt to clean up old directory structure elements",1,"red"],
                     ["an unrecoverable issue was encountered by nodectl.",2,"red"],
@@ -855,7 +863,7 @@ class Error_codes():
                     ["and contact a Constellation Administrator.",2,"magenta"],
                 ])
             elif var.extra2:
-                self.log.logger.error(f"error code [{self.error_code}] error found [{var.extra2}]")
+                self.log.logger[self.log_key].error(f"error code [{self.error_code}] error found [{var.extra2}]")
            
         self.print_error()
            

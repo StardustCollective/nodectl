@@ -31,7 +31,8 @@ class Configurator():
     
     def __init__(self,argv_list):
         self.log = Logging()
-        self.log.logger.info("configurator request initialized")
+        self.log_key = "main"
+        self.log.logger[self.log_key].info("configurator request initialized")
 
         self.config_path = "/var/tessellation/nodectl/"
         self.config_file = "cn-config.yaml"
@@ -68,6 +69,7 @@ class Configurator():
 
         self.edit_error_msg = ""
         self.detailed = "init"
+        
         if "-a" in argv_list: self.detailed = False
         elif "-d" in argv_list: self.detailed = True
         if "mobile" in argv_list: self.mobile = True
@@ -101,9 +103,9 @@ class Configurator():
 
         if "--installer" in argv_list or "--upgrader" in argv_list:
             if "--installer" in argv_list:
-                self.log.logger.info("installation module creating new configuration object")
+                self.log.logger[self.log_key].info("installation module creating new configuration object")
             else:
-                self.log.logger.info("upgrader module creating new configuration object")
+                self.log.logger[self.log_key].info("upgrader module creating new configuration object")
             # upgrader will use same elements as installer
             self.installer = True
             self.action = "install"
@@ -134,7 +136,7 @@ class Configurator():
                 if option == "status": 
                     self.is_file_backedup = True # skip backup for status check
         except:
-            self.log.logger.error(f"configurator -> handle_single_options -> invalid option: [{option}]")
+            self.log.logger[self.log_key].error(f"configurator -> handle_single_options -> invalid option: [{option}]")
         else:
             send_error = False
 
@@ -189,12 +191,12 @@ class Configurator():
         try:
             self.hypergraph = self.c.config_obj["global_elements"]["metagraph_name"]
         except:
-            self.log.logger.warning("configurator -> prepare_config -> missing Hypergraph/metagraph type")
+            self.log.logger[self.log_key].warning("configurator -> prepare_config -> missing Hypergraph/metagraph type")
 
         try:
             self.alerting_config = {**self.c.config_obj["global_elements"]["alerting"]}
         except:
-            self.log.logger.debug("configuration did not find any alerting configuration")
+            self.log.logger[self.log_key].debug("configuration did not find any alerting configuration")
             self.alerting_config = False
 
         self.c.config_obj["global_elements"] = {"caller":"config"}
@@ -650,8 +652,8 @@ class Configurator():
                     self.prepare_configuration(prepare_action)
                 self.config_obj["global_p12"] = self.c.config_obj["global_p12"]
                 if self.c.error_found:
-                    self.log.logger.critical("Attempting to pull existing p12 information for the configuration file failed.  Valid inputs did not exist.")
-                    self.log.logger.error(f"configurator was unable to retrieve p12 detail information during a configuration [{self.action}]")
+                    self.log.logger[self.log_key].critical("Attempting to pull existing p12 information for the configuration file failed.  Valid inputs did not exist.")
+                    self.log.logger[self.log_key].error(f"configurator was unable to retrieve p12 detail information during a configuration [{self.action}]")
                     self.print_error()
                 self.prepare_configuration("new_config")
                 self.c.functions.print_cmd_status({
@@ -1029,7 +1031,7 @@ class Configurator():
         
 
     def build_dir_structure(self):
-        self.log.logger.info("configurator -> build_dir_structure -> dynamic elements")
+        self.log.logger[self.log_key].info("configurator -> build_dir_structure -> dynamic elements")
 
         self.c.functions.print_header_title({
             "line1": "SETUP DIRECTORIES",
@@ -1049,7 +1051,7 @@ class Configurator():
                 "delay": .1,
             })  
         
-        self.log.logger.info("configurator -> build_dir_structure -> creating directory structure data, backups, and uploads") 
+        self.log.logger[self.log_key].info("configurator -> build_dir_structure -> creating directory structure data, backups, and uploads") 
 
         m_progress = {
             "text_start": "Creating",
@@ -1468,7 +1470,7 @@ class Configurator():
                     except Exception as e:
                         if "custom_" in item: 
                             custom = True
-                            self.log.logger.debug(f"Did not find custom variable in config, skipping [{item}] | [{e}]")
+                            self.log.logger[self.log_key].debug(f"Did not find custom variable in config, skipping [{item}] | [{e}]")
                         else:
                             self.error_messages.error_code_messages({
                                 "error_code": "cfr-1046",
@@ -1619,7 +1621,7 @@ class Configurator():
         try: 
             _ = int(self.c.config_obj[profile]["layer"])
         except:
-            self.log.logger.error(f'invalid blockchain layer entered [{self.c.config_obj[profile]["layer"]}] cannot continue')
+            self.log.logger[self.log_key].error(f'invalid blockchain layer entered [{self.c.config_obj[profile]["layer"]}] cannot continue')
             self.error_messages.error_code_messages({
                 "error_code": "cfr-369",
                 "line_code": "invalid_layer",
@@ -3627,10 +3629,10 @@ class Configurator():
         
         if new_profile in self.metagraph_list:
             if new_profile == old_profile:
-                self.log.logger.error(f"Attempt to change profile names that match, taking no action | new [{new_profile}] -> old [{old_profile}].")
+                self.log.logger[self.log_key].error(f"Attempt to change profile names that match, taking no action | new [{new_profile}] -> old [{old_profile}].")
                 prompt = f"{new_profile} equals {old_profile}, nothing to do!"
             else:
-                self.log.logger.error(f"Attempt to change profile name already exists for another profile in this configuration, taking no action | new [{new_profile}] -> old [{old_profile}]")
+                self.log.logger[self.log_key].error(f"Attempt to change profile name already exists for another profile in this configuration, taking no action | new [{new_profile}] -> old [{old_profile}]")
                 prompt = f"{new_profile} already exists for another configured profile in your configuration."
                 
             self.c.functions.print_paragraphs([
@@ -3746,7 +3748,7 @@ class Configurator():
             "status": "running"
         }
         self.c.functions.print_cmd_status(progress)
-        self.log.logger.debug(f"configurator edit request - moving [{old_profile}] to [{new_profile}]")
+        self.log.logger[self.log_key].debug(f"configurator edit request - moving [{old_profile}] to [{new_profile}]")
         
         try: 
             move(f"/var/tessellation/{old_profile}/",f"/var/tessellation/{new_profile}/")
@@ -3762,7 +3764,7 @@ class Configurator():
             "newline": True,
         })  
         
-        self.log.logger.info(f"Changed profile names | new [{new_profile}] -> old [{old_profile}]")
+        self.log.logger[self.log_key].info(f"Changed profile names | new [{new_profile}] -> old [{old_profile}]")
         self.c.functions.print_any_key({})
         return new_profile
                
@@ -3870,7 +3872,7 @@ class Configurator():
             enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
             enc_pass = f"{enc_pass}"
         except:
-            self.log.logger.error("Unable to find passphrase in configuration file.")
+            self.log.logger[self.log_key].error("Unable to find passphrase in configuration file.")
             pass_error = True
 
         if caller != "configurator" and enc_pass == "None":
@@ -3931,7 +3933,7 @@ class Configurator():
             if not hashed: raise Exception("hashing issue")
             if not enc_key: raise Exception("encryption generation issue")
         except Exception as e:
-            self.log.logger.critical(f"configurator --> [{e}]")
+            self.log.logger[self.log_key].critical(f"configurator --> [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "cfr-3110",
                 "line_code": "system_error",
@@ -3977,7 +3979,7 @@ class Configurator():
 
 
     def passphrase_enable_disable_encryption(self,caller):
-        self.log.logger.info("configurator -> encryption method envoked.")
+        self.log.logger[self.log_key].info("configurator -> encryption method envoked.")
 
         if self.action != "install": 
             _ = self.c.functions.process_command({"proc_action": "clear"})
@@ -3985,7 +3987,7 @@ class Configurator():
         enable = False if self.c.config_obj["global_p12"]["encryption"] else True
 
         if self.action == "install" and not enable:
-            self.log.logger.warning("configurator -> During install or upgrade -> encryption found enabled already.")
+            self.log.logger[self.log_key].warning("configurator -> During install or upgrade -> encryption found enabled already.")
             return
         
         efp = "/etc/security/"
@@ -4050,9 +4052,9 @@ class Configurator():
             if not efp_error: 
                 try: remove(effp)  
                 except:
-                    self.log.logger.warning("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
+                    self.log.logger[self.log_key].warning("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
             if efp_error:
-                self.log.logger.error("configurator -> encryption service -> unable to find necessary file system distribution file security. Is this a Debian OS?")
+                self.log.logger[self.log_key].error("configurator -> encryption service -> unable to find necessary file system distribution file security. Is this a Debian OS?")
                 self.error_messages.error_code_messages({
                     "error_code": "cfr-3150",
                     "line_code": "system_error",
@@ -4078,14 +4080,14 @@ class Configurator():
                     else:
                         if not self.quick_install:
                             cprint("\n  please wait...","magenta")
-                            self.log.logger.warning(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
+                            self.log.logger[self.log_key].warning(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
 
                 if fe == "skip": continue
 
                 if test_p == pass3:
-                    self.log.logger.info(f"configurator -> profile [{profile}] encryption tests passed, continuing")
+                    self.log.logger[self.log_key].info(f"configurator -> profile [{profile}] encryption tests passed, continuing")
                 else:
-                    self.log.logger.error(f"configurator -> profile [{profile}] unable to properly encrypt, aborting encryption")
+                    self.log.logger[self.log_key].error(f"configurator -> profile [{profile}] unable to properly encrypt, aborting encryption")
                     if not self.quick_install:
                         self.c.functions.print_paragraphs([
                             [" ERROR ",0,"yellow,on_red"], ["During attempts to encrypt the passphrase and invalid SHA hash produced and nodectl was",0,"red"],
@@ -4342,13 +4344,13 @@ class Configurator():
                         try:
                             makedirs(new_path)
                         except Exception as e:
-                            self.log.logger.error(f"unable to create new [{new_path}] directory from configurator - migration issue | error [{e}]")
+                            self.log.logger[self.log_key].error(f"unable to create new [{new_path}] directory from configurator - migration issue | error [{e}]")
                             file_dir_error(directory, new_path)
                             do_migration = False
 
                     if do_migration:
                         if not path.exists(old_path) and old_path != "disable":
-                            self.log.logger.error(f"unable to find [old] directory from configurator - unable to migrate. | old path not found [{old_path}]")
+                            self.log.logger[self.log_key].error(f"unable to find [old] directory from configurator - unable to migrate. | old path not found [{old_path}]")
                             file_dir_error(directory, new_path)
                             do_migration = False
                         elif old_path != "disable":
@@ -4440,7 +4442,7 @@ class Configurator():
     def cleanup_old_profiles(self):
         cleanup = True
         clean_up_old_list = []
-        self.log.logger.info("configurator is verifying old profile cleanup.")
+        self.log.logger[self.log_key].info("configurator is verifying old profile cleanup.")
         
         self.c.functions.print_header_title({
             "line1": "CLEAN UP OLD PROFILES",
@@ -4454,7 +4456,7 @@ class Configurator():
         #     if old_profile not in self.config_obj.keys():
         #         cleanup = True
         #         clean_up_old_list.append(old_profile)
-        #         self.log.logger.warning(f"configuration found abandoned profile [{old_profile}]")
+        #         self.log.logger[self.log_key].warning(f"configuration found abandoned profile [{old_profile}]")
         
         # for old_profile in clean_up_old_list:
         #     self.c.functions.print_cmd_status({
@@ -4470,7 +4472,7 @@ class Configurator():
         old_profiles = self.c.functions.clear_global_profiles(old_profiles)
         try:
             for old_profile in old_profiles:
-                self.log.logger.warning(f"configuration found possible abandoned profile [{old_profile}]")
+                self.log.logger[self.log_key].warning(f"configuration found possible abandoned profile [{old_profile}]")
                 self.c.functions.print_cmd_status({
                     "text_start": "Abandoned",
                     "brackets": old_profile,
@@ -4510,9 +4512,9 @@ class Configurator():
                                 }) 
                             rmtree(f"/var/tessellation/{profile}")
                             self.c.functions.event = False
-                            self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
+                            self.log.logger[self.log_key].info(f"configuration removed abandoned profile [{profile}]")      
                         else:
-                            self.log.logger.warning(f"configuration attempted to remove abandoned profile [{profile}] but not found, skipping")   
+                            self.log.logger[self.log_key].warning(f"configuration attempted to remove abandoned profile [{profile}] but not found, skipping")   
                             clean_action = "skipped"
                             clean_color = "yellow"   
 
@@ -4546,7 +4548,7 @@ class Configurator():
     def cleanup_service_files(self,delete=True):
         cleanup, print_abandoned = False, False
         clean_up_old_list = []
-        self.log.logger.info("configurator is verifying old service file cleanup.")
+        self.log.logger[self.log_key].info("configurator is verifying old service file cleanup.")
         
         self.c.functions.print_header_title({
             "line1": "CLEAN UP OLD SERVICE FILES",
@@ -4578,7 +4580,7 @@ class Configurator():
                         "layer": self.old_last_cnconfig[old_profile]["layer"],
                         "env": self.old_last_cnconfig[old_profile]["environment"],
                     })
-                    self.log.logger.warning(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
+                    self.log.logger[self.log_key].warning(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
 
         if not self.config_obj:
             self.config_obj = deepcopy(self.c.config_obj)
@@ -4602,7 +4604,7 @@ class Configurator():
                     clean_up_old_list.pop(clean_up_old_list.index(old_profile))
                 else: print_abandoned = True
             except Exception as e:
-                self.log.logger.error(f"configurator --> cleaning up services found new configuration - skipping [{e}]")
+                self.log.logger[self.log_key].error(f"configurator --> cleaning up services found new configuration - skipping [{e}]")
                 print_abandoned = True
                 
             if print_abandoned:
@@ -4637,7 +4639,7 @@ class Configurator():
                     service_name = f"cnng-{service}.service"
                     if path.isfile(f"/etc/systemd/system/{service_name}"):
                         remove(f"/etc/systemd/system/{service_name}")
-                        self.log.logger.info(f"configuration removed abandoned service file [{service_name}]")      
+                        self.log.logger[self.log_key].info(f"configuration removed abandoned service file [{service_name}]")      
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
                         "brackets": service,
@@ -4653,7 +4655,7 @@ class Configurator():
                     
                         
     def cleanup_create_snapshot_dirs(self):
-        self.log.logger.info("configurator is verifying snapshot data directory existence and contents.")
+        self.log.logger[self.log_key].info("configurator is verifying snapshot data directory existence and contents.")
                     
         # this will look at the new configuration and if it sees that a config
         # with the same name (or the same config) has data snapshots, it will
@@ -4668,7 +4670,7 @@ class Configurator():
         try:
             old_metagraph_list = self.c.functions.clear_global_profiles(self.old_last_cnconfig)
         except Exception as e:
-            self.log.logger.error(f"configurator -> metagraph list error [{e}]")
+            self.log.logger[self.log_key].error(f"configurator -> metagraph list error [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "cfr-3215",
                 "line_code": "config_error",
@@ -4687,13 +4689,13 @@ class Configurator():
                 
                 for lookup_path in found_snap_list:
                     if path.isdir(lookup_path) and listdir(lookup_path):
-                        self.log.logger.warning("configurator found snapshots during creation of a new configuration.")
+                        self.log.logger[self.log_key].warning("configurator found snapshots during creation of a new configuration.")
                         found_snap = True
                 
                     if found_snap:
                         found_snap = False
                         lookup_path_abbrv = lookup_path.split("/")[-1]
-                        self.log.logger.info("configurator cleaning up old snapshots")
+                        self.log.logger[self.log_key].info("configurator cleaning up old snapshots")
                         self.c.functions.print_paragraphs([
                             ["",1], ["An existing",0], ["snapshot",0,"cyan","bold"],
                             ["directory structure exists",1], 
@@ -4731,7 +4733,7 @@ class Configurator():
                             })  
                             sleep(1.5) # allow Node Operator to see results
                         else:
-                            self.log.logger.critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.") 
+                            self.log.logger[self.log_key].critical("during build of a new configuration, snapshots may have been found and Node Operator declined to remove, unexpected issues by arise.") 
 
 
         for profile in self.metagraph_list:
@@ -4898,7 +4900,7 @@ class Configurator():
         })
                     
         if not self.c.configurator_verified:
-            self.log.logger.error(self.edit_error_msg)
+            self.log.logger[self.log_key].error(self.edit_error_msg)
             self.print_error()   
         
                   
@@ -5100,7 +5102,7 @@ class Configurator():
         if backup_dir == "default": backup_dir = "/var/tessellation/backups/"  
                   
         if backup_dir == "empty":
-            self.log.logger.warning("backup migration skipped.")
+            self.log.logger[self.log_key].warning("backup migration skipped.")
             if self.detailed:
                 self.c.functions.print_paragraphs([
                     ["",1], ["While attempting to migrate backups from a temporary location the Configurator was not able",0,"red"],
@@ -5115,7 +5117,7 @@ class Configurator():
                 "bashCommand": f"mv {self.config_path}backup_cn-config_* {backup_dir}",
                 "proc_action": "subprocess_devnull",
             })
-            self.log.logger.info(f"configurator migrated all [{self.config_file}] backups to first known backup directory")
+            self.log.logger[self.log_key].info(f"configurator migrated all [{self.config_file}] backups to first known backup directory")
     
                           
 if __name__ == "__main__":

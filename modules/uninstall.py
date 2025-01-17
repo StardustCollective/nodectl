@@ -59,7 +59,7 @@ def start_uninstall(functions,log):
         "exit_if": True
     })
 
-    log.logger.info("uninstaller initialized --> beginning nodectl removal")
+    log.logger["main"].info("uninstaller initialized --> beginning nodectl removal")
     functions.print_header_title({
         "line1": "BEGINNING UNINSTALL",
         "single_line": True,
@@ -98,7 +98,7 @@ def discover_data(services,p12s):
 def remove_data(functions,log,install=False,quiet=False):
     install_type = "uninstaller"
     if install: install_type = "installer"
-    log.logger.info(f"{install_type} -> removing Node data")
+    log.logger["main"].info(f"{install_type} -> removing Node data")
 
     # first element is the title
     d_dirs = ["data","/var/tessellation"]
@@ -109,7 +109,7 @@ def remove_data(functions,log,install=False,quiet=False):
     try:
         node_admins = [functions.config_obj["global_p12"]["nodeadmin"]]
     except:
-        log.logger.warning(f"{install_type} -> did not find any existing Node admins")
+        log.logger["main"].warning(f"{install_type} -> did not find any existing Node admins")
 
     if install:
         retain_log = True
@@ -123,7 +123,7 @@ def remove_data(functions,log,install=False,quiet=False):
             "exit_if": False
         })
     if retain_log:
-        log.logger.info("retaining nodectl.log in [/var/tmp/] as [nodectl.log]")
+        log.logger["main"].info("retaining nodectl.log in [/var/tmp/] as [nodectl.log]")
         if not install:
             functions.print_paragraphs([
                 ["nodectl logs will be located here:",1],
@@ -149,7 +149,7 @@ def remove_data(functions,log,install=False,quiet=False):
             "exit_if": False
         })
     if retain_p12:
-        log.logger.info("retaining node p12 files in [/var/tmp/]")
+        log.logger["main"].info("retaining node p12 files in [/var/tmp/]")
         if not install:
             functions.print_paragraphs([
                 ["nodectl p12s will be located here:",1],
@@ -160,7 +160,7 @@ def remove_data(functions,log,install=False,quiet=False):
         if not quiet:
             print(colored("  Handling removal of existing Node data","cyan"),end="\r")
         if path.isdir("/home/nodeadmin"):
-            log.logger.warning(f"{install_type} -> found nodeadmin user, removed")
+            log.logger["main"].warning(f"{install_type} -> found nodeadmin user, removed")
             remove_admins(functions,["nodeadmin"],log,True)
     else:
         for profile in functions.profile_names:
@@ -231,7 +231,7 @@ def remove_data(functions,log,install=False,quiet=False):
                                     if not path.isfile(p12_file_tmp_copy):
                                         p12_file_tmp = p12_file_tmp_copy
                                         break
-                            log.logger.info(f"{install_type} -> moving p12 [{path.split(p12_file_tmp)[1]}] to [{path.split(p12_file_tmp)[0]}].")
+                            log.logger["main"].info(f"{install_type} -> moving p12 [{path.split(p12_file_tmp)[1]}] to [{path.split(p12_file_tmp)[0]}].")
                             shutil.copy2(p12_file_path, p12_file_tmp)
 
         command = f"Removing Node related data"
@@ -296,15 +296,15 @@ def remove_data(functions,log,install=False,quiet=False):
         shutil.copy2("/var/tmp/nodectl.log","/var/tessellation/nodectl/nodectl.log")
 
     for log_item in log_list:
-        if log_item[0] == "info": log.logger.info(log_item[1])
-        if log_item[0] == "warn": log.logger.warning(log_item[1])
+        if log_item[0] == "info": log.logger["main"].info(log_item[1])
+        if log_item[0] == "warn": log.logger["main"].warning(log_item[1])
 
     if not install:
         return node_admins # for remove_admins function
 
 
 def restore_user_access(cli,functions,log):
-    log.logger.info("uninstaller -> attempting to restore originally user access.")
+    log.logger["main"].info("uninstaller -> attempting to restore originally user access.")
     restore_users = []
     found_error = False
     
@@ -316,7 +316,7 @@ def restore_user_access(cli,functions,log):
         if exists:
             restore_users.append(user)
     if len(restore_users) > 0:
-        log.logger.info(f"uninstaller -> restoring [{restore_users}]")
+        log.logger["main"].info(f"uninstaller -> restoring [{restore_users}]")
         for user in restore_users:
                 skip_reload = False if user == restore_users[-1] else True
                 command = f"Restoring {user} SSH access"
@@ -331,7 +331,7 @@ def restore_user_access(cli,functions,log):
                 })
                 
                 if result: 
-                    log.logger.error(f"uninstaller -> restoring [{restore_users}] result [{result}]")
+                    log.logger["main"].error(f"uninstaller -> restoring [{restore_users}] result [{result}]")
                     found_error = True
                     result = result.split(" ")[0]
                 print_status(functions,command,False,False,result)
@@ -348,7 +348,7 @@ def restore_user_access(cli,functions,log):
 def remove_admins(functions,node_admins,log,install=False):
     install_type = "uninstaller"
     if install: install_type = "installer"
-    log.logger.info(f"{install_type} -> handling removal of nodectl Node Admin roles. admins {node_admins}")
+    log.logger["main"].info(f"{install_type} -> handling removal of nodectl Node Admin roles. admins {node_admins}")
     # remove nodeadmin
     if environ.get('SUDO_USER',None) in node_admins:
         node_admins = [user for user in node_admins if user != environ.get('SUDO_USER',None)] # remove admin from list
@@ -371,7 +371,7 @@ def remove_admins(functions,node_admins,log,install=False):
                     "proc_action": "subprocess_run_pipe", 
                 })      
                 if not result:
-                    log.logger.warning(f"{install_type} -> unable to remove [{node_admin}] user, please review server structure and perform manual removal if necessary.")
+                    log.logger["main"].warning(f"{install_type} -> unable to remove [{node_admin}] user, please review server structure and perform manual removal if necessary.")
                     if not install:
                         functions.print_paragraphs([
                             [" WARNING ",0,"yellow,on_red"], ["unable to remove",0,"red"],
@@ -405,7 +405,7 @@ def finish_uninstall(functions):
 
 
 def stop_services(functions, node_service,log):
-    log.logger.info("uninstaller -> leaving and stopping any active services gracefully.")
+    log.logger["main"].info("uninstaller -> leaving and stopping any active services gracefully.")
     
     def process_profile(profile):
         node_service.leave_cluster({
@@ -438,7 +438,7 @@ def stop_services(functions, node_service,log):
         except:
             status = "incomplete"
             color = "magenta"
-            log.logger.warning(f"uninstaller -> may have been an issue stopping and disabling the {cmd[1]} service.")
+            log.logger["main"].warning(f"uninstaller -> may have been an issue stopping and disabling the {cmd[1]} service.")
         if cmd[1] is not None:
             action = "Stopping"
             if "disable" in cmd[0]:

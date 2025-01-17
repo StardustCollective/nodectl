@@ -25,11 +25,12 @@ class DownloadStatus():
         
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
+        self.log_key = self.config_obj["global_elements"]["log_key"]
         self.error_messages = Error_codes(self.config_obj) 
         self.valid_output_received = False
         
         self.log = self.parent.log
-        self.log.logger.info("DownloadStatus module initiated")
+        self.log.logger[self.log_key].info("DownloadStatus module initiated")
         
         self.estimated_finished = "calculating..."
         self.remaining_time = -1
@@ -115,12 +116,12 @@ class DownloadStatus():
                         try:
                             dip_details.append(json.loads(line))
                         except json.JSONDecodeError as e:
-                            self.log.logger.warning(f"download_status -> Unable to parse JSON from log -> decoding error: [{e}]") 
+                            self.log.logger[self.log_key].warning(f"download_status -> Unable to parse JSON from log -> decoding error: [{e}]") 
                         if n > 249 and not self.initialize: break  
                     self.functions.event = False
                           
         except Exception as e:
-            self.log.logger.warning(f"download_status -> Unable to open JSON from log -> error: [{e}]") 
+            self.log.logger[self.log_key].warning(f"download_status -> Unable to open JSON from log -> error: [{e}]") 
             
         for cmd in self.cmds:
             for n, j_obj in enumerate(dip_details):
@@ -268,12 +269,12 @@ class DownloadStatus():
             hash_marks = int((self.dip_vals.percentage/100)*columns)
             self.dip_vals.hash_marks = "#"*hash_marks + "." * (columns - hash_marks)
         except ZeroDivisionError:
-            self.log.logger.error(f"download_status - attempting to derive hash progress indicator resulted in [ZeroDivisionError]")
+            self.log.logger[self.log_key].error(f"download_status - attempting to derive hash progress indicator resulted in [ZeroDivisionError]")
         
         try:
             _ = f"{self.dip_vals.hash_marks}"
         except Exception as e:
-            self.log.logger.warning(f"download_status - formatting error on dynamic string creation - [{e}]")
+            self.log.logger[self.log_key].warning(f"download_status - formatting error on dynamic string creation - [{e}]")
             self.dip_vals.hash_marks = self.dip_vals.last_hash_marks
         
         if self.dip_vals.percentage1 < 0: 
@@ -291,7 +292,7 @@ class DownloadStatus():
             # snapshot_percent = int((self.dip_vals.percent_weight1 / 100.0) * self.dip_vals.percentage1)
             # self.dip_vals.percentage = height_percent + snapshot_percent
         except ZeroDivisionError as e:
-            self.log.logger.error(f"download_status - attempting to derive percenter resulted in [ZeroDivisionError] as [{e}]")
+            self.log.logger[self.log_key].error(f"download_status - attempting to derive percenter resulted in [ZeroDivisionError] as [{e}]")
             
         if self.dip_vals.percentage < 1: self.dip_vals.percentage = 1
         if self.dip_vals.percentage > 99: self.dip_vals.percentage = 99    
@@ -568,7 +569,7 @@ class DownloadStatus():
         
             if "-p" in self.command_list:
                 self.profile = self.command_list[self.command_list.index("-p")+1]
-                self.log.logger.info(f"download_status called and using profile [{self.profile}]")
+                self.log.logger[self.log_key].info(f"download_status called and using profile [{self.profile}]")
             else: self.command_list.append("help")
             
             self.functions.check_for_help(self.command_list,"download_status")
@@ -585,7 +586,7 @@ class DownloadStatus():
             self.initialize = False    
                     
             if self.caller == "status":
-                self.log.logger.info(f'download_status - ordinal/snapshot lookup found | target download [{self.dip_status}] ')
+                self.log.logger[self.log_key].info(f'download_status - ordinal/snapshot lookup found | target download [{self.dip_status}] ')
                 if self.dip_status["current"] == -1: self.dip_status["current"] = self.dip_status["latest"]
                 return self.dip_status
             
@@ -644,9 +645,9 @@ class DownloadStatus():
                     
                     if "--snapshot" in self.command_list: break
             except TypeError as e:
-                self.log.logger.error(f"DownloadStatus -> download_status -> TypeError [{e}] -> skipping update and restarting pass from [{dip_pass}] to [{dip_pass+1}]")
+                self.log.logger[self.log_key].error(f"DownloadStatus -> download_status -> TypeError [{e}] -> skipping update and restarting pass from [{dip_pass}] to [{dip_pass+1}]")
             except Exception as e:
-                self.log.logger.error(f"DownloadStatus -> download_status -> Error [{e}] -> skipping update and restarting pass from [{dip_pass}] to [{dip_pass+1}]")
+                self.log.logger[self.log_key].error(f"DownloadStatus -> download_status -> Error [{e}] -> skipping update and restarting pass from [{dip_pass}] to [{dip_pass+1}]")
 
             if "--snapshot" in self.command_list or self.terminate_program: 
                 self.clear_and_exit()

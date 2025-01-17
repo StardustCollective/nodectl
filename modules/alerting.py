@@ -21,15 +21,15 @@ def prepare_datetime_stamp(functions,time_zone,log):
             })
         except Exception as e:
             time_zone_str = ", ".join(pytz.all_timezones)
-            log.logger.error(f"alerting module -> setting time stamp error skipping [{time_zone}] error [{e}]")
-            log.logger.warning(f"alerting module -> available timezones are: [{time_zone_str}]")
+            log.logger["main"].error(f"alerting module -> setting time stamp error skipping [{time_zone}] error [{e}]")
+            log.logger["main"].warning(f"alerting module -> available timezones are: [{time_zone_str}]")
             local_stamp = "Disabled"
 
     return (utc_stamp, local_stamp)
 
 
 def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
-    log.logger.info("alerting module -> prepare report requested")
+    log.logger["main"].info("alerting module -> prepare report requested")
 
     utc_time, local_time = prepare_datetime_stamp(functions, comm_obj["local_time_zone"], log)
 
@@ -66,9 +66,9 @@ def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
         return "skip" # we don't want to send an alert
 
     if alert_profile == "clear" or alert_profile == "test":
-        log.logger.info(f"alerting module -> sending alert [alert {alert_profile}]")
+        log.logger["main"].info(f"alerting module -> sending alert [alert {alert_profile}]")
     else:
-        log.logger.info(f"alerting module -> sending alert [{alert_profile[profile]['action']}]")
+        log.logger["main"].info(f"alerting module -> sending alert [{alert_profile[profile]['action']}]")
     send_email(comm_obj,body,log)
     return "complete"
 
@@ -117,7 +117,7 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
             end = report_data["end_time"].strftime('%Y-%m-%d %H:%M:%S')
 
     except Exception as e:
-        log.logger.error(f"alerting -> send report failed with [{e}]")
+        log.logger["main"].error(f"alerting -> send report failed with [{e}]")
         return # skip report if an error occurred
     
     body = "NODECTL REPORT\n"
@@ -162,7 +162,7 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
     body += f"\nEnd Report"
     send_email(comm_obj,body,log)
 
-    log.logger.info("alerting module -> prepare report requested")
+    log.logger["main"].info("alerting module -> prepare report requested")
 
 
 def send_email(comm_obj,body,log):
@@ -175,7 +175,7 @@ def send_email(comm_obj,body,log):
                         continue
                     send_to += f", {recipient}"
             except:
-                log.logger.error(f"alerting module -> unable to figure out recipients to send alert/report to: [{comm_obj['recipients']}]")
+                log.logger["main"].error(f"alerting module -> unable to figure out recipients to send alert/report to: [{comm_obj['recipients']}]")
                 return
 
     server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -192,7 +192,7 @@ def send_email(comm_obj,body,log):
         msg.attach(MIMEText(body, 'plain'))
 
         text = msg.as_string()
-        log.logger.info(f"alerting module -> email alert/report sent to: [{email}]")
+        log.logger["main"].info(f"alerting module -> email alert/report sent to: [{email}]")
         server.sendmail(comm_obj["gmail"], email, text)
         if comm_obj["send_method"] == "single": 
             break

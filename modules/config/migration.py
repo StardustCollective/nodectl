@@ -22,7 +22,7 @@ class Migration():
         })
         self.log = Logging()
         self.functions.log = self.log
-        self.log.logger.debug("migration process started...")
+        self.log.logger[self.log_key].debug("migration process started...")
         self.errors = Error_codes(self.functions)
         self.caller = command_obj.get("caller","default")
         self.retention = {}
@@ -67,7 +67,7 @@ class Migration():
         try:
             self.profiles = self.functions.clear_global_profiles(list(self.config_obj.keys()))
         except:
-            self.log.logger.error("migration module unable to pull profiles from the configuration")
+            self.log.logger[self.log_key].error("migration module unable to pull profiles from the configuration")
             upgrade_error = True
 
         return upgrade_error
@@ -120,7 +120,7 @@ class Migration():
             ))
             if yaml_version == "current_less":
                 # This version of nodectl needs to follow an upgrade path to migrate properly
-                self.log.logger.warning(f'migration module determined incorrect nodectl yaml version | [{self.config_obj["global_elements"]["nodectl_yaml"]}]')
+                self.log.logger[self.log_key].warning(f'migration module determined incorrect nodectl yaml version | [{self.config_obj["global_elements"]["nodectl_yaml"]}]')
                 upgrade_error = True
         except:
             upgrade_error = True
@@ -156,7 +156,7 @@ class Migration():
                     
         for requirement in requirements.values():
             if requirement > 0:
-                self.log.logger.error(f'migration module determined possible nodectl configuration yaml error, unable to continue') 
+                self.log.logger[self.log_key].error(f'migration module determined possible nodectl configuration yaml error, unable to continue') 
                 valid = False
                 
         if not valid:
@@ -167,7 +167,7 @@ class Migration():
                 "extra2": None
             })
         
-        self.log.logger.info(f'migration module quick verification of previous configuration is valid, continuing migration')
+        self.log.logger[self.log_key].info(f'migration module quick verification of previous configuration is valid, continuing migration')
         return True
         
 
@@ -219,7 +219,7 @@ class Migration():
         datetime = self.functions.get_date_time({"action":"datetime"})
         dest = f"{backup_dir}backup_cn-config_{datetime}"
 
-        self.log.logger.debug(f'migration module backing up the configuration to [{dest}]')
+        self.log.logger[self.log_key].debug(f'migration module backing up the configuration to [{dest}]')
         if path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
             move(f"{self.functions.nodectl_path}cn-config.yaml",dest)     
             chmod(dest,0o600) 
@@ -232,7 +232,7 @@ class Migration():
             "delay": .8
         })
         
-        self.log.logger.warning("backing up cn-config.yaml file to default backup directory from original configuration, this file should be removed at a later date.")
+        self.log.logger[self.log_key].warning("backing up cn-config.yaml file to default backup directory from original configuration, this file should be removed at a later date.")
         
         self.functions.print_paragraphs([
             ["",1], [" DANGER ",0,"yellow,on_red"], ["The backup configuration YAML file",0,"red","bold"], 
@@ -323,7 +323,7 @@ class Migration():
             key_value = self.config_obj[profile][key]
         except Exception as e:
             if default == "error": 
-                self.log.logger.error(f"migrator --> configuration key [{key}] not found but required. | [{e}]")
+                self.log.logger[self.log_key].error(f"migrator --> configuration key [{key}] not found but required. | [{e}]")
                 self.errors.error_code_messages({
                     "error_code": "mig-86",
                     "line_code": "config_error",
@@ -339,7 +339,7 @@ class Migration():
         # =======================================================
         # build yaml profile section
         # =======================================================
-        self.log.logger.debug('migration module building new configuration skelton')
+        self.log.logger[self.log_key].debug('migration module building new configuration skelton')
 
         # version 2.13 changes environment with hypergraph
         token_identifier = "disable"
@@ -501,7 +501,7 @@ class Migration():
         
         
     def confirm_config(self):
-        self.log.logger.info('migration module completed configuration build')
+        self.log.logger[self.log_key].info('migration module completed configuration build')
         self.functions.print_clear_line()
         self.functions.print_paragraphs([
             ["",1],["cn-config.yaml upgraded",1,"green"], 

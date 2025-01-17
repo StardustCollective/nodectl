@@ -23,6 +23,7 @@ class Send():
         self.log = Logging()
         self.command_list = command_obj["command_list"]
         self.config_obj = command_obj["config_obj"]
+        self.log_key = command_obj["global_elements"]["log_key"]
         
         self.functions = Functions(self.config_obj)
 
@@ -54,10 +55,10 @@ class Send():
                     if "Downloading snapshot" in log_entries[entry]:
                         snapshot_line = log_entries[entry]
                         ordinal_value = snapshot_line.split('SnapshotOrdinal{value=')[1].split('}')[0]
-                        self.log.logger.debug(f"send_log --> found last ordinal before WaitingForDownload state changed = [{ordinal_value}]")
+                        self.log.logger[self.log_key].debug(f"send_log --> found last ordinal before WaitingForDownload state changed = [{ordinal_value}]")
                         return ordinal_value
         else:
-            self.log.logger.error("send_log --> module unable to open or find log file.")
+            self.log.logger[self.log_key].error("send_log --> module unable to open or find log file.")
             return "not_found"
 
 
@@ -103,15 +104,15 @@ class Send():
             })
         
         if choice == "a":
-            self.log.logger.info(f"Request to upload Tessellation archive logs initiated")
+            self.log.logger[self.log_key].info(f"Request to upload Tessellation archive logs initiated")
             tar_package = self.listing_setup([archive_location])
                 
         if choice == "b":
-            self.log.logger.info(f"Request to upload backup Tessellation logs initiated")
+            self.log.logger[self.log_key].info(f"Request to upload backup Tessellation logs initiated")
             tar_package = self.listing_setup([backup_dest])      
             
         if choice == "d" or choice == "r":
-            self.log.logger.info(f"Request to upload Tessellation date specific logs")
+            self.log.logger[self.log_key].info(f"Request to upload Tessellation date specific logs")
             cprint("  Date format must be [YYYY-MM-DD]","white",attrs=["bold"])
             dates_obj = {
                 "location_dir": [archive_location],
@@ -142,7 +143,7 @@ class Send():
                 "text_start": "Current logs process started",
                 "newline": True,
             })
-            self.log.logger.info(f"Request to upload Tessellation current logs initiated")
+            self.log.logger[self.log_key].info(f"Request to upload Tessellation current logs initiated")
             tar_archive_dir = ""
             tar_creation_path = "/tmp/tess_logs"
 
@@ -158,7 +159,7 @@ class Send():
             
             with ThreadPoolExecutor() as executor:
                 self.functions.status_dots = True
-                self.log.logger.info(f"send_logs is building temporary tarball path and transferring files.")
+                self.log.logger[self.log_key].info(f"send_logs is building temporary tarball path and transferring files.")
                 
                 _ = executor.submit(self.functions.print_cmd_status,{
                     "text_start": "Transferring required files",
@@ -217,7 +218,7 @@ class Send():
 
         with ThreadPoolExecutor() as executor:
             self.functions.status_dots = True
-            self.log.logger.info(f"send_logs is building temporary tarball path and transferring files.")
+            self.log.logger[self.log_key].info(f"send_logs is building temporary tarball path and transferring files.")
             
             _ = executor.submit(self.functions.print_cmd_status,{
                 "text_start": "Generating gzip tarball",
@@ -233,7 +234,7 @@ class Send():
             })
 
             self.functions.status_dots = False
-            self.log.logger.info(f"tarball creation requested saved to [{tar_dest}] size [{dir_size}]")
+            self.log.logger[self.log_key].info(f"tarball creation requested saved to [{tar_dest}] size [{dir_size}]")
             self.functions.print_cmd_status({
                 "text_start": "Generating gzip tarball",
                 "status": "complete",
@@ -302,7 +303,7 @@ class Send():
             ])
 
         # clean up
-        self.log.logger.warning(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
+        self.log.logger[self.log_key].warning(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
         rmtree(tar_package['tar_creation_path'])
 
         self.functions.print_paragraphs([
@@ -449,7 +450,7 @@ class Send():
                                             continue
                                     return log_entry
                             except json.JSONDecodeError as e:
-                                self.log.logger.debug(f"send_log -> scrapping log found [{e}] retry [{time() - start_time}] of [{timeout}]")
+                                self.log.logger[self.log_key].debug(f"send_log -> scrapping log found [{e}] retry [{time() - start_time}] of [{timeout}]")
 
                             current_time = time()
                             if current_time - start_time > timeout: 
@@ -463,7 +464,7 @@ class Send():
                 return False
                           
         except Exception as e:
-            self.log.logger.warning(f"send_logs -> Reached an Exception -> error: [{e}]")  
+            self.log.logger[self.log_key].warning(f"send_logs -> Reached an Exception -> error: [{e}]")  
             if thread: self.functions.event = False  
             return False     
         

@@ -18,11 +18,13 @@ class Upgrader():
 
     def __init__(self,command_obj):
         self.log = Logging()
-        self.log.logger.info("System Upgrade called, initializing upgrade.")
+        self.log.logger[self.log_key].info("System Upgrade called, initializing upgrade.")
         
         self.parent = command_obj["parent"]
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
+        self.log_key = self.config_obj["global_elements"]["log_key"]
+        
         self.version_obj = self.parent.version_obj
         self.argv_list = command_obj["argv_list"]
         self.environment = command_obj.get("environment",False)
@@ -188,7 +190,7 @@ class Upgrader():
             msg_start = "Multiple network cluster environments were found on this system."
             if self.show_list and not environments["multiple_environments"]:
                 msg_start = "Show list of network clusters was requested."
-                self.log.logger.debug("Upgrade show list of environments requested")
+                self.log.logger[self.log_key].debug("Upgrade show list of environments requested")
             if self.environment:
                 msg_start = "Choose environment from list requested but environment request was entered at the command line."
                 self.functions.print_cmd_status({
@@ -201,7 +203,7 @@ class Upgrader():
                 print("")
 
             if environments["multiple_environments"] and not self.environment:
-                self.log.logger.debug(f"Upgrade found multiple network cluster environments on the same Node that may are supported by different versions of nodectl")
+                self.log.logger[self.log_key].debug(f"Upgrade found multiple network cluster environments on the same Node that may are supported by different versions of nodectl")
                 self.functions.print_paragraphs([
                     [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
                     ["Please select an environment by",0], ["key pressing",0,"yellow"], 
@@ -287,7 +289,7 @@ class Upgrader():
                 skip_warning_messages = False
                 
             if self.forced or skip_warning_messages:
-                self.log.logger.warning(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
+                self.log.logger[self.log_key].warning(f"an attempt to {self.install_upgrade} with an non-interactive mode detected {current}")  
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"red,on_yellow"], [f"non-interactive mode was detected, developer mode, or extra parameters were supplied to",0],
                     [f"this {self.install_upgrade}.",1],
@@ -295,7 +297,7 @@ class Upgrader():
                     ["own risk and decision.",2,"yellow","bold"]
                 ])
             else:
-                self.log.logger.warning(f"an attempt to upgrade with an older nodectl detected {current}")  
+                self.log.logger[self.log_key].warning(f"an attempt to upgrade with an older nodectl detected {current}")  
                 prompt_str = f"Are you sure you want to continue this upgrade?"
                 if not "-y" in self.argv_list: 
                     self.functions.confirm_action({
@@ -303,7 +305,7 @@ class Upgrader():
                         "return_on": "y",
                         "prompt": prompt_str,
                     })
-            self.log.logger.warning(f"upgrade executed with an older version of nodectl [{current}]") 
+            self.log.logger[self.log_key].warning(f"upgrade executed with an older version of nodectl [{current}]") 
 
         self.functions.print_cmd_status({
             **progress,
@@ -500,9 +502,9 @@ class Upgrader():
                 else:
                     break
                 
-            self.log.logger.info(f"upgrade handling versioning: profile [{profile}] tessellation latest [{found_tess_version}] current: [{running_tess_version}]")
+            self.log.logger[self.log_key].info(f"upgrade handling versioning: profile [{profile}] tessellation latest [{found_tess_version}] current: [{running_tess_version}]")
             if is_meta:
-                self.log.logger.info(f"upgrade handling versioning: profile [{profile}] {meta_type} latest [{metagraph_version}]")
+                self.log.logger[self.log_key].info(f"upgrade handling versioning: profile [{profile}] {meta_type} latest [{metagraph_version}]")
             
             self.functions.print_paragraphs([
                 ["Tess",0,"yellow"],["short hand for",0], 
@@ -712,7 +714,7 @@ class Upgrader():
             except Exception as e:
                 self.functions.event = False
                 self.functions.status_dots = False
-                self.log.logger.error(f"upgrader -> threaded leave request failed with [{e}]")
+                self.log.logger[self.log_key].error(f"upgrader -> threaded leave request failed with [{e}]")
                 self.error_messages.error_code_messages({
                     "error_code": error_code,
                     "line_code": "upgrade_failure",
@@ -722,7 +724,7 @@ class Upgrader():
 
 
     def upgrade_log_archive(self):
-        self.log.logger.info(f"logging and archiving prior to update.")
+        self.log.logger[self.log_key].info(f"logging and archiving prior to update.")
 
         to_clear = ["backups","uploads","logs"]
         action = "upgrade"
@@ -783,7 +785,7 @@ class Upgrader():
                     try:
                         makedirs(f_dir)
                     except Exception as e:
-                        self.log.logger.error(f"during the upgrade process nodectl could not find or create [{file_path}] due to [{e}]")
+                        self.log.logger[self.log_key].error(f"during the upgrade process nodectl could not find or create [{file_path}] due to [{e}]")
                         bu_status = "failed"
                         bu_color = "red"
                         overall_status = "incomplete"
@@ -803,7 +805,7 @@ class Upgrader():
                 elif not path.exists(f"/var/tessellation/{profile}/data") and  self.functions.config_obj[profile]["layer"] > 0: 
                     build_profile_dirs = True
                 if build_profile_dirs:
-                    self.log.logger.info(f"upgrader creating non-existent directories for core profile files | profile [{profile}]")
+                    self.log.logger[self.log_key].info(f"upgrader creating non-existent directories for core profile files | profile [{profile}]")
                     makedirs(f"/var/tessellation/{profile}/data")
 
                     
@@ -898,7 +900,7 @@ class Upgrader():
         for file in files:
             self.functions.remove_files(None,"modify_dynamic_elements",file)
 
-        self.log.logger.debug("upgrader -> cleaning up seed list files from root of [/var/tessellation]")
+        self.log.logger[self.log_key].debug("upgrader -> cleaning up seed list files from root of [/var/tessellation]")
         
         for env in ["testnet","mainnet","integrationnet"]:
             if path.isfile(f"/var/tessellation/{env}-seedlist"):
@@ -1054,7 +1056,7 @@ class Upgrader():
              
     def service_file_manipulation(self):
         # version older than 0.15.0 only
-        self.log.logger.warning(f"upgrader removing older <2.x.x service file if exists.")
+        self.log.logger[self.log_key].warning(f"upgrader removing older <2.x.x service file if exists.")
         
         # legacy service files
         progress = {
@@ -1095,7 +1097,7 @@ class Upgrader():
             "newline": True
         })
 
-        self.log.logger.info(f"upgrader refactoring service files based on cn-config.yaml as necessary.")
+        self.log.logger[self.log_key].info(f"upgrader refactoring service files based on cn-config.yaml as necessary.")
         progress = {
             "status": "running",
             "text_start": "Building >v2.0.0 Services Files",
@@ -1110,7 +1112,7 @@ class Upgrader():
             "newline": True
         })
         
-        self.log.logger.info(f"upgrader checking for profile name and/or service files changes from the cn-config.yaml.")
+        self.log.logger[self.log_key].info(f"upgrader checking for profile name and/or service files changes from the cn-config.yaml.")
         self.functions.print_paragraphs([
             ["In the event that the configuration yaml services changed nodectl will attempt to clean up old service files.",1,"blue","bold"],
         ])
@@ -1180,7 +1182,7 @@ class Upgrader():
         else:
             result = "skipped"
         
-        self.log.logger.info(f"during swap fix update: update swap file [{results[0]}] and add swappiness [{results[1]}]")
+        self.log.logger[self.log_key].info(f"during swap fix update: update swap file [{results[0]}] and add swappiness [{results[1]}]")
         self.functions.print_cmd_status({
             **progress,
             "status": result,
@@ -1226,7 +1228,7 @@ class Upgrader():
             
                 
     def reload_node_service(self):
-        self.log.logger.info("reloading systemctl service daemon")
+        self.log.logger[self.log_key].info("reloading systemctl service daemon")
         progress = {
             "text_start": "Reload the Node's services",
             "status": "running",
@@ -1245,7 +1247,7 @@ class Upgrader():
         })
         
         # version 2.10.0 requirement
-        self.log.logger.info("starting systemctl versioning service")
+        self.log.logger[self.log_key].info("starting systemctl versioning service")
         progress = {
             "text_start": "Starting versioning updater",
             "status": "running",
@@ -1328,7 +1330,7 @@ class Upgrader():
             "req": "service",
             "profile": profile,
         })
-        self.log.logger.info(f'check for api results: service [{service}] state [{state}]')
+        self.log.logger[self.log_key].info(f'check for api results: service [{service}] state [{state}]')
 
 
     def check_for_link_success(self,profile):
@@ -1339,7 +1341,7 @@ class Upgrader():
                     if not self.profile_progress[link_profile]["ready_to_join"]:
                         return link_type
         except Exception as e:
-            self.log.logger.error(f"upgrader ran into error on check_for_link_success | error [{e}]")
+            self.log.logger[self.log_key].error(f"upgrader ran into error on check_for_link_success | error [{e}]")
             
         return False
 
@@ -1351,7 +1353,7 @@ class Upgrader():
             if not join_check_error:    
                 self.cli.node_service.set_profile(profile)
                 self.cli.set_profile(profile)
-                self.log.logger.info(f"attempting to rejoin to [{profile}]")
+                self.log.logger[self.log_key].info(f"attempting to rejoin to [{profile}]")
                 if self.profile_progress[profile]["ready_to_join"]:   
                     self.functions.print_paragraphs([
                         ["Please wait while [",0], [profile,-1,"yellow","bold"], ["] attempts to join the network.",-1],["",1],
@@ -1375,7 +1377,7 @@ class Upgrader():
                         "argv_list": ["-p",profile]
                     })
                 else:
-                    self.log.logger.warning(f"There was an issue found with the API status [{profile}]")
+                    self.log.logger[self.log_key].warning(f"There was an issue found with the API status [{profile}]")
                     self.functions.print_paragraphs([
                         ["Issues were found with the API while attempting to join [",0,"red"], [profile,0,"yellow"],
                         ["]. The join process cannot be completed for this profile.  Continuing upgrade...",2,"red"],
@@ -1419,7 +1421,7 @@ class Upgrader():
                             "simple": True
                         })
                         if state not in states:
-                            self.log.logger.warning("There may have been a timeout with the join state during installation")
+                            self.log.logger[self.log_key].warning("There may have been a timeout with the join state during installation")
                             self.functions.print_paragraphs([
                                 ["An issue may have been found during this upgrade",1,"red","bold"],
                                 ["Profile:",0,"magenta"],[item['profile'],1,"yellow","bold"],
@@ -1431,7 +1433,7 @@ class Upgrader():
                                 [item["profile"],0,"yellow","bold"], ["upgrade process completed!",1,"green","bold"],
                             ])
         
-        self.log.logger.info("upgrade -> force update of versioning object after upgrade.")
+        self.log.logger[self.log_key].info("upgrade -> force update of versioning object after upgrade.")
         from .shell_handler import ShellHandler
         shell = ShellHandler({
             "config_obj": self.config_obj
@@ -1440,7 +1442,7 @@ class Upgrader():
         shell.called_command = "upgrade"
         shell.handle_versioning()
         
-        self.log.logger.info("Upgrade completed!")
+        self.log.logger[self.log_key].info("Upgrade completed!")
         self.functions.print_paragraphs([
             ["Upgrade has completed!",2,"green","bold"],
             ["Optionally, please log out and back in in order to update your environment to teach nodectl about any new auto_completion tasks.",2,"yellow"]
@@ -1456,7 +1458,7 @@ class Upgrader():
         
         
     def print_warning_for_old_code(self):
-        self.log.logger.warning("A legacy service was found [node.service]")
+        self.log.logger[self.log_key].warning("A legacy service was found [node.service]")
         self.functions.print_paragraphs([
             ["This seems to be an older Node? Please make sure you adhere to the correct upgrade path.  Unexpected results may ensue, if this upgrade is continued.",1,"red"],
         ])
@@ -1585,7 +1587,7 @@ class Upgrader():
         # to rebuild the configuration file after-the-fact, this feature is offered last.
 
         if self.config_obj["global_p12"]["encryption"]:
-            self.log.logger.debug("upgrader -> nodectl detected encryption is already enabled, skipping.")
+            self.log.logger[self.log_key].debug("upgrader -> nodectl detected encryption is already enabled, skipping.")
             return
         
         self.functions.print_header_title({
@@ -1600,7 +1602,7 @@ class Upgrader():
             ["cn-config.yaml",0,"yellow"], ["configuration file?",1,"magenta"],
         ])
         if self.non_interactive:
-            self.log.logger.warning("upgrade -> non-interactive mode detected, encryption of passphrase feature skipped.")
+            self.log.logger[self.log_key].warning("upgrade -> non-interactive mode detected, encryption of passphrase feature skipped.")
             self.functions.print_paragraphs([
                 ["non-interactive mode detected, nodectl is skipping passphrase and encryption request.",1,"red"]
             ])
@@ -1622,7 +1624,7 @@ class Upgrader():
 
 
     def handle_auto_complete(self):
-        self.log.logger.info("upgrader -> updating/creating auto_complete script")
+        self.log.logger[self.log_key].info("upgrader -> updating/creating auto_complete script")
 
         progress = {
             "text_start": "Applying auto_complete updates",

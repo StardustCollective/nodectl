@@ -13,10 +13,22 @@ class Logging():
         
     def __init__(self):
         self.log_file_name = "nodectl.log"
-        self.log_path = "/var/tessellation/nodectl/"
-        self.full_log_path = f"{self.log_path}{self.log_file_name}"
+        self.auto_file_name = "nodectl_auto_restart.log"
+        self.version_file_name = "nodectl_versioning.log"
+
+        self.log_path = "/var/tessellation/nodectl/logs/"
+
+        self.full_log_paths = {
+            "main": f"{self.log_path}{self.log_file_name}",
+            "auto": f"{self.log_path}{self.auto_file_name}",
+            "version": f"{self.log_path}{self.version_file_name}",
+        }
         self.level = "INFO"
-        self.logger = logging.getLogger("nodectl_logging")     
+        self.logger = {
+            "main": logging.getLogger("nodectl_logging"),
+            "version": logging.getLogger("nodectl_versioning"),
+            "auto": logging.getLogger("nodectl_autorestart")
+        } 
            
         try:
             self.check_for_log_file()
@@ -27,57 +39,73 @@ class Logging():
             print("  Does the process have proper elevated permissions?")
             print("  Please verify and try again.")
             exit("permissions error")
-        except Exception:
+        except Exception as e:
             print("  Unknown logging error was found.")
             print("  Please try again.")
             print("  If error persists you may need to reinstall nodectl?")
             print("  Please seek help on the Constellation Discord channels.")
+            print(f"  Error: {e}")
             exit(1)
                 
     
     def log_setup(self):
-        if len(self.logger.handlers): return
+        if self.test_for_handler(): return
             
-        if self.level == "NOTSET": self.logger.setLevel(logging.NOTSET)
-        elif self.level == "DEBUG": self.logger.setLevel(logging.DEBUG)
-        elif self.level == "INFO": self.logger.setLevel(logging.INFO)
-        elif self.level == "WARN": self.logger.setLevel(logging.WARN)
-        elif self.level == "ERROR": self.logger.setLevel(logging.ERROR)
-        elif self.level == "CRITICAL": self.logger.setLevel(logging.CRITICAL)
+        level_mapping = {
+            "NOTSET": logging.NOTSET,
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARN": logging.WARN,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL
+        }
 
-        formatter = logging.Formatter(
-            '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',
-            '%b %d %H:%M:%S')
-        formatter.converter = time.gmtime  # if you want UTC time
 
-        log_handler = RotatingFileHandler(self.full_log_path, maxBytes=8*1024*1024, backupCount=8)
-      
-        log_handler.setFormatter(formatter)
-        self.logger.addHandler(log_handler)
-        self.logger.info(f"Logger module initialized with level [{self.level}]")
+        for key, log_path in self.full_log_paths.items():
+            if self.level in level_mapping:
+                self.logger[key].setLevel(level_mapping[self.level])
+
+            formatter = logging.Formatter(
+                '%(asctime)s [%(process)d]: %(levelname)s : %(message)s',
+                '%b %d %H:%M:%S')
+            formatter.converter = time.gmtime  # if you want UTC time
+
+            log_handler = RotatingFileHandler(log_path, maxBytes=8*1024*1024, backupCount=8)
+        
+            log_handler.setFormatter(formatter)
+            self.logger[key].addHandler(log_handler)
+            self.logger[key].info(f"Logger module initialized with level [{self.level}]")
 
 
     def check_for_log_file(self):
         log_dir_exists = path.exists(self.log_path)
-        log_file_exists = path.exists(self.full_log_path)
 
         if not log_dir_exists:
-            cprint("No installation found","red")
+            cprint("No installation found or log path not found.","red")
             cprint("Creating log directory for nodectl","yellow")
             makedirs(self.log_path)
-        if not log_file_exists:
-            cmd = f"touch {self.full_log_path}"
-            try:
-                _ = subprocess.run(shlexsplit(cmd), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
-            except subprocess.CalledProcessError as e:
-                pass
+        for value in self.full_log_paths.values():
+            if not path.isfile(value):
+                cmd = f"touch {value}"
+                try:
+                    _ = subprocess.run(shlexsplit(cmd), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
+                except subprocess.CalledProcessError as e:
+                    pass
             
 
+    def test_for_handler(self):
+        found = True
+        for logger in self.logger.values():
+            if not len(logger.handlers):
+                found = False
+        return found
+    
+
     def get_log_level(self):
-        if len(self.logger.handlers): return
-        
+        if self.test_for_handler(): return
+
         try:
-            with open(f"{self.log_path}cn-config.yaml","r") as find_level:
+            with open(f"/var/tessellation/nodectl/cn-config.yaml","r") as find_level:
                 for line in find_level:
                     if "log_level" in line:
                         self.level = line.split(":")[-1].upper()

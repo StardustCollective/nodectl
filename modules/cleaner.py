@@ -17,7 +17,7 @@ class Cleaner():
         self.argv_list = command_obj["argv_list"]
         self.snapshot_called = False
         self.version_obj = self.functions.version_obj
-        
+        self.log_key = self.config_obj["global_elements"]["log_key"]
         self.log = Logging()
         self.error_messages = Error_codes(self.functions)    
         
@@ -75,7 +75,7 @@ class Cleaner():
         })
 
         if confirm:
-            self.log.logger.info(f"Request to reset snapshot cache requested and confirmed | option [{option}]")
+            self.log.logger[self.log_key].info(f"Request to reset snapshot cache requested and confirmed | option [{option}]")
             self.snapshot_called = True
             self.clean_files({
                 "action": "snapshots",
@@ -140,7 +140,7 @@ class Cleaner():
                 ["Q",0,"magenta","bold"], [")",-1,"magenta"], ["uit",-1,"magenta"], ["",2],
             ])
         
-        self.log.logger.info(f"clear logs - {dir_type} method invoked")
+        self.log.logger[self.log_key].info(f"clear logs - {dir_type} method invoked")
         skip = False       
         time_check = 0
         now = time()
@@ -180,13 +180,13 @@ class Cleaner():
                     input_text = colored(f"  Are you sure you want to clear the selected {dir_type}? [","magenta")+colored("n","yellow")+colored("]: ","magenta")
                     confirm = input(input_text)
                 if confirm.lower() == "y" or confirm.lower() == "yes":
-                    self.log.logger.info("user request to clear logs requested and confirmed.")
+                    self.log.logger[self.log_key].info("user request to clear logs requested and confirmed.")
                     self.find_or_replace_files(dir_type,dirs,"remove",time_check,ignore_list)
                 else:
-                    self.log.logger.info(f"Request to clear logs skipped by user.")
+                    self.log.logger[self.log_key].info(f"Request to clear logs skipped by user.")
                     cprint("  Remove action cancelled","green",attrs=['bold'])
         else:
-            self.log.logger.info(f"Request to clear logs cancelled by user.")
+            self.log.logger[self.log_key].info(f"Request to clear logs cancelled by user.")
             cprint("  Remove action cancelled","green",attrs=['bold'])
 
 
@@ -221,7 +221,7 @@ class Cleaner():
                         }
                         log_path_list.append(log_dict)
                     else:
-                        self.log.logger.warning(f"during a log cleanup attempt a directory was not found and skipped [{dirs[profile][c_dir]}]")
+                        self.log.logger[self.log_key].warning(f"during a log cleanup attempt a directory was not found and skipped [{dirs[profile][c_dir]}]")
         elif dir_type == "config_change":
             log_path_list.append({
                 "layer": "na",
@@ -295,7 +295,7 @@ class Cleaner():
 
                 except:
                     if dir_type == "config_change":
-                        self.log.logger.warning("during configuration change unable to find file to replace.")
+                        self.log.logger[self.log_key].warning("during configuration change unable to find file to replace.")
                         pass
                     else:
                         self.error_messages.error_code_messages({

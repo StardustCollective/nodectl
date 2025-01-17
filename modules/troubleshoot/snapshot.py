@@ -32,7 +32,7 @@ def process_snap_files(files, snapshot_dir, log, find_inode):
                 result[inode]["stamp"].append(file_mtime)
 
         except Exception as e:
-            log.logger.warning(f"snapshot --> Error processing file {ord_hash_name}: {e}")
+            log.logger["main"].warning(f"snapshot --> Error processing file {ord_hash_name}: {e}")
     
     return result
 
@@ -96,7 +96,7 @@ def merge_snap_results(matches,functions,log,debug=False):
                                 if ord_hash_stamp not in merged[inode][ktype]:
                                     merged[inode][ktype].append(ord_hash_stamp)
         except Exception as e:
-            log.logger.error(f"snapshot --> error matching during process of compiling snapshot results | [{e}]")
+            log.logger["main"].error(f"snapshot --> error matching during process of compiling snapshot results | [{e}]")
 
         del matches # cleanup memory
         try:
@@ -137,7 +137,7 @@ def merge_snap_results(matches,functions,log,debug=False):
                         if i < (time() - (t*86400)):
                             results[f"day_{t}_old"] += 1
         except Exception as e:
-            log.logger.error(f"snapshot --> error counting compiled snapshot data | [{e}]")  
+            log.logger["main"].error(f"snapshot --> error counting compiled snapshot data | [{e}]")  
 
         for i, t in enumerate(days[:-1]):
             results[f"day_{t}_old"] -= results[f"day_{days[i+1]}_old"]
@@ -183,7 +183,7 @@ def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_day
                 "status_color": "red",
                 "newline": True,
             })
-            log.logger.warning(f"snaphost --> removing snapshot {info_path}")
+            log.logger["main"].warning(f"snaphost --> removing snapshot {info_path}")
             if not debug: 
                 remove(info_path)
 
@@ -212,7 +212,7 @@ def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_day
                                 "status_color": "red",
                                 "newline": True,
                             })
-                            log.logger.warning(f"snaphost --> removing snapshot {info_path}")
+                            log.logger["main"].warning(f"snaphost --> removing snapshot {info_path}")
                             if not debug: 
                                 remove(info_path)
         if count > 0:
@@ -237,7 +237,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
                 if old_days > 0 and stamp < threshold_time: # -1 is disabled
                         old_count += 2
                         oe = "old ordinal element"
-                        log.logger.warning(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
+                        log.logger["main"].warning(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
                 elif int(ord_hash) < start:
                     skip = True
                 else:
@@ -259,7 +259,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
                 "status_color": "red",
                 "newline": True,
             })
-            log.logger.warning(f"snapshot --> removing ordinal {snap_to_remove}")
+            log.logger["main"].warning(f"snapshot --> removing ordinal {snap_to_remove}")
             count += 1
             if not debug and path.isfile(snap_to_remove): 
                 remove(snap_to_remove)
@@ -664,7 +664,7 @@ def discover_snapshots(snapshot_dir, functions, log):
 
                     ordinal_inodes.setdefault(inode, []).append(filepath)
         except Exception as e:
-            log.logger.error(f"snapshot -> discovering snapshot state [ordinal] elements failed with [{e}]")
+            log.logger["main"].error(f"snapshot -> discovering snapshot state [ordinal] elements failed with [{e}]")
             status, status_color = "Failed","red"
         finally:
             functions.cancel_event = True    
@@ -697,14 +697,14 @@ def discover_snapshots(snapshot_dir, functions, log):
                         stat_info = stat(filepath)
                         inode = stat_info.st_ino
                     except Exception as e:
-                        log.logger.error(f"Error accessing file {filepath}: {e}")
+                        log.logger["main"].error(f"Error accessing file {filepath}: {e}")
                         continue
 
                     total_hashes += 1
                     # Add to hash_inodes
                     hash_inodes.setdefault(inode, []).append(filepath)
         except Exception as e:
-            log.logger.error(f"snapshot -> discovering snapshot state [hash] elements failed with [{e}]")
+            log.logger["main"].error(f"snapshot -> discovering snapshot state [hash] elements failed with [{e}]")
             status, status_color = "Failed","red"
         finally:
             functions.cancel_event = True    
@@ -739,7 +739,7 @@ def discover_snapshots(snapshot_dir, functions, log):
                         filename = path.basename(filepath)
                         no_match_list.append(filepath)
         except Exception as e:
-            log.logger.error(f"snapshot -> matching [hash] to [ordinal] failed with [{e}]")
+            log.logger["main"].error(f"snapshot -> matching [hash] to [ordinal] failed with [{e}]")
             status, status_color = "Failed","red"
         finally:
             functions.status_dots = False
@@ -775,7 +775,7 @@ def discover_snapshots(snapshot_dir, functions, log):
                         ordinals_no_match.append(int(filename))
                         no_match_list.append(filepath)
         except Exception as e:
-            log.logger.error(f"snapshot -> matching [ordinal] to [hash] failed with [{e}]")
+            log.logger["main"].error(f"snapshot -> matching [ordinal] to [hash] failed with [{e}]")
             status, status_color = "Failed","red"
         finally:
             functions.status_dots = False

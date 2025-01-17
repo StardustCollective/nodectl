@@ -31,6 +31,7 @@ class Node():
         self.profile = command_obj.get("profile",None)
         self.profile_names = command_obj.get("profile_names",None)
         self.auto_restart = command_obj.get("auto_restart",False)
+        self.log_key = self.config_obj["global_elements"]["log_key"]
         
         # Node replacement variables
         # during installation and upgrade
@@ -244,7 +245,7 @@ class Node():
 
 
     def build_service(self,background_build=False):
-        self.log.logger.debug("build services method called [build services]")
+        self.log.logger[self.log_key].debug("build services method called [build services]")
         build_files = ["service_file","service_bash","version_service","auto_restart_service_log"]
         for b_file in build_files:
             self.create_service_bash_file({
@@ -265,7 +266,7 @@ class Node():
             })
             
         if path.exists(self.env_conf_file):
-            self.log.logger.warning(f"found possible abandoned environment file [{self.env_conf_file}] removing.")
+            self.log.logger[self.log_key].warning(f"found possible abandoned environment file [{self.env_conf_file}] removing.")
             remove(self.env_conf_file)
             
         with open(self.env_conf_file,"w") as f:
@@ -361,7 +362,7 @@ class Node():
                         "extra": "format",
                         "extra2": "Is the linking between profiles setup correctly?",
                     })
-                self.log.logger.error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{str(source_node_list)}]")
+                self.log.logger[self.log_key].error(f"node_service -> build_remote_link -> unable to determine the source node links | source_node_list [{str(source_node_list)}]")
                 continue # try again... 
 
             if not self.auto_restart:
@@ -375,7 +376,7 @@ class Node():
                 })
 
             if source_node_list[3] == "Ready":
-                self.log.logger.debug(f"node_service -> build_remote_link -> source node [{source_node_list[3]}] in state [{source_node_list[3]}].")
+                self.log.logger[self.log_key].debug(f"node_service -> build_remote_link -> source node [{source_node_list[3]}] in state [{source_node_list[3]}].")
                 return True
 
             if n > 2:
@@ -383,7 +384,7 @@ class Node():
                     try_again = False
                     n = 0  
                 else:                  
-                    self.log.logger.error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
+                    self.log.logger[self.log_key].error(f"node_service -> build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
                     if not self.auto_restart:
                         self.functions.print_paragraphs([
                             [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
@@ -459,7 +460,7 @@ class Node():
         profile = command_obj.get("profile",self.profile)
         service_display = self.functions.cleaner(service_name,'service_prefix')
             
-        self.log.logger.debug(f"changing service state method - action [{action}] service_name [{service_display}] caller = [{caller}]")
+        self.log.logger[self.log_key].debug(f"changing service state method - action [{action}] service_name [{service_display}] caller = [{caller}]")
         self.functions.get_service_status()
         if action == "start":
             if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] < 1:
@@ -469,7 +470,7 @@ class Node():
                         ["Skipping service change request [",0,"yellow"], [service_display,-1,], ["] because the service is already set to",-1,"yellow"],
                         [self.functions.config_obj["global_elements"]['node_service_status'][profile],1,"yellow"]
                     ])
-                self.log.logger.warning(f"change service state [{service_display}] request aborted because service [inactive (dead)]")
+                self.log.logger[self.log_key].warning(f"change service state [{service_display}] request aborted because service [inactive (dead)]")
                 return
             
             self.build_environment_vars({"profile": profile})
@@ -480,7 +481,7 @@ class Node():
 
         if action == "stop":
             if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] > 0:
-                self.log.logger.warning(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
+                self.log.logger[self.log_key].warning(f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_cmd_status({
@@ -498,7 +499,7 @@ class Node():
                 "proc_action": "poll"
             })
             
-        self.log.logger.debug(f"changing service state method - action [{action}] service [{service_display}] caller = [{caller}] - issuing systemctl command")
+        self.log.logger[self.log_key].debug(f"changing service state method - action [{action}] service [{service_display}] caller = [{caller}] - issuing systemctl command")
 
         bashCommand = f"systemctl {action} {service_name}"
         _ = self.functions.process_command({
@@ -533,7 +534,7 @@ class Node():
         })         
         
         if state not in self.functions.not_on_network_list: # otherwise skip
-            self.log.logger.debug(f"node_service -> cluster leave process | profile [{profile}] state [{state}] ip [127.0.0.1]")
+            self.log.logger[self.log_key].debug(f"node_service -> cluster leave process | profile [{profile}] state [{state}] ip [127.0.0.1]")
             cmd = f"curl -X POST http://127.0.0.1:{self.api_ports['cli']}/cluster/leave"
             self.functions.process_command({
                 "bashCommand": cmd,
@@ -556,7 +557,7 @@ class Node():
         state = None        
 
         self.set_profile_api_ports()
-        self.log.logger.info(f"joining cluster profile [{self.profile}]")
+        self.log.logger[self.log_key].info(f"joining cluster profile [{self.profile}]")
         
         # profile is set by cli.set_profile method
         link_obj = {
@@ -574,11 +575,11 @@ class Node():
             'Content-type': 'application/json',
         }
 
-        if caller: self.log.logger.debug(f"join_cluster called from [{caller}]")
+        if caller: self.log.logger[self.log_key].debug(f"join_cluster called from [{caller}]")
         
         found_link_types = []
         if link_obj["gl0_linking_enabled"] or link_obj["ml0_linking_enabled"]:
-            self.log.logger.info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
+            self.log.logger[self.log_key].info(f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
             for link_type in link_types:
                 if not self.auto_restart:
                     verb = " profile" if link_obj[f"{link_type}_link_profile"] != "None" else ""
@@ -631,7 +632,7 @@ class Node():
                 "ip": self.source_node_choice["ip"], 
                 "p2pPort": self.source_node_choice["p2pPort"] 
         }
-        self.log.logger.info(f"join cluster -> joining via [{data}]")
+        self.log.logger[self.log_key].info(f"join cluster -> joining via [{data}]")
 
         if not self.auto_restart:
             if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
@@ -671,7 +672,7 @@ class Node():
                             "profile": gl0ml0
                         })  
                     except:
-                        self.log.logger.error(f"node_service -> join link to profile error for profile [{self.profile}] link type [{link_type}]")
+                        self.log.logger[self.log_key].error(f"node_service -> join link to profile error for profile [{self.profile}] link type [{link_type}]")
                         if self.auto_restart:
                             exit(1)
                         self.error_messages.error_code_messages({
@@ -770,7 +771,7 @@ class Node():
                 })
                 sleep(1)
                 
-            self.log.logger.info(f"attempting to join profile [{self.profile}] through localhost port [{self.api_ports['cli']}] action [{action}]")
+            self.log.logger[self.log_key].info(f"attempting to join profile [{self.profile}] through localhost port [{self.api_ports['cli']}] action [{action}]")
             for n in range(1,5):
                 try:
                     _ = join_session.post(f'http://127.0.0.1:{self.api_ports["cli"]}/cluster/join', headers=headers, json=data)
@@ -780,7 +781,7 @@ class Node():
                     exception = "none"
                     break
                 exception_found = True
-                self.log.logger.error(f"{action} join attempt failed with [{exception}] retrying | [{self.profile}]")
+                self.log.logger[self.log_key].error(f"{action} join attempt failed with [{exception}] retrying | [{self.profile}]")
                 if not self.auto_restart:
                     self.functions.print_cmd_status({
                         "text_start": "Join attempt",
@@ -799,7 +800,7 @@ class Node():
             
             if exception_found and action == "auto_join":
                 # needs to be first
-                self.log.logger.critical(f"auto_join was unable to join the network | error: [{exception} | returning unsuccessfully")
+                self.log.logger[self.log_key].critical(f"auto_join was unable to join the network | error: [{exception} | returning unsuccessfully")
             elif "NewConnectionError" in str(exception):
                 self.error_messages.error_code_messages({
                     "error_code": "ser-346",
@@ -833,7 +834,7 @@ class Node():
                 
             result = "done".ljust(32)
         else:
-            self.log.logger.warning("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
+            self.log.logger[self.log_key].warning("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
             try: return_str = found_link_types.pop()
             except: return_str = self.profile
             else:

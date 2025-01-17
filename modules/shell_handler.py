@@ -25,7 +25,6 @@ from .alerting import prepare_alert, prepare_report
 class ShellHandler:
 
     def __init__(self, command_obj, debug):
-
         try:
             self.log = Logging() # install exception
         except:
@@ -39,6 +38,7 @@ class ShellHandler:
         except:
             self.config_obj = command_obj["config_obj"]
 
+        self.log_key = self.config_obj["global_elements"]["log_key"]
         self.functions = Functions(self.config_obj)
         self.error_messages = Error_codes(self.functions)
         self.error_messages.functions = self.functions
@@ -62,12 +62,16 @@ class ShellHandler:
         self.node_service = "" #empty
         self.packages = {}
         
+        self.setup_logging_key()
         self.get_auto_restart_pid()
         self.userid = geteuid()
         self.groupid = getgid()
 
         self.ip_address = self.functions.get_ext_ip()
         
+
+    def setup_logging_key(self):
+        pass
 
     def build_cli_obj(self,skip_check=False):
         build_cli = self.check_non_cli_command() if skip_check == False else True
@@ -91,7 +95,7 @@ class ShellHandler:
             try:
                 cli.node_service.version_class_obj = self.version_class_obj
             except:
-                self.log.logger.debug("shell --> skipped node service versioning, not needed.")
+                self.log.logger[self.log_key].debug("shell --> skipped node service versioning, not needed.")
 
             cli.check_for_new_versions({
                 "caller": self.called_command
@@ -118,13 +122,13 @@ class ShellHandler:
         self.skip_services = True
         return_value = 0
 
-        self.log.logger.info(f"shell_handler -> start_cli -> obtain ip address: {self.ip_address}")
+        self.log.logger[self.log_key].info(f"shell_handler -> start_cli -> obtain ip address: {self.ip_address}")
                 
         # commands that do not need all resources
         while True:
             if "main_error" in argv:
                 self.functions.auto_restart = False
-                self.log.logger.error(f"invalid command called [{self.called_command}] sending to help file.")
+                self.log.logger[self.log_key].error(f"invalid command called [{self.called_command}] sending to help file.")
                 self.functions.print_help({
                     "usage_only": True,
                     "nodectl_version_only": True,
@@ -228,7 +232,7 @@ class ShellHandler:
                 if not self.help_requested:
                     try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
                     except: 
-                        self.log.logger.error("shell_handler -> profile error caught by fnt-998")
+                        self.log.logger[self.log_key].error("shell_handler -> profile error caught by fnt-998")
                         exit(0) # profile error caught by fnt-998            
                     if self.called_command == "start":
                         self.cli.cli_start({
@@ -428,10 +432,10 @@ class ShellHandler:
             elif self.called_command == "service_restart":
                 if self.argv[0] == "--variable1=enable": self.argv[0] = "enable" # on-boot 
                 if self.argv[0] != "enable":
-                    self.log.logger.error(f"start cli --> invalid request [{self.argv[0]}]")
+                    self.log.logger[self.log_key].error(f"start cli --> invalid request [{self.argv[0]}]")
                     exit(0)
                 self.auto_restart_handler("service_start",True)
-                self.log.logger.debug("service_restart -> auto_restart_handler -> service_start - COMPLETED.")
+                self.log.logger[self.log_key].debug("service_restart -> auto_restart_handler -> service_start - COMPLETED.")
                 exit(0)
             elif self.called_command == "api_server":
                 self.api_service_handler()
@@ -550,8 +554,8 @@ class ShellHandler:
                     
         if "uvos" in argv: 
             # do not log if versioning service initialized Configuration
-            for handler in self.log.logger.handlers[:]:
-                self.log.logger.removeHandler(handler)
+            # for handler in self.log.logger[self.log_key].handlers[:]:
+            #     self.log.logger[self.log_key].removeHandler(handler)
             self.argv[1] = "uvos"
             
         try:
@@ -611,7 +615,7 @@ class ShellHandler:
                 self.auto_restart_enabled = True
             
         if self.called_command in kill_auto_restart_commands:
-            self.log.logger.warning(f"cli request {self.called_command} received. DISABLING auto_restart if enabled")
+            self.log.logger[self.log_key].warning(f"cli request {self.called_command} received. DISABLING auto_restart if enabled")
             self.auto_restart_handler("disable",True)
                 
 
@@ -638,13 +642,13 @@ class ShellHandler:
         size = int(size_str.split(" ")[0].replace("%",""))
         
         if size > main_threshold:
-            self.log.logger.critical(f"shell_handler -> disk check -> {size_str}")
+            self.log.logger[self.log_key].critical(f"shell_handler -> disk check -> {size_str}")
             self.functions.print_paragraphs([
                 [" CRITICAL ",0,"yellow,on_red"], ["Disk Space:",0,"magenta"],
                 [size_str,1,"red"]
             ])
         elif size > warning_threshold:
-            self.log.logger.warning(f"shell_handler -> disk check -> {size_str}")
+            self.log.logger[self.log_key].warning(f"shell_handler -> disk check -> {size_str}")
             self.functions.print_paragraphs([
                 [" WARNING ",0,"red,on_yellow"], ["Disk Space:",0,"yellow"],
                 [size_str,1,"magenta"]
@@ -667,13 +671,13 @@ class ShellHandler:
         })
 
         if age.days > main_threshold:
-            self.log.logger.critical(f"shell_handler -> p12 encryption key rotation check -> age [{age}]")
+            self.log.logger[self.log_key].critical(f"shell_handler -> p12 encryption key rotation check -> age [{age}]")
             self.functions.print_paragraphs([
                 [" IMPORTANT ",0,"yellow,on_red"], 
                 ["P12 encryption key rotation suggested.",1,"magenta"],
             ])
         elif age.days > warning_threshold:
-            self.log.logger.warning(f"shell_handler -> p12 encryption key rotation check -> age [{age}]")
+            self.log.logger[self.log_key].warning(f"shell_handler -> p12 encryption key rotation check -> age [{age}]")
             self.functions.print_paragraphs([
                 [" WARNING ",0,"red,on_yellow"], 
                 ["Consider P12 passphrase encryption key rotation soon.",1,"magenta"],
@@ -717,7 +721,7 @@ class ShellHandler:
         service_cmds = cmds[2]
         removed_cmds = cmds[3]
 
-        self.log.logger.debug(f"nodectl feature count [{len(self.valid_commands)}]")
+        self.log.logger[self.log_key].debug(f"nodectl feature count [{len(self.valid_commands)}]")
         self.functions.valid_commands = self.valid_commands 
         
         all_command_check = self.valid_commands+valid_short_cuts+service_cmds+removed_cmds
@@ -738,7 +742,7 @@ class ShellHandler:
 
     def check_for_profile_requirements(self):
         # check if default profile needs to be set
-        self.log.logger.debug(f"checking profile requirements | command [{self.called_command}]") 
+        self.log.logger[self.log_key].debug(f"checking profile requirements | command [{self.called_command}]") 
         need_profile, need_environment = False, False
         called_profile, called_environment = False, False
         profile_hint, env_hint, either_or_hint = False, False, False
@@ -845,7 +849,7 @@ class ShellHandler:
                             "line_code": "system_error",
                             "extra": self.called_command,
                         })
-                    self.log.logger.error(f"shell handler -> check_for_profile_requirements -> unable to obtain environment names.")
+                    self.log.logger[self.log_key].error(f"shell handler -> check_for_profile_requirements -> unable to obtain environment names.")
                     self.functions.set_environment_names()
 
             if len(self.functions.environment_names) > 1 or len(self.functions.environment_names) < 1:
@@ -930,7 +934,7 @@ class ShellHandler:
                     else:
                         if static_peer_port > 1023 and static_peer_port < 65536:
                             break
-                    self.log.logger.error(f"shell handler -> invalid static peer port entered [{static_peer_port}]")
+                    self.log.logger[self.log_key].error(f"shell handler -> invalid static peer port entered [{static_peer_port}]")
 
         self.config_obj[self.profile]["edge_point"] = static_peer
         self.config_obj[self.profile]["edge_point_tcp_port"] = static_peer_port
@@ -989,10 +993,11 @@ class ShellHandler:
                     "called_cmd": called_cmd,
                     "verify_only": verify_only,
                     "print_object": print_object,
+                    "logging_key": self.log_key,
                     "force": force
                 })
             except Exception as e:
-                self.log.logger.error(f"shell_handler -> unable to process versioning | [{e}]")
+                self.log.logger[self.log_key].error(f"shell_handler -> unable to process versioning | [{e}]")
                 self.functions.event = False
                 exit(1)
 
@@ -1048,7 +1053,7 @@ class ShellHandler:
                                                 
     def update_os(self,threading=True,display=True):
         with ThreadPoolExecutor() as executor:
-            self.log.logger.info(f"updating the Debian operating system.")
+            self.log.logger[self.log_key].info(f"updating the Debian operating system.")
             environ['DEBIAN_FRONTEND'] = 'noninteractive'
             
             if threading:
@@ -1075,7 +1080,7 @@ class ShellHandler:
         
 
     def setup_profiles(self):
-        self.log.logger.debug(f"setup profiles [{self.called_command}]")
+        self.log.logger[self.log_key].debug(f"setup profiles [{self.called_command}]")
 
         skip_list = [
             "main_error","validate_config","install",
@@ -1092,7 +1097,7 @@ class ShellHandler:
 
 
     def show_version(self):
-        self.log.logger.info(f"show version check requested")
+        self.log.logger[self.log_key].info(f"show version check requested")
         versioning = Versioning({
             "config_obj": self.config_obj,
             "print_messages": False,
@@ -1287,7 +1292,7 @@ class ShellHandler:
             return
         found_error = False
 
-        self.log.logger.info("Attempting to verify nodectl binary against code signed signature.")
+        self.log.logger[self.log_key].info("Attempting to verify nodectl binary against code signed signature.")
         self.functions.check_for_help(command_list,"verify_nodectl")
         self.functions.print_header_title({
             "line1": "VERIFY NODECTL",
@@ -1344,7 +1349,7 @@ class ShellHandler:
                 })
                 full_file_path = f"/var/tmp/{cmd[0]}"
             except Exception as e:
-                self.log.logger.error(f"shell handler -> digital signature failed to download from [{url}] with error [{e}]")
+                self.log.logger[self.log_key].error(f"shell handler -> digital signature failed to download from [{url}] with error [{e}]")
                 self.error_messages.error_code_messages({
                     "error_code": "sh-1019",
                     "line_code": "download_invalid",
@@ -1410,7 +1415,7 @@ class ShellHandler:
             "status_color": "yellow",
         })   
         
-        self.log.logger.info("copy binary nodectl to nodectl dir for verification via rename")
+        self.log.logger[self.log_key].info("copy binary nodectl to nodectl dir for verification via rename")
         copy2("/usr/local/bin/nodectl",f"/var/tmp/nodectl_{node_arch}")  
         result_sig = self.functions.process_command({
             "bashCommand": verify_cmd,
@@ -1428,15 +1433,15 @@ class ShellHandler:
         output_mod =  outputs[1].split('(', 1)[-1]
         result_nodectl_current_hash_mod = result_nodectl_current_hash.split('(', 1)[-1]
         
-        self.log.logger.info("nodectl digital signature verification requested")
+        self.log.logger[self.log_key].info("nodectl digital signature verification requested")
         if "OK" in result_sig and result_nodectl_current_hash_mod == output_mod:
-            self.log.logger.info(f"digital signature verified successfully | {result_sig}")
+            self.log.logger[self.log_key].info(f"digital signature verified successfully | {result_sig}")
             bg, verb = "on_green","SUCCESS - AUTHENTIC NODECTL"
         else: 
             error_line = "Review logs for details."
-            self.log.logger.critical(f"digital signature did NOT verified successfully | {result_sig}")
-        self.log.logger.info(f"digital signature - local file hash | {result_nodectl_current_hash}")
-        self.log.logger.info(f"digital signature - remote file hash | {outputs[1]}")
+            self.log.logger[self.log_key].critical(f"digital signature did NOT verified successfully | {result_sig}")
+        self.log.logger[self.log_key].info(f"digital signature - local file hash | {result_nodectl_current_hash}")
+        self.log.logger[self.log_key].info(f"digital signature - remote file hash | {outputs[1]}")
 
         self.functions.print_cmd_status({
             "text_start": "verifying signature match",
@@ -1476,14 +1481,14 @@ class ShellHandler:
     
             
     def confirm_int_upg(self):
-        self.log.logger.info(f"{self.install_upgrade} for Tessellation and nodectl started")       
+        self.log.logger[self.log_key].info(f"{self.install_upgrade} for Tessellation and nodectl started")       
         
         if self.install_upgrade == "installation":
             print(f'  {colored("WARNING","red",attrs=["bold"])} {colored("You about to turn this VPS or Server into a","red")}')
             cprint("  Constellation Network Validator Node","green",attrs=['bold'])
         else:
             if self.auto_restart_pid:
-                self.log.logger.info("terminating auto_restart in order to upgrade")  
+                self.log.logger[self.log_key].info("terminating auto_restart in order to upgrade")  
                 progress = {
                     "text_start": "Terminating auto_restart",
                     "status": "running",
@@ -1614,7 +1619,7 @@ class ShellHandler:
             "yes_no_default": "n",
         }):
             restore_file = restore_dict[str(option)]
-            self.log.logger.warning(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
+            self.log.logger[self.log_key].warning(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
             try:
                 backup_dir = self.config_obj[self.functions.default_profile]["directory_backups"]
             except:
@@ -1626,7 +1631,7 @@ class ShellHandler:
                  makedirs(backup_dir)
             secondary_backup = f"{backup_dir}backup_cn-config_{c_time}"
 
-            self.log.logger.info(f"restore_config is backing up current in place cn-config.yaml to [{secondary_backup}]")
+            self.log.logger[self.log_key].info(f"restore_config is backing up current in place cn-config.yaml to [{secondary_backup}]")
             self.functions.print_cmd_status({
                 "text_start": "backing up current config",
                 "status": "running",
@@ -1642,7 +1647,7 @@ class ShellHandler:
                 "text_start": "restoring config",
                 "status": "running",
             })            
-            self.log.logger.info(f"restore_config is restoring cn-config.yaml from [{restore_file}]")
+            self.log.logger[self.log_key].info(f"restore_config is restoring cn-config.yaml from [{restore_file}]")
             copy2(restore_file,"/var/tessellation/nodectl/cn-config.yaml")
             time.sleep(.8)
             self.functions.print_cmd_status({
@@ -1697,14 +1702,13 @@ class ShellHandler:
             restart_request = True
                             
         if action == "service_start":
-            self.log.logger.info("auto_restart - restart session threader - invoked.")
-
+            self.log.logger[self.log_key].info("auto_restart - restart session threader - invoked.")
             try:
                 with ThreadPoolExecutor(max_workers=6) as executor:
                     thread_list = []
                     # self.profile_names = ["dag-l0"]  # used for debugging purposes
                     for n, profile in enumerate(self.profile_names):
-                        self.log.logger.info(f"auto_restart - restart threader -  invoked session threads for [{profile}]")
+                        self.log.logger[self.log_key].info(f"auto_restart - restart threader -  invoked session threads for [{profile}]")
                         first_thread = True if n < 1 else False
                         time.sleep(2)
                         future = executor.submit(
@@ -1723,7 +1727,7 @@ class ShellHandler:
                         "proc_action": "subprocess_devnull",
                     })
             except Exception as e:
-                self.log.logger.error(f"auto_restart - restart session threader - error [{e}]")
+                self.log.logger[self.log_key].error(f"auto_restart - restart session threader - error [{e}]")
                 self.error_messages.error_code_messages({
                     "error_code": "sh-1030",
                     "line_code": "auto_restart_error",
@@ -1772,7 +1776,7 @@ class ShellHandler:
                         cprint(f"  Auto Restart will reengage at completion {verb} requested task","green")
                     elif self.called_command != "uninstall":
                         cprint("  This will need to be restarted manually...","red")
-                    self.log.logger.debug(f"auto_restart process pid: [{self.auto_restart_pid}] killed") 
+                    self.log.logger[self.log_key].debug(f"auto_restart process pid: [{self.auto_restart_pid}] killed") 
                     self.auto_restart_pid = False # reset 
 
                 if restart_request:
@@ -1844,9 +1848,9 @@ class ShellHandler:
             for profile in self.profile_names:
                 if path.isfile(f"{self.functions.nodectl_path}{profile}_alert_report"):
                     remove(f"{self.functions.nodectl_path}{profile}_alert_report")
-                    self.log.logger.info(f"auto_restart_handler -> cleared alerting for profile [{profile}]")
+                    self.log.logger[self.log_key].info(f"auto_restart_handler -> cleared alerting for profile [{profile}]")
                 else:
-                    self.log.logger.info(f"auto_restart_handler -> did not find persistent alerting for profile [{profile}] - skipped")
+                    self.log.logger[self.log_key].info(f"auto_restart_handler -> did not find persistent alerting for profile [{profile}] - skipped")
             self.auto_restart_handler("restart",True,True)
             return
 
@@ -1858,7 +1862,12 @@ class ShellHandler:
             try:
                 _ = self.config_obj["global_elements"]["alerting"] 
                 if action == "alert_test":
-                    prepare_alert("test",self.config_obj["global_elements"]["alerting"],self.functions.default_profile,"test",self.functions, self.log)
+                    prepare_alert(
+                        "test",self.config_obj["global_elements"]["alerting"],
+                        self.functions.default_profile,
+                        self.config_obj[self.functions.default_profile]["environment"],
+                        self.functions, self.log
+                    )
                 else:
                     s_type = "Report"
                     # cli, node_service, functions, alert_profile, comm_obj, profile, env, log
@@ -1882,7 +1891,7 @@ class ShellHandler:
                     ["recipient:",0], [self.config_obj["global_elements"]["alerting"]["recipients"],2,"yellow"],
                 ])
             except Exception as e:
-                self.log.logger.error(f"shell_handler -> auto_restart_handler -> unable to send {s_type.lower()} error [{e}]")
+                self.log.logger[self.log_key].error(f"shell_handler -> auto_restart_handler -> unable to send {s_type.lower()} error [{e}]")
                 self.functions.print_paragraphs([
                     ["Alerting configuration not found, aborting.",2,"red"],
                 ])
@@ -1928,7 +1937,7 @@ class ShellHandler:
                     [str(self.auto_restart_pid),-1,"green","bold"],
                     ["] found already.",-1,"yellow"],["",1]
                 ])
-            self.log.logger.warning(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
+            self.log.logger[self.log_key].warning(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
             return
         
         _ = self.functions.process_command({
@@ -1946,7 +1955,7 @@ class ShellHandler:
                 "extended": self.called_command,
             })
 
-        self.log.logger.debug(f"{self.called_command} request started") 
+        self.log.logger[self.log_key].debug(f"{self.called_command} request started") 
         performance_start = time.perf_counter()  # keep track of how long
 
         self.set_version_obj_class()

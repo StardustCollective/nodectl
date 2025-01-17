@@ -15,7 +15,8 @@ class Status():
         
         self.version_obj = functions.version_obj
         self.functions = functions
-                
+        self.log_key = "main"
+        
         self.node_state = ""
         self.hd_space = ""
         self.usage = ""
@@ -146,7 +147,7 @@ class Status():
                
   
     def security_check(self):
-        self.log.logger.debug("security check of auth log initiated...")
+        self.log.logger[self.log_key].debug("security check of auth log initiated...")
         invalid_str = ""
         accepted_str = ""
                 
@@ -155,7 +156,7 @@ class Status():
         accepted_auths_count = 0
                 
         if not path.exists("/var/log/auth.log"):
-            self.log.logger.error("unable to read file [/var/log/auth.log] during health check.")
+            self.log.logger[self.log_key].error("unable to read file [/var/log/auth.log] during health check.")
             self.functions.print_paragraphs([
                 [" FILE NOT FOUND ",0,"red,on_yellow"], 
                 ["nodectl was unable to find a valid authorization log on the VPS or server that this Node was installed on?",2,"red"],

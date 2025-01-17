@@ -59,6 +59,7 @@ class CLI():
 
     def set_variables(self):
         self.config_obj = self.functions.config_obj
+        self.log_key = self.config_obj["global_elements"]["log_key"]
         self.version_obj = self.functions.version_obj
 
         self.slow_flag = False
@@ -120,7 +121,7 @@ class CLI():
             "profile_names": self.profile_names,
             "functions": self.functions
         }
-        # self.log.logger.debug(f"cli - calling node Obj - [{command_obj}]")
+        # self.log.logger[self.log_key].debug(f"cli - calling node Obj - [{command_obj}]")
         if self.primary_command != "quiet_install":
             self.functions.print_cmd_status({
                 "text_start": "Acquiring Node details"
@@ -143,7 +144,7 @@ class CLI():
             
             
     def set_profile_api_ports(self):
-        self.log.logger.debug(f"cli - setting profile parameters | profile [{self.profile}]")
+        self.log.logger[self.log_key].debug(f"cli - setting profile parameters | profile [{self.profile}]")
         self.service_name = self.functions.get_service_name(self.profile)
         self.api_ports = self.functions.pull_profile({
             "req": "ports",
@@ -233,7 +234,7 @@ class CLI():
             except: 
                 if watch_seconds != "--skip_warning_messages" and watch_seconds != "-p": 
                     # watch requested with valid next option, skipping error message and using default
-                    self.log.logger.error("invalid value for [-w] option, needs to be an integer. Using default of [6].")
+                    self.log.logger[self.log_key].error("invalid value for [-w] option, needs to be an integer. Using default of [6].")
                     range_error = True
                 watch_seconds = 15
             watch_enabled = True
@@ -337,7 +338,7 @@ class CLI():
                         })
                 
                 for n,profile in enumerate(profile_list):
-                    self.log.logger.info(f"show system status requested | {profile}")      
+                    self.log.logger[self.log_key].info(f"show system status requested | {profile}")      
                     self.set_profile(profile)
                     called_profile = profile
                                         
@@ -388,7 +389,7 @@ class CLI():
                     self.functions.get_service_status()
                     edge_point = self.functions.pull_edge_point(profile)
 
-                    self.log.logger.debug("show system status - ready to pull node sessions")
+                    self.log.logger[self.log_key].debug("show system status - ready to pull node sessions")
                     
                     sessions = self.functions.pull_node_sessions({
                         "edge_device": edge_point,
@@ -664,7 +665,7 @@ class CLI():
     def show_prices(self,command_list):
         self.functions.check_for_help(command_list,"price")
             
-        self.log.logger.info(f"show prices requested")
+        self.log.logger[self.log_key].info(f"show prices requested")
         crypto_prices = self.functions.get_crypto_price()
         
         crypto_setup, crypto_setup2 = {}, {}
@@ -697,7 +698,7 @@ class CLI():
 
     def show_markets(self, command_list):
         self.functions.check_for_help(command_list,"markets")
-        self.log.logger.info("show market requested")
+        self.log.logger[self.log_key].info("show market requested")
                 
         self.functions.print_cmd_status({
             "text_start": "Preparing Report, this may take a few seconds",
@@ -759,7 +760,7 @@ class CLI():
         
     def show_health(self, command_list):
         self.functions.check_for_help(command_list,"health")
-        self.log.logger.info(f"show health requested")
+        self.log.logger[self.log_key].info(f"show health requested")
 
         status = Status(self.functions)
         status.called_command = self.command_obj["command"]
@@ -841,7 +842,7 @@ class CLI():
         ave_cpu_list = []
         ave_mem_list = []
 
-        self.log.logger.info(f"show cpu and memory stats")
+        self.log.logger[self.log_key].info(f"show cpu and memory stats")
 
         def remove_highest_lowest(value_list):
             lowest = min(value_list)
@@ -963,7 +964,7 @@ class CLI():
 
     def show_peers(self,command_list):
         self.functions.check_for_help(command_list,"peers")
-        self.log.logger.info(f"show peers requested")
+        self.log.logger[self.log_key].info(f"show peers requested")
         profile = command_list[command_list.index("-p")+1]
         count_args = ["-p", profile]
         sip = {}
@@ -1053,7 +1054,7 @@ class CLI():
         })
 
         if peer_results == "error":
-            self.log.logger.error(f"show peers | attempt to access peer count with ip [{sip}] failed")
+            self.log.logger[self.log_key].error(f"show peers | attempt to access peer count with ip [{sip}] failed")
             self.error_messages.error_code_messages({
                 "error_code": "cmd-179",
                 "line_code": "ip_not_found",
@@ -1168,7 +1169,7 @@ class CLI():
                 print(status_results)
         
         if create_csv: 
-            self.log.logger.info(f"csv file created: location: [{csv_file_name}]") 
+            self.log.logger[self.log_key].info(f"csv file created: location: [{csv_file_name}]") 
             self.functions.print_paragraphs([
                 ["CSV created successfully",1,"green","bold"],
                 ["filename:",0,], [csv_file_name,1,"yellow","bold"],
@@ -1177,7 +1178,7 @@ class CLI():
 
 
     def show_ip(self,argv_list):
-        self.log.logger.info(f"whoami request for password initiated.")
+        self.log.logger[self.log_key].info(f"whoami request for password initiated.")
         ip_address = self.ip_address
         
         if "-id" in argv_list:
@@ -1193,7 +1194,7 @@ class CLI():
                         "attempt_range": 3,
                     })   
                 except Exception as e:
-                    self.log.logger.error(f"request to find node id request failed | error [{e}]")
+                    self.log.logger[self.log_key].error(f"request to find node id request failed | error [{e}]")
                     argv_list.append("help")
                                 
                 try:
@@ -1222,7 +1223,7 @@ class CLI():
             
     def show_security(self, command_list):
         self.functions.check_for_help(command_list,"sec")
-        self.log.logger.info(f"Show security request made.")
+        self.log.logger[self.log_key].info(f"Show security request made.")
         
         with ThreadPoolExecutor() as executor:
             self.functions.event = True
@@ -1264,7 +1265,7 @@ class CLI():
             
     def show_logs(self,command_list):  
         # name,-p,profile,grep,follow
-        self.log.logger.debug("show logs invoked")
+        self.log.logger[self.log_key].debug("show logs invoked")
         self.functions.check_for_help(command_list,"logs")
 
         l_flag = False
@@ -1279,13 +1280,13 @@ class CLI():
         
         # update log file
         if grep != "empty" and follow != "-f":
-            self.log.logger.info(f"show log with grep [{grep}] invoked | [{name}]")
+            self.log.logger[self.log_key].info(f"show log with grep [{grep}] invoked | [{name}]")
         elif grep != "empty" and follow == "-f":
-            self.log.logger.info(f"show log with grep [{grep}] invoked with follow | [{name}]")
+            self.log.logger[self.log_key].info(f"show log with grep [{grep}] invoked with follow | [{name}]")
         elif follow == "-f":
-            self.log.logger.info(f"show log with follow invoked | [{name}]")
+            self.log.logger[self.log_key].info(f"show log with follow invoked | [{name}]")
         else:
-            self.log.logger.info("show log invoked")
+            self.log.logger[self.log_key].info("show log invoked")
 
         if name != "empty":
             if name not in possible_logs:
@@ -1297,7 +1298,7 @@ class CLI():
             if name == "nodectl":
                 file_path = f"{self.functions.nodectl_path}nodectl.log"
         else:
-            self.log.logger.info(f"show log invoked")
+            self.log.logger[self.log_key].info(f"show log invoked")
             
             self.functions.print_header_title({
                 "line1": "SHOW LOGS",
@@ -1336,7 +1337,7 @@ class CLI():
         try:
             f = open(f"{file_path}","r")
         except:
-            self.log.logger.error(f"unable to open log file for reading [{file_path}]")
+            self.log.logger[self.log_key].error(f"unable to open log file for reading [{file_path}]")
             self.functions.print_paragraphs([
                 ["Error opening file:",0,"red"], [file_path,1,"yellow"],
             ])
@@ -1383,7 +1384,7 @@ class CLI():
 
         
     def show_list(self,command_list):
-        self.log.logger.info(f"Request for list of known profiles requested")
+        self.log.logger[self.log_key].info(f"Request for list of known profiles requested")
         self.functions.check_for_help(command_list,"list")
         
         profile_only = True if "-p" in command_list else False
@@ -1574,7 +1575,7 @@ class CLI():
 
 
     def show_node_states(self,command_list):
-        self.log.logger.info(f"Request to view known Node states by nodectl")
+        self.log.logger[self.log_key].info(f"Request to view known Node states by nodectl")
         self.functions.check_for_help(command_list,"show_node_states")
         states = self.functions.get_node_states()
         
@@ -1630,7 +1631,7 @@ class CLI():
                                 "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                                 "extra2": self.config_obj[profile]["layer"],
                             })
-                        self.log.logger.warning("cli -> show_seedlist_participation -> LB may not be accessible, trying local.")
+                        self.log.logger[self.log_key].warning("cli -> show_seedlist_participation -> LB may not be accessible, trying local.")
                         self.config_obj[profile]["edge_point"] = self.functions.get_ext_ip()
                         self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
                         self.config_obj[profile]["static_peer"] = True 
@@ -1683,10 +1684,10 @@ class CLI():
                     
         
     def show_current_snapshot_proofs(self,command_list):
-        self.log.logger.info("show current snapshot proofs called")
+        self.log.logger[self.log_key].info("show current snapshot proofs called")
         if "-p" in command_list:
             self.profile = command_list[command_list.index("-p")+1]
-            self.log.logger.debug(f"show current snapshot proofs using profile [{self.profile}]")
+            self.log.logger[self.log_key].debug(f"show current snapshot proofs using profile [{self.profile}]")
         else: command_list.append("help")
         if not self.auto_restart: self.functions.check_for_help(command_list,"current_global_snapshot")
         
@@ -1742,7 +1743,7 @@ class CLI():
                     ["SnapShot Transaction Sig:",1,"blue","bold"], [result["signature"],2,"yellow"],
                 ])
         except Exception as e:
-            self.log.logger.error(f"show_current_snapshot_proofs -> unable to process results [{e}]")
+            self.log.logger[self.log_key].error(f"show_current_snapshot_proofs -> unable to process results [{e}]")
             self.functions.print_paragraphs([
                 ["Unable to parse any transactions",1,"red"],
             ])
@@ -1913,7 +1914,7 @@ class CLI():
         ]
         
         if create_csv:
-            self.log.logger.info(f"current rewards command is creating csv file [{csv_file_name}] and adding headers")
+            self.log.logger[self.log_key].info(f"current rewards command is creating csv file [{csv_file_name}] and adding headers")
             csv_headers = [
                 
                 ["General"],
@@ -1971,7 +1972,7 @@ class CLI():
                     print(f"  {address}  {amount}")        
     
         if create_csv:
-            self.log.logger.info(f"csv file created: location: [{csv_path}]") 
+            self.log.logger[self.log_key].info(f"csv file created: location: [{csv_path}]") 
             self.functions.print_cmd_status({
                 "text_start": "Create csv for",
                 "brackets": "show current rewards",
@@ -1988,7 +1989,7 @@ class CLI():
     def show_dip_error(self,command_list):
         self.functions.check_for_help(command_list,"show_dip_error")
         profile = command_list[command_list.index("-p")+1]
-        self.log.logger.info(f"show_dip_error -> initiated - profile [{profile}]")
+        self.log.logger[self.log_key].info(f"show_dip_error -> initiated - profile [{profile}]")
         
         bashCommand = f"grep -a -B 50 -A 5 'Unexpected failure during download' /var/tessellation/{profile}/logs/app.log | tail -n 50"
     
@@ -2040,7 +2041,7 @@ class CLI():
             self.functions.print_paragraphs([
                 ["Error:",0,"red","bold"], ["Unable to determine profile issue",1,"red"],
             ])
-            self.log.logger.warning(f"command_line -> show_profile_issues -> unable to obtain profile, skipping [{e}]")
+            self.log.logger[self.log_key].warning(f"command_line -> show_profile_issues -> unable to obtain profile, skipping [{e}]")
             return
         
         ts.setup_logs({
@@ -2063,7 +2064,7 @@ class CLI():
             try:
                 results = sorted(results[1],key=sort_errors)
             except:
-                self.log.logger.error("cli -> show_profile_error -> unable to sort timestamps, skipping")
+                self.log.logger[self.log_key].error("cli -> show_profile_error -> unable to sort timestamps, skipping")
 
             for result in results:
                 try:
@@ -2077,7 +2078,7 @@ class CLI():
             try:
                 results = self.functions.remove_duplicates("list_of_dicts",results)
             except Exception as e:
-                self.log.logger.critical(f"show_profile_issues -> attempted to remove duplicate error messages which resulted in [{e}]")
+                self.log.logger[self.log_key].critical(f"show_profile_issues -> attempted to remove duplicate error messages which resulted in [{e}]")
                 self.error_messages.error_code_messages({
                     "error_code": "cli-1973",
                     "line_code": "unknown_error",
@@ -2089,7 +2090,7 @@ class CLI():
                 find_msg = str(result['find'])
                 user_msg = str(result['user_msg'])
                 timestamp_msg = str(result['timestamp'])
-                self.log.logger.error(f"cli_restart -> profile [{f_profile}] error [{result['error_msg']}] error found [{result['find']}] user message [{result['user_msg']}]")
+                self.log.logger[self.log_key].error(f"cli_restart -> profile [{f_profile}] error [{result['error_msg']}] error found [{result['find']}] user message [{result['user_msg']}]")
                 self.functions.print_paragraphs([
                     ["       Profile:",0],[f_profile,1,"yellow"],
                     ["         Error:",0],[error_msg,1,"yellow"],
@@ -2335,7 +2336,7 @@ class CLI():
  
     def check_source_connection(self,command_list):
         self.functions.check_for_help(command_list,"check_source_connection")
-        self.log.logger.info(f"Check source connection request made.")
+        self.log.logger[self.log_key].info(f"Check source connection request made.")
         self.set_profile(command_list[command_list.index("-p")+1])
         self.functions.test_ready_observing(self.profile)
         
@@ -2528,7 +2529,7 @@ class CLI():
             edge = command_list[command_list.index("-e")+1]
            
         edge = "127.0.0.1" if not edge else edge
-        self.log.logger.info(f"Check connection request made. | {edge}")
+        self.log.logger[self.log_key].info(f"Check connection request made. | {edge}")
 
         node_list = [source,edge]
         flip_flop = []
@@ -2537,7 +2538,7 @@ class CLI():
         
         for n, node in enumerate(node_list):
             # "peer_count": [], # peer_count, node_online, peer_set
-            self.log.logger.debug(f"checking count and testing peer on {node}")
+            self.log.logger[self.log_key].debug(f"checking count and testing peer on {node}")
             node_obj = self.functions.get_info_from_edge_point({
                 "profile": self.profile,
                 "caller": "check_connection",
@@ -2608,7 +2609,7 @@ class CLI():
             # edge node missing                        source                  -              edge
             node_obj_list[1]["missed_ips"] = node_obj_list[0]["peer_set"] - node_obj_list[1]["peer_set"]
         except Exception as e:
-            self.log.logger.error(f"check_connection - source - edge - threw error [{e}]")
+            self.log.logger[self.log_key].error(f"check_connection - source - edge - threw error [{e}]")
         else:
             node_obj_list[1]["missed_ip_count"] = len(node_obj_list[1]["missed_ips"])
   
@@ -2617,7 +2618,7 @@ class CLI():
         try:
             node_obj_list[0]["missed_ips"] = node_obj_list[1]["peer_set"] - node_obj_list[0]["peer_set"]
         except Exception as e:
-            self.log.logger.error(f"check_connection - edge - source - threw error [{e}]")
+            self.log.logger[self.log_key].error(f"check_connection - edge - source - threw error [{e}]")
         else:
             node_obj_list[0]["missed_ip_count"] = len(node_obj_list[0]["missed_ips"])
     
@@ -2659,7 +2660,7 @@ class CLI():
         print_results(node_obj_list,False)
             
         if issues_found:
-            self.log.logger.error(f"Check  connection request returned threshold or other error.")
+            self.log.logger[self.log_key].error(f"Check  connection request returned threshold or other error.")
             self.functions.print_paragraphs([
                 ["This Node is",0,"yellow"], ["not 100%",0,"red","underline"], ["connected",2,"yellow"],
                 
@@ -2813,7 +2814,7 @@ class CLI():
         self.functions.check_for_help(argv_list,"upgrade_path")
         called_command = "upgrade_path" if called_command == "_up" else called_command
         
-        self.log.logger.debug("testing for upgrade path requirements")
+        self.log.logger[self.log_key].debug("testing for upgrade path requirements")
 
         try:
             nodectl_uptodate = getattr(versions,env)
@@ -2955,7 +2956,7 @@ class CLI():
             try:
                 nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
             except:
-                self.log.logger.warning("check_for_new_version -> unable to determine if [nodectl] version is up to date... skipping")
+                self.log.logger[self.log_key].warning("check_for_new_version -> unable to determine if [nodectl] version is up to date... skipping")
                 nodectl_version_check = "unknown"
 
             if nodectl_version_check == "current_greater" and not self.check_versions_called:
@@ -2993,7 +2994,7 @@ class CLI():
             try:
                 tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
             except:
-                self.log.logger.warning("check_for_new_version -> unable to determine if [Tessellation] version is up to date... skipping")
+                self.log.logger[self.log_key].warning("check_for_new_version -> unable to determine if [Tessellation] version is up to date... skipping")
                 tess_version_check = "unknown"
             if tess_version_check == "current_less" and not self.check_versions_called:
                     self.functions.print_clear_line()
@@ -3023,7 +3024,7 @@ class CLI():
         existing_node_id = command_obj.get("node_id",False)
         self.functions.check_for_help(argv_list,"start")
 
-        self.log.logger.info(f"Start service request initiated.")
+        self.log.logger[self.log_key].info(f"Start service request initiated.")
         progress = {
             "text_start": "Start request initiated",
             "brackets": self.functions.cleaner(service_name,'service_prefix'),
@@ -3127,7 +3128,7 @@ class CLI():
         self.functions.check_for_help(argv_list,"stop")
         self.set_profile(profile)
 
-        self.log.logger.info(f"cli_stop -> stop process commencing | profile [{profile}]")
+        self.log.logger[self.log_key].info(f"cli_stop -> stop process commencing | profile [{profile}]")
         self.functions.print_cmd_status({
             "status": "stop",
             "status_color": "magenta",
@@ -3145,7 +3146,7 @@ class CLI():
                 "current_source_node": "127.0.0.1",
                 "caller": "cli_stop",
             })     
-            self.log.logger.info(f"cli_stop -> found state | profile [{profile}] | state [{state}]")
+            self.log.logger[self.log_key].info(f"cli_stop -> found state | profile [{profile}] | state [{state}]")
             states = self.functions.get_node_states("on_network",True)
 
             if state in states:
@@ -3179,7 +3180,7 @@ class CLI():
         }
         print("")
         self.functions.print_cmd_status(progress)
-        self.log.logger.info(f"Stop service request initiated. [{self.service_name}]")
+        self.log.logger[self.log_key].info(f"Stop service request initiated. [{self.service_name}]")
         
         with ThreadPoolExecutor() as executor:
             if spinner:
@@ -3206,7 +3207,7 @@ class CLI():
                 })
                 self.functions.event = False
             except Exception as e:
-                self.log.logger.error(f"cli_stop -> found issue with stop request [{e}]")
+                self.log.logger[self.log_key].error(f"cli_stop -> found issue with stop request [{e}]")
 
         if result == "skip_timer":
             show_timer = False
@@ -3215,7 +3216,7 @@ class CLI():
         if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
             rebuild = False
         
-        self.log.logger.debug(f"cli_stop -> stop process completed | profile [{profile}]")
+        self.log.logger[self.log_key].debug(f"cli_stop -> stop process completed | profile [{profile}]")
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -3269,7 +3270,7 @@ class CLI():
                 
         self.functions.print_clear_line()
         performance_start = perf_counter()  # keep track of how long
-        self.log.logger.debug(f"cli_restart -> request commencing")
+        self.log.logger[self.log_key].debug(f"cli_restart -> request commencing")
         self.functions.print_cmd_status({
             "text_start": "Restart request initiated",
             "status": "running",
@@ -3327,7 +3328,7 @@ class CLI():
         with ThreadPoolExecutor() as executor:
             leave_list = []; stop_list = []; delay = 0
             for n, profile in enumerate(profile_order):
-                self.log.logger.debug(f"cli_restart -> preparing to leave and stop | profile [{profile}]")
+                self.log.logger[self.log_key].debug(f"cli_restart -> preparing to leave and stop | profile [{profile}]")
                 leave_obj = {
                     "secs": secs,
                     "delay": delay,
@@ -3348,7 +3349,7 @@ class CLI():
             # leave
             self.print_title("LEAVING CLUSTERS") 
             leave_list[-1]["skip_msg"] = False     
-            self.log.logger.info(f"cli_restart -> executing leave process against profiles found")               
+            self.log.logger[self.log_key].info(f"cli_restart -> executing leave process against profiles found")               
             futures = [executor.submit(self.cli_leave, obj) for obj in leave_list]
             thread_wait(futures)
 
@@ -3360,7 +3361,7 @@ class CLI():
             })
         
             # stop
-            self.log.logger.debug(f"cli_restart -> executing stop process against profiles found")
+            self.log.logger[self.log_key].debug(f"cli_restart -> executing stop process against profiles found")
             self.print_title(f"STOPPING PROFILE {'SERVICES' if called_profile == 'all' else 'SERVICE'}")    
             stop_list[-1]["spinner"] = True
             futures = [executor.submit(self.cli_stop, obj) for obj in stop_list]
@@ -3375,7 +3376,7 @@ class CLI():
         
         # seed list title printed in download_service class
         for n, profile in enumerate(profile_order):
-            self.log.logger.debug(f"cli_restart -> handling seed list updates against profile [{profile}]")
+            self.log.logger[self.log_key].debug(f"cli_restart -> handling seed list updates against profile [{profile}]")
             self.node_service.set_profile(profile)
 
             pos = self.node_service.download_constellation_binaries({
@@ -3399,7 +3400,7 @@ class CLI():
                 self.set_profile(profile)
                     
                 if restart_type == "restart_only":
-                    self.log.logger.debug(f"cli_restart -> 'restart_only' option found")
+                    self.log.logger[self.log_key].debug(f"cli_restart -> 'restart_only' option found")
                     link_profiles = self.functions.pull_profile({
                         "profile": profile,
                         "req": "all_link_profiles",
@@ -3414,7 +3415,7 @@ class CLI():
                             
                             if state != "Ready":
                                 link_profile = link_profiles[f"{link_type}_profile"]
-                                self.log.logger.warning(f"cli_restart -> restart_only with join requested for a profile that is dependent on other profiles | [{profile}] link profile [{link_profile}]")
+                                self.log.logger[self.log_key].warning(f"cli_restart -> restart_only with join requested for a profile that is dependent on other profiles | [{profile}] link profile [{link_profile}]")
                                 self.functions.print_paragraphs([
                                     ["",1], 
                                     [" WARNING ",2,"white,on_red"], 
@@ -3441,7 +3442,7 @@ class CLI():
                 if not service_name.startswith("cnng-"): service_name = f"cnng-{service_name}"
                     
                 for n in range(1,failure_retries+1):
-                    self.log.logger.debug(f"cli_restart -> service[s] associated with [{called_profile}]")
+                    self.log.logger[self.log_key].debug(f"cli_restart -> service[s] associated with [{called_profile}]")
                     self.print_title(f"RESTARTING PROFILE {'SERVICES' if called_profile == 'all' else 'SERVICE'}")
                     self.cli_start({
                         "spinner": False,
@@ -3458,11 +3459,11 @@ class CLI():
 
                     ready_states = self.functions.get_node_states("ready_states",True)
                     if peer_test_results in ready_states:  # ReadyToJoin and Ready
-                        self.log.logger.debug(f"cli_restart -> found state [{peer_test_results}] profile [{profile}]")
+                        self.log.logger[self.log_key].debug(f"cli_restart -> found state [{peer_test_results}] profile [{profile}]")
                         break
                     else:
                         if n == failure_retries:
-                            self.log.logger.error(f"cli_restart -> service failed to start [{service_name}] profile [{profile}]")
+                            self.log.logger[self.log_key].error(f"cli_restart -> service failed to start [{service_name}] profile [{profile}]")
                             self.functions.print_paragraphs([
                                 [profile,0,"red","bold"], ["service failed to start...",1]
                             ])
@@ -3490,7 +3491,7 @@ class CLI():
                     self.print_title(f"JOINING [{environment.upper()}] [{profile.upper()}]")   
 
                     if profile not in start_failed_list:
-                        self.log.logger.info(f'cli_restart -> sending to join process. | profile [{profile}]')
+                        self.log.logger[self.log_key].info(f'cli_restart -> sending to join process. | profile [{profile}]')
                         self.cli_join({
                             "skip_msg": False,
                             "caller": "cli_restart",
@@ -3504,7 +3505,7 @@ class CLI():
                             "argv_list": ["-p",profile]
                         })
                     else:
-                        self.log.logger.error(f'cli_restart -> restart process failed due to improper join, skipping join process. | profile [{profile}]')
+                        self.log.logger[self.log_key].error(f'cli_restart -> restart process failed due to improper join, skipping join process. | profile [{profile}]')
                         self.functions.print_paragraphs([
                             [profile,0,"red","bold"], ["did not start properly; therefore,",0,"red"],
                             ["the join process cannot begin",0,"red"], ["skipping",1, "yellow"],
@@ -3522,7 +3523,7 @@ class CLI():
                 "proc_action": "subprocess_devnull",
             })
 
-        self.log.logger.info("user initiated system warm reboot.")
+        self.log.logger[self.log_key].info("user initiated system warm reboot.")
         self.functions.check_for_help(command_list,"reboot")
         
         on_boot = self.config_obj["global_auto_restart"]["on_boot"]
@@ -3682,7 +3683,7 @@ class CLI():
             self.print_title(f"JOINING {called_profile.upper()}")  
         
         if not skip_msg:
-            self.log.logger.info(f"cli_join -> join starting| profile [{self.profile}]")
+            self.log.logger[self.log_key].info(f"cli_join -> join starting| profile [{self.profile}]")
             self.functions.print_cmd_status({
                 "text_start": "Joining",
                 "brackets": self.profile,
@@ -3698,14 +3699,14 @@ class CLI():
                     for link_type in ["gl0","ml0"]:
                         if eval(f"{link_type}_link"):
                             if self.functions.config_obj[called_profile][f"{link_type}_link_profile"] == link_profile:
-                                self.log.logger.debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}]")
+                                self.log.logger[self.log_key].debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}]")
                                 found_dependency = True
                             elif self.functions.config_obj[called_profile][f"{link_type}_link_profile"] == "None" and not found_dependency:
-                                self.log.logger.debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}] external [{self.functions.config_obj[link_profile][f'{link_type}_link_host']}] external port [{self.functions.config_obj[link_profile][f'{link_type}_link_port']}]")
+                                self.log.logger[self.log_key].debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}] external [{self.functions.config_obj[link_profile][f'{link_type}_link_host']}] external port [{self.functions.config_obj[link_profile][f'{link_type}_link_port']}]")
                                 found_dependency = True
 
             if not found_dependency:
-                self.log.logger.debug(f"cli_join -> no dependency found | profile [{called_profile}]")
+                self.log.logger[self.log_key].debug(f"cli_join -> no dependency found | profile [{called_profile}]")
                 single_profile = True
 
             
@@ -3714,7 +3715,7 @@ class CLI():
             "simple": True
         })
         
-        self.log.logger.debug(f"cli_join -> reviewing node state | profile [{self.profile}] state [{state}]")
+        self.log.logger[self.log_key].debug(f"cli_join -> reviewing node state | profile [{self.profile}] state [{state}]")
         self.functions.print_cmd_status({
             "text_start": "Reviewing",
             "brackets": self.profile,
@@ -3724,7 +3725,7 @@ class CLI():
         })
 
         if state == "Ready":
-            self.log.logger.warning(f"cli_join -> profile already in proper state, nothing to do | profile [{self.profile}] state [{state}]")
+            self.log.logger[self.log_key].warning(f"cli_join -> profile already in proper state, nothing to do | profile [{self.profile}] state [{state}]")
             self.functions.print_paragraphs([
                 ["Profile already in",0,"green"],
                 [" Ready ",0,"grey,on_green","bold"],
@@ -3733,14 +3734,14 @@ class CLI():
             return
         
         if state == "ApiNotReady":
-            self.log.logger.warning(f"cli_join -> service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
+            self.log.logger[self.log_key].warning(f"cli_join -> service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
             self.functions.print_paragraphs([
                 ["Profile state in",0,"red"], [state,0,"red","bold"],
                 ["state, cannot join",1,"red"], ["Attempting to start service [",0],
                 [self.service_name.replace('cnng-',''),-1,"yellow","bold"], ["] again.",-1], ["",1]
             ])
             
-            self.log.logger.debug(f"cli_join -> attempting to start service | profile [{self.profile}] service [{self.service_name}]")
+            self.log.logger[self.log_key].debug(f"cli_join -> attempting to start service | profile [{self.profile}] service [{self.service_name}]")
             self.cli_start({
                 "spinner": True,
                 "profile": self.profile,
@@ -3748,7 +3749,7 @@ class CLI():
             })
         
         if self.config_obj[self.profile]["static_peer"]:
-            self.log.logger.info(f"cli_join -> sending to node services to start join process | profile [{self.profile}] static peer [{self.config_obj[self.profile]['edge_point']}]")
+            self.log.logger[self.log_key].info(f"cli_join -> sending to node services to start join process | profile [{self.profile}] static peer [{self.config_obj[self.profile]['edge_point']}]")
         join_result = self.node_service.join_cluster({
             "caller": "cli_join",
             "action":"cli",
@@ -3767,7 +3768,7 @@ class CLI():
         if color == "green":
             for allocated_time in range(0,max_timer):
                 sleep(1)
-                self.log.logger.debug(f"cli_join -> watching join process | profile [{self.profile}]")
+                self.log.logger[self.log_key].debug(f"cli_join -> watching join process | profile [{self.profile}]")
                 if allocated_time % 5 == 0 or allocated_time < 1:  # 5 second mark or first attempt
                     if allocated_time % 10 == 0 or allocated_time < 1:
                         # re-check source every 10 seconds
@@ -3878,7 +3879,7 @@ class CLI():
                         else:
                             old_peer_count = peer_count
                 except Exception as e:
-                    self.log.logger.error(f"cli-join - {e}")
+                    self.log.logger[self.log_key].error(f"cli-join - {e}")
                 
 
                 if allocated_time % 1 == 0:  
@@ -3899,14 +3900,14 @@ class CLI():
                 
             if snapshot_issues:
                 if snapshot_issues == "wfd_break":
-                    self.log.logger.error(f"cli_join -> possible issue found | profile [{self.profile}] issue [WaitingForDownload]")
+                    self.log.logger[self.log_key].error(f"cli_join -> possible issue found | profile [{self.profile}] issue [WaitingForDownload]")
                     self.functions.print_paragraphs([
                         ["",2],["nodectl has detected",0],["WaitingForDownload",0,"red","bold"],["state.",2],
                         ["This is an indication that your Node may be stuck in an improper state.",0],
                         ["Please contact technical support in the Discord Channels for more help.",1],
                     ])                    
                 if snapshot_issues == "dip_break":
-                    self.log.logger.warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
+                    self.log.logger[self.log_key].warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
                     self.functions.print_paragraphs([
                         ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],["state.",2],
                         ["This is",0], ["not",0,"green","bold"], ["an issue; however, Nodes may take",0],
@@ -3914,7 +3915,7 @@ class CLI():
                         ["watching for peers process during this join in order to avoid undesirable wait times.",1],
                     ])       
             elif not result and tolerance_result:
-                self.log.logger.warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
+                self.log.logger[self.log_key].warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1],["nodectl tolerance connection status of [",0,],
@@ -3922,7 +3923,7 @@ class CLI():
                     ["continuing join request.",1]
                 ])
             elif not result and not tolerance_result:
-                self.log.logger.error(f"cli_join -> may have found an issue during join process; however, this may not be of concern if the Node is in proper state | profile [{self.profile}]")
+                self.log.logger[self.log_key].error(f"cli_join -> may have found an issue during join process; however, this may not be of concern if the Node is in proper state | profile [{self.profile}]")
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING ",0,"yellow,on_red","bold"], ["Issue may be present?",0,"red"],
@@ -3939,7 +3940,7 @@ class CLI():
                 ])
                 
         print("")
-        self.log.logger.info(f"cli_join -> join process has completed | profile [{self.profile}] result [{join_result}]")
+        self.log.logger[self.log_key].info(f"cli_join -> join process has completed | profile [{self.profile}] result [{join_result}]")
         self.functions.print_cmd_status({
             "text_start": f"Join process{attempt} complete",
             "status": join_result,
@@ -3963,7 +3964,7 @@ class CLI():
             ])
             
         stop_timer = perf_counter()
-        self.log.logger.debug(f"join process completed in: [{stop_timer - start_timer}s]")
+        self.log.logger[self.log_key].debug(f"join process completed in: [{stop_timer - start_timer}s]")
         self.functions.print_clear_line()
         print("")
         
@@ -4027,9 +4028,9 @@ class CLI():
             start = 1
             skip_log_lookup = False
             while True:
-                self.log.logger.info(f"cli_leave -> leave in progress | profile [{profile}] port [{api_port}] | ip [127.0.0.1]")
+                self.log.logger[self.log_key].info(f"cli_leave -> leave in progress | profile [{profile}] port [{api_port}] | ip [127.0.0.1]")
                 if start > max_retries+1:
-                    self.log.logger.warning(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
+                    self.log.logger[self.log_key].warning(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
                     call_leave_cluster()
 
                 self.functions.print_cmd_status({
@@ -4062,7 +4063,7 @@ class CLI():
                 })
                 
                 if state in self.functions.not_on_network_list:
-                    self.log.logger.debug(f"cli_leave -> leave process complete | profile [{profile}] state [{state}] | ip [127.0.0.1]")
+                    self.log.logger[self.log_key].debug(f"cli_leave -> leave process complete | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                     self.functions.print_cmd_status({
                         "status": "OutOfCluster",
                         "status_color": "green",
@@ -4075,7 +4076,7 @@ class CLI():
                 elif leave_obj: break
                 elif start > 1:
                     if backup_line: print(f'\x1b[1A', end='')
-                    self.log.logger.warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
+                    self.log.logger[self.log_key].warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                     self.functions.print_cmd_status({
                         "text_start": f"{profile} not out of cluster",
                         "text_color": "red",
@@ -4085,7 +4086,7 @@ class CLI():
                     })  
                 
                 if start > 4:
-                    self.log.logger.warning(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
+                    self.log.logger[self.log_key].warning(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
                     if print_timer:
                         self.functions.print_cmd_status({
                             "text_start": "Unable to gracefully leave",
@@ -4098,7 +4099,7 @@ class CLI():
                 if print_timer:
                     self.prepare_and_send_logs(["-p",profile,"scrap"])
                     try:
-                        self.log.logger.debug(f"cli_leave -> leave process waiting for | profile [{profile}] state to be [leaving] | ip [127.0.0.1]")
+                        self.log.logger[self.log_key].debug(f"cli_leave -> leave process waiting for | profile [{profile}] state to be [leaving] | ip [127.0.0.1]")
                         leave_obj = self.send.scrap_log({
                             "profile": profile,
                             "msg": "Wait for Node to transition to leaving",
@@ -4109,25 +4110,25 @@ class CLI():
                             "parent": self,
                         })
                     except Exception as e:
-                        self.log.logger.error(f"leave object exception raised [{e}]")
+                        self.log.logger[self.log_key].error(f"leave object exception raised [{e}]")
                         
                     try: 
                         timestamp = leave_obj["@timestamp"]
                     except:
-                        self.log.logger.warning(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
+                        self.log.logger[self.log_key].warning(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
                         leave_str = "to allow Node to gracefully leave"
                         skip_log_lookup = True
                         sleep(.5)
 
                     state = self.functions.test_peer_state(get_state_obj)
                     if state in self.functions.not_on_network_list: 
-                        self.log.logger.debug(f"cli_leave -> found out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1] - continuing")
+                        self.log.logger[self.log_key].debug(f"cli_leave -> found out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1] - continuing")
                         break
                     elif start > 2:
                         skip_log_lookup = True
                         
                     if skip_log_lookup:
-                        self.log.logger.debug(f"cli_leave -> pausing to allow leave process to complete | profile [{profile}] | ip [127.0.0.1]")
+                        self.log.logger[self.log_key].debug(f"cli_leave -> pausing to allow leave process to complete | profile [{profile}] | ip [127.0.0.1]")
                         self.functions.print_timer({
                             "seconds": secs,
                             "phrase": leave_str,
@@ -4137,7 +4138,7 @@ class CLI():
                         leave_obj = False
                         sleep(1)
                         try:
-                            self.log.logger.debug(f"cli_leave -> checking for Offline status | profile [{profile}] | ip [127.0.0.1]")
+                            self.log.logger[self.log_key].debug(f"cli_leave -> checking for Offline status | profile [{profile}] | ip [127.0.0.1]")
                             leave_obj = self.send.scrap_log({
                                 "profile": profile,
                                 "msg": "Wait for Node to go offline",
@@ -4148,12 +4149,12 @@ class CLI():
                                 "parent": self,
                             })
                         except Exception as e:
-                            self.log.logger.error(f"leave object exception raised [{e}]")
+                            self.log.logger[self.log_key].error(f"leave object exception raised [{e}]")
                             skip_log_lookup = True
                                 
                         state = self.functions.test_peer_state(get_state_obj)
                         if state not in self.functions.not_on_network_list and start > 2: 
-                            self.log.logger.warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
+                            self.log.logger[self.log_key].warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
                             sleep(.1) 
                             skip_log_lookup = True      
                             backup_line = True  
@@ -4219,7 +4220,7 @@ class CLI():
             outside_node_request = True
             nodeid = argv_list[argv_list.index("-w")+1] 
                                          
-        self.log.logger.info(f"Request to display nodeid | type {command}")
+        self.log.logger[self.log_key].info(f"Request to display nodeid | type {command}")
 
         if not outside_node_request and not target:
             self.functions.config_obj["global_elements"]["caller"] = "command_line"
@@ -4322,7 +4323,7 @@ class CLI():
                         ip_address = nodeid[1]
                         nodeid = nodeid[0]
                     except:
-                        self.log.logger.warning(f"attempt to access api returned no response | command [{command}] ip [{ip_address}]")
+                        self.log.logger[self.log_key].warning(f"attempt to access api returned no response | command [{command}] ip [{ip_address}]")
                         nodeid = colored("Unable To Retrieve","red")
                 self.functions.event = False           
         else:
@@ -4399,7 +4400,7 @@ class CLI():
                 })
 
                 if n < 2 and int(float(wallet_balance["balance_dag"].replace(',', ''))) < 1:    
-                    self.log.logger.warning("cli_grab_id --> wallet balance came back as 0, trying again before reporting 0 balance.")
+                    self.log.logger[self.log_key].warning("cli_grab_id --> wallet balance came back as 0, trying again before reporting 0 balance.")
                     if n < 1:
                         sleep(.8) # avoid asking too fast
                     else:
@@ -4462,12 +4463,12 @@ class CLI():
                 try:
                     nodeid = f"{nodeidwr[1][1::]}{nodeidwr[2][1::]}"
                 except:
-                    self.log.logger.error(f"Unable to access nodeid from p12 file.")
+                    self.log.logger[self.log_key].error(f"Unable to access nodeid from p12 file.")
                     nodeid = "unable to derive"
             else:
                 nodeid = nodeid.strip()
                 if nodeid == "":
-                    self.log.logger.error(f"Unable to access nodeid from p12 file.")
+                    self.log.logger[self.log_key].error(f"Unable to access nodeid from p12 file.")
                     nodeid = "unable to derive"
             header_elements = {
                 title: nodeid,
@@ -4636,7 +4637,7 @@ class CLI():
             
 
     def cli_find(self,argv_list): # ip="empty",dest=None
-        self.log.logger.debug("find request initiated...")
+        self.log.logger[self.log_key].debug("find request initiated...")
         self.functions.check_for_help(argv_list,"find")
         ordhash_lookup = False
         list_file = False
@@ -4708,7 +4709,7 @@ class CLI():
             })
 
             if peer_results == "error" or peer_results == None:
-                self.log.logger.error(f"show count | attempt to access peer count function failed")
+                self.log.logger[self.log_key].error(f"show count | attempt to access peer count function failed")
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-217",
                     "line_code": "service",
@@ -4898,7 +4899,7 @@ class CLI():
 
     def cli_handle_ipv6(self,argv_list):
         self.functions.check_for_help(argv_list, "ipv6")
-        self.log.logger.info("command_line -> request to handle ipv6 issued")
+        self.log.logger[self.log_key].info("command_line -> request to handle ipv6 issued")
 
         if "status" in argv_list:
             action = "status"
@@ -4928,7 +4929,7 @@ class CLI():
 
     def cli_upgrade_vps(self,argv_list):
         self.functions.check_for_help(argv_list, "upgrade_vps")
-        self.log.logger.info("command_line -> request to upgrade VPS issued")
+        self.log.logger[self.log_key].info("command_line -> request to upgrade VPS issued")
 
         interactive = True if not "--ni" in argv_list else False
         do_reboot = True if "--reboot" in argv_list else False
@@ -5101,10 +5102,10 @@ class CLI():
                 
         for n in range(0,2):
             if n == 0: 
-                self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | fork_obj remote: [{self.functions.be_urls[environment]}].")
+                self.log.logger[self.log_key].debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | fork_obj remote: [{self.functions.be_urls[environment]}].")
                 global_ordinals["backend"] = self.functions.get_snapshot(fork_obj)
                 if global_ordinals["backend"] is None:
-                    self.log.logger.error("check_minority_fork -> backend api endpoint did not return any results.") 
+                    self.log.logger[self.log_key].error("check_minority_fork -> backend api endpoint did not return any results.") 
                     global_ordinals["backend"] = {
                         "ordinal": "unknown",
                         "lastSnapshotHash": "unknown",
@@ -5119,10 +5120,10 @@ class CLI():
                     "action": "ordinal",
                     "profile": profile,
                 }
-                self.log.logger.debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
+                self.log.logger[self.log_key].debug(f"command_line - cli_minority_fork_detection - [{caller}] - profile [{profile}] | retrieving localhost: [{fork_obj['lookup_uri']}].")
                 global_ordinals["local"] = self.functions.get_snapshot(fork_obj)
                 if global_ordinals["local"] is None: 
-                    self.log.logger.error("check_minority_fork -> local api endpoint did not return any results.") 
+                    self.log.logger[self.log_key].error("check_minority_fork -> local api endpoint did not return any results.") 
                     global_ordinals["local"] = {
                         "ordinal": "unknown",
                         "lastSnapshotHash": "unknown",
@@ -5309,7 +5310,7 @@ class CLI():
                     except:
                         consensus_match = colored("UnableToDetermine","magenta")
                         
-                    self.log.logger.debug(f"cli_check_consensus -> caller [{caller}] -> participating in consensus rounds [{consensus_match}]")
+                    self.log.logger[self.log_key].debug(f"cli_check_consensus -> caller [{caller}] -> participating in consensus rounds [{consensus_match}]")
                     if caller != "check_consensus": 
                         return consensus_match
                     
@@ -5555,7 +5556,7 @@ class CLI():
 
                             
     def passwd12(self,command_list):
-        self.log.logger.info("passwd12 command called by user")
+        self.log.logger[self.log_key].info("passwd12 command called by user")
         self.functions.check_for_help(command_list,"passwd12")
         profile = self.functions.pull_profile({
             "req": "default_profile"
@@ -5583,7 +5584,7 @@ class CLI():
             "prompt": "Are you sure you want to change the p12 passphrase?",
             "exit_if": False
         }):
-            self.log.logger.info(f"request to change p12 cancelled.")
+            self.log.logger[self.log_key].info(f"request to change p12 cancelled.")
             print(colored("  Action cancelled","cyan"))
             return 0          
         
@@ -5614,7 +5615,7 @@ class CLI():
                 p12_list.append(p12_location)
                 break
             
-            self.log.logger.error(f"User entered invalid p12 [name] or [location] options")
+            self.log.logger[self.log_key].error(f"User entered invalid p12 [name] or [location] options")
             
             self.functions.print_paragraphs([
                 ["",1],
@@ -5639,7 +5640,7 @@ class CLI():
                             passphrases.append(pass1)
                             break
                         
-                self.log.logger.error(f"{verb} entered passphrase did not match, had a length issue, or did not have proper restrictions.")
+                self.log.logger[self.log_key].error(f"{verb} entered passphrase did not match, had a length issue, or did not have proper restrictions.")
                 
                 self.functions.print_paragraphs([
                     ["",1], ["Passphrase did not",0,"red"], ["match",0,"yellow","bold"], ["or",1,"red","underline"],
@@ -5678,7 +5679,7 @@ class CLI():
         })
 
         if result == "success":
-            self.log.logger.info(f"Successfully changed p12 passphrase.")
+            self.log.logger[self.log_key].info(f"Successfully changed p12 passphrase.")
             status = "successful"
             color = "green"
             self.functions.print_paragraphs([
@@ -5687,7 +5688,7 @@ class CLI():
                 ["command:",0], ["sudo nodectl configure",2,"blue","bold"]
             ])
         else:
-            self.log.logger.error(f"P12 Passphrase change failed | {result}.")
+            self.log.logger[self.log_key].error(f"P12 Passphrase change failed | {result}.")
             status = "failed"
             color = "red"
             self.functions.print_paragraphs([
@@ -5752,7 +5753,7 @@ class CLI():
             newest_time, newest_snapshot = 0, None
             for creation_time, file_path, is_error in results:
                 if is_error:
-                    self.log.logger.error(is_error)
+                    self.log.logger[self.log_key].error(is_error)
                 elif creation_time > newest_time:
                     newest_time, newest_snapshot = creation_time, file_path
 
@@ -5793,7 +5794,7 @@ class CLI():
     def cli_snapshot_chain(self,command_list):
         debug = False
         self.functions.check_for_help(command_list,"display_snapshot_chain")
-        self.log.logger.info("cli -> display_snapshot_chain initiated.")
+        self.log.logger[self.log_key].info("cli -> display_snapshot_chain initiated.")
 
         fix = True if "--fix" in command_list else False
         if fix and not self.config_obj["global_elements"]["developer_mode"]:
@@ -5832,12 +5833,12 @@ class CLI():
             })  
             print("")
 
-        self.log.logger.info("cli -> display_snapshot_chain --fix option detected.")
+        self.log.logger[self.log_key].info("cli -> display_snapshot_chain --fix option detected.")
 
         old_days = -1
         if fix and "--days" in command_list:
             old_days = command_list[command_list.index("--days")+1]
-            self.log.logger.info(f"cli -> display_snapshot_chain remove old snapshots requested [{old_days} days].")
+            self.log.logger[self.log_key].info(f"cli -> display_snapshot_chain remove old snapshots requested [{old_days} days].")
             try:
                 old_days = int(old_days)
             except:
@@ -6050,7 +6051,7 @@ class CLI():
 
 
     def cli_execute_starchiver(self,command_list):
-        self.log.logger.info("cli -> execute_starchiver initiated.")
+        self.log.logger[self.log_key].info("cli -> execute_starchiver initiated.")
         self.functions.check_for_help(command_list,"execute_starchiver")
 
         def set_key_pairs():
@@ -6121,7 +6122,7 @@ class CLI():
         elif "-d" in command_list: bashCommand += " -d"
         elif "-o" in command_list: bashCommand += " -o"
 
-        self.log.logger.debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
+        self.log.logger[self.log_key].debug(f"cli -> execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
 
 
         self.functions.print_paragraphs([
@@ -6155,11 +6156,11 @@ class CLI():
             "newline": False,
         })
         sleep(.5)
-        self.log.logger.debug("cli -> execute_starchiver -> removing existing starchiver if exists.")
+        self.log.logger[self.log_key].debug("cli -> execute_starchiver -> removing existing starchiver if exists.")
         try:
             remove(local_path)
         except:
-            self.log.logger.debug("cli -> execute_starchiver -> did not find an existing starchiver script.")
+            self.log.logger[self.log_key].debug("cli -> execute_starchiver -> did not find an existing starchiver script.")
         self.functions.print_cmd_status({
             "text_start": "Remove existing starchiver scripts",
             "status": "complete",
@@ -6174,7 +6175,7 @@ class CLI():
             "newline": False,
         })
         sleep(.5)
-        self.log.logger.debug(f"cli -> execute_starchiver -> fetching starchiver -> [{repo}] -> [{local_path}]")
+        self.log.logger[self.log_key].debug(f"cli -> execute_starchiver -> fetching starchiver -> [{repo}] -> [{local_path}]")
         self.functions.download_file({
             "url": repo,
             "local": local_path,
@@ -6193,7 +6194,7 @@ class CLI():
             "newline": False,
         })
         sleep(.5)
-        self.log.logger.debug(f"cli -> execute_starchiver -> changing starchiver permissions to +x -> [/var/tmp/starchiver]")
+        self.log.logger[self.log_key].debug(f"cli -> execute_starchiver -> changing starchiver permissions to +x -> [/var/tmp/starchiver]")
         chmod(local_path, 0o755)
         self.functions.print_cmd_status({
             "text_start": "Setting starchiver permissions",
@@ -6259,7 +6260,7 @@ class CLI():
 
 
     def cli_execute_tests(self,command_list):
-        self.log.logger.info("cli -> execute_tests initiated.")
+        self.log.logger[self.log_key].info("cli -> execute_tests initiated.")
         self.functions.check_for_help(command_list,"execute_tests")
 
         self.functions.print_header_title({
@@ -6290,11 +6291,11 @@ class CLI():
             "newline": False,
         })
         sleep(.5)
-        self.log.logger.debug("cli -> execute_tests -> removing existing test script if exists.")
+        self.log.logger[self.log_key].debug("cli -> execute_tests -> removing existing test script if exists.")
         try:
             remove("/usr/local/bin/nodectl_tests_x86_64")
         except:
-            self.log.logger.debug("cli -> execute_tests -> did not find an existing user tests script.")
+            self.log.logger[self.log_key].debug("cli -> execute_tests -> did not find an existing user tests script.")
         self.functions.print_cmd_status({
             "text_start": "Remove existing user tests",
             "status": "complete",
@@ -6311,7 +6312,7 @@ class CLI():
         sleep(.5)
         repo = f"{self.functions.nodectl_download_url}/nodectl_tests_x86_64"
         local_path = "/usr/local/bin/nodectl_tests"
-        self.log.logger.debug(f"cli -> execute_tests -> fetching Node Operator tests -> [{repo}] to [{local_path}]")
+        self.log.logger[self.log_key].debug(f"cli -> execute_tests -> fetching Node Operator tests -> [{repo}] to [{local_path}]")
         self.functions.download_file({
             "url": repo,
             "local": local_path,
@@ -6330,7 +6331,7 @@ class CLI():
             "newline": False,
         })
         sleep(.5)
-        self.log.logger.debug(f"cli -> execute_tests -> changing Node Operator tests permissions to +x -> [{local_path}]")
+        self.log.logger[self.log_key].debug(f"cli -> execute_tests -> changing Node Operator tests permissions to +x -> [{local_path}]")
         chmod(local_path, 0o755)
         self.functions.print_cmd_status({
             "text_start": "Setting test permissions",
@@ -6349,7 +6350,7 @@ class CLI():
 
         bashCommand = f"{local_path}"
         if path.getsize(local_path) < 1:
-            self.log.logger.error(f"cli -> execute_tests -> binary file size too small, may not exist [{path.getsize(local_path)}]")
+            self.log.logger[self.log_key].error(f"cli -> execute_tests -> binary file size too small, may not exist [{path.getsize(local_path)}]")
             self.functions.print_paragraphs([
                 ["Unable to properly download the necessary binary containing the",0,"red"],
                 ["unit tests",0,"yellow"], ["script. It may not have been released for this",0,"red"],
@@ -6357,7 +6358,7 @@ class CLI():
                 ["the binary is present.",2,"red"]
             ])
             exit(0)
-        self.log.logger.debug(f"cli -> execute_tests -> executing Node Operator tests | command referenced [{bashCommand}]")
+        self.log.logger[self.log_key].debug(f"cli -> execute_tests -> executing Node Operator tests | command referenced [{bashCommand}]")
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "subprocess_run",
@@ -6415,7 +6416,7 @@ class CLI():
                 self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
                 run_v = self.version_obj[env][profile]["node_tess_version"]
             except Exception as e:
-                self.log.logger.error(f"cli_execute_directory_restructure -> unable to determine versioning -> error [{e}]")
+                self.log.logger[self.log_key].error(f"cli_execute_directory_restructure -> unable to determine versioning -> error [{e}]")
                 self.error_messages.error_code_messages({
                     "error_code": "cli-6109",
                     "line_code": "version_fetch",
@@ -6525,7 +6526,7 @@ class CLI():
             r_status = "executing"
             r_brackets = "required"
 
-            self.log.logger.info(f"cli -> execute_directory_restructure -> testing for migration requirement")
+            self.log.logger[self.log_key].info(f"cli -> execute_directory_restructure -> testing for migration requirement")
             if path.isdir(f"{data_dir}/hash") and path.isdir(f"{data_dir}/ordinal"):
                 r_color = "green"
                 r_brackets = "passed"
@@ -6543,7 +6544,7 @@ class CLI():
                 })
 
         if r_status == "skipping": 
-            self.log.logger.info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
+            self.log.logger[self.log_key].info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
             return "not_needed"
 
         with ThreadPoolExecutor() as executor2:
@@ -6578,7 +6579,7 @@ class CLI():
 
         if not self.auto_restart:
             for item in [("Architecture",arch),("Brand",brand),("Bits",bits)]:
-                self.log.logger.info(f"cli -> execute_directory_restructure -> {item[0]}: [{item[1]}]")
+                self.log.logger[self.log_key].info(f"cli -> execute_directory_restructure -> {item[0]}: [{item[1]}]")
                 self.functions.print_cmd_status({
                     "text_start": "Found",
                     "brackets": item[0],
@@ -6590,7 +6591,7 @@ class CLI():
         if (brand == "AuthenticIntel" or brand == "GenuineIntel") and arch.upper() == "X86_64":
             amd = True
 
-        self.log.logger.info(f"cli -> execute_directory_restructure -> migration requirement detected, starting migration.")
+        self.log.logger[self.log_key].info(f"cli -> execute_directory_restructure -> migration requirement detected, starting migration.")
         with ThreadPoolExecutor() as executor3:
             if not self.auto_restart:
                 self.functions.status_dots = True
@@ -6610,7 +6611,7 @@ class CLI():
             local_path = f"/var/tmp/{file}"
             repo = f"{repo}{file}"
 
-            self.log.logger.info(f"cli -> execute_directory_restructure -> fetching migration tool -> [{repo}] -> [{local_path}]")
+            self.log.logger[self.log_key].info(f"cli -> execute_directory_restructure -> fetching migration tool -> [{repo}] -> [{local_path}]")
             for n in range(0,4):
                 try:
                     self.functions.download_file({
@@ -6619,15 +6620,15 @@ class CLI():
                     })
                 except Exception as e:
                     if n > 2: 
-                        self.log.logger.critical(f"cli -> execute_directory_restructure -> fetching migration tool FAILED 3x -> [{repo}] -> [{local_path}]")
+                        self.log.logger[self.log_key].critical(f"cli -> execute_directory_restructure -> fetching migration tool FAILED 3x -> [{repo}] -> [{local_path}]")
                         return False
-                    self.log.logger.error(f"cli -> execute_directory_restructure -> fetching migration tool FAILED -> [{repo}] -> [{local_path}]")
+                    self.log.logger[self.log_key].error(f"cli -> execute_directory_restructure -> fetching migration tool FAILED -> [{repo}] -> [{local_path}]")
                 else:
-                    self.log.logger.info(f"cli -> execute_directory_restructure -> fetching migration tool SUCCESS -> [{repo}] -> [{local_path}]")
+                    self.log.logger[self.log_key].info(f"cli -> execute_directory_restructure -> fetching migration tool SUCCESS -> [{repo}] -> [{local_path}]")
                     break
 
             sleep(.5)
-            self.log.logger.debug(f"cli -> execute_directory_restructure -> changing permissions to +x -> [{local_path}]")
+            self.log.logger[self.log_key].debug(f"cli -> execute_directory_restructure -> changing permissions to +x -> [{local_path}]")
             chmod(local_path, 0o755)
 
             if not self.auto_restart:
@@ -6663,7 +6664,7 @@ class CLI():
             # https://github.com/Constellation-Labs/snapshot-migration
             # $ ./snapshot-migration-tool -src ./data/incremental_snapshots
             bashCommand = f"{local_path} -src {data_dir}"
-            self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> [{bashCommand}]")
+            self.log.logger[self.log_key].info(f"cli -> execute_directory_restructure -> executing migration tool -> [{bashCommand}]")
             result = 1
 
             for n in range(1,4):
@@ -6674,17 +6675,17 @@ class CLI():
                     })
                     result = result.returncode
                 except Exception as e:
-                    self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool | attempt [{n}] of [3] | error [{e}]")
+                    self.log.logger[self.log_key].error(f"cli -> execute_directory_restructure -> executing migration tool | attempt [{n}] of [3] | error [{e}]")
                 else:
                     if result < 1: break
-                    self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool did not return successful completion. | attempt [{n}] of [3] | error [{result}]")
+                    self.log.logger[self.log_key].error(f"cli -> execute_directory_restructure -> executing migration tool did not return successful completion. | attempt [{n}] of [3] | error [{result}]")
 
             status_result = "complete"
             status_color = "green"
             if result < 1:
-                self.log.logger.info(f"cli -> execute_directory_restructure -> executing migration tool -> completed [success]")
+                self.log.logger[self.log_key].info(f"cli -> execute_directory_restructure -> executing migration tool -> completed [success]")
             else:
-                self.log.logger.error(f"cli -> execute_directory_restructure -> executing migration tool -> [failed] with error code [{result}]")
+                self.log.logger[self.log_key].error(f"cli -> execute_directory_restructure -> executing migration tool -> [failed] with error code [{result}]")
                 status_color = "red"
                 status_result = "failed"
 
@@ -6802,7 +6803,7 @@ class CLI():
         if "-p" in command_list:
             profile = command_list[command_list.index("-p")+1]
             if profile not in self.profile_names:
-                self.log.logger.error(f"cli -> prepare_file_download -> profile [{profile}] not found.")
+                self.log.logger[self.log_key].error(f"cli -> prepare_file_download -> profile [{profile}] not found.")
                 self.error_messages.error_code_messages({
                     "error_code": "cli-5859",
                     "line_code": "profile_error",
@@ -6822,7 +6823,7 @@ class CLI():
         if action == "file":
             file = command_list[command_list.index("--type")+2]
             if not path.exists(file):
-                self.log.logger.error(f"cli -> prepare_file_download -> unable to find requested file [{file}]")
+                self.log.logger[self.log_key].error(f"cli -> prepare_file_download -> unable to find requested file [{file}]")
                 self.error_messages.error_code_messages({
                     "error_code": "cli-5837",
                     "line_code": "file_not_found",
@@ -6945,7 +6946,7 @@ class CLI():
                     copy2(file,root_path)
                     self.functions.set_chown(f"{root_path}/{path.basename(file)}", user, user)
                 except Exception as e:
-                    self.log.logger.error(f"cli -> prepare_file_download -> file copy error [{e}]")
+                    self.log.logger[self.log_key].error(f"cli -> prepare_file_download -> file copy error [{e}]")
                     self.error_messages.error_code_messages({
                         "error_code": "cli-5870",
                         "line_code": "file_not_found",
@@ -7009,7 +7010,7 @@ class CLI():
 
     def clean_files(self,command_obj):
         what = "clear_snapshots" if command_obj["action"] == "snapshots" else "clean_files"
-        self.log.logger.info(f"request to {what} inventory by Operator...")
+        self.log.logger[self.log_key].info(f"request to {what} inventory by Operator...")
         self.functions.check_for_help(command_obj["argv_list"],what)
         command_obj["functions"] = self.functions
         Cleaner(command_obj)
@@ -7037,7 +7038,7 @@ class CLI():
         do_confirm = command_obj.get("do_confirm",True)
         skip_reload_status = command_obj.get("skip_reload_status",False)
 
-        self.log.logger.info(f"SSH port configuration change initiated | command [{command}]")
+        self.log.logger[self.log_key].info(f"SSH port configuration change initiated | command [{command}]")
         action_print = command
         show_help = False
         action = "disable" if "disable" in command else "enable"
@@ -7063,7 +7064,7 @@ class CLI():
             try:
                 port_no = int(port_no)
             except:
-                self.log.logger.error(f"SSH Configuration terminated due to invalid or missing port [{port_no}]")
+                self.log.logger[self.log_key].error(f"SSH Configuration terminated due to invalid or missing port [{port_no}]")
                 show_help = True
             else:
                 if port_no != 22 and not install:
@@ -7120,10 +7121,10 @@ class CLI():
                 backup_dir = self.functions.config_obj[profile]["directory_backups"]
             
             if not path.exists(backup_dir) and not uninstall:
-                self.log.logger.warning(f"backup dir did not exist, attempting to create [{backup_dir}]")
+                self.log.logger[self.log_key].warning(f"backup dir did not exist, attempting to create [{backup_dir}]")
                 makedirs(backup_dir)
 
-            self.log.logger.info(f"creating a backup of the sshd.config file to [{backup_dir}]")
+            self.log.logger[self.log_key].info(f"creating a backup of the sshd.config file to [{backup_dir}]")
             date = self.functions.get_date_time({"action":"datetime"})
             copy2("/etc/ssh/sshd_config",f"{backup_dir}sshd_config{date}.bak")
             
@@ -7142,19 +7143,19 @@ class CLI():
                                 verb = "yes"
                                 if path.isfile(f"{upath}.ssh/backup_authorized_keys"):
                                     move(f"{upath}.ssh/backup_authorized_keys",f"{upath}.ssh/authorized_keys")
-                                    self.log.logger.info(f"cli -> found and recovered {user} authorized_keys file")
+                                    self.log.logger[self.log_key].info(f"cli -> found and recovered {user} authorized_keys file")
                                 else:
                                     found_errors = f"auth_not_found {user}"
-                                    self.log.logger.critical(f"cli -> could not find a backup authorized_key file to recover | user {user}")
+                                    self.log.logger[self.log_key].critical(f"cli -> could not find a backup authorized_key file to recover | user {user}")
                             elif action == "disable":
                                 verb = "no"
                                 if path.isfile(f"{upath}.ssh/authorized_keys"):
                                     move(f"{upath}.ssh/authorized_keys",f"{upath}.ssh/backup_authorized_keys")
-                                    self.log.logger.warning(f"cli -> found and renamed authorized_keys file | user {user}")
+                                    self.log.logger[self.log_key].warning(f"cli -> found and renamed authorized_keys file | user {user}")
                                 else:
-                                    self.log.logger.critical(f"cli -> could not find an authorized_key file to update | {user}")
+                                    self.log.logger[self.log_key].critical(f"cli -> could not find an authorized_key file to update | {user}")
                             if user == "root":
-                                self.log.logger.warning(f"cli -> setting PermitRootLogin to [{verb}] | user [{user}]")
+                                self.log.logger[self.log_key].warning(f"cli -> setting PermitRootLogin to [{verb}] | user [{user}]")
                                 newfile.write(f"PermitRootLogin {verb}\n")
                             else:
                                 newfile.write(f"{line}")
@@ -7164,16 +7165,16 @@ class CLI():
                         
                     elif action == "disable_user_auth":
                         if line.startswith("PubkeyAuthentication") or line.startswith("#PubkeyAuthentication"):
-                            self.log.logger.warning(f"cli -> found and enabled PubkeyAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger[self.log_key].warning(f"cli -> found and enabled PubkeyAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"PubkeyAuthentication yes\n")
                         elif line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
-                            self.log.logger.warning(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger[self.log_key].warning(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"PasswordAuthentication no\n")
                         elif line.startswith("KbdInteractiveAuthentication") or line.startswith("#KbdInteractiveAuthentication"):
-                            self.log.logger.warning(f"cli -> found and disabled KbdInteractiveAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger[self.log_key].warning(f"cli -> found and disabled KbdInteractiveAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"KbdInteractiveAuthentication no\n")
                         elif line.startswith("ChallengeResponseAuthentication") or line.startswith("#ChallengeResponseAuthentication"):
-                            self.log.logger.warning(f"cli -> found and disabled ChallengeResponseAuthentication for SSH protocol daemon | sshd_config")
+                            self.log.logger[self.log_key].warning(f"cli -> found and disabled ChallengeResponseAuthentication for SSH protocol daemon | sshd_config")
                             newfile.write(f"ChallengeResponseAuthentication no\n")
                         else:
                             newfile.write(f"{line}")
@@ -7181,7 +7182,7 @@ class CLI():
                     elif action == "port":
                         action_print = action
                         if not "GatewayPorts" in line and (line.startswith("Port") or line.startswith("#Port")):
-                            self.log.logger.warning(f"cli -> found and updated the Port settings for SSH protocol daemon | sshd_config")
+                            self.log.logger[self.log_key].warning(f"cli -> found and updated the Port settings for SSH protocol daemon | sshd_config")
                             newfile.write(f"Port {port_no}\n")
                         else:
                             newfile.write(f"{line}")
@@ -7199,7 +7200,7 @@ class CLI():
                     with open("/tmp/sshd_config-new2","w") as newfile:
                         for line in f:
                             if line.startswith("PasswordAuthentication") or line.startswith("#PasswordAuthentication"):
-                                self.log.logger.warning(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | 50-cloud-init.conf")
+                                self.log.logger[self.log_key].warning(f"cli -> found and disabled PasswordAuthentication for SSH protocol daemon | 50-cloud-init.conf")
                                 newfile.write(f"PasswordAuthentication no\n")
                             else:
                                 newfile.write(f"{line}")
@@ -7217,22 +7218,22 @@ class CLI():
 
             if path.isfile("/tmp/sshd_config-new"):
                 move("/tmp/sshd_config-new","/etc/ssh/sshd_config")
-            self.log.logger.info(f"cli -> moving modified sshd_config into place.")
+            self.log.logger[self.log_key].info(f"cli -> moving modified sshd_config into place.")
             if one_off:
-                self.log.logger.info(f"cli -> found one-off [50-cloud-init-config] moving modified sshd config file into place.")
+                self.log.logger[self.log_key].info(f"cli -> found one-off [50-cloud-init-config] moving modified sshd config file into place.")
                 if path.isfile("/tmp/sshd_config-new2"):
                     move("/tmp/sshd_config-new2","/etc/ssh/sshd_config.d/50-cloud-init.conf")
                 
             sleep(1)
-            self.log.logger.info(f"cli -> restarted sshd service.")
+            self.log.logger[self.log_key].info(f"cli -> restarted sshd service.")
             _ = self.functions.process_command({
                 "bashCommand": "service sshd restart",
                 "proc_action": "subprocess_devnull",
             })
 
-            self.log.logger.info(f"SSH port configuration change successfully implemented [{action_print}]")
+            self.log.logger[self.log_key].info(f"SSH port configuration change successfully implemented [{action_print}]")
             if one_off:
-                self.log.logger.info(f"SSH configuration for an include file [one off] has been updated with password authentication [{verb}]")
+                self.log.logger[self.log_key].info(f"SSH configuration for an include file [one off] has been updated with password authentication [{verb}]")
                 
             if not skip_reload_status and "quick_install" not in argv_list:
                 self.functions.print_cmd_status({
@@ -7267,7 +7268,7 @@ class CLI():
 
 
     def backup_config(self,command_list):
-        self.log.logger.info("command_line --> backup configuration")
+        self.log.logger[self.log_key].info("command_line --> backup configuration")
         self.functions.check_for_help(command_list,"backup_config")
 
         progress = {
@@ -7339,9 +7340,9 @@ class CLI():
                 env_set.add(self.config_obj[i_profile]["environment"])
         except Exception as e:
             try:
-                self.log.logger.critical(f"unable to determine environment type [{environment_name}]")
+                self.log.logger[self.log_key].critical(f"unable to determine environment type [{environment_name}]")
             except:
-                self.log.logger.critical(f"unable to determine environment type [unknown]")
+                self.log.logger[self.log_key].critical(f"unable to determine environment type [unknown]")
             finally:
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-3435",
@@ -7388,7 +7389,7 @@ class CLI():
                 backup_location = self.config_obj[profile]["directory_backups"]
                 break
 
-        self.log.logger.info(f"Upgrade request for nodectl for [{environment_name}] using first profile [{profile}].")
+        self.log.logger[self.log_key].info(f"Upgrade request for nodectl for [{environment_name}] using first profile [{profile}].")
 
         self.functions.print_clear_line()
 
@@ -7419,7 +7420,7 @@ class CLI():
         node_nodectl_version = self.version_obj['node_nodectl_version']
 
         if nodectl_uptodate and nodectl_uptodate != "current_less" and not custom_version:
-            self.log.logger.error(f"Upgrade nodectl to new version request not needed {node_nodectl_version}.")
+            self.log.logger[self.log_key].error(f"Upgrade nodectl to new version request not needed {node_nodectl_version}.")
             up_to_date = "is already up to date..."
             if nodectl_uptodate == "current_greater": up_to_date = "is a version higher than the official release"
             self.functions.print_paragraphs([
@@ -7526,7 +7527,7 @@ class CLI():
                 upgrade_file = upgrade_file.replace("sudo nodectl upgrade --nodectl_only","sudo nodectl upgrade")
                 upgrade_file = upgrade_file.replace("requires a nodectl_only","requires a full upgrade")
         except Exception as e:
-            self.log.logger.debug(f"nodectl binary updater was unable to build the upgrade file path | upgrade chosen [{upgrade_chosen}] old [{node_nodectl_version}] backup location [{backup_location}] arch [{self.arch}] | error [{e}]")
+            self.log.logger[self.log_key].debug(f"nodectl binary updater was unable to build the upgrade file path | upgrade chosen [{upgrade_chosen}] old [{node_nodectl_version}] backup location [{backup_location}] arch [{self.arch}] | error [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "cli-4718",
                 "line_code": "",
@@ -7550,18 +7551,18 @@ class CLI():
                 ["file version:",0],[node_nodectl_version,2,"blue","bold"],
             ])
 
-            self.log.logger.warning(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
+            self.log.logger[self.log_key].warning(f"nodectl upgrader is restoring [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
             if path.isfile(f"{backup_location}nodectl_{node_nodectl_version}"):
                 move(f"{backup_location}nodectl_{node_nodectl_version}","/usr/local/bin/nodectl")
 
             if self.functions.get_size("/usr/local/bin/nodectl",True) < 1:
-                self.log.logger.critical(f"nodectl upgrader unable to restore [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
+                self.log.logger[self.log_key].critical(f"nodectl upgrader unable to restore [{backup_location}nodectl_{node_nodectl_version}] to [/usr/local/bin/nodectl]")
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"red,on_yellow"], ["unable to restore original nodectl, please manually download via",0,"red"],
                     ["the known",0,"red"], ["wget",0,"yellow"], ["command. See Constellation Network documentation hub for further details.",1,"red"]
                 ])
         else:
-            self.log.logger.info(f"Upgrade of nodectl to new version successfully completed")
+            self.log.logger[self.log_key].info(f"Upgrade of nodectl to new version successfully completed")
         
         return_value = False
         if path.isfile("/var/tessellation/nodectl/cnng_upgrade_results.txt"):
@@ -7571,9 +7572,9 @@ class CLI():
 
         try: 
             remove("/var/tmp/upgrade-nodectl")
-            self.log.logger.info("upgrade_nodectl files cleaned up successfully.")
+            self.log.logger[self.log_key].info("upgrade_nodectl files cleaned up successfully.")
         except Exception as e:
-            self.log.logger.error(f"upgrade_nodectl nodectl method unable to clean up files : error [{e}]")
+            self.log.logger[self.log_key].error(f"upgrade_nodectl nodectl method unable to clean up files : error [{e}]")
             
         if "return_caller" in argv_list: 
             if "mobile" in argv_list: return ["mobile","return_caller"]
@@ -7603,7 +7604,7 @@ class CLI():
                 return_data["end_ordinal"] = data[0]["ordinal"]
                 return_data["elapsed_time"] = end_time - start_time
             except Exception as e:
-                self.log.logger.error(f"received data from backend that wasn't parsable, trying again | [{e}]")
+                self.log.logger[self.log_key].error(f"received data from backend that wasn't parsable, trying again | [{e}]")
                 sleep(2)
             else:
                 error = False
@@ -7651,7 +7652,7 @@ class CLI():
         
         if var.command[0] == "_":
             var.command = var.command.replace("_","-",1)
-        self.log.logger.error(f"[{var.command}] requested --> removed for [{new_command}]")
+        self.log.logger[self.log_key].error(f"[{var.command}] requested --> removed for [{new_command}]")
         self.functions.print_paragraphs([
             [f" WARNING ",0,"white,on_red","bold"], ["requested feature has been",0,"red"], ["removed",0,"red","bold"],["!",1,"red"],
             ["      Feature:",0,"cyan","bold"], [var.command,1,"blue","bold"],

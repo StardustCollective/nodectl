@@ -12,6 +12,7 @@ class QuickInstaller():
         self.parent = parent['parent']
         self.options = self.parent.options 
         self.log = self.parent.log
+        self.log_key = "main"
         self.terminate_program = False
         self.hash_marks = SimpleNamespace()
         self.setup_progress_bar()
@@ -56,7 +57,7 @@ class QuickInstaller():
         for n, t_step in enumerate(self.steps):
             desc = t_step[0]
             code = t_step[2]
-            self.log.logger.debug(f"quick-install --> {desc} | [{code}]")
+            self.log.logger[self.log_key].debug(f"quick-install --> {desc} | [{code}]")
             if isinstance(t_step[1],tuple):
                 funct = t_step[1][0]
                 parm = t_step[1][1]
@@ -82,7 +83,7 @@ class QuickInstaller():
             else: 
                 funct(parm)
         except Exception as e:
-            self.log.logger.error(f"quick_installer -> during quiet install -> error encountered, logging and attempting to continue | error [{e}]")
+            self.log.logger[self.log_key].error(f"quick_installer -> during quiet install -> error encountered, logging and attempting to continue | error [{e}]")
 
 
     def handle_percent_hashes(self,t_step,desc,funct,parm,code,initial):
@@ -152,7 +153,7 @@ class QuickInstaller():
                         if parm == None: funct()
                         else: funct(parm)
                 except Exception as e:
-                    self.log.logger.error(f"quick_installer -> error encountered, logging and attempting to continue | error [{e}]")
+                    self.log.logger[self.log_key].error(f"quick_installer -> error encountered, logging and attempting to continue | error [{e}]")
                     self.parent.close_threads()
                     
                 self.parent.functions.status_dots = False 
@@ -218,7 +219,7 @@ class QuickInstaller():
             self.hash_marks.start = self.hash_marks.end
 
         except ZeroDivisionError:
-            self.log.logger.error(f"quick_installer - handle_percent_hashes -attempting to derive hash progress indicator resulted in [ZeroDivisionError]")
+            self.log.logger[self.log_key].error(f"quick_installer - handle_percent_hashes -attempting to derive hash progress indicator resulted in [ZeroDivisionError]")
         
         sleep(.5)
         reset_lines = 1

@@ -15,6 +15,7 @@ class Download():
 
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
+        self.log_key = self.config_obj["global_elements"]["log_key"]
         self.error_messages = Error_codes(self.config_obj) 
         self.log = self.parent.log
         command_obj = command_obj["command_obj"]
@@ -54,17 +55,17 @@ class Download():
             "failback": False,
         }
 
-        self.log.logger.info(f"{self.log_prefix} module initiated")
+        self.log.logger[self.log_key].info(f"{self.log_prefix} module initiated")
         if self.caller == "refresh_binaries" or self.caller == "_rtb":
             self.caller = "refresh_binaries"
-            self.log.logger.debug(f"{self.log_prefix} - refresh node binaries.")
+            self.log.logger[self.log_key].debug(f"{self.log_prefix} - refresh node binaries.")
         elif self.caller == "update_seedlist" or self.caller == "_usl":
             self.caller = "update_seedlist"
-            self.log.logger.debug(f"{self.log_prefix} - download seed lists.")
+            self.log.logger[self.log_key].debug(f"{self.log_prefix} - download seed lists.")
         elif self.action == "upgrade":
-            self.log.logger.debug(f"{self.log_prefix} - upgrade module called.")
+            self.log.logger[self.log_key].debug(f"{self.log_prefix} - upgrade module called.")
         elif "install" in self.action:
-            self.log.logger.debug(f"{self.log_prefix} - {self.action} module called.")
+            self.log.logger[self.log_key].debug(f"{self.log_prefix} - {self.action} module called.")
 
         if "-v" in self.argv_list: self.download_version = self.argv_list(self.argv_list.index("-v")+1)
         
@@ -193,7 +194,7 @@ class Download():
 
 
     def set_seedfile_object(self):
-        self.log.logger.debug(f"{self.log_prefix} -> set_seedfile_object -> initiated.")
+        self.log.logger[self.log_key].debug(f"{self.log_prefix} -> set_seedfile_object -> initiated.")
         if self.fallback: return
 
         if self.caller == "update_seedlist": self.file_obj = {}
@@ -213,7 +214,7 @@ class Download():
                 seed_file = "seed-disabled"
 
             if self.download_version == "default":
-                self.log.logger.info(f"{self.log_prefix} [{self.environment}] seedlist")   
+                self.log.logger[self.log_key].info(f"{self.log_prefix} [{self.environment}] seedlist")   
                 self.download_version = self.parent.version_obj[self.environment][profile]['cluster_tess_version']
 
             if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph" and self.environment != "mainnet":
@@ -307,7 +308,7 @@ class Download():
                     })
                     self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
                 else:
-                    self.log.logger.error(f"{self.log_prefix} -> set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
+                    self.log.logger[self.log_key].error(f"{self.log_prefix} -> set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
                     self.error_messages.error_code_messages({
                         "error_code": "ds-265",
                         "line_code": "unknown_error",
@@ -379,7 +380,7 @@ class Download():
 
 
     def get_download(self,file_key, file_name, fallback=False):
-        self.log.logger.info(f"{self.log_prefix} -> get_download -> downloading [{self.file_obj[file_key]['type']}] file: {file_name} uri [{self.file_obj[file_key]['uri']}] remote size [{self.file_obj[file_key]['remote_size']}]")
+        self.log.logger[self.log_key].info(f"{self.log_prefix} -> get_download -> downloading [{self.file_obj[file_key]['type']}] file: {file_name} uri [{self.file_obj[file_key]['uri']}] remote size [{self.file_obj[file_key]['remote_size']}]")
         file_path = self.file_obj[file_key]["dest_path"]
 
         file_path_only = path.split(file_path)[0]
@@ -387,7 +388,7 @@ class Download():
             makedirs(file_path_only)
         
         if self.file_obj[file_key]["state"] == "disabled":
-            self.log.logger.warning(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_key]['type']}] disabled, skipping.")
+            self.log.logger[self.log_key].warning(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_key]['type']}] disabled, skipping.")
             return
 
         try:
@@ -400,7 +401,7 @@ class Download():
                 chmod(file_path, 0o755)
 
         except Exception as e:
-            self.log.logger.error(f"{self.log_prefix} get_download -> error streaming down [{self.file_obj[file_key]['type']}] requirement | [{e}]")
+            self.log.logger[self.log_key].error(f"{self.log_prefix} get_download -> error streaming down [{self.file_obj[file_key]['type']}] requirement | [{e}]")
 
         return file_key # return to the futures executor to print results.
     
@@ -425,7 +426,7 @@ class Download():
                         if asset["name"] == file_name:
                             self.file_obj[file_key]["remote_size"] = asset["size"]
                             return
-                self.log.logger.error(f"{self.log_prefix} -> get_remote_file_size -> failed to retrieve the file size. Status code: {response.status_code}")
+                self.log.logger[self.log_key].error(f"{self.log_prefix} -> get_remote_file_size -> failed to retrieve the file size. Status code: {response.status_code}")
                 self.file_obj[file_key]["remote_size"] = -1
                 return 
             
@@ -435,7 +436,7 @@ class Download():
                     self.file_obj[file_key]["remote_size"] = int(response.headers.get('Content-Length', 0))
                     return
             else:
-                self.log.logger.error(f"{self.log_prefix} -> get_remote_file_size -> failed to retrieve the file size. Status code: {response.status_code}")
+                self.log.logger[self.log_key].error(f"{self.log_prefix} -> get_remote_file_size -> failed to retrieve the file size. Status code: {response.status_code}")
                 self.file_obj[file_key]["remote_size"] = -1
                         
         self.file_obj[file_key]["remote_size"] = -1
@@ -447,16 +448,16 @@ class Download():
         if self.skip_asset_check: return True
 
         if self.file_obj[file_key]["remote_size"] < 0:
-            self.log.logger.error(f"download_service -> test_file_size -> {file_name} remote size did not return a | remote value: {self.file_obj[file_key]['remote_size']}")
+            self.log.logger[self.log_key].error(f"download_service -> test_file_size -> {file_name} remote size did not return a | remote value: {self.file_obj[file_key]['remote_size']}")
             raise Exception("file size")
         
         file_path = self.file_obj[file_key]["dest_path"]
         if self.file_obj[file_key]["state"] == "disabled": 
-            self.log.logger.warning(f"download_service -> test_file_size -> {file_name} -> was determined to be [disabled] -> skipping")
+            self.log.logger[self.log_key].warning(f"download_service -> test_file_size -> {file_name} -> was determined to be [disabled] -> skipping")
             return True # skip test
         
         if path.exists(file_path):
-            self.log.logger.info(f"download_service -> test_file_size -> {file_name} ->  local size: [{path.getsize(file_path)}] remote size [{self.file_obj[file_key]['remote_size']}]")
+            self.log.logger[self.log_key].info(f"download_service -> test_file_size -> {file_name} ->  local size: [{path.getsize(file_path)}] remote size [{self.file_obj[file_key]['remote_size']}]")
             return path.getsize(file_path) == self.file_obj[file_key]["remote_size"]
         raise Exception("file size")
 
@@ -481,7 +482,7 @@ class Download():
                     try:
                         future.result()
                     except Exception as e:
-                        self.log.logger.error(f"{self.log_prefix} threaded download attempt failed for [{file_name} with [{e}]]")
+                        self.log.logger[self.log_key].error(f"{self.log_prefix} threaded download attempt failed for [{file_name} with [{e}]]")
                         if self.file_obj[file_name]["state"] != "disabled":
                             self.file_obj[file_name]["state"] = "failed"
                             self.successful = False
@@ -593,10 +594,10 @@ class Download():
 
     def file_backup_handler(self,action):
         if not self.backup: 
-            self.log.logger.warning(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
+            self.log.logger[self.log_key].warning(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
             return
         if self.fallback and action == "backup": 
-            self.log.logger.debug(f"{self.log_prefix} file_backup_handler -> skipping redundant backup.")
+            self.log.logger[self.log_key].debug(f"{self.log_prefix} file_backup_handler -> skipping redundant backup.")
             return
 
         if action == "restore": 
@@ -606,11 +607,11 @@ class Download():
         if action == "backup":
             file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] != "disabled"]
         
-        self.log.logger.info(f"{self.log_prefix} file_backup_handler -> nodectl executing action [{action}] on the following files | [{file_list}]")
+        self.log.logger[self.log_key].info(f"{self.log_prefix} file_backup_handler -> nodectl executing action [{action}] on the following files | [{file_list}]")
         
         if len(file_list) > 0:
             if action == "restore":
-                self.log.logger.warning(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
+                self.log.logger[self.log_key].warning(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
                 if not self.auto_restart:
                     print(f"\033[8B", end="", flush=True)
                     self.cursor_setup = {key: value + 2 for key, value in self.cursor_setup.items() if key != "success"}
@@ -640,7 +641,7 @@ class Download():
 
     def redundant_check(self):
         check_action = "auto_restart file size" if self.auto_restart else "extra redundant"
-        self.log.logger.debug(f"{self.log_prefix} {check_action} check initiated")
+        self.log.logger[self.log_key].debug(f"{self.log_prefix} {check_action} check initiated")
         for file in self.file_obj.keys():
             if self.file_obj[file]["state"] == "disabled": continue
             if "seedlist" in str(self.file_obj[file]): continue
@@ -648,10 +649,10 @@ class Download():
             file_name = file.replace(f'-cnng{self.file_obj[file]["profile"]}',"")
             try:
                 if not file_size and file_size < 1 and file_size != self.file_obj[file]['remote_size']:
-                    self.log.logger.error(f"{self.log_prefix} redundant check method found possible file size issue [{file_name}] file size [{file_size}] remote size [{self.file_obj[file]['remote_size']}]")
+                    self.log.logger[self.log_key].error(f"{self.log_prefix} redundant check method found possible file size issue [{file_name}] file size [{file_size}] remote size [{self.file_obj[file]['remote_size']}]")
                     self.file_obj[file]['state'] = "failed"
             except Exception as e:
-                self.log.logger.error(f"{self.log_prefix} redundant check errored [{file_name}] | error [{e}]")
+                self.log.logger[self.log_key].error(f"{self.log_prefix} redundant check errored [{file_name}] | error [{e}]")
                 self.file_obj[file]['state'] = "failed"
 
 
