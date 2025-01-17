@@ -23,7 +23,7 @@ class Send():
         self.log = Logging()
         self.command_list = command_obj["command_list"]
         self.config_obj = command_obj["config_obj"]
-        self.log_key = command_obj["global_elements"]["log_key"]
+        self.log_key = command_obj["config_obj"]["global_elements"]["log_key"]
         
         self.functions = Functions(self.config_obj)
 
@@ -85,7 +85,11 @@ class Send():
         })
         
         if self.nodectl_logs:
-            choice = "c"
+            choice = self.functions.print_option_menu({
+                "options": ["nodectl main log","nodectl auto_restart log","nodectl versioning log","all nodectl logs"],
+                "r_and_q": "q",
+                "color": "magenta",
+            })
         else:
             self.functions.print_paragraphs([
                 ["S",0,"magenta","bold"], [")",-1,"magenta"], ["Current Log (singular)",0,"magenta"], ["",1],
@@ -138,40 +142,59 @@ class Send():
                     break
             tar_package = self.listing_setup(dates_obj)
                 
-        if choice == "c" or choice == "s":
+        if choice in ["c","s","1","2","3","4"]:
             self.functions.print_cmd_status({
                 "text_start": "Current logs process started",
                 "newline": True,
             })
             self.log.logger[self.log_key].info(f"Request to upload Tessellation current logs initiated")
-            tar_archive_dir = ""
+            tar_creation_origin = ""
             tar_creation_path = "/tmp/tess_logs"
 
             tar_creation_origin = f"/var/tessellation/{self.profile}/logs/"
-            if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log*"
+            log_type = "Tessellation"
+            if self.nodectl_logs: 
+                log_type = "nodectl main"
+                rsync_include = "nodectl.log*"
+                tar_creation_origin = "/var/tessellation/nodectl/logs/"
+                if choice == "2":
+                    log_type = "auto_restart"
+                    rsync_include = "nodectl_auto_restart.log*"
+                elif choice == "3":
+                    log_type = "version"
+                    rsync_include = "nodectl_versioning.log*"
+                elif choice == "4":
+                    log_type = "all nodectl"
+                    rsync_include = "*.log*"
             if choice == "s":
                 tar_creation_origin = f"/var/tessellation/{self.profile}/logs/app.log"
                 if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log"
                 
             if path.isdir(tar_creation_path):
                 rmtree(tar_creation_path)
+                sleep(1)
             mkdir(tar_creation_path)
+            sleep(.8)
             
             with ThreadPoolExecutor() as executor:
                 self.functions.status_dots = True
                 self.log.logger[self.log_key].info(f"send_logs is building temporary tarball path and transferring files.")
-                
+ 
                 _ = executor.submit(self.functions.print_cmd_status,{
-                    "text_start": "Transferring required files",
+                    "text_start": "Transferring",
+                    "brackets": log_type,
+                    "text_end": "files",
                     "dotted_animation": True,
                     "timeout": False,
                     "status": "copying",
                     "status_color": "yellow"
                 })
 
-                cmd = f"rsync -a {tar_creation_origin} {tar_creation_path}/ "
-                if not self.nodectl_logs:
-                    cmd += f"--exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "
+                cmd = f"{tar_creation_origin} {tar_creation_path}/"
+                if self.nodectl_logs:
+                    cmd = f"rsync -a --include='{rsync_include}' --exclude='*' "+cmd
+                else:
+                    cmd = f"rsync -a --exclude /data --exclude /logs/json_logs --exclude /logs/archived/ "+cmd
                 _ = self.functions.process_command({
                     "bashCommand": cmd,
                     "proc_action": "subprocess_devnull",
@@ -179,14 +202,16 @@ class Send():
 
                 self.functions.status_dots = False
                 self.functions.print_cmd_status({
-                    "text_start": "Transferring required files",
+                    "text_start": "Transferring",
+                    "brackets": log_type,
+                    "text_end": "files",
                     "status": "complete",
                     "newline": True
                 })  
             
-            dir_size = self.functions.get_dir_size(tar_creation_path)
+            dir_size = self.functions.get_dir_size(path.dirname(tar_creation_path))
             tar_package = {
-                "tar_archive_dir": tar_archive_dir,
+                "tar_creation_origin": tar_creation_origin,
                 "tar_creation_path": tar_creation_path,
                 "tar_file_list": None,
             }
@@ -202,7 +227,7 @@ class Send():
         ])
         
         if tar_package["tar_file_list"] == None:
-            cmd = f"sudo tar -zcf {tar_dest}{tar_file_name} {tar_package['tar_creation_path']}{tar_package['tar_archive_dir']}"
+            cmd = f"sudo tar -zcf {tar_dest}{tar_file_name} {tar_package['tar_creation_path']}"
         else:
             cmd = f"sudo tar -zcf {tar_dest}{tar_file_name} "
             dir_size = 0
@@ -391,7 +416,7 @@ class Send():
                         another_choice = input(another)
                         if another_choice.lower() != "y":
                             return {
-                                "tar_archive_dir": f"{dir_list[file_choice-1]}/",  # where are the files
+                                "tar_creation_origin": f"{dir_list[file_choice-1]}/",  # where are the files
                                 "tar_creation_path": f"{location}",  # path to place tar
                                 "tar_file_list": file_choices,
                             }
