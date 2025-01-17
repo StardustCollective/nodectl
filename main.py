@@ -65,6 +65,8 @@ def cli_commands(argv_list):
                         argv_list = return_caller
             else:
                 if "main_error" not in argv_list and argv_list[1] not in exclude_config:
+                    caller = "normal"
+                    if "service_restart" in argv_list: caller = "service_restart"
                     config = Configuration({
                         "action": "normal",
                         "global_elements": {"caller":"normal"},

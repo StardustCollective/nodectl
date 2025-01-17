@@ -249,7 +249,7 @@ class P12Class():
             self.functions.print_paragraphs([
                 [f"We need to {p12_verb} passphrase for our p12 file.",1],
             ])
-        else:
+        elif not self.existing_p12:
             self.user.print_password_descriptions(10,"passphrase",True)
             self.functions.print_paragraphs([
                 ["This passphrase will allow you to authenticate to the",0], ["Hypergrpah",0,"yellow","bold"],[".",-1],["",1],
@@ -395,13 +395,14 @@ class P12Class():
                     "extra2": None
                 })        
         
-        self.functions.print_cmd_status({
-            "text_start": "P12 file keyphrase (passphrase)",
-            "brackets": profile,
-            "status": "validated!",
-            "status_color": "green",
-        })                
-        sleep(1.3)
+        if self.process != "service_restart":
+            self.functions.print_cmd_status({
+                "text_start": "P12 file keyphrase (passphrase)",
+                "brackets": profile,
+                "status": "validated!",
+                "status_color": "green",
+            })                
+            sleep(1.3)
 
         if operation == "upgrade":
             print("") # overcome '\r'

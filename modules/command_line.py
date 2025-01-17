@@ -7,7 +7,7 @@ from hashlib import sha256
 
 from time import sleep, perf_counter
 from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, SEEK_END, SEEK_CUR
+from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, listdir, SEEK_END, SEEK_CUR
 from shutil import copy2, move
 from sys import exit
 from types import SimpleNamespace
@@ -15,7 +15,7 @@ from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
 from copy import deepcopy
-from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait as thread_wait
 
 from modules.p12 import P12Class
 from modules.troubleshoot.snapshot import * # discover_snapshots, merge_snap_results, ordhash_to_ordhash, process_snap_files, remove_elements, clean_info, set_count_dict, custom_input, print_report
@@ -45,6 +45,7 @@ class CLI():
         self.profile_names = command_obj.get("profile_names",None)
         self.skip_services = command_obj.get("skip_services",False)
         self.auto_restart =  command_obj.get("auto_restart",False)
+        self.caller = command_obj.get("caller","default")
         self.functions = command_obj["functions"]
         self.ip_address = command_obj["ip_address"]
         self.primary_command = self.command_obj["command"]
@@ -64,6 +65,7 @@ class CLI():
         self.skip_version_check = False
         self.skip_build = False
         self.check_versions_called = False
+        self.node_id_obj = False
         self.invalid_version = False
         self.mobile = False
         self.caller = "cli"
@@ -104,17 +106,10 @@ class CLI():
             
         self.arch = self.functions.get_distro_details()["arch"]
 
-        if self.command_obj["caller"] == "installer":
+        if self.caller == "installer":
             return
-        
-        node_id_obj_org = self.functions.get_nodeid_from_file()
-        if node_id_obj_org:
-            self.node_id_obj = deepcopy(node_id_obj_org)
-            for key, value in node_id_obj_org.items():
-                if "short" not in key:
-                    self.node_id_obj[f"{key}_wallet"] = self.cli_nodeid2dag([value,"return_only"])
 
-    
+
     def build_node_class(self):
         command_obj = {
             "caller": "cli",
@@ -2263,6 +2258,10 @@ class CLI():
                 ])
 
             mc_key = "METAGRAPH"
+            tess_installed = self.version_obj[environment][profile]["node_tess_version"]
+            if len(tess_installed) > spacing:
+                spacing = len(tess_installed)+1
+                
             metagraph = f'{self.config_obj["global_elements"]["metagraph_name"]}/{self.config_obj[profile]["environment"]}'
             if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
                 metagraph = self.config_obj[profile]["environment"]
@@ -4398,13 +4397,14 @@ class CLI():
                     "wallet": nodeid.strip(),
                     "environment": self.config_obj[profile]["environment"]
                 })
-                if n < 2 and int(wallet_balance["balance_dag"]) < 1:
+
+                if n < 2 and int(float(wallet_balance["balance_dag"].replace(',', ''))) < 1:    
                     self.log.logger.warning("cli_grab_id --> wallet balance came back as 0, trying again before reporting 0 balance.")
                     if n < 1:
                         sleep(.8) # avoid asking too fast
                     else:
                         self.functions.print_paragraphs([
-                            ["Balance has come back a",0,"red"], ["0",0,"yellow"], ["after 2 attempts. Making",0,"red"],
+                            ["Balance has come back a",0,"red"], ["0",0,"yellow"], ["after",0,"red"], ["2",0,"yellow"], ["attempts. Making",0,"red"],
                             ["final attempt to find a balance before continuing, after pause to avoid perceived API violations.",1,"red"],
                         ])
                         self.functions.print_timer({
@@ -4415,8 +4415,9 @@ class CLI():
                             "phrase": "Waiting",
                             "end_phrase": "before trying again",
                         })
+                    continue
+                break    
             wallet_balance = SimpleNamespace(**wallet_balance)
-
 
         # clear anything off the top of screen
         if "quiet_install" in list(self.command_obj.values()):
@@ -6749,7 +6750,15 @@ class CLI():
             command_list.append("help")
         elif command_list[command_list.index("--type")+1] not in ["file","p12"]:
             command_list.append("help")
-
+        cleanup = True if "--cleanup" in command_list else False
+        title = "PREPARE P12 FOR BACKUP"
+        if "--caller" in command_list:
+            caller = command_list[command_list.index("--caller")+1]
+            if caller == "cli":
+                 if not cleanup: 
+                    title = "CLEAN UP P12 FILES"
+            elif caller == "send_logs":
+                title = "PREPARE LOGS FOR DOWNLOAD"
         self.functions.check_for_help(command_list,"prepare_file_download")
 
 
@@ -6771,8 +6780,6 @@ class CLI():
                 cprint("  no files found","red")
             print("")
 
-
-        cleanup = True if "--cleanup" in command_list else False
         requirements = ["global_p12"]
         files = []
 
@@ -6782,7 +6789,6 @@ class CLI():
         user = self.config_obj["global_p12"]["nodeadmin"]
         action = command_list[command_list.index("--type")+1]
 
-        title = "PREPARE P12 FOR BACKUP" if not cleanup else "CLEAN UP P12 FILES"
         self.print_title(title)
 
         status = {
@@ -7255,6 +7261,7 @@ class CLI():
             command_list = [
                 "--type","file",
                 result,
+                "--caller", "send_logs",
             ]
             self.cli_prepare_file_download(command_list)
 

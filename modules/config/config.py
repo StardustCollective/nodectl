@@ -4,7 +4,7 @@ import json
 from termcolor import colored
 from time import sleep
 from re import match
-from os import path, get_terminal_size
+from os import path, get_terminal_size, chmod, rename
 from shutil import copy2, move
 from sys import exit
 from glob import glob
@@ -912,13 +912,14 @@ class Configuration():
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
         self.config_obj["global_p12"]["p12_validated"] = False  # init key (used outside of this class)
         self.config_obj["global_p12"]["key_alias"] = "str" # init key (updated outside this class)
-            
+        self.config_obj["global_p12"]["ekf_path"] = "/etc/security/cnngsenc.conf"
+
             
     def prepare_p12(self):
         p12_obj = {
             "caller": "config",
             "action": "normal_ops",
-            "process": "normal_ops",
+            "process": "normal_ops" if self.called_command != "service_restart" else self.called_command,
             "functions": self.functions,
         }
         self.p12 = P12Class(p12_obj)
@@ -961,10 +962,14 @@ class Configuration():
     def setup_passwd(self,force=False):
         def verify_passwd(passwd, profile,re_enter=False):
             self.log.logger.debug("[verify_passwd] function called.")
+            try:
+                argv_list_1 = self.argv_list[1]
+            except:
+                argv_list_1 = False
             clear, top_new_line, show_titles = False, False, True 
-            if profile == "global" and ( not self.config_obj["global_elements"]["global_upgrader"] or self.argv_list[1] != "upgrade" ):
+            if profile == "global" and ( not self.config_obj["global_elements"]["global_upgrader"] or argv_list_1 != "upgrade" ):
                 clear = True
-            if self.config_obj["global_elements"]["global_upgrader"] or self.argv_list[1] == "upgrade":
+            if self.config_obj["global_elements"]["global_upgrader"] or argv_list_1 == "upgrade":
                 if profile != "global":
                     print("") # newline
                 show_titles = False
@@ -979,6 +984,7 @@ class Configuration():
                     "newline": top_new_line
                 })  
             
+            self.p12.set_variables
             self.p12.keyphrase_validate({
                 "operation": "config_file",
                 "profile": profile,
@@ -1121,7 +1127,8 @@ class Configuration():
                     newfile.close()
                     f.close()
                     if path.isfile("/var/tmp/cn-config-temp.yaml"):
-                        move("/var/tmp/cn-config-temp.yaml",f"{self.functions.nodectl_path}cn-config.yaml")
+                        rename("/var/tmp/cn-config-temp.yaml",f"{self.functions.nodectl_path}cn-config.yaml")
+                        chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
 
         except Exception as e:
             self.error_messages.error_code_messages({
@@ -1251,6 +1258,7 @@ class Configuration():
                 ["encryption","bool"], 
                 ["key_store","str"], # automated value [not part of yaml]
                 ["p12_validated","bool"], # automated value [not part of yaml]
+                ["ekf_path","str"], # automated value [not part of yaml]
             ],
             "global_elements": [
                 ["yaml_config_name","str"],
@@ -1322,7 +1330,7 @@ class Configuration():
             "jar_s3","seed_github","p12_validated",
             "priority_source_path","is_jar_static","p12_key_alias",
             "jar_fallback_s3","jar_fallback_github","jar_fallback",
-            "jar_fallback_repository", "jar_fallback_github",
+            "jar_fallback_repository", "jar_fallback_github","ekf_path",
         ]
 
         for config_key, config_value in self.config_obj.items():
@@ -1647,17 +1655,24 @@ class Configuration():
                             elif "path" in req_type:
                                 # global paths replaced already
                                 try:
-                                    if "path" in key: validated = True # dynamic value skip validation
-                                    if "path_def" in req_type and test_value == "default": validated = True
-                                    elif req_type == "path_def_dis" and test_value == "disable": validated = True
-                                    elif path.isdir(test_value): validated = True
+                                    if "path" in key: 
+                                        validated = True # dynamic value skip validation
+                                    if "path_def" in req_type and test_value == "default": 
+                                        validated = True
+                                    elif req_type == "path_def_dis" and test_value == "disable": 
+                                        validated = True
+                                    elif path.isdir(test_value): 
+                                        validated = True
                                     elif test_value == "disable" and self.config_obj[profile]["layer"] < 1:
                                         title = f"{test_value} is an invalid keyword for layer0"
-                                    elif self.action == "edit_config" and "p12" in key and test_value == "global": validated = True
+                                    elif self.action == "edit_config" and "p12" in key and test_value == "global": 
+                                        validated = True
                                     elif test_value == "disable" or test_value == "default" or self.config_obj[profile]["layer"] < 1:
                                         title = f"{test_value} is an invalid keyword"
-                                    elif not path.isdir(test_value): title = "invalid or path not found"
-                                    else: validated = True
+                                    elif not path.isdir(test_value): 
+                                        title = "invalid or path not found"
+                                    else: 
+                                        validated = True
                                 except KeyError as e:
                                     self.log.logger.debug(f"config -> configuration object missing keys | error [{e}]")
                                     validated = False

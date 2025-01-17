@@ -2,7 +2,7 @@ import json
 import distro
 import modules.uninstall as uninstaller
 
-from os import makedirs, system, path, environ, get_terminal_size, chmod
+from os import makedirs, path, environ, get_terminal_size, chmod
 from shutil import copy2, move, rmtree
 from time import sleep
 from termcolor import colored, cprint
@@ -53,7 +53,6 @@ class Installer():
         
 
     def install_process(self):
-        self.handle_options()
         self.setup_install()
         self.test_distro()
         self.handle_environment_setup()
@@ -278,7 +277,7 @@ class Installer():
             "--p12-migration-path", "--p12-alias",
             "--quick-install", "--normal", "--json-output",
             "--confirm","--override","--quiet",
-            "--skip-encryption",
+            "--skip-encryption", "--skip-system-validation"
         ]
         
         self.options_dict["quick_install"] = False
@@ -289,6 +288,7 @@ class Installer():
         self.options_dict["quiet"] = False
         self.options_dict["json_output"] = False
         self.options_dict["skip_encryption"] = False
+        self.options_dict["skip_system_validation"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
             if o_option == "quick-install" and "--quick-install" in self.argv_list: 
@@ -308,6 +308,9 @@ class Installer():
                 continue
             if (o_option == "skip-encryption" and "--skip-encryption" in self.argv_list) or (o_option == "skip-encryption" and "--skip_encryption" in self.argv_list): 
                 self.options_dict["skip_encryption"] = True
+                continue
+            if (o_option == "skip-system-validation" and "--skip-system-validation" in self.argv_list) or (o_option == "skip-system-validation" and "--skip_system_validation" in self.argv_list): 
+                self.options_dict["skip_system_validation"] = True
                 continue
             if o_option == "quiet" and "--quiet" in self.argv_list: 
                 self.log.logger.warning("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
@@ -637,7 +640,8 @@ class Installer():
                     if key in ["success","failback"]:
                         new_pos[key] = pos[key]
                     new_pos[key] = pos[key]+14
-            return new_pos
+                return new_pos
+            return pos
         
         for _ in range(0,2):
             try:
@@ -1223,7 +1227,7 @@ class Installer():
                 "error_code": "int-827",
                 "line_code": "file_not_found",
                 "extra": self.options.p12_migration_path if isinstance(self.options.p12_migration_path,str) else "unknown",
-                "extra2": "Are you sure your uploaded the proper p12 file?"
+                "extra2": "Are you sure you uploaded the proper p12 file?"
             })
 
         if not p12file.endswith(".p12"):
@@ -1232,7 +1236,7 @@ class Installer():
                 "error_code": "int-837",
                 "line_code": "invalid_file_format",
                 "extra": self.options.p12_migration_path if isinstance(self.options.p12_migration_path,str) else "unknown",
-                "extra2": "Are you sure your uploaded the proper p12 file?"
+                "extra2": "Are you sure you uploaded the proper p12 file?"
             })     
 
         dest_p12_destination_path = f"/home/{self.user.username}/tessellation/{p12file}"
@@ -1527,6 +1531,7 @@ class Installer():
                     "replace_line": f"    {p12_item[0]}: {p12_item[1]}\n",
                     "skip_backup": True,
                 })
+            chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
 
             return
 

@@ -147,7 +147,6 @@ class Functions():
         self.default_pro_rating_location = "/var/tessellation"
         self.default_includes_path = '/var/tessellation/nodectl/includes/'
         self.default_tessellation_repo = "https://github.com/Constellation-Labs/tessellation"
-        self.ekf = "/etc/security/cnngsenc.conf"
 
         # constellation specific statics
         self.be_urls = {
@@ -1404,14 +1403,14 @@ class Functions():
             enc_data = enc_key.encrypt(pass1.encode()).decode()
             return (enc_data,fernet_key)
 
-        if not path.exists(self.ekf):
+        if not path.exists(self.config_obj["global_p12"]["ekf_path"]):
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1100",
                 "line_code": "system_error",
                 "extra": "encryption issue found, unable to decrypt",
             })
 
-        with open(self.ekf,"r") as f:
+        with open(self.config_obj["global_p12"]["ekf_path"],"r") as f:
             for line in f.readlines():
                 if profile in line:
                     key = line
@@ -1664,8 +1663,7 @@ class Functions():
             self.config_obj[profile]["directory_logs"] = f"/var/tessellation/{profile}/logs/"   
             self.config_obj[profile]["directory_archived"] = f"/var/tessellation/{profile}/logs/archived"  
             self.config_obj[profile]["directory_json_logs"] = f"/var/tessellation/{profile}/logs/json_logs"  
-            
-            
+
     def set_system_prompt(self,username):
         prompt_update = r"'\[\e[1;34m\]\u@Constellation-Node:\w\$\[\e[0m\] '"
         prompt_update = f"PS1={prompt_update}"
@@ -1785,6 +1783,7 @@ class Functions():
     def set_byte_size(self,bits):
         return size(bits,system=alternative)
     
+
     # =============================
     # pull functions
     # ============================= 
@@ -2545,6 +2544,8 @@ class Functions():
                 return "current_less"
         except:
             if version_type == "versioning_module_testnet":
+                if current == remote:
+                    return False
                 return "current_greater"
             return "error"
     
@@ -3012,6 +3013,7 @@ class Functions():
             tcp_test_results[port_int]["found_source"] = False
 
         return tcp_test_results
+
 
     # =============================
     # create functions

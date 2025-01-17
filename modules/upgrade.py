@@ -927,6 +927,7 @@ class Upgrader():
         handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
         chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
+        chmod(self.config_obj["global_p12"]["ekf_path"],0o600)
         
         result = False
         if not self.nodectl_only:
@@ -1635,7 +1636,7 @@ class Upgrader():
         })
 
         auto_path = ac_validate_path(self.log,"upgrader")
-        auto_complete_file = ac_build_script(self.cli,auto_path)
+        auto_complete_file = ac_build_script(self.cli)
         ac_write_file(auto_path,auto_complete_file,self.functions)
 
         self.functions.print_cmd_status({

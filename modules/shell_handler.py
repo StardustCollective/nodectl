@@ -8,6 +8,7 @@ from os import geteuid, getgid, environ, system, walk, remove, path, makedirs
 from shutil import copy2, move
 from types import SimpleNamespace
 from pathlib import Path
+from copy import deepcopy
 
 from .auto_restart import AutoRestart
 from .functions import Functions
@@ -169,7 +170,7 @@ class ShellHandler:
                 _ = self.cli
             except:
                 self.cli = self.build_cli_obj()
-            
+
             if self.cli != None and self.cli.invalid_version:
                 self.functions.confirm_action({
                     "yes_no_default": "NO",
@@ -179,6 +180,8 @@ class ShellHandler:
                     "prompt": "Are you sure you want to continue?",
                     "exit_if": True
                 })
+
+            self.set_node_obj() # needs cli object
 
             restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
             service_change_commands = ["start","stop","leave"]
@@ -428,6 +431,7 @@ class ShellHandler:
                     self.log.logger.error(f"start cli --> invalid request [{self.argv[0]}]")
                     exit(0)
                 self.auto_restart_handler("service_start",True)
+                self.log.logger.debug("service_restart -> auto_restart_handler -> service_start - COMPLETED.")
                 exit(0)
             elif self.called_command == "api_server":
                 self.api_service_handler()
@@ -459,7 +463,7 @@ class ShellHandler:
             elif self.called_command == "execute_tests":
                 self.cli.cli_execute_tests(self.argv)
             elif self.called_command == "prepare_file_download":
-                self.cli.cli_prepare_file_download(self.argv)
+                self.cli.cli_prepare_file_download(self.argv+["--caller","cli"])
             elif self.called_command == "show_service_log" or self.called_command == "_ssl":
                 self.cli.show_service_log(self.argv)
             elif self.called_command == "show_service_status" or self.called_command == "_sss":
@@ -650,11 +654,13 @@ class ShellHandler:
     def check_fernet_rotation(self):
         if self.called_command == "install" or not self.config_obj["global_p12"]:
             return
+        if not self.config_obj["global_p12"]["encryption"]: 
+            return
         
         warning_threshold = 45
         main_threshold = 90
 
-        mod_time = path.getmtime(self.functions.ekf)
+        mod_time = path.getmtime(self.config_obj["global_p12"]["ekf_path"])
         age = self.functions.get_date_time({
             "action": "get_elapsed",
             "old_time": datetime.fromtimestamp(mod_time)
@@ -958,7 +964,7 @@ class ShellHandler:
             "check_versions","_cv",
             "uvos","update_version_object",
             "nodectl_upgrade", "upgrade",
-            "upgrade_path","_up"
+            "upgrade_path","_up",
         ]
         
         print_messages, show_spinner, verify_only, force, print_object = True, True, False, False, False   
@@ -999,9 +1005,30 @@ class ShellHandler:
         self.functions.set_statics()
 
         if called_cmd == "update_version_object": # needs to be checked after version_obj is created
-            self.functions.check_for_help(self.argv,"update_version_object")          
+            self.functions.check_for_help(self.argv,"update_version_object")  
+
+
+    def set_node_obj(self):
+        if isinstance(self.cli,SimpleNamespace):
+            return
+        for _ in range(0,2):
+            add_forced = False
+            node_id_obj_org = self.functions.get_nodeid_from_file()
+            if node_id_obj_org:
+                self.cli.node_id_obj = deepcopy(node_id_obj_org)
+                for key, value in node_id_obj_org.items():
+                    if "short" not in key:
+                        self.cli.node_id_obj[f"{key}_wallet"] = self.cli.cli_nodeid2dag([value,"return_only"])
+                return
+            if "--force" not in self.argv:
+                add_forced = True
+                self.argv.append("--force")
+            self.handle_versioning()
+            self.cli.node_id_obj = False    
+            if add_forced:      
+                self.argv.remove("--force")
           
-          
+
     def print_ext_ip(self):
         self.functions.print_cmd_status({
             "text_start": "Obtaining External IP",
@@ -1136,28 +1163,26 @@ class ShellHandler:
             node_type = "Dor"
 
 
-        try:
-            debian = True
-            if specs["distributor_id"] == "Ubuntu":
-                specs["debian"] = specs["distributor_id"]
-                if specs["release"] == "24.04":
+        def test_ubuntu_debian(specs):
+            try:
+                spec_key = specs["distributor_id"]
+            except:
+                spec_key = specs["id"]
+
+            if spec_key == "Ubuntu":
+                specs["debian"] = spec_key
+                if specs["release"] not in ["22.04","24.04"]:
                     possible_issues["release"] = specs["release"]
-            elif specs["distributor_id"] == "Debian":
-                specs["debian"] = specs["distributor_id"]
-                if specs["release"] == "12":
-                    possible_issues["release"] = specs["release"]
-            else:
-                debian = False
-        except:
-            debian = True
-            if specs["id"] == "Ubuntu":
-                if specs["release"] == "24.04":
-                    possible_issues["release"] = specs["release"]
-            elif specs["id"] == "Debian":
-                if specs["release"] == "12":
+            elif spec_key == "Debian":
+                specs["debian"] = spec_key
+                if specs["release"] not in ["12"]:
                     possible_issues["release"] = specs["release"]
             else:
-                debian = False
+                return False
+            return True
+        
+        debian = test_ubuntu_debian(specs)
+
         if not debian:
             possible_issues["debian"] = "Not a Debian release"
 
@@ -1243,12 +1268,14 @@ class ShellHandler:
                 ["",1],[" SUCCESS ",0,"yellow,on_green","bold"],
                 ["This node meets are necessary specifications to run as a node.",2,"green"],
             ])
+            return True
         else:
             self.functions.print_paragraphs([
                 ["",1],[" FAILURE ",0,"yellow,on_red"],
                 ["This node",0,"red"], ["does not",0,"red","bold"],
                 ["meet the necessary specifications to run as a node.",2,"red"],
             ])
+            return False
 
 
     def digital_signature(self,command_list):
@@ -1672,27 +1699,36 @@ class ShellHandler:
         if action == "service_start":
             self.log.logger.info("auto_restart - restart session threader - invoked.")
 
-            with ThreadPoolExecutor(max_workers=6) as executor:
-                thread_list = []
-                # self.profile_names = ["dag-l0"]  # used for debugging purposes
-                for n, profile in enumerate(self.profile_names):
-                    self.log.logger.info(f"auto_restart - restart threader -  invoked session threads for [{profile}]")
-                    first_thread = True if n < 1 else False
-                    time.sleep(2)
-                    future = executor.submit(
-                        AutoRestart,
-                        profile,
-                        self.functions.config_obj,
-                        first_thread,
-                    )
-                    thread_list.append(future)
+            try:
+                with ThreadPoolExecutor(max_workers=6) as executor:
+                    thread_list = []
+                    # self.profile_names = ["dag-l0"]  # used for debugging purposes
+                    for n, profile in enumerate(self.profile_names):
+                        self.log.logger.info(f"auto_restart - restart threader -  invoked session threads for [{profile}]")
+                        first_thread = True if n < 1 else False
+                        time.sleep(2)
+                        future = executor.submit(
+                            AutoRestart,
+                            profile,
+                            self.functions.config_obj,
+                            first_thread,
+                        )
+                        thread_list.append(future)
 
-                # thread_wait is an alias to wait, and will only execute the next line of this
-                # code before the exception kills the entire process therefor it is not logged
-                thread_wait(thread_list,return_when=concurrent.futures.FIRST_EXCEPTION)
-                _ = self.functions.process_command({
-                    "bashCommand": 'sudo systemctl restart node_restart@"enable"',
-                    "proc_action": "subprocess_devnull",
+                    # thread_wait is an alias to wait, and will only execute the next line of this
+                    # code before the exception kills the entire process therefor it is not logged
+                    thread_wait(thread_list,return_when=concurrent.futures.FIRST_EXCEPTION)
+                    _ = self.functions.process_command({
+                        "bashCommand": 'sudo systemctl restart node_restart@"enable"',
+                        "proc_action": "subprocess_devnull",
+                    })
+            except Exception as e:
+                self.log.logger.error(f"auto_restart - restart session threader - error [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "sh-1030",
+                    "line_code": "auto_restart_error",
+                    "extra": f"{e}",
+                    "extra2": profile,
                 })
             
         if action == "disable":
@@ -1931,14 +1967,40 @@ class ShellHandler:
 
         performance_start = time.perf_counter()  # keep track of how long
         self.installer = Installer(self,argv_list)
+        v_result = False
 
         if self.called_command == "uninstall":
             self.installer.action = "uninstall"
             self.installer.uninstall()
-        else:
-            self.installer.install_process()
-            if not self.installer.options.quiet:
-                self.functions.print_perftime(performance_start,"installation")
+            return
+
+        self.installer.handle_options()
+        if not self.installer.options.quiet and not self.installer.options.skip_system_validation:
+            self.functions.print_paragraphs([
+                ["",1],["Before we begin the",0,"green"],
+                ["installation",0,"yellow"],["process, let's verify our",0,"green"],
+                ["VPS",0,"yellow"],["meets the necessary requirements.",1,"green"],
+            ])
+            v_result = self.verify_specs([])
+            if not v_result:
+                self.functions.print_paragraphs([
+                    ["You may proceed with this installation; however, it is not advised.",1,"magenta","bold"],
+                ])
+                do_install = self.functions.print_any_key({
+                    "prompt": "Press any key to continue installation",
+                    "quit_option": True,
+                    "return_key": True,
+                })
+                if do_install == "q": 
+                    cprint("  Installation exited on Node Operator request","green",attrs=["bold"])
+                    exit(0)
+                self.installer.options.confirm_install = True
+            else:
+                time.sleep(2)
+
+        self.installer.install_process()
+        if not self.installer.options.quiet:
+            self.functions.print_perftime(performance_start,"installation")
 
 
     def set_version_obj_class(self):

@@ -1777,7 +1777,7 @@ def build_help(functions,command_obj):
   {colored('REQUIREMENTS','green',attrs=['bold'])}
      - Debian Based Linux System
      - 16Gb RAM
-     - 4x vCPU
+     - 8x vCPU
      - 160Gb HD
      - Internet Access
 

@@ -1,12 +1,12 @@
 import json
 
 from time import sleep
-from os import path, mkdir
-from requests import get
+from os import path, mkdir, chmod
+
 from sys import exit
 from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
-from copy import copy, deepcopy
+from copy import deepcopy
 
 from ..functions import Functions
 from ..troubleshoot.logger import Logging
@@ -216,6 +216,7 @@ class Versioning():
 
             with open(f"{self.functions.nodectl_path}/cn-nodeid.json","w") as dfile:
                 json.dump(nodeids, dfile, indent=4)
+            chmod(f"{self.functions.nodectl_path}/cn-nodeid.json",0o600)
         except Exception as e:
             self.log.logger.error(f"attempting to pull node id from p12 failed with [{e}]")
 
@@ -226,6 +227,7 @@ class Versioning():
         info = self.functions.get_distro_details()
         with open(f"{self.functions.nodectl_path}/cn-distro.json","w") as dfile:
             json.dump(info, dfile, indent=4)
+        chmod(f"{self.functions.nodectl_path}/cn-distro.json",0o600)
 
 
     def write_version_obj_file(self):
@@ -396,6 +398,8 @@ class Versioning():
                             ["tess_uptodate", node_tess_version, version,version_type],
                         ]
                         for versions in up_to_date:
+                            if versions[0] == "tess_uptodate":
+                                pass
                             test = self.functions.is_new_version(versions[1],versions[2],"tessellation/nodectl versioning",versions[3])
                             if not test: 
                                 test = True
@@ -522,6 +526,7 @@ class Versioning():
             mkdir(self.version_obj_path)
         with open(self.version_obj_file, 'w') as file:
             json.dump(self.version_obj,file,indent=4)
+        chmod(self.version_obj_file,0o600)
             
     
     def print_error(self,ver,code,extra=None,hint=None,extra2=False):

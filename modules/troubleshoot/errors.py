@@ -10,6 +10,7 @@ from .logger import Logging
 
 # api_error
 # api_server_error
+# auto_restart_error
 
 # config_error
 #     format
@@ -209,7 +210,19 @@ class Error_codes():
                 self.functions.print_paragraphs([
                     ["Environment Requested:",0], [var.extra2,2,"yellow","bold"]
                 ])
-                        
+
+
+        elif var.line_code == "auto_restart_error":
+            self.log.logger.critical("auto restart failed to execute properly")
+            self.log.logger.critical(f"profile | {var.extra2}")
+            self.log.logger.critical(f"error | {var.extra}")
+            self.functions.print_paragraphs([
+                ["nodectl attempted to execute the auto_restart module and filed with:",2,"red","bold"], 
+                [var.extra,2,"yellow,on_red","bold"],
+                ["Please verify your configuration and report this error to your System Administrator if the issue persists.",2,"red","bold"],
+                ["profile:",2,"magenta"], [var.extra2,2,"yellow","bold"],
+            ])
+
                         
         elif "upgrade_incompatibility" in str(var.line_code):
             self.log.logger.critical(f"Upgrade cannot continue because nodectl found multiple environments that are not supported by this version of nodectl: environment [{var.extra}]")

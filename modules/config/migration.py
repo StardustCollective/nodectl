@@ -1,4 +1,4 @@
-from os import path, makedirs
+from os import path, makedirs, chmod
 from shutil import move
 from .versioning import Versioning
 from ..troubleshoot.logger import Logging
@@ -221,7 +221,8 @@ class Migration():
 
         self.log.logger.debug(f'migration module backing up the configuration to [{dest}]')
         if path.isfile(f"{self.functions.nodectl_path}cn-config.yaml"):
-            move(f"{self.functions.nodectl_path}cn-config.yaml",dest)      
+            move(f"{self.functions.nodectl_path}cn-config.yaml",dest)     
+            chmod(dest,0o600) 
 
         self.functions.print_cmd_status({
             **progress,
@@ -485,6 +486,7 @@ class Migration():
         with open(f"{self.functions.nodectl_path}cn-config.yaml","w") as newfile:
             newfile.write(self.yaml)
         newfile.close()
+        chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
             
         self.functions.print_cmd_status({
             "text_start": "Creating configuration file",

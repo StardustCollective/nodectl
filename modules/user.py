@@ -2,7 +2,6 @@ import re
 
 from os import system, path, makedirs, getenv, chmod
 from getpass import getpass, getuser
-from shutil import copyfile
 from termcolor import colored, cprint
 from secrets import compare_digest
 from shutil import copy2, move
@@ -209,11 +208,14 @@ class UserClass:
         # type = password, keyphrase, or passphrase
         
         pattern = "^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[#?!@$%^&*-])[A-Za-z0-9#?!@$%^&*-]+$" # no single quotes, double quotes, spaces or periods.
-        conjunction = "an" if length < 10 else "a"
-        cprint(f">> Please enter {conjunction} {length} character minimum","magenta")
-        first = f">> {type} for {name}: "
-        second = f">> Please confirm {name}'s {type}: "
-
+        
+        if self.p12_migration:
+            first = ">> Please enter P12 private key passprhase: "
+        else:
+            conjunction = "an" if length < 10 else "a"
+            cprint(f">> Please enter {conjunction} {length} character minimum","magenta")
+            first = f">> {type} for {name}: "
+            second = f">> Please confirm {name}'s {type}: "
         
         match_error = colored("  Your ","red")+colored(f"{type}s","red",attrs=["bold"])+colored(" did not match","red")
         
@@ -386,7 +388,7 @@ class UserClass:
             makedirs(dest_dir)
             
         if path.isfile(f"/root/.ssh/{self.file}"):
-            copyfile(src_dir_file,dest_dir_file)
+            copy2(src_dir_file,dest_dir_file)
         elif path.isfile(dest_dir_file):
             if not self.quick_install:
                 self.functions.print_paragraphs([
@@ -428,7 +430,7 @@ class UserClass:
 
             if confirm:
                 try:
-                    copyfile(f"/root/.ssh/backup_{self.file}",dest_dir_file) 
+                    copy2(f"/root/.ssh/backup_{self.file}",dest_dir_file) 
                     status = "complete"
                     status_color = "green"
                 except:

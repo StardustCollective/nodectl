@@ -2,19 +2,15 @@ import random
 from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
-from os import system, path, environ, makedirs, listdir, chmod, remove
+from os import path, environ, makedirs, listdir, chmod, remove
 from shutil import copy2, move, rmtree
 from sys import exit
 from getpass import getpass, getuser
-from types import SimpleNamespace
-from copy import deepcopy, copy
+from copy import deepcopy
 from string import ascii_letters
 from secrets import compare_digest, choice
 from time import sleep
-from requests import get
-from re import search, compile
 from itertools import chain
-from zlib import compress
 
 from .migration import Migration
 from .config import Configuration
@@ -2348,6 +2344,7 @@ class Configurator():
 
         with open(f"{self.c.functions.default_includes_path}alerting.yaml","w") as file:
             file.write(final_alerting_file)
+        chmod(f"{self.c.functions.default_includes_path}alerting.yaml",0o600)
 
         print("")
         self.c.functions.print_cmd_status({
@@ -3974,6 +3971,7 @@ class Configurator():
                 f.write(enc_key+"\n")
 
         fe = fe.strip()
+        chmod(effp,0o600)
 
         return fe, f"{pass3}"
 
@@ -4228,7 +4226,7 @@ class Configurator():
         if not self.is_file_backedup:
             progress = {
                 "text_start": "Backup",
-                "brackets": "cn-config.yaml",
+                "brackets": self.config_file,
                 "text_end": "if exists",
                 "status": "checking",
                 "status_color": "yellow",
@@ -4255,7 +4253,7 @@ class Configurator():
                     "newline": True,
                 })
                 self.c.functions.print_paragraphs([
-                    ["A previous",0], ["cn-config.yaml",0,"yellow"],
+                    ["A previous",0], [f"{self.config_file}",0,"yellow"],
                     ["was found on the system.",2],
                     
                     ["In the event the backup directory was not found, a backup was created in the existing directory. The location is shown below.",1],
@@ -4873,7 +4871,7 @@ class Configurator():
         self.c.functions.print_paragraphs([
             ["Please review the nodectl logs and/or Node operator notes and try again",2],
             
-            ["You can attempt to restore your",0,"magenta"], ["cn-config.yaml",0,"yellow","bold"], ["from backups.",1,"magenta"],
+            ["You can attempt to restore your",0,"magenta"], [f"{self.config_file}",0,"yellow","bold"], ["from backups.",1,"magenta"],
             ["You can also attempt to retry your entries at the main menu",2,"magenta"], 
         ])
         
@@ -5037,6 +5035,7 @@ class Configurator():
                             
         f.close()
         copy2(self.yaml_path,self.config_file_path)
+        chmod(self.config_file_path,0o600)
         if remove_yaml and path.isfile(self.yaml_path): 
             remove(self.yaml_path)
         if list_of_lines:
@@ -5116,7 +5115,7 @@ class Configurator():
                 "bashCommand": f"mv {self.config_path}backup_cn-config_* {backup_dir}",
                 "proc_action": "subprocess_devnull",
             })
-            self.log.logger.info("configurator migrated all [cn-config.yaml] backups to first known backup directory")
+            self.log.logger.info(f"configurator migrated all [{self.config_file}] backups to first known backup directory")
     
                           
 if __name__ == "__main__":
