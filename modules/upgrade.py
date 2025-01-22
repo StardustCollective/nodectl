@@ -1,10 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from os import path, makedirs, remove, listdir, chmod
-from shutil import copy2, rmtree
+from shutil import copy2, rmtree, move
 from time import sleep
 from termcolor import colored
 from re import match
 from copy import deepcopy
+from glob import glob
 
 from .troubleshoot.errors import Error_codes
 from .p12 import P12Class
@@ -759,6 +760,13 @@ class Upgrader():
                 "status": "complete",
                 "newline": True
             })
+
+        if path.isfile("/var/tessellation/nodectl/nodectl.log"):
+            if not path.isdir("/var/tessellation/nodectl/logs"):
+                makedirs("/var/tessellation/nodectl/logs")
+            for file_path in glob(path.join("/var/tessellation/nodectl/", "nodectl.log*")):
+                if not path.isfile(f"/var/tessellation/nodectl/logs/{path.basename(file_path)}"):
+                    move(file_path, "/var/tessellation/nodectl/logs")
 
 
     def verify_directories(self):

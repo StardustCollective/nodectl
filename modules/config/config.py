@@ -22,7 +22,7 @@ class Configuration():
     
     def __init__(self,command_obj):
 
-        self.log = Logging()
+        self.log = Logging() 
         self.log_key = "main"
         
         self.versioning_service = False
@@ -985,7 +985,9 @@ class Configuration():
                 show_titles = False
                 top_new_line = "top"
                 
-            if not passwd:
+            if re_enter or not passwd:
+                if re_enter: passwd = False
+                self.config_obj["global_p12"]["encryption"] = False
                 self.functions.print_header_title({
                     "line1": "PASSPHRASE REQUIRED",
                     "line2": profile,

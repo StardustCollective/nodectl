@@ -65,17 +65,15 @@ class Functions():
         try:
             self.log_key = config_obj["global_elements"]["log_key"]
         except:
-            self.log_key = config_obj["log_key"]
+            try:
+                self.log_key = config_obj["log_key"]
+            except:
+                self.log_key = "main"
 
         if self.sudo_rights:
             self.log = Logging()
-        # set self.version_obj before calling set_statics
-        self.config_obj = config_obj
 
-        try:
-            self.log_key = config_obj["global_elements"]["log_key"]
-        except:
-            self.log_key = config_obj["log_key"]
+        self.config_obj = config_obj
             
         self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
         self.nodectl_code_name = "Princess Warrior"
