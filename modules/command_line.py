@@ -1264,29 +1264,17 @@ class CLI():
             
             
     def show_logs(self,command_list):  
-        # name,-p,profile,grep,follow
         self.log.logger[self.log_key].debug("show logs invoked")
         self.functions.check_for_help(command_list,"logs")
 
-        l_flag = False
         profile = self.functions.default_profile
         possible_logs = [
-            "app", "http", "nodectl", "gossip", "transactions"
+            "nodectl","auto_restart","versioning",
+            "app", "http", "gossip", "transactions"
         ]
 
-        follow = "-f" if "-f" in command_list else "empty"
-        grep = command_list[command_list.index("-g")+1] if "-g" in command_list else "empty"
         name = command_list[command_list.index("-l")+1] if "-l" in command_list else "empty"
-        
-        # update log file
-        if grep != "empty" and follow != "-f":
-            self.log.logger[self.log_key].info(f"show log with grep [{grep}] invoked | [{name}]")
-        elif grep != "empty" and follow == "-f":
-            self.log.logger[self.log_key].info(f"show log with grep [{grep}] invoked with follow | [{name}]")
-        elif follow == "-f":
-            self.log.logger[self.log_key].info(f"show log with follow invoked | [{name}]")
-        else:
-            self.log.logger[self.log_key].info("show log invoked")
+        self.log.logger[self.log_key].info("show log invoked")
 
         if name != "empty":
             if name not in possible_logs:
@@ -1295,8 +1283,11 @@ class CLI():
                     "hint": "Did you include the '-l' switch?"
                 })
             file_path = f"/var/tessellation/{profile}/logs/{name}.log"
-            if name == "nodectl":
-                file_path = f"{self.functions.nodectl_path}nodectl.log"
+            if name in ["nodectl","auto_restart","versioning"]:
+                if name == "nodectl":
+                    file_path = f"{self.functions.nodectl_path}logs/nodectl.log"
+                else:
+                    file_path = f"{self.functions.nodectl_path}logs/nodectl_{name}.log"
         else:
             self.log.logger[self.log_key].info(f"show log invoked")
             
@@ -1305,82 +1296,34 @@ class CLI():
                 "clear": True,
             })
             
-            self.functions.print_paragraphs([
-                ["1",0,"magenta","bold"], [") nodectl logs",-1,"magenta"],["",1],
-                ["2",0,"magenta","bold"], [") Tessellation app log",-1,"magenta"],["",1],
-                ["3",0,"magenta","bold"], [") Tessellation http log",-1,"magenta"],["",1],
-                ["4",0,"magenta","bold"], [") Tessellation gossip log",-1,"magenta"],["",1],
-                ["5",0,"magenta","bold"], [") Tessellation transactions log",-1,"magenta"],["",2],
-                ["Q",0,"magenta","bold"], [")uit",-1,"magenta"],["",2],
-            ])
-            
-            option = self.functions.get_user_keypress({
-                "prompt": "KEY PRESS an option",
-                "prompt_color": "magenta",
-                "options": ["1","2","3","4","5","Q"],
-                "quit_option": "Q",
-                "mobile": self.mobile
+            t_options = [
+                "nodectl log","auto_restart log","versioning log",
+                "Tessellation app log","Tessellation http log",
+                "Tessellation gossip log","Tessellation transaction log"
+            ]
+            option = self.functions.print_option_menu({
+                "options": t_options,
+                "let_or_num": "number",
+                "return_value": False,
             })
-            if option == "q":
-                if self.mobile: return
-                exit(0)
                 
             option_match = {
-                "1": f"{self.functions.nodectl_path}nodectl.log",
-                "2": f"/var/tessellation/{profile}/logs/app.log",
-                "3": f"/var/tessellation/{profile}/logs/http.log",
-                "4": f"/var/tessellation/{profile}/logs/gossip.log",
-                "5": f"/var/tessellation/{profile}/logs/transactions.log",
+                "1": f"{self.functions.nodectl_path}logs/nodectl.log",
+                "2": f"{self.functions.nodectl_path}logs/nodectl_auto_restart.log",
+                "3": f"{self.functions.nodectl_path}logs/nodectl_versioning.log",
+                "4": f"/var/tessellation/{profile}/logs/app.log",
+                "5": f"/var/tessellation/{profile}/logs/http.log",
+                "6": f"/var/tessellation/{profile}/logs/gossip.log",
+                "7": f"/var/tessellation/{profile}/logs/transactions.log",
             }    
-            file_path = option_match.get(option)      
+            file_path = option_match.get(option) 
 
-        try:
-            f = open(f"{file_path}","r")
-        except:
-            self.log.logger[self.log_key].error(f"unable to open log file for reading [{file_path}]")
-            self.functions.print_paragraphs([
-                ["Error opening file:",0,"red"], [file_path,1,"yellow"],
-            ])
-            return 1
-            
-        self.functions.print_header_title({
-            "line1": "SHOW LOGS",
-            "line2": f"{profile} -> {name}",
-            "clear": True,
-        })
-
-        for line in f.readlines():
-            line = line.strip()
-            if grep != "empty":
-                if grep in str(line):
-                    line = line.replace(grep,colored(grep,"red"))
-                    print(line)
-            else:
-                print(line)
-                
-        if follow == "-f":
-            has_line_changed = None
-            print(colored("ctrl+c","cyan"),"to exit follow")
-            while True:
-                try:
-                    with open(f'{file_path}', 'rb') as f:
-                        try:  # catch OSError in case of a one line file 
-                            f.seek(-2, SEEK_END)
-                            while f.read(1) != b'\n':
-                                f.seek(-2, SEEK_CUR)
-                        except OSError:
-                            f.seek(0)
-                        except KeyboardInterrupt:
-                            break
-                        line = f.readline().decode()
-                        if grep in str(line):
-                            line = line.replace(grep,colored(grep,"red"))
-                        if has_line_changed != line and grep == "empty" or (has_line_changed != line and grep in str(line)):
-                            print(line.strip())
-                            has_line_changed = line
-                        sleep(.8)
-                except KeyboardInterrupt:
-                    break
+        self.functions.print_paragraphs([
+            ["",1],["shift + g",0,"yellow"],["Move to the end of the file and follow.",1],
+            ["        q",0,"yellow"],["quit out of the log viewer",2],
+        ])
+        _ = self.functions.print_any_key({})
+        system(f"lnav {file_path}")     
 
         
     def show_list(self,command_list):

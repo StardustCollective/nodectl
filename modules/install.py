@@ -837,6 +837,7 @@ class Installer():
             "curl": False,
             "wget": False,
             "tree": False,
+            "lnav": False,
         }
                 
         environ['DEBIAN_FRONTEND'] = 'noninteractive' 

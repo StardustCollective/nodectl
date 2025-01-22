@@ -18,6 +18,7 @@ class Upgrader():
 
     def __init__(self,command_obj):
         self.log = Logging()
+        self.log_key = command_obj["parent"].config_obj['global_elements']['log_key']
         self.log.logger[self.log_key].info("System Upgrade called, initializing upgrade.")
         
         self.parent = command_obj["parent"]
@@ -930,7 +931,25 @@ class Upgrader():
         self.handle_auto_complete()
         chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
         chmod(self.config_obj["global_p12"]["ekf_path"],0o600)
-        
+
+        progress = {
+            "text_start": "Installing",
+            "brackets": "lnav",
+            "status": "running",
+            "status_color": "yellow",
+        }
+        self.functions.print_cmd_status(progress)
+        self.functions.process_command({
+            "bashCommand": f"apt-get install -y lnav",
+            "proc_action": "timeout",
+        })
+        self.functions.print_cmd_status({
+            **progress,
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
+
         result = False
         if not self.nodectl_only:
             for profile in self.functions.profile_names:

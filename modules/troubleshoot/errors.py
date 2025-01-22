@@ -889,6 +889,7 @@ class Error_codes():
 
         sys.exit("  nodectl exited on critical error.")
         
+        
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")        
    

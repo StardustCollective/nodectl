@@ -4126,7 +4126,11 @@ class Functions():
             session.close()
 
         if do_raise:
-            raise
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-4130",
+                "line_code": "file_not_found",
+                "extra": path.basename(command_obj['local']),
+            })
 
 
     def process_command(self,command_obj):

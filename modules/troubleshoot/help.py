@@ -2152,19 +2152,9 @@ def build_help(functions,command_obj):
                       - {colored("app","cyan")}
                       - {colored("http","cyan")}
                       - {colored("nodectl","cyan")}
+                      - {colored("versioning","cyan")}
+                      - {colored("auto_restart","cyan")}
                     
-  {colored("-g","cyan")} <word>     <== filter out (grep) the word {colored("<word>","cyan")}.
-                    This is case insensitive
-                  
-  {colored("-f","cyan")}            <== follow the log line by line.  As a new line is
-                    added to the log during execution of user or
-                    program initiated elements that might print
-                    to the log file being monitored.
-                  
-                    To cancel out of the "{colored("-f","cyan")}" command you will
-                    simultaneously press and hold the control ({colored("ctrl","cyan")})
-                    key on your keyboard and press the "{colored("c","cyan")}" key.
-
   # {colored("sudo nodectl logs","cyan")}
 
   This command will give you an option of which profile and log you

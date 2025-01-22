@@ -86,36 +86,47 @@ class Send():
         
         if self.nodectl_logs:
             choice = self.functions.print_option_menu({
-                "options": ["nodectl main log","nodectl auto_restart log","nodectl versioning log","all nodectl logs"],
+                "options": [
+                    "nodectl main log","nodectl auto_restart log",
+                    "nodectl versioning log","all nodectl logs"],
                 "r_and_q": "q",
                 "color": "magenta",
             })
         else:
-            self.functions.print_paragraphs([
-                ["S",0,"magenta","bold"], [")",-1,"magenta"], ["Current Log (singular)",0,"magenta"], ["",1],
-                ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs (all)",0,"magenta"], ["",1],
-                ["B",0,"magenta","bold"], [")",-1,"magenta"], ["Backup Logs",0,"magenta"], ["",1],
-                ["D",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date",0,"magenta"], ["",1],
-                ["R",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date Range",0,"magenta"], ["",1],
-                ["A",0,"magenta","bold"], [")",-1,"magenta"], ["Archived Logs",0,"magenta"], ["",1],
-                ["X",0,"magenta","bold"], [")",-1,"magenta"], ["Exit",0,"magenta"], ["",2],
-            ])
-                    
-            choice = self.functions.get_user_keypress({
-                "prompt": "KEY PRESS an option",
-                "prompt_color": "cyan",
-                "options": ["S","C","B","A","X","D","R"],
+            choice = self.functions.print_option_menu({
+                "options": [
+                    "Current Log (singular)","Current Logs (all)",
+                    "Backup Logs","Specific Date","Specific Date Range",
+                    "Archived Logs",
+                ],
+                "r_and_q": "q",
+                "color": "magenta"
             })
+            # self.functions.print_paragraphs([
+            #     ["S",0,"magenta","bold"], [")",-1,"magenta"], ["Current Log (singular)",0,"magenta"], ["",1],
+            #     ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs (all)",0,"magenta"], ["",1],
+            #     ["B",0,"magenta","bold"], [")",-1,"magenta"], ["Backup Logs",0,"magenta"], ["",1],
+            #     ["D",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date",0,"magenta"], ["",1],
+            #     ["R",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date Range",0,"magenta"], ["",1],
+            #     ["A",0,"magenta","bold"], [")",-1,"magenta"], ["Archived Logs",0,"magenta"], ["",1],
+            #     ["X",0,"magenta","bold"], [")",-1,"magenta"], ["Exit",0,"magenta"], ["",2],
+            # ])
+                    
+            # choice = self.functions.get_user_keypress({
+            #     "prompt": "KEY PRESS an option",
+            #     "prompt_color": "cyan",
+            #     "options": ["S","C","B","A","X","D","R"],
+            # })
         
-        if choice == "a":
+        if choice == "6":
             self.log.logger[self.log_key].info(f"Request to upload Tessellation archive logs initiated")
             tar_package = self.listing_setup([archive_location])
                 
-        if choice == "b":
+        if choice == "3":
             self.log.logger[self.log_key].info(f"Request to upload backup Tessellation logs initiated")
             tar_package = self.listing_setup([backup_dest])      
             
-        if choice == "d" or choice == "r":
+        if choice == "4" or choice == "5":
             self.log.logger[self.log_key].info(f"Request to upload Tessellation date specific logs")
             cprint("  Date format must be [YYYY-MM-DD]","white",attrs=["bold"])
             dates_obj = {
@@ -126,23 +137,29 @@ class Send():
             for n in range(0,2):
                 while True:
                     verb = "desired"
-                    if choice == "r" and n == 0:
+                    if choice == "5" and n == 0:
                         verb = "start"
-                    if choice == "r" and n == 1:
+                    if choice == "5" and n == 1:
                         verb = "end"
                     choice_input = colored(f"  Please enter in the {verb} date you are searching for: ","cyan")
                     inputted_date = input(choice_input)
-                    verb = "start" if choice == "d" else verb 
+                    verb = "start" if choice == "4" else verb 
                     if match(r"^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$",inputted_date):
                         dates_obj[verb] = inputted_date
                         break
                     cprint("  invalid date, try again","red")
                     
-                if choice == "d":
+                if choice == "4":
                     break
             tar_package = self.listing_setup(dates_obj)
-                
-        if choice in ["c","s","1","2","3","4"]:
+
+        do_continue = False
+        if self.nodectl_logs:
+            do_continue = True        
+        elif choice in ["1","2"]:
+            do_continue = True
+
+        if do_continue:
             self.functions.print_cmd_status({
                 "text_start": "Current logs process started",
                 "newline": True,
@@ -216,7 +233,7 @@ class Send():
                 "tar_file_list": None,
             }
 
-        if choice == "x":
+        if choice == "x" or choice == "q":
             cprint("  User terminated program","green")
             exit(0)
             
