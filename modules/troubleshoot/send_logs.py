@@ -96,70 +96,53 @@ class Send():
             choice = self.functions.print_option_menu({
                 "options": [
                     "Current Log (singular)","Current Logs (all)",
-                    "Backup Logs","Specific Date","Specific Date Range",
-                    "Archived Logs",
+                    "Archived Logs","Specific Date","Specific Date Range",
                 ],
                 "r_and_q": "q",
                 "color": "magenta"
             })
-            # self.functions.print_paragraphs([
-            #     ["S",0,"magenta","bold"], [")",-1,"magenta"], ["Current Log (singular)",0,"magenta"], ["",1],
-            #     ["C",0,"magenta","bold"], [")",-1,"magenta"], ["Current Logs (all)",0,"magenta"], ["",1],
-            #     ["B",0,"magenta","bold"], [")",-1,"magenta"], ["Backup Logs",0,"magenta"], ["",1],
-            #     ["D",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date",0,"magenta"], ["",1],
-            #     ["R",0,"magenta","bold"], [")",-1,"magenta"], ["Specific Date Range",0,"magenta"], ["",1],
-            #     ["A",0,"magenta","bold"], [")",-1,"magenta"], ["Archived Logs",0,"magenta"], ["",1],
-            #     ["X",0,"magenta","bold"], [")",-1,"magenta"], ["Exit",0,"magenta"], ["",2],
-            # ])
-                    
-            # choice = self.functions.get_user_keypress({
-            #     "prompt": "KEY PRESS an option",
-            #     "prompt_color": "cyan",
-            #     "options": ["S","C","B","A","X","D","R"],
-            # })
         
-        if choice == "6":
-            self.log.logger[self.log_key].info(f"Request to upload Tessellation archive logs initiated")
-            tar_package = self.listing_setup([archive_location])
-                
         if choice == "3":
-            self.log.logger[self.log_key].info(f"Request to upload backup Tessellation logs initiated")
-            tar_package = self.listing_setup([backup_dest])      
+            if self.nodectl_logs:
+                self.log.logger[self.log_key].info(f"Request to upload all nodectl versioning logs")
+                choice == "33"
+            else:
+                self.log.logger[self.log_key].info(f"Request to upload Tessellation archive logs initiated")
+                tar_package = self.listing_setup([archive_location]) 
+
             
-        if choice == "4" or choice == "5":
-            self.log.logger[self.log_key].info(f"Request to upload Tessellation date specific logs")
-            cprint("  Date format must be [YYYY-MM-DD]","white",attrs=["bold"])
-            dates_obj = {
-                "location_dir": [archive_location],
-                "start": None,
-                "end": None
-            }
-            for n in range(0,2):
-                while True:
-                    verb = "desired"
-                    if choice == "5" and n == 0:
-                        verb = "start"
-                    if choice == "5" and n == 1:
-                        verb = "end"
-                    choice_input = colored(f"  Please enter in the {verb} date you are searching for: ","cyan")
-                    inputted_date = input(choice_input)
-                    verb = "start" if choice == "4" else verb 
-                    if match(r"^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$",inputted_date):
-                        dates_obj[verb] = inputted_date
+        if choice in ["4","5"]:
+            if self.nodectl_logs:
+                self.log.logger[self.log_key].info(f"Request to upload all nodectl logs")
+                choice = "44"
+            else:
+                self.log.logger[self.log_key].info(f"Request to upload Tessellation date specific logs")
+                cprint("  Date format must be [YYYY-MM-DD]","white",attrs=["bold"])
+                dates_obj = {
+                    "location_dir": [archive_location],
+                    "start": None,
+                    "end": None
+                }
+                for n in range(0,2):
+                    while True:
+                        verb = "desired"
+                        if choice == "5" and n == 0:
+                            verb = "start"
+                        if choice == "5" and n == 1:
+                            verb = "end"
+                        choice_input = colored(f"  Please enter in the {verb} date you are searching for: ","cyan")
+                        inputted_date = input(choice_input)
+                        verb = "start" if choice == "4" else verb 
+                        if match(r"^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$",inputted_date):
+                            dates_obj[verb] = inputted_date
+                            break
+                        cprint("  invalid date, try again","red")
+                        
+                    if choice == "4":
                         break
-                    cprint("  invalid date, try again","red")
-                    
-                if choice == "4":
-                    break
-            tar_package = self.listing_setup(dates_obj)
+                tar_package = self.listing_setup(dates_obj)
 
-        do_continue = False
-        if self.nodectl_logs:
-            do_continue = True        
-        elif choice in ["1","2"]:
-            do_continue = True
-
-        if do_continue:
+        if choice in ["1","2","33","44"]:
             self.functions.print_cmd_status({
                 "text_start": "Current logs process started",
                 "newline": True,
@@ -177,13 +160,13 @@ class Send():
                 if choice == "2":
                     log_type = "auto_restart"
                     rsync_include = "nodectl_auto_restart.log*"
-                elif choice == "3":
+                elif choice == "33":
                     log_type = "version"
                     rsync_include = "nodectl_versioning.log*"
-                elif choice == "4":
+                elif choice == "44":
                     log_type = "all nodectl"
                     rsync_include = "*.log*"
-            if choice == "s":
+            if choice == "1":
                 tar_creation_origin = f"/var/tessellation/{self.profile}/logs/app.log"
                 if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log"
                 
