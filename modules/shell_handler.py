@@ -38,7 +38,14 @@ class ShellHandler:
         except:
             self.config_obj = command_obj["config_obj"]
 
-        self.log_key = self.config_obj["global_elements"]["log_key"]
+        try:
+            self.log_key = self.config_obj["global_elements"]["log_key"]
+        except:
+            try:
+                self.log_key = command_obj["log_key"]
+            except:
+                self.log_key = "main"
+
         self.functions = Functions(self.config_obj)
         self.error_messages = Error_codes(self.functions)
         self.error_messages.functions = self.functions
@@ -212,7 +219,7 @@ class ShellHandler:
                     self.mobile, self.cli.mobile = True, True
                     cli_iterative = self.called_command 
                 self.called_command, self.argv = self.cli.cli_console(self.argv)
-                if self.called_command in ["view_config","verify_nodectl","configure"]:
+                if self.called_command in ["view_config","verify_nodectl","configure","export_private_key"]:
                     return ['main.py',self.called_command] + self.argv
                 else:
                     self.check_auto_restart() # retest if auto_restart needs to be disabled

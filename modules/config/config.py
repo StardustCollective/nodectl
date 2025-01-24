@@ -118,7 +118,7 @@ class Configuration():
         
                 
     def implement_config(self):
-        continue_list = ["normal","edit_config","edit_on_error","edit_config_from_new"]
+        continue_list = ["normal","edit_config","edit_on_error","edit_config_from_new","view_config"]
         
         self.setup_schemas()
         self.build_yaml_dict(True,True)
@@ -392,7 +392,11 @@ class Configuration():
             "newline": "top",
             "upper": False,
         })
-        
+
+        self.validated, self.do_validation = False, False
+        self.action = "view_config"
+        self.implement_config()
+
         if "--section" in self.argv_list:
             print_req = ("section",self.argv_list[self.argv_list.index("--section")+1])
         elif "--passphrase" in self.argv_list: print_req = "pass"
@@ -409,9 +413,6 @@ class Configuration():
         elif "--ports" in self.argv_list or "--tcp" in self.argv_list: print_req = "port"
         elif "--pro" in self.argv_list: print_req = "pro_"
         elif "--json" in self.argv_list:
-            self.validated, self.do_validation = True, False
-            self.action = "normal"
-            self.implement_config()
             self.functions.print_clear_line()
             print(colored(json.dumps(self.config_obj,indent=3),"cyan",attrs=['bold']))
             exit("  view config yaml in json format")
@@ -962,23 +963,28 @@ class Configuration():
         if self.called_command in passphrase_required_list:
             required = True
  
-        re_enter_passwd_list = ["export_private_key"]
+        re_enter_passwd_list = ["export_private_key","view_config"]
         if self.called_command in re_enter_passwd_list:
             required = "force_validate"
+        if self.called_command == "view_config" and self.config_obj["global_p12"]["encryption"]:
+            required = False
  
         return required
-    
+
 
     def setup_passwd(self,force=False):
         def verify_passwd(passwd, profile,re_enter=False):
+            is_global = False
             self.log.logger[self.log_key].debug("[verify_passwd] function called.")
             try:
                 argv_list_1 = self.argv_list[1]
             except:
                 argv_list_1 = False
             clear, top_new_line, show_titles = False, False, True 
-            if profile == "global" and ( not self.config_obj["global_elements"]["global_upgrader"] or argv_list_1 != "upgrade" ):
-                clear = True
+            if profile == "global":
+                if not self.config_obj["global_elements"]["global_upgrader"] or argv_list_1 != "upgrade":
+                    clear = True
+                is_global = True
             if self.config_obj["global_elements"]["global_upgrader"] or argv_list_1 == "upgrade":
                 if profile != "global":
                     print("") # newline
@@ -996,11 +1002,12 @@ class Configuration():
                     "newline": top_new_line
                 })  
             
-            self.p12.set_variables
+            self.p12.set_variables(is_global,profile)
             self.p12.keyphrase_validate({
                 "operation": "config_file",
                 "profile": profile,
                 "passwd": passwd,
+                "caller": argv_list_1,
             })   
             return  
             

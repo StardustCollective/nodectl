@@ -324,6 +324,7 @@ class P12Class():
     def keyphrase_validate(self,command_obj):
         operation = command_obj["operation"]
         passwd = command_obj.get("passwd",False)
+        caller = command_obj.get("caller",False)
         profile = command_obj.get("profile","global")
         de, manual = False, False
         
@@ -339,7 +340,10 @@ class P12Class():
             
             try:
                 if profile == "global" and passwd == False and self.config_obj["global_elements"]["global_upgrader"] == False:
-                    cprint("  Global profile passphrase doesn't match, is incorrect, or is not found.","yellow")
+                    if caller in ["export_private_key","view_config"]:
+                        cprint("  This command requires manual re-entry of your p12 passphrase","yellow")
+                    else:
+                        cprint("  Global profile passphrase doesn't match, is incorrect, or is not found.","yellow")
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "p12-227",
@@ -347,6 +351,7 @@ class P12Class():
                 })
             
             if de: 
+                self.log.logger[self.log_key].debug(f"p12 keyphrase validation process - attempting decryption")
                 passwd = self.functions.get_persist_hash({
                     "pass1": passwd,
                     "profile": profile,
