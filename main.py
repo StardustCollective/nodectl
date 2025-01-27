@@ -11,12 +11,15 @@ debug = False
 
 def cli_commands(argv_list):
     current_shell, return_caller = False, False
+    handle_main = True
 
     try:
         _ = argv_list[1]
     except:
         argv_list = ["main_error","main_error"]
-        
+
+    log_key = logging_setup(argv_list)
+            
     while True:
         if return_caller:
             poss_cmds = ["revision","configure"]
@@ -33,7 +36,7 @@ def cli_commands(argv_list):
             if found_mobile or "mobile" in argv_list: 
                 argv_list = return_caller+["mobile"]
                 return_caller = ["main.py","mobile"]
-            elif "verify_nodectl" in return_caller:
+            elif "console" in argv_list or "verify_nodectl" in return_caller:
                 argv_list = return_caller
         try:
             skip_config_list = ["install","verify_nodectl","-vn","restore_config"]
@@ -46,32 +49,40 @@ def cli_commands(argv_list):
             exclude_config = ["-v","_v","version","verify_specs"]
             
             if argv_list[1] in exception_list:
+                handle_main = False
                 if argv_list[1] == "configure":
                     argv_list = Configurator(argv_list)
                     if argv_list.mobile: argv_list = ["main.py","mobile"]
                 elif argv_list[1] in skip_config_list:
                     current_shell = ShellHandler({
-                        "config_obj": {"global_elements":{"caller": argv_list[1]}},
-                        },False)
+                        "config_obj": {
+                            "global_elements": {
+                                "caller": argv_list[1],
+                            }
+                        },
+                    },False)
                 else:  
                     config_needed = Configuration({
                         "action": argv_list[1],
                         "implement": True,
-                        "argv_list": argv_list
+                        "argv_list": argv_list,
                     }) 
                     if config_needed.requested_configuration:
                         Configurator(["-e"])
                     elif return_caller:
                         argv_list = return_caller
-            else:
+
+            if handle_main:
                 if "main_error" not in argv_list and argv_list[1] not in exclude_config:
                     caller = "normal"
                     if "service_restart" in argv_list: caller = "service_restart"
+                    if "export_private_key" in argv_list: caller = "export_private_key"
                     config = Configuration({
                         "action": "normal",
                         "global_elements": {"caller":"normal"},
                         "implement": True,
-                        "argv_list": argv_list
+                        "argv_list": argv_list,
+                        "log_key": log_key,
                     })
                     if config.action == "edit_on_error":
                         Configurator(config.edit_on_error_args)
@@ -81,17 +92,30 @@ def cli_commands(argv_list):
                     caller = argv_list[1] if argv_list[1] in exclude_config else "config"
                     if "main_error" in argv_list: caller = "main_error" 
                     current_shell = ShellHandler({
-                        "config_obj": {"global_elements":{"caller":caller}}
+                        "config_obj": {
+                            "global_elements":{
+                                "caller":caller,
+                            }
+                        }
                     },False)
             if current_shell:  
                 return_caller = current_shell.start_cli(argv_list)
                 
         except KeyboardInterrupt:
             log = Logging()
-            log.logger.critical(f"user terminated nodectl prematurely with keyboard interrupt")
+            log.logger["main"].critical(f"user terminated nodectl prematurely with keyboard interrupt")
             print("")
             print(colored("  user terminating nodectl prematurely","red"))
-            break
-    
+            break        
+
+
+def logging_setup(argv_list):
+    if "service_restart" in argv_list:
+        return "auto"
+    if "uvos" in argv_list:
+        return "version" 
+    return "main"
+  
+
 if __name__ == "__main__":
     cli_commands(argv)        

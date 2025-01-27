@@ -6906,8 +6906,11 @@ class CLI():
         if not cleanup:
             display_file_results(action, root_path, file)
 
+        verb = "p12"
+        if action == "file": verb = "file"
+        if caller == "send_logs": verb = "log"
         self.functions.print_cmd_status({
-            "text_start": "p12 preparation" if not cleanup else "p12 cleanup",
+            "text_start": f"{verb} preparation" if not cleanup else f"{verb} cleanup",
             "status": "complete",
             "newline": True,
         })

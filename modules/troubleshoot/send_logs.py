@@ -76,7 +76,8 @@ class Send():
         if not path.isdir(self.functions.config_obj[self.profile]["directory_uploads"]):
             mkdir(self.functions.config_obj[self.profile]["directory_uploads"])
                 
-        tar_file_name = f"{changed_ip}_{date}_logs.tar.gz"
+        tar_file_name = f"arch_{changed_ip}_{date}_logs.tar.gz"
+        tar_file_name = tar_file_name.replace(":","_")
         
         self.functions.print_header_title({
             "line1": "RETRIEVE NODE LOGS",
@@ -105,7 +106,7 @@ class Send():
         if choice == "3":
             if self.nodectl_logs:
                 self.log.logger[self.log_key].info(f"Request to upload all nodectl versioning logs")
-                choice == "33"
+                choice = "33"
             else:
                 self.log.logger[self.log_key].info(f"Request to upload Tessellation archive logs initiated")
                 tar_package = self.listing_setup([archive_location]) 
@@ -168,7 +169,8 @@ class Send():
                     rsync_include = "*.log*"
             if choice == "1":
                 tar_creation_origin = f"/var/tessellation/{self.profile}/logs/app.log"
-                if self.nodectl_logs: tar_creation_origin = "/var/tessellation/nodectl/nodectl.log"
+                if self.nodectl_logs:
+                    tar_creation_origin = "/var/tessellation/nodectl/nodectl.log"
                 
             if path.isdir(tar_creation_path):
                 rmtree(tar_creation_path)
