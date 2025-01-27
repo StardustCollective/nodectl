@@ -63,7 +63,7 @@ class ShellHandler:
         self.auto_restart_quiet = False
         self.environment_requested = None
         self.called_command = None
-        self.mobile = False
+        self.mobile = True if "mobile" in command_obj.argv_list else False
         
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.node_service = "" #empty
@@ -393,6 +393,8 @@ class ShellHandler:
             elif self.called_command == "create_p12":
                 self.cli.cli_create_p12(self.argv)
             elif self.called_command == "export_private_key": 
+                if "mobile" in self.argv:
+                    cli_iterative = "mobile"
                 self.cli.export_private_key(self.argv)
             elif self.called_command == "check_source_connection" or self.called_command == "_csc":
                 return_value = self.cli.check_source_connection(self.argv)

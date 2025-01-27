@@ -7571,14 +7571,6 @@ class CLI():
     # ==========================================
     # print commands
     # ==========================================
-                    
-    # ==========================================
-    # miscellaneous or test commands
-    # ==========================================
-    
-    def test_only(self,command_list=False):
-        pass
-    
 
     def print_title(self,line):
         self.functions.print_header_title({

@@ -1,4 +1,4 @@
-from sys import argv, exit
+from sys import argv
 from modules.shell_handler import ShellHandler
 from termcolor import colored
 from modules.troubleshoot.logger import Logging
@@ -41,7 +41,7 @@ def cli_commands(argv_list):
         try:
             skip_config_list = ["install","verify_nodectl","-vn","restore_config"]
             exception_list = [
-                "configure",
+                "configure","export_private_key",
                 "validate_config","validate-config","-val",
                 "view_config","view-config","-vc",
             ]
@@ -100,6 +100,7 @@ def cli_commands(argv_list):
                     },False)
             if current_shell:  
                 return_caller = current_shell.start_cli(argv_list)
+                test = 1
                 
         except KeyboardInterrupt:
             log = Logging()

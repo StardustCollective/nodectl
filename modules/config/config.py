@@ -119,7 +119,9 @@ class Configuration():
                 
     def implement_config(self):
         continue_list = ["normal","edit_config","edit_on_error","edit_config_from_new","view_config"]
-        
+        if self.action == "export_private_key" and "mobile" in self.argv_list:
+            continue_list.append("export_private_key")
+            
         self.setup_schemas()
         self.build_yaml_dict(True,True)
         self.check_for_migration()

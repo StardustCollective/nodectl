@@ -597,7 +597,8 @@ class P12Class():
         self.log.logger[self.log_key].info("p12 file private key request completed.")
         
         f.close()
-        if path.isfile(id_hex_file): remove(id_hex_file)
+        if path.isfile(id_hex_file): 
+            remove(id_hex_file)
         
         
     def extract_export_config_env(self,command_obj):
