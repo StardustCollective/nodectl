@@ -15,7 +15,18 @@ class Download():
 
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
-        self.log_key = self.config_obj["global_elements"]["log_key"]
+
+        try:
+            self.log_key = self.config_obj["global_elements"]["log_key"]
+        except:
+            try:
+                if self.config_obj["global_elements"]["caller"] == "installer":
+                    self.log_key = "main"
+                else:
+                    self.log_key = "auto"
+            except:
+                self.log_key = "main"
+                
         self.error_messages = Error_codes(self.config_obj) 
         self.log = self.parent.log
         command_obj = command_obj["command_obj"]

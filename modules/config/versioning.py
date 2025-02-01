@@ -38,6 +38,7 @@ class Versioning():
         self.force = command_obj.get("force",False)
         self.verify_only = command_obj.get("verify_only",False)
         self.print_object = command_obj.get("print_object",False)
+        self.skip_p12_details = command_obj.get("skip_p12_details",False)
         self.seconds = command_obj.get("seconds",60*5)
         self.static_seconds = 60*5
         
@@ -187,6 +188,9 @@ class Versioning():
     
     
     def pull_p12_details(self):
+        if self.skip_p12_details:
+            return
+        
         try:
             from ..command_line import CLI
 
@@ -444,7 +448,8 @@ class Versioning():
 
     def pull_upgrade_path(self):
         do_update = False
-        if self.new_creation or self.force: do_update = True
+        if self.new_creation or self.force: 
+            do_update = True
         else: 
             do_update = self.functions.get_date_time({
                 "action": "difference",
@@ -453,48 +458,55 @@ class Versioning():
                 "new_time": self.old_version_obj["next_updated"]
             })
     
-        if do_update or self.force:
-            try:
-                session = self.functions.set_request_session()
-                upgrade_path = session.get(self.upgrade_path_path, timeout=self.session_timeout)
-            except:
-                # only trying once (not that important)
-                
-                self.log.logger[self.log_key].error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
-                if self.print_messages:
-                    self.functions.print_paragraphs([
-                        ["",1], ["Unable to determine upgrade path.  Please make sure you adhere to the proper upgrade path before",0,"red"],
-                        ["continuing this upgrade; otherwise, you may experience unexpected results.",2,"red"],
-                    ])
-                self.upgrade_path = False
-                return
-            finally:
-                session.close()
+        for _ in range(0,2):
+            if do_update or self.force:
+                try:
+                    session = self.functions.set_request_session()
+                    upgrade_path = session.get(self.upgrade_path_path, timeout=self.session_timeout)
+                except:
+                    # only trying once (not that important)
+                    
+                    self.log.logger[self.log_key].error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
+                    if self.print_messages:
+                        self.functions.print_paragraphs([
+                            ["",1], ["Unable to determine upgrade path.  Please make sure you adhere to the proper upgrade path before",0,"red"],
+                            ["continuing this upgrade; otherwise, you may experience unexpected results.",2,"red"],
+                        ])
+                    self.upgrade_path = False
+                    return
+                finally:
+                    session.close()
 
-            upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
-            try:
-                self.upgrade_path = eval(upgrade_path)
-            except Exception as e:
-                self.log.logger[self.log_key].critical(f"versioning --> upgrade_path uri returned invalid data [{e}]")
-                self.print_error("ver-327","possible404",e,None)
+                upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
+                try:
+                    self.upgrade_path = eval(upgrade_path)
+                except Exception as e:
+                    self.log.logger[self.log_key].critical(f"versioning --> upgrade_path uri returned invalid data [{e}]")
+                    self.print_error("ver-327","possible404",e,None)
 
-            self.upgrade_path["nodectl_pre_release"] = self.is_nodectl_pre_release()
-        else:
-            self.upgrade_path = {
-                "path": self.old_version_obj["upgrade_path"],
-            }
-            for environment in self.functions.environment_names:
+                self.upgrade_path["nodectl_pre_release"] = self.is_nodectl_pre_release()
+                break
+            else:
                 self.upgrade_path = {
-                    **self.upgrade_path,
-                    "nodectl_config": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
-                    "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
-                    "remote_yaml_version": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
-                    f"{environment}": {
-                        "version": self.old_version_obj["node_nodectl_version"],
-                        "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],
-                        "upgrade": self.old_version_obj[environment]["nodectl"]["upgrade"]
-                    }
+                    "path": self.old_version_obj["upgrade_path"],
                 }
+                try:
+                    for environment in self.functions.environment_names:
+                        self.upgrade_path = {
+                            **self.upgrade_path,
+                            "nodectl_config": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
+                            "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
+                            "remote_yaml_version": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
+                            f"{environment}": {
+                                "version": self.old_version_obj["node_nodectl_version"],
+                                "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],
+                                "upgrade": self.old_version_obj[environment]["nodectl"]["upgrade"]
+                            }
+                        }
+                except:
+                    do_update = True
+                else:
+                    break
 
                         
     def is_nodectl_pre_release(self):

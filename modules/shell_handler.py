@@ -63,8 +63,12 @@ class ShellHandler:
         self.auto_restart_quiet = False
         self.environment_requested = None
         self.called_command = None
-        self.mobile = True if "mobile" in command_obj.argv_list else False
-        
+
+        try: # install exception
+            self.mobile = True if "mobile" in command_obj.argv_list else False
+        except:
+            self.mobile = False
+
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.node_service = "" #empty
         self.packages = {}
@@ -1023,6 +1027,7 @@ class ShellHandler:
 
 
     def set_node_obj(self):
+        if self.cli == None: return
         if isinstance(self.cli,SimpleNamespace):
             return
         for _ in range(0,2):

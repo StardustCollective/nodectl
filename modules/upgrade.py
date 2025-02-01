@@ -365,7 +365,7 @@ class Upgrader():
                     })
 
                 while True:
-                    cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
+                    cmd = "/usr/bin/java -jar /var/tessellation/cl-wallet.jar show-id"
                     self.node_id = self.functions.process_command({
                         "bashCommand": cmd,
                         "proc_action": "poll"

@@ -4,7 +4,7 @@ from .valid_commands import pull_valid_command
 def ac_validate_path(log,action):
     auto_path = "/etc/bash_completion.d/nodectl_auto_complete.sh"
     if not path.exists(path.split(auto_path)[0]):
-        log.logger.error(f"{action} -> unable to determine auto complete BASH 4 path?  Are you sure bash is installed?")
+        log.logger["main"].error(f"{action} -> unable to determine auto complete BASH 4 path?  Are you sure bash is installed?")
         makedirs("/etc/bash_completion.d/")
     return auto_path
 

@@ -2,12 +2,13 @@ import json
 import distro
 import modules.uninstall as uninstaller
 
-from os import makedirs, path, environ, get_terminal_size, chmod
+from os import makedirs, path, environ, get_terminal_size, chmod, system
 from shutil import copy2, move, rmtree
 from time import sleep
 from termcolor import colored, cprint
 from types import SimpleNamespace
 from collections import OrderedDict
+from copy import deepcopy
 
 from .troubleshoot.errors import Error_codes
 from concurrent.futures import ThreadPoolExecutor
@@ -20,7 +21,8 @@ from .config.configurator import Configurator
 from .config.versioning import Versioning
 from .quick_install import QuickInstaller
 from .node_service import Node
-from .config.valid_commands import pull_valid_command
+from .config.debain12_java_install import DebianJava11
+
 from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
 from .config.time_setup import remove_ntp_services, handle_time_setup
 
@@ -39,6 +41,9 @@ class Installer():
         self.found_errors = False
         self.p12_migrated = False
         self.encryption_performed = False
+
+        self.distro_name = None
+        self.distro_version = None
 
         self.action = "install"
         self.metagraph_name = None
@@ -81,12 +86,12 @@ class Installer():
     
 
     def test_distro(self):
-        distro_name = distro.name()
-        distro_version = distro.version()
+        self.distro_name = distro.name()
+        self.distro_version = distro.version()
         continue_warn = False
 
-        if distro_name not in ["Ubuntu","Debian"]:
-            self.log.logger[self.log_key].warning(f"Linux Distribution not supported, results may vary: {distro_name}")
+        if "Ubuntu" not in self.distro_name and "Debian" not in self.distro_name:
+            self.log.logger[self.log_key].warning(f"Linux Distribution not supported, results may vary: {self.distro_name}")
             if not self.options.quiet:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], 
@@ -94,12 +99,12 @@ class Installer():
                     ["Ubuntu",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
                     ["Linux distributions.  Install results may vary if an install",0,"red"],
                     ["is performed on a non-supported distribution.",2,"red"],
-                    ["Distribution found:",0],[distro_name,2,"yellow"],
+                    ["Distribution found:",0],[self.distro_name,2,"yellow"],
                 ])
                 continue_warn = True
-        if "Ubuntu" in distro_name:
-            if ".10" in distro_version:
-                self.log.logger[self.log_key].warning(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
+        if "Ubuntu" in self.distro_name:
+            if ".10" in self.distro_version:
+                self.log.logger[self.log_key].warning(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {self.distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
@@ -108,12 +113,12 @@ class Installer():
                         ["Linux distributions.",2,"red"],
                         ["This version is identified as a interim release.",2,"red"],
                         ["Install results may vary if an install is performed on a non-supported distribution.",2,"red"],
-                        ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
+                        ["Distribution found:",0],[f"{self.distro_name} {self.distro_version}",2,"yellow"],
 
                     ])  
                     continue_warn = True
-            elif "22.04" not in distro_version and "24.04" not in distro_version:
-                self.log.logger[self.log_key].warning(f"Linux Distribution not supported, results may vary: {distro_name}")
+            elif "22.04" not in self.distro_version and "24.04" not in self.distro_version:
+                self.log.logger[self.log_key].warning(f"Linux Distribution not supported, results may vary: {self.distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
@@ -121,16 +126,16 @@ class Installer():
                         ["Ubuntu 22.04",0,"yellow"], ["or",0,"red"], ["Debian 10",0,"yellow"],
                         ["Linux distributions.  Install results may vary if an install",0,"red"],
                         ["is performed on a non-supported distribution.",2,"red"],
-                        ["Distribution found:",0],[f"{distro_name} {distro_version}",2,"yellow"],
+                        ["Distribution found:",0],[f"{self.distro_name} {self.distro_version}",2,"yellow"],
 
                     ])  
-                    if "20.04" in distro_version:
+                    if "20.04" in self.distro_version:
                         self.functions.print_paragraphs([
                             ["Ubuntu 20.04 is",0], ["end of support",0,"yellow"], ["it is a security vunerablity.",2],
                         ])  
                     continue_warn = True
-        elif "Debian" in distro_name:
-            if "10" in distro_version: 
+        elif "Debian" in self.distro_name:
+            if "10" in self.distro_version: 
                 self.functions.print_paragraphs([
                     ["Debian 10 is",0], ["end of support",0,"yellow"], ["it is a security vunerablity.",2],
                 ])  
@@ -740,6 +745,12 @@ class Installer():
             self.functions.set_chown(path.dirname(self.options.p12_destination_path), self.user.username,self.user.username)
         if path.exists(f"/home/{self.user.username}"):
             self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
+
+        # if self.distro_version == "12":
+        #     update_path = 'export PATH="/opt/jdk/jdk-11.0.20+8/bin:$PATH"'       
+        #     bashrc_path = f"/home/{self.user.username}/.bashrc"
+        #     system(f'echo "{update_path}" | tee -a {bashrc_path} > /dev/null 2>&1')
+        #     system(f"source /home/{self.user.username}/.bashrc")
         return
 
 
@@ -821,7 +832,8 @@ class Installer():
            
     def process_distro_dependencies(self):
         self.log.logger[self.log_key].info("installer -> downloading and installing dependency binaries")
-
+        self.setup_config.config_obj["global_elements"]["java_prefix"] = "False"
+        
         if not self.options.quick_install:
             print("")
             self.functions.print_header_title({
@@ -844,10 +856,11 @@ class Installer():
 
         for package, value in self.packages.items():
             if value == False:
-                if package == "openjdk-11-jdk" and not self.options.quiet:
-                    print(colored(f"  {package}","cyan",attrs=['bold']),end=" ")
-                    print(colored("may take a few minutes to install".ljust(40),"cyan"),end=" ")
-                    print(" ".ljust(10))
+                if package == "openjdk-11-jdk":
+                    if not self.options.quiet:
+                        print(colored(f"  {package}","cyan",attrs=['bold']),end=" ")
+                        print(colored("may take a few minutes to install".ljust(40),"cyan"),end=" ")
+                        print(" ".ljust(10))
 
                 self.log.logger[self.log_key].info(f"installation process installing [{package}]")
                 with ThreadPoolExecutor() as executor:
@@ -865,25 +878,34 @@ class Installer():
                             "status_color": "yellow",
                         })
                             
-                    bashCommand = f"apt-get install -y {package}"
-                    if package == "ntp":
-                        bashCommand += " ntpdate -oDpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'"
+                    if package == "openjdk-11-jdk" and self.distro_version == "12":
+                        dj11 = DebianJava11({
+                            "functions": self.functions,
+                            "log": self.log,
+                            "user": self.user,
+                        })
+                        dj11.dj11_router()
+                        self.setup_config.config_obj["global_elements"]["java_prefix"] = "/opt/jdk/jdk-11.0.20+8/bin/"
+                    else:
+                        bashCommand = f"apt-get install -y {package}"
+                        if package == "ntp":
+                            bashCommand += " ntpdate -oDpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'"
 
-                    self.functions.process_command({
-                        "bashCommand": bashCommand,
-                        "proc_action": "timeout",
-                    })
-                    
-                    while True:
-                        sleep(2)
-                        bashCommand = f"dpkg -s {package}"
-                        result = self.functions.process_command({
+                        self.functions.process_command({
                             "bashCommand": bashCommand,
                             "proc_action": "timeout",
                         })
-                        if "install ok installed" in str(result):
-                            self.packages[f'{package}'] = True
-                            break   
+                        
+                        while True:
+                            sleep(2)
+                            bashCommand = f"dpkg -s {package}"
+                            result = self.functions.process_command({
+                                "bashCommand": bashCommand,
+                                "proc_action": "timeout",
+                            })
+                            if "install ok installed" in str(result):
+                                self.packages[f'{package}'] = True
+                                break   
 
                     self.functions.status_dots = False
                     if not self.options.quiet:
@@ -994,6 +1016,10 @@ class Installer():
             "newline": True
         })   
 
+        _ = self.functions.process_command({
+            "bashCommand": f"sudo systemctl daemon-reload",
+            "proc_action": "subprocess_devnull",
+        })
         self.functions.print_cmd_status({
             "text_start": "System Requirements",
             "status": "complete",
@@ -1457,6 +1483,7 @@ class Installer():
 
             self.config_obj["global_elements"] = {
                 "caller": "installer",
+                "log_key": "main",
                 **self.config_obj["global_elements"],
             }
             
@@ -1491,6 +1518,7 @@ class Installer():
             self.versioning = Versioning({
                 "called_cmd": "install" if not self.options.quick_install else "quick_install",
                 "request": "install",
+                "skip_p12_details": True,
                 "config_obj": self.config_obj,
                 "show_spinner": True if not self.options.quiet else False,
             })
@@ -1676,7 +1704,7 @@ class Installer():
     
     def complete_install(self):
         self.log.logger[self.log_key].info("Installation complete !!!")
-
+        self.cli.config_obj = deepcopy(self.setup_config.config_obj)
         success = self.cli.cli_grab_id({
             "command":"nodeid",
             "return_success": True,

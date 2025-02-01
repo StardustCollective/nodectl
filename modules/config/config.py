@@ -1,5 +1,6 @@
 import yaml
 import json
+import distro
 
 from termcolor import colored
 from time import sleep
@@ -32,11 +33,6 @@ class Configuration():
 
         if "uvos" in self.argv_list: 
             self.log_key = "version"
-            # do not log if versioning service initialized Configuration
-            # self.versioning_service = True
-            # self.skip_final_report = True
-            # for handler in self.log.logger[self.log_key].handlers[:]:
-            #     self.log.logger[self.log_key].removeHandler(handler)
         elif "service_restart" in self.argv_list or "debugging" in self.argv_list:
             self.log_key = "auto"
 
@@ -129,6 +125,7 @@ class Configuration():
         self.validate_yaml_keys()
         self.remove_disabled_profiles()
         self.setup_config_vars()
+        self.setup_debian12()
         if len(self.error_list) < 1:
             if self.action in continue_list:
                 self.prepare_p12()
@@ -301,6 +298,7 @@ class Configuration():
         self.config_obj["global_elements"]["global_upgrader"] = False # initialize 
         self.config_obj["global_elements"]["all_global"] = False # initialize 
         self.config_obj["global_elements"]["jar_fallback"] = False # initialize 
+        self.config_obj["global_elements"]["java_prefix"] = "False" #initialize
         
         self.validate_global_setting()
         try:
@@ -374,6 +372,7 @@ class Configuration():
                 "profile": list(self.config_obj.keys())[0],
                 "environment": self.config_obj[list(self.config_obj.keys())[0]]["environment"],
             })
+            self.setup_debian12()
         
 
     def view_yaml_config(self,action):
@@ -926,7 +925,13 @@ class Configuration():
         self.config_obj["global_p12"]["key_alias"] = "str" # init key (updated outside this class)
         self.config_obj["global_p12"]["ekf_path"] = "/etc/security/cnngsenc.conf"
 
-            
+
+    def setup_debian12(self):
+        distro_version = distro.version()
+        if distro_version == "12":
+            self.config_obj["global_elements"]["java_prefix"] = "/opt/jdk/jdk-11.0.20+8/bin/"
+
+
     def prepare_p12(self):
         p12_obj = {
             "caller": "config",
@@ -1054,7 +1059,7 @@ class Configuration():
                     "global": False,
                     "profile": profile,
                 })
-                cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
+                cmd = "/usr/bin/java -jar /var/tessellation/cl-wallet.jar show-id"
                 self.nodeid = self.functions.process_command({
                     "bashCommand": cmd,
                     "proc_action": "poll"
@@ -1300,6 +1305,7 @@ class Configuration():
                 ["log_key","str"], # automated value [not part of yaml]
                 ["use_offline","bool"],
                 ["jar_fallback","bool"], # automated value [not part of yaml]
+                ["java_prefix","str"], # automated value [not part of yaml]
             ]
         }
         
@@ -1358,7 +1364,8 @@ class Configuration():
             "jar_s3","seed_github","p12_validated","log_key",
             "priority_source_path","is_jar_static","p12_key_alias",
             "jar_fallback_s3","jar_fallback_github","jar_fallback",
-            "jar_fallback_repository", "jar_fallback_github","ekf_path",
+            "jar_fallback_repository", "jar_fallback_github",
+            "ekf_path","java_prefix"
         ]
 
         for config_key, config_value in self.config_obj.items():
@@ -1626,7 +1633,7 @@ class Configuration():
                     for section_key, req_type in section_types:
                         if key == section_key: 
                             validated = False
-                            
+
                             if skip_validation:
                                 if "gl0_link" in key or "ml0_link" in key: validated = True
                                 else: skip_validation = False

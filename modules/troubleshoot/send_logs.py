@@ -150,7 +150,7 @@ class Send():
             })
             self.log.logger[self.log_key].info(f"Request to upload Tessellation current logs initiated")
             tar_creation_origin = ""
-            tar_creation_path = "/tmp/tess_logs"
+            tar_creation_path = "/tmp/tess_logs/"
 
             tar_creation_origin = f"/var/tessellation/{self.profile}/logs/"
             log_type = "Tessellation"
@@ -192,7 +192,7 @@ class Send():
                     "status_color": "yellow"
                 })
 
-                cmd = f"{tar_creation_origin} {tar_creation_path}/"
+                cmd = f"{tar_creation_origin} {tar_creation_path}"
                 if self.nodectl_logs:
                     cmd = f"rsync -a --include='{rsync_include}' --exclude='*' "+cmd
                 else:
@@ -214,7 +214,7 @@ class Send():
             dir_size = self.functions.get_dir_size(path.dirname(tar_creation_path))
             tar_package = {
                 "tar_creation_origin": tar_creation_origin,
-                "tar_creation_path": tar_creation_path,
+                "tar_creation_path": path.normpath(tar_creation_path),
                 "tar_file_list": None,
             }
 
@@ -229,12 +229,12 @@ class Send():
         ])
         
         if tar_package["tar_file_list"] == None:
-            cmd = f"sudo tar -zcf {tar_dest}{tar_file_name} {tar_package['tar_creation_path']}"
+            cmd = f"sudo tar -zcf {tar_dest}{tar_file_name} -C {tar_package['tar_creation_path']} ."
         else:
             cmd = f"sudo tar -zcf {tar_dest}{tar_file_name} "
             dir_size = 0
             for file in tar_package["tar_file_list"]:
-                cmd += f"{tar_package['tar_creation_path']}/{file} "
+                cmd += f"-C {tar_package['tar_creation_path']} {file} "
                 dir_size += self.functions.get_size(f"{tar_package['tar_creation_path']}/{file}",True)
         
         dir_size = size(dir_size,system=alternative)
@@ -331,7 +331,11 @@ class Send():
 
         # clean up
         self.log.logger[self.log_key].warning(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
-        rmtree(tar_package['tar_creation_path'])
+        try:
+            if path.isdir(tar_creation_path):
+                rmtree(tar_creation_path)
+        except:
+            self.log.logger[self.log_key].warning("send log tmp directory clean up did not find a temp path and skipped clean up of such.  This is should not cause any issues.")
 
         self.functions.print_paragraphs([
             ["Log tarball created and also located:",0,"green"],

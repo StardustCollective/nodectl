@@ -3591,6 +3591,8 @@ class Functions():
         
         for current in paragraphs:
             line = current[0]
+            if line is None:
+                continue
 
             try:
                 newlines = current[1]
@@ -3822,6 +3824,12 @@ class Functions():
         
         return version_class_obj.get_version_obj()   
     
+
+    def handle_java_prefix(self,cmd):
+        if self.config_obj["global_elements"]["java_prefix"] != "False":
+            return f'{self.config_obj["global_elements"]["java_prefix"]}{cmd}'
+        return cmd
+
 
     # =============================
     # miscellaneous

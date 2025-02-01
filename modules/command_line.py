@@ -59,7 +59,12 @@ class CLI():
 
     def set_variables(self):
         self.config_obj = self.functions.config_obj
-        self.log_key = self.config_obj["global_elements"]["log_key"]
+        try:
+            self.log_key = self.config_obj["global_elements"]["log_key"]
+        except:
+            self.config_obj["global_elements"]["log_key"] = "main"
+            self.log_key = "main"
+
         self.version_obj = self.functions.version_obj
 
         self.slow_flag = False
@@ -4172,6 +4177,7 @@ class CLI():
                 "functions": self.functions,
             }
             p12 = P12Class(action_obj)
+            p12.config_obj = deepcopy(self.config_obj)
             extract_obj = {
                 "global": is_global,
                 "profile": profile,
@@ -4271,9 +4277,9 @@ class CLI():
                 self.functions.event = False           
         else:
             if "-wr" in argv_list:
-                cmd = "java -jar /var/tessellation/cl-wallet.jar show-public-key"
+                cmd = "/usr/bin/java -jar /var/tessellation/cl-wallet.jar show-public-key"
             else:
-                cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
+                cmd = "/usr/bin/java -jar /var/tessellation/cl-wallet.jar show-id"
         
         if (ip_address == "127.0.0.1" and not wallet_only) or command == "dag":
             with ThreadPoolExecutor() as executor:

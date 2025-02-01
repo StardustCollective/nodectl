@@ -31,8 +31,12 @@ class Node():
         self.profile = command_obj.get("profile",None)
         self.profile_names = command_obj.get("profile_names",None)
         self.auto_restart = command_obj.get("auto_restart",False)
-        self.log_key = self.config_obj["global_elements"]["log_key"]
-        
+
+        try:
+            self.log_key = self.config_obj["global_elements"]["log_key"]
+        except:
+            self.log_key = "main"
+            
         # Node replacement variables
         # during installation and upgrade
         self.ip_address = None

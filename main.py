@@ -58,7 +58,7 @@ def cli_commands(argv_list):
                         "config_obj": {
                             "global_elements": {
                                 "caller": argv_list[1],
-                            }
+                            },
                         },
                     },False)
                 else:  

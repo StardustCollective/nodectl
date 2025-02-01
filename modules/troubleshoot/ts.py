@@ -7,7 +7,11 @@ class Troubleshooter():
     
     def __init__(self,command_obj):    
         self.config_obj = deepcopy(command_obj["config_obj"])
-        self.log_key = self.config_obj["global_elements"]["log_key"]
+
+        try:
+            self.log_key = self.config_obj["global_elements"]["log_key"]
+        except:
+            self.log_key = "main"
         self.log = Logging()
         
         

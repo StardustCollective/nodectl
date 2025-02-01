@@ -33,7 +33,12 @@ class P12Class():
         self.functions = command_obj["functions"]
         self.version_obj = self.functions.version_obj
         self.config_obj = self.functions.config_obj 
-        self.log_key = self.config_obj["global_elements"]["log_key"]
+
+        try:
+            self.log_key = self.config_obj["global_elements"]["log_key"]
+        except:
+            self.log_key = "main"
+
         self.profile = self.functions.default_profile
         self.quick_install = False
         self.p12_migration = False
@@ -333,7 +338,8 @@ class P12Class():
         for attempts in range(1,4):
             if profile == "global":
                 self.set_variables(True,None)      
-                if self.config_obj["global_p12"]["encryption"]: de = True
+                if self.config_obj["global_p12"]["encryption"] and not manual: 
+                    de = True
             else:
                 if not self.config_obj[profile]["global_p12_passphrase"] and self.config_obj[profile]["global_p12_encryption"]: de = True
                 self.set_variables(False,profile)   
@@ -352,11 +358,17 @@ class P12Class():
             
             if de: 
                 self.log.logger[self.log_key].debug(f"p12 keyphrase validation process - attempting decryption")
-                passwd = self.functions.get_persist_hash({
-                    "pass1": passwd,
-                    "profile": profile,
-                    "enc_data": True,
-                })
+                for _ in range(0,4):
+                    de_passwd = self.functions.get_persist_hash({
+                        "pass1": passwd,
+                        "profile": profile,
+                        "enc_data": True,
+                    })
+                    if de_passwd:
+                        passwd = de_passwd
+                        break
+                    sleep(.5)
+                    passwd = self.config_obj["global_p12"]["passphrase"]
             if not passwd:
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
                 if profile != "global":
@@ -366,7 +378,7 @@ class P12Class():
                 pass_ask += colored(f" {operation}: ","cyan")
                 passwd = getpass(pass_ask,)
                 passwd = passwd.strip()
-                manual = True
+                de, manual = False, True
             
             self.entered_p12_keyphrase = passwd
                 
@@ -483,6 +495,7 @@ class P12Class():
         if not return_result:
             self.log.logger[self.log_key].error("p12 file unlocked failed with method 1 [openssl]")
             bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
+            bashCommand2 = self.functions.handle_java_prefix(bashCommand2)
             results = self.functions.process_command({
                 "bashCommand": bashCommand2,
                 "proc_action": "wait"
@@ -557,7 +570,7 @@ class P12Class():
         if id_file_exists:
             remove(id_hex_file)
             
-        bashCommand = f"java -jar /var/tessellation/cl-keytool.jar export"
+        bashCommand = f"/usr/bin/java -jar /var/tessellation/cl-keytool.jar export"
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "subprocess_devnull",
@@ -737,7 +750,7 @@ class P12Class():
               
         self.log.logger[self.log_key].info(f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
         # do not use sudo here otherwise the env variables will not be associated
-        bashCommand = "java -jar /var/tessellation/cl-keytool.jar generate"
+        bashCommand = "/usr/bin/java -jar /var/tessellation/cl-keytool.jar generate"
         result = self.functions.process_command(({
             "bashCommand": bashCommand,
             "proc_action": "timeout"
@@ -803,7 +816,9 @@ class P12Class():
             })    
         
         # change passphrase
-        bashCommand = f"sudo keytool -importkeystore "
+        bashCommand = f"keytool -importkeystore "
+        bashCommand = self.functions.handle_java_prefix(bashCommand)
+        bashCommand = f"sudo {bashCommand}"
         bashCommand += f"-srckeystore {p12_location} -srcstoretype PKCS12 "
         bashCommand += f"-srcstorepass {org_pass} "
         bashCommand += f"-destkeystore {temp_p12_file} -deststoretype PKCS12 "
@@ -905,9 +920,10 @@ class P12Class():
                 passfile = self.handle_pass_file()
             
             bashCommand = f"keytool -list -v -keystore {p12_location} -storepass:file {passfile} -storetype PKCS12"
+            bashCommand = self.functions.handle_java_prefix(bashCommand)
             result_str = self.functions.process_command({
                 "bashCommand": bashCommand,
-                "proc_action": "wait",
+                "proc_action": "timeout",
             })
             results = result_str.split("\n")
             if not "keytool error" in result_str:
@@ -1009,7 +1025,7 @@ class P12Class():
                     "env_vars": True,
                     "caller": "show_p12_details",
                 })
-                cmd = "java -jar /var/tessellation/cl-wallet.jar show-id"
+                cmd = "/usr/bin/java -jar /var/tessellation/cl-wallet.jar show-id"
                 node_id = self.functions.process_command({
                     "bashCommand": cmd,
                     "proc_action": "poll"
