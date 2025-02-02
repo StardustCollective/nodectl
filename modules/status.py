@@ -34,6 +34,7 @@ class Status():
 
         self.called_command = None
         self.log_found_flag = False
+        self.new_method = False
 
         self.uptime = 30
         self.load = .7
@@ -147,54 +148,86 @@ class Status():
                
   
     def security_check(self):
-        self.log.logger[self.log_key].debug("security check of auth log initiated...")
+        if not self.new_method:
+            self.log.logger[self.log_key].debug("security check of auth log initiated...")
+        else:
+            self.log.logger[self.log_key].debug("security check using journalctl initiated...")
+
         invalid_str = ""
         accepted_str = ""
                 
         self.max_auth_attempt_count = 0
         self.error_auths_count = 0
         accepted_auths_count = 0
-                
-        if not path.exists("/var/log/auth.log"):
-            self.log.logger[self.log_key].error("unable to read file [/var/log/auth.log] during health check.")
-            self.functions.print_paragraphs([
-                [" FILE NOT FOUND ",0,"red,on_yellow"], 
-                ["nodectl was unable to find a valid authorization log on the VPS or server that this Node was installed on?",2,"red"],
-                ["Are you sure this is a valid Debian based operation system?  Unable to to properly access files",0,"red"],
-                ["to verify security checks, exiting...",2,"red"],
-            ])
-            exit("  Linux distribution file access error")
-            
-        creation_time = path.getctime("/var/log/auth.log")
-        dir_list = ["/var/log/auth.log"]
-        if path.exists("/var/log/auth.log.1"):
-            dir_list.append("/var/log/auth.log.1")
-            creation_time = path.getctime(f"/var/log/auth.log.1")
-        self.creation_time = datetime.fromtimestamp(creation_time)
 
-        # for dir in dir_list:
-        for dir in dir_list:
-            # list of Invalid user statements parsed
-            cmd = "cat "+dir+" | grep \"]: Invalid user\" | awk '{print $8 \" \" $12}'"
-            read_stream_invalid = popen(cmd)
+        if not self.new_method:
+            # OLD METHOD: Read auth.log files (Debian 11 / Ubuntu 22.04)
+            if not path.exists("/var/log/auth.log"):
+                self.log.logger[self.log_key].error("unable to read file [/var/log/auth.log] during health check.")
+                self.functions.print_paragraphs([
+                    [" FILE NOT FOUND ", 0, "red,on_yellow"],
+                    ["nodectl was unable to find a valid authorization log on the VPS or server that this Node was installed on?", 2, "red"],
+                    ["Are you sure this is a valid Debian based operating system?  Unable to properly access files", 0, "red"],
+                    ["to verify security checks, exiting...", 2, "red"],
+                ])
+                return False
+                
+            creation_time = path.getctime("/var/log/auth.log")
+            log_files = ["/var/log/auth.log"]
+            # If a rotated log is available, use its creation time instead
+            if path.exists("/var/log/auth.log.1"):
+                log_files.append("/var/log/auth.log.1")
+                creation_time = path.getctime("/var/log/auth.log.1")
+            self.creation_time = datetime.fromtimestamp(creation_time)
+
+            # Process each file
+            for log_file in log_files:
+                # Get list of invalid user entries (prints field 8 and field 12, i.e. username and port)
+                cmd = "cat " + log_file + " | grep \"]: Invalid user\" | awk '{print $8 \" \" $12}'"
+                read_stream_invalid = popen(cmd)
+                # Get list of accepted logins (prints timestamp and user from the accepted line)
+                cmd = ("cat " + log_file +
+                    " | grep \"]: Accepted publickey\" | awk '{print $1\" \"$2\" \"$3\" \"$9\" --> IP address: \"$11}'")
+                read_stream_accepted = popen(cmd)
+                # Count maximum authentication attempts exceeded
+                cmd = ("cat " + log_file +
+                    " | grep -i \"error: maximum authentication attempts exceeded\" | wc -l")
+                read_stream_max = popen(cmd)
+                # Count errors in the auth log
+                cmd = "cat " + log_file + " | grep -i \"error\" | wc -l"
+                read_stream_errors = popen(cmd)
+
+                invalid_str += read_stream_invalid.read()
+                accepted_str += read_stream_accepted.read()
+                self.max_auth_attempt_count += int(read_stream_max.read())
+                self.error_auths_count += int(read_stream_errors.read())
+        else:
+            # Debian Ubuntu 24.04 / Debian 12
+            boot_line = popen("journalctl -o short-iso -t sshd | head -n 1").read().strip()
+            if boot_line:
+                # Assuming a line like "2025-01-31T12:34:56 hostname sshd[12345]: <message>"
+                timestamp_str = boot_line.split()[0]  # e.g. "2025-01-31T12:34:56"
+                try:
+                    self.creation_time = datetime.fromisoformat(timestamp_str)
+                except Exception:
+                    self.creation_time = datetime.now()
+            else:
+                self.creation_time = datetime.now()
+
+            # Build journalctl commands with a short output format (similar to auth.log)
+            # Adjust the filtering (-t sshd) if your system uses a different tag.
+            invalid_cmd = ("journalctl -o short -t sshd | grep ']: Invalid user' | "
+                        "awk '{print $8 \" \" $12}'")
+            accepted_cmd = ("journalctl -o short -t sshd | grep ']: Accepted publickey' | "
+                            "awk '{print $1\" \"$2\" \"$3\" \"$9\" --> IP address: \"$11}'")
+            max_cmd = ("journalctl -o short -t sshd | grep -i 'error: maximum authentication attempts exceeded' | wc -l")
+            error_cmd = ("journalctl -o short -t sshd | grep -i 'error' | wc -l")
+
+            invalid_str = popen(invalid_cmd).read()
+            accepted_str = popen(accepted_cmd).read()
+            self.max_auth_attempt_count = int(popen(max_cmd).read())
+            self.error_auths_count = int(popen(error_cmd).read())            
             
-            # list of accepted logins            
-            cmd = "cat "+dir+" | grep \"]: Accepted publickey\" | awk '{print $1\" \"$2\" \"$3\" \"$9\" --> IP address: \"$11}'"
-            read_stream_accepted_list = popen(cmd)            
-            
-            # count of maximum exceeded logins
-            cmd = "cat "+dir+" | grep -i \"error: maximum authentication attempts exceeded\" | wc -l"
-            read_stream_max = popen(cmd)
-            
-            # count of errors found in auth log
-            cmd = "cat "+dir+" | grep -i \"error\" | wc -l"
-            read_stream_errors = popen(cmd)
-            
-            invalid_str += read_stream_invalid.read()
-            accepted_str += read_stream_accepted_list.read()
-            
-            self.max_auth_attempt_count += int(read_stream_max.read())
-            self.error_auths_count += int(read_stream_errors.read())
 
         invalid_list = invalid_str.split("\n")
         accepted_list = accepted_str.split("\n")
@@ -224,6 +257,7 @@ class Status():
         self.lower_port = lower_port if lower_port < 65535 else 0
         self.higher_port = higher_port
         self.port_range = f"{self.lower_port}-{self.higher_port}"
+        return True
 
 
     def get_status_dir_sizes(self):

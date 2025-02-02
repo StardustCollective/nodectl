@@ -850,6 +850,7 @@ class Installer():
             "wget": False,
             "tree": False,
             "lnav": False,
+            "chrony": False,
         }
                 
         environ['DEBIAN_FRONTEND'] = 'noninteractive' 

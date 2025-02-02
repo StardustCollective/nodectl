@@ -125,7 +125,7 @@ class Configuration():
         self.validate_yaml_keys()
         self.remove_disabled_profiles()
         self.setup_config_vars()
-        self.setup_debian12()
+        self.setup_new_debian()
         if len(self.error_list) < 1:
             if self.action in continue_list:
                 self.prepare_p12()
@@ -372,7 +372,7 @@ class Configuration():
                 "profile": list(self.config_obj.keys())[0],
                 "environment": self.config_obj[list(self.config_obj.keys())[0]]["environment"],
             })
-            self.setup_debian12()
+            self.setup_new_debian()
         
 
     def view_yaml_config(self,action):
@@ -926,10 +926,12 @@ class Configuration():
         self.config_obj["global_p12"]["ekf_path"] = "/etc/security/cnngsenc.conf"
 
 
-    def setup_debian12(self):
+    def setup_new_debian(self):
         distro_version = distro.version()
         if distro_version == "12":
             self.config_obj["global_elements"]["java_prefix"] = "/opt/jdk/jdk-11.0.20+8/bin/"
+        if distro_version == "12" or distro_version == "24.04":
+            self.config_obj["global_elements"]["d240412"] = True 
 
 
     def prepare_p12(self):
@@ -1306,6 +1308,7 @@ class Configuration():
                 ["use_offline","bool"],
                 ["jar_fallback","bool"], # automated value [not part of yaml]
                 ["java_prefix","str"], # automated value [not part of yaml]
+                ["d240412","bool"], # automated value [not part of yaml]
             ]
         }
         
@@ -1365,7 +1368,7 @@ class Configuration():
             "priority_source_path","is_jar_static","p12_key_alias",
             "jar_fallback_s3","jar_fallback_github","jar_fallback",
             "jar_fallback_repository", "jar_fallback_github",
-            "ekf_path","java_prefix"
+            "ekf_path","java_prefix","d240412"
         ]
 
         for config_key, config_value in self.config_obj.items():
@@ -1442,6 +1445,7 @@ class Configuration():
         # key_name, passphrase, and alias all have to match if set to global
         self.config_obj["global_elements"]["all_global"] = True
         self.config_obj["global_elements"]["use_offline"] = True
+        self.config_obj["global_elements"]["d240412"] = False
         # global_p12_keys = ["key_name","passphrase","key_alias"] # test to make sure if one key is global all must be
         global_p12_keys = ["key_name","passphrase"] # test to make sure if one key is global all must be
 

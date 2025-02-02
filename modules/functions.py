@@ -4086,13 +4086,15 @@ class Functions():
 
         for file in files:
             try:
-                if is_glob:
-                    self.process_command({
-                        "bashCommand": f"sudo rm -f {file}",
-                        "proc_action": "subprocess_devnull",
-                    })
-                else:
-                    remove(file)
+                remove(file)
+                # if is_glob:
+                #     remove(file)
+                #     # self.process_command({
+                #     #     "bashCommand": f"sudo rm -f {file}",
+                #     #     "proc_action": "subprocess_devnull",
+                #     # })
+                # else:
+                #     remove(file)
             except OSError as e:
                 result = False
                 self.log.logger[self.log_key].error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")

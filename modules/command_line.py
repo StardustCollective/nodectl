@@ -577,7 +577,8 @@ class CLI():
                             })
                             
                 if watch_enabled:
-                    if self.functions.cancel_event: exit(0)
+                    if self.functions.cancel_event: 
+                        exit(0)
                     self.functions.print_paragraphs([
                         ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
                         ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
@@ -1238,8 +1239,12 @@ class CLI():
             })              
             status = Status(self.functions)
             status.called_command = self.command_obj["command"]
-            status.execute_status()
+            if self.config_obj["global_elements"]["d240412"]:
+                status.new_method = True
+            result = status.execute_status()
             self.functions.event = False
+            if not result:
+                exit("  Linux distribution file access error")
 
         print_out_list = [
             {
@@ -3035,7 +3040,7 @@ class CLI():
                 })      
             else:  
                 self.functions.print_cmd_status({
-                    "text_start": "Fetching Status",
+                    "text_start": "Fetching status",
                     "brackets": profile,
                     "newline": True,
                 })

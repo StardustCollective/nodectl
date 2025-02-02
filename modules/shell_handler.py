@@ -1,6 +1,7 @@
 import concurrent.futures
-from sys import exit
 import time
+
+from sys import exit
 from datetime import datetime
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
@@ -1317,16 +1318,19 @@ class ShellHandler:
         
         short = True if "-s" in command_list else False
         version_obj = Versioning({"called_cmd": self.called_command})
-        node_arch = self.functions.get_distro_details()["arch"]
+        distro = self.functions.get_distro_details()
+        node_arch = distro["arch"]
+        arch_release = distro["release"].replace(".","")
+        if arch_release == "2204": arch_release = "12"
         if "X86" in node_arch: node_arch = node_arch.lower()
         nodectl_version_github = version_obj.version_obj["nodectl_github_version"]
         nodectl_version_full = version_obj.version_obj["node_nodectl_version"]
-        
+        file_name = f'{nodectl_version_github}_{node_arch}_{arch_release}'
         outputs, urls = [], []
         cmds = [  # must be in this order
             [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
-            [ f'{nodectl_version_github}_{node_arch}.sha256',"fetching digital signature hash","BINARY HASH",("SHA2-256","SHA256")],
-            [ f"{nodectl_version_github}_{node_arch}.sig","fetching digital signature","none","none"],
+            [ f'{file_name}.sha256',"fetching digital signature hash","BINARY HASH",("SHA2-256","SHA256")],
+            [ f"{file_name}.sig","fetching digital signature","none","none"],
         ]
                 
         def send_error(extra):
