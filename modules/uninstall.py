@@ -1,7 +1,7 @@
 
 import shutil
 from os import makedirs, system, path, environ, walk, remove, chmod
-
+from pathlib import Path
 from time import sleep
 from termcolor import colored
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -237,7 +237,11 @@ def remove_data(functions,log,install=False,quiet=False):
         command = f"Removing Node related data"
         log_list = []
         if retain_log and remove_list == remove_lists[0]: # only once
-            shutil.copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
+            try:
+                for file in Path("/var/tessellation/nodectl/logs/").glob("nodectl*.log*"):
+                    shutil.copy2(file, Path("/var/tmp/") / file.name)
+            except:
+                log.logger["main"].info(f"{install_type} -> moving log files failed, skipping...")
 
         if install:
             if not quiet: # redraw install of blank screen
