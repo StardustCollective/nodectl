@@ -7285,6 +7285,12 @@ class CLI():
         })
         
         env_set = set()
+        plus_twenty_four = False
+        try:
+            if float(self.functions.get_distro_details()["release"]) > 24:
+                plus_twenty_four = True
+        except:
+            pass
         
         if command_obj["help"] == "help" or "help" in argv_list:
             self.functions.print_help({
@@ -7475,11 +7481,14 @@ class CLI():
             "pre_release": version_obj["nodectl"]["nodectl_prerelease"],
         })
 
+        arch = self.arch
+        if plus_twenty_four:
+            arch = f"{self.arch}_24"
         try:
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
             upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
             upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
-            upgrade_file = upgrade_file.replace("ARCH",self.arch)
+            upgrade_file = upgrade_file.replace("ARCH",arch)
             if version_obj["nodectl"]["upgrade"] == "full":
                 upgrade_file = upgrade_file.replace("sudo nodectl upgrade --nodectl_only","sudo nodectl upgrade")
                 upgrade_file = upgrade_file.replace("requires a nodectl_only","requires a full upgrade")

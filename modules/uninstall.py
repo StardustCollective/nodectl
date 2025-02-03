@@ -159,8 +159,8 @@ def remove_data(functions,log,install=False,quiet=False):
     if install:  # installer will just use the default dirs, services lists
         if not quiet:
             print(colored("  Handling removal of existing Node data","cyan"),end="\r")
-        if path.isdir("/home/nodeadmin"):
-            log.logger["main"].warning(f"{install_type} -> found nodeadmin user, removed")
+        if path.isdir(f'/home/{functions.config_obj["global_p12"]["nodeadmin"]}'):
+            log.logger["main"].warning(f'{install_type} -> found nodeadmin user [{functions.config_obj["global_p12"]["nodeadmin"]}], removed')
             remove_admins(functions,["nodeadmin"],log,True)
     else:
         for profile in functions.profile_names:
@@ -178,8 +178,14 @@ def remove_data(functions,log,install=False,quiet=False):
     if install:
         services, p12s = discover_data(services,p12s)
     else:
+        functions.print_cmd_status({
+            "text_start": "Preparing Node Data",
+            "status": "Please Wait",
+            "status_color": "magenta",
+            "newline": True,
+        })
         functions.print_paragraphs([
-            ["This may take a few of minutes, please exercise patience",1,"yellow"]
+            ["This may take a few minutes, please exercise patience",1,"yellow"]
         ])
         with ThreadPoolExecutor() as executor:
             functions.status_dots = True
@@ -359,7 +365,7 @@ def remove_admins(functions,node_admins,log,install=False):
         if not install:
             functions.print_paragraphs([
                 ["",1],[" WARNING ",0,"yellow,on_red"], ["nodectl has determined that you are running this script as",0,"red"],
-                ["nodeadmin",0,"yellow"], ["user. This special user account was creating during the initiate installation of nodectl on this VPS.",0,"red"],
+                [f'{functions.config_obj["global_p12"]["nodeadmin"]}',0,"yellow"], ["user. This special user account was creating during the initiate installation of nodectl on this VPS.",0,"red"],
                 ["nodectl cannot remove this user, because that user is in use.  You will need to manually remove this user if required.",2,"red"],
             ])
     if len(node_admins) > 0:
@@ -437,7 +443,7 @@ def stop_services(functions, node_service,log):
         try:
             _ = functions.process_command({
                 "bashCommand": f"sudo systemctl {cmd[0]}",
-                "proc_action": "subprocess_devnull",
+                "proc_action": "subprocess_return_code",
             })
         except:
             status = "incomplete"

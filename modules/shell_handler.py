@@ -596,15 +596,16 @@ class ShellHandler:
     def check_auto_restart(self,action="start"):
         # do we need to make sure auto_restart is turned off?
 
-        skip_enable_restart_commands = ["leave","stop"]
+        skip_enable_restart_commands = ["leave","stop","uninstall"]
         if action == "end" or action == "mobile":
             if self.auto_restart_enabled and self.called_command != "auto_restart":
                 if self.called_command in skip_enable_restart_commands:
-                    self.functions.print_paragraphs([
-                        [" WARNING ",0,"yellow,on_red"], ["The",0,"red"],
-                        [self.called_command,0,"yellow"], 
-                        ["command will not re-engage the auto_restart feature of nodectl.",1,"red"],
-                    ])
+                    if self.called_command != "uninstall":
+                        self.functions.print_paragraphs([
+                            [" WARNING ",0,"yellow,on_red"], ["The",0,"red"],
+                            [self.called_command,0,"yellow"], 
+                            ["command will not re-engage the auto_restart feature of nodectl.",1,"red"],
+                        ])
                 else:
                     self.auto_restart_handler("enable",True)
                 if self.mobile: return
@@ -614,7 +615,7 @@ class ShellHandler:
             "restart_only","slow_restart","-sr","_sr",
             "leave","start","stop","restart","join", 
             "upgrade_nodectl","upgrade","execute_starchiver",
-            "display_snapshot_chain",
+            "display_snapshot_chain","uninstall",
         ]
             
         print_quiet_auto_restart = [

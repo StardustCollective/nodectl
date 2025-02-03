@@ -1674,6 +1674,7 @@ class Functions():
             self.config_obj[profile]["directory_archived"] = f"/var/tessellation/{profile}/logs/archived"  
             self.config_obj[profile]["directory_json_logs"] = f"/var/tessellation/{profile}/logs/json_logs"  
 
+
     def set_system_prompt(self,username):
         prompt_update = r"'\[\e[1;34m\]\u@Constellation-Node:\w\$\[\e[0m\] '"
         prompt_update = f"PS1={prompt_update}"
