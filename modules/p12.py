@@ -335,7 +335,7 @@ class P12Class():
         
         self.log.logger[self.log_key].info(f"p12 keyphrase validation process started")
         
-        for attempts in range(1,4):
+        for attempts in range(0,5):
             if profile == "global":
                 self.set_variables(True,None)      
                 if self.config_obj["global_p12"]["encryption"] and not manual: 
@@ -357,6 +357,11 @@ class P12Class():
                 })
             
             if de: 
+                if attempts < 1 and not passwd:
+                    try:
+                        passwd = self.config_obj["global_p12"]["passphrase"]
+                    except:
+                        passwd = False
                 self.log.logger[self.log_key].debug(f"p12 keyphrase validation process - attempting decryption")
                 for _ in range(0,4):
                     de_passwd = self.functions.get_persist_hash({
@@ -401,8 +406,9 @@ class P12Class():
                 break
 
             self.log.logger[self.log_key].warning(f"invalid keyphrase entered [{attempts}] of 3")
-            self.functions.print_clear_line()
-            print(f"{colored('  Passphrase invalid, please try again attempt [','red',attrs=['bold'])}{colored(attempts,'yellow')}{colored('] of 3','red',attrs=['bold'])}")
+            if attempts > 0:
+                self.functions.print_clear_line()
+                print(f"{colored('  Passphrase invalid, please try again attempt [','red',attrs=['bold'])}{colored(attempts,'yellow')}{colored('] of 3','red',attrs=['bold'])}")
             passwd = False
             
             if attempts > 2:

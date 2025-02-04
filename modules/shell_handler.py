@@ -161,7 +161,8 @@ class ShellHandler:
             if argv[1] in verify_command:
                 self.functions.auto_restart = False
                 return_caller = self.digital_signature(argv)
-                if return_caller: return return_caller
+                if return_caller: 
+                    return return_caller
                 exit(0)
             elif self.called_command == "restore_config":
                 self.restore_config(self.argv)
@@ -625,7 +626,7 @@ class ShellHandler:
         if self.called_command in print_quiet_auto_restart:
             self.auto_restart_quiet = True
 
-        if self.called_command not in ["help","install"]:    
+        if self.called_command not in ["help","install","revision"]:    
             if self.functions.config_obj["global_auto_restart"]["auto_restart"]:
                 self.auto_restart_enabled = True
             
@@ -1475,6 +1476,7 @@ class ShellHandler:
             [error_line,1,"red"]
         ])
 
+        bg = "on_red"
         if bg == "on_red" and "--skip_override" not in command_list:
             self.functions.print_paragraphs([
                 ["Would you like to attempt to update the binary hash by downloading this version of nodectl over itself?",1],
