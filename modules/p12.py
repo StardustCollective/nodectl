@@ -42,6 +42,7 @@ class P12Class():
         self.profile = self.functions.default_profile
         self.quick_install = False
         self.p12_migration = False
+        self.pass_quit_request = False
         self.solo = False # part of install or solo request to create p12
         self.secure_mount_exists = False
 
@@ -331,6 +332,8 @@ class P12Class():
         passwd = command_obj.get("passwd",False)
         caller = command_obj.get("caller",False)
         profile = command_obj.get("profile","global")
+        mobile = command_obj.get("mobile",False)
+
         de, manual = False, False
         
         self.log.logger[self.log_key].info(f"p12 keyphrase validation process started")
@@ -375,6 +378,10 @@ class P12Class():
                     sleep(.5)
                     passwd = self.config_obj["global_p12"]["passphrase"]
             if not passwd:
+                if caller in ["export_private_key","view_config"]:
+                    self.functions.print_paragraphs([
+                        ["You may press",0],["q",0,"yellow"],["to quit",1],
+                    ])
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
                 if profile != "global":
                     pass_ask += colored(f'\n  profile [','cyan')
@@ -383,6 +390,9 @@ class P12Class():
                 pass_ask += colored(f" {operation}: ","cyan")
                 passwd = getpass(pass_ask,)
                 passwd = passwd.strip()
+                if passwd.lower() == "q" and caller in ["export_private_key","view_config"]:
+                    self.pass_quit_request = True
+                    return
                 de, manual = False, True
             
             self.entered_p12_keyphrase = passwd
@@ -406,7 +416,9 @@ class P12Class():
                 break
 
             self.log.logger[self.log_key].warning(f"invalid keyphrase entered [{attempts}] of 3")
-            if attempts > 0:
+            if attempts > 0 or mobile:
+                if mobile:
+                    attempts += 1
                 self.functions.print_clear_line()
                 print(f"{colored('  Passphrase invalid, please try again attempt [','red',attrs=['bold'])}{colored(attempts,'yellow')}{colored('] of 3','red',attrs=['bold'])}")
             passwd = False

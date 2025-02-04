@@ -103,6 +103,7 @@ class DownloadStatus():
         else: 
             old_values = deepcopy(self.dip_vals)
         
+        sleep(.8) # slow down
         try:
             with ThreadPoolExecutor() as executor:
                 if self.initialize:

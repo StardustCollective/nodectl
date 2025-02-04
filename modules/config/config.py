@@ -48,6 +48,7 @@ class Configuration():
         self.configurator_verified = False 
 
         self.auto_restart = True if "auto_restart" in self.argv_list or "service_restart" in self.argv_list else False
+        self.mobile = True if "mobile" in self.argv_list else False
 
         try:
             self.called_command = self.argv_list[1]
@@ -136,6 +137,8 @@ class Configuration():
                     self.setup_self_settings()
         
         if self.action == "edit_config_from_new": return
+        if self.p12.pass_quit_request: return
+
         if self.do_validation:
             if len(self.error_list) < 1:
                 result = self.validate_profiles()
@@ -398,6 +401,10 @@ class Configuration():
         self.action = "view_config"
         self.implement_config()
 
+        if self.p12.pass_quit_request:
+            self.functions.print_any_key({})
+            return
+        
         if "--section" in self.argv_list:
             print_req = ("section",self.argv_list[self.argv_list.index("--section")+1])
         elif "--passphrase" in self.argv_list: print_req = "pass"
@@ -1019,6 +1026,7 @@ class Configuration():
                 "profile": profile,
                 "passwd": passwd,
                 "caller": argv_list_1,
+                "mobile": self.mobile,
             })   
             return  
             

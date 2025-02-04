@@ -771,6 +771,8 @@ class CLI():
         status = Status(self.functions)
         status.called_command = self.command_obj["command"]
         status.non_interactive = True if "--ni" in command_list else False
+        if self.config_obj["global_elements"]["d240412"]:
+            status.new_method = True
         status.execute_status()
 
         self.functions.print_header_title({
@@ -1314,7 +1316,7 @@ class CLI():
             t_options = [
                 "nodectl log","auto_restart log","versioning log",
                 "Tessellation app log","Tessellation http log",
-                "Tessellation gossip log","Tessellation transaction log"
+                "Tessellation gossip log","Tessellation transaction log","Quit",
             ]
             option = self.functions.print_option_menu({
                 "options": t_options,
@@ -1330,8 +1332,13 @@ class CLI():
                 "5": f"/var/tessellation/{profile}/logs/http.log",
                 "6": f"/var/tessellation/{profile}/logs/gossip.log",
                 "7": f"/var/tessellation/{profile}/logs/transactions.log",
+                "8": "Quit",
             }    
+            if option == "8":
+                return
+            
             file_path = option_match.get(option) 
+
 
         self.functions.print_paragraphs([
             ["",1],["shift + g",0,"yellow"],["Move to the end of the file and follow.",1],

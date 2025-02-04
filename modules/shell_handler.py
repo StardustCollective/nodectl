@@ -620,7 +620,7 @@ class ShellHandler:
         ]
             
         print_quiet_auto_restart = [
-            "check_consensus","check_tcp_ports",
+            "check_consensus","check_tcp_ports","logs",
         ]
 
         if self.called_command in print_quiet_auto_restart:

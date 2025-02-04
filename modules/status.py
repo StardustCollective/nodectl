@@ -285,10 +285,17 @@ class Status():
                     if self.functions.confirm_action({
                         "yes_no_default": "y",
                         "return_on": "n",
-                        "prompt": f"Calculate this directory size?",
+                        "prompt": f"Calculate snapshot directory size?",
                         "exit_if": False,
                     }): 
                         dir_sizes.append((profile_dir,"skipped"))
+                        self.functions.print_cmd_status({
+                            "text_start": "Calculating",
+                            "brackets": profile_dir,
+                            "status": "skipped",
+                            "newline": True,
+                            "status_color": "magenta",
+                        })
                         continue 
 
                 with ThreadPoolExecutor() as executor:
@@ -304,7 +311,6 @@ class Status():
                     }
                     _ = executor.submit(self.functions.print_cmd_status,c_obj)
 
-                    # dsize = self.functions.get_dir_size(dirs[profile][profile_dir],workers)
                     dsize = 0
                     dsize = run(['du', '-sb', dirs[profile][profile_dir]], stdout=PIPE)
                     dsize = int(dsize.stdout.split()[0])
