@@ -9,6 +9,7 @@ class Migration():
     
     def __init__(self,command_obj):
         self.parent = command_obj.get("parent",False)
+        self.log_key = command_obj.get("log_key","main")
 
         if self.parent:
             self.functions = self.parent.functions

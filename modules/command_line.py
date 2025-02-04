@@ -1252,6 +1252,11 @@ class CLI():
                     "LOG ERRORS": status.error_auths_count,
                     "ACCESS ACCEPTED": status.accepted_logins,
                     "ACCESS DENIED": status.invalid_logins,
+                },
+                "spacing": 18,
+            },
+            {
+                "header_elements" : {
                     "MAX EXCEEDED": status.max_auth_attempt_count,
                     "PORT RANGE": status.port_range,
                 },
@@ -1265,8 +1270,8 @@ class CLI():
         })                        
         
         self.functions.print_paragraphs([
-            ["AUTHORIZATION LOG DETAILS",1,"blue","bold"],
-            ["=","full","blue","bold"],["",1],
+            ["",1],["AUTHORIZATION LOG DETAILS",1,"blue","bold"],
+            ["=","full","blue","bold"],
             [f"Since: {status.creation_time}",2,"magenta","bold"],
         ])    
         for line in status.accepted_list:

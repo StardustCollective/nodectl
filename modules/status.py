@@ -35,6 +35,7 @@ class Status():
         self.called_command = None
         self.log_found_flag = False
         self.new_method = False
+        self.successful_sec_check = False
 
         self.uptime = 30
         self.load = .7
@@ -56,6 +57,7 @@ class Status():
         self.get_server_details()
         if self.called_command != "sec": self.get_status_dir_sizes()
         self.security_check()
+        return self.successful_sec_check
 
 
     def find_log_file(self):
@@ -170,7 +172,7 @@ class Status():
                     ["Are you sure this is a valid Debian based operating system?  Unable to properly access files", 0, "red"],
                     ["to verify security checks, exiting...", 2, "red"],
                 ])
-                return False
+                return
                 
             creation_time = path.getctime("/var/log/auth.log")
             log_files = ["/var/log/auth.log"]
@@ -257,7 +259,7 @@ class Status():
         self.lower_port = lower_port if lower_port < 65535 else 0
         self.higher_port = higher_port
         self.port_range = f"{self.lower_port}-{self.higher_port}"
-        return True
+        self.successful_sec_check = True
 
 
     def get_status_dir_sizes(self):

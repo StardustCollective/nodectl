@@ -524,7 +524,9 @@ class Configuration():
         # sets up the automated values not present in the 
         # yaml file
 
-        if self.action == "edit_config_from_new": return # updating defaults not necessary
+        if self.action == "edit_config_from_new": 
+            self.config_obj["global_p12"]["ekf_path"] = "/etc/security/cnngsenc.conf"
+            return # updating most defaults not necessary
 
         def error_found(
                 section,missing_keys=False,value=False,
