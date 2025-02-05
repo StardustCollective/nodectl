@@ -7492,7 +7492,7 @@ class CLI():
 
         arch = self.arch
         if plus_twenty_four:
-            arch = f"{self.arch}_24"
+            arch = f"{self.arch}_2404"
         try:
             upgrade_file = upgrade_file.replace("NODECTL_VERSION",upgrade_chosen)
             upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)

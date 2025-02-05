@@ -535,6 +535,7 @@ class ShellHandler:
 
                 if cli_iterative != "mobile_revision":
                     self.functions.print_any_key({"newline": "top"})
+                    system("clear")
             else:
                 break
         

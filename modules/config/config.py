@@ -116,7 +116,7 @@ class Configuration():
                 
     def implement_config(self):
         continue_list = ["normal","edit_config","edit_on_error","edit_config_from_new","view_config"]
-        if self.action == "export_private_key" and "mobile" in self.argv_list:
+        if self.action == "export_private_key": # and "mobile" in self.argv_list:
             continue_list.append("export_private_key")
             
         self.setup_schemas()
@@ -137,7 +137,10 @@ class Configuration():
                     self.setup_self_settings()
         
         if self.action == "edit_config_from_new": return
-        if self.p12.pass_quit_request: return
+        try:
+            if self.p12.pass_quit_request: return
+        except:
+            pass # if doesn't exist not needed
 
         if self.do_validation:
             if len(self.error_list) < 1:
