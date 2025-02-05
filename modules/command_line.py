@@ -306,7 +306,8 @@ class CLI():
                 return restart_time, uptime, node_id
                         
             while True:
-                if self.functions.cancel_event: exit(0)
+                if self.functions.cancel_event: 
+                    exit("  Event Canceled")
                 if watch_enabled:
                     watch_passes += 1
 
@@ -578,7 +579,7 @@ class CLI():
                             
                 if watch_enabled:
                     if self.functions.cancel_event: 
-                        exit(0)
+                        exit("  Event Canceled")
                     self.functions.print_paragraphs([
                         ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
                         ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
@@ -3057,7 +3058,6 @@ class CLI():
                 })
         
             self.functions.event = False
-            sleep(.8)
             
             show_status_obj = {
                 "called": "status",
@@ -3075,6 +3075,7 @@ class CLI():
                     show_status_obj["called"] = "start"
             except: pass
         
+            self.functions.cancel_event = False
             self.show_system_status(show_status_obj)
         
 
@@ -3188,6 +3189,7 @@ class CLI():
             "newline": True
         }) 
 
+        self.functions.cancel_event = False
         self.show_system_status({
             "rebuild": rebuild,
             "called": "stop",
@@ -3938,6 +3940,7 @@ class CLI():
             "newline": True,
         })
 
+        self.functions.cancel_event = False
         self.show_system_status({
             "rebuild": True,
             "wait": False,
@@ -5207,7 +5210,8 @@ class CLI():
                     exit(0)
 
             while True:
-                if self.functions.cancel_event: exit(0)
+                if self.functions.cancel_event: 
+                    exit("  Event Canceled")
                 if seconds:
                     watch_passes += 1
                     _ = self.functions.process_command({"proc_action": "clear"})
@@ -5303,7 +5307,8 @@ class CLI():
                         print(f"  {ip_address} {f'{c_node_id}': >{indent}} {f'{consensus_match}': >{indent2}}")
 
                 if seconds:
-                    if self.functions.cancel_event: exit(0)
+                    if self.functions.cancel_event: 
+                        exit("  Event Canceled")
                     if not brief: 
                         self.functions.print_paragraphs([
                             ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],

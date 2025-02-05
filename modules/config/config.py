@@ -70,6 +70,7 @@ class Configuration():
         
         self.validated = True
         self.profile_check = False
+        
 
         skip_validation = ["configure","new_config","install","quick_install","uninstall","restore_config"]
         self.do_validation = False if self.action in skip_validation else True
@@ -985,7 +986,7 @@ class Configuration():
             required = True
  
         re_enter_passwd_list = ["export_private_key","view_config"]
-        if self.called_command in re_enter_passwd_list:
+        if self.called_command in re_enter_passwd_list or self.config_obj["global_elements"]["global_cli_pass"] == True:
             required = "force_validate"
         if self.called_command == "view_config" and self.config_obj["global_p12"]["encryption"]:
             required = False
@@ -994,6 +995,7 @@ class Configuration():
 
 
     def setup_passwd(self,force=False):
+        passwd_required = False
         def verify_passwd(passwd, profile,re_enter=False):
             is_global = False
             self.log.logger[self.log_key].debug("[verify_passwd] function called.")
@@ -1038,6 +1040,8 @@ class Configuration():
             if passwd == None or passwd == "None":
                 self.config_obj["global_elements"]["global_cli_pass"] = True
                 passwd = False
+                force = True
+                break
             if not passwd:
                 self.log.logger[self.log_key].debug("config --> setup_passwd --> found passwd [None] retrying to avoid erroneous or invalid lookup.")
                 sleep(1)
@@ -1057,7 +1061,7 @@ class Configuration():
                     if passwd == "None" or passwd == None:
                         self.config_obj[profile]["global_p12_cli_pass"] = True
                         passwd = False
-                    if passwd_required():
+                    if passwd_required:
                         verify_passwd(passwd,profile,force_validate)
 
                 else:

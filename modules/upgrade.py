@@ -938,7 +938,16 @@ class Upgrader():
         handle_time_setup(self.functions,False,self.non_interactive,False,self.log)
         self.handle_auto_complete()
         chmod(f"{self.functions.nodectl_path}cn-config.yaml",0o600)
-        chmod(self.config_obj["global_p12"]["ekf_path"],0o600)
+
+        if self.config_obj["global_p12"]["encryption"]:
+            try:
+                chmod(self.config_obj["global_p12"]["ekf_path"],0o600)
+            except:
+                self.error_messages.error_code_messages({
+                    "error_code": "upg-947",
+                    "line_code": "config_error",
+                    "extra": "format",
+                })
 
         progress = {
             "text_start": "Installing",

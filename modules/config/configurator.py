@@ -812,7 +812,8 @@ class Configurator():
             for p12key, p12value in p12_values.items():
                 self.config_obj[profile][f"p12_{p12key}"] = p12value
             
-        if ptype != "Done": return p12_values
+        if ptype != "Done": 
+            return p12_values
         return
 
 
@@ -3513,6 +3514,14 @@ class Configurator():
                 "ptype": "global_edit_prepare",
                 "set_default": True
             })
+            if self.config_obj["global_p12"]["passphrase"] == None or self.config_obj["global_p12"]["passphrase"] == "None":
+                if self.old_last_cnconfig['global_auto_restart']["auto_restart"]:
+                    self.c.functions.print_paragraphs([
+                        [" ERROR ",0,"yellow,on_red"], ["You must disable",0,"red"], ["auto_restart",0,"magenta","bold"], 
+                        ["before you can",0,"red"], ["hide",0,"magenta","bold"], ["your p12 passphrase.",1,"red"],
+                    ])
+                    self.c.functions.print_any_key({"prompt":"Press any key to continue"})
+                    return
 
             self.config_obj_apply["global_p12"] = self.config_obj["global_p12"]
                     

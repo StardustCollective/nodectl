@@ -380,7 +380,9 @@ class P12Class():
             if not passwd:
                 if caller in ["export_private_key","view_config"]:
                     self.functions.print_paragraphs([
-                        ["You may press",0],["q",0,"yellow"],["to quit",1],
+                        ["You may press",0],["q",0,"yellow"],["+",0],
+                        ["<enter>",0,"yellow"],
+                        ["to quit",1],
                     ])
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
                 if profile != "global":
