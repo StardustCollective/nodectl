@@ -3827,8 +3827,20 @@ class Functions():
     
 
     def handle_java_prefix(self,cmd):
-        if self.config_obj["global_elements"]["java_prefix"] != "False":
-            return f'{self.config_obj["global_elements"]["java_prefix"]}{cmd}'
+        def do_setup():
+            distro_version = distro.version()
+            if distro_version == "12":
+                return "/opt/jdk/jdk-11.0.20+8/bin/"
+            if distro_version == "12" or distro_version == "24.04":
+                return True
+
+        for _ in range(0,2):
+            try:
+                if self.config_obj["global_elements"]["java_prefix"] != "False":
+                    return f'{self.config_obj["global_elements"]["java_prefix"]}{cmd}'
+            except:
+                self.config_obj["global_elements"]["java_prefix"] = do_setup()
+        
         return cmd
 
 

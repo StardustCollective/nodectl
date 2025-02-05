@@ -743,8 +743,7 @@ class CLI():
    
         for market in markets:
             color = "white"
-            # for remove in removers:
-            #     del market[remove] 
+
             for k,v in market.items():
                 if v == "Constellation":
                     color = "green"
@@ -5872,8 +5871,6 @@ class CLI():
         start = count_results["lowest_no_inode"]
         if start is None: count_results["lowest_no_inode"] = "n/a"
 
-        # if results["max_ordinal"] > count_results["ord_highest"]:
-        #     count_results["ord_highest"] = results["max_ordinal"]
         end = count_results["ord_highest"]
         if end < 0: count_results["ord_highest"] = "n/a"
 

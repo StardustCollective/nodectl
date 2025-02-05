@@ -28,6 +28,7 @@ def cli_commands(argv_list):
                 if cmd in return_caller:
                     if "revision" in return_caller:
                         argv_list = ["main.py","revision","return_caller"]
+                        handle_main = True
                     elif "configure" in return_caller:
                         argv_list = return_caller+["return_caller"]
                     if "mobile" in return_caller: 
@@ -50,9 +51,12 @@ def cli_commands(argv_list):
             
             if argv_list[1] in exception_list:
                 handle_main = False
-                if argv_list[1] == "configure":
+                if argv_list[-1] == "mobile" and argv_list[1] == "export_private_key": 
+                    handle_main = True
+                elif argv_list[1] == "configure":
                     argv_list = Configurator(argv_list)
-                    if argv_list.mobile: argv_list = ["main.py","mobile"]
+                    if argv_list.mobile: 
+                        argv_list = ["main.py","mobile"]
                 elif argv_list[1] in skip_config_list:
                     current_shell = ShellHandler({
                         "config_obj": {
@@ -75,8 +79,10 @@ def cli_commands(argv_list):
             if handle_main:
                 if "main_error" not in argv_list and argv_list[1] not in exclude_config:
                     caller = "normal"
-                    if "service_restart" in argv_list: caller = "service_restart"
-                    if "export_private_key" in argv_list: caller = "export_private_key"
+                    if "service_restart" in argv_list: 
+                        caller = "service_restart"
+                    if "export_private_key" in argv_list: 
+                        caller = "export_private_key"
                     config = Configuration({
                         "action": "normal",
                         "global_elements": {"caller":"normal"},
@@ -84,13 +90,19 @@ def cli_commands(argv_list):
                         "argv_list": argv_list,
                         "log_key": log_key,
                     })
+                    try:
+                        if config.p12.pass_quit_request:
+                            argv_list = return_caller
+                    except:
+                        pass
                     if config.action == "edit_on_error":
                         Configurator(config.edit_on_error_args)
                     else:
                         current_shell = ShellHandler(config,False)               
                 else:
                     caller = argv_list[1] if argv_list[1] in exclude_config else "config"
-                    if "main_error" in argv_list: caller = "main_error" 
+                    if "main_error" in argv_list: 
+                        caller = "main_error" 
                     current_shell = ShellHandler({
                         "config_obj": {
                             "global_elements":{
@@ -100,7 +112,6 @@ def cli_commands(argv_list):
                     },False)
             if current_shell:  
                 return_caller = current_shell.start_cli(argv_list)
-                test = 1
                 
         except KeyboardInterrupt:
             log = Logging()
