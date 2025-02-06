@@ -624,7 +624,6 @@ class P12Class():
             ["=","full","white","bold"],
             [hex_result,1,"green","bold"],
             ["=","full","white", "bold"], ["",1],
-            
         ])
 
         self.log.logger[self.log_key].info("p12 file private key request completed.")

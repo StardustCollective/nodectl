@@ -3491,6 +3491,7 @@ class Configurator():
 
         
     def edit_append_profile_global(self,s_type):
+        do_return = False
         line1 = "EDIT P12 GLOBAL" if s_type else "APPEND NEW PROFILE"
         line2 = "Private Keys" if s_type else "to configuration"
         
@@ -3520,8 +3521,17 @@ class Configurator():
                         [" ERROR ",0,"yellow,on_red"], ["You must disable",0,"red"], ["auto_restart",0,"magenta","bold"], 
                         ["before you can",0,"red"], ["hide",0,"magenta","bold"], ["your p12 passphrase.",1,"red"],
                     ])
-                    self.c.functions.print_any_key({"prompt":"Press any key to continue"})
-                    return
+                    do_return = True
+            if self.old_last_cnconfig["global_p12"]["encryption"]:
+                self.c.functions.print_paragraphs([
+                    [" ERROR ",0,"yellow,on_red"], ["You must disable",0,"red"], ["encryption",0,"magenta","bold"], 
+                    ["before you can",0,"red"], ["reset",0,"magenta","bold"], ["your p12 passphrase.",1,"red"],
+                ])
+                do_return = True
+
+            if do_return:
+                self.c.functions.print_any_key({"prompt":"Press any key to continue"})
+                return
 
             self.config_obj_apply["global_p12"] = self.config_obj["global_p12"]
                     

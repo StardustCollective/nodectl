@@ -1182,6 +1182,8 @@ class ShellHandler:
         }).lower()
 
         node_type = "Hybrid"
+        if option == "q":
+            exit(0)
         if option == "d":
             node_type = "Dor"
 
@@ -1241,7 +1243,7 @@ class ShellHandler:
             "layer0_memory": 8589934592,
             "layer1_memory": 4294967296,
             "layer0_cpu_count": 8, 
-            "layer1_cpu_count": 4,             
+            "layer1_cpu_count": 2,             
         }
 
         if option == "h":
