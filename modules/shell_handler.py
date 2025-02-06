@@ -898,8 +898,10 @@ class ShellHandler:
         static_peer = False if not "--peer" in self.argv else self.argv[self.argv.index("--peer")+1]
         static_peer_port = False if not "--port" in self.argv else int(self.argv[self.argv.index("--port")+1])
 
-        if not static_peer: return
-        elif static_peer == "self":
+        if not static_peer: 
+            return
+        
+        if static_peer == "self":
             if self.called_command == "join" or self.called_command == "restart":
                 error_found = True
                 error_code = "sh-692"
@@ -1479,7 +1481,6 @@ class ShellHandler:
             [error_line,1,"red"]
         ])
 
-        bg = "on_red"
         if bg == "on_red" and "--skip_override" not in command_list:
             self.functions.print_paragraphs([
                 ["Would you like to attempt to update the binary hash by downloading this version of nodectl over itself?",1],

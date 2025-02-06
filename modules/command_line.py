@@ -1739,6 +1739,7 @@ class CLI():
         color = "red"
         found = "FALSE"
         title = "NODE P12"
+        argv_list = False
         profile = self.functions.default_profile
         snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
         target_dag_addr, create_csv = False, False
@@ -1772,20 +1773,35 @@ class CLI():
             
         if "-w" in command_list:
             search_dag_addr = command_list[command_list.index("-w")+1]
-            self.functions.is_valid_address("dag",False,search_dag_addr)
+            self.functions.is_valid_address("DAG",False,search_dag_addr)
             title = "REQ WALLET"
         elif self.node_id_obj:
             search_dag_addr = self.node_id_obj[f"{profile}_wallet"]
+        elif "--peer" in command_list:
+            try:
+                target_ip_address = command_list[command_list.index("--peer")+1]
+            except:
+                send_error("cmd-1741","input_error","target","must be a valid IP address")
+            if not self.functions.is_valid_address("ip_address",True,target_ip_address):
+                send_error("cmd-1802","input_error","target","must be a valid IP address or not found on cluster")
+            public_port = self.get_info_from_edge_point({
+                "caller": "get_peer_count",
+                "profile": profile,
+                "desired_key": "publicPort",
+                "specific_ip": target_ip_address,
+            })
+            argv_list = ["-p",profile,"-t",target_ip_address,"--port", public_port,"-l"]
+
         else:
             self.cli_grab_id({
                 "dag_addr_only": True,
                 "command": "dag",
-                "argv_list": ["-p",profile]
+                "argv_list": argv_list if argv_list else ["-p",profile]
             })
             search_dag_addr = self.nodeid.strip("\n")
             search_dag_addr = self.cli_nodeid2dag([search_dag_addr,"return_only"])
 
-        if "--target" in command_list or "-t" in command_list:
+        if ("--target" in command_list or "-t" in command_list) and not argv_list:
             try:
                 target_dag_addr = command_list[command_list.index("-t")+1]
             except:
@@ -1793,6 +1809,7 @@ class CLI():
                     target_dag_addr = command_list[command_list.index("--target")+1]
                 except:
                     send_error("cmd-1741","input_error","target","must be a valid DAG wallet address")
+            self.functions.is_valid_address("DAG",False,target_dag_addr)
 
         if "--csv" in command_list:
             self.functions.print_cmd_status({
@@ -4352,7 +4369,7 @@ class CLI():
 
             # this creates a print /r status during retrieval so placed here to not affect output
             if wallet_only:
-                self.functions.is_valid_address("dag",False,nodeid)
+                self.functions.is_valid_address("DAG",False,nodeid)
                 
             consensus = self.cli_check_consensus({
                 "caller": "dag",

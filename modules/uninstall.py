@@ -383,11 +383,21 @@ def remove_admins(functions,node_admins,log,install=False):
                 if not result:
                     log.logger["main"].warning(f"{install_type} -> unable to remove [{node_admin}] user, please review server structure and perform manual removal if necessary.")
                     if not install:
-                        functions.print_paragraphs([
-                            [" WARNING ",0,"yellow,on_red"], ["unable to remove",0,"red"],
-                            [node_admin,0,"yellow","bold"], ["user. Please manually remove",0,"red"],
-                            [f"{node_admin} from this system",2,"red"],
-                        ])
+                        try:
+                            if node_admin.lower() == "blank":
+                                functions.print_paragraphs([
+                                    [" WARNING ",0,"yellow,on_red"], ["unable to determine",0,"red"],
+                                    ["nodeadmin user",0,"yellow","bold"], ["name. Please manually remove",0,"red"],
+                                    [f"the nodeadmin user from this system",2,"red"],
+                                ])  
+                            else:                              
+                                functions.print_paragraphs([
+                                    [" WARNING ",0,"yellow,on_red"], ["unable to remove",0,"red"],
+                                    [node_admin,0,"yellow","bold"], ["user. Please manually remove",0,"red"],
+                                    [f"{node_admin} from this system",2,"red"],
+                                ])
+                        except:
+                            pass
                 else:
                     shutil.rmtree(f"/home/{node_admin}/")
                 functions.status_dots = False    

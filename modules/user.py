@@ -323,6 +323,11 @@ class UserClass:
             "bashCommand": f"usermod -aG sudo {self.username}",
             "proc_action": "subprocess_devnull",
         })
+        if not path.isfile(f"/home/{self.username}/.bashrc"):
+            _ = self.functions.process_command({
+                "bashCommand": f"touch /home/{self.username}/.bashrc",
+                "proc_action": "subprocess_devnull",
+            })            
         self.functions.set_system_prompt(self.username)
                      
         if not self.quick_install:

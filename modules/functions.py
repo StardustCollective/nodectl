@@ -2576,7 +2576,7 @@ class Functions():
     
     def is_valid_address(self,v_type,return_on,address):
         valid = False
-        reg_expression = "^[D][A][G][a-zA-Z0-9]{37}$"
+        reg_expression = r"^DAG[0-9][A-Za-z0-9]{36}$"
         if v_type == "nodeid":
             reg_expression = "^[a-f0-9]{128}$"
         if v_type == "ip_address":

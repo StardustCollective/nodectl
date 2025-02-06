@@ -55,7 +55,8 @@ class Status():
 
     def execute_status(self):
         self.get_server_details()
-        if self.called_command != "sec": self.get_status_dir_sizes()
+        if self.called_command != "sec": 
+            self.get_status_dir_sizes()
         self.security_check()
         return self.successful_sec_check
 
@@ -274,7 +275,8 @@ class Status():
         self.functions.status_single_file = True
         for profile in dirs:
             for profile_dir in dirs[profile].keys():
-                if dirs[profile][profile_dir] == "disabled": continue
+                if dirs[profile][profile_dir] == "disabled": 
+                    continue
                 if profile_dir == "directory_inc_snapshot" and not self.non_interactive:
                     self.functions.print_paragraphs([
                         ["",1],[" WARNING ",0,"yellow,on_blue"], ["The health feature reviews the status",0,"red"],
@@ -312,9 +314,10 @@ class Status():
                     _ = executor.submit(self.functions.print_cmd_status,c_obj)
 
                     dsize = 0
-                    dsize = run(['du', '-sb', dirs[profile][profile_dir]], stdout=PIPE)
-                    dsize = int(dsize.stdout.split()[0])
-                    dsize = self.functions.set_byte_size(dsize)
+                    if path.exists(dirs[profile][profile_dir]):
+                        dsize = run(['du', '-sb', dirs[profile][profile_dir]], stdout=PIPE)
+                        dsize = int(dsize.stdout.split()[0])
+                        dsize = self.functions.set_byte_size(dsize)
                     dir_sizes.append((profile_dir, dsize))
                     
                     self.functions.status_dots = False
