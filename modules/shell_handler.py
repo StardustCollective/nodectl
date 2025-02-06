@@ -2048,6 +2048,8 @@ class ShellHandler:
             self.check_auto_restart("end")
         if self.mobile: return
         if return_value == "return_caller": exit(0) # don't display
+        if self.called_command in ["upgrade_nodectl","revision"]:
+            exit(0)
         exit(return_value)
         
         
