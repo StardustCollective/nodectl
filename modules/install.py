@@ -271,6 +271,16 @@ class Installer():
                 })                
 
 
+    def validate_option_key_value(self,option):
+        for check_option in self.argv_list:
+            if option == check_option.replace("_","-"):
+                index = self.argv_list.index(check_option)
+                previous = self.argv_list[index-1][2::].replace("-","_")
+                if f"--{previous}" == check_option:
+                    continue
+                self.argv_list[self.argv_list.index(check_option)] = check_option.replace("_","-")
+
+
     def handle_options(self):
         self.options_dict = OrderedDict()
 
@@ -295,7 +305,10 @@ class Installer():
         self.options_dict["json_output"] = False
         self.options_dict["skip_encryption"] = False
         self.options_dict["skip_system_validation"] = False
+
         for option in option_list:
+            self.validate_option_key_value(option)
+
             if option.startswith("--"): o_option = option[2::]
             if o_option == "quick-install" and "--quick-install" in self.argv_list: 
                 self.options_dict["quick_install"] = True
@@ -746,11 +759,6 @@ class Installer():
         if path.exists(f"/home/{self.user.username}"):
             self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
 
-        # if self.distro_version == "12":
-        #     update_path = 'export PATH="/opt/jdk/jdk-11.0.20+8/bin:$PATH"'       
-        #     bashrc_path = f"/home/{self.user.username}/.bashrc"
-        #     system(f'echo "{update_path}" | tee -a {bashrc_path} > /dev/null 2>&1')
-        #     system(f"source /home/{self.user.username}/.bashrc")
         return
 
 

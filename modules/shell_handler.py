@@ -1215,7 +1215,7 @@ class ShellHandler:
             possible_issues["bits"] = info["bits"]
 
         specs["layer1_cpu_count"] = info["count"]
-        if info["count"] < 4:
+        if info["count"] < 2:
             possible_issues["layer1_cpu_count"] =info["count"]
         specs["layer0_cpu_count"] = info["count"]
         if info["count"] < 8:
