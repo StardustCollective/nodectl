@@ -49,9 +49,11 @@ def cli_commands(argv_list):
             exception_list += skip_config_list
             exclude_config = ["-v","_v","version","verify_specs"]
             
-            if argv_list[1] in exception_list:
+            if argv_list[0] == "mobile_success":
+                handle_main = True
+            elif argv_list[1] in exception_list:
                 handle_main = False
-                if argv_list[-1] == "mobile" and argv_list[1] == "export_private_key": 
+                if argv_list[1] == "export_private_key": 
                     handle_main = True
                 elif argv_list[1] == "configure":
                     argv_list = Configurator(argv_list)

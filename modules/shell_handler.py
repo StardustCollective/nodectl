@@ -627,9 +627,12 @@ class ShellHandler:
         if self.called_command in print_quiet_auto_restart:
             self.auto_restart_quiet = True
 
-        if self.called_command not in ["help","install","revision"]:    
-            if self.functions.config_obj["global_auto_restart"]["auto_restart"]:
-                self.auto_restart_enabled = True
+        if self.called_command not in ["help","install","revision"]:
+            try:    
+                if self.functions.config_obj["global_auto_restart"]["auto_restart"]:
+                    self.auto_restart_enabled = True
+            except:
+                pass # skip
             
         if self.called_command in kill_auto_restart_commands:
             self.log.logger[self.log_key].warning(f"cli request {self.called_command} received. DISABLING auto_restart if enabled")

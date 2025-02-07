@@ -5720,6 +5720,7 @@ class CLI():
             ["The process may take up to 3 minutes.",2,"magenta"],
         ])
 
+        status, status_color = "complete", "green"
         with ThreadPoolExecutor() as executor:
             self.functions.status_dots = True
             status_obj = {
@@ -5736,19 +5737,20 @@ class CLI():
 
             with ProcessPoolExecutor(max_workers=cpu_count) as executor0:
                 results = executor0.map(find_newest, snapshot_subdirs)
-            
+
             newest_time, newest_snapshot = 0, None
             for creation_time, file_path, is_error in results:
                 if is_error:
                     self.log.logger[self.log_key].error(is_error)
+                    status, status_color = "error", "red"
                 elif creation_time > newest_time:
                     newest_time, newest_snapshot = creation_time, file_path
 
             self.functions.status_dots = False
             self.functions.print_cmd_status({
                 **status_obj,
-                "status": "completed",
-                "status_color": "green",
+                "status": status,
+                "status_color": status_color,
                 "dotted_animation": False,
                 "newline": True,
             })
