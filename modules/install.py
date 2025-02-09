@@ -544,7 +544,7 @@ class Installer():
                     "newline": "bottom",
                 })
 
-            uninstaller.remove_data(self.functions,self.log,True,self.options.quiet)
+            uninstaller.remove_data(self.functions,self.log,True,self.options.quiet,self.options.quick_install)
             if not self.options.quick_install:
                 self.functions.print_cmd_status({
                     "text_start": "Clean up old configuration data",

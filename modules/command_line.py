@@ -248,6 +248,8 @@ class CLI():
                 watch_seconds = 6
                 
         with ThreadPoolExecutor() as executor:
+            grab_id = False
+
             if watch_enabled:
                 try:
                     executor.submit(self.functions.get_user_keypress,{
@@ -286,8 +288,14 @@ class CLI():
                 if static_nodeid:
                     node_id = f"{static_nodeid[:8]}...{static_nodeid[-8:]}"
                 elif self.node_id_obj:
-                    node_id = self.node_id_obj[f"{profile}_short"]
+                    try:
+                        node_id = self.node_id_obj[f"{profile}_short"]
+                    except:
+                        grab_id = True
                 else:
+                    grab_id = True
+
+                if grab_id:
                     try:
                         node_id = f"{elements[1][:8]}...{elements[1][-8:]}"
                     except:

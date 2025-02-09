@@ -95,7 +95,7 @@ def discover_data(services,p12s):
     return services, p12s
 
 
-def remove_data(functions,log,install=False,quiet=False):
+def remove_data(functions,log,install=False,quiet=False, quick_install=False):
     install_type = "uninstaller"
     if install: install_type = "installer"
     log.logger["main"].info(f"{install_type} -> removing node data")
@@ -159,9 +159,20 @@ def remove_data(functions,log,install=False,quiet=False):
     if install:  # installer will just use the default dirs, services lists
         if not quiet:
             print(colored("  Handling removal of existing node data","cyan"),end="\r")
-        if path.isdir(f'/home/{functions.config_obj["global_p12"]["nodeadmin"]}'):
-            log.logger["main"].warning(f'{install_type} -> found nodeadmin user [{functions.config_obj["global_p12"]["nodeadmin"]}], removed')
-            remove_admins(functions,["nodeadmin"],log,True)
+        try:
+            if path.isdir(f'/home/{functions.config_obj["global_p12"]["nodeadmin"]}'):
+                log.logger["main"].warning(f'{install_type} -> found nodeadmin user [{functions.config_obj["global_p12"]["nodeadmin"]}], removed')
+                remove_admins(functions,["nodeadmin"],log,True)
+        except:
+            log.logger["main"].warning(f'{install_type} -> was not able to find a configured nodeadmin user, skipping removal')
+            if not quiet:
+                if not quick_install:
+                    functions.print_paragraphs([
+                        [" WARNING ",0,"red,on_yellow"],["nodectl was not able to determine a previous installation",0,"magenta"],
+                        ["nodectl administration user account. Therefore removal of such account has been skipped.",2,"magenta"], 
+                        ["You can safely ignore this error; however, if you do not want any user data to be retained on this VPS",0,"magenta"],
+                        ["you will need to manually remove the known administrative user.",2,"magenta"],
+                    ])                    
     else:
         for profile in functions.profile_names:
             for key, value in functions.config_obj[profile].items():
