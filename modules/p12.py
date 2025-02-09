@@ -260,12 +260,12 @@ class P12Class():
             self.user.print_password_descriptions(10,"passphrase",True)
             self.functions.print_paragraphs([
                 ["This passphrase will allow you to authenticate to the",0], ["Hypergrpah",0,"yellow","bold"],[".",-1],["",1],
-                ["This passphrase will allow you to authenticate to your Node's",0], ["Wallet",0,"yellow","bold"],[".",-1],["",1],
+                ["This passphrase will allow you to authenticate to your node's",0], ["Wallet",0,"yellow","bold"],[".",-1],["",1],
                 [f"You should {p12_verb}",0], ["unique",0,"yellow","bold"], ["passphrase and write it down!",2],
                 ["We recommend you save this to a secure location and, do",0], ["NOT",0,"yellow,on_red","bold,underline"],
                 ["forget the passphrase!",2],
                 ["In your notes:",1,"white","bold"],
-                ["\"This is the passphrase to access my Node's",0,"magenta"],["hot",0,"red","bold"],
+                ["\"This is the passphrase to access the node's",0,"magenta"],["hot",0,"red","bold"],
                 ["wallet and gain access to the Hypergraph.\"",2,"magenta"],
             ])
 

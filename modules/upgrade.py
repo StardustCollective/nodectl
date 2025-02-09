@@ -205,7 +205,7 @@ class Upgrader():
                 print("")
 
             if environments["multiple_environments"] and not self.environment:
-                self.log.logger[self.log_key].debug(f"Upgrade found multiple network cluster environments on the same Node that may are supported by different versions of nodectl")
+                self.log.logger[self.log_key].debug(f"Upgrade found multiple network cluster environments on the same node that may are supported by different versions of nodectl")
                 self.functions.print_paragraphs([
                     [f"{msg_start} nodectl can only upgrade one environment at a time.",0],
                     ["Please select an environment by",0], ["key pressing",0,"yellow"], 
@@ -342,7 +342,7 @@ class Upgrader():
                     "status": "running",
                     "brackets": profile,
                     "dotted_animation": True,
-                    "text_start": "Obtaining Node ID from p12",
+                    "text_start": "Obtaining node ID from p12",
                 }
                 _ = executor.submit(self.functions.print_cmd_status,progress)
 
@@ -547,8 +547,8 @@ class Upgrader():
             if found_tess_version == running_tess_version:
                 self.functions.print_paragraphs([
                     ["",1],[" WARNING ",0,"yellow,on_red","bold"], ["Tessellation is already on the latest known version.",1,"red"],
-                    ["If you are only upgrading the Node's internal components because your Node is exhibiting undesirable or",0,"yellow"],
-                    ["unexpected behavior, you should accept the default and upgrade your Node's version to the same",0,"yellow"],
+                    ["If you are only upgrading the node's internal components because your node is exhibiting undesirable or",0,"yellow"],
+                    ["unexpected behavior, you should accept the default and upgrade your node's version to the same",0,"yellow"],
                     ["version level by simply hitting",0,"yellow"],["<enter>",0,"white"],["here.",2,"yellow"],
                 ])
                 
@@ -703,7 +703,7 @@ class Upgrader():
                         else:
                             self.functions.print_paragraphs([
                                 ["unable to find [",0,"red"], [item['service'],-1,"yellow","bold"],
-                                ["] on this Node.",-1,"red"],["",1],
+                                ["] on this node.",-1,"red"],["",1],
                             ])
             self.futures_error_checking(futures,"upg-622","stop")    
             self.functions.print_clear_line()
@@ -748,7 +748,7 @@ class Upgrader():
 
             argv_list = ["--ni","-t", item, "-d", days] if self.non_interactive else ["-t", item, "-d", days]
                 
-            # in the event Node Op attempts to upgrade over existing
+            # in the event Node Operator attempts to upgrade over existing
             # v2.0.0 need to verify clean_files dirs
             self.cli.clean_files({
                 "action": action,
@@ -821,7 +821,7 @@ class Upgrader():
         self.functions.print_cmd_status({
             "status": overall_status,
             "status_color": overall_status_color,
-            "text_start": "Verifying Node directory setup",
+            "text_start": "Verifying node directory setup",
             "newline": True
         })
         
@@ -829,7 +829,7 @@ class Upgrader():
             self.functions.print_paragraphs([
                 ["",1], ["IMPORTANT",0,"yellow,on_red"], ["This upgrade will not migrate data to new directories.",0,"yellow"],
                 ["Updating the cn-config.yaml manually may result in old directories artifacts remaining present",0,"yellow"],
-                ["on this Node.",0,"yellow"],
+                ["on this node.",0,"yellow"],
                 ["This should be completed by the configurator.",2,"yellow"],
                 ["sudo nodectl configure",2,"blue","bold"],
                 ["continuing upgrade...",2]
@@ -1266,7 +1266,7 @@ class Upgrader():
     def reload_node_service(self):
         self.log.logger[self.log_key].info("reloading systemctl service daemon")
         progress = {
-            "text_start": "Reload the Node's services",
+            "text_start": "Reload the node's services",
             "status": "running",
         }
         self.functions.print_cmd_status(progress)
@@ -1496,7 +1496,7 @@ class Upgrader():
     def print_warning_for_old_code(self):
         self.log.logger[self.log_key].warning("A legacy service was found [node.service]")
         self.functions.print_paragraphs([
-            ["This seems to be an older Node? Please make sure you adhere to the correct upgrade path.  Unexpected results may ensue, if this upgrade is continued.",1,"red"],
+            ["This seems to be an older node? Please make sure you adhere to the correct upgrade path.  Unexpected results may ensue, if this upgrade is continued.",1,"red"],
         ])
         
     

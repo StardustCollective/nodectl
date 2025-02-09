@@ -37,9 +37,9 @@ class Cleaner():
         self.functions.print_paragraphs([
             ["  WARNING  ",0,"yellow,on_red","bold"], ["Are you sure your want to execute this command?",2,"red","bold"],
             
-            ["This will remove data snapshots and cause your",0], ["Node",0,"yellow","bold"],
+            ["This will remove data snapshots and cause your",0], ["node",0,"yellow","bold"],
             ["to transfer extra data when/if necessary. This will cause an increase in the throughput",0],
-            ["I/O",0,"yellow"], ["on the Node.",2],
+            ["I/O",0,"yellow"], ["on the node.",2],
             
             ["This should be done",0], ["only",0,"yellow","underline"], ["when either completely necessary due to disk space issues",0],
             ["or when specifically requested from an Administrator (or experienced Node Operator) of the Hypergraph or a metagraph.",2],

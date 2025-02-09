@@ -538,7 +538,7 @@ def print_single_ordhash(profile,ordinal,hash,ordhash_inode,stamp,functions):
 
     if issue:
         functions.print_paragraphs([
-            ["",1],[" WARNING ",0,"yellow,on_red"], ["There may be an invalid chain on this Node.",0,"red"],
+            ["",1],[" WARNING ",0,"yellow,on_red"], ["There may be an invalid chain on this node.",0,"red"],
             ["The file time/date stamps do not match.",2,"red"]
         ])
         for i, p_date in enumerate(print_stamps):

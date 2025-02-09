@@ -696,7 +696,7 @@ class Configuration():
 
         metagraph_name = self.config_obj["global_elements"]["metagraph_name"]
         if isinstance(metagraph_name,list):
-            # placeholder for multiple Node VPS
+            # placeholder for multiple node VPS
             pass
 
         if self.config_obj["global_elements"]["metagraph_token_coin_id"] == "default":

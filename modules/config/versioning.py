@@ -271,7 +271,7 @@ class Versioning():
                 
                 if state == "ApiNotResponding" and self.called_cmd == "uvos": 
                     # after installation there should be a version obj already created
-                    # no need to update file while Node is not online.
+                    # no need to update file while node is not online.
                     self.log.logger[self.log_key].warning(f"versioning - versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")
                     exit(0)                    
                         

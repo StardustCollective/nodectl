@@ -41,7 +41,7 @@ def start_uninstall(functions,log):
         ["    - Secure Shell Keys",2],
 
         ["Please make sure you have a backup of any and all important files before continuing.",1,"red"],
-        ["nodectl will not remove SSH keys and non-specific Constellation applications, these will need to be done manually.",1,"red"],
+        ["nodectl will not remove SSH keys and non-specific Constellation Network applications, these will need to be done manually.",1,"red"],
         ["This execution cannot be undone.",1,"yellow","bold"],
         ["*You will be offered the option to backup the p12 files, during un-installation.",2,"grey"],
 
@@ -54,7 +54,7 @@ def start_uninstall(functions,log):
         "return_on": "CONSTELLATION",
         "strict": True,
         "prompt_color": "red",
-        "prompt": "Uninstall this Constellation Network Node?",
+        "prompt": "Uninstall this Constellation Network node?",
         "incorrect_input": "incorrect input must be 'CONSTELLATION'", 
         "exit_if": True
     })
@@ -98,7 +98,7 @@ def discover_data(services,p12s):
 def remove_data(functions,log,install=False,quiet=False):
     install_type = "uninstaller"
     if install: install_type = "installer"
-    log.logger["main"].info(f"{install_type} -> removing Node data")
+    log.logger["main"].info(f"{install_type} -> removing node data")
 
     # first element is the title
     d_dirs = ["data","/var/tessellation"]
@@ -109,7 +109,7 @@ def remove_data(functions,log,install=False,quiet=False):
     try:
         node_admins = [functions.config_obj["global_p12"]["nodeadmin"]]
     except:
-        log.logger["main"].warning(f"{install_type} -> did not find any existing Node admins")
+        log.logger["main"].warning(f"{install_type} -> did not find any existing node admins")
 
     if install:
         retain_log = True
@@ -136,7 +136,7 @@ def remove_data(functions,log,install=False,quiet=False):
         retain_p12 = False
     else:
         functions.print_paragraphs([
-            ["",1],[" WARNING ",0,"red,on_yellow"],["Retaining the Node's",0],
+            ["",1],[" WARNING ",0,"red,on_yellow"],["Retaining the node's",0],
             ["p12 files",0,"yellow"], ["can introduce security vulnerabilities because",0],
             ["your p12 files will be remain on this VPS.",1],
         ])
@@ -158,7 +158,7 @@ def remove_data(functions,log,install=False,quiet=False):
 
     if install:  # installer will just use the default dirs, services lists
         if not quiet:
-            print(colored("  Handling removal of existing Node data","cyan"),end="\r")
+            print(colored("  Handling removal of existing node data","cyan"),end="\r")
         if path.isdir(f'/home/{functions.config_obj["global_p12"]["nodeadmin"]}'):
             log.logger["main"].warning(f'{install_type} -> found nodeadmin user [{functions.config_obj["global_p12"]["nodeadmin"]}], removed')
             remove_admins(functions,["nodeadmin"],log,True)
@@ -179,7 +179,7 @@ def remove_data(functions,log,install=False,quiet=False):
         services, p12s = discover_data(services,p12s)
     else:
         functions.print_cmd_status({
-            "text_start": "Preparing Node Data",
+            "text_start": "Preparing node data",
             "status": "Please Wait",
             "status_color": "magenta",
             "newline": True,
@@ -190,7 +190,7 @@ def remove_data(functions,log,install=False,quiet=False):
         with ThreadPoolExecutor() as executor:
             functions.status_dots = True
             status_obj = {
-                "text_start": f"Discovering Node Data",
+                "text_start": f"Discovering node data",
                 "status": "running",
                 "status_color": "yellow",
                 "dotted_animation": True,
@@ -214,7 +214,7 @@ def remove_data(functions,log,install=False,quiet=False):
 
     if install and not quiet:  # installer will just use the default dirs, services lists
         functions.print_cmd_status({
-            "text_start": "Removing existing Node Data",
+            "text_start": "Removing existing node data",
             "status": "please wait",
             "status_color": "yellow",
             "newline": False,
@@ -240,7 +240,7 @@ def remove_data(functions,log,install=False,quiet=False):
                             log.logger["main"].info(f"{install_type} -> moving p12 [{path.split(p12_file_tmp)[1]}] to [{path.split(p12_file_tmp)[0]}].")
                             shutil.copy2(p12_file_path, p12_file_tmp)
 
-        command = f"Removing Node related data"
+        command = f"Removing node related data"
         log_list = []
         if retain_log and remove_list == remove_lists[0]: # only once
             try:
@@ -252,7 +252,7 @@ def remove_data(functions,log,install=False,quiet=False):
         if install:
             if not quiet: # redraw install of blank screen
                 functions.print_cmd_status({
-                    "text_start": "Removing existing Node Data",
+                    "text_start": "Removing existing node data",
                     "status": "please wait",
                     "status_color": "yellow",
                     "newline": False,
@@ -261,7 +261,7 @@ def remove_data(functions,log,install=False,quiet=False):
         with ThreadPoolExecutor() as executor:
             functions.status_dots = True
             if not install:
-                command = f"Removing Node related {remove_list.pop(0)}"
+                command = f"Removing node related {remove_list.pop(0)}"
             status_obj = {
                 "text_start": command,
                 "status": "running",
@@ -271,7 +271,7 @@ def remove_data(functions,log,install=False,quiet=False):
             }
             if not install and not quiet:
                 _ = executor.submit(functions.print_cmd_status,status_obj)
-            # command = f"Removing Node related {remove_list.pop(0)}"
+            # command = f"Removing node related {remove_list.pop(0)}"
             # print_status(functions,command,True,True)
 
             for d_f in remove_list:
@@ -358,7 +358,7 @@ def restore_user_access(cli,functions,log):
 def remove_admins(functions,node_admins,log,install=False):
     install_type = "uninstaller"
     if install: install_type = "installer"
-    log.logger["main"].info(f"{install_type} -> handling removal of nodectl Node Admin roles. admins {node_admins}")
+    log.logger["main"].info(f"{install_type} -> handling removal of nodectl node admin roles. admins {node_admins}")
     # remove nodeadmin
     if environ.get('SUDO_USER',None) in node_admins:
         node_admins = [user for user in node_admins if user != environ.get('SUDO_USER',None)] # remove admin from list
@@ -412,11 +412,11 @@ def finish_uninstall(functions):
 
     functions.print_paragraphs([
         ["",1], 
-        ["If nodectl created a swapfile during initital installation, the swapfile was not removed to prevent potiental conflicts",0,"magenta"],
+        ["If nodectl created a swap file during initial installation, the swap file was not removed to prevent potential conflicts",0,"magenta"],
         ["with other [possible] elements, or impacting performance on this VPS. This includes the 'swappiness' settings.",2,"magenta"],
 
         ["nodectl has",0,"green"], ["successfully",0,"green","bold"],
-        ["removed the Node components from the system.",2,"green"],
+        ["removed the node components from the system.",2,"green"],
 
         ["Thank you for your participation with Constellation Network. We hope to see you back soon!",2,"blue","bold"],
         

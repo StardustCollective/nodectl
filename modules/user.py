@@ -83,7 +83,7 @@ class UserClass:
             self.functions.print_paragraphs([
                 ["",1],[" DETECTED NODEADMIN ",0,"white,on_blue"], 
                 ["This user already exists and is being used for this installation. This is the recommended user to",0,"white","bold"],
-                ["administer your Node.",2,"white","bold"],
+                ["administer your node.",2,"white","bold"],
             ])
             self.keep_user = self.functions.confirm_action({
                 "yes_no_default": "y",
@@ -102,7 +102,7 @@ class UserClass:
                 return
             
         self.functions.print_paragraphs([
-            ["You should create a",0], [user_type,0,"yellow","bold"], ["user to administer your Node.",2],
+            ["You should create a",0], [user_type,0,"yellow","bold"], ["user to administer your node.",2],
             ["It is recommended to use",0,], ["nodeadmin",0,"yellow","bold"], ["as the Node Administrator.",2],
             ["This is recommended because it will help during troubleshooting, administering, etc. as you follow any instructional documentation or tutorials.",2],
         ])
@@ -167,7 +167,7 @@ class UserClass:
                 ["Please create a",0,"white"], ["unique",0,"yellow","bold"], ["password and write it down!",2,"white"],
                 ["It is recommended to save this password to a secure location and do",0,"white"], ["NOT",0,"red","bold"],["forget it!",0,"white"],
                 ["If choosing to write it down, label in your notes:",1,"white"],
-                [f"\"{self.username} user password to access sudo (administrator) rights on the Node.\"",2]
+                [f"\"{self.username} user password to access sudo (administrator) rights on the node.\"",2]
             ])
         
         self.password = self.get_verify_password(10,self.username,"password")
@@ -507,7 +507,7 @@ class UserClass:
             self.functions.print_paragraphs([
                 ["",1],[" Recommended ",0,"yellow,on_green","bold"], 
                 ["During the installation",0], ["SSH",0,"blue","bold"], ["was chosen.",1],
-                ["Do you want to disable username/password based authentication on this Node at the",0],
+                ["Do you want to disable username/password based authentication on this node at the",0],
                 ["Operating System level to improve security?",2],
             ])
             

@@ -136,10 +136,10 @@ class Error_codes():
         elif "install_failed" in str(var.line_code):
             self.log.logger[self.log_key].critical(f"installation failure [{var.line_code}] with message [{var.extra}]")
             self.functions.print_paragraphs([
-                ["An unrecoverable error occured during the installation.",2,"red","bold"],
+                ["An unrecoverable error occurred during the installation.",2,"red","bold"],
                 ["Unable to process some information that is necessary for the installation of Tessellation to be successful.",2,"red","bold"],
 
-                ["Suggestion:",0,"yellow","bold"], ["Verify you entered the proper paramenters associated with the options chosen.",2],
+                ["Suggestion:",0,"yellow","bold"], ["Verify you entered the proper parameters associated with the options chosen.",2],
 
                 ["Suggestion:",0,"yellow","bold"], ["Verify network connectivity and proper ports are opened on the Debian server.",0],
                 ["Debian Based",0,"cyan","bold"],["OS.",2],
@@ -167,7 +167,7 @@ class Error_codes():
                 ])            
                 if var.extra != "Missing Directories":
                     self.functions.print_paragraphs([
-                        ["Legacy Node files were found on this VPS",2,"red","bold"], 
+                        ["Legacy node files were found on this VPS",2,"red","bold"], 
                     ])            
             self.functions.print_paragraphs([
                 ["Please issue the following command to attempt to rectify the issue:",1,"magenta"],
@@ -237,22 +237,22 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
 
-                ["nodectl found environments installed on this Node that may not be supported by this version of nodectl.",0,"yellow"],
+                ["nodectl found environments installed on this node that may not be supported by this version of nodectl.",0,"yellow"],
                 ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
                 
                 ["To continue, it is recommend to perform upgrade or revert the version of nodectl installed on this system with the proper version.",2],
-                ["Please see the Constellation documentation portal for more details.",2],
+                ["Please see the Constellation Network documentation portal for more details.",2],
                 ["https://docs.constellationnetwork.io/validate/",2],
             ])
                         
                         
         elif "network_error" in str(var.line_code):
-            self.log.logger[self.log_key].critical(f"nodectl was unable to determine the external network interface related to the server this Node is running on and cannot continue.")
+            self.log.logger[self.log_key].critical(f"nodectl was unable to determine the external network interface related to the server this node is running on and cannot continue.")
             self.functions.print_paragraphs([
                 ["NODECTL NETWORKING IDENTIFICATION FAILED.",2,"red","bold"],
 
                 ["nodectl was unable to determine the network interface defined as the external link for the server.",0,"yellow"],
-                ["this Node is running on.",2,"red"],
+                ["this node is running on.",2,"red"],
                 
                 ["Could not continue command request, please try again later.",2],
             ])
@@ -265,16 +265,16 @@ class Error_codes():
             ])
             if var.extra2 == "stop":
                 self.functions.print_paragraphs([
-                    ["The issue corresponded to an attempt to stop the services on this Node.",2],
+                    ["The issue corresponded to an attempt to stop the services on this node.",2],
                 ])
             elif var.extra2 == "leave":
                 self.functions.print_paragraphs([
-                    ["The issue corresponded to an attempt to leave one or more of the cluster on this Node.",2],
+                    ["The issue corresponded to an attempt to leave one or more of the cluster on this node.",2],
                 ])
             self.functions.print_paragraphs([
                 ["NODECTL VERSION INCOMPATIBILITIES POSSIBLE",2,"red","bold"],
 
-                ["nodectl found elements on this Node that may not be supported by this version of nodectl.",0,"yellow"],
+                ["nodectl found elements on this node that may not be supported by this version of nodectl.",0,"yellow"],
                 ["In order to prevent undesirable results from the use of nodectl, the utility will exit here.",2,"red"],
                 
                 ["To continue, it is recommend to perform manual download of the desired nodectl binary from the GitHub repository.",2],
@@ -292,9 +292,9 @@ class Error_codes():
 
                 ["Health Status Check on the",0,"red","bold"], ["EDGE DEVICE",0,"yellow","underline,bold"], ["did not return a valid response.",2,"red","bold"],
                 ["Possible Causes",2,"cyan","bold"],
-                ["  - Your Node does not have Internet connection.",1],
-                ["  - Source Node may not be reachable",1],
-                ["  - Edge Node may not be reachable",2],
+                ["  - Your node does not have Internet connection.",1],
+                ["  - Source node may not be reachable",1],
+                ["  - Edge node may not be reachable",2],
 
                 ["Please keep in mind that nodectl will attempt to utilize the local API if the edge",0],
                 ["point is unreachable. Please consider this when reviewing the edge point and layer below.",2],
@@ -318,13 +318,13 @@ class Error_codes():
             self.log.logger[self.log_key].critical(f"attempt to access the service file seems to have failed. [{var.extra}]")
             self.functions.print_paragraphs([
                 ["Something isn't quite right?",2,"red","bold"],
-                ["Are you sure the",0,"red","bold"], ["Node",0, "yellow","bold,underline"],
+                ["Are you sure the",0,"red","bold"], ["node",0, "yellow","bold,underline"],
                 ["service is running?",0,"red","bold"],
                 ["Please review the logs for more detailed information.",1,"red","bold"],
                 ["  - app.log",1],
                 ["  - nodectl.log",2],
-                ["If this was a request against an external Node.",1,"red","bold"],
-                ["  - Is the Node online?",2],
+                ["If this was a request against an external node.",1,"red","bold"],
+                ["  - Is the node online?",2],
             ])
             if var.error_code == "service_join":
                 self.functions.print_paragraphs([
@@ -355,7 +355,7 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["You may not be joined to the",0,"red","bold"],["Global Layer0",0,"cyan","bold"],
                 ["or a",2,"red","bold"],["network cluster?",2,"cyan","bold"],
-                ["Are you sure the",0,"red","bold"], ["Node",0,"yellow","bold,underline"],
+                ["Are you sure the",0,"red","bold"], ["node",0,"yellow","bold,underline"],
                 ["service is running?",2,"red","bold"]
             ])
             
@@ -363,7 +363,7 @@ class Error_codes():
             self.log.logger[self.log_key].critical(f"connection error during the join attempt [{var.extra}] | error: [{var.extra2}]")
             self.functions.print_paragraphs([
                 ["Connection Error during join detected.",2,"red","bold"],
-                ["Are you sure the",0,"red","bold"], ["Node service",0,"yellow","bold"], ["is running?",2,"red","bold"],
+                ["Are you sure the",0,"red","bold"], ["node service",0,"yellow","bold"], ["is running?",2,"red","bold"],
                 ["  Profile:",0,"magenta","bold"],[var.extra,2,"yellow","bold"],
                 ["See logs for error message returned from protocol.",2]
             ])
@@ -384,7 +384,7 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["The API service was called incorrectly.",2,"red","bold"],
                 ["Possible other reasons could be service related? Are you sure:",1,"red","bold"],
-                [" - The",0,"red","bold"],["Node",0,"yellow"], ["service(s) are running?",1,"red","bold"],
+                [" - The",0,"red","bold"],["node",0,"yellow"], ["service(s) are running?",1,"red","bold"],
                 [" - The",0,"red","bold"],["Operator of the server",0,"yellow"], ["inaccurately attempted to start the service?",2,"red","bold"],
             ])
 
@@ -435,7 +435,7 @@ class Error_codes():
                 ["Something isn't quite right?",2,"red","bold"],
                 ["nodectl",0,"red","bold,underline"], ["detected you are not",0,"red","bold"], ["properly joined to the",0,"red","bold"],
                 ["Hypergraph.",2,"yellow","bold"],
-                ["Are you sure your",0,"red","bold"], ["Node",0,"yellow","bold,underline"], 
+                ["Are you sure your",0,"red","bold"], ["node",0,"yellow","bold,underline"], 
                 ["is joined to the current network?",2,"red","bold"],
                 ["try command:",1,"yellow"], ["sudo nodectl join -p <profile_name>",2]
             ])            
@@ -464,7 +464,7 @@ class Error_codes():
                 self.functions.print_paragraphs([
                     ["P12",0,"yellow","bold"], ["passphrase",0,"red","bold,underline"], ["was incorrectly entered.",2,"red","bold"],
                     ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["these passphrase attempts were made by an authorized Node Operator.",2,"red","bold"],
-                    ["Please be diligent and review your Node's security, and other settings!",2,"magenta","bold"],
+                    ["Please be diligent and review your node's security, and other settings!",2,"magenta","bold"],
                     ["Try issuing command:",1,"yellow"],
                     ["sudo nodectl sec",2],
                 ])  
@@ -507,7 +507,7 @@ class Error_codes():
             self.log.logger[self.log_key].critical(f"during execution of nodectl an unknown error was encountered | error [{var.extra}]")
             self.functions.print_paragraphs([
                 ["An unknown error has occurred?  Please try the previous command request again.  If you continue to encounter",0,"red","bold"],
-                ["this error message, please join the Constellation Official Discord channel for additional help.",2,"red","bold"],
+                ["this error message, please join the Constellation Network Official Discord channel for additional help.",2,"red","bold"],
             ])            
             if var.extra2:
                 self.functions.print_paragraphs([
@@ -542,7 +542,7 @@ class Error_codes():
             
             
         elif var.line_code == "ip_not_found":
-            self.log.logger[self.log_key].warning("unable to find the external IP address of the Node, there may be internet access issues ensuring, exited utility ")
+            self.log.logger[self.log_key].warning("unable to find the external IP address of the node, there may be internet access issues ensuring, exited utility ")
             self.functions.print_paragraphs([
                 ["In an attempt to search the current network cluster with an IP address,",0,"red"],
                 [var.extra,0,"yellow","bold"],
@@ -570,7 +570,7 @@ class Error_codes():
             self.log.logger[self.log_key].critical("tessellation attempted check peers and failed, this may be an API error, or external access error.")
             self.functions.print_paragraphs([
                 ["Tessellation attempted check peers and failed.",2,"red","bold"],
-                ["This Node's network configuration may be incorrect, please check profile configuration.",2,"magenta"],
+                ["This node's network configuration may be incorrect, please check profile configuration.",2,"magenta"],
             ])
             
             
@@ -578,9 +578,9 @@ class Error_codes():
             self.log.logger[self.log_key].critical("tessellation attempted to extract the node id from the configuration p12 private key file:  p12 password is wrong, p12 private key is corrupted, keystore location is wrong, or p12 private key file name in the configuration is wrong.")
             self.functions.print_paragraphs([
                 ["Tessellation attempted to extract and derive the",0,"red","bold"], ["nodeid",0,"magenta","bold"],
-                ["from this Node unsuccessfully.",2,"red","bold"],
+                ["from this node unsuccessfully.",2,"red","bold"],
                 
-                ["This Node's network configuration may be incorrect, please check profile configuration. You may have corrupted binaries?",2,"magenta"],
+                ["This node's network configuration may be incorrect, please check profile configuration. You may have corrupted binaries?",2,"magenta"],
                 
             ]) 
             if var.extra == "invalid":           
@@ -597,7 +597,7 @@ class Error_codes():
             if var.extra2 == "nodeid2dag":
                 self.functions.print_paragraphs([
                     ["This command requires that a valid",0,"red"], ["nodeid",0,"blue","bold"],
-                    ["be entered, even if it is the local nodeid on this Node.",1,"red"],
+                    ["be entered, even if it is the local nodeid on this node.",1,"red"],
                     ["command:",0], ["sudo nodectl nodeid -p <profile>",2,"white"],
                 ])               
             else:         
@@ -714,7 +714,7 @@ class Error_codes():
             self.log.logger[self.log_key].critical(f"invalid option value [{var.extra}], you reached this error because nodectl cannot use this option or the correct option is missing in the current command request.")
             self.functions.print_paragraphs([
                 ["System detected an attempt to use an invalid command line option.",0,"red","bold"],
-                ["Additionally, the option [or combination of options] may cause harm to the Node",0,"red","bold"],
+                ["Additionally, the option [or combination of options] may cause harm to the node",0,"red","bold"],
                 ["running on this server or VPS.  nodectl terminated.",2,"red","bold"],
                 [" Option: ",0,"yellow","bold"], [var.extra,2],
                 ["Operation cancelled to avoid unexpected errors.",2,"magenta"],
@@ -795,7 +795,7 @@ class Error_codes():
             self.log.logger[self.log_key].critical(f"unable to download valid configuration file [cn-config.yaml]")
             self.functions.print_paragraphs([
                 ["nodectl installer attempted to download an invalid or non-existent yaml pre-defined configuration.",0,"red"],
-                ["The installer cannot continue, please try installation again or seek assistance from the official Constellation Discord channel.",2,"red"],
+                ["The installer cannot continue, please try installation again or seek assistance from the official Constellation Network Discord channel.",2,"red"],
             ])
             
         elif var.line_code == "system_error":
@@ -830,7 +830,7 @@ class Error_codes():
                     ["properly.",2,"red"],
                     
                     ["Please try the installation again",2,"magenta"],
-                    ["If the error persists, please seek help in the official Constellation Discord server.",2,"yellow"], 
+                    ["If the error persists, please seek help in the official Constellation Network Discord server.",2,"yellow"], 
                 ])
             if var.extra == "format" or var.extra == "existence_hint" or var.extra2 == "existence":
                 if var.extra != "existence_hint":
@@ -845,7 +845,7 @@ class Error_codes():
                         ["Alternatively, it is advised to attempt to correct issues via nodectl's configure option or use nodectl to build a new configuration.",2,"magenta"],
                         
                         ["Use command:",0,"yellow"], ["sudo nodectl configure",1],
-                        ["If you are attempting to configure your Node and receive this error...",1,"magenta"],
+                        ["If you are attempting to configure your node and receive this error...",1,"magenta"],
                         ["Use command:",0,"yellow"], ["sudo nodectl upgrade",1],
                         ["Otherwise, seek help in the Constellation Network official Discord or reinstall nodectl.",2,"magenta"],
                     ])
@@ -860,7 +860,7 @@ class Error_codes():
                     ["During an attempt to clean up old directory structure elements",1,"red"],
                     ["an unrecoverable issue was encountered by nodectl.",2,"red"],
                     ["It is suggested that you join the appropriate Discord channel and",0,"magenta"],
-                    ["and contact a Constellation Administrator.",2,"magenta"],
+                    ["and contact a Constellation Network Administrator.",2,"magenta"],
                 ])
             elif var.extra2:
                 self.log.logger[self.log_key].error(f"error code [{self.error_code}] error found [{var.extra2}]")

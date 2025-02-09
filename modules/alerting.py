@@ -61,7 +61,7 @@ def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
     elif alert_profile[profile]["action"] == "layer1_wait":
         body += "Alert: Node is waiting to join layer0. Layer1 link is not Ready.\n"
     elif alert_profile[profile]["action"] == "ep_wait":
-        body += "Alert: Unable to access Edge Point from Node.\n"
+        body += "Alert: Unable to access Edge Point from node.\n"
     else:
         return "skip" # we don't want to send an alert
 

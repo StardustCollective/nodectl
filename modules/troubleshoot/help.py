@@ -51,10 +51,10 @@ def build_help(functions,command_obj):
         ["optional:",0],["--pass",0,"yellow"],["<passphrase>",1],
         ["    note:",0],["--pass will override the configuration's passphrase entry",2,"magenta"],
         ["optional:",0],["--peer",0,"yellow"],["<static_peer_ip>",1],
-        ["    note:",0],["--peer will override the configuration's random Node",1,"magenta"],
+        ["    note:",0],["--peer will override the configuration's random node",1,"magenta"],
         ["          selection feature",2,"magenta"],
         ["optional:",0],["--port",0,"yellow"],["<static_peer_tcp_port>",1],
-        ["    note:",0],["--port can be used with the --peer option if the Node",1,"magenta"],
+        ["    note:",0],["--port can be used with the --peer option if the node",1,"magenta"],
         ["          uses a non-default port.",2,"magenta"],
         ["See extended help for more details including",0],["required",0,"blue","bold"], 
         ["parameters per command.",2],
@@ -71,7 +71,7 @@ def build_help(functions,command_obj):
     
     upgrade    | upgrade Tessellation version
     install    | install Tessellation - Turn your bare metal or
-                 VPS into a Validator Node
+                 VPS into a validator node
 
     getting_started | offer quick explanation and resources of
                       the nodectl utility
@@ -79,7 +79,7 @@ def build_help(functions,command_obj):
     uninstall  | restore your VPS to default state before nodectl
                  was installed.
                  
-    configure            | setup your Node's configuration via
+    configure            | setup your node's configuration via
                            pre-configured profiles, advanced user setup,
                            or a user friendly guided setup.
     validate_config  | import configuration file and
@@ -94,7 +94,7 @@ def build_help(functions,command_obj):
                          versions of nodectl and Tessellation
                          and whether they match
                             
-    status  | - show the state of the Node's service
+    status  | - show the state of the node's service
     quick_status | - show an abbreviated version of the status command
                      that looks at the local API only
                                        
@@ -118,9 +118,9 @@ def build_help(functions,command_obj):
                     - export_private_key
                     - dag
               
-    start   | - start node services on Node
+    start   | - start node services on node
 
-    stop    | - stop node services on Node
+    stop    | - stop node services on node
 
     join    | - join the current cluster
         
@@ -154,9 +154,9 @@ def build_help(functions,command_obj):
     
     passwd12            | - change your p12's passphrase
                             
-    restart  | - restart node services on Node and join
+    restart  | - restart node services on node and join
     
-    restart_only | - restart node services on Node but don't join.
+    restart_only | - restart node services on node but don't join.
     
     upgrade_vps | - more simple verbose method of updating and upgrading
                     your VPS.
@@ -166,14 +166,14 @@ def build_help(functions,command_obj):
     
     update_seedlist -e <environment_name> | - update the local copy of the seed list 
       
-    uptime       | - check system, cluster, and Node uptime.
+    uptime       | - check system, cluster, and node uptime.
                            
     slow_restart | - restart the node with a 600 second delay to
                          make sure it is fully off the network in the
                          event you are seeing connection issues or other
     
     reboot | - acts exactly same as a distribution reboot; however, this command
-               will make sure the Node software does a clean 'leave' to leave
+               will make sure the node software does a clean 'leave' to leave
                the network prior to rebooting the system.
     
     clean_snapshots | - clean out the snapshot cache directory
@@ -196,21 +196,21 @@ def build_help(functions,command_obj):
     check_seedlist_participation | - show access-list verse network comparison
                                      (pre-PRO score temporary feature)
     
-    check_consensus -p <profile> | - check if Node is participating in consensus on layer0
+    check_consensus -p <profile> | - check if node is participating in consensus on layer0
     
-    check_minority_fork -p <profile> | - check if Node is in a minority fork
+    check_minority_fork -p <profile> | - check if node is in a minority fork
       
     download_status  -p <profile> | - show a progress indicator following the 
                                       progress of your DownloadInProgress None State
                                                                                              
-    show_node_states  | - show a list of known Node states                    
+    show_node_states  | - show a list of known node states                    
     
     show_service_log -p <profile> | - show the distribution service logs 
                                        associated with profile 
     
     show_p12_details | - show details of a p12 file.
                                 
-    show_dip_error -p <profile>  | - show any occurances of a DownloadInProgress error
+    show_dip_error -p <profile>  | - show any occurrences of a DownloadInProgress error
                                      located in the logs.
                                             
     refresh_binaries -e <env> | - download latest binaries
@@ -229,10 +229,10 @@ def build_help(functions,command_obj):
     ipv6 | - status, enable or disable ipv6 configuration on VPS
     
     change_ssh_port -p <port> | - change the port number used to access your
-                               Node via the SSH protocol.  The port number
+                               node via the SSH protocol.  The port number
                                should be between 1024 and 65535.  Please be
                                careful not to use a port already in use or
-                               that might be used by the Node for various 
+                               that might be used by the node for various 
                                API access.  Default well known port = 22
                                
     send_logs -p <profile>  |  - create a tarball of your log files for diagnosis  
@@ -250,20 +250,20 @@ def build_help(functions,command_obj):
                                             see extended help for configurable auto_restart
                                             details... sudo nodectl auto_restart help
 
-    node_last_snapshot | Display last known local snapshot on your Node
+    node_last_snapshot | Display last known local snapshot on your node
 
     verify_nodectl  |  Checks the digital signature of the nodectl binary for authenticity    
     
     create_p12 |  Create a single independent p12 file.                                    
 
-    sync_node_time | force a sync between the Node and NTP servers connected to the
+    sync_node_time | force a sync between the node and NTP servers connected to the
                      atomic clocks
 
     check_tcp_ports | test if your node is able to communicate with the rest of the
-                      network properly.  Nodes use TCP/IP for public and peer to peer
+                      network properly.  nodes use TCP/IP for public and peer to peer
                       communications.  This command tests of the TCP ports I/O
 
-    health  | - show basic health elements of your Node
+    health  | - show basic health elements of your node
               - show the current 15 minute CPU load and 
                 if WARNING or LOW
               - show the disk usage of your system's 
@@ -316,31 +316,31 @@ def build_help(functions,command_obj):
   For a comprehensive understanding of nodectl, we highly 
   recommend visiting the following links:
 
-  Constellation Documentation Hub:
+  Constellation Network Documentation Hub:
   https://docs.constellationnetwork.io/validate/
 
   Full Command Reference Guide:
   https://docs.constellationnetwork.io/validate/automated/nodectlCommands
 
-  Nodectl is a utility specifically designed to assist Constellation 
-  Network Validator Nodes in operating their Nodes easily and 
+  nodectl is a utility specifically designed to assist Constellation 
+  Network validator nodes in operating their nodes easily and 
   efficiently. It includes single-command installation and upgrades.
 
   The most common commands you will use are:
 
   {colored('sudo nodectl status','green')}
   This command allows you to check the current status of your 
-  Node to ensure it is properly online and functioning well.
+  node to ensure it is properly online and functioning well.
   {colored('sudo nodectl status help','cyan')}
 
   {colored('sudo nodectl restart -p all','green')}
-  Use this command to restart your Node if it is not properly 
+  Use this command to restart your node if it is not properly 
   online, as indicated by the status command above.
   {colored('sudo nodectl restart help','cyan')}
 
   {colored('sudo nodectl upgrade','green')}
-  Initiates an interactive guide to upgrade your Node’s protocol, Tessellation, 
-  to the latest version and update any necessary elements of the Node itself 
+  Initiates an interactive guide to upgrade your node's protocol, Tessellation, 
+  to the latest version and update any necessary elements of the node itself 
   to ensure compatibility with both the Tessellation protocol and 
   the nodectl utility.
   {colored('sudo nodectl upgrade help','cyan')}
@@ -348,7 +348,7 @@ def build_help(functions,command_obj):
   {colored('sudo nodectl upgrade_nodectl','green')}
   This command initiates an interactive guide to upgrade nodectl itself to 
   the latest version. It will prompt if necessary to update any necessary 
-  elements of the Node to ensure compatibility with the nodectl utility.
+  elements of the node to ensure compatibility with the nodectl utility.
   {colored('sudo nodectl upgrade_nodectl help','cyan')}
 
             '''
@@ -366,9 +366,9 @@ def build_help(functions,command_obj):
   {colored('-csc','green')}
     
   When executed the {colored('check_source_connection','cyan')} command will attempt
-  to find a random Node on the current known Hypergraph cluster.
+  to find a random node on the current known Hypergraph cluster.
   
-  NOTE: The random Node does to need to be joined into the consensus
+  NOTE: The random node does to need to be joined into the consensus
   of the cluster, only be properly joined to the cluster and in
   Ready state.
 
@@ -379,14 +379,14 @@ def build_help(functions,command_obj):
   {colored('SOURCE -> STATE','blue',attrs=['bold'])}              {colored('EDGE -> STATE','blue',attrs=['bold'])}
   True | Ready                 True | Ready
 
-   {colored('FULL CONNECTION','yellow')}: Both the source Node picked by nodectl and 
-                    the local [edge] Node that executed the {colored('check_source_connection','cyan')}
+   {colored('FULL CONNECTION','yellow')}: Both the source node picked by nodectl and 
+                    the local [edge] node that executed the {colored('check_source_connection','cyan')}
                     command can see each other [True] or cannot [False]
            {colored('PROFILE','yellow')}: The profile that this command was run against
-   {colored('SOURCE -> STATE','yellow')}: Can the SOURCE Node see the edge Node [True|False]
-                    The source Node's state is in [Ready] state
-     {colored('EDGE -> STATE','yellow')}: Can the EDGE Node see the source Node [True|False]
-                    The edge Node's state is in [Ready] state
+   {colored('SOURCE -> STATE','yellow')}: Can the SOURCE node see the edge node [True|False]
+                    The source node's state is in [Ready] state
+     {colored('EDGE -> STATE','yellow')}: Can the EDGE node see the source node [True|False]
+                    The edge node's state is in [Ready] state
             '''
             
             
@@ -410,15 +410,15 @@ def build_help(functions,command_obj):
   connected Hypergraph cluster.  
   
   It will use a "source" specified by an optional {colored('-s','cyan')} or 
-  it will pick a random selected source Node.
+  it will pick a random selected source node.
   
-  It will search again the Node the {colored('check_connection','cyan')} command was
+  It will search again the node the {colored('check_connection','cyan')} command was
   executed upon unless an edge device to check against the 
   source is specified by an optional {colored('-e','cyan')} option.
   
-  The command will compare the Nodes found on the {colored('source','cyan')} against
-  the Nodes found on the {colored('edge','cyan')}.  If the Nodes connected
-  to each do {colored('not','red')} match, the command will display those Nodes
+  The command will compare the nodes found on the {colored('source','cyan')} against
+  the nodes found on the {colored('edge','cyan')}.  If the nodes connected
+  to each do {colored('not','red')} match, the command will display those nodes
   that are missing between the two.
 
   {colored("Dictionary","white",attrs=['bold'])}  
@@ -440,16 +440,16 @@ def build_help(functions,command_obj):
   {colored('ar','green')}   > ApiNotReady State (nodectl only)
   {colored('anr','green')}   > ApiNotResponding State (nodectl only)
 
-  {colored("If Node shows False","white",attrs=['bold'])}
+  {colored("If node shows False","white",attrs=['bold'])}
   ===================
-  {colored("There may be circumstances where your Node is showing a","yellow")}
+  {colored("There may be circumstances where your node is showing a","yellow")}
   {colored("False positive.  The network may still be converging or","yellow")}
-  {colored("another Node may be causing your Node to show False.","yellow")}
+  {colored("another node may be causing your node to show False.","yellow")}
   
   In some cases you may need to wait a little time and check
-  the Node (check-connection) again.
+  the node (check-connection) again.
 
-  However, if you are seeing {colored('many','cyan')} Nodes "missing", please
+  However, if you are seeing {colored('many','cyan')} nodes "missing", please
   wait a period of time and check again anyway. 
   
   You may be {colored('edge','cyan')} the network and a restart is required
@@ -462,20 +462,20 @@ def build_help(functions,command_obj):
   -------------
   scenario for help >
    - Node you joined to originally (source) : 10.1.1.1
-   - The IP of your Node (edge) : 10.2.2.2
-   - The IP of another Node (other) : 10.3.3.3
-   - The IP of another Node (other) : 10.4.4.4
+   - The IP of your node (edge) : 10.2.2.2
+   - The IP of another node (other) : 10.3.3.3
+   - The IP of another node (other) : 10.4.4.4
     
   show this menu
   # {colored('sudo nodectl check-connection help ','cyan')}
 
-  check random "source" against the local "edge" Node
+  check random "source" against the local "edge" node
   # {colored('sudo nodectl check-connection -p <profile_name>','cyan')}
 
-  check random "source" Node against "other" Node
+  check random "source" node against "other" node
   # {colored('sudo nodectl check-connection -p dag-l0 -e 10.3.3.3','cyan')}
 
-  check "any other Node" against "any other Node"
+  check "any other node" against "any other node"
   # {colored('sudo nodectl check-connection -p dag-l0 -s 10.3.3.3 -s 10.4.4.4','cyan')}
             '''
             
@@ -489,7 +489,7 @@ def build_help(functions,command_obj):
   The {colored('cn-config.yaml','cyan')} file is an {colored('extremely important','red',attrs=['bold'])}
   file that {colored('nodectl','cyan')} uses to determine how it 
   should control and configure your {colored('Constellation','blue',attrs=['bold'])}
-  {colored('Network Validator Node','blue',attrs=['bold'])}.
+  {colored('Network validator node','blue',attrs=['bold'])}.
   
   optional:
   
@@ -616,7 +616,7 @@ def build_help(functions,command_obj):
       help_text += title("Show CPU and MEMORY")
       help_text += f'''
   The command {colored(extended,"cyan")} will review the VPS system that
-  this Node is running on and display the current CPU
+  this node is running on and display the current CPU
   and memory percentages, and the determined status
   of the CPU and memory based on a statically set threshold.
 
@@ -635,7 +635,7 @@ def build_help(functions,command_obj):
       help_text += title("Check Consensus")
       help_text += f'''
   This command is a simple check against the edge
-  point in order to verify that the Node is 
+  point in order to verify that the node is 
   participating in consensus for the profile
   specified.
   
@@ -659,7 +659,7 @@ def build_help(functions,command_obj):
   consensus will be checked against the nodeid public key inputted.
   
   If the watch {colored('-w','cyan')} option is requested followed by
-  a number greater than 15.  nodectl will watch the Node's 
+  a number greater than 15.  nodectl will watch the node's 
   consensus status, updating every X seconds (as defined by the -w). You
   may q)uit this the watch feature at any time using by pressing the 
   q key on the keyboard.  Node Operators should not use the ctrl+c to
@@ -688,7 +688,7 @@ def build_help(functions,command_obj):
      or
   # {colored('sudo nodectl -con -p <profile_name>','cyan')}  
   
-  execute consensus check against Node with 
+  execute consensus check against node with 
   profile name dag-l0 and IP address 10.10.10.10.
   # {colored('sudo nodectl check_consensus -p dag-l0 -s 10.10.10.10','cyan')}  
      or
@@ -696,7 +696,7 @@ def build_help(functions,command_obj):
   
   execute consensus check against list of node ids with 
   profile name dag-l0 and file containing the nodeid list called 'test.csv'
-  located in the the '/tmp/' directory on the Node.
+  located in the the '/tmp/' directory on the node.
   # {colored('sudo nodectl check_consensus -p dag-l0 --file /tmp/test.csv','cyan')}  
      or
   # {colored('sudo nodectl -con -p dag-l0 --file /tmp/test.csv','cyan')}  
@@ -733,7 +733,7 @@ def build_help(functions,command_obj):
   # {colored('sudo nodectl create_p12 help','cyan')}
   
   build a new p12 file using the global configured
-  Node admin username:
+  node admin username:
   # {colored('sudo nodectl create_p12','cyan')}  
 
   build a new p12 file using a keystore file named test.p12 and
@@ -745,7 +745,7 @@ def build_help(functions,command_obj):
 
       help_text += title("Check Minority Fork")
       help_text += f'''
-  This command is a simple check if the Node
+  This command is a simple check if the node
   is no longer on the majority cluster and
   properly participating.
   
@@ -776,38 +776,38 @@ def build_help(functions,command_obj):
       help_text += title("Send Logs")
       help_text += f'''
   The {colored('download_status','cyan')} command can be used to 
-  monitor the progress of your Node's {colored('DownloadInProgress','yellow')} state.
+  monitor the progress of your node's {colored('DownloadInProgress','yellow')} state.
     
-  During a Node's {colored('join','yellow')} process, to become part of the cluster 
-  for the profile(s) configured, the Node undergoes a series of essential 
+  During a node's {colored('join','yellow')} process, to become part of the cluster 
+  for the profile(s) configured, the node undergoes a series of essential 
   initialization tasks to ensure it integrates and functions properly
   as a peer on the cluster.
 
-  Once your Node completes the initial phases of authentication and 
+  Once your node completes the initial phases of authentication and 
   becomes a peer on the cluster, it must synchronize and gain knowledge 
   about the known blockchain before actively participating in consensus 
   and earning rewards.  
   
   Constellation Network employs an {colored('incremental snapshot','yellow')} strategy 
   to minimize the ingress "cost" for downloading blockchain snapshots. When a new 
-  Node joins the cluster, it will undergo a {colored('one time','red')} extended period
-  of learning about the entire blockchain. For an existing Node rejoining the cluster, 
+  node joins the cluster, it will undergo a {colored('one time','red')} extended period
+  of learning about the entire blockchain. For an existing node rejoining the cluster, 
   it is required to calculate the differences between its previous state and the 
   current blockchain state.
     
-  Following authentication, your Node may temporarily remain in the 
+  Following authentication, your node may temporarily remain in the 
   {colored('WaitingForDownload','yellow')} state, which is a relatively inactive phase 
   with no notable progress.  Due to this, when you execute the 
-  {colored('download_status','cyan')} command, it will monitor your Node's status, via
+  {colored('download_status','cyan')} command, it will monitor your node's status, via
   a timer [verses a progress indicator], continually checking until the 
-  Node transitions to {colored('DownloadInProgress','yellow')}.
+  node transitions to {colored('DownloadInProgress','yellow')}.
   
-  When in {colored('DownloadInProgress','yellow')} state, nodectl will actively oversee your Node's activities, 
+  When in {colored('DownloadInProgress','yellow')} state, nodectl will actively oversee your node's activities, 
   presenting a progress indicator on the screen that provides an estimate 
   of the completion percentage for this process.  
   
   Part 1: {colored('Downloading snapshots','cyan')}: Above the progress indicator, you'll find 
-          the snapshots being downloaded to your Node, displayed by their 
+          the snapshots being downloaded to your node, displayed by their 
           corresponding ordinal. This will be represented as a decreasing 
           counter.
 
@@ -898,7 +898,7 @@ def build_help(functions,command_obj):
   from a specific profile
   # {colored('sudo nodectl peers -p <profile_name>','cyan')}
   
-  show YOUR Nodes's peers
+  show YOUR nodes's peers
   # {colored('sudo nodectl peers -p <profile_name> -t self','cyan')}
 
   show peers on the cluster utilizing a specific
@@ -937,15 +937,15 @@ def build_help(functions,command_obj):
         help_text += title("show node states")
         help_text += f'''
   The {colored('show_node_states','cyan')} command does not take any arguments 
-  and displays the list of the known Node States that you may
+  and displays the list of the known node States that you may
   find on the Cluster or that nodectl defines when not on the cluster.
   
   {colored("nodectl only states:","cyan")}
-  {colored('ApiNotReady','magenta')}:      shown if nodectl can not reach the Node's
+  {colored('ApiNotReady','magenta')}:      shown if nodectl can not reach the node's
                    internal API server. 
-  {colored('ApiNotResponding','magenta')}: shown if nodectl can not reach the Node's
+  {colored('ApiNotResponding','magenta')}: shown if nodectl can not reach the node's
                    internal API server, due to cpu or memory issues. 
-  {colored('SessionNotFound','magenta')}:  shown if nodectl can not read the Node's
+  {colored('SessionNotFound','magenta')}:  shown if nodectl can not read the node's
                    session via the internal API server. 
   {colored('SessionIgnored','magenta')}:   shown if nodectl is not online and there
                    is not a session to display. 
@@ -970,58 +970,58 @@ def build_help(functions,command_obj):
   Issue {colored('sudo nodectl configure','cyan')} to enable.
   
   {colored('Auto restart','green')} is a special feature of nodectl that will continuously monitor
-  your Node to make sure the various profiles are on the cluster
+  your node to make sure the various profiles are on the cluster
   and that each profiles state on the cluster is in {colored('Ready','green')} state,
   and the {colored('Session','green')} is up-to-date.
   
   Processing each profile in its own thread (i/o) nodectl will wait a
-  randomly set time (per thread) and check the Node's condition after
+  randomly set time (per thread) and check the node's condition after
   each successive random sleep timer expires.
   
-  In the event that your Node is identified to have either:
+  In the event that your node is identified to have either:
     - Its {colored('service','cyan')} in an inactive state
     - Node's cluster {colored('state','cyan')} is {colored('not','red')} 'Ready'
-    - The Node's known cluster {colored('session','cyan')} does not match the cluster's
+    - The node's known cluster {colored('session','cyan')} does not match the cluster's
       known {colored('session','cyan')}.
-  the Node will begin an automatic restart.
+  the node will begin an automatic restart.
   
-  If the {colored('session','cyan')} of the cluster does not match the Node session that was 
+  If the {colored('session','cyan')} of the cluster does not match the node session that was 
   established at the cluster's genesis at the beginning of the cluster's initialization,
   an {colored('auto_restart','cyan')} will be triggered.
   
   This session will change if a {colored('restart','cyan')} or {colored('roll-back','cyan')} is identified. 
    
-  If your Node is currently joined to an older {colored('session','cyan')} it will no longer be participating 
+  If your node is currently joined to an older {colored('session','cyan')} it will no longer be participating 
   on the proper cluster (what can be considered a 'floating island'),
   {colored('auto_restart','cyan')} will attempt to correct the situation.
   
   {colored('IMPORTANT','red')}
   An {colored('auto_restart','cyan')} may take up to {colored('18 minutes to complete','white',attrs=['bold'])}.  
-  This is because the Node will detect one or both profiles down and restart the Global layer0 first
+  This is because the node will detect one or both profiles down and restart the Global layer0 first
   before it then attempts to bring up any other layers.  To avoid timing conflicts
-  with other Node's that may have auto_restart enabled {colored('auto_restart','cyan')} has random
+  with other node's that may have auto_restart enabled {colored('auto_restart','cyan')} has random
   timers put in place throughout a restart process.  As you will need to properly
   link your layer1 to the Global layer0. {colored('Understanding','green')} this is a
   background and unattended process, the {colored('delay','cyan')} is created on purpose.
   
   It is {colored('recommended','cyan')} by the developers to link to layer1 through your
-  Node's own Global layer0 connection.
+  node's own Global layer0 connection.
   
   {colored('IMPORTANT','red')}
   {colored('auto_restart','cyan')} is not perfect and should be used as a tool
-  to help keep your Node up in a consistent fashion; however, it may not be
-  fool proof, and {colored('you should still monitor your Node manually','red',attrs=['bold'])} to make sure it
+  to help keep your node up in a consistent fashion; however, it may not be
+  fool proof, and {colored('you should still monitor your node manually','red',attrs=['bold'])} to make sure it
   stays online with the proper known cluster session.
   
   If you are using {colored('auto_restart','cyan')} please remember if you are physically 
-  monitoring your Node while it is enabled, and have patience to allow it 
+  monitoring your node while it is enabled, and have patience to allow it 
   to figure out how to get back online by itself as necessary.  Forcing a manual restart
   will disable {colored('auto_restart','cyan')}.  If enabled in the configuration, nodectl
   will attempt to reenable auto_restart after any command that requires it to be 
   temporarily disabled.
   
   {colored('IMPORTANT','red')}
-  In order to avoid duplicate or unwanted behavior such as your Node
+  In order to avoid duplicate or unwanted behavior such as your node
   restarting when you do not want it started, the {colored('auto_restart','cyan')}
   feature will automatically disable if you attempt to issue any command
   that manipulates the services.
@@ -1040,7 +1040,7 @@ def build_help(functions,command_obj):
   
   During a Tessellation upgrade, the session will change.  This will trigger
   an auto restart.  During the restart, nodectl will identify the version of 
-  Tessellation on the Node verses what is running on the cluster. If it does not
+  Tessellation on the node verses what is running on the cluster. If it does not
   match, nodectl will attempt to upgrade the Tessellation binaries before 
   continuing.
   
@@ -1095,12 +1095,12 @@ def build_help(functions,command_obj):
   physical or VPS (Virtual Private Server in the cloud) via 
   a {colored('warm boot','yellow')}.
   
-  For Node Operation this command is {colored('preferred/recommended','green',attrs=['bold'])} 
+  For node operation this command is {colored('preferred/recommended','green',attrs=['bold'])} 
   over normal operating system reboot command. 
   
   When issued the {colored('nodectl reboot','cyan')} command will gracefully
   leave the profiles defined in the nodectl configuration file 
-  before rebooting the Node.
+  before rebooting the node.
   
   Definition:  {colored('warm boot:','yellow')} restart your entire system via software
                {colored('cold boot:','yellow')} physical start and stop of your Server or VPS
@@ -1114,7 +1114,7 @@ def build_help(functions,command_obj):
   The {colored(extended,'cyan')} command takes several arguments.
   
   This command will download and overwrite the existing Tessellation
-  binaries files that are required to run your Node.  The result of 
+  binaries files that are required to run your node.  The result of 
   this command will be to download the binaries from the latest
   release and is independent of a system upgrade.
   
@@ -1122,7 +1122,7 @@ def build_help(functions,command_obj):
   that you have a corrupted system.
   
   This command should be accompanied by the restart command in order
-  to allow your Node to utilize the new binary files.
+  to allow your node to utilize the new binary files.
   
   This includes the latest seed-list access list file.
   
@@ -1160,7 +1160,7 @@ def build_help(functions,command_obj):
   
   This command will search the Debian distribution based journal 
   specifically for service logs which launch the Tessellation process
-  that allows a Node profile to connect to a cluster.
+  that allows a node profile to connect to a cluster.
   
   You can press {colored("q",'cyan')} to quit the log viewing
   at any time.  
@@ -1190,9 +1190,9 @@ def build_help(functions,command_obj):
   The {colored(extended,'cyan')} command takes one argument.
   
   This command will search the Tessellation log files for a 
-  given configured profile on the Node and output any 
+  given configured profile on the node and output any 
   occurrences of an error associated with the {colored('DownloadInProgress','yellow')}
-  which may result in the Node's state changing to {colored('WaitingForDownload','yellow')}.
+  which may result in the node's state changing to {colored('WaitingForDownload','yellow')}.
   
   required:
   {colored('-p <profile_name>','green')}
@@ -1268,13 +1268,13 @@ def build_help(functions,command_obj):
   This command will request nodectl will go out and review the latest versions 
   of both Constellation Network Tessellation and nodectl. nodectl will review 
   the current github repo and compare it to the versions running
-  on the Node.  
+  on the node.  
   
   It will report back {colored('True','green')} or {colored('False','red')}
   based on whether the versions match.
   
   If a profile name is not supplied, nodectl will use the first found
-  profile configured on the Node.
+  profile configured on the node.
      
   optional option:
   {colored('-cv','green')} 
@@ -1345,10 +1345,10 @@ def build_help(functions,command_obj):
         help_text += f'''
   
   This command nodectl will go out and pull the uptime for the cluster
-  the Node itself and the system supporting the node.
+  the node itself and the system supporting the node.
 
   - Cluster:  How long has the cluster been up
-  - Node:     How long has the Node been up
+  - Node:     How long has the node been up
   - System:   How long has the system whether
               a Bare Metal or virtualize server
               been up
@@ -1387,10 +1387,10 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The {colored(extended,'cyan')} command does not take any arguments 
-  and offers the Node Operator the ability to check their Node's
+  and offers the Node Operator the ability to check their node's
   current nodectl version for upgrade path requirements.
   
-  If the Node is not at the most current version of nodectl, this
+  If the node is not at the most current version of nodectl, this
   command will warn you of this fact, let you know what the next
   necessary upgrade is, and will show you upgrade path requirements.
    
@@ -1403,7 +1403,7 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The {colored(extended,'cyan')} command takes up to four optional argument and 
-  attempts to create a new p12 file, independent of the Node's operations.  This
+  attempts to create a new p12 file, independent of the node's operations.  This
   new wallet can be used in any way necessary by the creator.
   
   shortcut option:
@@ -1474,10 +1474,10 @@ def build_help(functions,command_obj):
   The -t option will lookup the nodeid based on the ip address specified
   after the -t is entered on the command line
   
-     {colored('IP ADDRESS','yellow')}:  The IP address of the Node the command was issued against.
-  {colored('P12 FILE NAME','yellow')}:  Name of the p12 file found on the Node.
-   {colored('P12 LOCATION','yellow')}:  System path to the p12 file found on the Node.
-        {colored('NODE ID','yellow')}:  The Node ID extracted from the p12 file.
+     {colored('IP ADDRESS','yellow')}:  The IP address of the node the command was issued against.
+  {colored('P12 FILE NAME','yellow')}:  Name of the p12 file found on the node.
+   {colored('P12 LOCATION','yellow')}:  System path to the p12 file found on the node.
+        {colored('NODE ID','yellow')}:  The node ID extracted from the p12 file.
   
   Example Usage
   -------------
@@ -1525,16 +1525,16 @@ def build_help(functions,command_obj):
           update the configuration file via the 'configure' command.
           
           {colored('sudo nodectl configure','cyan')}                                                 
-     {colored('IP ADDRESS','yellow')}:  The IP address of the Node the command was issued against.
-  {colored('P12 FILE NAME','yellow')}:  Name of the p12 file found on the Node.
-   {colored('$DAG ADDRESS','yellow')}:  The address associated with your p12 Node's wallet.
+     {colored('IP ADDRESS','yellow')}:  The IP address of the node the command was issued against.
+  {colored('P12 FILE NAME','yellow')}:  Name of the p12 file found on the node.
+   {colored('$DAG ADDRESS','yellow')}:  The address associated with your p12 node's wallet.
    {colored('$DAG BALANCE','yellow')}:  Balance of $DAG tokens found for your wallet, in the ledger.
      {colored('$USD VALUE','yellow')}:  Converts the $DAG tokens to $USD based on the current price per $DAG.
      {colored('$DAG PRICE','yellow')}:  Price CoinGecko returns for the $DAG at the current moment of the command issuance.
               
   It the {colored('-b','cyan')} command is not specified, immediately following the main wallet output information
   (as shown above) a table of data related to the last 350 snapshots will be presented to the
-  Node operator.  This will include:
+  Node Operator.  This will include:
   
     - {colored('TIMESTAMP','yellow')}
     - {colored('ORDINAL','yellow')}
@@ -1588,7 +1588,7 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The {colored('upgrade_nodectl','cyan')} command will launch the process requirements
-  to upgrade the nodectl binary on your Node.
+  to upgrade the nodectl binary on your node.
   
   optional:
   {colored('-v <version>','green')}
@@ -1611,7 +1611,7 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The {colored('revision','cyan')} command will launch the process requirements
-  to upgrade the nodectl binary on your Node to a revision of the same version.
+  to upgrade the nodectl binary on your node to a revision of the same version.
 
   This may be necessary if the digital hash signatures are invalid, you were 
   using a pre-release version that has been revised before stable release, or 
@@ -1631,10 +1631,10 @@ def build_help(functions,command_obj):
     if extended == "sync_node_time":
         help_text += title(extended)
         help_text += f'''
-  The {colored('sync_node_time','cyan')} command will update the Node's
+  The {colored('sync_node_time','cyan')} command will update the node's
   underlining Linux Debian distribution's datetime clock.  It will use
   the NTP service installed during nodectl installation to force an 
-  update of the Node's clock.
+  update of the node's clock.
   
   optional:
   {colored('-v','green')} - verbose mode
@@ -1662,7 +1662,7 @@ def build_help(functions,command_obj):
   found in the {colored('cn-config.yaml','green')} file.
   
     optional:
-    {colored('-p','green')} : print out only profile names on the Node
+    {colored('-p','green')} : print out only profile names on the node
   '''      
         
         
@@ -1767,11 +1767,11 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The {colored('install','cyan')} command does not take any arguments and will attempt
-  to turn your VPS, Bare Metal or Containers [box] into Constellation
-  Nodes!
+  to turn your VPS, Bare Metal or Containers [box] into Constellation Network
+  nodes!
   
   {colored('IMPORTANT','red',attrs=['bold'])}: This is for creating a brand new node on your box, 
-  and should {colored('not','red',attrs=['bold'])} be used on an existing Node. Doing so may have 
+  and should {colored('not','red',attrs=['bold'])} be used on an existing node. Doing so may have 
   unexpected and uncertain results.
   
   {colored('REQUIREMENTS','green',attrs=['bold'])}
@@ -1789,13 +1789,13 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The {colored(f'{extended}','cyan')} command takes optional arguments and will attempt
-  to {colored('upgrade','green',attrs=['bold'])} the local Constellation Node!
+  to {colored('upgrade','green',attrs=['bold'])} the local Constellation Network node!
   
   optional:
   {colored('--nodectl_only','green')}
         If added, nodectl will only upgrade the necessary components that nodectl
         may require to function properly.  It will avoid the need of installing and
-        restarting the Node's Tessellation services. 
+        restarting the node's Tessellation services. 
   {colored('--ni','green')} - ({colored('non-interactive','cyan')})
         If the {colored('--ni','cyan')} option is given at the command entry point, the upgrade 
         will not ask for interaction and will choose all default values 
@@ -1831,7 +1831,7 @@ def build_help(functions,command_obj):
      Constellation Network releases of the Tessellation packages.  It is best to keep 
      with the latest versions of {colored('Tessellation','cyan')} in order to keep up with new features, 
      security fixes, bug fixes, and overall compatibility with the Hypergraph cluster 
-     your Node plans to or is participating in.
+     your node plans to or is participating in.
      
   {colored('2.','blue',attrs=['bold'])} {colored('nodectl upgrade','green',attrs=['bold'])} As new versions of {colored('nodectl','cyan')} are released, there are 
      two types of releases.
@@ -1848,10 +1848,10 @@ def build_help(functions,command_obj):
            
            See {colored('sudo nodectl upgrade_nodectl help','cyan')}.  
            
-   {colored('WARNING','yellow',attrs=['bold'])}: The {colored(f'{extended}','cyan')} command will cause your Node to leave the cluster(s) it is 
+   {colored('WARNING','yellow',attrs=['bold'])}: The {colored(f'{extended}','cyan')} command will cause your node to leave the cluster(s) it is 
             participating in, during the upgrade process.  The {colored(f'nodectl','cyan')} utility will 
-            attempt to remove your Node from all clusters, upgrade, and then 
-            return your Node to the cluster(s).
+            attempt to remove your node from all clusters, upgrade, and then 
+            return your node to the cluster(s).
   '''      
         
         
@@ -1859,13 +1859,13 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The {colored('whoami','cyan')} command displays the external ip address 
-  of your Node. Unless optional -id is specified.
+  of your node. Unless optional -id is specified.
   
-  The external IP of your Node is the address that allows your Node
+  The external IP of your node is the address that allows your node
   to communicate with the rest of the systems on the Internet.  This
-  is the address that your Node will use to communicate with the rest
-  of the decentralized Nodes that make up the Global Layer0, cluster or
-  metagraph that your Node will attempt to communications 
+  is the address that your node will use to communicate with the rest
+  of the decentralized nodes that make up the Global Layer0, cluster or
+  metagraph that your node will attempt to communications 
   with via p2p connections and APIs.
   
   optional option:
@@ -1901,7 +1901,7 @@ def build_help(functions,command_obj):
         help_text += title(extended)
         help_text += f'''
   The {colored(extended,'cyan')} command does not take any arguments 
-  and displays the basic health elements of your Node.
+  and displays the basic health elements of your node.
 
   {colored("OK","green")}:   Falls within normal operating parameters
   {colored("LOW","red")}:  Falls outside of normal operating parameters
@@ -1944,8 +1944,8 @@ def build_help(functions,command_obj):
   This command takes several parameters
   (see below)
   
-  Search the Constellation Backend explorer and
-  pull the last 50 global snapshots.
+  Search the Constellation Network Backend explorer 
+  and pull the last 50 global snapshots.
   
   The command will output a paginated list of
   DAG addresses and the amount of DAG accumulated
@@ -1989,7 +1989,7 @@ def build_help(functions,command_obj):
         global network..
         
         If the{colored('-w <dag_wallet_address>','green')} is used, the {colored('-p <dag_wallet_address>','red')} will be ignored unless the profile
-        fails to be present on the Node (exist in the configuration).
+        fails to be present on the node (exist in the configuration).
         
   Example Usage
   -------------
@@ -2033,7 +2033,7 @@ def build_help(functions,command_obj):
     - number of nodes in 'WaitingForReady' state
     
   It will show you the profile searched (required)
-  and offer you confirmation that your Node is
+  and offer you confirmation that your node is
   seen on the cluster.
 
   required:
@@ -2051,9 +2051,9 @@ def build_help(functions,command_obj):
   may result in an error or false negative.
   
   {colored('NOTE:','yellow')} You can use the keyword {colored('self','green')}
-  to indicate the local (localhost) Node for either {colored('-s','cyan')} or {colored('-t','cyan')}
+  to indicate the local (localhost) node for either {colored('-s','cyan')} or {colored('-t','cyan')}
   
-  You may lookup a Node oridnal or hash value to find
+  You may lookup a node ordinal or hash value to find
   its associated inode link reference and ordinal or
   hash value.
   {colored('-t ordinal <target_ordinal>','green')}
@@ -2064,18 +2064,18 @@ def build_help(functions,command_obj):
   show this help screen
   # {colored('sudo nodectl find help','cyan')}
 
-  Check if your Node is listed/seen on the
-  cluster using a random source Node that is
+  Check if your node is listed/seen on the
+  cluster using a random source node that is
   already found on the cluster.
   # {colored('sudo nodectl find -p <profile_name>','cyan')}
 
-  Check if your Node is listed/seen on the
-  cluster using a specific source Node.
+  Check if your node is listed/seen on the
+  cluster using a specific source node.
   # {colored('sudo nodectl find -p <profile_name> -s <source_ip_host>','cyan')}
 
-  Check if your Node is listed/seen on the
-  cluster using a specific source Node and
-  a specific target Node (other then your own)
+  Check if your node is listed/seen on the
+  cluster using a specific source node and
+  a specific target node (other then your own)
   # {colored('sudo nodectl find -p <profile_name> -s <source_ip_host> -t <target_ip_host>','cyan')}
 
   Order of the values does not matter
@@ -2084,7 +2084,7 @@ def build_help(functions,command_obj):
   ---
   If our node is 10.1.1.1
   check if 10.1.1.1 is listed/seen by another
-  random Node on the cluster we are connected to
+  random node on the cluster we are connected to
   # {colored('sudo nodectl find -p dag-l0 ','cyan')}
   or
   # {colored('sudo nodectl find -p dag-l0 -t 10.1.1.1','cyan')}
@@ -2092,7 +2092,7 @@ def build_help(functions,command_obj):
   example 2
   ---
   If our node is 10.1.1.1
-  check if 10.1.1.1 is listed/seen by a Node
+  check if 10.1.1.1 is listed/seen by a node
   identified by the -s option on the cluster
   we are connected to
   # {colored('sudo nodectl find -p dag-l0 -s 10.2.2.2','cyan')}
@@ -2106,7 +2106,7 @@ def build_help(functions,command_obj):
   example 3
   ---
   If a different target node 10.1.1.2 identified by a -t
-  is listed/seen by a Node identified by the -s Node
+  is listed/seen by a node identified by the -s node
   option on the cluster we are connected to
   # {colored('sudo nodectl find -p dag-l0 -s 10.2.2.2 -t 10.1.1.2','cyan')}
 
@@ -2144,7 +2144,7 @@ def build_help(functions,command_obj):
   ========================
   {colored("-p","cyan")} <profile>  <== The name of the profile. This is important
                     because (for example) the {colored("app.log","cyan")} shares the 
-                    same log name for each profile.  The Node Operator will need
+                    same log name for each profile.  The node Operator will need
                     to specify which profile to review.
                   
   {colored("-l","cyan")} <log_name> <== Name of the log that you would like to review
@@ -2222,17 +2222,17 @@ def build_help(functions,command_obj):
   to coordinate data validation and consensus.
 
   From time to time, these files can build up and cause your 
-  Node to run out of disk space.
+  node to run out of disk space.
 
-  The clean snapshots command will offer the Node Operator the
+  The clean snapshots command will offer the node Operator the
   ability to clean out the older [{colored(" > 30 days ","cyan")}] files from the
-  Node.
+  node.
 
-  {colored("NOTE","yellow")}: In the event that your Node requires another snapshot file
+  {colored("NOTE","yellow")}: In the event that your node requires another snapshot file
   that has been deleted by this command (or manually by the
-  Node Operator [{colored("discouraged","red")}]) your Node may attempt
+  Node Operator [{colored("discouraged","red")}]) your node may attempt
   to download the snapshots again.  This will cause excessive
-  I/O and performance issues with your Node.
+  I/O and performance issues with your node.
 
   {colored("Continue with caution","yellow")}
         ''' 
@@ -2309,7 +2309,7 @@ def build_help(functions,command_obj):
   cluster, working with it's peers.
   
   Before you attempt to stop the service that is running your
-  Node's current profile(s)
+  node's current profile(s)
   {colored("sudo nodectl stop help","cyan")}
   
   A Node Operator should {colored("gracefully","green",attrs=['bold'])} exit
@@ -2331,7 +2331,7 @@ def build_help(functions,command_obj):
   The command takes multiple arguments.
   
   This command will execute a series of steps to
-  bring your Node offline and then restart it and
+  bring your node offline and then restart it and
   bring it back online.
   
   {colored("ORDER OF OPERATIONS","white",attrs=['bold'])}
@@ -2364,7 +2364,7 @@ def build_help(functions,command_obj):
         to 5 minutes.
         
         If '-w' is not specified, the join process will wait for the 
-        Node to reach a valid states (Ready States or Observing States) to
+        node to reach a valid states (Ready States or Observing States) to
         conclude it is properly joined, and continue.
 
         if {colored("-p all","cyan")} is specified, nodectl will continue
@@ -2405,7 +2405,7 @@ def build_help(functions,command_obj):
   {colored("do not completely trust with your financial assets.","red")}
     
   Import the {colored("private key","cyan")} produced by this command
-  into your StarGazer wallet in order to control your Node's 
+  into your StarGazer wallet in order to control your node's 
   wallet.
   
   Example Usage
@@ -2426,11 +2426,11 @@ def build_help(functions,command_obj):
   
   {colored("update_seedlist","cyan")} will pull down the latest 
   seedlist from the Constellation Network repositories. This
-  command can be used in the event your Node is unable to
+  command can be used in the event your node is unable to
   connect to the network.  
   
   Using the {colored("sudo nodectl check_seedlist","cyan")} you can confirm
-  if your Node is seen on the access lists; if not, issue the
+  if your node is seen on the access lists; if not, issue the
   {colored("update_seedlist","cyan")} command to attempt to correct the issue.
   
   {colored("NOTE","yellow")}: If you update the seedlist and still receive
@@ -2456,9 +2456,9 @@ def build_help(functions,command_obj):
         help_text += f'''
   
   {colored("show_service_status","cyan")} will review the processes
-  running on the Node, and display their current known state.
+  running on the node, and display their current known state.
 
-  OWNER: What profile on the Node owns the process being displayed.
+  OWNER: What profile on the node owns the process being displayed.
   SERVICE: Name of the service that the OWNER of the process is using.
   PID = Process ID of the service as assigned by the Debian systemd system 
         manager, used to handle the logging and various utilities for the 
@@ -2525,16 +2525,16 @@ def build_help(functions,command_obj):
   {colored("------","yellow")}
   
   It is recommended to link the Layer1 profile to Layer0 via
-  the directly connected Node {colored("[ for Nodes that are running dual layers","magenta")} 
+  the directly connected node {colored("[ for nodes that are running dual layers","magenta")} 
   {colored("l0 and l1 ]","magenta")} because the Node's own Layer0 is the most reliably known 
-  Node [ to itself ].  This increases stability because the Node will
+  node [ to itself ].  This increases stability because the node will
   know that Layer0 is up and operational and able to be reliably linked to.
   
   Layer1 profile services will "fail" when started prior to having
   a Layer0 profile to link to.  During a "join -p all" the services
-  need to be started already.  Since the Node did not join Layer0 
+  need to be started already.  Since the node did not join Layer0 
   yet, Layer1 service will fail before the join API call can be 
-  executed.  Therefor during a "join -p all" the Node's layer1
+  executed.  Therefor during a "join -p all" the node's layer1
   will need to have its service restarted after Layer0 joins.
   
   "join -p all" option is not reliable.
@@ -2557,7 +2557,7 @@ def build_help(functions,command_obj):
   required:
   {colored('-p <profile_name>','green')}  
     
-  After your Node has it's services properly and
+  After your node has it's services properly and
   successfully started
   {colored("sudo nodectl status help","cyan")}
   
@@ -2589,13 +2589,13 @@ def build_help(functions,command_obj):
   of your p12 file.
   
   If provided with a {colored('-p','cyan')} option, the p12 configured on the
-  Node via that profile, will be evaluated.
+  node via that profile, will be evaluated.
   
   If provided with a {colored('--file','cyan')} option the p12
   file supplied will be evaluated.
   
   P12 Name:  The name of the file being evaluated
-  P12 Location: Locati on of the p12 file
+  P12 Location: Location of the p12 file
   SHA1 FingerPrint:   Hash (or checksum), a fixed-size cryptographic hash function that produces a 
                       160-bit (20-byte) hash value. It is commonly used in various security 
                       applications and protocols to verify the integrity of data, including 
@@ -2661,7 +2661,7 @@ def build_help(functions,command_obj):
   {colored('-w <seconds>','green')} 
   
   The {colored('-w','cyan')} will engage the {colored('watch','cyan')} option. The watch option will continuously watch
-  your Node's profile status for the default of 15 seconds. If the watch option is 
+  your node's profile status for the default of 15 seconds. If the watch option is 
   followed by an integer above 5 seconds, the watch feature will refresh the 
   status for the Node Operator entered amount of seconds. If a number of 5 or 
   less is entered, a {colored('RANGE ERROR','red')} message will show on the CLI output and will 
@@ -2669,29 +2669,29 @@ def build_help(functions,command_obj):
     
   Status Command Elements:
     - {colored('profile','cyan')}: Which profile are we reviewing.
-    - {colored('service','cyan')}: The name of the profile's service that is used to run the Node.
-    - {colored('join state','cyan')}: The present stage of the Node.
+    - {colored('service','cyan')}: The name of the profile's service that is used to run the node.
+    - {colored('join state','cyan')}: The present stage of the node.
     - {colored('API TCP','cyan')}: The TCP/IP ports associated with the:
                - Public API
                - Peer-to-Peer API
                - Internal only CLI API.
-    - {colored('ordinals','cyan')}: State of ordinals associated with the Node.
-                - The latest ordinal on the Node.
-                - The last ordinal downloaded to the Node.
+    - {colored('ordinals','cyan')}: State of ordinals associated with the node.
+                - The latest ordinal on the node.
+                - The last ordinal downloaded to the node.
                 - The latest ordinal found on the block explorer.
-    - {colored('sessions','cyan')}: Comparison of the Node v. Cluster session.
-    - {colored('on network','cyan')}: True or False if the Node is on the correct cluster.
-    - {colored('up time','cyan')}: Amount of time the Node, VPS, and Cluster has been consecutively
+    - {colored('sessions','cyan')}: Comparison of the node's cluster session.
+    - {colored('on network','cyan')}: True or False if the node is on the correct cluster.
+    - {colored('up time','cyan')}: Amount of time the node, VPS, and Cluster has been consecutively
                up and running.
-    - {colored('nodeid','cyan')}: shortened abbreviation of the Node's public key.
-    - {colored('in consensus','cyan')}: True, False or Preparing. If in {colored('preparing','cyan')}, the Node may 
+    - {colored('nodeid','cyan')}: shortened abbreviation of the node's public key.
+    - {colored('in consensus','cyan')}: True, False or Preparing. If in {colored('preparing','cyan')}, the node may 
                     be in a stage that is not ready for consensus but is properly moving towards a 
                     stage that allow it to join consensus when reached.
                   
-  {colored('Note','yellow')}: When the Node starts up or restarts, it will review the latest ordinal,
+  {colored('Note','yellow')}: When the node starts up or restarts, it will review the latest ordinal,
         download that ordinal and then work its way backward to the last known ordinal
         it ever knew about.  This can cause the {colored('last dled','cyan')} to show
-        as a lower ordinal than the latest on the Node.
+        as a lower ordinal than the latest on the node.
     
   {colored('States','yellow')}: Initial,Offline,ReadyToJoin,StartingSession,SessionStarted,
           ReadyToDownload,WaitingForDownload,DownloadInProgress,
@@ -2699,8 +2699,8 @@ def build_help(functions,command_obj):
   
   {colored('Quick Status','green')}:
   This command will show an abbreviated version of the status command that
-  reviews the status of your Node based on the local API on the Node.
-  Local API calls can produce false information if the Node is
+  reviews the status of your node based on the local API on the node.
+  Local API calls can produce false information if the node is
   forked.  This produces a quick response because it does not
   
   Example Usage
@@ -2725,12 +2725,12 @@ def build_help(functions,command_obj):
     if extended == "change_ssh_port":
         help_text += title("change ssh port")
         help_text += f'''
-  To help secure your Node down a little further it is recommended 
+  To help secure your node down a little further it is recommended 
   to change the {colored("well known port number","yellow")} for SSH
   [ secure shell protocol ] from port {colored("22","cyan")} to a more
   indiscriminate port between [1024 and 65535].
   
-  This command will execute the SSH port change on your Node by updating
+  This command will execute the SSH port change on your node by updating
   the ssh configuration and restarting the SSH daemon.
 
   required:
@@ -2742,7 +2742,7 @@ def build_help(functions,command_obj):
   configured in the configuration file for all profiles.
   
   {colored("NOTE:","yellow",attrs=['bold'])} This is just a preventative measure and does not 
-  ensure your Node will be fully protected from nefarious actors.  
+  ensure your node will be fully protected from nefarious actors.  
   However, every step helps.
   
   {colored("WARNING:","red",attrs=['bold'])} is command will manipulate non-Tessellation Constellation 
@@ -2753,7 +2753,7 @@ def build_help(functions,command_obj):
   show this help screen
   # {colored(f'sudo nodectl change_ssh_port help','cyan')}  
   
-  ({colored("It is not recommended to use the same port as this example on your Node","yellow")})
+  ({colored("It is not recommended to use the same port as this example on your node","yellow")})
   change the port from 22 to 33333
   # {colored(f'sudo nodectl change_ssh_port --port 33333','cyan')}  
   ''' 
@@ -2762,8 +2762,8 @@ def build_help(functions,command_obj):
     if extended == "update_version_object":
         help_text += title("Update Versioning Object")
         help_text += f'''
-  This command can be used to manually update the Node's version
-  object.  This functionality is completed automatically by the 
+  This command can be used to manually update the node's version
+  object. This functionality is completed automatically by the 
   nodectl's versioning service every 5 minutes.
   
   To ensure that you have the latest version details you can 

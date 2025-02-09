@@ -131,13 +131,13 @@ class Installer():
                     ])  
                     if "20.04" in self.distro_version:
                         self.functions.print_paragraphs([
-                            ["Ubuntu 20.04 is",0], ["end of support",0,"yellow"], ["it is a security vunerablity.",2],
+                            ["Ubuntu 20.04 is",0], ["end of support",0,"yellow"], ["it is a security vulnerability.",2],
                         ])  
                     continue_warn = True
         elif "Debian" in self.distro_name:
             if "10" in self.distro_version: 
                 self.functions.print_paragraphs([
-                    ["Debian 10 is",0], ["end of support",0,"yellow"], ["it is a security vunerablity.",2],
+                    ["Debian 10 is",0], ["end of support",0,"yellow"], ["it is a security vulnerability.",2],
                 ])  
                 continue_warn = True
 
@@ -436,15 +436,15 @@ class Installer():
 
         if not self.options.cluster_config and not self.options.quick_install:
             self.functions.print_paragraphs([
-                ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
+                ["For a new installation, the Node Operator can choose to build this node based",0,"green"],
                 ["on various network clusters or metagraph pre-defined configurations.",2,"green"],
                 
-                ["If the network cluster or metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
+                ["If the network cluster or metagraph this node is being built to participate on is not part of this list, it is advised to",0],
                 ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
-                ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
+                ["The MainNet configuration template will only be a placeholder to allow this node to install all",0],
                 ["required components, to ensure successful implementation of this utility.",0],
                 
-                ["If a pre-defined network cluster or metagraph listed above is not the ultimate role of this future Node,",0],
+                ["If a pre-defined network cluster or metagraph listed above is not the ultimate role of this future node,",0],
                 ["following a successful installation, the next steps should be for you to refer to the metagraph",0],
                 ["Administrators of the metagraph you are expected to finally connect with. The Administrator",0,],
                 ["will offer instructions on how to obtain the required configuration file for said metagraph.",2],
@@ -485,7 +485,7 @@ class Installer():
         if not self.options.quick_install and not self.options.quiet: 
             self.parent.print_ext_ip()
 
-        self.log.logger[self.log_key].info("installer -> review future node for invalid old Node install or data.")
+        self.log.logger[self.log_key].info("installer -> review future node for invalid old node install or data.")
 
         found_files = self.functions.get_list_of_files({
             "paths": ["var/tessellation/","home/nodeadmin/tessellation/"],
@@ -584,7 +584,7 @@ class Installer():
             })
 
 
-    def handle_transfer_ssh_valiation(self):
+    def handle_transfer_ssh_validation(self):
         for n in range(1,3):
             do_validation = self.user.transfer_ssh_key()
             if not do_validation:
@@ -597,7 +597,7 @@ class Installer():
             self.log.logger[self.log_key].error(f"installer -> ssh key transfer validated [{ssh_path}] attempt [{n}] of [3]")
             if not self.options.quick_install:
                 self.functions.print_cmd_status({
-                    "text_start": "Error transfering SSH key",
+                    "text_start": "Error transferring SSH key",
                     "brackets": f"{n} of 3",
                     "status": "Failed" if n > 2 else "Retrying",
                     "status_color": "red",
@@ -605,7 +605,7 @@ class Installer():
                 })
             sleep(.8)
 
-        self.log.logger[self.log_key].error(f"installer -> ssh key transfer failed validatation: please manually verify the authorized_keys file and access to your Node after the installation and before closing the remote terminal. [{ssh_path}]")
+        self.log.logger[self.log_key].error(f"installer -> ssh key transfer failed validation: please manually verify the authorized_keys file and access to your node after the installation and before closing the remote terminal. [{ssh_path}]")
         if not self.options.quick_install: 
             self.functions.print_paragraphs([
                 ["",1],[" WARNING ",0,"yellow,on_red"], ["nodectl was unable to successful transfer the",0,"red"],
@@ -613,9 +613,9 @@ class Installer():
                 [self.user.username,0,"yellow"], ["after 3 attempts.",2,"red"],
                 ["The installation will continue; however, you may not be able to access the",0,"magenta"],
                 ["nodeadmin user:",0,"magenta"],[self.user.username,0,"yellow"], ["remotely via SSH until the SSH key pair",0,"magenta"],
-                ["authorization file is properly transfered over to the nodeadmin's",0,"magenta"],
+                ["authorization file is properly transferred over to the nodeadmin's",0,"magenta"],
                 [".ssh",0,"yellow"], ["folder.",2,"magenta"],
-                ["Please contact a System Administrator for further help, via the Constallation Netwwork Offical Discord server.",2],
+                ["Please contact a System Administrator for further help, via the Constellation Network Official Discord server.",2],
             ])
             self.functions.print_any_key({"newline":"bottom"})
 
@@ -700,7 +700,7 @@ class Installer():
             self.error_messages.error_code_messages({
                 "error_code": "int-354",
                 "line_code": "install_failed",
-                "extra": "unable to download required Constellation network Tessellation files"
+                "extra": "unable to download required Constellation Network Tessellation files"
             })
 
         if not self.options.quiet:
@@ -739,7 +739,7 @@ class Installer():
         if self.options.quick_install:
             if quick_ssh: 
                 # second element of quick install
-                self.handle_transfer_ssh_valiation()
+                self.handle_transfer_ssh_validation()
             else: self.user.create_debian_user()
         else:
             self.functions.print_any_key({"newline":"top"})
@@ -751,7 +751,7 @@ class Installer():
                 if not self.options.user_password:
                     self.user.ask_for_password()
                 self.user.create_debian_user()
-            self.handle_transfer_ssh_valiation()
+            self.handle_transfer_ssh_validation()
         
         # update permissions
         if self.options.p12_destination_path and path.isfile(self.options.p12_destination_path):
@@ -763,7 +763,7 @@ class Installer():
 
 
     def create_dynamic_elements(self):
-        self.log.logger[self.log_key].info("installer -> Node structural requirements.")
+        self.log.logger[self.log_key].info("installer -> node structural requirements.")
 
         if not self.options.quick_install:
             print("")
@@ -775,7 +775,7 @@ class Installer():
 
             self.functions.print_paragraphs([
                 [" IMPORTANT ",2,"white,on_red"], 
-                ["nodectl installation will install the new",0,"magenta"], ["Node",0,"blue","bold"], 
+                ["nodectl installation will install the new",0,"magenta"], ["node",0,"blue","bold"], 
                 ["with default",0,"magenta"],
                 ["network variables",2,"blue","bold"],
                 
@@ -791,7 +791,7 @@ class Installer():
 
             m_progress = {
                 "text_start": "Creating",
-                "brackets": "Node",
+                "brackets": "node",
                 "text_end": "directories",
                 "status": "running",
                 "newline": True
@@ -1173,7 +1173,7 @@ class Installer():
         
         if not self.options.quick_install:
             self.functions.print_paragraphs([
-                ["",1], ["nodectl has detected that an existing p12 migration to this new Node has been requested,",0,"yellow"],
+                ["",1], ["nodectl has detected that an existing p12 migration to this new node has been requested,",0,"yellow"],
                 [f"and now it needs to locate and migrate this private key file. {user_action}.",2,"yellow"],
             ])
         if verb == "Example":
@@ -1336,7 +1336,7 @@ class Installer():
                 self.options.existing_p12 = self.functions.confirm_action({
                     "yes_no_default": "n",
                     "return_on": "y",
-                    "prompt": "Are you migrating an existing p12 private key to this Node?",
+                    "prompt": "Are you migrating an existing p12 private key to this node?",
                     "exit_if": False,
                 })
                 if self.options.quick_install:
@@ -1363,12 +1363,12 @@ class Installer():
         if self.options.p12_migration_path or self.options.existing_p12:        
             self.functions.print_paragraphs([
                 ["",1], [" BEFORE WE BEGIN ",2,"grey,on_yellow"], 
-                ["If",0,"cyan","bold,underline"], ["this Node will be using",0],
+                ["If",0,"cyan","bold,underline"], ["this node will be using",0],
                 ["an existing",0], ["p12 private key",0,"yellow","bold"], [", the installation should be exited and the",-1],
                 ["existing",0,"yellow","bold"], ["p12 private key uploaded to a known secure local directory on this server.",0],
                 ["Alternatively, you can simply pause here and upload the p12 private key file, and then continue.",2],
                 
-                ["Please see the Constellation Doc Hub Validator section for instructions on how to do this.",2,"magenta"],
+                ["Please see the Constellation Network Documentation Hub",0], ["validator",0,"yellow"], ["section for instructions on how to do this.",2,"magenta"],
                 
                 ["Later in the installation, the Node Operator will be given the opportunity to migrate over the existing p12 private key.",0],
                 ["At the necessary time, a request for the",0], ["p12 name",0,"yellow","bold"], ["and",0], ["directory location",0,"yellow","bold"],
@@ -1496,7 +1496,7 @@ class Installer():
                 **self.config_obj["global_elements"],
             }
             
-            # download specific file to Node
+            # download specific file to node
             try:
                 self.functions.download_file({
                     "url": skeleton_yaml,
@@ -1815,8 +1815,8 @@ class Installer():
         next_step = 1
         if success:
             self.functions.print_paragraphs([
-                ["If your Node is found as",0], ["False",0,"red","bold"], ["on the",0],
-                ["check seed list(s)",0,"blue","bold"], ["output above, you will need to submit your NodeID for acceptance.",2],
+                ["If your node is found as",0], ["False",0,"red","bold"], ["on the",0],
+                ["check seed list(s)",0,"blue","bold"], ["output above, you will need to submit your node ID for acceptance.",2],
             ])     
         self.functions.print_paragraphs([
             ["Please follow the instructions below, as indicated.",2,"blue","bold"],
@@ -1828,11 +1828,11 @@ class Installer():
             next_step = 2   
 
         self.functions.print_paragraphs([
-            [f"{next_step}",0,"magenta","bold"], [")",-1,"magenta"], ["Submit nodeid to Constellation Discord Admins.",1,"cyan"],
+            [f"{next_step}",0,"magenta","bold"], [")",-1,"magenta"], ["Submit nodeid to Constellation Network Discord Admins.",1,"cyan"],
         ])     
         if self.options.environment == "mainnet":
             self.functions.print_paragraphs([
-                [f"{next_step+1 }",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node's wallet.",1,"cyan"],
+                [f"{next_step+1 }",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your node's wallet.",1,"cyan"],
             ])
         else:     
             self.functions.print_paragraphs([

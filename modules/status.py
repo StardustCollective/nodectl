@@ -169,7 +169,7 @@ class Status():
                 self.log.logger[self.log_key].error("unable to read file [/var/log/auth.log] during health check.")
                 self.functions.print_paragraphs([
                     [" FILE NOT FOUND ", 0, "red,on_yellow"],
-                    ["nodectl was unable to find a valid authorization log on the VPS or server that this Node was installed on?", 2, "red"],
+                    ["nodectl was unable to find a valid authorization log on the VPS or server that this node was installed on?", 2, "red"],
                     ["Are you sure this is a valid Debian based operating system?  Unable to properly access files", 0, "red"],
                     ["to verify security checks, exiting...", 2, "red"],
                 ])

@@ -104,7 +104,7 @@ class CLI():
         elif not self.auto_restart:
             self.functions.print_clear_line()
             self.functions.print_cmd_status({
-                "text_start": "Preparing Node details",
+                "text_start": "Preparing node details",
                 "text_color": "green",
                 "delay": .3
             })
@@ -129,7 +129,7 @@ class CLI():
         # self.log.logger[self.log_key].debug(f"cli - calling node Obj - [{command_obj}]")
         if self.primary_command != "quiet_install":
             self.functions.print_cmd_status({
-                "text_start": "Acquiring Node details"
+                "text_start": "Acquiring node details"
             })
         self.node_service = Node(command_obj)
         self.node_service.log = self.functions.log
@@ -508,11 +508,11 @@ class CLI():
                                 ["Current Session:",0,"magenta"], ["The metagraph cluster session",1],
                                 ["  Found Session:",0,"magenta"], ["Node's current cluster session",1],
                                 [" Latest Ordinal:",0,"magenta"], ["Node consensus ordinal",1],
-                                ["      Last DLed:",0,"magenta"], ["Last found ordinal downloaded by Node",1],
+                                ["      Last DLed:",0,"magenta"], ["Last found ordinal downloaded by node",1],
                                 ["Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
-                                ["      Consensus:",0,"magenta"], ["Is this Node participating in consensus rounds",1],
+                                ["      Consensus:",0,"magenta"], ["Is this node participating in consensus rounds",1],
                                 ["          Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
-                                ["         Uptime:",0,"magenta"], ["About of time Node or Cluster has been online",2],
+                                ["         Uptime:",0,"magenta"], ["Amount of time node or Cluster has been online",2],
                             ])
                         
                         if self.config_obj[profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
@@ -1359,7 +1359,7 @@ class CLI():
         self.functions.print_clear_line()
         self.functions.print_header_title({
             "line1": "CURRENT LOADED CLUSTERS",
-            "line2": "Based on local Node's config",
+            "line2": "Based on local node's config",
             "newline": "top",
             "upper": False,
         })
@@ -1473,8 +1473,8 @@ class CLI():
             print(" ") # spacer
 
         self.functions.print_paragraphs([
-            ["Note:",0,"yellow"], ["port configurations are for the local Node only.",0,"magenta"],
-            ["API ports are per Node customizable.",1,"magenta"],
+            ["Note:",0,"yellow"], ["port configurations are for the local node only.",0,"magenta"],
+            ["API ports are per node customizable.",1,"magenta"],
             ["sudo nodectl configure",2,"cyan","bold"],
         ])
 
@@ -1540,7 +1540,7 @@ class CLI():
 
 
     def show_node_states(self,command_list):
-        self.log.logger[self.log_key].info(f"Request to view known Node states by nodectl")
+        self.log.logger[self.log_key].info(f"Request to view known node states by nodectl")
         self.functions.check_for_help(command_list,"show_node_states")
         states = self.functions.get_node_states()
         
@@ -2309,7 +2309,7 @@ class CLI():
 
             self.functions.print_paragraphs([
                 ["",1],
-                ["nodectl installed:",0,"blue","bold"], ["Running on Node.",1],
+                ["nodectl installed:",0,"blue","bold"], ["Running on node.",1],
                 ["nodectl latest stable:",0,"blue","bold"], ["Recommended version.",1],
                 ["nodectl latest:",0,"blue","bold"], ["Newest, may be experimental and not stable.",1],
                 ["nodectl config:",0,"blue","bold"], ["nodectl's configuration version.",2],
@@ -2325,8 +2325,8 @@ class CLI():
         self.functions.print_states()
         
         self.functions.print_paragraphs([
-            ["Source:",0,"magenta"], ["Server this Node is joined to",1],
-            ["  Edge:",0,"magenta"], ["This Node",2],
+            ["Source:",0,"magenta"], ["Server this node is joined to",1],
+            ["  Edge:",0,"magenta"], ["This node",2],
             ["Note:",0,"yellow"], ["If the SOURCE is on a different network it will show",0], ["ApiNotReady",2,"cyan","underline"],
         ])
 
@@ -2644,13 +2644,13 @@ class CLI():
         if issues_found:
             self.log.logger[self.log_key].error(f"Check  connection request returned threshold or other error.")
             self.functions.print_paragraphs([
-                ["This Node is",0,"yellow"], ["not 100%",0,"red","underline"], ["connected",2,"yellow"],
+                ["This node is",0,"yellow"], ["not 100%",0,"red","underline"], ["connected",2,"yellow"],
                 
                 ["However, it meets a 8% the threshold",2,"green"],
                 
-                ["You can safely allow your Node to function.",0,"green","bold"], ["Note:",0,"green","underline"],
-                ["You may be missing Nodes because",0,"green"], ["other",0,"red"], 
-                ["Nodes are always coming and going on the network, or other Nodes may be the source of the",0,"green"],
+                ["You can safely allow your node to function.",0,"green","bold"], ["Note:",0,"green","underline"],
+                ["You may be missing nodes because",0,"green"], ["other",0,"red"], 
+                ["Nodes are always coming and going on the network, or other nodes may be the source of the",0,"green"],
                 ["issue(s)",2,"red"]
             ])
             
@@ -2659,7 +2659,7 @@ class CLI():
                 ["Issues were found.",0,"red","bold"], ["See help for details",1,"red"],
                 ["sudo nodectl check_connection help",2],
                 ["Although you do not have a full connection, the issue may",0,"red","bold"], 
-                ["not",0,"red","underline"], ["be directly correlated with your Node.",2,"red","bold"]
+                ["not",0,"red","underline"], ["be directly correlated with your node.",2,"red","bold"]
             ])            
 
         if print_error_flag or issues_found:
@@ -2676,7 +2676,7 @@ class CLI():
         else:
             self.functions.print_paragraphs([
                 ["",1], [" CONGRATULATIONS ",0,"grey,on_green"], ["No issues were found!",1,"green"],
-                ["This Node looks",0,"green"], ["healthy!",2,"green","bold"],
+                ["This node looks",0,"green"], ["healthy!",2,"green","bold"],
             ])
             
     
@@ -3522,16 +3522,16 @@ class CLI():
         
         self.functions.print_paragraphs([
             [" WARNING ",0,"yellow,on_red","bold"],
-            ["This will reboot your Node!",2,"yellow","bold"],
+            ["This will reboot your node!",2,"yellow","bold"],
             
-            ["This feature will allow your Node to properly leave the Tessellation network prior to soft booting (rebooting).",0],
-            ["This reboot will cause the Node Operator to lose access to the VPS or bare metal system that this Node is running on.",2],
+            ["This feature will allow your node to properly leave the Tessellation network prior to soft booting (rebooting).",0],
+            ["This reboot will cause the node Operator to lose access to the VPS or bare metal system that this node is running on.",2],
         ])
         
         if on_boot:
             self.functions.print_paragraphs([
                 ["nodectl has detected that you have",0],["on_boot",0,"yellow"], ["enabled!",0],
-                ["Once your VPS completes it startup, the Node should automatically rejoin the network clusters configured.",2],
+                ["Once your VPS completes it startup, the node should automatically rejoin the network clusters configured.",2],
             ])
         else:
             self.functions.print_paragraphs([
@@ -3567,7 +3567,7 @@ class CLI():
 
             self.functions.print_paragraphs([
                 ["Leave complete",1,"green","bold"],
-                ["Preparing to reboot.  You will lose access after this message appears.  Please reconnect to your Node after a few moments of patience, to allow your server to reboot, initialize, and restart the SSH daemon.",2]
+                ["Preparing to reboot.  You will lose access after this message appears.  Please reconnect to your node after a few moments of patience, to allow your server to reboot, initialize, and restart the SSH daemon.",2]
             ])
             sleep(2)
             do_reboot() 
@@ -3811,7 +3811,7 @@ class CLI():
                                 ["will exit this process.",2], 
                                 
                                 ["Cancelling an issued",0,"green"], ["--dip",0,"yellow"], ["option will",0,"green"], ["NOT",0,"green","bold"], ["harm or halt the join or restart process;",0,"green"],
-                                ["instead, it will just exit the visual aspects of this command and allow the Node process to continue in the",0,"green"],
+                                ["instead, it will just exit the visual aspects of this command and allow the node process to continue in the",0,"green"],
                                 ["background.",2,"green"],
                                 
                                 ["Issue:",0,],["sudo nodectl download_status help",1,"yellow"],
@@ -3886,14 +3886,14 @@ class CLI():
                     self.log.logger[self.log_key].error(f"cli_join -> possible issue found | profile [{self.profile}] issue [WaitingForDownload]")
                     self.functions.print_paragraphs([
                         ["",2],["nodectl has detected",0],["WaitingForDownload",0,"red","bold"],["state.",2],
-                        ["This is an indication that your Node may be stuck in an improper state.",0],
+                        ["This is an indication that your node may be stuck in an improper state.",0],
                         ["Please contact technical support in the Discord Channels for more help.",1],
                     ])                    
                 if snapshot_issues == "dip_break":
                     self.log.logger[self.log_key].warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
                     self.functions.print_paragraphs([
                         ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],["state.",2],
-                        ["This is",0], ["not",0,"green","bold"], ["an issue; however, Nodes may take",0],
+                        ["This is",0], ["not",0,"green","bold"], ["an issue; however, nodes may take",0],
                         ["longer than expected time to complete this process.  nodectl will terminate the",0],
                         ["watching for peers process during this join in order to avoid undesirable wait times.",1],
                     ])       
@@ -3906,16 +3906,16 @@ class CLI():
                     ["continuing join request.",1]
                 ])
             elif not result and not tolerance_result:
-                self.log.logger[self.log_key].error(f"cli_join -> may have found an issue during join process; however, this may not be of concern if the Node is in proper state | profile [{self.profile}]")
+                self.log.logger[self.log_key].error(f"cli_join -> may have found an issue during join process; however, this may not be of concern if the node is in proper state | profile [{self.profile}]")
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING ",0,"yellow,on_red","bold"], ["Issue may be present?",0,"red"],
-                    ["Please issue the following command to review the Node's details.",1,"red"], 
+                    ["Please issue the following command to review the node's details.",1,"red"], 
                     ["sudo nodectl check-connection -p <profile_name>",1],
                     ["Follow instructions if error persists",2,"red"],
                     
-                    [" NOTE ",0,"grey,on_green"], ["Missing a few Nodes on the Hypergraph independent of the network, is",0,"green"],
-                    ["not an issue.  There will be other Nodes leaving and joining the network; possibly, at all times.",1,"green"],
+                    [" NOTE ",0,"grey,on_green"], ["Missing a few nodes on the Hypergraph independent of the network, is",0,"green"],
+                    ["not an issue.  There will be other nodes leaving and joining the network; possibly, at all times.",1,"green"],
                 ])
             if offline_msg:
                 self.functions.print_paragraphs([
@@ -4086,7 +4086,7 @@ class CLI():
                         self.log.logger[self.log_key].debug(f"cli_leave -> leave process waiting for | profile [{profile}] state to be [leaving] | ip [127.0.0.1]")
                         leave_obj = self.send.scrap_log({
                             "profile": profile,
-                            "msg": "Wait for Node to transition to leaving",
+                            "msg": "Wait for node to transition to leaving",
                             "value": "Node state changed to=Leaving",
                             "key": "message",
                             "thread": False,
@@ -4100,7 +4100,7 @@ class CLI():
                         timestamp = leave_obj["@timestamp"]
                     except:
                         self.log.logger[self.log_key].warning(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
-                        leave_str = "to allow Node to gracefully leave"
+                        leave_str = "to allow node to gracefully leave"
                         skip_log_lookup = True
                         sleep(.5)
 
@@ -4125,7 +4125,7 @@ class CLI():
                             self.log.logger[self.log_key].debug(f"cli_leave -> checking for Offline status | profile [{profile}] | ip [127.0.0.1]")
                             leave_obj = self.send.scrap_log({
                                 "profile": profile,
-                                "msg": "Wait for Node to go offline",
+                                "msg": "Wait for node to go offline",
                                 "value": "Node state changed to=Offline",
                                 "key": "message",
                                 "timeout": 20,
@@ -4250,7 +4250,7 @@ class CLI():
                 self.functions.event = True
                 if threading:
                     _ = executor.submit(self.functions.print_spinner,{
-                        "msg": f"Pulling Node ID, please wait",
+                        "msg": f"Pulling node ID, please wait",
                         "color": "magenta",
                     })                     
                 if outside_node_request:
@@ -4936,11 +4936,11 @@ class CLI():
             ["- Press the tab key repeatedly until the CONFIRM or OK option is highlighted.",1,"yellow"], 
             ["- Once highlighted, press the ENTER key to allow the upgrade process to complete.",2,"yellow"],
 
-            ["Any necessary modifications to core system elements required for the Node to operate successfully",0],
+            ["Any necessary modifications to core system elements required for the node to operate successfully",0],
             ["will be automated through the standard nodectl upgrade process. Therefore, we can accept the",0],
             ["defaults during this process.",2],
 
-            ["Advanced users have the flexibility to select any options required for customized or non-Node operations being completed simultaneously on this VPS.",2,"red"],
+            ["Advanced users have the flexibility to select any options required for customized or non-node operations being completed simultaneously on this VPS.",2,"red"],
         ])
 
         if interactive:
@@ -5008,7 +5008,7 @@ class CLI():
         if reboot_status == "YES":
             self.functions.print_paragraphs([
                 ["",1],["If a message has been presented requesting a system reboot, please gracefully",0,"yellow"],
-                ["exit any clusters that this Node is currently participating in before proceeding with the reboot.",0,"yellow"],
+                ["exit any clusters that this node is currently participating in before proceeding with the reboot.",0,"yellow"],
                 ["The following command will accomplish this for you.",2,"yellow"],
             ])
             self.build_node_class()
@@ -5195,7 +5195,7 @@ class CLI():
 
         if self.config_obj[profile]["layer"] > 0 and caller == "check_consensus" and not self.auto_restart:
             self.functions.print_paragraphs([
-                ["Currently, Nodes participating in layer1 clusters do not participate in consensus rounds.",2,"red"],
+                ["Currently, nodes participating in layer1 clusters do not participate in consensus rounds.",2,"red"],
             ])
             exit(0)
 
@@ -5561,7 +5561,7 @@ class CLI():
             [" WARNING !!",2,"yellow,on_red","bold"],
             ["This is a",0,"white","bold"], ["dangerous",0,"red","bold,underline"], ["command.",2,"white","bold"],
             ["A",0], ["backup",0,"cyan","underline"], ["of your old",0], ["p12",0, "yellow"], 
-            ["file will be placed in the following Node VPS location.",1],
+            ["file will be placed in the following node VPS location.",1],
             ["directory:",0], [self.functions.config_obj[profile]["directory_backups"],2,"yellow","bold"]
         ])
 
@@ -5803,13 +5803,13 @@ class CLI():
                 [" WARNING ",0,"red,on_yellow"], ["This is an advanced feature and should not",0,"red"],
                 ["be used unless",0,"red"], ["ABSOLUTELY",0,"yellow"],
                 ["necessary.",1,"red"],
-                ["This feature can lead to unpredictable and undesired affects on your existing Node.",2,"red"],
-                ["nodectl will take your Node offline first.",2],
+                ["This feature can lead to unpredictable and undesired affects on your existing node.",2,"red"],
+                ["nodectl will take your node offline first.",2],
             ])
 
         self.functions.print_paragraphs([
             ["To prevent",0,"blue","bold"], ["false-negatives",0,"red"], 
-            ["nodectl will take your Node offline first.",2,"blue","bold"],
+            ["nodectl will take your node offline first.",2,"blue","bold"],
         ])
 
         if "-y" not in command_list:
@@ -5910,17 +5910,17 @@ class CLI():
 
         self.functions.print_paragraphs([
             ["",1], [" WARNING ",0,"red,on_yellow"], ["nodectl is not integrated directly with",0],
-            ["Tessellation, which is the",0], ["definitive authority",0,"green","bold"], ["for verifying a Node's",0],
+            ["Tessellation, which is the",0], ["definitive authority",0,"green","bold"], ["for verifying a node's",0],
             ["validity. Therefore, this feature uses the term",0],
             ["'in order'",0,"green"], ["instead of",0], ["'valid'.",0,"green"], ["According to the organization, based",0],
             ["on the pairing of ordinals to hashes and the last known snapshot age, nodectl considers whether or not",0],
-            ["the Node to be in proper order.",2],
+            ["the node to be in proper order.",2],
 
-            ["If your Node reaches",0], ["WaitingForDownload",0,"red"], ["and this command indicates that",0],
-            ["the chain on this Node is",0], ["'in order',",0,"green"], ["it only means that the chain elements",0],
+            ["If your node reaches",0], ["WaitingForDownload",0,"red"], ["and this command indicates that",0],
+            ["the chain on this node is",0], ["'in order',",0,"green"], ["it only means that the chain elements",0],
             ["appear to be correctly aligned.",2],
             
-            ["For a definitive assessment of the Node's snapshot DAG chain, nodectl would need to replicate",0],
+            ["For a definitive assessment of the node's snapshot DAG chain, nodectl would need to replicate",0],
             ["Tessellation's functionality; instead, it can only direct you to the use of Tessellation's",0],
             ["protocol [HGTP] to further analysis.",2],
         ])
@@ -5954,8 +5954,8 @@ class CLI():
         if count_results["length_of_files"] < 1:
             self.functions.print_paragraphs([
                 ["",1],[" WARNING ",0,"yellow,on_red"], 
-                ["nodectl was unable to find any ordinal, snapshot, or hash history on this Node?",2,"red"],
-                ["In most cases, this indicates that the Node is either new or has never participated",0],
+                ["nodectl was unable to find any ordinal, snapshot, or hash history on this node?",2,"red"],
+                ["In most cases, this indicates that the node is either new or has never participated",0],
                 ["on the configured cluster.",2],
                 ["nodectl will now exit.",2,"blue","bold"],
             ])
@@ -5964,10 +5964,10 @@ class CLI():
         if count_results["solo_count"] < 1:
             self.functions.print_paragraphs([
                 ["",1],[" IN ORDER ",0,"blue,on_green"], 
-                ["This Node's snapshot inventory is in order and does not need any further action.",0,"green"],
+                ["This node's snapshot inventory is in order and does not need any further action.",0,"green"],
                 ["nodectl will quit with no action.",2,"green"],
 
-                ["If your Node is reaching the",0], ["WaitingForDownload",0,"red"], ["state, the Node may have an",0],
+                ["If your node is reaching the",0], ["WaitingForDownload",0,"red"], ["state, the node may have an",0],
                 ["invalid ordinal/hash match, or something is wrong that is out of the scope of nodectl's' abilities.",0],
                 ["It is recommended to reach out to Constellation Network support for further troubleshooting.",2],
 
@@ -6033,7 +6033,7 @@ class CLI():
            
         self.functions.print_paragraphs([
             [f"Removal operations complete, please restart profile [{profile}]",0],
-            ["to return your Node to operational status.",2],
+            ["to return your node to operational status.",2],
         ])
 
 
@@ -6071,8 +6071,8 @@ class CLI():
             ["USE AT YOUR OWN RISK!",1,"red","bold"], 
             ["The",0], ["starchiver",0,"yellow"], 
             ["script is not supported by Constellation Network; however,",0],
-            ["it is a useful script included in nodectl's tool set to help expedite a Node's ability to",0],
-            ["join the Constellation cluster of choice.",1],
+            ["it is a useful script included in nodectl's tool set to help expedite a node's ability to",0],
+            ["join the Constellation Network cluster of choice.",1],
             ["This will be executed on:",0,"blue","bold"],[self.config_obj[profile]['environment'],1,"yellow"],
             [f"{self.config_obj[profile]['environment']} cluster profile:",0,"blue","bold"],[profile,2,"yellow"],
         ])
@@ -6238,10 +6238,10 @@ class CLI():
                 ["are able to join the cluster with as little delay as possible.",2],
 
                 ["The longer you delay, the more snapshots may be produced on the cluster,",0,"magenta"],
-                ["the longer it will take for your Node to download the additional snapshots, complete acquisition of the",0,"magenta"],
+                ["the longer it will take for your node to download the additional snapshots, complete acquisition of the",0,"magenta"],
                 ["full chain, and join consensus.",2,"magenta"],
                 
-                ["If",0,"green"],["auto_restart",0,"yellow","bold"], ["is enabled on this Node, if will restart the",0,"green"],
+                ["If",0,"green"],["auto_restart",0,"yellow","bold"], ["is enabled on this node, if will restart the",0,"green"],
                 ["service automatically for you.",1,"green"],
             ])
 
@@ -6715,9 +6715,9 @@ class CLI():
         elif "enable" in command_list:
             self.print_paragraphs([
                 [" WARNING ",0,"red,on_yellow"], 
-                ["This will allow temporary access to your VPS and Node by an external entity",0,"red","bold"],
-                ["In order to administer your Node this remote access will have",0,"red"],
-                ["sudo",0,"yellow"], ["rights to your VPS which will offer unfettered access to your Node",0,"red","bold"],
+                ["This will allow temporary access to your VPS and node by an external entity",0,"red","bold"],
+                ["In order to administer your node this remote access will have",0,"red"],
+                ["sudo",0,"yellow"], ["rights to your VPS which will offer unfettered access to your node",0,"red","bold"],
                 ["including:",1,"red","bold"],
                 ["  - access to root",1],
                 ["  - access to your p12 hot wallet",1],
@@ -6839,7 +6839,7 @@ class CLI():
                                                  
             self.functions.print_paragraphs([
                 [" WARNING ",1,"red,on_yellow"], ["The following operation should be considered temporary and",0],
-                ["has the possibility",0,"red"],["of causing a",0],["a minor security risk,",0,"red"],["on your Node.",2],
+                ["has the possibility",0,"red"],["of causing a",0],["a minor security risk,",0,"red"],["on your node.",2],
 
                 [f"This command will create a copy of the requested file",0,"magenta"],
                 [file,0,"yellow"], ["in the root of a non-root user's home directory,",0,"magenta"],
@@ -6847,9 +6847,9 @@ class CLI():
 
                 [f"Once you have completed the backup of your file",0,"green"],
                 [file,0,"yellow"],["it is",0,"green"],
-                ["recommended",0,"green","bold"], ["that you return to your Node and re-run",0,"green"],
+                ["recommended",0,"green","bold"], ["that you return to your node and re-run",0,"green"],
                 ["this command with the",0,"green"], ["--cleanup",0,"yellow"], ["option, to remove and",0,"green"],
-                ["secure your Node's nodeadmin user from accessing root files.",2,"green"],
+                ["secure your node's nodeadmin user from accessing root files.",2,"green"],
             ])
             exists = self.functions.test_file_exists(root_path,path.basename(file))
             if exists and exists != "override":
@@ -6905,16 +6905,16 @@ class CLI():
 
             self.functions.print_paragraphs([
                 [" WARNING ",1,"red,on_yellow"], ["The following operation will temporarily",0],
-                ["create a minor security risk,",0,"red"],["on your Node.",2],
+                ["create a minor security risk,",0,"red"],["on your node.",2],
 
                 ["This command will create copies of your known p12 files, place them into a non-root",0,"magenta"],
                 ["user's home directory, and change the",0,"magenta"],
                 ["permissions for access via a",0,"magenta"], ["non-root",0,"red","bold"], ["user until removed.",2,"magenta"],
 
                 ["Once you have completed the backup of your p12 keystore files, it is",0,"green"],
-                ["very",0,"green","bold"], ["important that you return to your Node and re-run",0,"green"],
+                ["very",0,"green","bold"], ["important that you return to your node and re-run",0,"green"],
                 ["this command with the",0,"green"], ["--cleanup",0,"yellow"], ["option, to remove and",0,"green"],
-                ["secure your Node's p12 access to proper status.",2,"green"],
+                ["secure your node's p12 access to proper status.",2,"green"],
             ])
             self.functions.confirm_action({
                 "yes_no_default": "n",
@@ -7093,7 +7093,7 @@ class CLI():
                     ])
             else:
                 self.functions.print_paragraphs([
-                    ["This feature will change the port number used to access this Node via the Secure Shell Protocol!",1],
+                    ["This feature will change the port number used to access this node via the Secure Shell Protocol!",1],
                     ["Make sure to update your VPS firewall to match!",1,"red","bold"]
                 ])
 
@@ -7364,10 +7364,10 @@ class CLI():
                 custom_version = f"v{custom_version}"
             self.functions.print_paragraphs([
                 [" WARNING ",0,"red,on_yellow"], ["This will skip verification checks and",0],
-                ["attempt",0,"red","bold"], ["to upgrade/downgrade your Node's nodectl version to:",0], [custom_version,2,"yellow","bold"],
+                ["attempt",0,"red","bold"], ["to upgrade/downgrade your node's nodectl version to:",0], [custom_version,2,"yellow","bold"],
                 ["If you decide to downgrade to a version that meets or falls below the upgrade path requirements",0,"red"],
-                ["for nodectl, you might encounter unexpected consequences that could make your Node unmanageable. In these",0,"red"],
-                ["situations, it is advisable to re-create the Node and perform a clean installation.",2,"red"],
+                ["for nodectl, you might encounter unexpected consequences that could make your node unmanageable. In these",0,"red"],
+                ["situations, it is advisable to re-create the node and perform a clean installation.",2,"red"],
                 ["hint:",0],["sudo nodectl upgrade_path",2,"yellow"],
                 ["Are you sure you want to continue?",1,"magenta"],
             ])

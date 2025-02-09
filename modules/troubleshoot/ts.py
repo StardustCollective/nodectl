@@ -60,7 +60,7 @@ class Troubleshooter():
                         },
                         {
                             "find":"not in seedlist",
-                            "user_msg": "This Node is not authorized to join the cluster. Seed list issue.",
+                            "user_msg": "This node is not authorized to join the cluster. Seed list issue.",
                             "error_msg": "join_error",
                             "rank": 1,
                         },

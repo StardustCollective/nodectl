@@ -109,7 +109,7 @@ class DownloadStatus():
                 if self.initialize:
                     self.functions.event = True
                     _ = executor.submit(self.functions.print_spinner,{
-                        "msg": f"Loading Node data",
+                        "msg": f"Loading node data",
                         "color": "cyan",
                     })     
                 with open(self.log_file, 'r') as file:
@@ -304,10 +304,10 @@ class DownloadStatus():
         if state != "WaitingForDownload": return
         self.functions.print_clear_line(5)
         self.functions.print_paragraphs([
-            ["WaitingForDownload",0,"yellow"], ["state pauses the Node operation, nothing to report.",1],
+            ["WaitingForDownload",0,"yellow"], ["state pauses the node operation, nothing to report.",1],
         ])
         self.functions.print_cmd_status({
-            "text_start":"Node Ordinal goal:",
+            "text_start":"Node ordinal goal:",
             "brackets": str(self.dip_status['latest']),
             "status": state,
             "status_color": "yellow",
@@ -364,14 +364,14 @@ class DownloadStatus():
             if self.valid_output_received:
                 self.functions.print_paragraphs([
                     [" COMPLETED ",0,"grey,on_green","bold"], 
-                    ["This Node is no longer in",0],["DownloadInProgress",0,"yellow"],["state.",1],
+                    ["This node is no longer in",0],["DownloadInProgress",0,"yellow"],["state.",1],
                     ["Cancelling progress indicators.",2],
                 ])
             else:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"red,on_yellow"], ["Request to watch the progress of",0,"red"],
                     ["the state: DownloadInProgress was requested, however",0,"red"],
-                    ["this Node does not seem to be in this state.",1,"red"],
+                    ["this node does not seem to be in this state.",1,"red"],
                     ["Nothing to report on...",2,"yellow"],
                 ])
             self.functions.print_paragraphs([

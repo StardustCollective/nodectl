@@ -43,7 +43,7 @@ class Logging():
             print("  Unknown logging error was found.")
             print("  Please try again.")
             print("  If error persists you may need to reinstall nodectl?")
-            print("  Please seek help on the Constellation Discord channels.")
+            print("  Please seek help on Constellation Network's Discord channels.")
             print(f"  Error: {e}")
             exit(1)
                 

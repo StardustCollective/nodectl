@@ -180,7 +180,7 @@ class Functions():
             from .data.coingecko_coin_list import coin_gecko_db
             return coin_gecko_db
         except Exception as e:
-            self.log.logger[self.log_key].error(f"functions -> get_local_coin_db -> error occurerd, skipping with error [{e}]")
+            self.log.logger[self.log_key].error(f"functions -> get_local_coin_db -> error occurred, skipping with error [{e}]")
             cprint("  An unknown error occured, please try again","red")
         
 
@@ -973,10 +973,10 @@ class Functions():
                         return node[desired_key]
                     
                 except Exception as e:
-                    self.log.logger[self.log_key].warning(f"unable to find a Node with a State object, trying again | error {e}")
+                    self.log.logger[self.log_key].warning(f"unable to find a node with a State object, trying again | error {e}")
                     sleep(1)
                 if n > 9:
-                    self.log.logger[self.log_key].error(f"unable to find a Node on the current cluster with [{desired_key}] == [{desired_value}]") 
+                    self.log.logger[self.log_key].error(f"unable to find a node on the current cluster with [{desired_key}] == [{desired_value}]") 
                     if not self.auto_restart:
                         print(colored("  WARNING:","yellow",attrs=['bold']),colored(f"unable to find node in [{desired_value}]","red"))
                         self.print_timer({
@@ -1960,7 +1960,7 @@ class Functions():
             self.event = True
             if not self.auto_restart:
                 _ = executor.submit(self.print_spinner,{
-                    "msg": f"Pulling Node balances, please wait",
+                    "msg": f"Pulling node balances, please wait",
                     "color": "magenta",
                 })                     
 
@@ -2433,7 +2433,7 @@ class Functions():
         # if there is not a configuration (during installation)
         # check what the primary network is
         # this method will need to be refactored as new network clusters
-        # register with Node Garage or Constellation (depending)
+        # register with Constellation (depending)
         try:
             self.environment_name = self.config_obj[self.default_profile]["environment"]             
         except:

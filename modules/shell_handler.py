@@ -910,7 +910,7 @@ class ShellHandler:
                 error_code = "sh-692"
                 extra = self.called_command
                 verb = "to" if self.called_command == "join" else "via"
-                extra2 = f"You will not be able to {self.called_command} your Node {verb} itself."
+                extra2 = f"You will not be able to {self.called_command} your node {verb} itself."
             static_peer = self.functions.get_ext_ip()
             static_peer_port = self.config_obj[self.profile]["public_port"]
         else:
@@ -1513,7 +1513,7 @@ class ShellHandler:
         
         if self.install_upgrade == "installation":
             print(f'  {colored("WARNING","red",attrs=["bold"])} {colored("You about to turn this VPS or Server into a","red")}')
-            cprint("  Constellation Network Validator Node","green",attrs=['bold'])
+            cprint("  Constellation Network validator node","green",attrs=['bold'])
         else:
             if self.auto_restart_pid:
                 self.log.logger[self.log_key].info("terminating auto_restart in order to upgrade")  
@@ -1945,7 +1945,7 @@ class ShellHandler:
         if warning:
             self.functions.print_paragraphs([
                 [" ERROR ",0,"yellow,on_red"], ["Auto Restart",0,"red","underline"], 
-                ["cannot be manually enabled if the Node's passphrases are not set in the configuration.",0,"red"],
+                ["cannot be manually enabled if the node's passphrases are not set in the configuration.",0,"red"],
                 ["nodectl",0,"blue","bold"],["will not have the ability to authenticate to the HyperGraph in an automated fashion.",2,"red"],
                 ["Action cancelled",1,"yellow"],
             ])

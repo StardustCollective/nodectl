@@ -331,7 +331,7 @@ class Configurator():
 
                 ["Before continuing, please make sure you have the following checklist completed, to save time.",2,"yellow"],
                 
-                ["You should have obtained this information during the installation of your",0], ["Node",0,"blue","bold"],
+                ["You should have obtained this information during the installation of your",0], ["node",0,"blue","bold"],
                 ["originally.",2],
                 
                 ["  - p12 file name",1,"magenta"],
@@ -372,7 +372,7 @@ class Configurator():
         else:
             self.c.functions.print_paragraphs([
                 ["",1],["New configuration detected. Cleanup of old services and data will be skipped.",0,"red"],
-                ["Depending on your situation you may have old data and services from an abandoned profiles on this Node.",2,'red'],
+                ["Depending on your situation you may have old data and services from an abandoned profiles on this node.",2,'red'],
             ])
 
         self.build_service_file({
@@ -409,18 +409,18 @@ class Configurator():
                 "newline": "bottom"
             })
             self.c.functions.print_paragraphs([
-                ["Scenario One:",1,"cyan","bold"], ["This entails setting up a brand new Node. In this case, it is highly recommended that you",0,"green"],
-                ["exit here",0,"red","bold"], ["and utilize the installer to build your new Node. Refer to the documentation for full details and options on how to use the installer.",1,"green"],
+                ["Scenario One:",1,"cyan","bold"], ["This entails setting up a brand new node. In this case, it is highly recommended that you",0,"green"],
+                ["exit here",0,"red","bold"], ["and utilize the installer to build your new node. Refer to the documentation for full details and options on how to use the installer.",1,"green"],
                 ["recommended:",0,"yellow"], ["sudo nodectl install –quick-install",2],
 
-                ["Scenario Two:",1,"cyan","bold"], ["This involves an existing Node where you need to apply a new configuration to handle new features or add",0,"green"],
+                ["Scenario Two:",1,"cyan","bold"], ["This involves an existing node where you need to apply a new configuration to handle new features or add",0,"green"],
                 ["secondary profiles that",0,"green"], ["do not",0,"yellow"], 
                 ["share the same profile name and",0,"green"], ["will not",0,"yellow"], ["interfere with the existing configuration (clusters and profiles)",0,"green"],
-                ["already on this Node.",2,"green"],
+                ["already on this node.",2,"green"],
 
                 ["Scenario Three:",1,"cyan","bold"], ["You would like to",0,"green"], ["migrate",0,"red","bold"], ["or",0,"green"], ["replace",0,"red","bold"],
-                ["the configuration on this existing Node for use on another cluster.",1,"green"], 
-                ["Example:",0],["Migrate a Node from Constellation Network's",0,"green"], ["IntegrationNet",0,"yellow"], ["to Constellation Network's",0,"green"],
+                ["the configuration on this existing node for use on another cluster.",1,"green"], 
+                ["Example:",0],["Migrate a node from Constellation Network's",0,"green"], ["IntegrationNet",0,"yellow"], ["to Constellation Network's",0,"green"],
                 ["MainNet.",2,"yellow"],
 
                 ["Scenario Four:",1,"cyan","bold"], ["You have encountered a configuration error that is preventing you from continuing to use nodectl",0,"red"],
@@ -439,8 +439,8 @@ class Configurator():
                 ["The first step is to determine the true purpose of your intentions that brought you to the new configuration configurator section.",2,"green"],
 
                 ["Definitions",1,"cyan","bold"],
-                ["Cluster:",0,"yellow"],["A network of connected Nodes.",1],
-                ["Hypergraph:",0,"yellow"],["Constellation's main layer0 & layer1 cluster.",1],
+                ["Cluster:",0,"yellow"],["A network of connected nodes.",1],
+                ["Hypergraph:",0,"yellow"],["Constellation Network's main layer0 & layer1 cluster.",1],
                 ["metagraph:",0,"yellow"],["Business or non-constellation owned cluster, that links to the metagraph layer0 & Hypergraph layer0 cluster.",2],
             ])
 
@@ -493,9 +493,9 @@ class Configurator():
                 print_scenarios()
                 self.c.functions.print_paragraphs([
                     ["You are here because scenario",0,"green"], ["THREE",0,"red","bold"], ["was chosen. There may be a situation where you are migrating your node to",0,"green"],
-                    ["another (new) cluster that happens to share the same profile name as the existing profile name already on this Node.",2,"green"],
-                    ["Regardless, it is important to stop your Node’s original",0,"green"],
-                    ["profile by issuing a leave and stop command to remove your Node from the old cluster. Failure to do so can lead",0,"green"],
+                    ["another (new) cluster that happens to share the same profile name as the existing profile name already on this node.",2,"green"],
+                    ["Regardless, it is important to stop your node’s original",0,"green"],
+                    ["profile by issuing a leave and stop command to remove your node from the old cluster. Failure to do so can lead",0,"green"],
                     ["to undesired and unknown results or errors.",1,"green"],
                     ["Command:",0,"yellow"], ["sudo nodectl stop -p <profile_name>",2,"cyan"],
                     ["nodectl will prompt you to assist in the removal of data related to the old cluster you are migrating from later in this process.",2,"red"]
@@ -687,8 +687,8 @@ class Configurator():
             
             questions = {
                 "nodeadmin": {
-                    "question": f"  {colored('Enter in the admin username for this Node','cyan')}",
-                    "description": "This is the Debian Operating system username used to administer your Node. It was created during Node installation. Avoid the 'root', 'admin', or 'ubuntu' user.",
+                    "question": f"  {colored('Enter in the admin username for this node','cyan')}",
+                    "description": "This is the Debian Operating system username used to administer your node. It was created during node installation. Avoid the 'root', 'admin', or 'ubuntu' user.",
                     "default": nodeadmin_default,
                     "required": False,
                 },
@@ -709,7 +709,7 @@ class Configurator():
             if self.keep_pass_visible:
                 description = "Enter in a passphrase. The passphrase [also called 'keyphrase' or simply 'password'] will not be seen as it is entered. This configurator does NOT create new p12 private key files. "
                 description += "The Node Operator should enter in their EXISTING p12 passphrase.  This configurator also does NOT change or alter the p12 file in ANY way. "
-                description += "A p12 file should have been created during the original installation of nodectl on this Node. "
+                description += "A p12 file should have been created during the original installation of nodectl on this node. "
                 description += "If the Node Operator wants to modify the p12 passphrase, the 'sudo nodectl passwd12' command can be used. "
                 description += "To remove the passphrase from the configuration, enter in \"None\" as the passphrase, and confirm with \"None\". "
                 description += "MAKE SURE TO SAVE YOUR PASSPHRASE IN A SAFE LOCATION! Losing your passphrase is not recoverable!"
@@ -831,9 +831,9 @@ class Configurator():
         if self.detailed:
             paragraphs = [
 
-                ["A",0], ["Node",0,"blue","bold"], ["cannot access the Constellation Network Hypergraph",0],
+                ["A",0], ["node",0,"blue","bold"], ["cannot access the Constellation Network Hypergraph",0],
                 ["without a",0,"cyan"], ["p12 private key file",0,"yellow","bold"], ["that is used to authenticate against network access regardless of PRO score or seedlist.",2],
-                ["This same p12 key file is used as your Node’s wallet and derives the DAG address from the p12 file's",0],
+                ["This same p12 key file is used as your node’s wallet and derives the DAG address from the p12 file's",0],
                 ["public key file, which Constellation Network uses as your node ID.",2],
                 
                 ["The p12 key file should have been created during installation:",1,'yellow'],  
@@ -853,7 +853,7 @@ class Configurator():
             print(wrapper.fill(f"{colored('1','magenta',attrs=['bold'])}{colored(': Global     - Setup a global wallet that will work with all profiles.','magenta')}"))
             print(wrapper.fill(f"{colored('2','magenta',attrs=['bold'])}{colored(': Dedicated  – Setup a unique p12 file per profile.','magenta')}"))
             
-            text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the Node to have clusters that uses dedicated (individual) wallets, per cluster."
+            text3 = ": Both       - Setup a global wallet that will work with any profiles that are configured to use the global settings; also, allow the node to have clusters that uses dedicated (individual) wallets, per cluster."
             print(wrapper.fill(f"{colored('3','magenta',attrs=['bold'])}{colored(text3,'magenta')}"))
 
         self.is_all_global = self.c.functions.confirm_action({
@@ -1056,7 +1056,7 @@ class Configurator():
 
         m_progress = {
             "text_start": "Creating",
-            "brackets": "Node",
+            "brackets": "node",
             "text_end": "directories",
             "status": "running",
             "newline": True
@@ -1113,7 +1113,7 @@ class Configurator():
             ])
             
         self.c.functions.print_paragraphs([
-            ["Constellation Node Types",1,"yellow,on_blue"],
+            ["Constellation Network Node Types",1,"yellow,on_blue"],
             ["=","half","blue","bold"],
         ])
 
@@ -1153,7 +1153,7 @@ class Configurator():
                 ["nodectl identifies 'ml' as",0,"white","bold"], ["metagraph layer.",2,"yellow","bold"],
                 
                 ["This value helps nodectl determine the order of how each cluster needs to be started.  It is an",0,"white","bold"],
-                ["important aspect of allowing a Node to connect to the network successfully.",0,"white","bold"],
+                ["important aspect of allowing a node to connect to the network successfully.",0,"white","bold"],
                 ["Layer 1 clusters should always be identified as 'ml'",2,"white","bold"],
             ])
             
@@ -1284,11 +1284,11 @@ class Configurator():
         
         if enable_disable:
             description = "Custom arguments are key pairs (name of an option and its value) that will be added as an "
-            description += "option to the command line that starts the Node's process during the start phase of the process "
+            description += "option to the command line that starts the node's process during the start phase of the process "
             if c_type == "env_vars":
                 description = "Custom environment variables are key pairs (name of a distribution shell environment variable and its value) "
-                description += "that will be added to the shell environment prior to the start of the Node's process "
-            description += "that runs on your Node to allow it to prepare to join a cluster.  This value should be added only "
+                description += "that will be added to the shell environment prior to the start of the node's process "
+            description += "that runs on your node to allow it to prepare to join a cluster.  This value should be added only "
             description += "as instructed or required by the Administrators of a cluster." 
             self.c.functions.print_paragraphs([
                 ["",1], [description,2,"white","bold"],
@@ -1562,8 +1562,8 @@ class Configurator():
             })
         if is_default: default = "default"
 
-        description = "In order to participate on a cluster a Node may be required to hold collateral within the "
-        description += "active (hot) wallet located on this Node.  In the event that collateral is waved or there is not a requirement "
+        description = "In order to participate on a cluster a node may be required to hold collateral within the "
+        description += "active (hot) wallet located on this node.  In the event that collateral is waved or there is not a requirement "
         description += "to hold collateral, this value can be set to 0. Please contact administration to "
         description += "define this requirement. "
         
@@ -1611,8 +1611,8 @@ class Configurator():
     
             
     def manual_build_tcp(self,profile=False):
-        port_start = "You must define a TCP (Transport Control Protocol) port that your Node will run on, to accept"
-        port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your network cluster administrator for recommended port values."
+        port_start = "You must define a TCP (Transport Control Protocol) port that your node will run on, to accept"
+        port_ending = "This can be any port; however, it is highly recommended to keep the port between 1024 and 65535.  Constellation Network has been using ports in the 9000-9999 range. Do not reuse any ports you already defined, as this will cause conflicts. You may want to consult with your network cluster administrator for recommended port values."
         
         if profile:
             public_default = self.c.config_obj[profile]["public_port"]  
@@ -1644,19 +1644,19 @@ class Configurator():
                             
         questions = {
             "public_port": {
-                "question": f"  {colored('Enter the public TCP port for this Node','cyan')}",
+                "question": f"  {colored('Enter the public TCP port for this node','cyan')}",
                 "description": f"{port_start} public inbound traffic. {port_ending}",
                 "required": False,
                 "default": public_default,
             },
             "p2p_port": {
-                "question": f"  {colored('Enter the P2P TCP port for this Node','cyan')}",
+                "question": f"  {colored('Enter the P2P TCP port for this node','cyan')}",
                 "description": f"{port_start} peer to peer (p2p) traffic. {port_ending}",
                 "required": False,
                 "default": p2p_default,
             },
             "cli_port": {
-                "question": f"  {colored('Enter the localhost TCP port for this Node','cyan')}",
+                "question": f"  {colored('Enter the localhost TCP port for this node','cyan')}",
                 "description": f"{port_start} internal/local host requests to access its own API (application program interface). {port_ending}",
                 "required": False,
                 "default": cli_default,
@@ -1674,7 +1674,7 @@ class Configurator():
             [f"{self.c.config_obj[profile]['public_port']}, {self.c.config_obj[profile]['p2p_port']}",0,"yellow"], 
             ["through inbound via the ingress rules.",2],
             ["Changing the service API ports forced a",0],
-            ["stop",0,"yellow"],["action on your Node, you will need to restart the service to return to the cluster.",1],
+            ["stop",0,"yellow"],["action on your node, you will need to restart the service to return to the cluster.",1],
             ["sudo nodectl restart -p",0,"blue","bold"],[profile,2,"blue","bold"],
         ])
         self.c.functions.print_any_key({"prompt":"Press any key to return to the main menu"})
@@ -1699,7 +1699,7 @@ class Configurator():
         questions = {
             "service": {
                 "question": f"  {colored(f'Enter Debian service name for this profile: ','cyan')}",
-                "description": f"The Node that will run on this Debian based operating system will use a service. The service controls the server level 'under the hood' operations of this profile [{profile}]. Each profile runs its own service.  nodectl will create and control this service for the Node Operator. You have the ability to give it a specific name.",
+                "description": f"The node that will run on this Debian based operating system will use a service. The service controls the server level 'under the hood' operations of this profile [{profile}]. Each profile runs its own service.  nodectl will create and control this service for the Node Operator. You have the ability to give it a specific name.",
                 "default": default,
                 "required": required
             },
@@ -1722,11 +1722,11 @@ class Configurator():
         
         def print_header():
             link_description = "Generally, a Hypergraph/metagraph Layer0 (ML0) and/or Hypergraph/metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
-            link_description += "(GL0) network to transmit consensus information between the local Node and the Validator Nodes on the Layer0 network. "
+            link_description += "(GL0) network to transmit consensus information between the local node and the validator nodes on the Layer0 network. "
             link_description += "The Node Operator should consult with your Constellation Network or metagraph Administrators for further details. "
             link_description += "Also, a ML1 will be required to link to the ML0 thereby creating to separate links. "
             link_description += "IMPORTANT: If you plan to use the recommended process of linking to ML1 to GL0, ML1 to ML0, and/or ML0 to GL0 "
-            link_description += "through another profile residing on this Node, it is required to answer \"yes\" to the link to self question, "
+            link_description += "through another profile residing on this node, it is required to answer \"yes\" to the link to self question, "
             link_description += "when asked by this configurator feature; otherwise, all necessary values will not be populated and unexpected "
             link_description += "results/errors may be experienced. "
 
@@ -1788,24 +1788,24 @@ class Configurator():
             return [defaults, set_self_successful]
             
         def ask_link_questions(l_type, questions, key_default, host_default, port_default):
-            warning_msg = f"running a {'ML0' if l_type == 'ml0' else 'GL0'} network on the same Node as the Node running this cluster.  In order to do this you cancel this setup and choose the 'self' option when requested."
+            warning_msg = f"running a {'ML0' if l_type == 'ml0' else 'GL0'} network on the same node as the node running this cluster.  In order to do this you cancel this setup and choose the 'self' option when requested."
             questions = {
                 **questions,
                 f"{l_type}_link_key": {
                     "question": f"  {colored(f'Enter the {l_type.upper()} link public key','cyan')} : ",
-                    "description": f"You need to identify the public key of the Node that you going to attempt to link to. This is required for security purposes to avoid man-in-the-middle cybersecurity attacks.  It is highly recommended to use the public key of your own Node if you are {warning_msg} If you are not using your own Node, you will need to obtain the public p12 key from the Node you are attempting to link through.",
+                    "description": f"You need to identify the public key of the node that you going to attempt to link to. This is required for security purposes to avoid man-in-the-middle cybersecurity attacks.  It is highly recommended to use the public key of your own node if you are {warning_msg} If you are not using your own node, you will need to obtain the public p12 key from the node you are attempting to link through.",
                     "default": key_default,
                     "required": False,
                 },          
                 f"{l_type}_link_host": {
                     "question": f"  {colored(f'Enter the {l_type.upper()} link host ip address','cyan')} : ",
-                    "description": f"You need to identify the public ip address of the Node that you going to attempt to link with. It is highly recommended to use your own Node if you are {warning_msg}",
+                    "description": f"You need to identify the public ip address of the node that you going to attempt to link with. It is highly recommended to use your own node if you are {warning_msg}",
                     "default": host_default,
                     "required": False,
                 },  
                 f"{l_type}_link_port": {
                     "question": f"  {colored(f'Enter the {l_type.upper()} link public port','cyan')} : ",
-                    "description": f"You need to identify the public TCP port open on the Node that you going to attempt to link with. It is highly recommended to use your own Node if you are {warning_msg}",
+                    "description": f"You need to identify the public TCP port open on the node that you going to attempt to link with. It is highly recommended to use your own node if you are {warning_msg}",
                     "default": port_default,
                     "required": False,
                 },  
@@ -1832,7 +1832,7 @@ class Configurator():
             if l_type == "ml0": ml0_linking = False
             return current_boj, gl0_linking, ml0_linking
 
-        if profile:  # left in place in case full manual profile creation is reinstituted
+        if profile:  # left in place in case full manual profile creation is reinstated
             print(" ")
             print_header()
             print(" ")
@@ -2372,7 +2372,7 @@ class Configurator():
         
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["You can setup your Node to use the default directories for all definable directories.",2,"magenta"],
+                ["",1], ["You can setup your node to use the default directories for all definable directories.",2,"magenta"],
                 [" IMPORTANT ",0,"white,on_blue"], ["Directories being migrated to (and from) must already exist.",2],
             ])
             
@@ -2459,13 +2459,13 @@ class Configurator():
         
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["You can setup your Node to use the default"],
+                ["",1], ["You can setup your node to use the default"],
                 [verb,0,"yellow"], ["elements.",2],
             ])
             if file_repo_type == "pro_rating":
                 self.c.functions.print_paragraphs([
                     [" WARNING ",0,"red,on_yellow"], ["If you choose the default values you will need to make",0,"red"],
-                    ["sure the default file location and file exist on the Node before continuing; however,",0,"red"],
+                    ["sure the default file location and file exist on the node before continuing; however,",0,"red"],
                     ["the verification will fail.",2,"red"],
                     ["If you are unsure about this ratings file details, it is recommended to choose",0],
                     ["disable",0,"magenta"],["as your option settings.",2],
@@ -2536,7 +2536,7 @@ class Configurator():
                 description1 += f"should be obtained directly from the administrators. "
             description1 += f"The {verb} is part of the PRO (proof of reputable observation) elements of Constellation Network. "
             description1 += "Enter the location (needs to be a full path not including the file name. Note: The file name will be defined "
-            description1 += "succeeding this entry.) on your local Node. This is where the Node Operator would like to store the local copy of "
+            description1 += "succeeding this entry.) on your local node. This is where the Node Operator would like to store the local copy of "
             description1 += "this data file, list, or access list. "
             if file_repo_type == "seed":
                 description1 += "This is a requirement to authenticate to the cluster the Node Operator is "
@@ -2565,7 +2565,7 @@ class Configurator():
             else:
                 description2 += f"After the {verb} is downloaded from a cluster "
                 description2 += "repository (defined succeeding this entry), the contents will be saved to this file.  The file (downloaded from the repository) " 
-                description2 += "must contain the exact same information as all other Nodes that participate on the cluster. "
+                description2 += "must contain the exact same information as all other nodes that participate on the cluster. "
             description2 += f"The file {adj} be placed in the location defined by the {file_repo_type} location variable entered above. "
             description2 += defaultdescr
             
@@ -2576,7 +2576,7 @@ class Configurator():
             description3 += defaultdescr
             
             description5 = f"The {verb} location is the location on the local VPS/Server where nodectl should place and can access "
-            description5 += f"the {verb} binary file ( identified by the {verb}_file ) to access to run the Tessellation Node protocol services. "
+            description5 += f"the {verb} binary file ( identified by the {verb}_file ) to access to run the Tessellation node protocol services. "
             description5 += defaultdescr
 
             one_off2 = "directory"
@@ -2646,7 +2646,7 @@ class Configurator():
 
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["",1], ["You can setup your Node to use the default",0], ["java",0,"yellow"],
+                ["",1], ["You can setup your node to use the default",0], ["java",0,"yellow"],
                 ["memory recommendations.",2,"magenta"],
             ])
             
@@ -2680,7 +2680,7 @@ class Configurator():
         
             if self.detailed:
                 self.c.functions.print_paragraphs([
-                    ["",1], ["You can setup your Node to use the default java memory heap values.",1],
+                    ["",1], ["You can setup your node to use the default java memory heap values.",1],
                     ["K",0,"yellow","underline"], ["for kilobytes,",0], ["M",0,"yellow","underline"], ["for Megabytes, and",0], ["G",0,"yellow","underline"], ["for Gigabytes.",1],
                     ["example:",0,"magenta"], ["1024M",2,"yellow"]
                 ])
@@ -2688,19 +2688,19 @@ class Configurator():
             questions = {
                 "java_xms": {
                     "question": f"  {colored('Enter the java','cyan')} {colored('Xms','yellow')} {colored('desired value','cyan')}",
-                    "description": "Xms is used for setting the initial and minimum heap size. The heap is an area of memory used to store objects instantiated by Node's java software running on the JVM.",
+                    "description": "Xms is used for setting the initial and minimum heap size. The heap is an area of memory used to store objects instantiated by node's java software running on the JVM.",
                     "required": False,
                     "default": xms_default,
                 },
                 "java_xmx": {
                     "question": f"  {colored('Enter the java','cyan')} {colored('Xmx','yellow')} {colored('desired value: ','cyan')}",
-                    "description": "Xmx is used for setting the maximum heap size. Warning: the performance of the Node will decrease if the max heap value is set lower than the amount of live data. This can force your Node to perform garbage collections more frequently, because memory space may be needed more habitually.",
+                    "description": "Xmx is used for setting the maximum heap size. Warning: the performance of the node will decrease if the max heap value is set lower than the amount of live data. This can force your node to perform garbage collections more frequently, because memory space may be needed more habitually.",
                     "required": required,
                     "default": xmx_default,
                 },
                 "java_xss": {
                     "question": f"  {colored('Enter the java','cyan')} {colored('Xss','yellow')} {colored('desired value','cyan')}",
-                    "description": "Your Node will run multiple threads and these threads have their own stacks.  This parameter is used to limit how much memory a stack consumes.",
+                    "description": "Your node will run multiple threads and these threads have their own stacks.  This parameter is used to limit how much memory a stack consumes.",
                     "required": False,
                     "default": xss_default
                 },
@@ -2726,7 +2726,7 @@ class Configurator():
 
         if self.detailed:
             self.c.functions.print_paragraphs([
-                ["The configuration file for this Node is setup with profile sections for each cluster.",0,"white","bold"],
+                ["The configuration file for this node is setup with profile sections for each cluster.",0,"white","bold"],
                 ["Each profile can be configured with unique or shared (global) p12 private key file (wallet setup) details. These details",0,"white","bold"],
                 ["help nodectl understand what wallets and authorization values to use for each cluster configured.",2,"white","bold"],
                 
@@ -2896,7 +2896,7 @@ class Configurator():
                     self.c.functions.print_paragraphs([
                         ["nodectl",0,"blue","bold"], ["configuration yaml",0],["was found, loaded, and validated.",2],
                         
-                        ["If the configuration",0,"red","bold"], ["found on the",0,"red"], ["Node",0,"red","underline"], ["reports a known issue;",0,"red"],
+                        ["If the configuration",0,"red","bold"], ["found on the",0,"red"], ["node",0,"red","underline"], ["reports a known issue;",0,"red"],
                         ["It is recommended to go through each",0,"red"],["issue",0,"yellow","underline"], ["one at a time, revalidating the configuration",0,"red"],
                         ["after each edit, in order to make sure that dependent values, are cleared by each edit made.",2,"red"],
                         
@@ -3302,25 +3302,25 @@ class Configurator():
             })
             return
         
-        auto_restart_desc = "nodectl has a special automated feature called 'auto_restart' that will monitor your Node's on-line status. "
-        auto_restart_desc += "In the event your Node is removed from 'Ready' state, or it is identified that your Node is not properly connected "
-        auto_restart_desc += "to the current cluster, nodectl will attempt to bring the Node back online. "
-        auto_restart_desc += "Please be aware that there are several different ways in which your Node might lose connection.  One "
+        auto_restart_desc = "nodectl has a special automated feature called 'auto_restart' that will monitor your node's on-line status. "
+        auto_restart_desc += "In the event your node is removed from 'Ready' state, or it is identified that your node is not properly connected "
+        auto_restart_desc += "to the current cluster, nodectl will attempt to bring the node back online. "
+        auto_restart_desc += "Please be aware that there are several different ways in which your node might lose connection.  One "
         auto_restart_desc += "specific situation: It is important to understand that if Tessellation is upgraded to a new version, "
         auto_restart_desc += "nodectl will not auto_upgrade, unless the auto_upgrade feature is enabled. Please issue a "
         auto_restart_desc += "'sudo nodectl auto_restart help' for details."
         
-        auto_upgrade_desc = "nodectl has a special automated feature called 'auto_upgrade' that will monitor your Node's on-line status. "
-        auto_upgrade_desc += "In the event your Node is removed from the network because of a version upgrade, this feature will attempt "
-        auto_upgrade_desc += "to bring your Node back up online; by including an Tessellation upgrade, with the restart. "
+        auto_upgrade_desc = "nodectl has a special automated feature called 'auto_upgrade' that will monitor your node's on-line status. "
+        auto_upgrade_desc += "In the event your node is removed from the network because of a version upgrade, this feature will attempt "
+        auto_upgrade_desc += "to bring your node back up online; by including an Tessellation upgrade, with the restart. "
         auto_upgrade_desc += "'auto_restart' must be enabled in conjunction with 'auto_upgrade'."
         auto_upgrade_desc += "Please be aware that this can be a dangerous feature, as in the (unlikely) event there are bugs presented in the new "
-        auto_upgrade_desc += "releases, your Node will be upgraded regardless.  It is important to pay attention to your Node even if this feature "
+        auto_upgrade_desc += "releases, your node will be upgraded regardless.  It is important to pay attention to your node even if this feature "
         auto_upgrade_desc += "is enabled.  Please issue a 'sudo nodectl auto_upgrade help' for details."
         
-        on_boot_desc = "nodectl has an automated feature called 'on_boot' that simply allow your Node to start the 'auto_restart' "
+        on_boot_desc = "nodectl has an automated feature called 'on_boot' that simply allow your node to start the 'auto_restart' "
         on_boot_desc += "feature on restart ('warm' or 'cold' boot) of your VPS (virtual private server) or bare metal (physical) server "
-        on_boot_desc += "housing your Node. If you choose to enable 'on_boot' be aware that in the event you need to disable 'auto_restart' "
+        on_boot_desc += "housing your node. If you choose to enable 'on_boot' be aware that in the event you need to disable 'auto_restart' "
         on_boot_desc += "in the future, for whatever purpose, it will re-engage if the system is restarted by a 'warm' or 'cold' boot."
         
         restart = "disable" if self.c.config_obj["global_auto_restart"]["auto_restart"] else "enable"
@@ -3560,7 +3560,7 @@ class Configurator():
             [" WARNING! ",2,"grey,on_red"],
             ["This will",0,"red"], ["not",0,"red","bold"], ["only",0,"yellow","underline"], ["remove the profile from the configuration;",0,"red"],
             ["moreover, this will also remove all",0,"red"], ["data",0,"magenta","bold,underline"], ["from the",0,"red"],
-            ["Node",0,"yellow","bold"], ["pertaining to profile",0,"red"], [profile,0,"yellow","bold,underline"],["",2],
+            ["node",0,"yellow","bold"], ["pertaining to profile",0,"red"], [profile,0,"yellow","bold,underline"],["",2],
             
             ["-",0,"magenta","bold"], ["configuration",1,"magenta"],
             ["-",0,"magenta","bold"], ["services",1,"magenta"],
@@ -3670,9 +3670,9 @@ class Configurator():
             
         notice = [
             ["",2], [" NOTICE ",1,"blue,on_yellow","bold"], 
-            ["This Node's service name will not changed.",2,"yellow"],
+            ["This node's service name will not changed.",2,"yellow"],
             ["Although this is",0],["not",0,"green","bold"],
-            ["an issue and your Node will not be affected; be aware that",0], 
+            ["an issue and your node will not be affected; be aware that",0], 
             ["this is being conveyed in case the Node Administrator wants to correlate the",0],
             ["service name",0,"cyan"], ["with the",0], ["profile name.  You can use the profile editor",0],
             ["in the configurator to update the service name.",1,"cyan",],
@@ -3681,7 +3681,7 @@ class Configurator():
             [" NOTICE ",1,"blue,on_yellow","bold"], 
             ["Custom defined directory structures will not be changed.",2,"yellow"],
             
-            ["The Node's directory path will change to accommodate the new profile migration.",0],
+            ["The node's directory path will change to accommodate the new profile migration.",0],
             ["This is may",0],["not",0,"green","bold"],
             ["be an issue. Be aware that this is being conveyed in case the Node Administrator has configured",0],
             ["custom path locations for backups and or uploads that include the old [",0],
@@ -4111,7 +4111,7 @@ class Configurator():
                         self.c.functions.print_paragraphs([
                             [" ERROR ",0,"yellow,on_red"], ["During attempts to encrypt the passphrase and invalid SHA hash produced and nodectl was",0,"red"],
                             ["unable to be verified. The encryption operation was cancelled to avoid disabling nodectl's ability to validate the",0,"red"],
-                            ["p12 file on this Node. You can try again or change your p12 passphrase. The passphrase should not contain:",1,"red"],
+                            ["p12 file on this node. You can try again or change your p12 passphrase. The passphrase should not contain:",1,"red"],
                             ["  - spaces",1,"yellow"],
                             ["  - single or double quotes",1,"yellow"],
                             ["  - section signs",2,"yellow"],
@@ -4158,7 +4158,7 @@ class Configurator():
                     ["Disabling encryption is permanent.",2],
 
                     ["Profile specific",0,"red"], ["non-global",0,"yellow"], ["passphrases will",0,"red"], 
-                    ["NOT",0,"red","bold"], ["be restored in your Node's configuration file.",0,"red"],
+                    ["NOT",0,"red","bold"], ["be restored in your node's configuration file.",0,"red"],
                     ["Each specific p12 configurations will be reset to",0,"red"], ["None",2,"yellow","bold"],
 
                     [f"Please reset specific",0,"red"], ["dedicated profile",0,"yellow"], 
@@ -4319,7 +4319,7 @@ class Configurator():
             self.c.functions.print_clear_line()
             self.c.functions.print_paragraphs([
                 ["An error occurred attempting to automate the creation of [",-1,"red"],[f"{new_path}",-1,"yellow","bold"],
-                ["]",-1,"red"],[f". In the event that you are attempting to point your Node's {directory} towards",0,"red"],
+                ["]",-1,"red"],[f". In the event that you are attempting to point your node's {directory} towards",0,"red"],
                 ["an external storage device, nodectl will continue the configuration change without migrating",0,"red"],
                 [f"the {directory} to the new user defined location.",0,"red"],["nodectl will leave this up to the Node Operator.",2],
             ])
@@ -4445,8 +4445,8 @@ class Configurator():
                     [" WARNING ",0,"red,on_yellow"],[":",0,"red"],
                     ["nodectl's configurator could not find an old configuration.",0,"yellow"],
                     [f"This is not an issue; however, in the event that old configuration {stype} were configured",0,"yellow"],
-                    ["on this Node, the configurator will not be able to clean them up; instead, you should",0,"yellow"],
-                    [f"review your Node's directory structure for abandoned {stype}.",2,"yellow"],
+                    ["on this node, the configurator will not be able to clean them up; instead, you should",0,"yellow"],
+                    [f"review your node's directory structure for abandoned {stype}.",2,"yellow"],
                     ["Profile Directories Found",2,"blue","bold"]
                 ])
                 if stype == "profiles": 
@@ -4510,7 +4510,7 @@ class Configurator():
             self.c.functions.print_paragraphs([
                 ["It is recommended to clean up old profiles to:",1,"magenta"],
                 ["  - Avoid conflicts",1],
-                ["  - Avoid undesired Node behavior",1],
+                ["  - Avoid undesired node behavior",1],
                 ["  - Free up disk",2],
             ])
             self.clean_profiles = self.c.functions.confirm_action({
@@ -4642,7 +4642,7 @@ class Configurator():
                 ["",1],
                 ["It is recommended to clean up old services files to:",1,"magenta"],
                 ["  - Avoid conflicts",1],
-                ["  - Avoid undesired Node behavior",1],
+                ["  - Avoid undesired node behavior",1],
                 ["  - Proper organization",1],
                 ["  - Free up disk",2],
             ])
@@ -4779,7 +4779,7 @@ class Configurator():
         if self.detailed:
             self.c.functions.print_paragraphs([
                 ["",1], ["In order to complete this edit request, the services",0],
-                ["related to Node profile",0,"cyan"], [profile,0,"yellow","bold"],
+                ["related to node profile",0,"cyan"], [profile,0,"yellow","bold"],
                 ["must be stopped.",2],
             ])
         else:
@@ -4890,7 +4890,7 @@ class Configurator():
                 ])
             self.error_hint = False # reset
         self.c.functions.print_paragraphs([
-            ["Please review the nodectl logs and/or Node operator notes and try again",2],
+            ["Please review the nodectl logs and/or Node Operator notes and try again",2],
             
             ["You can attempt to restore your",0,"magenta"], [f"{self.config_file}",0,"yellow","bold"], ["from backups.",1,"magenta"],
             ["You can also attempt to retry your entries at the main menu",2,"magenta"], 

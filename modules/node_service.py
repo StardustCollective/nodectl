@@ -392,7 +392,7 @@ class Node():
                     if not self.auto_restart:
                         self.functions.print_paragraphs([
                             [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
-                            ["Exiting join process, please try again later or check Node configuration.",2,"red"],
+                            ["Exiting join process, please try again later or check node configuration.",2,"red"],
                         ])
                         self.functions.print_auto_restart_warning()
                     return False
@@ -737,8 +737,8 @@ class Node():
                                 self.profile = "Unknown"
                             self.functions.print_paragraphs([
                                 ["",1], [" ERROR ",0,"red,on_yellow"],
-                                [f"nodectl was unable to find the {str(link_type.upper())} Node or Profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
-                                [f"continue to wait for the state to become 'Ready' or exit now and try again to join after the link profile or Node becomes",0,"red"],
+                                [f"nodectl was unable to find the {str(link_type.upper())} node or profile peer link in 'Ready' state.  The Node Operator can either",0,"red"],
+                                [f"continue to wait for the state to become 'Ready' or exit now and try again to join after the link profile or node becomes",0,"red"],
                                 [f"'Ready'.",2,"red"],
 
                                 ["If the Node Operator chooses to exit, issue the following commands to verify the status of each profile and restart when 'Ready' state is found:",1],                        
@@ -838,7 +838,7 @@ class Node():
                 
             result = "done".ljust(32)
         else:
-            self.log.logger[self.log_key].warning("node_service --> join_cluster --> Node was found not clear to join... join skipped.")
+            self.log.logger[self.log_key].warning("node_service --> join_cluster --> node was found not clear to join... join skipped.")
             try: return_str = found_link_types.pop()
             except: return_str = self.profile
             else:

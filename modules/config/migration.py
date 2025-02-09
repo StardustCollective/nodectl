@@ -181,7 +181,7 @@ class Migration():
 
         self.functions.print_paragraphs([
             ["During program initialization, an outdated and/or improperly formatted",0,"blue","bold"], ["configuration",0,"yellow","bold"],["file was found",0,"blue","bold"], 
-            ["on this server/Node.",2,"blue","bold"],
+            ["on this server/node.",2,"blue","bold"],
             
             ["nodectl will backup your original configuration file and attempt to migrate to the new",0,"blue","bold"],
             ["required",0,"yellow,on_red","bold"], ["format.",2,"blue","bold"],
