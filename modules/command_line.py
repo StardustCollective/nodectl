@@ -248,8 +248,6 @@ class CLI():
                 watch_seconds = 6
                 
         with ThreadPoolExecutor() as executor:
-            grab_id = False
-
             if watch_enabled:
                 try:
                     executor.submit(self.functions.get_user_keypress,{
@@ -267,6 +265,7 @@ class CLI():
                     exit(0)
                             
             def convert_time_node_id(elements):
+                grab_id = False
                 try:
                     restart_time = self.functions.get_date_time({
                         "action":"session_to_date",
