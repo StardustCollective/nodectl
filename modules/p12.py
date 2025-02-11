@@ -499,34 +499,33 @@ class P12Class():
         return_result = False
         passfile = self.handle_pass_file()
 
-        bashCommand1 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
-        
         # check p12 against method 1
+        bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
+        bashCommand2 = self.functions.handle_java_prefix(bashCommand2)
         results = self.functions.process_command({
-            "bashCommand": bashCommand1,
-            "proc_action": "wait", 
-            "return_error": True
+            "bashCommand": bashCommand2,
+            "proc_action": "wait"
         })
-        if "friendlyName" in str(results):
-            self.log.logger[self.log_key].info("p12 file unlocked successfully - [openssl]")
+        if "Valid from:" in str(results):
+            self.log.logger[self.log_key].info("p12 file unlocked successfully - keytool")
             return_result = True
-        
+
         # check p12 against method 2
-        if not return_result:
-            self.log.logger[self.log_key].error("p12 file unlocked failed with method 1 [openssl]")
-            bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
-            bashCommand2 = self.functions.handle_java_prefix(bashCommand2)
+        if not results:
+            self.log.logger[self.log_key].error("p12 file unlocked failed with method 1 [keytool]")
+            bashCommand1 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
             results = self.functions.process_command({
-                "bashCommand": bashCommand2,
-                "proc_action": "wait"
+                "bashCommand": bashCommand1,
+                "proc_action": "wait", 
+                "return_error": True
             })
-            if "Valid from:" in str(results):
-                self.log.logger[self.log_key].info("p12 file unlocked successfully - keytool")
+            if "friendlyName" in str(results):
+                self.log.logger[self.log_key].info("p12 file unlocked successfully - [openssl]")
                 return_result = True
-        
+
         # check p12 against method 3
         if not return_result:
-            self.log.logger[self.log_key].error("p12 file unlocked failed with method 2 [keytool]")
+            self.log.logger[self.log_key].error("p12 file unlocked failed with method 2 [openssl]")
             bashCommand = "openssl version"
             results = self.functions.process_command({
                 "bashCommand": bashCommand,

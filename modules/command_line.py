@@ -4347,6 +4347,16 @@ class CLI():
                     is_self = True
                     
                 self.functions.event = False  
+                
+            self.nodeid = nodeid
+            if command == "dag" and not wallet_only:
+                nodeid = self.cli_nodeid2dag([nodeid.strip(),"return_only"]) # convert to dag address
+                
+            if ip_address == "127.0.0.1":
+                ip_address = self.ip_address
+                is_self = True
+                
+            self.functions.event = False  
 
         if dag_addr_only:
             return nodeid

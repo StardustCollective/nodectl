@@ -85,6 +85,7 @@ class ShellHandler:
     def setup_logging_key(self):
         pass
 
+
     def build_cli_obj(self,skip_check=False):
         build_cli = self.check_non_cli_command() if skip_check == False else True
         self.invalid_version = False
@@ -788,7 +789,7 @@ class ShellHandler:
             "start","stop","restart","leave",
             "slow_restart","_sr","restart_only",
             "peers","check_source_connection","_csc",
-            "check_connection","_cc",
+            "check_connection","_cc","join",
             "send_logs","_sl","show_node_proofs","_snp",
             "nodeid","id","dag","export_private_key",
             "check_seedlist","_csl","show_profile_issues",

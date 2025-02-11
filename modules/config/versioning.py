@@ -100,7 +100,14 @@ class Versioning():
 
         if self.auto_restart and not self.service_uvos: 
             return  # relies on service updater
-                        
+
+        if self.called_cmd != "uvos":
+            self.functions.print_cmd_status({
+                "text_start": "Executing versioning update request",
+                "newline": True,
+                "status": "Please wait",
+                "status_color": "yellow",
+            })        
         self.get_cached_version_obj()
         
         if self.update_required:
