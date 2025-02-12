@@ -1827,7 +1827,7 @@ class Functions():
             state = None
                 
             if i > 0: # remote session first
-                if self.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
+                if self.config_obj["global_elements"]["node_service_status"][profile] == "inactive":
                     break # state defaulted to ApiNotReady
                 port = local_port    
 

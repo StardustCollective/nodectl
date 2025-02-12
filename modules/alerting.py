@@ -77,7 +77,10 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
     try:
         cli.node_service = node_service
         nodeid = cli.cli_find(["-p",profile,"-t","self","return_only"])
-        dag_addr = cli.cli_nodeid2dag([nodeid,"return_only"])
+        dag_addr = cli.cli_nodeid2dag({
+            "nodeid": nodeid,
+            "profile": profile,
+        })
         full_amount = 0
         reward_items = []
         label = False if comm_obj["label"] == None or comm_obj["label"] == "None" else comm_obj["label"]

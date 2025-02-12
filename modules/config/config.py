@@ -67,10 +67,13 @@ class Configuration():
             if "mobile" in self.argv_list:
                 self.requested_configuration = False
                 return
+            if self.p12.pass_quit_request:
+                return
         
         self.validated = True
         self.profile_check = False
         
+
         skip_validation = ["configure","new_config","install","quick_install","uninstall","restore_config"]
         self.do_validation = False if self.action in skip_validation else True
         if self.action == "new_config_init": self.action = "edit_config"
@@ -132,13 +135,18 @@ class Configuration():
                 self.prepare_p12()
                 if self.action != "edit_config":
                     self.setup_passwd()
+                    if self.p12.pass_quit_request:
+                        if self.action == "view_config":
+                            self.requested_configuration = False
+                        return
                 if "edit_config" not in self.action:
                     self.setup_p12_aliases("global_p12")
                     self.setup_self_settings()
         
         if self.action == "edit_config_from_new": return
         try:
-            if self.p12.pass_quit_request: return
+            if self.p12.pass_quit_request: 
+                return
         except:
             pass # if doesn't exist not needed
 
@@ -405,7 +413,8 @@ class Configuration():
         self.implement_config()
 
         if self.p12.pass_quit_request:
-            self.functions.print_any_key({})
+            if self.mobile:
+                self.functions.print_any_key({})
             return
         
         if "--section" in self.argv_list:
@@ -1999,7 +2008,7 @@ class Configuration():
                     
             except Exception as e:
                 self.log.logger[self.log_key].error(f"config -> print_report -> found error [{e}]")
-                self.send_error("cfg-1094","existence_hint",error["title"])
+                self.send_error("cfg-1094")
 
             if self.action == "edit_config":
                 if ok_to_ignore:

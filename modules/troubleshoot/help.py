@@ -13,6 +13,7 @@ def build_help(functions,command_obj):
     extended = command_obj.get("extended",False)
     special_case = command_obj.get("special_case",False)
     extended_option = None
+    hint = command_obj.get("hint",False)
     help_text = "" # initialize
     
     usage_only = command_obj.get("usage_only",False)
@@ -58,9 +59,15 @@ def build_help(functions,command_obj):
         ["          uses a non-default port.",2,"magenta"],
         ["See extended help for more details including",0],["required",0,"blue","bold"], 
         ["parameters per command.",2],
-        ["command: ",0], ["sudo nodectl <command> help",2,"yellow","bold"],
+        ["command: ",0], ["sudo nodectl <command> help",1,"yellow","bold"],
       ])
-    
+      if hint == "profile_env":
+        functions.print_paragraphs([
+          ["required:",0],["-p",0,"yellow"],["<profile>",0], 
+          ["or",0,"blue"], ["-e",0,"yellow"],["<cluster_environment>",2],  
+        ])       
+      else:
+          print("")    
 
     if not extended and not usage_only and not nodectl_version_only:
         help_text += '''

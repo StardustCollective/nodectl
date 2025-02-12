@@ -185,7 +185,6 @@ class CLI():
     def show_system_status(self,command_obj):
         rebuild = command_obj.get("rebuild",False)
         do_wait = command_obj.get("wait",True)
-        print_title = command_obj.get("print_title",True)
         spinner = command_obj.get("spinner",True)
         threaded = command_obj.get("threaded",False)
         static_nodeid = command_obj.get("static_nodeid",False)
@@ -195,7 +194,6 @@ class CLI():
         called_profile = self.profile
         called_command = command_obj.get("called","default")
         
-        if called_command == "uptime": print_title = False
         if called_command == "_s": called_command = "status"
         if called_command == "_qs": called_command = "quick_status"
         if called_command == "stop": called_command = "quick_status"
@@ -228,6 +226,8 @@ class CLI():
                 
         
         watch_enabled = True if "-w" in command_list else False
+        print_title = True if "--legend " in command_list else False
+
         watch_seconds = 15
         watch_passes = 0
         watch_enabled, range_error = False, False
@@ -444,7 +444,7 @@ class CLI():
                                     on_network = colored("True","magenta",attrs=["bold"])
                                 elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "Initial":
                                     # there are other states other than Ready and Observing when on_network
-                                    on_network = colored("True","green")
+                                    on_network = colored("True","green",attrs=["bold"])
                                     join_state = colored(f"{sessions['state1']}".ljust(20),"green")
                                     if sessions["state1"] == "Observing" or sessions["state1"] == "WaitingForReady":
                                         join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
@@ -458,6 +458,9 @@ class CLI():
                         if sessions["session1"] == 0:
                             node_session = colored("SessionNotFound".ljust(20," "),"red")
                         
+                        if join_state == "ApiNotReady":
+                            join_state = colored("ApiNotReady","red",attrs=["bold"])
+
                         return {
                             "on_network": on_network,
                             "cluster_session": cluster_session,
@@ -1129,7 +1132,10 @@ class CLI():
                     nodeid = "UnableToReach"
                     wallet = "UnableToReach"
                 else:
-                    wallet = self.cli_nodeid2dag([nodeid, "return_only"])
+                    wallet = self.cli_nodeid2dag({
+                        "nodeid": nodeid,
+                        "profile": profile,
+                    })
                 
             if do_more and item % more_break == 0 and item > 0:
                 more = self.functions.print_any_key({
@@ -1806,7 +1812,10 @@ class CLI():
                 "argv_list": argv_list if argv_list else ["-p",profile]
             })
             search_dag_addr = self.nodeid.strip("\n")
-            search_dag_addr = self.cli_nodeid2dag([search_dag_addr,"return_only"])
+            search_dag_addr = self.cli_nodeid2dag({
+                "nodeid": search_dag_addr,
+                "profile": profile,
+            })
 
         if ("--target" in command_list or "-t" in command_list) and not argv_list:
             try:
@@ -3088,7 +3097,6 @@ class CLI():
                 "spinner": False,
                 "rebuild": True,
                 "wait": False,
-                "print_title": False,
                 "threaded": threaded,
                 "static_nodeid": static_nodeid if static_nodeid else False,
                 "-p": profile                
@@ -3219,7 +3227,6 @@ class CLI():
             "called": "stop",
             "wait": show_timer,
             "spinner": spinner,
-            "print_title": False,
             "static_nodeid": static_nodeid if static_nodeid else False,
             "-p": profile
         })
@@ -3968,7 +3975,6 @@ class CLI():
         self.show_system_status({
             "rebuild": True,
             "wait": False,
-            "print_title": False,
             "-p": self.profile
         })
                 
@@ -4315,7 +4321,7 @@ class CLI():
                         ip_address = nodeid[1]
                         nodeid = nodeid[0]
                     except:
-                        self.log.logger[self.log_key].warning(f"attempt to access api returned no response | command [{command}] ip [{ip_address}]")
+                        self.log.logger[self.log_key].warning(f"cli_grab_id: attempt to access api returned no response | command [{command}] ip [{ip_address}]")
                         nodeid = colored("Unable To Retrieve","red")
                 self.functions.event = False           
         else:
@@ -4327,36 +4333,33 @@ class CLI():
         if (ip_address == "127.0.0.1" and not wallet_only) or command == "dag":
             with ThreadPoolExecutor() as executor:
                 if not nodeid:
-                    self.functions.event = True
-                    if threading:
-                        _ = executor.submit(self.functions.print_spinner,{
-                            "msg": f"Pulling {title}, please wait",
-                            "color": "magenta",
-                        })                     
-                    nodeid = self.functions.process_command({
-                        "bashCommand": cmd,
-                        "proc_action": "poll"
-                    })
+                    try:
+                        nodeid = self.config_obj["global_elements"]["nodeid_obj"][profile]
+                    except:
+                        self.functions.event = True
+                        if threading:
+                            _ = executor.submit(self.functions.print_spinner,{
+                                "msg": f"Pulling {title}, please wait",
+                                "color": "magenta",
+                            })                     
+                        nodeid = self.functions.process_command({
+                            "bashCommand": cmd,
+                            "proc_action": "poll"
+                        })
                     
                 self.nodeid = nodeid
+                self.log.logger[self.log_key].debug(f"cli_grab_id: requested the node's nodeid and found | nodeid [{nodeid}] | profile [{profile}]")
                 if command == "dag" and not wallet_only:
-                    nodeid = self.cli_nodeid2dag([nodeid.strip(),"return_only"]) # convert to dag address
-                    
+                    nodeid = self.cli_nodeid2dag({
+                        "nodeid": nodeid.strip(),
+                        "profile": profile,
+                    })
+                    self.log.logger[self.log_key].debug(f"cli_grab_id: requested the node's DAG address and found | nodeid [{nodeid}] | profile [{profile}]")
                 if ip_address == "127.0.0.1":
                     ip_address = self.ip_address
                     is_self = True
                     
                 self.functions.event = False  
-                
-            self.nodeid = nodeid
-            if command == "dag" and not wallet_only:
-                nodeid = self.cli_nodeid2dag([nodeid.strip(),"return_only"]) # convert to dag address
-                
-            if ip_address == "127.0.0.1":
-                ip_address = self.ip_address
-                is_self = True
-                
-            self.functions.event = False  
 
         if dag_addr_only:
             return nodeid
@@ -4404,7 +4407,7 @@ class CLI():
                 if n < 2 and int(float(wallet_balance["balance_dag"].replace(',', ''))) < 1:    
                     self.log.logger[self.log_key].warning("cli_grab_id --> wallet balance came back as 0, trying again before reporting 0 balance.")
                     if n < 1:
-                        sleep(.8) # avoid asking too fast
+                        sleep(1.5) # avoid asking too fast
                     else:
                         self.functions.print_paragraphs([
                             ["Balance has come back a",0,"red"], ["0",0,"yellow"], ["after",0,"red"], ["2",0,"yellow"], ["attempts. Making",0,"red"],
@@ -4844,42 +4847,54 @@ class CLI():
         return
             
         
-    def cli_nodeid2dag(self,argv_list):
+    def cli_nodeid2dag(self,command_obj):
+        if isinstance(command_obj,list):
+            argv_list = command_obj
+            nodeid = argv_list[0]
+            return_only = False
+        else:
+            nodeid = command_obj.get("nodeid",False)
+            profile = command_obj.get("profile",self.profile_names[0])
+            return_only = command_obj.get("return_only",True)
+            argv_list = []
+
         self.functions.check_for_help(argv_list,"nodeid2dag")
         pkcs_prefix = "3056301006072a8648ce3d020106052b8104000a03420004"  # PKCS prefix + 04 required byte
-        
+        self.log.logger[self.log_key].debug(f"cli_nodeid2dag: preparing to convert nodeid to dag [{nodeid}]")
+
         try:
-            nodeid = argv_list[0]
+            dag_address = self.config_obj["global_elements"]["nodeid_obj"][f"{profile}_wallet"]
         except:
-            nodeid = 0  # force error
-        else:
-            output_nodeid = f"{nodeid[0:8]}...{nodeid[-8:]}"
-        
-        if len(nodeid) == 128:
-            nodeid = f"{pkcs_prefix}{nodeid}"
-        else:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-2735",
-                "line_code": "node_id_issue",
-                "extra": "invalid",
-                "extra2": "nodeid2dag"
-            })
-
-        nodeid = sha256( bytes.fromhex(nodeid)).hexdigest()
-        nodeid = base58.b58encode(bytes.fromhex(nodeid)).decode()
-        nodeid = nodeid[len(nodeid)-36:]  
-
-        check_digits = re.sub('[^0-9]+','',nodeid)
-        check_digit = 0
-        for n in check_digits:
-            check_digit += int(n)
+            if not nodeid:
+                nodeid = 0  # force error
+            else:
+                output_nodeid = f"{nodeid[0:8]}...{nodeid[-8:]}"
             
-        if check_digit > 8:
-            check_digit = check_digit % 9
-            
-        dag_address = f"DAG{check_digit}{nodeid}"
+            if len(nodeid) == 128:
+                nodeid = f"{pkcs_prefix}{nodeid}"
+            else:
+                self.error_messages.error_code_messages({
+                    "error_code": "cmd-2735",
+                    "line_code": "node_id_issue",
+                    "extra": "invalid",
+                    "extra2": "nodeid2dag"
+                })
 
-        if "return_only" in argv_list:
+            nodeid = sha256( bytes.fromhex(nodeid)).hexdigest()
+            nodeid = base58.b58encode(bytes.fromhex(nodeid)).decode()
+            nodeid = nodeid[len(nodeid)-36:]  
+
+            check_digits = re.sub('[^0-9]+','',nodeid)
+            check_digit = 0
+            for n in check_digits:
+                check_digit += int(n)
+                
+            if check_digit > 8:
+                check_digit = check_digit % 9
+                
+            dag_address = f"DAG{check_digit}{nodeid}"
+
+        if return_only:
             return dag_address
         
         print_out_list = [

@@ -75,6 +75,8 @@ def cli_commands(argv_list):
                     }) 
                     if config_needed.requested_configuration:
                         Configurator(["-e"])
+                    elif config_needed.p12.pass_quit_request:
+                        exit(0)
                     elif return_caller:
                         argv_list = return_caller
 
@@ -94,9 +96,13 @@ def cli_commands(argv_list):
                     })
                     try:
                         if config.p12.pass_quit_request:
+                            if not return_caller:
+                                raise
                             argv_list = return_caller
                     except:
-                        pass
+                        if not return_caller:
+                            exit(0)
+
                     if config.action == "edit_on_error":
                         Configurator(config.edit_on_error_args)
                     else:

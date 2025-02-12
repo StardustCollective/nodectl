@@ -1438,7 +1438,6 @@ class Upgrader():
             self.cli.show_system_status({
                 "rebuild": False,
                 "wait": False,
-                "print_title": False,
                 "-p": "empty",
                 "called": "_qs",
             })

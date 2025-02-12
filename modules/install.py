@@ -1720,7 +1720,9 @@ class Installer():
             "skip_display": True,
             "threading": False,
         })
-        dag_address = self.cli.cli_nodeid2dag([self.cli.nodeid.strip("\n"), "return_only"])
+        dag_address = self.cli.cli_nodeid2dag({
+            "nodeid": self.cli.nodeid.strip("\n")
+        })
 
         node_details = {
             "HyperGraphMetaGraph": self.options.metagraph_name,

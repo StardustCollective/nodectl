@@ -278,6 +278,12 @@ class P12Class():
                 self.p12_filename = path.basename(self.existing_p12)
                 self.entered_p12_keyphrase = self.p12_password
 
+                try:
+                    if self.config_obj["global_p12"]["p12_validated"]:
+                        break 
+                except:
+                    pass
+
                 existing_unlock = self.unlock()
                 if not existing_unlock:
                     self.log.logger[self.log_key].warning(f"p12 passphrase invalid, unable to access private keystore [{attempt}] of [3]")
@@ -335,7 +341,7 @@ class P12Class():
         mobile = command_obj.get("mobile",False)
 
         de, manual = False, False
-        
+        force_exceptions = ["export_private_key","export-private-key","view_config","view-config"]
         self.log.logger[self.log_key].info(f"p12 keyphrase validation process started")
         
         for attempts in range(0,5):
@@ -349,7 +355,7 @@ class P12Class():
             
             try:
                 if profile == "global" and passwd == False and self.config_obj["global_elements"]["global_upgrader"] == False:
-                    if caller in ["export_private_key","view_config"]:
+                    if caller in force_exceptions:
                         cprint("  This command requires manual re-entry of your p12 passphrase","yellow")
                     else:
                         cprint("  Global profile passphrase doesn't match, is incorrect, or is not found.","yellow")
@@ -378,11 +384,12 @@ class P12Class():
                     sleep(.5)
                     passwd = self.config_obj["global_p12"]["passphrase"]
             if not passwd:
-                if caller in ["export_private_key","view_config"]:
+                if caller in force_exceptions:
                     self.functions.print_paragraphs([
                         ["You may press",0],["q",0,"yellow"],["+",0],
                         ["<enter>",0,"yellow"],
                         ["to quit",1],
+                        ["You will not see the",0,"magenta"],["q",0,"yellow"],["echoed to the screen.",1,"magenta"],
                     ])
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
                 if profile != "global":
@@ -392,7 +399,7 @@ class P12Class():
                 pass_ask += colored(f" {operation}: ","cyan")
                 passwd = getpass(pass_ask,)
                 passwd = passwd.strip()
-                if passwd.lower() == "q" and caller in ["export_private_key","view_config"]:
+                if passwd.lower() == "q" and caller in force_exceptions:
                     self.pass_quit_request = True
                     return
                 de, manual = False, True
@@ -499,33 +506,34 @@ class P12Class():
         return_result = False
         passfile = self.handle_pass_file()
 
+        bashCommand1 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
+        
         # check p12 against method 1
-        bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
-        bashCommand2 = self.functions.handle_java_prefix(bashCommand2)
         results = self.functions.process_command({
-            "bashCommand": bashCommand2,
-            "proc_action": "wait"
+            "bashCommand": bashCommand1,
+            "proc_action": "wait", 
+            "return_error": True
         })
-        if "Valid from:" in str(results):
-            self.log.logger[self.log_key].info("p12 file unlocked successfully - keytool")
+        if "friendlyName" in str(results):
+            self.log.logger[self.log_key].info("p12 file unlocked successfully - [openssl]")
             return_result = True
-
+        
         # check p12 against method 2
-        if not results:
-            self.log.logger[self.log_key].error("p12 file unlocked failed with method 1 [keytool]")
-            bashCommand1 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
+        if not return_result:
+            self.log.logger[self.log_key].error("p12 file unlocked failed with method 1 [openssl]")
+            bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
+            bashCommand2 = self.functions.handle_java_prefix(bashCommand2)
             results = self.functions.process_command({
-                "bashCommand": bashCommand1,
-                "proc_action": "wait", 
-                "return_error": True
+                "bashCommand": bashCommand2,
+                "proc_action": "wait"
             })
-            if "friendlyName" in str(results):
-                self.log.logger[self.log_key].info("p12 file unlocked successfully - [openssl]")
+            if "Valid from:" in str(results):
+                self.log.logger[self.log_key].info("p12 file unlocked successfully - keytool")
                 return_result = True
-
+        
         # check p12 against method 3
         if not return_result:
-            self.log.logger[self.log_key].error("p12 file unlocked failed with method 2 [openssl]")
+            self.log.logger[self.log_key].error("p12 file unlocked failed with method 2 [keytool]")
             bashCommand = "openssl version"
             results = self.functions.process_command({
                 "bashCommand": bashCommand,

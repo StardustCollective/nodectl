@@ -67,9 +67,6 @@ class Configurator():
         self.scenario = False
         self.hypergraph = False
 
-        self.force_version_update = False
-        self.quit_request = False
-
         self.edit_error_msg = ""
         self.detailed = "init"
         
@@ -185,7 +182,7 @@ class Configurator():
             "argv_list": [action,"configurator"],
         })
 
-        self.versioning = Versioning({
+        versioning = Versioning({
             "config_obj": self.config_obj,
             "print_messages": False,
             "called_cmd": "show_version",
@@ -204,7 +201,7 @@ class Configurator():
 
         self.c.config_obj["global_elements"] = {"caller":"config"}
         self.c.functions.log = self.log
-        self.c.functions.version_obj = self.versioning.version_obj
+        self.c.functions.version_obj = versioning.version_obj
         self.c.functions.set_statics()
         self.c.functions.pull_profile({"req":"profile_names"})
                 
@@ -311,8 +308,7 @@ class Configurator():
             elif option.lower() == "e":
                 self.is_new_config = False
                 self.edit_config()
-                if self.quit_mobile or self.quit_request: 
-                    return
+                if self.quit_mobile: return
                 
             option = "reset"
     
@@ -2975,7 +2971,7 @@ class Configurator():
             elif option == "m":
                 self.action = False
                 self.setup()
-            if option == "q" or self.quit_mobile or self.quit_request or (self.mobile and (return_option != "pe" and return_option != "m")):
+            if option == "q" or self.quit_mobile or (self.mobile and (return_option != "pe" and return_option != "m")):
                 self.quit_configurator()
                 return # if mobile this will 
 
@@ -3134,7 +3130,6 @@ class Configurator():
                 return "m"
             elif option == "p": 
                 self.action = "edit_profile"
-                self.requested_profile = None
                 if self.mobile: 
                     return "pe"
                 return "e"
@@ -3146,8 +3141,7 @@ class Configurator():
                 self.c.functions.check_for_help(["help"],"configure")
             elif option == "q": 
                 self.quit_configurator()
-                if self.mobile or self.quit_request: 
-                    return
+                if self.mobile: return
             elif option == "r":
                 self.c.view_yaml_config("migrate")
                 print_config_section()
@@ -3842,16 +3836,13 @@ class Configurator():
                     "status": "restarting",
                     "status_color": "yellow"
                 })
-                print("")
                 shell.auto_restart_handler("restart",True)
-                print("")
                 self.c.functions.print_cmd_status({
                     "text_start": "Restarting auto_restart service",
                     "status": "restarted",
                     "status_color": "green",
                     "newline": True,
                 })
-                self.force_version_update = True
                 self.c.functions.print_any_key({})
                 
                 
@@ -4998,13 +4989,10 @@ class Configurator():
         if path.isfile(self.yaml_path): 
             if path.isfile(self.yaml_path):
                 remove(self.yaml_path)
-        if requested and (not self.quit_mobile and not self.quit_request):
+        if requested and not self.quit_mobile:
             cprint("  Configurator exited upon Node Operator request","green")
         if self.mobile: 
             self.quit_mobile = True
-            return
-        if self.force_version_update:
-            self.quit_request = True
             return
         exit(0)  
         

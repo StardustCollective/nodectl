@@ -85,7 +85,6 @@ class ShellHandler:
     def setup_logging_key(self):
         pass
 
-
     def build_cli_obj(self,skip_check=False):
         build_cli = self.check_non_cli_command() if skip_check == False else True
         self.invalid_version = False
@@ -237,7 +236,6 @@ class ShellHandler:
                 self.cli.show_system_status({
                     "rebuild": False,
                     "wait": False,
-                    "print_title": True,
                     "-p": profile,
                     "called": self.called_command,
                     "command_list": self.argv
@@ -789,7 +787,7 @@ class ShellHandler:
             "start","stop","restart","leave",
             "slow_restart","_sr","restart_only",
             "peers","check_source_connection","_csc",
-            "check_connection","_cc","join",
+            "check_connection","_cc",
             "send_logs","_sl","show_node_proofs","_snp",
             "nodeid","id","dag","export_private_key",
             "check_seedlist","_csl","show_profile_issues",
@@ -1037,7 +1035,8 @@ class ShellHandler:
 
 
     def set_node_obj(self):
-        if self.cli == None: return
+        if self.cli == None: 
+            return
         if isinstance(self.cli,SimpleNamespace):
             return
         for _ in range(0,2):
@@ -1047,7 +1046,11 @@ class ShellHandler:
                 self.cli.node_id_obj = deepcopy(node_id_obj_org)
                 for key, value in node_id_obj_org.items():
                     if "short" not in key:
-                        self.cli.node_id_obj[f"{key}_wallet"] = self.cli.cli_nodeid2dag([value,"return_only"])
+                        self.cli.node_id_obj[f"{key}_wallet"] = self.cli.cli_nodeid2dag({
+                            "nodeid": value,
+                            "profile": self.profile,
+                        })
+                self.config_obj["global_elements"]["nodeid_obj"] = self.cli.node_id_obj
                 return
             if "--force" not in self.argv:
                 add_forced = True
@@ -1056,6 +1059,7 @@ class ShellHandler:
             self.cli.node_id_obj = False    
             if add_forced:      
                 self.argv.remove("--force")
+        
           
 
     def print_ext_ip(self):
