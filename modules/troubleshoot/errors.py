@@ -93,7 +93,7 @@ class Error_codes():
         self.functions = functions
         process = self.setup_process()
         self.log = Logging(process)
-        self.setup_log_key
+        self.setup_log_key()
 
         try: self.functions.test_valid_functions_obj()
         except:

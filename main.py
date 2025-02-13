@@ -11,6 +11,7 @@ debug = False
 
 def cli_commands(argv_list):
     current_shell, return_caller = False, False
+    found_mobile, found_console = False, False
     handle_main = True
 
     try:
@@ -24,6 +25,7 @@ def cli_commands(argv_list):
         if return_caller:
             poss_cmds = ["revision","configure"]
             found_mobile = True if "mobile" in argv_list else False
+            found_console = True if "console" in argv_list else False
             for cmd in poss_cmds:
                 if cmd in return_caller:
                     if "revision" in return_caller:
@@ -97,6 +99,9 @@ def cli_commands(argv_list):
                     try:
                         if config.p12.pass_quit_request:
                             if not return_caller:
+                                raise
+                            if caller == "export_private_key" and found_console:
+                                return_caller = False
                                 raise
                             argv_list = return_caller
                     except:
