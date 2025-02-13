@@ -593,7 +593,8 @@ class P12Class():
             "global": is_global,
             "profile": self.profile,
         })
-        id_hex_file = f"{self.path_to_p12}{self.id_file_name}"
+        id_hex_file = f"{self.path_to_p12}/{self.id_file_name}"
+        id_hex_file = path.normpath(id_hex_file)
         id_file_exists = path.exists(id_hex_file)
         if id_file_exists:
             remove(id_hex_file)

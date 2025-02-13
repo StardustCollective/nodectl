@@ -226,7 +226,7 @@ class CLI():
                 
         
         watch_enabled = True if "-w" in command_list else False
-        print_title = True if "--legend " in command_list else False
+        print_title = True if "--legend" in command_list else False
 
         watch_seconds = 15
         watch_passes = 0
