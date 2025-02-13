@@ -17,8 +17,6 @@ class P12Class():
         
     def __init__(self,command_obj):
 
-        self.log = Logging()
-        
         self.id_file_name = "id_ecdsa.hex"
         self.p12_file_location = ""
         self.p12_filename = ""
@@ -31,9 +29,11 @@ class P12Class():
         self.cli = command_obj.get("cli_obj",None)
         self.process = command_obj.get("process",None)
         self.functions = command_obj["functions"]
+        self.functions.process = command_obj.get("process",None)
         self.version_obj = self.functions.version_obj
         self.config_obj = self.functions.config_obj 
 
+        self.log = Logging(self.process)
         try:
             self.log_key = self.config_obj["global_elements"]["log_key"]
         except:
@@ -45,6 +45,7 @@ class P12Class():
         self.pass_quit_request = False
         self.solo = False # part of install or solo request to create p12
         self.secure_mount_exists = False
+
 
         self.error_messages = Error_codes(self.functions) 
         self.handle_pass_file(False)

@@ -15,7 +15,9 @@ from ..troubleshoot.errors import Error_codes
 class Versioning():
 
     def __init__(self,command_obj):
-        self.log = Logging()
+        
+        process = command_obj.get("request",None)
+        self.log = Logging(process)
 
         # important
         # migration -> verify_config_type -> simple verification value counters

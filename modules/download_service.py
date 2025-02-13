@@ -487,7 +487,7 @@ class Download():
                     self.redundant_check()
         else:
             with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = {executor.submit(self.get_download_looper, file_name): file_name for file_name in list(self.file_obj.keys())}
+                futures = {executor.submit(self.get_download_looper, file_name): file_name for file_name in list(self.file_obj.keys()) if "disable" not in file_name}
                 for future in as_completed(futures):
                     file_name = futures[future]
                     try:

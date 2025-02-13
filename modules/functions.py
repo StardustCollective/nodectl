@@ -70,8 +70,13 @@ class Functions():
             except:
                 self.log_key = "main"
 
+        try:
+            process = config_obj['global_elements']['caller']
+        except:
+            process = None
+
         if self.sudo_rights:
-            self.log = Logging()
+            self.log = Logging(process)
 
         self.config_obj = config_obj
             

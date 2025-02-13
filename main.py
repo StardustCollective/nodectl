@@ -1,4 +1,4 @@
-from sys import argv
+from sys import argv, exit
 from modules.shell_handler import ShellHandler
 from termcolor import colored
 from modules.troubleshoot.logger import Logging

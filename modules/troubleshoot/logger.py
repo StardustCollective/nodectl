@@ -11,11 +11,13 @@ from logging.handlers import RotatingFileHandler
 
 class Logging():
         
-    def __init__(self):
+    def __init__(self,process=None):
         self.log_file_name = "nodectl.log"
         self.auto_file_name = "nodectl_auto_restart.log"
         self.version_file_name = "nodectl_versioning.log"
-
+        self.process = process
+        if process == "install" or process == "installer":
+            pass
         self.log_path = "/var/tessellation/nodectl/logs/"
 
         self.full_log_paths = {
@@ -78,11 +80,11 @@ class Logging():
 
 
     def check_for_log_file(self):
-        log_dir_exists = path.exists(self.log_path)
+        log_dir_exists = path.isdir(self.log_path)
 
-        if not log_dir_exists:
-            cprint("No installation found or log path not found.","red")
-            cprint("Creating log directory for nodectl","yellow")
+        if not log_dir_exists and self.process not in ["install","installer"]:
+            cprint("  No installation found or log path not found.","red")
+            cprint("  Creating log directory for nodectl","yellow")
             makedirs(self.log_path)
         for value in self.full_log_paths.values():
             if not path.isfile(value):

@@ -88,22 +88,44 @@ from .logger import Logging
 class Error_codes():
     
     def __init__(self,functions,debug=False):
-        self.log = Logging()
+
         self.debug = debug
         self.functions = functions
-        try:
-            self.log_key = functions.config_obj["global_elements"]["log_key"]
-        except:
-            try:
-                self.log_key = functions.log_key
-            except:
-                self.log_key = "main"
+        process = self.setup_process()
+        self.log = Logging(process)
+        self.setup_log_key
 
         try: self.functions.test_valid_functions_obj()
         except:
             # exception for config_obj send instead of functions obj
             from ..functions import Functions
             self.functions = Functions(self.functions)
+
+
+    def setup_process(self):
+        try:
+            process = self.functions.process # install exception
+        except:
+            try:
+                process = self.functions['global_elements']['caller']
+            except:
+                try:
+                    process = self.functions.config_obj['global_elements']['caller']
+                except:
+                    return None
+                
+        return process
+    
+
+    def setup_log_key(self):
+        try:
+            self.log_key = self.functions.config_obj["global_elements"]["log_key"]
+        except:
+            try:
+                self.log_key = self.functions.log_key
+            except:
+                self.log_key = "main"
+
 
     def error_code_messages(self,command_obj):
         # error_code,line_code=None, extra=None, extra2=None:

@@ -490,8 +490,8 @@ class Installer():
         found_files = self.functions.get_list_of_files({
             "paths": ["var/tessellation/","home/nodeadmin/tessellation/"],
             "files": ["*"],
-            "exclude_paths": ["var/tessellation/nodectl"],
-            "exclude_files": ["nodectl.log"],
+            "exclude_paths": ["var/tessellation/nodectl/logs"],
+            "exclude_files": ["*"],
         })
         found_files2 = self.functions.get_list_of_files({
             "paths": ["etc/systemd/system/"],
@@ -1666,7 +1666,9 @@ class Installer():
             self.log.logger[self.log_key].info("moving nodectl to /var/tmp and completing uninstall.  Thank you for using nodectl.")
         self.log.logger[self.log_key].info("uninstaller -> handling removal of nodectl executable ")
         if node_admins[0] == "logger_retention":
-            copy2("/var/tessellation/nodectl/nodectl.log", "/var/tmp/nodectl.log")
+            copy2("/var/tessellation/nodectl/logs/nodectl.log", "/var/tmp/nodectl.log")
+            copy2("/var/tessellation/nodectl/logs/nodectl.log", "/var/tmp/nodectl_versioning.log")
+            copy2("/var/tessellation/nodectl/logs/nodectl.log", "/var/tmp/nodectl_auto_restart.log")
             sleep(.5)
             rmtree("/var/tessellation")
 
@@ -1721,7 +1723,8 @@ class Installer():
             "threading": False,
         })
         dag_address = self.cli.cli_nodeid2dag({
-            "nodeid": self.cli.nodeid.strip("\n")
+            "nodeid": self.cli.nodeid.strip("\n"),
+            "profile": list(self.config_obj.keys())[0]
         })
 
         node_details = {

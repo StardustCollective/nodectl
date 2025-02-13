@@ -4854,7 +4854,9 @@ class CLI():
             return_only = False
         else:
             nodeid = command_obj.get("nodeid",False)
-            profile = command_obj.get("profile",self.profile_names[0])
+            profile = command_obj.get("profile",False)
+            if not profile:
+                profile =self.profile_names[0]
             return_only = command_obj.get("return_only",True)
             argv_list = []
 
