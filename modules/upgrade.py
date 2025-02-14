@@ -767,6 +767,14 @@ class Upgrader():
             for file_path in glob(path.join("/var/tessellation/nodectl/", "nodectl.log*")):
                 if not path.isfile(f"/var/tessellation/nodectl/logs/{path.basename(file_path)}"):
                     move(file_path, "/var/tessellation/nodectl/logs")
+        # new revision will create a new nodectl.log file backup old one
+        # clean up if there an already residual nodectl.log files
+        file_name = "nodectl.log"
+        for n in range(0,9):
+            if n > 0:
+                file_name = f"nodectl.log.{n}"
+            if path.isfile(f"/var/tessellation/nodectl/{file_name}"):
+                    move(f"/var/tessellation/nodectl/{file_name}",f"/var/tessellation/backups/{file_name}")
 
 
     def verify_directories(self):
