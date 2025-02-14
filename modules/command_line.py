@@ -4865,6 +4865,8 @@ class CLI():
         self.log.logger[self.log_key].debug(f"cli_nodeid2dag: preparing to convert nodeid to dag [{nodeid}]")
 
         try:
+            if nodeid != self.config_obj["global_elements"]["nodeid_obj"][profile]:
+                raise 
             dag_address = self.config_obj["global_elements"]["nodeid_obj"][f"{profile}_wallet"]
         except:
             if not nodeid:

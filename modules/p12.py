@@ -407,7 +407,14 @@ class P12Class():
             
             self.entered_p12_keyphrase = passwd
                 
-            valid = self.unlock()
+            try:
+                if self.config_obj[profile]["p12_validated"]:
+                    valid = True
+                else:
+                    raise
+            except:
+                valid = self.unlock()
+            
             if valid:
                 if operation == "config_file" and manual == True:
                     self.config_obj["global_elements"]["p12_cli_pass_global"] = True

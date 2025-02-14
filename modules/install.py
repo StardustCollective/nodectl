@@ -490,7 +490,7 @@ class Installer():
         found_files = self.functions.get_list_of_files({
             "paths": ["var/tessellation/","home/nodeadmin/tessellation/"],
             "files": ["*"],
-            "exclude_paths": ["var/tessellation/nodectl/logs"],
+            "exclude_paths": ["var/tessellation/nodectl/logs","var/tessellation/nodectl"],
             "exclude_files": ["*"],
         })
         found_files2 = self.functions.get_list_of_files({
@@ -498,6 +498,11 @@ class Installer():
             "files": ["cnng-*","node_restart*"],
         })
         
+        if len(found_files) < 2: # exception rare occourance
+            for value in found_files.values():
+                if value == "/var/tessellation/nodectl":
+                    found_files = {}
+
         if len(found_files) > 0 or len(found_files2) > 0:
             if len(found_files) > 0:
                 self.log.logger[self.log_key].warning("install found possible existing tessellation core components")
