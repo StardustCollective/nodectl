@@ -2,10 +2,10 @@ import concurrent.futures
 import time
 
 from sys import exit
-from datetime import datetime
+from datetime import datetime, timedelta
 from termcolor import colored, cprint
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
-from os import geteuid, getgid, environ, system, walk, remove, path, makedirs
+from os import geteuid, getgid, environ, system, walk, remove, path, makedirs, sysconf, sysconf_names
 from shutil import copy2, move
 from types import SimpleNamespace
 from pathlib import Path
@@ -1301,7 +1301,7 @@ class ShellHandler:
         if passed:
             self.functions.print_paragraphs([
                 ["",1],[" SUCCESS ",0,"yellow,on_green","bold"],
-                ["This node meets are necessary specifications to run as a node.",2,"green"],
+                ["This node meets all necessary specifications to run as a node.",2,"green"],
             ])
             return True
         else:
@@ -1824,6 +1824,32 @@ class ShellHandler:
                 else:
                     return
         
+        service_last_restart, service_next_restart = "N/A", "N/A"
+        service_start_color = "yellow"
+        def find_service_times(pid):
+            restart_interval_hours = 4
+            try:
+                with open(f"/proc/{pid}/stat", "r") as f:
+                    stat_info = f.read().split()
+                start_time_ticks = int(stat_info[21])
+
+                with open("/proc/uptime", "r") as f:
+                    uptime_seconds = float(f.readline().split()[0])
+
+                clock_ticks = sysconf(sysconf_names["SC_CLK_TCK"])
+                start_time_seconds = start_time_ticks / clock_ticks
+
+                system_boot_time = datetime.now() - timedelta(seconds=uptime_seconds)
+                service_last_restart = system_boot_time + timedelta(seconds=start_time_seconds)
+                service_next_restart = service_last_restart + timedelta(hours=restart_interval_hours)
+                service_last_restart = service_last_restart.strftime('%Y-%m-%d %H:%M:%S')
+                service_next_restart = service_next_restart.strftime('%Y-%m-%d %H:%M:%S')
+
+                return service_last_restart, service_next_restart, "green"
+            except Exception as e:
+                self.log.logger[self.log_key].warning(f"auto_restart_handler -> uanble to determine service last and next restart values | error [{e}]")
+                return "N/A","N/A","red"
+                      
         if action == "check_pid" or action == "current_pid" or action =="status":
             config_restart = self.functions.config_obj["global_auto_restart"]["auto_restart"]
             config_restart = "True" if config_restart else "False"
@@ -1853,6 +1879,11 @@ class ShellHandler:
                 self.functions.print_show_output({
                     "header_elements" : header_elements
             })          
+
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if isinstance(self.auto_restart_pid,int):
+                service_last_restart, service_next_restart, service_start_color = find_service_times(self.auto_restart_pid)
+
             print_out_list = [
                 {
                     "header_elements" : {
@@ -1861,8 +1892,22 @@ class ShellHandler:
                         "ON BOOT": colored(config_boot,config_boot_color),
                     },
                     "spacing": 14
+                },
+                {
+                    "header_elements" : {
+                        "CURRENT TIME": colored(current_time,"green"),
+                    },
+
+                },
+                {
+                    "header_elements" : {
+                        "LAST RESTART": colored(f'{service_last_restart: <{22}}',service_start_color),
+                        "NEXT RESTART": colored(service_next_restart,service_start_color),
+                    },
+                    "spacing": 22
                 }
             ]
+
             self.functions.print_paragraphs([
                 ["",1],["CONFIGURATION SETTINGS",1,"blue","bold"]
             ])            

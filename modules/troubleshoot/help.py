@@ -563,6 +563,12 @@ def build_help(functions,command_obj):
   {colored('-p <profile_name>','green')}
   {colored('-t [--timeout] <timeout in seconds>','green')}
 
+  {colored('Note:','yellow')} If the service is not started,
+  and running with an attempt to join, you will see a  {colored('False','cyan')}
+  result for the port check.  If you see your service is 
+  online and ready, but still seeing {colored('False','cyan')} results
+  you may want to increase the timeout value using the {colored('-t','cyan')} option.
+
   Example Usage
   -------------
   show this help screen
@@ -1086,7 +1092,10 @@ def build_help(functions,command_obj):
   check if auto_restart is running by searching for
   the process id ({colored('pid','white',attrs=['bold'])}) of the auto_restart service.
   The command will also show status of auto features set in
-  the configuration.
+  the configuration.  The service is defaulted to restart every
+  4 hours (behind the scenes), the status command will also show
+  the last restart date and time and the next restart date and time.
+  
   # {colored('sudo nodectl auto_restart check_pid','cyan')}
    or
   # {colored('sudo nodectl auto_restart status','cyan')}

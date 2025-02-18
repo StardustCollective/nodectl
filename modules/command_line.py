@@ -5397,6 +5397,9 @@ class CLI():
             profile_names = [profile]
 
         self.print_title("TCP PORT TESTING")
+        self.functions.print_paragrpahs([
+            ["See",0],["help",0,"yellow"],["for more information on this command.",1]
+        ])
 
         timeout = 10
         if "-t" in argv_list:

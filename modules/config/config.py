@@ -1101,7 +1101,7 @@ class Configuration():
         print_str = colored('  Replacing configuration ','green')+colored('"self "',"yellow")+colored('items: ','green')
         profile_obj = self.config_obj; self.profile_obj = profile_obj
 
-        if not self.auto_restart and not self.versioning_service:
+        if not self.auto_restart and not self.versioning_service and self.called_command != "uvos":
             self.functions.print_clear_line()
         
         try:
