@@ -448,7 +448,7 @@ class P12Class():
                     "extra2": None
                 })        
         
-        if self.process != "service_restart":
+        if self.process != "service_restart" and caller != "uvos":
             self.functions.print_cmd_status({
                 "text_start": "P12 file keyphrase (passphrase)",
                 "brackets": profile,
