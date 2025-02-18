@@ -1199,7 +1199,7 @@ class CLI():
 
 
     def show_ip(self,argv_list):
-        self.log.logger[self.log_key].info(f"whoami request for password initiated.")
+        self.log.logger[self.log_key].info(f"whoami request initiated.")
         ip_address = self.ip_address
         
         if "-id" in argv_list:

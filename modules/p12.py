@@ -336,7 +336,7 @@ class P12Class():
         
     def keyphrase_validate(self,command_obj):
         operation = command_obj["operation"]
-        passwd = command_obj.get("passwd",False)
+        passwd = command_obj.get("passwd",self.config_obj["global_p12"]["passphrase"])
         caller = command_obj.get("caller",False)
         profile = command_obj.get("profile","global")
         mobile = command_obj.get("mobile",False)
@@ -351,7 +351,8 @@ class P12Class():
                 if self.config_obj["global_p12"]["encryption"] and not manual: 
                     de = True
             else:
-                if not self.config_obj[profile]["global_p12_passphrase"] and self.config_obj[profile]["global_p12_encryption"]: de = True
+                if not self.config_obj[profile]["global_p12_passphrase"] and self.config_obj[profile]["global_p12_encryption"]: 
+                    de = True
                 self.set_variables(False,profile)   
             
             try:
@@ -359,7 +360,9 @@ class P12Class():
                     if caller in force_exceptions:
                         cprint("  This command requires manual re-entry of your p12 passphrase","yellow")
                     else:
-                        cprint("  Global profile passphrase doesn't match, is incorrect, or is not found.","yellow")
+                        self.log.logger[self.log_key].debug(f"p12 keyphrase validation process --> passphrase may be [False] warning user.")
+                        if attempts > 0:
+                            cprint("  Global profile passphrase doesn't match, is incorrect, or is not found.","yellow")
             except:
                 self.error_messages.error_code_messages({
                     "error_code": "p12-227",
@@ -367,11 +370,6 @@ class P12Class():
                 })
             
             if de: 
-                if attempts < 1 and not passwd:
-                    try:
-                        passwd = self.config_obj["global_p12"]["passphrase"]
-                    except:
-                        passwd = False
                 self.log.logger[self.log_key].debug(f"p12 keyphrase validation process - attempting decryption")
                 for _ in range(0,4):
                     de_passwd = self.functions.get_persist_hash({
@@ -383,7 +381,8 @@ class P12Class():
                         passwd = de_passwd
                         break
                     sleep(.5)
-                    passwd = self.config_obj["global_p12"]["passphrase"]
+                    passwd = self.config_obj["global_p12"]["passphrase"]  # redundant
+
             if not passwd:
                 if caller in force_exceptions:
                     self.functions.print_paragraphs([
@@ -413,6 +412,7 @@ class P12Class():
                 else:
                     raise
             except:
+                self.log.logger[self.log_key].debug(f"p12 keyphrase validation process - did not find p12 validated, attempting to unlock.")
                 valid = self.unlock()
             
             if valid:
@@ -438,7 +438,7 @@ class P12Class():
                     attempts += 1
                 self.functions.print_clear_line()
                 print(f"{colored('  Passphrase invalid, please try again attempt [','red',attrs=['bold'])}{colored(attempts,'yellow')}{colored('] of 3','red',attrs=['bold'])}")
-            passwd = False
+            passwd = self.config_obj["global_p12"]["passphrase"]
             
             if attempts > 2:
                 self.error_messages.error_code_messages({
@@ -514,31 +514,30 @@ class P12Class():
         return_result = False
         passfile = self.handle_pass_file()
 
-        bashCommand1 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
-        
         # check p12 against method 1
+        bashCommand1 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
+        bashCommand1 = self.functions.handle_java_prefix(bashCommand1)
         results = self.functions.process_command({
             "bashCommand": bashCommand1,
-            "proc_action": "wait", 
-            "return_error": True
+            "proc_action": "wait"
         })
-        if "friendlyName" in str(results):
-            self.log.logger[self.log_key].info("p12 file unlocked successfully - [openssl]")
+        if "Valid from:" in str(results):
+            self.log.logger[self.log_key].info("p12 file unlocked successfully - keytool")
             return_result = True
-        
+
         # check p12 against method 2
         if not return_result:
-            self.log.logger[self.log_key].error("p12 file unlocked failed with method 1 [openssl]")
-            bashCommand2 = f"keytool -list -v -keystore {self.path_to_p12}{self.p12_filename} -storepass:file {passfile} -storetype PKCS12"
-            bashCommand2 = self.functions.handle_java_prefix(bashCommand2)
+            self.log.logger[self.log_key].error("p12 file unlocked failed with method 1 [keytool]")
+            bashCommand2 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
             results = self.functions.process_command({
                 "bashCommand": bashCommand2,
-                "proc_action": "wait"
+                "proc_action": "wait", 
+                "return_error": True
             })
-            if "Valid from:" in str(results):
-                self.log.logger[self.log_key].info("p12 file unlocked successfully - keytool")
+            if "friendlyName" in str(results):
+                self.log.logger[self.log_key].info("p12 file unlocked successfully - [openssl]")
                 return_result = True
-        
+
         # check p12 against method 3
         if not return_result:
             self.log.logger[self.log_key].error("p12 file unlocked failed with method 2 [keytool]")
@@ -549,6 +548,7 @@ class P12Class():
                 "return_error": True
             })
             if "OpenSSL 3" in results:        
+                self.log.logger[self.log_key].debug("During p12 unlocking found OpenSSL v3")
                 bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -provider default -provider legacy")
                 results = self.functions.process_command({
                     "bashCommand": bashCommand3,
