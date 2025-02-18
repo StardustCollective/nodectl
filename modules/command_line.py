@@ -1129,11 +1129,12 @@ class CLI():
                     "argv_list": ["-p",profile,"-t",peer,"--port",public_port,"-l"]
                 })
                 if isinstance(nodeid,list):
-                    nodeid = "UnableToReach"
-                    wallet = "UnableToReach"
+                    nodeid = "UnableToRetrieve"
+                    wallet = "UnableToRetrieve"
                 else:
                     wallet = self.cli_nodeid2dag({
                         "nodeid": nodeid,
+                        "caller": "show_peers",
                         "profile": profile,
                     })
                 
@@ -4852,9 +4853,11 @@ class CLI():
             argv_list = command_obj
             nodeid = argv_list[0]
             return_only = False
+            caller = "default"
         else:
             nodeid = command_obj.get("nodeid",False)
             profile = command_obj.get("profile",False)
+            caller = command_obj.get("caller","default")
             if not profile:
                 profile =self.profile_names[0]
             return_only = command_obj.get("return_only",True)
@@ -4874,9 +4877,14 @@ class CLI():
             else:
                 output_nodeid = f"{nodeid[0:8]}...{nodeid[-8:]}"
             
-            if len(nodeid) == 128:
-                nodeid = f"{pkcs_prefix}{nodeid}"
-            else:
+            try:
+                if len(nodeid) == 128:
+                    nodeid = f"{pkcs_prefix}{nodeid}"
+                else:
+                    if caller == "show_peers":
+                        return "UnableToRetrieve"
+                    raise
+            except:
                 self.error_messages.error_code_messages({
                     "error_code": "cmd-2735",
                     "line_code": "node_id_issue",
