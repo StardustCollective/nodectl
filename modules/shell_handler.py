@@ -1733,7 +1733,12 @@ class ShellHandler:
         if action == "restart":
             action = "disable"
             restart_request = True
-                            
+
+        try:
+            alerting_enabled = self.config_obj["global_elements"]["alerting"]       
+        except:
+            alerting_enabled = False    
+
         if action == "service_start":
             self.log.logger[self.log_key].info("auto_restart - restart session threader - invoked.")
             try:
@@ -1862,6 +1867,9 @@ class ShellHandler:
             config_boot = self.functions.config_obj["global_auto_restart"]["on_boot"]
             config_boot = "True" if config_boot else "False"
             config_boot_color = "green" if config_boot  == "True" else "red"
+
+            alerting_state = "True" if alerting_enabled else "False"
+            alerting_state_color = "green" if alerting_enabled else "red"
             
             self.functions.print_clear_line()
             self.functions.print_paragraphs([
@@ -1889,7 +1897,8 @@ class ShellHandler:
                     "header_elements" : {
                         "AUTO RESTART": colored(f'{config_restart: <{14}}',config_restart_color),
                         "AUTO UPGRADE": colored(f'{config_upgrade: <{14}}',config_upgrade_color),
-                        "ON BOOT": colored(config_boot,config_boot_color),
+                        "ON BOOT": colored(f'{config_boot: <{14}}',config_boot_color),
+                        "ALERTING": colored(alerting_state,alerting_state_color),
                     },
                     "spacing": 14
                 },
@@ -2000,7 +2009,7 @@ class ShellHandler:
                 ["Action cancelled",1,"yellow"],
             ])
             exit("  auto restart passphrase error")
-                        
+
         if self.auto_restart_pid != "disabled":
             if self.auto_restart_enabled and not self.auto_restart_quiet:
                 self.functions.print_paragraphs([
@@ -2009,6 +2018,10 @@ class ShellHandler:
                     [str(self.auto_restart_pid),-1,"yellow","bold"],
                     ["] was found already.",-1,"green"],["",1]
                 ])
+                if alerting_enabled:
+                    self.functions.print_paragraphs([
+                        ["Node alerting service is enabled",1,"green"], 
+                    ])                
             elif not self.auto_restart_quiet:
                 self.functions.print_paragraphs([
                     ["",1], ["Node restart service not started because pid [",0,"yellow"],

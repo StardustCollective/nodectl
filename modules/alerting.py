@@ -69,7 +69,8 @@ def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
         log.logger["main"].info(f"alerting module -> sending alert [alert {alert_profile}]")
     else:
         log.logger["main"].info(f"alerting module -> sending alert [{alert_profile[profile]['action']}]")
-    send_email(comm_obj,body,log)
+    
+    send_email(comm_obj,body,functions,log)
     return "complete"
 
 
@@ -163,12 +164,12 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
                 break
         
     body += f"\nEnd Report"
-    send_email(comm_obj,body,log)
+    send_email(comm_obj,body,functions,log)
 
     log.logger["main"].info("alerting module -> prepare report requested")
 
 
-def send_email(comm_obj,body,log):
+def send_email(comm_obj,body,functions,log):
     if comm_obj["send_method"] == "single":
         if len(comm_obj["recipients"]) > 1:
             try:
@@ -183,7 +184,12 @@ def send_email(comm_obj,body,log):
 
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
-    server.login(comm_obj["gmail"], comm_obj["token"])
+    token =  functions.get_persist_hash({
+        "pass1": comm_obj["token"],
+        "profile": "alerting",
+        "enc_data": True,
+    })
+    server.login(comm_obj["gmail"], token)
 
     for email in comm_obj["recipients"]:
         email = send_to if comm_obj["send_method"] == "single" else email

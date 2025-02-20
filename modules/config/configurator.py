@@ -2090,6 +2090,7 @@ class Configurator():
         }
 
         defaults, questions, manual = False, False, False
+        update_token = False
         do_edit = True
         
         self.manual_section_header(profile,"ALERTING SETUP")
@@ -2126,12 +2127,13 @@ class Configurator():
             ]
             self.alerting_config = {item: False for item in alert_list}
             self.alerting_config["enable"] = "True"
+            update_token = True
         else:
             try:
                 _ = self.alerting_config["report_currency"]
             except:
                 # alert feature additions as of v2.16.0
-                self.alerting_config["report_currency"] = True
+                self.alerting_config["report_currency"] = 'True'
                 self.alerting_config["label"] = 'None'
 
             self.c.functions.print_paragraphs([
@@ -2161,6 +2163,20 @@ class Configurator():
                 }):
                     do_edit = False
 
+            if self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1],["If you choose",0,"magenta"], ["not",0,"red"], ["to update your Gmail token, nodectl will maintain your existing encrypted token; otherwise,",0,"magenta"],
+                    ["it will be removed and you will need to re-enter the token, make sure you have this",0,"magenta"],
+                    ["information available before continuing.",1,"magenta"],
+                ])
+            if self.c.functions.confirm_action({
+                "prompt": "Do you want to update the Gmail token?",
+                "yes_no_default": "n",
+                "return_on": "y",
+                "exit_if": False
+            }):
+                update_token = True
+
             default_recipients = ""
             for r in self.alerting_config["recipients"]:
                 default_recipients = default_recipients+","+r
@@ -2168,7 +2184,7 @@ class Configurator():
             default_recipients = default_recipients.replace(" ","")
 
         report_currency_setting, crs = True, False
-        if self.alerting_config["report_currency"]:
+        if self.alerting_config["report_currency"] == "True":
             report_currency_setting, crs = False, True
 
         label_default_value = self.alerting_config["label"]
@@ -2203,12 +2219,6 @@ class Configurator():
                     "description": description0,
                     "required": False,
                     "default": self.alerting_config["gmail"] if self.alerting_config["gmail"] else ""
-                },
-                "token": {
-                    "question": f"  {colored('Enter your gmail','cyan')} {colored('token','yellow')} {colored('App password','cyan')}",
-                    "description": description1,
-                    "required": False,
-                    "default": self.alerting_config["token"] if self.alerting_config["token"] else ""
                 },
                 "send_method": {
                     "question": f"  {colored('Enter desired','cyan')} {colored('send','yellow')} {colored('method','cyan')}",
@@ -2260,6 +2270,28 @@ class Configurator():
                 },
             }    
 
+            if update_token:
+                questions_convert = list(questions.items())
+                questions_convert.insert(1,(
+                    "token",
+                    {
+                    "question": f"  {colored('Enter your gmail','cyan')} {colored('token','yellow')} {colored('App password','cyan')}",
+                    "description": description1,
+                    "required": False,
+                    "default": ""
+                    }
+                ))
+                questions = dict(questions_convert)
+
+            if update_token and self.detailed:
+                self.c.functions.print_paragraphs([
+                    ["",1],[" WARNING ",0,"red,on_yellow"], ["nodectl will show you your Gmail",0,"magenta"],
+                    ["token",0,"yellow"], ["in plain text for review, but subsequently it will encrypt the token.",0,"magenta"],
+                    ["You should make sure you have it securely written down and stored, as it will no longer be",0,"magenta"],
+                    ["retrievable.",1,"magenta"],
+                ])
+                self.c.functions.print_any_key({})
+
             self.manual_append_build_apply({
                 "questions": questions, 
                 "profile": profile,
@@ -2267,6 +2299,8 @@ class Configurator():
                 "is_global": True,
                 "apply": False  # don't apply this will be done later
             })
+            if not update_token:
+                self.config_obj_apply["Global"]["token"] = self.alerting_config["token"]
             data = deepcopy(self.config_obj_apply["Global"])
         else:
             data = deepcopy(self.alerting_config)
@@ -2280,6 +2314,33 @@ class Configurator():
             "file": "alerting",
         })
 
+        if update_token:
+            et_obj = {
+                "text_start": "Encrypting",
+                "brackets": "Gmail",
+                "text_end": "token",
+                "status": "encrypting",
+                "status_color": "yellow",
+                "newline": False,
+            }
+            self.c.functions.print_cmd_status(et_obj)
+
+            data["token"], _ = self.perform_encryption(
+                "alerting",
+                False,
+                self.build_encryption_path(),
+                data["token"] if data["token"] else "None",
+                "alerting",
+            )
+            et_obj = {
+                **et_obj,
+                "newline": True,
+                "status": "complete" if data["token"] else "failed",
+                "status_color": "green" if data["token"] else "red",
+            }
+            self.c.functions.print_cmd_status(et_obj)
+            if not data["token"]:
+                data["token"] = "False"
         if data["label"] == " None ": data["label"] = "None"
         alerting_file = alerting_file.replace(f"enable: {data['enable']}", f"enable: {self.alerting_config['enable']}")
         alerting_file = alerting_file.replace("nodegarageemail",data["gmail"])
@@ -2287,7 +2348,7 @@ class Configurator():
         alerting_file = alerting_file.replace("nodegaragemethod",data["send_method"])
         alerting_file = alerting_file.replace("nodegaragebegin",str(data["begin_alert_utc"]))
         alerting_file = alerting_file.replace("nodegarageend",str(data["end_alert_utc"]))
-        alerting_file = alerting_file.replace("nodegaragecurrencyreport",data["report_currency"])
+        alerting_file = alerting_file.replace("nodegaragecurrencyreport",f'{data["report_currency"]}')
         alerting_file = alerting_file.replace("nodegaragereport",str(data["report_hour_utc"]))
         alerting_file = alerting_file.replace("nodeagaragelocaltimezone",data["local_time_zone"])
         alerting_file = alerting_file.replace("nodegaragelabel",data["label"])
@@ -2307,6 +2368,8 @@ class Configurator():
         # validate requirements before continuing
         for key,value in data.items():
             if key == "enable" or key == "report_currency":
+                if isinstance(value, bool):
+                    value = f"{value}" # convert to string
                 if value != "True" and value != "False":
                     invalid.append("enable is not 'True' or 'False'.")
             if key == "gmail":
@@ -2318,6 +2381,9 @@ class Configurator():
             if key == "label":
                 if not isinstance(value,str):
                     invalid.append(f"label: {value}': must be a string value or 'None'.")
+            if key == "token":
+                if value == "None" or value == "False":
+                    invalid.append(f"token: {value}': must be a string value.")
             if key in ["begin_alert_utc","end_alert_utc","report_hour_utc"]:
                 try:
                     i_value = int(value)
@@ -3881,35 +3947,42 @@ class Configurator():
         pass_key = "passphrase"
         first_run, write_append, pass_error = False, True, False
 
-        if profile != "global_p12":
-            pass_key = "p12_passphrase"
-            if self.c.config_obj[profile][pass_key] == "global":
-                return "skip","skip"
-            
-        try:
-            enc_pass = self.c.config_obj[profile][pass_key].strip()
-            enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
-            enc_pass = f"{enc_pass}"
-        except:
-            self.log.logger[self.log_key].error("Unable to find passphrase in configuration file.")
-            pass_error = True
 
-        if caller != "configurator" and enc_pass == "None":
-            pass_error = True
+        if caller == "alerting":
+            if pass3 == "None":
+                return False,False
+        else:
+            if profile != "global_p12":
+                pass_key = "p12_passphrase"
+                if self.c.config_obj[profile][pass_key] == "global":
+                    return "skip","skip"
+                
+            try:
+                enc_pass = self.c.config_obj[profile][pass_key].strip()
+                enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+                enc_pass = f"{enc_pass}"
+            except:
+                self.log.logger[self.log_key].warning("Unable to find passphrase in configuration file.")
+                pass_error = True
 
-        if pass_error:
-            self.error_messages.error_code_messages({
-                "error_code": "cfr-3092",
-                "line_code": "invalid_passphrase",
-                "extra": "Must be present in configuration",
-            })
+            if caller != "configurator" and enc_pass == "None":
+                pass_error = True
+            elif caller == "alerting":
+                pass_error = False
 
-        if not self.quick_install and not pass3:
-            self.c.functions.print_header_title({
-                "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
-                "newline": "both",
-                "single_line": True,
-            })
+            if pass_error:
+                self.error_messages.error_code_messages({
+                    "error_code": "cfr-3092",
+                    "line_code": "invalid_passphrase",
+                    "extra": "Must be present in configuration",
+                })
+
+            if not self.quick_install and not pass3:
+                self.c.functions.print_header_title({
+                    "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
+                    "newline": "both",
+                    "single_line": True,
+                })
 
         default_seed = ''.join(choice(ascii_letters) for _ in range(16))
         if self.quick_install or self.action == "install":
@@ -3997,6 +4070,13 @@ class Configurator():
         return fe, f"{pass3}"
 
 
+    def build_encryption_path(self):
+        efp = "/etc/security/"
+        eff = "cnngsenc.conf"
+        effp = f"{efp}{eff}"
+        return effp
+    
+
     def passphrase_enable_disable_encryption(self,caller):
         self.log.logger[self.log_key].info("configurator -> encryption method envoked.")
 
@@ -4009,9 +4089,7 @@ class Configurator():
             self.log.logger[self.log_key].warning("configurator -> During install or upgrade -> encryption found enabled already.")
             return
         
-        efp = "/etc/security/"
-        eff = "cnngsenc.conf"
-        effp = f"{efp}{eff}"
+        effp = self.build_encryption_path()
 
         if self.quick_install:
             encryption_obj = {} 
