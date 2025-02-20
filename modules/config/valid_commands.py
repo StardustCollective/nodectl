@@ -67,6 +67,7 @@ def pull_valid_command():
         "restart_only",
         "restore_config",
         "revision",
+        "rotate_keys",
 
         "show_service_status",
         "show_service_log",

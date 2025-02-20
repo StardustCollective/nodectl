@@ -2324,11 +2324,9 @@ class Configurator():
                 "newline": False,
             }
             self.c.functions.print_cmd_status(et_obj)
-
+            _, _, effp = self.build_encryption_path()
             data["token"], _ = self.perform_encryption(
-                "alerting",
-                False,
-                self.build_encryption_path(),
+                "alerting",False,effp,
                 data["token"] if data["token"] else "None",
                 "alerting",
             )
@@ -4074,7 +4072,7 @@ class Configurator():
         efp = "/etc/security/"
         eff = "cnngsenc.conf"
         effp = f"{efp}{eff}"
-        return effp
+        return efp, eff, effp
     
 
     def passphrase_enable_disable_encryption(self,caller):
@@ -4089,7 +4087,7 @@ class Configurator():
             self.log.logger[self.log_key].warning("configurator -> During install or upgrade -> encryption found enabled already.")
             return
         
-        effp = self.build_encryption_path()
+        efp, _, effp = self.build_encryption_path()
 
         if self.quick_install:
             encryption_obj = {} 
@@ -4145,12 +4143,7 @@ class Configurator():
                     if not confirm: return
                     print("")
 
-            efp_error = False if path.exists(efp) else True
-            if not efp_error: 
-                try: remove(effp)  
-                except:
-                    self.log.logger[self.log_key].warning("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
-            if efp_error:
+            if not path.exists(efp):
                 self.log.logger[self.log_key].error("configurator -> encryption service -> unable to find necessary file system distribution file security. Is this a Debian OS?")
                 self.error_messages.error_code_messages({
                     "error_code": "cfr-3150",
@@ -4160,8 +4153,17 @@ class Configurator():
 
             pass3 = False
             for profile in encryption_list:
-
                 for n in range(0,3):
+                    try: 
+                        self.c.functions.test_or_replace_line_in_file({
+                            "file_path": effp,
+                            "search_line": f"{profile}:",
+                            "remove_line": True,
+                            "skip_backup": True,
+                        })
+                    except:
+                        self.log.logger[self.log_key].warning("configurator -> encryption service -> unable to remove an existing encryption key -> this error can be safely ignored.")
+
                     fe, pass3 = self.perform_encryption(profile,encryption_obj,effp,pass3,caller)
                     if fe == "skip": break
                     pass3 = f"{pass3}"
@@ -4173,10 +4175,12 @@ class Configurator():
                         "profile": profile,
                         "test_only": True,
                     })
-                    if test_p: break
+                    if test_p: 
+                        break
                     else:
                         if not self.quick_install:
-                            cprint("\n  please wait...","magenta")
+                            if n < 1: print("")
+                            cprint("  please wait...","magenta")
                             self.log.logger[self.log_key].warning(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
 
                 if fe == "skip": continue
@@ -4195,7 +4199,13 @@ class Configurator():
                             ["  - section signs",2,"yellow"],
                             ["sudo nodectl passwd12",2],
                         ])
-                        try: remove(effp)
+                        try: 
+                            self.c.functions.test_or_replace_line_in_file({
+                                "file_path": effp,
+                                "search_line": f"{profile}:",
+                                "replace_line": "",
+                                "skip_backup": True,
+                            })
                         except: pass
                         cprint("  Operation cancelled, please try again.","red")
                         self.c.functions.print_timer({
@@ -4256,7 +4266,15 @@ class Configurator():
                 "prompt": "Do you want to remove encryption?",
                 "exit_if": False
             })
-            if not confirm: return
+            if not confirm: 
+                return
+            
+            removal_list = ["global_p12"]
+            for profile in self.metagraph_list:
+                if profile == "global_p12":
+                    continue
+                if self.c.config_obj[profile]["p12_passphrase"] != "global":
+                    removal_list.append(profile)
 
             self.c.functions.print_paragraphs([
                 ["",1], ["This is permanent...",1,"red","bold"],
@@ -4266,7 +4284,14 @@ class Configurator():
                 **encryption_obj,
             })  
 
-            if path.exists(effp): remove(effp)    
+            if path.exists(effp): 
+                for profile in removal_list:
+                    self.c.functions.test_or_replace_line_in_file({
+                        "file_path": effp,
+                        "search_line": f"{profile}:",
+                        "remove_line": True,
+                        "skip_backup": True,
+                    })   
             sleep(.4) 
 
             new_encryption_list = deepcopy(encryption_list)

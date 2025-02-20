@@ -2844,7 +2844,8 @@ class Functions():
             if search_line in line and not done:
                 search_only_found = True
                 line_position = line_number
-                if return_value: line_position = line
+                if return_value: 
+                    line_position = line
                 if all_first_last != "all" and line_position not in skip_line_list:
                     done = True
                 if replace_line:
@@ -2921,7 +2922,7 @@ class Functions():
                     
         f.close() # make sure closed properly                
                 
-        if replace_line:
+        if replace_line or remove_line:
             copy2(temp,file_path)
         # use statics to avoid accidental file removal
         remove_temps()
@@ -3836,8 +3837,9 @@ class Functions():
             distro_version = distro.version()
             if distro_version == "12":
                 return "/opt/jdk/jdk-11.0.20+8/bin/"
-            if distro_version == "12" or distro_version == "24.04":
+            if distro_version == "24.04":
                 return True
+            return "False"
 
         for _ in range(0,2):
             try:

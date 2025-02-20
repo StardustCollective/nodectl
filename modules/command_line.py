@@ -7045,6 +7045,127 @@ class CLI():
             print("")
 
 
+    def cli_rotate_keys(self,command_list):
+        self.functions.check_for_help(command_list,"rotate_keys")
+        error_found, encryption_enabled = False, False
+
+        from .config.configurator import Configurator
+        configurator = Configurator(["--upgrader"])
+        configurator.detailed = True
+        configurator.action = "rotation"
+        configurator.metagraph_list = self.functions.profile_names
+        configurator.c.config_obj = deepcopy(self.config_obj)
+        _, _, effp = configurator.build_encryption_path()
+
+        try:
+            alerting_enabled = self.config_obj["global_elements"]["alerting"]       
+        except:
+            alerting_enabled = False  
+
+        if self.config_obj["global_p12"]["encryption"]:
+            encryption_enabled = True
+        elif alerting_enabled:
+            encryption_enabled = True
+            
+        if not encryption_enabled:
+            cprint("  Encryption is not enabled, terminating","red")
+            exit(0)
+
+        self.functions.print_header_title({
+            "line1": "NODECTL SECURITY KEY ROTATAION",
+            "single_line": True,
+            "newline": "both",
+        })
+
+        self.functions.print_paragraphs([
+            [" WARNING ",0,"yellow,on_red"], ["This is a security feature that will attempt to",0,"magenta"],
+            ["rotate your security keys for all detected profiles on this node.",2,"magenta"],
+            
+            ["Once completed, it is advised to:",1],
+            ["  - Issue a command that may require your passphrase to continue.",1],
+            ["    Example:",0,"blue","bold"], ["sudo nodectl status",1,"yellow"],
+            ["  - If alerting is enabled, send an alert test.",1],
+            ["    Example:",0,"blue","bold"], ["sudo nodectl auto_restart alert_test",1,"yellow"],
+            ["  - If any of the above tests fail, please use the configurator to reset your passphrases",1],
+            ["    Command:",0,"blue","bold"], ["sudo nodectl configure -e",2,"yellow"],
+
+            [" IMPORTNAT ",0,"yellow,on_red"], ["If a profile or alerting is disabled, the associated",0,"red"],
+            ["key will not be rotated.",2,"red"],
+        ])
+
+        self.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt_color": "magenta",
+            "prompt": f"Begin key rotation?",
+            "exit_if": True,
+        })
+
+        rotate_profiles = [("global_p12",self.config_obj["global_p12"]["passphrase"])]
+        if alerting_enabled:
+            rotate_profiles.append(("alerting",self.config_obj["global_elements"]["alerting"]["token"]))
+
+        for profile in self.profile_names:
+            if not self.config_obj[profile]["global_p12_passphrase"]:
+                rotate_profiles.append((profile,self.config_obj[profile]["p12_passphrase"]))
+
+        with ThreadPoolExecutor() as executor3:
+            self.functions.status_dots = True
+            encryption_obj = {
+                "text_start": "Rotating elements",
+                "status": "running",
+                "status_color": "yellow",
+                "dotted_animation": True,
+                "newline": False,
+            }
+            _ = executor3.submit(self.functions.print_cmd_status,encryption_obj)
+
+            for profile, pass_hash in rotate_profiles:
+                pass1 = self.functions.get_persist_hash({
+                    "pass1": pass_hash,
+                    "profile": profile,
+                    "enc_data": True,
+                })
+                sleep(.8)
+                new_hash, pass2 = configurator.perform_encryption(profile,None,effp,pass1,profile)
+                if pass1 != pass2:
+                    self.log.logger[self.log_key].error("rotate_key error was encountered during key rotation, advised to manually reset passphrase encryption and alerting if enabled.")
+                    error_found = True
+
+                if error_found:
+                    self.functions.status_dots = False
+                    self.functions.print_paragraphs([
+                        [" ERROR ",0,"yellow,on_red"],
+                        ["The rotation process has failed, please update your configuration as explained above.",2,"magenta"],
+                    ])
+                    exit(0)
+                    
+                cn_config_path = path.normpath(f"{self.functions.nodectl_path}cn-config.yaml")
+                replace_line = f'    p12_passphrase: "{new_hash}"\n'
+                if profile == "global_p12":
+                    replace_line = replace_line.replace("p12_passphrase","passphrase")
+                elif profile == "alerting":
+                    cn_config_path = path.normpath(f"{self.functions.default_includes_path}alerting.yaml")
+                    replace_line = f"  token: '{new_hash}'\n"
+
+                self.functions.test_or_replace_line_in_file({
+                    "file_path": cn_config_path,
+                    "search_line": pass_hash,
+                    "replace_line": replace_line,
+                    "start_after_string": profile,
+                    "allow_dups": False,
+                })
+            
+            self.functions.status_dots = False
+            self.functions.print_cmd_status({
+                "text_start": "Rotating elements",
+                "dotted_animation": False,
+                "status": "complete",
+                "status_color": "green",
+                "newline": True,
+            })
+
+
     def clean_files(self,command_obj):
         what = "clear_snapshots" if command_obj["action"] == "snapshots" else "clean_files"
         self.log.logger[self.log_key].info(f"request to {what} inventory by Operator...")

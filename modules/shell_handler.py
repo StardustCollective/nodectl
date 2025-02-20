@@ -85,6 +85,7 @@ class ShellHandler:
     def setup_logging_key(self):
         pass
 
+
     def build_cli_obj(self,skip_check=False):
         build_cli = self.check_non_cli_command() if skip_check == False else True
         self.invalid_version = False
@@ -480,6 +481,8 @@ class ShellHandler:
                 self.cli.cli_execute_starchiver(self.argv)
             elif self.called_command == "execute_tests":
                 self.cli.cli_execute_tests(self.argv)
+            elif self.called_command == "rotate_keys":
+                self.cli.cli_rotate_keys(self.argv)
             elif self.called_command == "prepare_file_download":
                 self.cli.cli_prepare_file_download(self.argv+["--caller","cli"])
             elif self.called_command == "show_service_log" or self.called_command == "_ssl":
@@ -1061,7 +1064,6 @@ class ShellHandler:
                 self.argv.remove("--force")
         
           
-
     def print_ext_ip(self):
         self.functions.print_cmd_status({
             "text_start": "Obtaining External IP",

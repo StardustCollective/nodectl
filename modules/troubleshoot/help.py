@@ -263,6 +263,8 @@ def build_help(functions,command_obj):
     
     create_p12 |  Create a single independent p12 file.                                    
 
+    rotate_keys |  Handle rotating all nodectl passphrases that utilize security encryption
+
     sync_node_time | force a sync between the node and NTP servers connected to the
                      atomic clocks
 
@@ -395,7 +397,22 @@ def build_help(functions,command_obj):
      {colored('EDGE -> STATE','yellow')}: Can the EDGE node see the source node [True|False]
                     The edge node's state is in [Ready] state
             '''
+        
+
+    if extended == "rotate_keys":
+        help_text += title("ROTATE ENCRYPTION KEYS")
+        help_text += f'''
+  This command does not takes any argument.
+
+  When executed the {colored('rotate_keys','cyan')} command will attempt
+  to find, remove, and replace old encryptions keys necessary to encrypt 
+  and decrypt passphrases or passwords.
+  
+  This is an optional security feature to makes sure that your keys
+  are not \"stale\" making them less vulnerable to nefarious attacks.
+            '''
             
+
             
     if extended == "check_connection":
         help_text += title("check connection")
