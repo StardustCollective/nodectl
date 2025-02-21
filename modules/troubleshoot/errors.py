@@ -770,8 +770,8 @@ class Error_codes():
                 self.functions.print_paragraphs([
                     ["option or hint: ",0], [var.extra2,2,"yellow"]
                 ])              
-            
-            
+
+
         elif var.line_code == "profile_error":
             if var.extra is None: var.extra = "unknown"
             self.log.logger[self.log_key].critical(f"invalid profile entered for execution [{var.extra}]")
@@ -780,8 +780,8 @@ class Error_codes():
                 ["Network configuration may be incorrect, please check profile or configuration",2,"red","bold"],
                 ["Are you should you have a",0,"magenta"],["valid",0,"magenta","underline"], ["profile loaded or configured?",2,"magenta"]
             ])
-            
-            
+
+
         elif var.line_code == "open_file":
             file_word = "p12 file" if var.extra2 == "p12" else "file"
             self.log.logger[self.log_key].critical(f"unable to read {file_word} [{var.extra}]")
@@ -812,7 +812,8 @@ class Error_codes():
             self.functions.print_paragraphs([
                 ["Please review your",0], ["cn-config.yaml",0,"yellow","bold"], ["file, before continuing.",2]
             ]) 
-                        
+
+
         elif var.line_code == "download_yaml":
             self.log.logger[self.log_key].critical(f"unable to download valid configuration file [cn-config.yaml]")
             self.functions.print_paragraphs([
@@ -820,6 +821,7 @@ class Error_codes():
                 ["The installer cannot continue, please try installation again or seek assistance from the official Constellation Network Discord channel.",2,"red"],
             ])
             
+
         elif var.line_code == "system_error":
             self.log.logger[self.log_key].critical(f"an unrecoverable system error occurred. [{var.extra}]")
             self.functions.print_paragraphs([
@@ -831,6 +833,7 @@ class Error_codes():
                     ["hint:",0,"red"],
                     [var.extra2,2,"yellow"],
                 ])  
+
 
         elif var.line_code == "config_error":
             self.log.logger[self.log_key].critical(f"unable to load configuration file, file corrupted, some values invalid, or improperly formatted [cn-config.yaml]")
@@ -876,6 +879,7 @@ class Error_codes():
                         ["Hint:",0], [var.extra2,1,"yellow"],
                     ])
 
+
             if var.extra == "configurator":
                 self.log.logger[self.log_key].error(f"configurator error found [{extra2}]")
                 self.functions.print_paragraphs([
@@ -910,7 +914,7 @@ class Error_codes():
         ])
 
         sys.exit("  nodectl exited on critical error.")
-        
+
         
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")        

@@ -7047,7 +7047,8 @@ class CLI():
 
     def cli_rotate_keys(self,command_list):
         self.functions.check_for_help(command_list,"rotate_keys")
-        error_found, encryption_enabled = False, False
+        error_found, config_encryption_enabled, alert_encryption_enabled = False, False, False
+        rotate_profiles = []
 
         from .config.configurator import Configurator
         configurator = Configurator(["--upgrader"])
@@ -7055,19 +7056,19 @@ class CLI():
         configurator.action = "rotation"
         configurator.metagraph_list = self.functions.profile_names
         configurator.c.config_obj = deepcopy(self.config_obj)
+        configurator.c.functions.config_obj = deepcopy(self.config_obj)
         _, _, effp = configurator.build_encryption_path()
 
         try:
-            alerting_enabled = self.config_obj["global_elements"]["alerting"]       
+            alert_encryption_enabled = self.config_obj["global_elements"]["alerting"]["enable"]       
         except:
-            alerting_enabled = False  
+            alert_encryption_enabled = False 
 
         if self.config_obj["global_p12"]["encryption"]:
-            encryption_enabled = True
-        elif alerting_enabled:
-            encryption_enabled = True
+            config_encryption_enabled = True
+
             
-        if not encryption_enabled:
+        if not config_encryption_enabled and not alert_encryption_enabled:
             cprint("  Encryption is not enabled, terminating","red")
             exit(0)
 
@@ -7101,33 +7102,37 @@ class CLI():
             "exit_if": True,
         })
 
-        rotate_profiles = [("global_p12",self.config_obj["global_p12"]["passphrase"])]
-        if alerting_enabled:
+        if config_encryption_enabled:
+            rotate_profiles.append(("global_p12",self.config_obj["global_p12"]["passphrase"]))
+            for profile in self.profile_names:
+                if not self.config_obj[profile]["global_p12_passphrase"]:
+                    rotate_profiles.append((profile,self.config_obj[profile]["p12_passphrase"]))
+
+        if alert_encryption_enabled:
             rotate_profiles.append(("alerting",self.config_obj["global_elements"]["alerting"]["token"]))
 
-        for profile in self.profile_names:
-            if not self.config_obj[profile]["global_p12_passphrase"]:
-                rotate_profiles.append((profile,self.config_obj[profile]["p12_passphrase"]))
 
-        with ThreadPoolExecutor() as executor3:
-            self.functions.status_dots = True
-            encryption_obj = {
-                "text_start": "Rotating elements",
-                "status": "running",
-                "status_color": "yellow",
-                "dotted_animation": True,
-                "newline": False,
-            }
-            _ = executor3.submit(self.functions.print_cmd_status,encryption_obj)
+        for profile, pass_hash in rotate_profiles:
+            replace_line, cn_config_path = " "," "
 
-            for profile, pass_hash in rotate_profiles:
+            with ThreadPoolExecutor() as executor:
+                self.functions.status_dots = True
+                status_obj = {
+                    "text_start": "Rotating key",
+                    "brackets": profile if profile != "global_p12" else "global",
+                    "status": "running",
+                    "status_color": "yellow",
+                    "dotted_animation": True,
+                    "newline": False,
+                }
+                _ = executor.submit(self.functions.print_cmd_status,status_obj)
+                
                 pass1 = self.functions.get_persist_hash({
                     "pass1": pass_hash,
                     "profile": profile,
                     "enc_data": True,
                 })
-                sleep(.8)
-                new_hash, pass2 = configurator.perform_encryption(profile,None,effp,pass1,profile)
+                new_hash, pass2 = configurator.perform_encryption(profile,{},effp,pass1,profile)
                 if pass1 != pass2:
                     self.log.logger[self.log_key].error("rotate_key error was encountered during key rotation, advised to manually reset passphrase encryption and alerting if enabled.")
                     error_found = True
@@ -7156,14 +7161,23 @@ class CLI():
                     "allow_dups": False,
                 })
             
-            self.functions.status_dots = False
-            self.functions.print_cmd_status({
-                "text_start": "Rotating elements",
-                "dotted_animation": False,
-                "status": "complete",
-                "status_color": "green",
-                "newline": True,
-            })
+                sleep(1.5)
+                self.functions.status_dots = False
+                self.functions.print_cmd_status({
+                    **status_obj,
+                    "dotted_animation": False,
+                    "status": "complete",
+                    "status_color": "green",
+                    "newline": True,
+                })
+
+
+        self.functions.print_cmd_status({
+            "text_start": "Key rotating request",
+            "status": "complete",
+            "status_color": "green",
+            "newline": True,
+        })
 
 
     def clean_files(self,command_obj):

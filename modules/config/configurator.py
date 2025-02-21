@@ -47,6 +47,7 @@ class Configurator():
         self.is_all_global = False
         self.clean_profiles = False
         self.preserve_pass = False
+        self.preserve_section = False
         self.upgrade_needed = False
         self.restart_needed = True
         self.is_new_config = False
@@ -2163,19 +2164,20 @@ class Configurator():
                 }):
                     do_edit = False
 
-            if self.detailed:
-                self.c.functions.print_paragraphs([
-                    ["",1],["If you choose",0,"magenta"], ["not",0,"red"], ["to update your Gmail token, nodectl will maintain your existing encrypted token; otherwise,",0,"magenta"],
-                    ["it will be removed and you will need to re-enter the token, make sure you have this",0,"magenta"],
-                    ["information available before continuing.",1,"magenta"],
-                ])
-            if self.c.functions.confirm_action({
-                "prompt": "Do you want to update the Gmail token?",
-                "yes_no_default": "n",
-                "return_on": "y",
-                "exit_if": False
-            }):
-                update_token = True
+            if do_edit:
+                if self.detailed:
+                    self.c.functions.print_paragraphs([
+                        ["",1],["If you choose",0,"magenta"], ["not",0,"red"], ["to update your Gmail token, nodectl will maintain your existing encrypted token; otherwise,",0,"magenta"],
+                        ["it will be removed and you will need to re-enter the token, make sure you have this",0,"magenta"],
+                        ["information available before continuing.",1,"magenta"],
+                    ])
+                if self.c.functions.confirm_action({
+                    "prompt": "Do you want to update the Gmail token?",
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "exit_if": False
+                }):
+                    update_token = True
 
             default_recipients = ""
             for r in self.alerting_config["recipients"]:
@@ -2339,7 +2341,10 @@ class Configurator():
             self.c.functions.print_cmd_status(et_obj)
             if not data["token"]:
                 data["token"] = "False"
-        if data["label"] == " None ": data["label"] = "None"
+
+        if data["label"] == " None ": 
+            data["label"] = "None"
+
         alerting_file = alerting_file.replace(f"enable: {data['enable']}", f"enable: {self.alerting_config['enable']}")
         alerting_file = alerting_file.replace("nodegarageemail",data["gmail"])
         alerting_file = alerting_file.replace("nodegaragegmailtoken",f"{data['token']}")
@@ -3944,29 +3949,34 @@ class Configurator():
     def perform_encryption(self,profile,encryption_obj,effp,pass3,caller):
         pass_key = "passphrase"
         first_run, write_append, pass_error = False, True, False
+        enc_pass = None
+        pass4 = pass3
 
+        for attempt in range(0,2):
+            if pass3 and pass3 != "None":
+                pass3 = pass3.strip()
+                pass3 = str(pass3) # required if passphrase is enclosed in quotes
+                pass3 = f"{pass3}"  
 
-        if caller == "alerting":
-            if pass3 == "None":
-                return False,False
-        else:
-            if profile != "global_p12":
+            if profile not in ["global_p12","alerting"]:
                 pass_key = "p12_passphrase"
                 if self.c.config_obj[profile][pass_key] == "global":
                     return "skip","skip"
-                
+
             try:
                 enc_pass = self.c.config_obj[profile][pass_key].strip()
                 enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
                 enc_pass = f"{enc_pass}"
             except:
-                self.log.logger[self.log_key].warning("Unable to find passphrase in configuration file.")
-                pass_error = True
+                if caller == "alerting" or profile == "alerting":
+                    if pass3 == "None":
+                        return False,False
+                else:    
+                    self.log.logger[self.log_key].warning("Unable to find passphrase in configuration file.")
+                    pass_error = True
 
             if caller != "configurator" and enc_pass == "None":
                 pass_error = True
-            elif caller == "alerting":
-                pass_error = False
 
             if pass_error:
                 self.error_messages.error_code_messages({
@@ -3982,88 +3992,104 @@ class Configurator():
                     "single_line": True,
                 })
 
-        default_seed = ''.join(choice(ascii_letters) for _ in range(16))
-        if self.quick_install or self.action == "install":
-            pass3 = enc_pass
-        else:
-            if not pass3:
-                first_run = True
-                self.c.functions.print_paragraphs([
-                    ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
-                ])
-                pass1 = getpass(f"  p12 passphrase: ")
-                pass1 = self.c.p12.keyphrase_validate({
-                    "profile": "global" if profile == "global_p12" else profile,
-                    "passwd": f"{pass1}",
-                    "operation": "encryption",
-                })
-                pass3 = f"{pass1.strip()}"
-        
-        if not self.quick_install and first_run:
-            print("")
-            for s_status in ["deriving","redacting","forgetting","finished"]:
-                self.c.functions.print_cmd_status({
-                    "text_start": "Encryption",
-                    "text_start": "seed phrase",
-                    "brackets": s_status,
-                    "status_color": "green" if s_status == "finished" else "magenta",
-                    "status": "complete" if s_status == "finished" else "preparing",
-                    "newline": True if s_status == "finished" else False,
-                })
-                sleep(1)
-
-            print("")
-            self.c.functions.print_cmd_status({
-                **encryption_obj,
-                "brackets": "global" if profile == "global_p12" else profile,
-            })    
-
-        try:
-            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": f"{pass3}", "salt2": default_seed})
-            if not hashed: raise Exception("hashing issue")
-            if not enc_key: raise Exception("encryption generation issue")
-        except Exception as e:
-            self.log.logger[self.log_key].critical(f"configurator --> [{e}]")
-            self.error_messages.error_code_messages({
-                "error_code": "cfr-3110",
-                "line_code": "system_error",
-                "extra": e,
-            })
-
-        enc_list, enc_de, enc_h = self.build_uuid_mangle(len(hashed))
-        sleep(.8)
-
-        enc_str = ""
-        for n, i in enumerate(enc_list):
-            if n < 1: enc_str += hashed[:i]
-            elif n == len(enc_list): hashed[enc_list.index(i)-1:]
-            else: enc_str += hashed[enc_list.index(i)-1:i]
+            default_seed = ''.join(choice(ascii_letters) for _ in range(16))
+            if self.quick_install or self.action == "install":
+                pass3 = enc_pass
+            else:
+                if not pass3:
+                    first_run = True
+                    self.c.functions.print_paragraphs([
+                        ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
+                    ])
+                    pass1 = getpass(f"  p12 passphrase: ")
+                    pass1 = self.c.p12.keyphrase_validate({
+                        "profile": "global" if profile == "global_p12" else profile,
+                        "passwd": f"{pass1}",
+                        "operation": "encryption",
+                    })
+                    pass3 = f"{pass1.strip()}"
             
-        fe, fe_list = "", []
-        fe_list = []
-        index = 0
-        for length in enc_list:
-            fe_list.append(hashed[index:index + length])
-            index += length
-        for pi, _ in enc_de: fe += fe_list[pi]  
-        enc_key = f"{profile}::{enc_key}{enc_h}"
-    
-        sleep(.4)
-        if path.isfile(effp):
-            elp = self.c.functions.test_or_replace_line_in_file({
-                "file_path": effp,
-                "search_line": profile,
-                "replace_line": enc_key+"\n",
-                "allow_dups": False,
-            })[1]
-            if elp > 0: # a line was replaced
-                write_append = False
-        if write_append:
-            with open(f"{effp}","a") as f:
-                f.write(enc_key+"\n")
+            if not self.quick_install and first_run:
+                print("")
+                for s_status in ["deriving","redacting","forgetting","finished"]:
+                    self.c.functions.print_cmd_status({
+                        "text_start": "Encryption",
+                        "text_start": "seed phrase",
+                        "brackets": s_status,
+                        "status_color": "green" if s_status == "finished" else "magenta",
+                        "status": "complete" if s_status == "finished" else "preparing",
+                        "newline": True if s_status == "finished" else False,
+                    })
+                    sleep(1)
 
-        fe = fe.strip()
-        chmod(effp,0o600)
+                print("")
+                self.c.functions.print_cmd_status({
+                    **encryption_obj,
+                    "brackets": "global" if profile == "global_p12" else profile,
+                })    
+
+            try:
+                hashed, enc_key = self.c.functions.get_persist_hash({"pass1": f"{pass3}", "salt2": default_seed})
+                if not hashed: raise Exception("hashing issue")
+                if not enc_key: raise Exception("encryption generation issue")
+            except Exception as e:
+                self.log.logger[self.log_key].critical(f"configurator --> [{e}]")
+                self.error_messages.error_code_messages({
+                    "error_code": "cfr-3110",
+                    "line_code": "system_error",
+                    "extra": e,
+                })
+
+            enc_list, enc_de, enc_h = self.build_uuid_mangle(len(hashed))
+            sleep(.8)
+
+            enc_str = ""
+            for n, i in enumerate(enc_list):
+                if n < 1: enc_str += hashed[:i]
+                elif n == len(enc_list): hashed[enc_list.index(i)-1:]
+                else: enc_str += hashed[enc_list.index(i)-1:i]
+                
+            fe, fe_list = "", []
+            fe_list = []
+            index = 0
+            for length in enc_list:
+                fe_list.append(hashed[index:index + length])
+                index += length
+            for pi, _ in enc_de: fe += fe_list[pi]  
+            enc_key = f"{profile}::{enc_key}{enc_h}"
+        
+            sleep(.4)
+            if path.isfile(effp):
+                elp = self.c.functions.test_or_replace_line_in_file({
+                    "file_path": effp,
+                    "search_line": profile,
+                    "replace_line": enc_key+"\n",
+                    "allow_dups": False,
+                })[1]
+                if elp > 0: # a line was replaced
+                    write_append = False
+            if write_append:
+                with open(f"{effp}","a") as f:
+                    f.write(enc_key+"\n")
+
+            fe = fe.strip()
+            chmod(effp,0o600)
+
+            double_check = self.c.functions.get_persist_hash({
+                "pass1": fe,
+                "profile": profile,
+                "enc_data": True,
+                "test_only": True,
+            })
+            if double_check == pass3:
+                break
+
+            if attempt < 1:
+                pass3 = pass4 # attempt to fix padding issue
+                self.log.logger[self.log_key].error(f"An issue was found attempting to encrypt [{profile}] attempting to fix issue.")
+                continue
+            self.log.logger[self.log_key].error(f"An issue was found attempting to encrypt [{profile}]")
+            pass3 = False
 
         return fe, f"{pass3}"
 

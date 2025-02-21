@@ -184,6 +184,7 @@ def send_email(comm_obj,body,functions,log):
 
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
+
     token =  functions.get_persist_hash({
         "pass1": comm_obj["token"],
         "profile": "alerting",

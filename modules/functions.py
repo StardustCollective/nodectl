@@ -1401,7 +1401,8 @@ class Functions():
                 self.error_messages.error_code_messages({
                     "error_code": "fnt-1079",
                     "line_code": "system_error",
-                    "extra": "encryption generation issue.",
+                    "extra": f"encryption generation issue. [{profile}]",
+                    "extra2": "See logs",
                 })
 
             kdf = PBKDF2HMAC(
@@ -1419,10 +1420,13 @@ class Functions():
             return (enc_data,fernet_key)
 
         if not path.exists(self.config_obj["global_p12"]["ekf_path"]):
+            if test_only: 
+                return
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1100",
                 "line_code": "system_error",
                 "extra": "encryption issue found, unable to decrypt",
+                "extra2": "See logs",
             })
 
         with open(self.config_obj["global_p12"]["ekf_path"],"r") as f:
@@ -1430,6 +1434,7 @@ class Functions():
                 if profile in line:
                     key = line
                     break
+
         try:
             key = key.split(":")
             kdf = key[2].encode()
@@ -1451,11 +1456,13 @@ class Functions():
             return decrypt_data.decode()
         except Exception as e:  # Catch any exceptions during decryption
             self.log.logger[self.log_key].critical(f"Decryption failed: [{e}]")
-            if test_only: return False
+            if test_only: 
+                return False
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1108",
                 "line_code": "system_error",
-                "extra": "encryption generation issue.",
+                "extra": f"encryption generation issue. [{profile}]",
+                "extra2": "See logs",
             })
             exit(0)
 
