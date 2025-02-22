@@ -3968,7 +3968,7 @@ class Configurator():
                 enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
                 enc_pass = f"{enc_pass}"
             except:
-                if caller == "rotation":
+                if caller in ["rotation","alerting"]:
                     if pass3 == "None" or pass3 == None:
                         return False,False
                 else:    
