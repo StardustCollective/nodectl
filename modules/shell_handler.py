@@ -1038,6 +1038,7 @@ class ShellHandler:
 
 
     def set_node_obj(self):
+        invalid = False
         if self.cli == None: 
             return
         if isinstance(self.cli,SimpleNamespace):
@@ -1054,7 +1055,11 @@ class ShellHandler:
                             "profile": self.profile,
                         })
                 self.config_obj["global_elements"]["nodeid_obj"] = self.cli.node_id_obj
-                return
+                for value in node_id_obj_org.values():
+                    if value == None or value == "":
+                        invalid = True
+                if not invalid:
+                    return
             if "--force" not in self.argv:
                 add_forced = True
                 self.argv.append("--force")
@@ -2020,20 +2025,20 @@ class ShellHandler:
         if self.auto_restart_pid != "disabled":
             if self.auto_restart_enabled and not self.auto_restart_quiet:
                 self.functions.print_paragraphs([
-                    ["",1], ["Node restart service",0,"green"], 
+                    ["",1], ["This node's restart service",0,"green"], 
                     ["does not",0,"green","underline"], ["need to be restarted because pid [",0,"green"],
                     [str(self.auto_restart_pid),-1,"yellow","bold"],
                     ["] was found already.",-1,"green"],["",1]
                 ])
                 if alerting_enabled:
                     self.functions.print_paragraphs([
-                        ["Node alerting service is enabled.",1,"green"], 
+                        ["The node's alerting service is enabled.",1,"green"], 
                     ])                
             elif not self.auto_restart_quiet:
                 self.functions.print_paragraphs([
-                    ["",1], ["Node restart service not started because pid [",0,"yellow"],
+                    ["",1], ["This node's restart service was not started because pid [",0,"yellow"],
                     [str(self.auto_restart_pid),-1,"green","bold"],
-                    ["] found already.",-1,"yellow"],["",1]
+                    ["] was found already.",-1,"yellow"],["",1]
                 ])
             self.log.logger[self.log_key].warning(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
             return
@@ -2044,8 +2049,11 @@ class ShellHandler:
         })
         if cli:
             print("")
-            cprint("  node restart service started... ","green")
-            
+            cprint("  This node's restart service restarted. ","green")
+            if alerting_enabled:
+                self.functions.print_paragraphs([
+                    ["The node's alerting service is enabled.",1,"green"], 
+                ])             
     
     def upgrade_node(self,argv_list):
         if "help" in argv_list:

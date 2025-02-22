@@ -439,6 +439,9 @@ class P12Class():
                 self.functions.print_clear_line()
                 print(f"{colored('  Passphrase invalid, please try again attempt [','red',attrs=['bold'])}{colored(attempts,'yellow')}{colored('] of 3','red',attrs=['bold'])}")
             passwd = self.config_obj["global_p12"]["passphrase"]
+            if attempts > 1:
+                passwd = False
+            
             
             if attempts > 2:
                 self.error_messages.error_code_messages({
@@ -470,6 +473,8 @@ class P12Class():
         def do_remove():
             if self.stored_passfile and path.isfile(self.stored_passfile):
                 remove(self.stored_passfile)
+            else:
+                self.stored_passfile = False # reset
             self.functions.remove_files({
                 "file_or_list": f"{nodectl_secure_mount}/*", 
                 "caller": "hpf",
@@ -560,9 +565,9 @@ class P12Class():
                     "proc_action": "wait", 
                     "return_error": True
                 })
-                if results is None:
-                    results = "None"
-                if not "invalid password" in str(results.lower()) and not "error" in str(results.lower()):
+                if results is None or results == "":
+                    results = "invalid password"
+                if not "invalid password" in str(results.lower()) and not "error" in str(results.lower()) and not "Cannot find" in str(results.lower()):
                     self.log.logger[self.log_key].info("p12 file unlocked successfully - openssl")
                     return_result = True
                 else:

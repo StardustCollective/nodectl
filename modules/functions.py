@@ -4102,31 +4102,45 @@ class Functions():
         files = file_or_list
         result = True
 
+        def do_remove(files):
+            if len(files) < 1:
+                return True
+            if etag:
+                e_files = deepcopy(files)
+                for file in e_files:
+                    files.append(f"{file}.etag")
+
+            for file in files:
+                try:
+                    if age and isinstance(age, int):  
+                        file_age = current_time - path.getmtime(file)
+                        if file_age < age:
+                            self.log.logger[self.log_key].info(f"Skipping file [{file}] (Age: {file_age:.2f}s, Threshold: {age}s)")
+                            continue  # Skip files that are too recent
+                    remove(file)
+                except OSError as e:
+                    self.log.logger[self.log_key].error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")
+                    return False
+            return True
+        
         if is_glob:
             if wildcard:
-                files = files.replace("*","")
-                files = glob.glob(path.join(files,"*"))
+                if isinstance(files,list):
+                    for file in files:
+                        file = file.replace("*","")
+                        rfiles = glob.glob(path.join(file,"*"))
+                        result = do_remove(rfiles)
+                else:
+                    files = files.replace("*","")
+                    files = glob.glob(path.join(files,"*"))
+                    result = do_remove(files)
             else:
                 files = glob.glob(is_glob)
+                result = do_remove(files)
+
         elif not isinstance(file_or_list,list):
             files = [file_or_list]
-
-        if etag:
-            e_files = deepcopy(files)
-            for file in e_files:
-                files.append(f"{file}.etag")
-
-        for file in files:
-            try:
-                if age and isinstance(age, int):  
-                    file_age = current_time - path.getmtime(file)
-                    if file_age < age:
-                        self.log.logger[self.log_key].info(f"Skipping file [{file}] (Age: {file_age:.2f}s, Threshold: {age}s)")
-                        continue  # Skip files that are too recent
-                remove(file)
-            except OSError as e:
-                result = False
-                self.log.logger[self.log_key].error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")
+            result = do_remove(files)
 
         return result
     
