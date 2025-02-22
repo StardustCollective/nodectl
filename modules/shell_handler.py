@@ -1410,7 +1410,12 @@ class ShellHandler:
                 elif cmd[3] not in text_output:
                     found_error = True
                 if found_error:
-                    self.functions.remove_files(files,"digital_signature",False,True)
+                    self.functions.remove_files({
+                        "file_or_list": files,
+                        "caller": "digital_signature",
+                        "is_glob": False,
+                        "etag": True
+                    })
                     send_error(f"invalid {cmd[2]} downloaded or unable to download")
                 outputs.append(text_output.replace("-----BEGINPUBLICKEY-----","").replace("-----ENDPUBLICKEY-----","").replace("\n",""))
 

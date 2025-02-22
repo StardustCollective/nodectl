@@ -4090,15 +4090,20 @@ class Functions():
                 self.print_clear_line()
                 
 
-    def remove_files(self, file_or_list, caller, is_glob=False, etag=False, widcard=False):
-        # is_glob:  False is not in use; directory location if to be used
-        # etag: if etags are associated with the file to remove
+    def remove_files(self, command_obj):
+        file_or_list = command_obj["file_or_list"]
+        caller = command_obj["caller"],
+        is_glob = command_obj.get("is_glob",False) # False is not in use; directory location if to be used
+        etag = command_obj.get("etag",False) # if etags are associated with the file to remove
+        wildcard = command_obj.get("wildcard",False)
+        age = command_obj.get("age",False)
+        current_time = time()
         self.log.logger[self.log_key].info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
         files = file_or_list
         result = True
 
         if is_glob:
-            if widcard:
+            if wildcard:
                 files = files.replace("*","")
                 files = glob.glob(path.join(files,"*"))
             else:
@@ -4113,15 +4118,12 @@ class Functions():
 
         for file in files:
             try:
+                if age and isinstance(age, int):  
+                    file_age = current_time - path.getmtime(file)
+                    if file_age < age:
+                        self.log.logger[self.log_key].info(f"Skipping file [{file}] (Age: {file_age:.2f}s, Threshold: {age}s)")
+                        continue  # Skip files that are too recent
                 remove(file)
-                # if is_glob:
-                #     remove(file)
-                #     # self.process_command({
-                #     #     "bashCommand": f"sudo rm -f {file}",
-                #     #     "proc_action": "subprocess_devnull",
-                #     # })
-                # else:
-                #     remove(file)
             except OSError as e:
                 result = False
                 self.log.logger[self.log_key].error(f"functions --> remove_files --> caller [{caller}] -> error: unable to remove temp file [{file}] error [{e}]")

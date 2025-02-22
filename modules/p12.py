@@ -45,7 +45,7 @@ class P12Class():
         self.pass_quit_request = False
         self.solo = False # part of install or solo request to create p12
         self.secure_mount_exists = False
-
+        self.stored_passfile = False
 
         self.error_messages = Error_codes(self.functions) 
         self.handle_pass_file(False)
@@ -467,12 +467,16 @@ class P12Class():
         if self.functions.get_distro_details()["info"]["wsl"]:
             nodectl_secure_mount = f"/tmp/nodectlsecure"
 
-        def remove():
-            self.functions.remove_files(
-                f"{nodectl_secure_mount}/*", 
-                "cleanup_function",
-                True, False, True,
-            )
+        def do_remove():
+            if self.stored_passfile and path.isfile(self.stored_passfile):
+                remove(self.stored_passfile)
+            self.functions.remove_files({
+                "file_or_list": f"{nodectl_secure_mount}/*", 
+                "caller": "hpf",
+                "is_glob": True,
+                "wildcard": True,
+                "age": 20, # 20 seconds
+            })
 
         if create:
             if not self.secure_mount_exists:
@@ -490,6 +494,7 @@ class P12Class():
                 })    
 
             passfile = f"{nodectl_secure_mount}/{uuid4()}"
+            self.stored_passfile = passfile
             for n in range(0,3):
                 try:
                     with open(passfile,"w") as f:
@@ -504,10 +509,10 @@ class P12Class():
                             "extra": "/mnt/nodectlsecure/*",
                             "extra2": "file_write",
                         })
-                    remove()
+                    do_remove()
             return passfile
         else:
-            remove()
+            do_remove()
 
 
     def unlock(self):

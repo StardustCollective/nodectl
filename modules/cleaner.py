@@ -291,7 +291,10 @@ class Cleaner():
                                             )
                                         else:
                                             print(f'{colored("  removing:","red")} {colored(pre_text,"cyan")} {file}',end="\r")
-                                        self.functions.remove_files(file,"find_or_replace_files")
+                                        self.functions.remove_files({
+                                            "file_or_list": file,
+                                            "caller": "find_or_replace_files"
+                                        })
 
                 except:
                     if dir_type == "config_change":

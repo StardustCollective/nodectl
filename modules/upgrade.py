@@ -914,8 +914,12 @@ class Upgrader():
             "/var/tmp/cn-*",
             "/var/tmp/sshd_config*",
         ]
-        for file in files:
-            self.functions.remove_files(None,"modify_dynamic_elements",file)
+        self.functions.remove_files({
+            "file_or_list": files,
+            "caller": "modify_dynamic_elements",
+            "is_glob": True,
+            "wildcard": True,
+        })
 
         self.log.logger[self.log_key].debug("upgrader -> cleaning up seed list files from root of [/var/tessellation]")
         

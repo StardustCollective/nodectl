@@ -6741,7 +6741,10 @@ class CLI():
                 "delay": 0.8,
             })
 
-        c_result = self.functions.remove_files(local_path,"cli_execute_directory_restructure",False,False)
+        c_result = self.functions.remove_files({
+            "file_or_list": local_path,
+            "caller": "cli_execute_directory_restructure"
+        })
         if not self.auto_restart:
             self.functions.print_cmd_status({
                 "text_start": "Clean up migration tool",

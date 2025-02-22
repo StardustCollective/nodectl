@@ -514,10 +514,10 @@ class Node():
 
         if action == "start":
             # clean up for a little more security of passphrases and cleaner installation
-            self.functions.remove_files(
-                [self.env_conf_file,self.temp_bash_file],
-                f"change_service_state [{caller}]"
-            )
+            self.functions.remove_files({
+                "file_or_list": [self.env_conf_file,self.temp_bash_file],
+                "caller": f"change_service_state [{caller}]",
+            })
         
         
     def leave_cluster(self,command_obj):
