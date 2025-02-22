@@ -3845,7 +3845,7 @@ class Functions():
             if distro_version == "12":
                 return "/opt/jdk/jdk-11.0.20+8/bin/"
             if distro_version == "24.04":
-                return True
+                return "False"
             return "False"
 
         for _ in range(0,2):
