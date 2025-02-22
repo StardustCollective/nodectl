@@ -2022,7 +2022,7 @@ class ShellHandler:
                 ])
                 if alerting_enabled:
                     self.functions.print_paragraphs([
-                        ["Node alerting service is enabled",1,"green"], 
+                        ["Node alerting service is enabled.",1,"green"], 
                     ])                
             elif not self.auto_restart_quiet:
                 self.functions.print_paragraphs([

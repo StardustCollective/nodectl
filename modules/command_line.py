@@ -7047,8 +7047,8 @@ class CLI():
 
     def cli_rotate_keys(self,command_list):
         self.functions.check_for_help(command_list,"rotate_keys")
-        error_found, config_encryption_enabled, alert_encryption_enabled = False, False, False
-        rotate_profiles = []
+        config_encryption_enabled, alert_encryption_enabled = False, False
+        rotate_profiles, rotate_profiles_errors = [],[]
 
         from .config.configurator import Configurator
         configurator = Configurator(["--upgrader"])
@@ -7127,23 +7127,26 @@ class CLI():
                 }
                 _ = executor.submit(self.functions.print_cmd_status,status_obj)
                 
-                pass1 = self.functions.get_persist_hash({
-                    "pass1": pass_hash,
-                    "profile": profile,
-                    "enc_data": True,
-                })
-                new_hash, pass2 = configurator.perform_encryption(profile,{},effp,pass1,profile)
-                if pass1 != pass2:
+                error = False
+                for atp in range(0,3):
+                    pass1 = self.functions.get_persist_hash({
+                        "pass1": pass_hash,
+                        "profile": profile,
+                        "enc_data": True,
+                    })
+                    new_hash, pass2 = configurator.perform_encryption(profile,{},effp,pass1,"rotation")
+                    if pass1 == str(pass2):
+                        break
+                    if atp > 1:
+                        error = True
+                        break
+                    sleep(.8)
+                
+                if error:
                     self.log.logger[self.log_key].error("rotate_key error was encountered during key rotation, advised to manually reset passphrase encryption and alerting if enabled.")
-                    error_found = True
-
-                if error_found:
+                    rotate_profiles_errors.append(profile)
                     self.functions.status_dots = False
-                    self.functions.print_paragraphs([
-                        [" ERROR ",0,"yellow,on_red"],
-                        ["The rotation process has failed, please update your configuration as explained above.",2,"magenta"],
-                    ])
-                    exit(0)
+                    continue
                     
                 cn_config_path = path.normpath(f"{self.functions.nodectl_path}cn-config.yaml")
                 replace_line = f'    p12_passphrase: "{new_hash}"\n'
@@ -7171,11 +7174,25 @@ class CLI():
                     "newline": True,
                 })
 
+        rot_status, rot_color = "complete", "green"
+        if len(rotate_profiles_errors) > 0:
+            self.functions.print_paragraphs([
+                [" ERROR ",0,"yellow,on_red"],
+                ["The rotation process has failed, please update your configuration as explained above.",1,"magenta"],
+            ])
+            for profile in rotate_profiles_errors:
+                self.functions.print_paragraphs([
+                    ["Profile:",0,"red","bold"], [profile,0,"yellow"],["failed key rotation attempt.",1,"red"]
+                ])
+            rot_status, rot_color = "incomplete", "red"
+            if len(rotate_profiles_errors) == len(rotate_profiles):
+                rot_status = "failed"
+            print(" ")
 
         self.functions.print_cmd_status({
             "text_start": "Key rotating request",
-            "status": "complete",
-            "status_color": "green",
+            "status": rot_status,
+            "status_color": rot_color,
             "newline": True,
         })
 

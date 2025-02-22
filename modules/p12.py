@@ -555,7 +555,8 @@ class P12Class():
                     "proc_action": "wait", 
                     "return_error": True
                 })
-
+                if results is None:
+                    results = "None"
                 if not "invalid password" in str(results.lower()) and not "error" in str(results.lower()):
                     self.log.logger[self.log_key].info("p12 file unlocked successfully - openssl")
                     return_result = True

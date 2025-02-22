@@ -3968,8 +3968,8 @@ class Configurator():
                 enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
                 enc_pass = f"{enc_pass}"
             except:
-                if caller == "alerting" or profile == "alerting":
-                    if pass3 == "None":
+                if caller == "rotation":
+                    if pass3 == "None" or pass3 == None:
                         return False,False
                 else:    
                     self.log.logger[self.log_key].warning("Unable to find passphrase in configuration file.")
@@ -3997,17 +3997,20 @@ class Configurator():
                 pass3 = enc_pass
             else:
                 if not pass3:
-                    first_run = True
-                    self.c.functions.print_paragraphs([
-                        ["Press enter your p12 passphrase for encryption.",2,"white","bold"],
-                    ])
-                    pass1 = getpass(f"  p12 passphrase: ")
-                    pass1 = self.c.p12.keyphrase_validate({
-                        "profile": "global" if profile == "global_p12" else profile,
-                        "passwd": f"{pass1}",
-                        "operation": "encryption",
-                    })
-                    pass3 = f"{pass1.strip()}"
+                    if profile == "alterting":
+                        return False,False
+                    else:
+                        first_run = True
+                        self.c.functions.print_paragraphs([
+                            ["Please enter/confirm your p12 passphrase for encryption.",2,"white","bold"],
+                        ])
+                        pass1 = getpass(f"  p12 passphrase: ")
+                        pass1 = self.c.p12.keyphrase_validate({
+                            "profile": "global" if profile == "global_p12" else profile,
+                            "passwd": f"{pass1}",
+                            "operation": "encryption",
+                        })
+                        pass3 = f"{pass1.strip()}"
             
             if not self.quick_install and first_run:
                 print("")
