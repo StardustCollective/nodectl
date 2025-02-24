@@ -2317,6 +2317,7 @@ class Configurator():
         })
 
         if update_token:
+            data["token"] = data["token"].replace(" ","")
             et_obj = {
                 "text_start": "Encrypting",
                 "brackets": "Gmail",
