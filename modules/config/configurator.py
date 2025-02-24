@@ -3952,6 +3952,7 @@ class Configurator():
         first_run, write_append, pass_error = False, True, False
         enc_pass = None
         pass4 = pass3
+        pass3 = pass3.strip()
 
         for attempt in range(0,2):
             if pass3 and pass3 != "None":
@@ -4090,7 +4091,7 @@ class Configurator():
 
             if attempt < 1:
                 pass3 = pass4 # attempt to fix padding issue
-                self.log.logger[self.log_key].error(f"An issue was found attempting to encrypt [{profile}] attempting to fix issue.")
+                self.log.logger[self.log_key].warning(f"An issue was found attempting to encrypt [{profile}] attempting to fix issue.")
                 continue
             self.log.logger[self.log_key].error(f"An issue was found attempting to encrypt [{profile}]")
             pass3 = False
