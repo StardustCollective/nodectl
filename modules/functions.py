@@ -1455,7 +1455,7 @@ class Functions():
             decrypt_data = enc_key.decrypt(pass1)
             return decrypt_data.decode()
         except Exception as e:  # Catch any exceptions during decryption
-            self.log.logger[self.log_key].critical(f"Decryption failed: [{e}]")
+            self.log.logger[self.log_key].critical(f"Decryption failed [{str(profile)}]: [{e}]")
             if test_only: 
                 return False
             self.error_messages.error_code_messages({

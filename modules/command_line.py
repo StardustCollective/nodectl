@@ -7137,13 +7137,14 @@ class CLI():
                         "profile": profile,
                         "enc_data": True,
                     })
+                    sleep(1)
                     new_hash, pass2 = configurator.perform_encryption(profile,{},effp,pass1,"rotation")
                     if pass1 == str(pass2):
                         break
                     if atp > 1:
                         error = True
                         break
-                    sleep(.8)
+                    sleep(1.5)
                 
                 if error:
                     self.log.logger[self.log_key].error("rotate_key error was encountered during key rotation, advised to manually reset passphrase encryption and alerting if enabled.")
