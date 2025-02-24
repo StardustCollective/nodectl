@@ -3952,7 +3952,11 @@ class Configurator():
         first_run, write_append, pass_error = False, True, False
         enc_pass = None
         pass4 = pass3
-        pass3 = pass3.strip()
+        
+        try:
+            pass3 = pass3.strip()
+        except:
+            pass
 
         for attempt in range(0,2):
             if pass3 and pass3 != "None":
@@ -4088,7 +4092,7 @@ class Configurator():
             })
             if double_check == pass3:
                 if attempt > 0:
-                    self.log.logger[self.log_key].debug(f"Passphrase fix successful. | attmept [{attempt}]")
+                    self.log.logger[self.log_key].debug(f"Passphrase fix successful. | attempt [{attempt}]")
                 self.log.logger[self.log_key].info("Passphrase encryption successful")
                 break
 
