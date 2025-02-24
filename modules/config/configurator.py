@@ -4087,6 +4087,9 @@ class Configurator():
                 "test_only": True,
             })
             if double_check == pass3:
+                if attempt > 0:
+                    self.log.logger[self.log_key].debug(f"Passphrase fix successful. | attmept [{attempt}]")
+                self.log.logger[self.log_key].info("Passphrase encryption successful")
                 break
 
             if attempt < 1:
