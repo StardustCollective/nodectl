@@ -33,7 +33,10 @@ def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
 
     utc_time, local_time = prepare_datetime_stamp(functions, comm_obj["local_time_zone"], log)
 
-    label = False if comm_obj["label"] == None or comm_obj["label"] == "None" else comm_obj["label"]
+    try:
+        label = False if comm_obj["label"] == None or comm_obj["label"] == "None" else comm_obj["label"]
+    except:
+        label = False
 
     body = f"NODECTL {'UP' if alert_profile == 'clear' else 'DOWN'} ALERT\n"
     if label:
@@ -84,7 +87,11 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
         })
         full_amount = 0
         reward_items = []
-        label = False if comm_obj["label"] == None or comm_obj["label"] == "None" else comm_obj["label"]
+
+        try:
+            label = False if comm_obj["label"] == None or comm_obj["label"] == "None" else comm_obj["label"]
+        except:
+            label = False
 
         if direct:
             alert_profile["local_node"] = functions.get_ext_ip()
