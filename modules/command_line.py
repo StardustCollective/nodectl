@@ -7136,6 +7136,7 @@ class CLI():
                         "pass1": pass_hash,
                         "profile": profile,
                         "enc_data": True,
+                        "test_only": True,
                     })
                     sleep(1)
                     new_hash, pass2 = configurator.perform_encryption(profile,{},effp,pass1,"rotation")

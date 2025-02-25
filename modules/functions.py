@@ -1407,7 +1407,7 @@ class Functions():
 
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA3_512(),
-                iterations=1311313,
+                iterations=13131313,
                 salt=salt,
                 length=32,
                 backend=default_backend(),

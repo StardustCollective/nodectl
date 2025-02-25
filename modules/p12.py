@@ -480,7 +480,7 @@ class P12Class():
                 "caller": "hpf",
                 "is_glob": True,
                 "wildcard": True,
-                "age": 20, # 20 seconds
+                "age": 10, # 10 seconds
             })
 
         if create:
