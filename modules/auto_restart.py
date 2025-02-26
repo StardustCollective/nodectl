@@ -48,15 +48,15 @@ class AutoRestart():
         self.on_boot_handler_check = True
         
         self.stuck_timers = {
-            "Observing_tolerance": 10*60, 
+            "Observing_tolerance": 5*60, 
             "Observing_enabled": False,
             "Observing_state_enabled": False,
 
-            "SessionStarted_tolerance": 10*60, 
+            "SessionStarted_tolerance": 5*60, 
             "SessionStarted_enabled": False,
             "SessionStarted_state_enabled": False,
 
-            "WaitingForDownload_tolerance": 6*60,
+            "WaitingForDownload_tolerance": 5*60,
             "WaitingForDownload_state_enabled": False,
             "WaitingForDownload_enabled": False,    
 
