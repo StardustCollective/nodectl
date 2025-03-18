@@ -658,30 +658,38 @@ class ShellHandler:
                 
 
     def check_diskspace(self):
+        verbose = True
         warning_threshold = 84
         main_threshold = 94
         size_str = self.functions.check_dev_device().strip()
         size = int(size_str.split(" ")[0].replace("%",""))
-        
+
+        if "_restart" in self.called_command:
+            verbose = False        
         if size > main_threshold:
             self.log.logger[self.log_key].critical(f"shell_handler -> disk check -> {size_str}")
-            self.functions.print_paragraphs([
-                [" CRITICAL ",0,"yellow,on_red"], ["Disk Space:",0,"magenta"],
-                [size_str,1,"red"]
-            ])
+            if verbose:
+                self.functions.print_paragraphs([
+                    [" CRITICAL ",0,"yellow,on_red"], ["Disk Space:",0,"magenta"],
+                    [size_str,1,"red"]
+                ])
         elif size > warning_threshold:
             self.log.logger[self.log_key].warning(f"shell_handler -> disk check -> {size_str}")
-            self.functions.print_paragraphs([
-                [" WARNING ",0,"red,on_yellow"], ["Disk Space:",0,"yellow"],
-                [size_str,1,"magenta"]
-            ])
+            if verbose:
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"], ["Disk Space:",0,"yellow"],
+                    [size_str,1,"magenta"]
+                ])
                 
 
     def check_fernet_rotation(self):
+        verbose = True
         if self.called_command == "install" or not self.config_obj["global_p12"]:
             return
         if not self.config_obj["global_p12"]["encryption"]: 
             return
+        if "_restart" in self.called_command:
+            verbose = False
         
         warning_threshold = 45
         main_threshold = 90
@@ -694,16 +702,18 @@ class ShellHandler:
 
         if age.days > main_threshold:
             self.log.logger[self.log_key].critical(f"shell_handler -> p12 encryption key rotation check -> age [{age}]")
-            self.functions.print_paragraphs([
-                [" IMPORTANT ",0,"yellow,on_red"], 
-                ["P12 encryption key rotation suggested.",1,"magenta"],
+            if verbose:
+                self.functions.print_paragraphs([
+                    [" IMPORTANT ",0,"yellow,on_red"], 
+                    ["P12 encryption key rotation suggested.",1,"magenta"],
             ])
         elif age.days > warning_threshold:
             self.log.logger[self.log_key].warning(f"shell_handler -> p12 encryption key rotation check -> age [{age}]")
-            self.functions.print_paragraphs([
-                [" WARNING ",0,"red,on_yellow"], 
-                ["Consider P12 passphrase encryption key rotation soon.",1,"magenta"],
-            ])
+            if verbose:
+                self.functions.print_paragraphs([
+                    [" WARNING ",0,"red,on_yellow"], 
+                    ["Consider P12 passphrase encryption key rotation soon.",1,"magenta"],
+                ])
 
 
     def check_all_profile(self):
