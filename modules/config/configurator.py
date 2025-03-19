@@ -11,6 +11,7 @@ from string import ascii_letters
 from secrets import compare_digest, choice
 from time import sleep
 from itertools import chain
+from decimal import Decimal, getcontext
 
 from .migration import Migration
 from .config import Configuration
@@ -192,13 +193,19 @@ class Configurator():
         try:
             self.hypergraph = self.c.config_obj["global_elements"]["metagraph_name"]
         except:
-            self.log.logger[self.log_key].warning("configurator -> prepare_config -> missing Hypergraph/metagraph type")
+            self.log.logger[self.log_key].warning("configurator -> prepare_config -> missing Hypergraph/metagraph type.")
 
         try:
             self.alerting_config = {**self.c.config_obj["global_elements"]["alerting"]}
         except:
-            self.log.logger[self.log_key].debug("configuration did not find any alerting configuration")
+            self.log.logger[self.log_key].debug("configuration did not find any alerting configuration.")
             self.alerting_config = False
+
+        try:
+            self.staking_config = {**self.c.config_obj["global_elements"]["delegated_staking"]}
+        except:
+            self.log.logger[self.log_key].debug("configuration did not find a delegated staking configuration.")
+            self.staking_config = False
 
         self.c.config_obj["global_elements"] = {"caller":"config"}
         self.c.functions.log = self.log
@@ -2080,7 +2087,227 @@ class Configurator():
         })
         
         
-    def manual_setup_alerting(self,profile="Global"):
+    def manual_setup_delegated_staking(self,profile="global"):
+
+        self.header_title = {
+            "line1": "SETUP DELEGATED STAKING",
+            "line2": "Prepare Validator Node",
+            "show_titles": False,
+            "clear": True,
+            "newline": "both",
+        }
+
+        defaults, questions, precision_percent_error = False, False, False
+        do_edit, disable_only = True, False
+        
+        self.manual_section_header(profile,"DELEGATING STAKING SETUP")
+
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1],["When a Validator offers delegation services it allows the validator node to:",2,"white","bold"], 
+                ["  - Maximize rewards",1,"white","bold"], 
+                ["  - Build a robust reputation",1,"white","bold"], 
+                ["  - Achieve operational efficiencies",1,"white","bold"], 
+                ["  - Contribute significantly to security",1,"white","bold"], 
+                ["   -Contribute to decentralization",2,"white","bold"], 
+                
+                ["By accepting delegations, validator nodes can augment their staked amount, thereby",0,"white","bold"],
+                ["enhancing their chances of being selected for consensus activities. This elevation leads to higher rewards,",0,"white","bold"],
+                ["as incentives are proportionate to the total stake managed by the validator. ",2,"white","bold"],
+            ])
+
+        if not self.staking_config:
+            self.c.functions.print_paragraphs([
+                [" New Configuration Detected! ",1,"green,on_yellow"],
+                ["Or invalid configuration detected that will be overwritten.",2,"red"],
+                ["CONFIGURATION NOTICE",1,"magenta","bold"], 
+                ["-","half","magenta"],
+                ["Please refer to the",0,"white","bold"],["Constellation Network",0,"blue","bold"],
+                ["documentation hub to follow the quick start guide for further assistance if",0,"white","bold"],
+                ["detailed mode",0,"yellow"], ["is not sufficient enough.",1,"white","bold"], 
+                ["https://docs.constellationnetwork.io/validate/quick-start/delegated-staking-quickstart",2,"blue","bold"],
+            ])
+            self.c.functions.print_any_key({})
+            stake_list = [
+                "name","description","rewardFraction",
+            ]
+            self.staking_config = {item: False for item in stake_list}
+            self.staking_config["enable"] = "True"
+        else:
+            self.c.functions.print_paragraphs([
+                ["Delegated staking was detected as:",0],[f"{self.staking_config['enable']}",1,"yellow"],
+            ])
+
+            if self.staking_config["enable"]:
+                if self.c.functions.confirm_action({
+                    "prompt": "Disable delegated staking?",
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "exit_if": False
+                }):
+                    self.staking_config["enable"] = "False"
+                    do_edit = False
+                    disable_only = True
+
+            if do_edit:
+                if not self.staking_config["enable"]:
+                    if self.c.functions.confirm_action({
+                        "prompt": "Enable delegated staking?",
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "exit_if": False
+                    }):
+                        self.staking_config["enable"] = True
+
+                if self.c.functions.confirm_action({
+                    "prompt": "Update configuration?",
+                    "yes_no_default": "n",
+                    "return_on": "n",
+                    "exit_if": False
+                }):
+                    do_edit = False
+
+        if self.staking_config and do_edit:
+            description0 = "This will be a short name that will appear on the Lattice Dashboard to identify your node to the public."
+            description1 = "This will be a description of what your node is and why it should be delegated to."
+            description2 = "This must be a number between '5' and '10' representing the percentage of your node that you would like to offer "
+            description2 += "up for delegation."
+
+            questions = {
+                "name": {
+                    "question": f"  {colored('Enter a','cyan')} {colored('short name','yellow')} {colored('for your node.','cyan')}",
+                    "description": description0,
+                    "required": False,
+                    "default": self.staking_config["name"] if self.staking_config["name"] else ""
+                },
+                "description": {
+                    "question": f"  {colored('Enter desired','cyan')} {colored('description','yellow')} {colored('of this node.','cyan')}",
+                    "description": description1,
+                    "required": False,
+                    "default": self.staking_config["description"] if self.staking_config["description"] else ""
+                },
+                "rewardFraction": {
+                    "question": f"  {colored('Enter','cyan')} {colored('percent','yellow')} {colored('to be delegated.','cyan')}",
+                    "description": description2,
+                    "required": False,
+                    "default": "5"
+                },
+            }    
+
+            self.manual_append_build_apply({
+                "questions": questions, 
+                "profile": profile,
+                "defaults": defaults,
+                "is_global": True,
+                "apply": False  # don't apply this will be done later
+            })
+            data = deepcopy(self.config_obj_apply["global"])
+    
+            precision_percent = data["rewardFraction"]
+            getcontext().prec = 20 
+            while True:
+                precision_percent_error = False
+                try:
+                    precision_percent = float(precision_percent)
+                    precision_percent = precision_percent / 100
+                except:
+                    precision_percent_error = True
+
+                if not precision_percent_error and (precision_percent < .05 or precision_percent > .10):
+                    precision_percent_error = True
+                
+                if precision_percent_error:
+                    self.log.logger[self.log_key].error(f"During delegated staking configuration, invalid percentage entered [{data['rewardFraction']}]")
+                    self.c.functions.print_paragraphs([
+                        [" ERROR ",0,"yellow,on_red"], ["Invalid percentage amount entered. Must be a number between",0,"red"],
+                        ["5",0,"yellow"], ["and",0,'red'], ["10",0,"yellow"], ["representing a percentage.",1,"red"],
+                        ["Please try again",2,"magenta"],
+                    ])
+                    prompt = colored("  Please enter number between ","cyan")
+                    prompt += colored("5 ","yellow")
+                    prompt += colored("and ","cyan")
+                    prompt += colored("10 ","yellow")
+                    prompt += colored(": ","cyan")
+                    precision_percent = input(prompt)
+                    print("")
+                else:
+                    precision_percent = int(Decimal(precision_percent) * Decimal("100000000"))
+                    data["rewardFraction"] = precision_percent
+                    break
+        else:
+            data = deepcopy(self.staking_config)
+
+        if do_edit:
+            data["enable"] = "False" if self.staking_config["enable"] else "True" # opposite
+        elif not disable_only:
+            data["enable"] = self.staking_config["enable"]
+        else:
+            data["enable"] = "True" # opposite
+
+        if not self.node_service:
+            self.prepare_node_service_obj()
+        staking_file = self.node_service.create_files({
+            "file": "delegated_staking",
+        })
+
+        staking_file = staking_file.replace(f"enable: {data['enable']}", f"enable: {self.staking_config['enable']}")
+        staking_file = staking_file.replace("nodegaragedelstname",data["name"])
+        staking_file = staking_file.replace("nodegaragedelstdescription",f"{data['description']}")
+        staking_file = staking_file.replace("nodegaragedelstpercent",str(data["rewardFraction"]))
+
+        invalid = []
+        # validate requirements before continuing
+        for key,value in data.items():
+            if key == "enable":
+                if isinstance(value, bool):
+                    value = f"{value}" # convert to string
+                if value != "True" and value != "False":
+                    invalid.append("enable is not 'True' or 'False'.")
+            if key == "name" or key == "description":
+                if not isinstance(value,str):
+                    invalid.append(f"{value}: invalid format detected, must be string.")
+
+        if len(invalid) > 0:
+            cprint("  ERRORS DETECTED","red",attrs=["bold"])
+            cprint("  ---------------","red",attrs=["bold"])
+            for error in invalid:
+                cprint(f"  {error}","red")
+            self.c.functions.print_any_key({})
+            return
+        
+        if not path.exists(self.c.functions.default_includes_path):
+            makedirs(self.c.functions.default_includes_path)
+
+        final_staking_file = ""
+        for line in staking_file.split("\n"):
+            final_staking_file += line+"\n"
+
+        with open(f"{self.c.functions.default_includes_path}delegated_staking.yaml","w") as file:
+            file.write(final_staking_file)
+        chmod(f"{self.c.functions.default_includes_path}delegated_staking.yaml",0o600)
+
+        print("")
+        self.c.functions.print_cmd_status({
+            "text_start": "Delegating staking configuration built",
+            "status": "complete",
+            "newline": True,
+        })
+
+        self.c.functions.print_paragraphs([
+            ["",1],
+            [" COMPLETE! ",0,"yellow,on_green"],["Your delegated staking configuration is setup and ready to be enabled.",2,"green"],
+            
+            ["In order to enable delegating staking, your validator node will need to configure a delegated staking package",0],
+            ["sign it with your p12 key store",0,"yellow"], ["and transmit it to the metagraph. This will be done automatically",0],
+            ["by nodectl, once you execute the",0], ["enable",0,"yellow"], ["command.",2],
+
+            ["Review config :",0,"blue","bold"], ["sudo nodectl delegrated_staking status",1,"yellow"],
+            ["Please execute:",0,"blue","bold"], ["sudo nodectl delegated_staking enable",2,"yellow"],
+        ])
+        self.c.functions.print_any_key({})
+        
+        
+    def manual_setup_alerting(self,profile="global"):
 
         self.header_title = {
             "line1": "SETUP ALERTING",
@@ -2302,8 +2529,8 @@ class Configurator():
                 "apply": False  # don't apply this will be done later
             })
             if not update_token:
-                self.config_obj_apply["Global"]["token"] = self.alerting_config["token"]
-            data = deepcopy(self.config_obj_apply["Global"])
+                self.config_obj_apply["global"]["token"] = self.alerting_config["token"]
+            data = deepcopy(self.config_obj_apply["global"])
         else:
             data = deepcopy(self.alerting_config)
                 
@@ -2979,8 +3206,7 @@ class Configurator():
                     "newline": "bottom"
                 })
 
-                # options = ["E","A","G","R","L","M","Q"]
-                options = ["E","G","R","L","P","M","N","Q","T","I"]
+                options = ["D","E","G","R","L","P","M","N","Q","T","I"]
                 if return_option.upper() not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
@@ -2991,6 +3217,7 @@ class Configurator():
                         ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Configuration",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
                         ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
+                        ["D",-1,"magenta","bold"], [")",-1,"magenta"], ["Setup",0,"magenta"], ["D",0,"magenta","underline"],["elegated Staking",-1,"magenta"],["",1],
                         ["N",-1,"magenta","bold"], [")",-1,"magenta"], ["Setup Alerti",0,"magenta"], ["n",-1,"magenta","underline"],["g",-1,"magenta"],["",1],
                         ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
                         ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
@@ -3038,6 +3265,7 @@ class Configurator():
             elif option == "i": self.manual_define_token_identifier("global_elements")
             elif option == "t": self.manual_define_token_coin("global_elements")
             elif option == "n": self.manual_setup_alerting()
+            elif option == "d": self.manual_setup_delegated_staking()
             elif option == "m":
                 self.action = False
                 self.setup()

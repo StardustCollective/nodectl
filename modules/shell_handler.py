@@ -2065,6 +2065,7 @@ class ShellHandler:
                     ["The node's alerting service is enabled.",1,"green"], 
                 ])             
     
+    
     def upgrade_node(self,argv_list):
         if "help" in argv_list:
             self.functions.print_help({
