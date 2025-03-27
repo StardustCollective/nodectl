@@ -312,6 +312,10 @@ class ShellHandler:
 
             elif self.called_command == "list":
                 self.cli.show_list(self.argv)  
+            elif self.called_command == "delegate":
+                self.cli.delegated_staking(self.argv)
+            elif self.called_command == "sign":
+                self.cli.sign(self.argv)  
             elif self.called_command == "show_current_rewards" or self.called_command == "_scr":
                 self.cli.show_current_rewards(self.argv)  
             elif self.called_command == "find":

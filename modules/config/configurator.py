@@ -2090,8 +2090,8 @@ class Configurator():
     def manual_setup_delegated_staking(self,profile="global"):
 
         self.header_title = {
-            "line1": "SETUP DELEGATED STAKING",
-            "line2": "Prepare Validator Node",
+            "line1": "DELEGATED STAKING",
+            "line2": "Setup or Update Configuration",
             "show_titles": False,
             "clear": True,
             "newline": "both",
@@ -2118,14 +2118,28 @@ class Configurator():
 
         if not self.staking_config:
             self.c.functions.print_paragraphs([
-                [" New Configuration Detected! ",1,"green,on_yellow"],
+                [" New Configuration Detected! ",2,"green,on_yellow"],
                 ["Or invalid configuration detected that will be overwritten.",2,"red"],
+
                 ["CONFIGURATION NOTICE",1,"magenta","bold"], 
                 ["-","half","magenta"],
-                ["Please refer to the",0,"white","bold"],["Constellation Network",0,"blue","bold"],
-                ["documentation hub to follow the quick start guide for further assistance if",0,"white","bold"],
-                ["detailed mode",0,"yellow"], ["is not sufficient enough.",1,"white","bold"], 
+                ["If the",0,"white","bold"], ["detailed mode",0,"yellow"],
+                ["does not provide sufficient guidance, please refer to the",0,"white","bold"],
+                ["Constellation Network",0,"blue","bold"],
+                ["documentation hub to access the quick start guide and additional resources.",0,"white","bold"],
                 ["https://docs.constellationnetwork.io/validate/quick-start/delegated-staking-quickstart",2,"blue","bold"],
+
+                [" IMPORTANT ",0,"yellow,on_red"], 
+                ["Once delegated staking is configured, it cannot be disabled.",2,"yellow"],
+
+                ["This is a permanent operation",0,"red","bold"], ["that takes effect once the initial",0,"yellow"], 
+                ["update",0,"blue","bold"], ["operation is completed.",2,"yellow"],
+
+                ["The configurator solely handles the creation or updating of the delegated staking configuration. It does not",0,"yellow"],
+                ["initiate delegated staking automatically. To activate the configuration, a manual",2,"yellow"],
+                ["update",0,"blue","bold"],["request must be issued.",2,"yellow"],
+
+                ["Carefully consider your settings before finalizing the configuration.",2,"magenta"],
             ])
             self.c.functions.print_any_key({})
             stake_list = [
@@ -2134,30 +2148,33 @@ class Configurator():
             self.staking_config = {item: False for item in stake_list}
             self.staking_config["enable"] = "True"
         else:
-            self.c.functions.print_paragraphs([
-                ["Delegated staking was detected as:",0],[f"{self.staking_config['enable']}",1,"yellow"],
-            ])
+            # placeholder for enable/disable
+            # self.c.functions.print_paragraphs([
+            #     ["Delegated staking was detected as:",0],[f"{self.staking_config['enable']}",1,"yellow"],
+            # ])
+            # For future development placeholder - enable option will remain: True
 
-            if self.staking_config["enable"]:
-                if self.c.functions.confirm_action({
-                    "prompt": "Disable delegated staking?",
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "exit_if": False
-                }):
-                    self.staking_config["enable"] = "False"
-                    do_edit = False
-                    disable_only = True
+            # if self.staking_config["enable"]:
+            #     if self.c.functions.confirm_action({
+            #         "prompt": "Disable delegated staking?",
+            #         "yes_no_default": "n",
+            #         "return_on": "y",
+            #         "exit_if": False
+            #     }):
+            #         self.staking_config["enable"] = "False"
+            #         do_edit = False
+            #         disable_only = True
 
             if do_edit:
-                if not self.staking_config["enable"]:
-                    if self.c.functions.confirm_action({
-                        "prompt": "Enable delegated staking?",
-                        "yes_no_default": "y",
-                        "return_on": "y",
-                        "exit_if": False
-                    }):
-                        self.staking_config["enable"] = True
+                # placeholder for enable/disable
+                # if not self.staking_config["enable"]:
+                #     if self.c.functions.confirm_action({
+                #         "prompt": "Enable delegated staking?",
+                #         "yes_no_default": "y",
+                #         "return_on": "y",
+                #         "exit_if": False
+                #     }):
+                #         self.staking_config["enable"] = True
 
                 if self.c.functions.confirm_action({
                     "prompt": "Update configuration?",
@@ -2168,10 +2185,24 @@ class Configurator():
                     do_edit = False
 
         if self.staking_config and do_edit:
-            description0 = "This will be a short name that will appear on the Lattice Dashboard to identify your node to the public."
-            description1 = "This will be a description of what your node is and why it should be delegated to."
-            description2 = "This must be a number between '5' and '10' representing the percentage of your node that you would like to offer "
-            description2 += "up for delegation."
+            description0 = "This field represents a short and easily recognizable name that will appear on the Lattice "
+            description0 += "Dashboard to publicly identify your node. Choose a name that is concise, descriptive, and "
+            description0 += "unique to make it easily distinguishable from other nodes. This name will help users quickly "
+            description0 += "identify and connect with your node within the Lattice ecosystem. This will be a short name that "
+            description0 += "will appear on the Lattice Dashboard to identify your node to the public."
+
+            description1 = "This section provides a brief description of your node and explains why it is an ideal candidate for delegation. "
+            description1 += "Keep the description as short as possible while clearly articulate the strengths and unique features of your node to encourage the community of delegated stakers to support it."
+
+            description2 = "Specify a number between '5' and '10' to indicate the commission percentage your node will charge for "
+            description2 += "allowing community members to delegate staking through it. This percentage reflects the portion "
+            description2 += "of staking rewards that will be collected as a fee in exchange for offering delegation capabilities. "
+            description2 += "Choose a value that aligns with your operational strategy and community engagement goals."
+
+            if self.staking_config["rewardFraction"]:
+                rewardFraction_default = str((self.staking_config["rewardFraction"] / 1e8)*100)
+            else:
+                rewardFraction_default = "5"
 
             questions = {
                 "name": {
@@ -2187,10 +2218,10 @@ class Configurator():
                     "default": self.staking_config["description"] if self.staking_config["description"] else ""
                 },
                 "rewardFraction": {
-                    "question": f"  {colored('Enter','cyan')} {colored('percent','yellow')} {colored('to be delegated.','cyan')}",
+                    "question": f"  {colored('Enter a commission','cyan')} {colored('percent','yellow')} {colored('you will charge for delegation.','cyan')}",
                     "description": description2,
                     "required": False,
-                    "default": "5"
+                    "default": rewardFraction_default
                 },
             }    
 
@@ -2293,18 +2324,19 @@ class Configurator():
             "newline": True,
         })
 
-        self.c.functions.print_paragraphs([
-            ["",1],
-            [" COMPLETE! ",0,"yellow,on_green"],["Your delegated staking configuration is setup and ready to be enabled.",2,"green"],
-            
-            ["In order to enable delegating staking, your validator node will need to configure a delegated staking package",0],
-            ["sign it with your p12 key store",0,"yellow"], ["and transmit it to the metagraph. This will be done automatically",0],
-            ["by nodectl, once you execute the",0], ["enable",0,"yellow"], ["command.",2],
+        if do_edit:
+            self.c.functions.print_paragraphs([
+                ["",1],
+                [" COMPLETE! ",0,"yellow,on_green"],["Your delegated staking configuration is setup and ready to be enabled.",2,"green"],
+                
+                ["In order to enable delegating staking, your validator node will need to configure a delegated staking package",0],
+                ["sign it with your p12 key store",0,"yellow"], ["and transmit it to the metagraph. This will be done automatically",0],
+                ["by nodectl, once you execute the",0], ["enable",0,"yellow"], ["command.",2],
 
-            ["Review config :",0,"blue","bold"], ["sudo nodectl delegrated_staking status",1,"yellow"],
-            ["Please execute:",0,"blue","bold"], ["sudo nodectl delegated_staking enable",2,"yellow"],
-        ])
-        self.c.functions.print_any_key({})
+                [" Review config:",0,"blue","bold"], ["sudo nodectl delegrated_staking status",1,"yellow"],
+                ["Please execute:",0,"blue","bold"], ["sudo nodectl delegated_staking update",2,"yellow"],
+            ])
+            self.c.functions.print_any_key({})
         
         
     def manual_setup_alerting(self,profile="global"):
@@ -3217,7 +3249,7 @@ class Configurator():
                         ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Configuration",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
                         ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
-                        ["D",-1,"magenta","bold"], [")",-1,"magenta"], ["Setup",0,"magenta"], ["D",0,"magenta","underline"],["elegated Staking",-1,"magenta"],["",1],
+                        ["D",-1,"magenta","bold"], [")",-1,"magenta"], ["Setup/Update",0,"magenta"], ["D",0,"magenta","underline"],["elegated Staking",-1,"magenta"],["",1],
                         ["N",-1,"magenta","bold"], [")",-1,"magenta"], ["Setup Alerti",0,"magenta"], ["n",-1,"magenta","underline"],["g",-1,"magenta"],["",1],
                         ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
                         ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],

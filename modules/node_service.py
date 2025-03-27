@@ -1,5 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from os import system, path, makedirs, remove, chmod
+from os import path, remove, chmod
 from sys import exit
 from time import sleep
 from termcolor import colored, cprint

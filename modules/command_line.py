@@ -19,17 +19,19 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait as 
 
 from modules.p12 import P12Class
 from modules.troubleshoot.snapshot import * # discover_snapshots, merge_snap_results, ordhash_to_ordhash, process_snap_files, remove_elements, clean_info, set_count_dict, custom_input, print_report
-from .download_status import DownloadStatus
-from .status import Status
-from .node_service import Node
-from .troubleshoot.errors import Error_codes
-from .troubleshoot.logger import Logging
-from .cleaner import Cleaner
-from .troubleshoot.send_logs import Send
-from .troubleshoot.ts import Troubleshooter
-from .find_newest_standalone import find_newest
-from .config.ipv6 import handle_ipv6
-from .console import Menu
+from modules.download_status import DownloadStatus
+from modules.status import Status
+from modules.node_service import Node
+from modules.troubleshoot.errors import Error_codes
+from modules.troubleshoot.logger import Logging
+from modules.cleaner import Cleaner
+from modules.troubleshoot.send_logs import Send
+from modules.troubleshoot.ts import Troubleshooter
+from modules.find_newest_standalone import find_newest
+from modules.config.ipv6 import handle_ipv6
+from modules.console import Menu
+from modules.delegate import DelegatedStaking
+from modules.crypto.crypto_class import NodeCtlCryptoClass
 
 class TerminateCLIException(Exception): pass
 
@@ -1003,7 +1005,7 @@ class CLI():
                 if "/" in csv_file_name:
                     self.error_messages.error_code_messages({
                         "error_code": "cmd-442",
-                        "line_code": "invalid_output_file",
+                        "line_code": "invalid_file_or_path",
                         "extra": csv_file_name
                     })
             else:
@@ -1840,7 +1842,7 @@ class CLI():
             if "--output" in command_list:
                 csv_file_name = command_list[command_list.index("--output")+1]
                 if "/" in csv_file_name:
-                    send_error("cmd-442","invalid_output_file",csv_file_name)
+                    send_error("cmd-442","invalid_file_or_path",csv_file_name)
 
             else:
                 prefix = self.functions.get_date_time({"action": "datetime"})
@@ -4380,7 +4382,7 @@ class CLI():
                     if "/" in csv_file_name:
                         self.error_messages.error_code_messages({
                             "error_code": "cmd-442",
-                            "line_code": "invalid_output_file",
+                            "line_code": "invalid_file_or_path",
                             "extra": csv_file_name
                         })
                 else:
@@ -7505,6 +7507,185 @@ class CLI():
             [title2,0], [backup_dir,1,"yellow"],
             ["Backup File Name:",0], [f"backup_cn-config_{c_time}",1,"yellow"],
         ])
+
+
+    def delegated_staking(self,command_list):
+        self.functions.check_for_help(command_list,self.command_obj["command"])
+        self.functions.print_header_title({
+            "line1": "DELEGATED STAKING",
+            "newline": False
+        })
+
+        try: 
+            _ = self.config_obj["global_elements"]["delegated_staking"]
+        except:
+            self.error_messages.error_code_messages({
+                "line_code": "config_error",
+                "error_code": "cli-7519",
+                "extra": "includes",
+                "extra2": "You must create a delegated staking configuaration first."
+            })        
+
+        profiles = self.functions.pull_profile({
+            "req": "layer0",
+        })
+
+        if len(profiles) < 1:
+            self.error_messages.error_code_messages({
+                "line_code": "layer_zero_missing",
+                "error_code": "cli-7529",
+                "extra": ', '.join(self.profile_names)
+            })
+
+        profile = profiles[0] # default
+        if len(profiles) > 1:
+            self.functions.print_paragraphs([
+                ["Please chooose a layer0 profile associated with your delegated staking configuration:",2]
+            ])
+            profile = self.functions.print_option_menu({
+                    "options": profiles,
+                    "return_value": True,
+                    "color": "blue",
+                    "r_and_q": "both",
+                })
+
+        if "update" in command_list:
+            action = "update"
+        elif "remove" in command_list:
+            action = "remove"
+        elif "status" in command_list:
+            action = "status"
+        else:
+            action = self.functions.print_option_menu({
+                    "options": ["status","update","remove"],
+                    "return_value": True,
+                    "color": "blue",
+                    "r_and_q": "both",
+                })            
+
+        delegated = DelegatedStaking({
+            "profile": profile,
+            "action": action,
+            "config_obj": self.config_obj,
+            "functions": self.functions,
+            "log": self.log,
+            "error_messages": self.error_messages
+        })
+
+        if "--verbose" in command_list or "-v" in command_list:
+            delegated.verbose = True
+        if "--vv" in command_list:
+            delegated.verbose = True
+            delegated.dbl_verbose = True
+            
+        if action == "update":
+            delegated.update()
+        elif action == "remove":
+            delegated.remove()
+        elif action == "status":
+            delegated.status()
+            
+
+    def sign(self,command_list):
+        self.functions.check_for_help(command_list,self.command_obj["command"])
+        signed_input_path, signed_output_path = False, False
+        error = False
+
+        sign_parms = {
+            "input_json": False,
+            "output_json": False,
+            "private_key": False,
+            "public_key": False,
+            "output_json": "stdout",
+            "package": False,
+        }
+
+        if "--input_json" in command_list:
+            signed_input_path = command_list[command_list.index("--input_json")+1]
+            signed_input_path = path.normpath(signed_input_path)
+            try:
+                check_path = path.basename(signed_input_path)
+            except: pass
+            self.functions.check_file_dir_exits({
+                "check_path": check_path,
+                "return_on": "n",
+                "negative": True,
+                "always_exit": True,
+            })
+            sign_parms["input_json"] = signed_input_path
+
+        if "--output_json" in command_list:
+            signed_output_file = command_list[command_list.index("--output_json")+1]
+            signed_output_path = path.normpath(f"{self.functions.default_upload_location}/{signed_output_file}")
+            self.functions.check_file_dir_exists({
+                "check_path": signed_output_path,
+            })
+            sign_parms["output_json"] = signed_output_file
+
+        for key_option in ["private_key","public_key"]:
+            if key_option in command_list:
+                key_file = command_list[command_list.index(f"--{key_option}_path")+1]
+                self.functions.check_file_dir_exists({
+                    "check_path": key_file,
+                    "always_exit": True,
+                    "negative": True,
+                })
+                sign_parms[f"{key_option}"] = key_file
+
+        if "--stdin" in command_list:
+            ingest_data = command_list[command_list.index("--stdin")+1]
+            try:
+                ingest_data = json.loads(ingest_data)
+            except Exception as e:
+                self.log.logger["log_key"].error(f"sign feature was Unable to validate the JSON object from stdin [{e}]")
+                error = True
+        else:
+            if not sign_parms["input_json"]:
+                error = True
+
+        if error:
+            self.error_messages.error_code_messages({
+                "line_code": "invalid_data",
+                "error_code": "cli-7618",
+            }) 
+
+        sign_obj = {
+            "log": self.log,
+            "config_obj": self.config_obj,
+            "error_mesages": self.error_messages
+        }
+        if sign_parms["input_json"]: sign_obj["data"] = sign_parms["input_json"]
+        if sign_parms["private_key"]: sign_obj["private_path"] = sign_parms["private_key"]
+        if sign_parms["public_key"]: sign_obj["public_path"] = sign_parms["public_key"]
+        signer = NodeCtlCryptoClass(sign_obj)
+
+        p_type = "node p12 key store"
+        if sign_parms["private_key"]:
+            p_type = "private key"
+        sign_obj["p12p"] = getpass(colored(f"  Please enter your {p_type} passphrase: ","magenta"))
+
+
+        if sign_parms["output_json"] == "stdout":
+            self.functions.print_paragraphs([
+                ["",1],
+                ["*","half","green","bold"],
+                ["** SIGNED JSON START **",1,"white"],
+                ["*","half","green","bold"],
+            ])
+            print(colored(json.dumps(signer.data,indent=4),"light_yellow"),end="\n")
+            self.functions.print_paragraphs([
+                ["*","half","green","bold"],
+                ["** SIGNED JSON END **",1,"white"],
+                ["*","half","green","bold"],
+            ]) 
+            exit(0)                   
+
+        with open(sign_parms["output_json"],"w") as f:
+            f.write(json.dumps(signer.data))
+            self.functions.print_paragraphs([
+                ["JSON data has been signed and placed in requested output file."],
+                ["Output File",0,"blue","bold"], [sign_parms["output_json"],2,"yellow"],
+            ])            
 
 
     # ==========================================

@@ -29,6 +29,8 @@ def ac_build_script(cli):
 
     autorestart_options = "status enable disable alert_test send_report clear_alerts restart"
 
+    delegate_options = "update status remove"
+
     find_options = "-s -t"
     auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
     auto_complete_file = auto_complete_file.replace("nodegarageinstalloptions",install_options)

@@ -20,6 +20,7 @@ def pull_valid_command():
         "console",
 
         "dag",
+        "delegate",
         "disable_root_ssh",
         "download_status",
         "display_snapshot_chain",
@@ -76,6 +77,7 @@ def pull_valid_command():
         "show_distro",
         "start",
         "stop",
+        "sign",
         "show_current_rewards",
         "slow_restart",
         "status",

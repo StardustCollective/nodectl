@@ -21,14 +21,17 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 import base64
 
+from requests import Session
+from urllib.parse import urlparse, urlunparse
+from retry_requests import retry
+from requests.exceptions import HTTPError, RequestException, Timeout, ConnectionError
+
 from scapy.all import TCP, sniff
 from hurry.filesize import size, alternative
 from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
-from requests import Session
-from requests.exceptions import HTTPError, RequestException
 from subprocess import Popen, PIPE, call, run, check_output, CalledProcessError, DEVNULL, STDOUT
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -1056,36 +1059,32 @@ class Functions():
             return result_list
 
 
-    def get_from_api(self,url,utype,tolerance=5):
-        
+    def get_from_api(self,url,utype):
         is_json = True if utype == "json" else False
-        for n in range(1,tolerance+2):
-            try:
-                session = self.set_request_session(False,is_json)
-                session.timeout = 2
-                if utype == "json":
-                    response = session.get(url, timeout=self.session_timeout).json()
-                else:
-                    response = session.get(url, timeout=self.session_timeout)
-            except Exception as e:
-                print(response.text)
-                self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}] attempt [{n}] of [3]")
-                if n > tolerance:
-                    self.error_messages.error_code_messages({
-                        "error_code": "fnt-876",
-                        "line_code": "api_error",
-                        "extra2": url,
-                        "extra": None
-                    })
-                sleep(.5)
+        session = self.set_request_session(is_json)
+        try:
+            if utype == "json":
+                response = session.get(url, timeout=self.session_timeout).json()
             else:
-                if utype == "yaml_raw":
-                    return response.content.decode("utf-8").replace("\n","").replace(" ","")
-                elif utype == "yaml":
-                    return yaml.safe_load(response.content)
-                return response
-            finally:
-                session.close()
+                response = session.get(url, timeout=self.session_timeout)
+        except Exception as e:
+            self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}].")
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-876",
+                "line_code": "api_error",
+                "extra2": url,
+                "extra": None
+            })
+        else:
+            if response.status_code == 404:
+                return response.reason
+            if utype == "yaml_raw":
+                return response.content.decode("utf-8").replace("\n","").replace(" ","")
+            elif utype == "yaml":
+                return yaml.safe_load(response.content)
+            return response
+        finally:
+            session.close()
                         
                     
     def get_cluster_info_list(self,command_obj):
@@ -1316,7 +1315,7 @@ class Functions():
             return_type = "dict"
         
         try:
-            session = self.set_request_session(False,json)
+            session = self.set_request_session(json)
             session.verify = False
             session.timeout = 2
             results = session.get(uri, timeout=self.session_timeout).json()
@@ -1468,7 +1467,6 @@ class Functions():
 
 
     def get_includes(self,remote=False):
-
         if remote:
             include_params = self.get_from_api(
                 self.nodectl_includes_url,
@@ -1717,13 +1715,14 @@ class Functions():
         })
         
 
-    def set_request_session(self,local_file=False,json=False):
+    def set_request_session(self,json=False,u_retries=3):
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0"
         }
 
+        # Optional ETag support (uncomment if needed)
         # if local_file and path.isfile(f"{local_file}.etag"):
         #     with open(f"{local_file}.etag",'r') as etag_f:
         #         get_headers['If-None-Match'] = etag_f.read().strip()
@@ -1736,9 +1735,18 @@ class Functions():
         session = Session()            
         session.headers.update(get_headers)   
         session.params = {'random': random.randint(10000,20000)}
+
+        session = retry(
+            session = session,
+            retries=u_retries, 
+            backoff_factor=.1, 
+            status_to_retry=(429, 500, 502, 503, 504),  
+            allowed_methods=["GET", "POST", "PUT", "PATCH"],
+        )
+
         return session
-
-
+    
+        
     def set_console_setup(self,wrapper_obj):
         console_size = get_terminal_size()  # columns, lines
 
@@ -2257,7 +2265,14 @@ class Functions():
                 "extra": profile
             })
             exit(0) # force exit on service changes.
-    
+
+        elif var.req == "layer0":
+            layer0_list = []
+            for profile in self.profile_names:
+                if self.config_obj[profile]["layer"] < 1 and self.config_obj[profile]["profile_enable"]:
+                    layer0_list.append(profile)
+            return layer0_list
+                    
     
     def pull_remote_profiles(self,command_obj):
         r_and_q = command_obj.get("r_and_q","both")
@@ -2549,6 +2564,57 @@ class Functions():
         if device: return device
         return "unknown"
 
+
+    def check_file_dir_exists(self,command_obj):
+        check_path = command_obj["check_path"]
+        negative = command_obj.get("negative",False)
+        do_exit = command_obj.get("do_exit",False)
+        always_exit = command_obj.get("always_exit",False)
+        return_on = command_obj.get("return_on","y")
+        warning = command_obj.get("warning","cnng_default")
+        prompt_color = command_obj.get("prompt_color","magenta")
+        prompt = command_obj.get(
+            "prompt",
+            "cnng_default"
+        )
+
+        if warning == "cnng_default":
+            warning = "This file already exists."
+            if negative:
+                warning = "Could not find file or input."
+
+        if prompt == "cnng_default":
+            prompt = "Are you sure you want to overwrite?"
+            if negative:
+                prompt = "Are you sure you want to continue?"
+
+        continue_check = True if negative else False
+        if path.exists(check_path):
+            continue_check = False if negative else True
+
+        if continue_check:
+            self.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"],
+                ["file:",0,"blue","bold"], [check_path,1],
+                [warning,1],
+            ])
+
+            if always_exit:
+                do_exit = True
+            else:
+                _ = self.confirm_action({
+                    "yes_no_default": "n",
+                    "return_on": return_on,
+                    "prompt_color": prompt_color,
+                    "prompt": prompt,
+                    "exit_if": do_exit,
+                })        
+
+        if do_exit:
+            self.error_messages.error_code_messages({
+                "line_code": "invalid_file_or_path",
+                "error_code": "fnt-2611",
+            })
 
     # =============================
     # is functions
@@ -3858,6 +3924,12 @@ class Functions():
         return cmd
 
 
+    def handle_log_msg(self,level,msg):
+        log_method = getattr(self.log.logger[self.log_key], level.lower(), None)
+        if log_method and callable(log_method):
+            log_method(msg)
+
+
     # =============================
     # miscellaneous
     # =============================  
@@ -4151,7 +4223,7 @@ class Functions():
         do_raise = False
         etag = None
         try:
-            session = self.set_request_session(local)
+            session = self.set_request_session()
             session.verify = True
             params = {'random': random.randint(10000, 20000)}
             with session.get(url,params=params, stream=True) as response:

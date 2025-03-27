@@ -16,6 +16,7 @@ from .logger import Logging
 #     format
 #     existence
 #     configurator
+# crypto_error
 
 # download_yaml
 # download_invalid
@@ -30,12 +31,13 @@ from .logger import Logging
 # invalid_address
 # invalid_tcp_ports
 # input_error
+# invalid_data
 # invalid_layer
 # invalid_search
 # ip_not_found
 # invalid_user
 # invalid_file_format
-# invalid_output_file
+# invalid_file_or_path
 # install_failed
 # invalid_configuration_request
 # invalid_option
@@ -43,8 +45,10 @@ from .logger import Logging
 # join_error
 # join
 
+# layer_zero_missing
 # lb_not_up
 # link_to_profile
+
 
 # not_new_install
 # node_id_issue
@@ -473,7 +477,7 @@ class Error_codes():
             
             
         elif var.line_code == "invalid_passphrase":
-            self.log.logger[self.log_key].critical("p12 passphrase entered incorrectly too many times!")
+            self.log.logger[self.log_key].critical("p12 passphrase incorrectly entered.")
             if var.extra2 == "wrong":
                 self.functions.print_paragraphs([
                     ["P12",0,"yellow","bold"], ["passphrase",0,"red","bold,underline"], ["was incorrectly entered.",2,"red","bold"],
@@ -576,7 +580,10 @@ class Error_codes():
             self.log.logger[self.log_key].warning("unable to fetch version, exited utility ")
             self.functions.print_paragraphs([
                 ["Tessellation attempted version fetch failed.",2,"red","bold"],
-                ["Please try again in a few minutes. If the issue persists, report this to a Constellation Network Administrator.",2,"magenta","bold"]
+                ["Please attempt to resolve the issue and try again in a few minutes.",0,"magenta"],
+                ["If the issue persists, report this to a",0,"magenta"],
+                ["Constellation Network Administrator.",2,"magenta","bold"],
+                ["resolution:",0,"yellow"],["sudo nodectl update_version_object --force",2,"blue","bold"],
             ])
 
                         
@@ -658,12 +665,15 @@ class Error_codes():
             ])            
             
             
-        elif var.line_code == "input_error":
-            self.log.logger[self.log_key].warning(f"invalid input from user was entered for option [{var.extra}], exited utility .")
+        elif var.line_code in ["input_error","invalid_data"]:
+            e_type = "input may have been entered by the Node Operator"
+            if var.line_code == "invalid_data":
+                e_type = "data"
+            self.log.logger[self.log_key].warning(f"invalid {e_type} for option [{var.extra}], exited utility .")
             self.functions.print_paragraphs([
-                ["nodectl found an invalid input entered by the Node Operator.",2,"red","bold"],
-                ["Please try again later or issue the",0], ["help",0,"yellow","bold"], 
-                ["option with the command in question for extended details",2],
+                [f"nodectl found invalid {e_type}.",2,"red","bold"],
+                ["Please try again later, issue the",0], ["help",0,"yellow","bold"],["option with the command,",0], 
+                ["or/and review logs messages to handle the error in question and obtain extended details.",2],
             ])  
             if var.extra2:
                 self.functions.print_paragraphs([
@@ -721,7 +731,7 @@ class Error_codes():
             ])            
             
             
-        elif var.line_code == "invalid_output_file":
+        elif var.line_code == "invalid_file_or_path":
             self.log.logger[self.log_key].warning(f"invalid file location or name [{var.extra}], exited utility . file not allowed")
             self.functions.print_paragraphs([
                 ["System detected an attempt to output data to an invalid output location.",0,"red","bold"],
@@ -782,6 +792,20 @@ class Error_codes():
             ])
 
 
+        elif var.line_code == "layer_zero_missing":
+            self.log.logger[self.log_key].critical(f"invalid profile entered for execution [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["Tessellation or nodectl failed during an attempt to locate an existing",1,"red","bold"],["layer0",0,"yellow"],
+                ["profile on this node.",2,"red","bold"],
+                ["This may indicate that your node is not properly configured to run on the layer0 Hypergraph or",0,"red"],
+                ["a layer0 metagarph cluster, and is not qualified to run this command.",2,"red"],
+            ])
+            if var.extra:
+                self.functions.print_paragraphs([
+                    ["Profiles Found:",0,"blue","bold"], [var.extra,2,"magenta"],
+                ])
+
+
         elif var.line_code == "open_file":
             file_word = "p12 file" if var.extra2 == "p12" else "file"
             self.log.logger[self.log_key].critical(f"unable to read {file_word} [{var.extra}]")
@@ -833,21 +857,37 @@ class Error_codes():
                     ["hint:",0,"red"],
                     [var.extra2,2,"yellow"],
                 ])  
+            
+
+        elif var.line_code == "crypto_error":
+            self.log.logger[self.log_key].critical(f"an unrecoverable cryptography error occurred. [{var.extra}]")
+            self.functions.print_paragraphs([
+                ["nodectl attempted to handle a cryptography which returned an invalid response.",0,"red"],
+                ["This could be due to a customized configuration, or other unknown reason.",2,"red"],
+                ["error:",0,"red"],
+                [var.extra,2,"yellow"],
+            ])  
 
 
         elif var.line_code == "config_error":
             self.log.logger[self.log_key].critical(f"unable to load configuration file, file corrupted, some values invalid, or improperly formatted [cn-config.yaml]")
-            if var.extra == "existence" or var.extra == "existence_hint":
+            if var.extra in ["existence","existence_hint","includes"]:
+                c_dir = "/var/tessellation/nodectl/"
+                if var.extra == "includes":
+                    c_dir += "includes/"
                 self.functions.print_paragraphs([
                     ["nodectl attempted load a non-existent",0,"red","bold"],["or",0,"yellow"],["invalid configuration!",1,"red","bold"],
                     ["Please verify that your configuration file is located in the proper directory.",2,"red"],
-                    ["directory location:",0,"white","bold"], ["/var/tessellation/nodectl",2],
+                    ["directory location:",0,"white","bold"], [c_dir,2],
                     ["This is important to allow the file to properly load.",2,"red","bold"],
                     ["To correct specific errors",1,"magenta"],
                     ["issue:",0,"magenta"], ["sudo nodectl configure",1],
-                    ["If unable to access the configure command",1,"magenta"],
-                    ["issue:",0,"magenta"], ["sudo nodectl restore_config",2]
                 ])
+                if var.extra != "includes":
+                    self.functions.print_paragraphs([
+                        ["If unable to access the configure command",1,"magenta"],
+                        ["issue:",0,"magenta"], ["sudo nodectl restore_config",2]
+                    ])
             if var.extra == "install":
                 self.functions.print_paragraphs([
                     ["nodectl failed to properly load configuration elements during the installation.",1,"red","bold"],
@@ -857,8 +897,8 @@ class Error_codes():
                     ["Please try the installation again",2,"magenta"],
                     ["If the error persists, please seek help in the official Constellation Network Discord server.",2,"yellow"], 
                 ])
-            if var.extra == "format" or var.extra == "existence_hint" or var.extra2 == "existence":
-                if var.extra != "existence_hint":
+            if var.extra in ["format","existence_hint","existence","includes"]:
+                if var.extra in ["format","existence"]:
                     self.functions.print_paragraphs([
                         ["nodectl attempted to load an invalid configuration!",1,"red","bold"],
                         ["Please verify that your configuration",0,"red"], ["yaml",0,"red","underline"],
@@ -874,7 +914,7 @@ class Error_codes():
                         ["Use command:",0,"yellow"], ["sudo nodectl upgrade",1],
                         ["Otherwise, seek help in the Constellation Network official Discord or reinstall nodectl.",2,"magenta"],
                     ])
-                if var.extra2 and var.extra2 != "existence":
+                if var.extra2 and var.extra in ["format","existence_hint","includes"]:
                     self.functions.print_paragraphs([
                         ["Hint:",0], [var.extra2,1,"yellow"],
                     ])
