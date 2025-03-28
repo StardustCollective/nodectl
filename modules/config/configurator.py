@@ -2453,25 +2453,44 @@ class Configurator():
             label_default_value = " None "
 
         description0 = "This is the gmail account that you setup with the App password and created for your App password token through."
+
         description1 = "This is the App password token you created during the initial gmail account setup."
-        description2 = "'multi' (recommended) send strategy will send a single email per email address.  The 'single' send strategy will "
+
+        description2 = "'multi' (recommended) send strategy will send a single email per email address. The 'single' send strategy will "
         description2 += "Send a single message to all emails in the same message."
-        description3 = "What email addresses do you want the alerts and daily report sent to?  If you have multiple emails that will "
+
+        description3 = "What email addresses do you want the alerts and daily report sent to? If you have multiple emails that will "
         description3 += "receiving messages from the alerting module such as a mobile provider email and a local email, you must separate "
         description3 += "each email by a comma. example) 'email1@gmail.com,email2@yahoo.com'."
+
         description4 = "In order to make your alerts more reader friendly, nodectl will convert the default UTC time utilized by the node "
         description4 += "into your local time zone for you. You should have retrieved this string value from the quick start guide on "
         description4 += "Constellation Network's documentation hub: https://docs.constellationnetwork.io/validate/quick-start/alerting-quickstart"
-        description5 = "What hour in UTC 24 hour format, do you want alerting to start.  Enter 0 for always."
-        description6 = "What hour in UTC 24 hour format, do you want alerting to end.  Enter 0 for always."
-        description7 = "What hour in UTC 24 hour format, do you want the daily report to be sent.  Each day, nodectl will send the report "
+
+        description5 = "What hour in UTC 24 hour format, do you want alerting to start. Enter 0 for always. Enter 'disable' to disable alerting "
+        description5 += "(if you only want reporting). This is automatically set the 'end' parameter to 'disable'."
+
+        description6 = "What hour in UTC 24 hour format, do you want alerting to end. Enter 0 for always. If you entered disable for the "
+        description6 += "'begin' paramater, this value will automatically be set to 'disable'."
+
+        description7 = "What hour in UTC 24 hour format, do you want the daily report to be sent. Each day, nodectl will send the report "
         description7 += "only once, as soon as the configured UTC hour is reached."
+
         description8 = "When working with IntegrationNet or TestNet, you may not want to be alerted to the value of the test $DAG "
         description8 += "token or how much is held in the wallet. The value of test $DAG does not hold real value and is used by the "
         description8 += "network for testing only and changes depending on current test or testing being executed against the "
         description8 += "TestNet/IntegrationNet cluster. If you want to disable this reporting, please set to 'False'."
+
         description9 = "If you would like to have a label to identify the node sending alerts or reports, you may enter a string value "
         description9 += "here. This will be added to the report and alert messages."
+
+        self.c.functions.print_paragraphs([
+            ["",1],["To enable alerting",0,"magenta"], ["24/7",0,"yellow"],[", set both the",-1,"magenta"],
+            ["end",0,"yellow"], ["and",0,"magenta"], ["begin",0,"yellow"], ["alerting parameters to:",0, "magenta"], 
+            ["0",0,"yellow"], [".",-1,"magenta"],["",2],
+
+            [" UPDATE/ENTER ALERTING PARAMETERS ",1,"yellow,on_blue"],
+        ])
 
         if self.alerting_config and self.alerting_config["enable"] and do_edit:
             questions = {
@@ -2605,6 +2624,11 @@ class Configurator():
         if data["label"] == " None ": 
             data["label"] = "None"
 
+        if data["begin_alert_utc"] == "disable":
+            data["end_alert_utc"] = "disable"
+        if data["end_alert_utc"] == "disable":
+            data["begin_alert_utc"] = "disable"
+
         alerting_file = alerting_file.replace(f"enable: {data['enable']}", f"enable: {self.alerting_config['enable']}")
         alerting_file = alerting_file.replace("nodegarageemail",data["gmail"])
         alerting_file = alerting_file.replace("nodegaragegmailtoken",f"{data['token']}")
@@ -2648,12 +2672,13 @@ class Configurator():
                 if value == "None" or value == "False":
                     invalid.append(f"token: {value}': must be a string value.")
             if key in ["begin_alert_utc","end_alert_utc","report_hour_utc"]:
-                try:
-                    i_value = int(value)
-                    if i_value < 0 or i_value > 24:
-                        raise
-                except:
-                    invalid.append(f"{key} is not a valid integer between 0 and 24")
+                if value != "disable":
+                    try:
+                        i_value = int(value)
+                        if i_value < 0 or i_value > 24:
+                            raise
+                    except:
+                        invalid.append(f"{key} is not a valid integer between 0 and 24")
 
         if len(invalid) > 0:
             cprint("  ERRORS DETECTED","red",attrs=["bold"])

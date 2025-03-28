@@ -330,7 +330,8 @@ class CLI():
                     ])
                     if range_error:
                         self.functions.print_paragraphs([
-                            [" RANGE ERROR ",0,"red,on_yellow"],["using [15] second default.",2]
+                            [" RANGE ERROR ",0,"red,on_yellow"],["using [",0], 
+                            ["15",0,"yellow"], ["] second default.",2]
                         ]) 
                 
                 try:

@@ -6,6 +6,7 @@ from termcolor import colored
 from re import match
 from copy import deepcopy
 from glob import glob
+from packaging.version import Version
 
 from .troubleshoot.errors import Error_codes
 from .p12 import P12Class
@@ -65,7 +66,7 @@ class Upgrader():
                 
                 
     def upgrade_process(self):
-
+    
         self.setup_upgrader()
         self.setup_argv_list()
 
@@ -1481,6 +1482,9 @@ class Upgrader():
                             ])
         
         self.log.logger[self.log_key].info("upgrade -> force update of versioning object after upgrade.")
+
+        self.handle_version_specific_ux()
+        
         from .shell_handler import ShellHandler
         shell = ShellHandler({
             "config_obj": self.config_obj
@@ -1504,6 +1508,31 @@ class Upgrader():
             ])
         
         
+    def handle_version_specific_ux(self):
+        current_version = Version(self.functions.node_nodectl_version)
+
+        # alerting changes  
+        alert_version = Version("2.17.0") # change made
+
+        try:
+            _ = self.config_obj["global_elements"]["alerting"]["enable"]
+        except:
+            pass
+        else:
+            if current_version <= alert_version:
+                self.functions.print_paragraphs([
+                    ["",1],[" IMPORTANT ",0,"yellow,on_blue"], 
+                    ["nodectl determined that",0], ["alerting",0,"yellow"],
+                    ["has been configured on this node.",2,"blue","bold"],
+
+                    ["Modifications have been made to this module adding encryption for better",0,"magenta"],
+                    ["security.  You will need to reset your alerting email token in order to allow",0,"magenta"],
+                    ["your node to continue to send alerts.",1,"magenta"],
+                    ["Issue",0,"blue","bold"],["sudo nodectl configure",1,"yellow"],
+                    ["From the edit menu, choose",0], ["setup alerting",0,"yellow"], ["and update your token.",2],
+                ])
+
+
     def print_warning_for_old_code(self):
         self.log.logger[self.log_key].warning("A legacy service was found [node.service]")
         self.functions.print_paragraphs([

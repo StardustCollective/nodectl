@@ -58,25 +58,38 @@ def cli_commands(argv_list):
                 if argv_list[1] == "export_private_key": 
                     handle_main = True
                 elif argv_list[1] == "configure":
-                    argv_list = Configurator(argv_list)
+                    try:
+                        argv_list = Configurator(argv_list)
+                    except KeyboardInterrupt:
+                        keyboardInterrupt()
                     if argv_list.mobile: 
                         argv_list = ["main.py","mobile"]
                 elif argv_list[1] in skip_config_list:
-                    current_shell = ShellHandler({
-                        "config_obj": {
-                            "global_elements": {
-                                "caller": argv_list[1],
+                    try:
+                        current_shell = ShellHandler({
+                            "config_obj": {
+                                "global_elements": {
+                                    "caller": argv_list[1],
+                                },
                             },
-                        },
-                    },False)
+                        },False)
+                    except KeyboardInterrupt:
+                        keyboardInterrupt()
                 else:  
-                    config_needed = Configuration({
-                        "action": argv_list[1],
-                        "implement": True,
-                        "argv_list": argv_list,
-                    }) 
+                    try:
+                        config_needed = Configuration({
+                            "action": argv_list[1],
+                            "implement": True,
+                            "argv_list": argv_list,
+                        }) 
+                    except KeyboardInterrupt:
+                        keyboardInterrupt()
+
                     if config_needed.requested_configuration:
-                        Configurator(["-e"])
+                        try:
+                            Configurator(["-e"])
+                        except KeyboardInterrupt:
+                            keyboardInterrupt()
                     elif config_needed.p12.pass_quit_request:
                         exit(0)
                     elif return_caller:
@@ -89,13 +102,18 @@ def cli_commands(argv_list):
                         caller = "service_restart"
                     if "export_private_key" in argv_list: 
                         caller = "export_private_key"
-                    config = Configuration({
-                        "action": "normal",
-                        "global_elements": {"caller":"normal"},
-                        "implement": True,
-                        "argv_list": argv_list,
-                        "log_key": log_key,
-                    })
+
+                    try:
+                        config = Configuration({
+                            "action": "normal",
+                            "global_elements": {"caller":"normal"},
+                            "implement": True,
+                            "argv_list": argv_list,
+                            "log_key": log_key,
+                        })
+                    except KeyboardInterrupt:
+                        keyboardInterrupt()
+
                     try:
                         if config.p12.pass_quit_request:
                             if not return_caller:
@@ -109,29 +127,47 @@ def cli_commands(argv_list):
                             exit(0)
 
                     if config.action == "edit_on_error":
-                        Configurator(config.edit_on_error_args)
+                        try:
+                            Configurator(config.edit_on_error_args)
+                        except KeyboardInterrupt:
+                            keyboardInterrupt()
                     else:
-                        current_shell = ShellHandler(config,False)               
+                        try:
+                            current_shell = ShellHandler(config,False)               
+                        except KeyboardInterrupt:
+                            keyboardInterrupt()
                 else:
                     caller = argv_list[1] if argv_list[1] in exclude_config else "config"
                     if "main_error" in argv_list: 
                         caller = "main_error" 
-                    current_shell = ShellHandler({
-                        "config_obj": {
-                            "global_elements":{
-                                "caller":caller,
+                    try:
+                        current_shell = ShellHandler({
+                            "config_obj": {
+                                "global_elements":{
+                                    "caller":caller,
+                                }
                             }
-                        }
-                    },False)
-            if current_shell:  
-                return_caller = current_shell.start_cli(argv_list)
+                        },False)
+                    except KeyboardInterrupt:
+                        keyboardInterrupt()
+
+            if current_shell: 
+                try: 
+                    return_caller = current_shell.start_cli(argv_list)
+                except KeyboardInterrupt:
+                    keyboardInterrupt()
+
                 
         except KeyboardInterrupt:
-            log = Logging()
-            log.logger["main"].critical(f"user terminated nodectl prematurely with keyboard interrupt")
-            print("")
-            print(colored("  user terminating nodectl prematurely","red"))
-            break        
+            keyboardInterrupt()     
+
+
+def keyboardInterrupt():
+    log = Logging()
+    log.logger["main"].critical(f"user terminated nodectl prematurely with keyboard interrupt")
+    print("")
+    print(colored("  user terminating nodectl prematurely","red"))
+    exit(1)
 
 
 def logging_setup(argv_list):
@@ -143,4 +179,7 @@ def logging_setup(argv_list):
   
 
 if __name__ == "__main__":
-    cli_commands(argv)        
+    try:
+        cli_commands(argv)        
+    except KeyboardInterrupt:
+        keyboardInterrupt()
