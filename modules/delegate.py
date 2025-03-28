@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from getpass import getpass
 from termcolor import colored
 from sys import exit
-from os import system
 
 from modules.crypto.crypto_class import NodeCtlCryptoClass
 
@@ -89,7 +88,7 @@ class DelegatedStaking:
         self.send_payload()
 
         self.dbl_verbose, self.verbose = False, False # do not reprint payload if verbose is enabled
-        self.status(False) # verify all is well
+        self.status() # verify all is well
 
 
     def remove(self):
@@ -97,8 +96,7 @@ class DelegatedStaking:
         self.print_disable_warning()
 
 
-    def status(self,do_clear=True):
-        if do_clear: system("clear")
+    def status(self):
         self.general_router()
         self.handle_final_payload_build()
         self.print_value_comparison()
@@ -188,7 +186,8 @@ class DelegatedStaking:
 
             ["Please have your",0], ["p12 passphrase",0,"yellow"], ["readily available to continue.",2],
         ])
-        self.p12p = getpass(colored("  Please enter your p12 passphrase: ","magenta"))
+        p12p = getpass(colored("  Please enter your p12 passphrase: ","magenta"))
+        self.p12p = p12p.strip()
 
 
     # ==== handlers ====

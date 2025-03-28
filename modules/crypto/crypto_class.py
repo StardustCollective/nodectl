@@ -98,6 +98,7 @@ class NodeCtlCryptoClass:
 
             prompt = colored("  Any key to continue...","green",attrs=["bold"])
             _ = input(prompt)
+            print("")
 
 
     def _handle_log_msg(self,level,msg):
@@ -165,7 +166,7 @@ class NodeCtlCryptoClass:
         if error:
             self.error_messages.error_code_messages({
                 "line_code": "invalid_data",
-                "error_code": "crylib-169",
+                "error_code": "cryo-169",
                 "extra": "extracting keys from external file.",
                 "extra2": "Please verify your private/public keys and key paths."
             })
@@ -347,7 +348,7 @@ class NodeCtlCryptoClass:
             self._handle_log_msg("error",f"unable to extract p12 private and public key from [{p12_path}] with error [{e}].")
             self.error_messages.error_code_messages({
                 "line_code": "invalid_passphrase",
-                "error_code": "crylib-207",
+                "error_code": "cryo-207",
                 "extra": f"{e}",
                 "extra2": "wrong"
             })
