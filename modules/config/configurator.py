@@ -4288,7 +4288,7 @@ class Configurator():
                 pass3 = enc_pass
             else:
                 if not pass3:
-                    if profile == "alterting":
+                    if profile == "alerting":
                         return False,False
                     else:
                         first_run = True
@@ -4296,11 +4296,18 @@ class Configurator():
                             ["Please enter/confirm your p12 passphrase for encryption.",2,"white","bold"],
                         ])
                         pass1 = getpass(f"  p12 passphrase: ")
-                        pass1 = self.c.p12.keyphrase_validate({
-                            "profile": "global" if profile == "global_p12" else profile,
-                            "passwd": f"{pass1}",
-                            "operation": "encryption",
-                        })
+                        try:
+                            pass1 = self.c.p12.keyphrase_validate({
+                                "profile": "global" if profile == "global_p12" else profile,
+                                "passwd": f"{pass1}",
+                                "operation": "encryption",
+                            })
+                        except Exception as e:
+                            self.log.logger[self.log_key].error(f"Unable to handle p12 keystore --> [{e}]")
+                            self.error_messages.error_code_messages({
+                                "error_code": "cfr-4308",
+                                "line_code": "corrupt_p12_keystore",
+                            })
                         pass3 = f"{pass1.strip()}"
             
             if not self.quick_install and first_run:

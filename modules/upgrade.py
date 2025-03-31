@@ -767,7 +767,7 @@ class Upgrader():
                 makedirs("/var/tessellation/nodectl/logs")
             for file_path in glob(path.join("/var/tessellation/nodectl/", "nodectl.log*")):
                 if not path.isfile(f"/var/tessellation/nodectl/logs/{path.basename(file_path)}"):
-                    move(file_path, "/var/tessellation/nodectl/logs")
+                    move(file_path, "/var/tessellation/nodectl/logs/")
         # new revision will create a new nodectl.log file backup old one
         # clean up if there an already residual nodectl.log files
         file_name = "nodectl.log"

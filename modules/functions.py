@@ -382,26 +382,35 @@ class Functions():
                 peers_downloadinprogress.append(line['ip'])
             elif line["state"] == "WaitingForDownload":
                 peers_waitingfordownload.append(line['ip'])            
-                
-        if compare:
-            cluster_ip = ip_address
-        elif not edge_obj:
-            cluster_ip = edge_obj["ip"]
-            api_port = edge_obj["publicPort"]
-        elif edge_obj["ip"] == "127.0.0.1" or ip_address == "self":
-            cluster_ip = "127.0.0.1"
-            api_port = localhost_ports["public"]
-        else:
-            cluster_ip = edge_obj["ip"]
-            try:
+
+        try:        
+            if compare:
+                cluster_ip = ip_address
+            elif not edge_obj:
+                cluster_ip = edge_obj["ip"]
                 api_port = edge_obj["publicPort"]
-            except:
-                api_port = self.get_info_from_edge_point({
-                    "caller": "get_peer_count",
-                    "profile": profile,
-                    "desired_key": "publicPort",
-                    "specific_ip": edge_obj["ip"],
-                })
+            elif edge_obj["ip"] == "127.0.0.1" or ip_address == "self":
+                cluster_ip = "127.0.0.1"
+                api_port = localhost_ports["public"]
+            else:
+                cluster_ip = edge_obj["ip"]
+                try:
+                    api_port = edge_obj["publicPort"]
+                except:
+                    api_port = self.get_info_from_edge_point({
+                        "caller": "get_peer_count",
+                        "profile": profile,
+                        "desired_key": "publicPort",
+                        "specific_ip": edge_obj["ip"],
+                    })
+        except Exception as e:
+            self.log.logger[self.log_key].error(f"Unable to determine cluster_ip, exiting request [{e}]")
+            self.error_messages.error_code_messages({
+                "line_code": "api_error",
+                "error_code": "fnt-411",
+                "extra": profile,
+                "extra2": self.config_obj[profile]["edge_point"],
+            })
             
         attempts = 1
         while True:
@@ -415,6 +424,7 @@ class Functions():
                 if attempts > 3:
                     return "error"
                 attempts = attempts+1
+                sleep(.5)
             else:
                 break
             finally:
@@ -1000,6 +1010,7 @@ class Functions():
         api_endpoint = command_obj.get("api_endpoint","/node/info")
         info_list = command_obj.get("info_list",["all"])
         tolerance = command_obj.get("tolerance",2)
+        result_type = command_obj.get("result_type","json")
         
         # dictionary
         #  api_host: to do api call against
@@ -1030,9 +1041,12 @@ class Functions():
                 r_session = self.set_request_session()
                 r_session.timeout = (2,2)
                 r_session.verify = False
-                session = r_session.get(api_url, timeout=self.session_timeout).json()
-            except:
+                session = r_session.get(api_url, timeout=self.session_timeout)
+                if result_type == "json":
+                    session = session.json()
+            except Exception as e:
                 self.log.logger[self.log_key].error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
+                self.log.logger[self.log_key].error(f"get_api_node_info - error [{e}]")
                 if n == tolerance-1:
                     self.log.logger[self.log_key].warning(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
                     return None
@@ -1042,8 +1056,11 @@ class Functions():
             finally:
                 r_session.close()
 
-        if len(session) < 2 and "data" in session.keys():
+        if result_type == "json" and len(session) < 2 and "data" in session.keys():
             session = session["data"]
+        else:
+            session = session.text
+            return session
         
         self.log.logger[self.log_key].debug(f"get_api_node_info --> session [{session}] returned from node address [{api_host}] public_api_port [{api_port}]")
         try:

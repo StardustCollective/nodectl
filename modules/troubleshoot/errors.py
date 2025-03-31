@@ -17,6 +17,7 @@ from .logger import Logging
 #     existence
 #     configurator
 # crypto_error
+# corrupt_p12_keystore
 
 # download_yaml
 # download_invalid
@@ -475,7 +476,16 @@ class Error_codes():
                 ["settings.",2,"red","bold"]
             ])            
             
-            
+
+        elif var.line_code == "corrupt_p12_keystore":
+            self.log.logger[self.log_key].critical("p12 key store was not able to be accessed.")
+            self.functions.print_paragraphs([
+                ["P12",0,"yellow","bold"], ["key store",0,"red","bold,underline"], ["access issue.",2,"red","bold"],
+                ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], 
+                ["the p12 key store is valid, not corrupted, and that the passphrase entered in the configuration or at the CLI was correct.",2,"red","bold"],
+            ])
+
+
         elif var.line_code == "invalid_passphrase":
             self.log.logger[self.log_key].critical("p12 passphrase incorrectly entered.")
             if var.extra2 == "wrong":
@@ -497,7 +507,8 @@ class Error_codes():
             if var.extra:
                 self.functions.print_paragraphs([
                     ["Error Code:",0], [var.extra,2,"yellow"],
-                ])                            
+                ])  
+
             
         elif var.line_code == "invalid_passphrase_pass":
             self.log.logger[self.log_key].critical("password validation check failed.")
