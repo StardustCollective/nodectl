@@ -39,6 +39,7 @@ def ac_build_script(cli):
     auto_complete_file = auto_complete_file.replace("nodegaragedisplaychainoptions",displaychain_options)
     auto_complete_file = auto_complete_file.replace("nodegaragefindoptions",find_options)
     auto_complete_file = auto_complete_file.replace("nodegarageautorestartoptions",autorestart_options)
+    auto_complete_file = auto_complete_file.replace("nodegaragedelegateoptions",delegate_options)
     auto_complete_file = auto_complete_file.replace('\\n', '\n')    
 
     return auto_complete_file
