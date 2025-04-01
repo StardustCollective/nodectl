@@ -6,7 +6,7 @@ import hashlib
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat, NoEncryption
+from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, PrivateFormat, PublicFormat, NoEncryption
 from cryptography.hazmat.backends import default_backend
 
 from termcolor import cprint, colored
@@ -326,7 +326,7 @@ class NodeCtlCryptoClass:
                 p12_data = f.read()
             
             # Load the p12 keystore
-            private_key, certificate, _ = serialization.pkcs12.load_key_and_certificates(
+            private_key, certificate, _ = pkcs12.load_key_and_certificates(
                 p12_data,
                 self.p12p.encode('utf-8'),
                 default_backend()
