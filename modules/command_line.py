@@ -985,303 +985,35 @@ class CLI():
 
     def show_peers(self,command_list):
         self.functions.check_for_help(command_list,"peers")
-        self.log.logger[self.log_key].info(f"show peers requested")
-        profile = command_list[command_list.index("-p")+1]
-        count_args = ["-p", profile]
-        sip = {}
-        nodeid = csv_file_name = ""
-        is_basic = create_csv = False
-        state, i_state = False, False
         
-        if "--csv" in command_list:
-            if not "--output" in command_list:
-                self.functions.print_paragraphs([
-                    [" NOTE ",0,"blue,on_yellow"], 
-                    ["The",0],["--csv",0,"yellow","bold"],
-                    ["option will default to include:",0],["--extended",2,"yellow","bold"],
-                ])
-            create_csv = True 
-            if "--output" in command_list:
-                csv_file_name = command_list[command_list.index("--output")+1]
-                if "/" in csv_file_name:
-                    self.error_messages.error_code_messages({
-                        "error_code": "cmd-442",
-                        "line_code": "invalid_file_or_path",
-                        "extra": csv_file_name
-                    })
-            else:
-                prefix = self.functions.get_date_time({"action": "datetime"})
-                csv_file_name = f"{prefix}-peers-data.csv"
-                
-            if "--basic" in command_list: 
-                command_list.remove("--basic")
-            command_list.extend(["--extended","-np"])
-            csv_path = f"{self.config_obj[profile]['directory_uploads']}{csv_file_name}"
-            
-        do_more = False if "-np" in command_list else True
-        if do_more:
-            console_size = get_terminal_size()
-            more_break = round(console_size.lines)-20 
-            if "--extended" in command_list:
-                more_break = round(more_break/3) 
+        from modules.submodules.peers import Peers 
+        peers = Peers(self)
         
-        if "-t" in command_list:
-            sip = self.functions.get_info_from_edge_point({
-                "profile": self.profile,
-                "caller": "show_peers",
-                "specific_ip": command_list[command_list.index("-t")+1],
-            })
-            count_args.extend(["-t",sip])
-        else:
-            sip = self.functions.get_info_from_edge_point({
-                "profile": profile,
-                "caller": "show_peers",
-            })
-                    
+        peers.handle_params()
+        peers.handle_csv_file()
+        peers.handle_source_node()
+        
         if "-c" in command_list:
-            self.cli_find(count_args)
+            self.cli_find(peers.count_args)
             return
         
-        if "--state" in command_list:
-            state = []
-            i_state = command_list[command_list.index("--state")+1]
-            try:
-                i_state = ast.literal_eval(i_state)
-            except:
-                pass
-            if not isinstance(i_state, list):
-                i_state = [i_state]
-            states = self.functions.get_node_states("on_network_and_stuck")
-            for ii_state in i_state:
-                state.append(next((s[0] for s in states if ii_state == s[1].replace("*", "")), False))
+        peers.handle_state_specific_request()
+        peers.handle_info_type_request()
+        peers.get_ext_ip()
 
-            if not any(state) or len(state) < 1:
-                self.error_messages.error_code_messages({
-                    "error_code": "cli-1008",
-                    "line_code": "invalid_option",
-                    "extra": i_state,
-                    "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd (or list of [\"dip\",\"ob\"])",
-                })
-            state = [x for x in state if x is not False]
-        
-        info_type_list = False
-        if "--info_type" in command_list:
-            info_type =  command_list[command_list.index("--info_type")+1]
-            if info_type.startswith("[") and info_type.endswith("]"):
-                try:
-                    info_type_list = ast.literal_eval(info_type)
-                    if not isinstance(info_type_list, list):
-                        raise
-                except Exception as e:
-                    self.log.logger[self.log_key].error(f"unable to create info_list per request, skipping [{e}]")
-            else:
-                try:
-                    info_type_list = [info_type]
-                except:
-                    self.log.logger[self.log_key].warning(f"info_type request does not look like a list, skipping [{info_type_list}].")
-            if info_type_list:
-                for item in ["ip_address","ip-address","nodeid","node-id","node_id"]:
-                    if item in info_type_list:
-                        info_type_list.remove(item)
-                info_type_list = set(info_type_list) # remove dups
-            command_list.append("--extended")
-            if "--basic" in command_list: command_list.remove("--basic")
-            
-
-        try:
-            if sip["ip"] == "self": sip["ip"] = self.functions.get_ext_ip()
-        except: 
-            try:
-                sip["ip"] = self.functions.get_ext_ip()
-            except:
-                self.error_messages.error_code_messages({
-                    "error_code": "cli-996",
-                    "line_code": "off_network",
-                    "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
-                    "extra2": self.config_obj[profile]["layer"],
-                })
-    
-        peer_results = self.node_service.functions.get_peer_count({
-            "peer_obj": sip, 
-            "profile": profile, 
+        peers.peer_results = self.node_service.functions.get_peer_count({
+            "peer_obj": peers.sip, 
+            "profile": peers.profile, 
             "compare": True
         })
 
-        if peer_results == "error":
-            self.log.logger[self.log_key].error(f"show peers | attempt to access peer count with ip [{sip}] failed")
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-179",
-                "line_code": "ip_not_found",
-                "extra": sip,
-                "extra2": None
-            })     
-
-        lookups = ["peer_list"]
-        search_title = "all peers"
-        if i_state:
-            lookups = []
-            search_title = state[0] if len(i_state) < 2 else "filtered states"
-            for s in state:
-                lookups.append(f"{s.lower()}")
-            
-        self.functions.print_header_title({
-            "line1": f"SHOW PEERS - {search_title}",
-            "single_line": True,
-            "newline": "both"  
-        })     
-
-        print_out_obj = {
-            "PROFILE": profile,
-            "SEARCH NODE IP": sip["ip"],
-            "SN PUBLIC PORT": sip['publicPort']
-        }
-        print_out_list = [print_out_obj]
-        
-        for header_elements in print_out_list:
-            self.functions.print_show_output({
-                "header_elements" : header_elements
-            })  
-
-        if sip["ip"] == "127.0.0.1":
-            sip["ip"] = self.ip_address
-
-        print_header = True
-        peer_title1 = colored("NETWORK PEER IP","blue",attrs=["bold"])
-        peer_title2 = colored("NODE ID","blue",attrs=["bold"])
-        peer_title3 = colored("WALLET","blue",attrs=["bold"])
-        peer_title4 = False
-        if lookups[0] != "peer_list":
-            peer_title4 = colored("STATE","blue",attrs=["bold"])
-        status_header = f"  {peer_title1: <36}"
-        if "--basic" in command_list:
-            is_basic = True
-        else:
-            status_header += f"{peer_title2: <36}"
-            status_header += f"{peer_title3: <36}"
-        if peer_title4:
-            status_header += f"{peer_title4: <36}"
-
-        for lookup in lookups:
-            for item, peer in enumerate(peer_results[lookup]):
-                public_port = peer_results["peers_publicport"][item]
-                
-                if not is_basic:
-                    nodeid = self.cli_grab_id({
-                        "dag_addr_only": True,
-                        "command": "peers",
-                        "argv_list": ["-p",profile,"-t",peer,"--port",public_port,"-l"]
-                    })
-                    if isinstance(nodeid,list):
-                        nodeid = "UnableToRetrieve"
-                        wallet = "UnableToRetrieve"
-                    else:
-                        wallet = self.cli_nodeid2dag({
-                            "nodeid": nodeid,
-                            "caller": "show_peers",
-                            "profile": profile,
-                        })
-                    
-                if do_more and item % more_break == 0 and item > 0:
-                    more = self.functions.print_any_key({
-                        "quit_option": "q",
-                        "newline": "both",
-                    })
-                    if more: break
-                    print_header = True
-                    
-                print_peer = f"{peer}:{public_port}" 
-                if "--extended" in command_list:
-                    status_results  = f"  {colored('PEER IP:','blue',attrs=['bold'])} {print_peer}\n"                      
-                    status_results  += f"  {colored('PEER STATE:','blue',attrs=['bold'])} {sip['state']}\n"                      
-                    if info_type_list:
-                        for item in info_type_list:
-                            info_type_results = self.functions.get_api_node_info({
-                                    "api_host": peer,
-                                    "api_port": public_port,
-                                    "api_endpoint": "/metrics",
-                                    "result_type": "text",
-                                })
-                            if info_type_results is None:
-                                self.log.logger[self.log_key].warning(f"info_type requested but not found: [{info_type_list}]")
-                                status_results += f"  {colored('WALLET:','blue',attrs=['bold'])} {wallet}\n" 
-                            else:
-                                info_type_results = info_type_results.split("\n")
-                                distro = False
-                                title = item
-                                if item == "distro":
-                                    distro = True
-                                    item = "jvm_info"
-                                    title = "distro"
-                                for line_item in info_type_results:
-                                    info_value = "N/A"
-                                    if line_item.startswith(item):
-                                        info_value = line_item
-                                        if distro:
-                                            distro = False
-                                            distro_match = re.search(r'vendor="(\w+)"', info_value)
-                                            distro_name = distro_match.group(1) if distro_match else "N/A"
-                                            ubuntu_match = re.search(r'1ubuntu\d*(\d{2}\.\d{2})', info_value, re.IGNORECASE)
-                                            debian_match = re.search(r'1deb(\d{1,2})', info_value, re.IGNORECASE)
-                                            if distro_name.lower() == "ubuntu" and ubuntu_match:
-                                                version = ubuntu_match.group(1)
-                                            elif distro_name.lower() == "debian" and debian_match:
-                                                version = debian_match.group(1)
-                                            else:
-                                                version = "N/A"
-                                            info_value = f"{distro_name} | version: {version}"
-                                        break
-                                status_results += f"  {colored(f'{title.upper()}:','blue',attrs=['bold'])} {info_value}\n" 
-                    else:
-                        status_results += f"  {colored('WALLET:','blue',attrs=['bold'])} {wallet}\n"                      
-                    status_results += f"  {colored('NODE ID:','blue',attrs=['bold'])} {nodeid}\n" 
-                    if create_csv:
-                        csv_header = ["Peer Ip","Wallet","Node Id"]
-                        csv_row = [print_peer,wallet,nodeid]
-                        if item == 0:
-                            self.functions.create_n_write_csv({
-                            "file": csv_path,
-                            "row": csv_header
-                            })
-                        self.functions.create_n_write_csv({
-                            "file": csv_path,
-                            "row": csv_row
-                        })
-                            
-                elif is_basic:
-                    spacing = 23
-                    status_results = f"  {print_peer: <{spacing}}"                        
-                else:
-                    spacing = 23
-                    if nodeid != "UnableToReach": nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
-                    if nodeid != "UnableToReach": wallet = f"{wallet[0:8]}....{wallet[-8:]}"
-                    status_results = f"  {print_peer: <{spacing}}"                      
-                    status_results += f"{nodeid: <{spacing}}"                      
-                    status_results += f"{wallet: <{spacing}}"     
-                    if peer_title4:
-                        status_results += f"{lookup: <{spacing}}"   
-    
-                if create_csv and item == 0:
-                    print("")
-                    self.functions.print_cmd_status({
-                        "text_start": "Creating",
-                        "brackets": csv_file_name,
-                        "text_end": "file",
-                        "status": "running",
-                        "newline": True,
-                    })
-                elif not create_csv:
-                    if print_header:    
-                        print(status_header)
-                        print_header = False
-                    print(status_results)
-        
-        if create_csv: 
-            self.log.logger[self.log_key].info(f"csv file created: location: [{csv_file_name}]") 
-            self.functions.print_paragraphs([
-                ["CSV created successfully",1,"green","bold"],
-                ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                ["location:",0,], [self.config_obj[profile]['directory_uploads'],1,"yellow","bold"]
-            ])  
+        peers.handle_peer_error()
+        peers.set_main_print_out()
+        peers.handle_local_host()
+        peers.set_pagination()
+        peers.print_submenu()
+        peers.print_results()
+        peers.print_csv_success()
 
 
     def show_ip(self,argv_list):
