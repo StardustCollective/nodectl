@@ -1058,7 +1058,7 @@ class Functions():
 
         if result_type == "json" and len(session) < 2 and "data" in session.keys():
             session = session["data"]
-        else:
+        elif result_type == "text":
             session = session.text
             return session
         

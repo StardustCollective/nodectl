@@ -1055,13 +1055,14 @@ class CLI():
             for ii_state in i_state:
                 state.append(next((s[0] for s in states if ii_state == s[1].replace("*", "")), False))
 
-            if not state or len(state) < 1:
+            if not any(state) or len(state) < 1:
                 self.error_messages.error_code_messages({
                     "error_code": "cli-1008",
                     "line_code": "invalid_option",
                     "extra": i_state,
                     "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd (or list of [\"dip\",\"ob\"])",
                 })
+            state = [x for x in state if x is not False]
         
         info_type_list = False
         if "--info_type" in command_list:
@@ -1074,7 +1075,10 @@ class CLI():
                 except Exception as e:
                     self.log.logger[self.log_key].error(f"unable to create info_list per request, skipping [{e}]")
             else:
-                self.log.logger[self.log_key].warning(f"info_type request does not look like a list, skipping [{info_type_list}].")
+                try:
+                    info_type_list = [info_type]
+                except:
+                    self.log.logger[self.log_key].warning(f"info_type request does not look like a list, skipping [{info_type_list}].")
             if info_type_list:
                 for item in ["ip_address","ip-address","nodeid","node-id","node_id"]:
                     if item in info_type_list:
@@ -1195,7 +1199,7 @@ class CLI():
                                     "api_host": peer,
                                     "api_port": public_port,
                                     "api_endpoint": "/metrics",
-                                    "result_type": "plain",
+                                    "result_type": "text",
                                 })
                             if info_type_results is None:
                                 self.log.logger[self.log_key].warning(f"info_type requested but not found: [{info_type_list}]")
