@@ -25,13 +25,12 @@ class Peers():
         self.console_size = get_terminal_size()
         self.count_args = ["-p", self.profile]
         self.sip = {}
-        self.state = []
         self.nodeid, self.csv_file_name = "", ""
         
         self.is_basic = False
         self.create_csv = False
         self.csv_info_type_dict = False
-        self.state = False
+        self.states = False
         self.requested_state = False
         self.requested_states = False
         self.do_more = False
@@ -111,15 +110,15 @@ class Peers():
         if "--state" not in self.command_list: return
 
         state = []
-        requested_state = self.command_list[self.command_list.index("--state")+1]
+        requested_states = self.command_list[self.command_list.index("--state")+1]
 
         try:
-            requested_state = ast.literal_eval(requested_state)
+            requested_states = ast.literal_eval(requested_states)
         except:
             pass
 
-        if not isinstance(requested_state, list):
-            requested_states = [requested_state]
+        if not isinstance(requested_states, list):
+            requested_states = [requested_states]
 
         states = self.functions.get_node_states("on_network_and_stuck")
         for requested_state in requested_states:
@@ -132,7 +131,7 @@ class Peers():
                 "extra": requested_state,
                 "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd (or list of [\"dip\",\"ob\"])",
             })
-        self.state = [x for x in state if x is not False]
+        self.states = [x for x in state if x is not False]
         self.requested_states = requested_states
 
 
@@ -310,17 +309,17 @@ class Peers():
 
         self.more_break = round(self.console_size.lines)-20 
         if "--extended" in self.command_list:
-            self.more_subtrahend = 4+len(set(self.info_type_list))
-
-        pass
+            self.more_subtrahend = 4
+            if self.info_type_list:
+                self.more_subtrahend += len(set(self.info_type_list))
 
 
     def set_title(self):
         if not self.requested_states: return
 
         lookups = []
-        search_title = self.state[0] if len(self.requested_states) < 2 else "filtered states"
-        for s in self.state:
+        search_title = self.states[0] if len(self.requested_states) < 2 else "filtered states"
+        for s in self.states:
             lookups.append(f"{s.lower()}")
             
         self.functions.print_header_title({
@@ -353,7 +352,7 @@ class Peers():
         self.peer_title2 = colored("NODE ID","blue",attrs=["bold"])
         self.peer_title3 = colored("WALLET","blue",attrs=["bold"])
         self.peer_title4 = False
-        if self.lookups[0] != "peer_list":
+        if self.lookups[0] != "peer_list" or self.requested_states:
             self.peer_title4 = colored("STATE","blue",attrs=["bold"])
         status_header = f"  {self.peer_title1: <36}"
 
@@ -372,6 +371,7 @@ class Peers():
         for lookup in self.lookups:
             break_counter = self.more_break
             for item, peer in enumerate(self.peer_results[lookup]):
+                do_print = True
                 public_port = self.peer_results["peers_publicport"][item]
                 
                 if not self.is_basic: # will do this later otherwise
@@ -398,14 +398,25 @@ class Peers():
                     spacing = 23
                     status_results = f"  {self.print_peer: <{spacing}}"                        
                 else:
-                    spacing = 23
-                    if self.nodeid != "UnableToReach": self.nodeid = f"{self.nodeid[0:8]}....{self.nodeid[-8:]}"
-                    if self.nodeid != "UnableToReach": self.wallet = f"{self.wallet[0:8]}....{self.wallet[-8:]}"
-                    status_results = f"  {self.print_peer: <{spacing}}"                      
-                    status_results += f"{self.nodeid: <{spacing}}"                      
-                    status_results += f"{self.wallet: <{spacing}}"     
-                    if self.peer_title4:
-                        status_results += f"{lookup: <{spacing}}"   
+                    if self.requested_states:
+                        do_print = False
+                        self.status_results = False
+                        for state in self.states:
+                            if peer in self.peer_results[state.lower()]:
+                                do_print = True
+                                break
+                    if do_print:
+                        spacing = 23
+                        if self.nodeid != "UnableToReach": self.nodeid = f"{self.nodeid[0:8]}....{self.nodeid[-8:]}"
+                        if self.nodeid != "UnableToReach": self.wallet = f"{self.wallet[0:8]}....{self.wallet[-8:]}"
+                        status_results = f"  {self.print_peer: <{spacing}}"                      
+                        status_results += f"{self.nodeid: <{spacing}}"                      
+                        status_results += f"{self.wallet: <{spacing}}"   
+                        if self.requested_states:
+                            status_results += f"{state: <{spacing}}"
+                        elif self.peer_title4:
+                            status_results += f"{lookup: <{spacing}}"  
+                        self.status_results = status_results 
     
                 if self.create_csv and item == 0:
                     print("")
@@ -416,7 +427,7 @@ class Peers():
                         "status": "running",
                         "newline": True,
                     })
-                elif not self.create_csv:
+                elif not self.create_csv and self.status_results:
                     if self.print_header:    
                         print(self.status_header)
                         self.print_header = False
