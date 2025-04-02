@@ -3,7 +3,7 @@ import json
 from time import sleep
 from types import SimpleNamespace
 from getpass import getpass
-from termcolor import colored
+from termcolor import colored, cprint
 from sys import exit
 
 from modules.crypto.crypto_class import NodeCtlCryptoClass
@@ -24,7 +24,6 @@ class DelegatedStaking:
         self.error = False
 
         self.functions = command_obj["functions"]
-        self.functions.set_statics()
         
         self.data = None
         self.verbose = False
@@ -84,10 +83,16 @@ class DelegatedStaking:
             self.crypto.debug = True
         self.crypto.log_data()
         self.handle_final_payload_build()
+        
+        print("")
+        
         self.print_value_comparison()   
         self.send_payload()
 
         self.dbl_verbose, self.verbose = False, False # do not reprint payload if verbose is enabled
+        cprint("  Pausing to allow network to process","yellow")
+        sleep(2)
+        
         self.status() # verify all is well
 
 
@@ -374,6 +379,7 @@ class DelegatedStaking:
                 ["** PAYLOAD END **",1,"white"],
                 ["*","half","green","bold"],
             ])
+        print("")
 
 
     def print_no_update_needed(self):

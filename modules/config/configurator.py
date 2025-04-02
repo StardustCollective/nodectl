@@ -2215,7 +2215,7 @@ class Configurator():
             description2 += "Choose a value that aligns with your operational strategy and community engagement goals."
 
             if self.staking_config["rewardFraction"]:
-                rewardFraction_default = str((self.staking_config["rewardFraction"] / 1e8)*100)
+                rewardFraction_default = "{:.8f}".format((self.staking_config["rewardFraction"] / 1e8) * 100)
             else:
                 rewardFraction_default = "5"
 
