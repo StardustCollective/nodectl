@@ -20,7 +20,7 @@ class DelegatedStaking:
         self.log.logger[self.log_key].info("Delegated staking class obj initialized.")
 
         self.error_messages = command_obj["error_messages"]
-        self.debug = True
+        self.debug = False
         self.error = False
 
         self.functions = command_obj["functions"]

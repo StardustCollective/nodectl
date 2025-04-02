@@ -1,4 +1,3 @@
-import ast
 import re
 from os import get_terminal_size        
 from termcolor import colored
@@ -37,6 +36,8 @@ class Peers():
         self.info_type_list = False
         self.peer_results = False
         self.print_header = False
+        self.found_results = False
+
         self.first_item = True
 
         self.more_break = 0
@@ -108,29 +109,34 @@ class Peers():
 
     def handle_state_specific_request(self):
         if "--state" not in self.command_list: return
-
+        error = False
         state = []
-        requested_states = self.command_list[self.command_list.index("--state")+1]
 
         try:
-            requested_states = ast.literal_eval(requested_states)
+            requested_states = self.command_list[self.command_list.index("--state")+1]
+            requested_states = requested_states.strip("[]").split(",")
         except:
-            pass
+            error = True
 
-        if not isinstance(requested_states, list):
-            requested_states = [requested_states]
+        if not error:
+            if not isinstance(requested_states, list):
+                requested_states = [requested_states]
 
-        states = self.functions.get_node_states("on_network_and_stuck")
-        for requested_state in requested_states:
-            state.append(next((s[0] for s in states if requested_state == s[1].replace("*", "")), False))
+            states = self.functions.get_node_states("on_network_and_stuck")
+            for requested_state in requested_states:
+                state.append(next((s[0] for s in states if requested_state == s[1].replace("*", "")), False))
 
-        if not any(state) or len(state) < 1:
+            if not any(state) or len(state) < 1:
+                error = True
+
+        if error:
             self.error_messages.error_code_messages({
                 "error_code": "cli-1008",
                 "line_code": "invalid_option",
                 "extra": requested_state,
-                "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd (or list of [\"dip\",\"ob\"])",
+                "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd (or list of [dip,ob])",
             })
+
         self.states = [x for x in state if x is not False]
         self.requested_states = requested_states
 
@@ -138,19 +144,11 @@ class Peers():
     def handle_info_type_request(self):
         if "--info_type" not in self.command_list: return
 
-        info_type =  self.command_list[self.command_list.index("--info_type")+1]
-        if info_type.startswith("[") and info_type.endswith("]"):
-            try:
-                info_type_list = ast.literal_eval(info_type)
-                if not isinstance(info_type_list, list):
-                    raise
-            except Exception as e:
-                self.parent.log.logger[self.parent.log_key].error(f"unable to create info_list per request, skipping [{e}]")
-        else:
-            try:
-                info_type_list = [info_type]
-            except:
-                self.parent.log.logger[self.parent.log_key].warning(f"info_type request does not look like a list, skipping [{info_type_list}].")
+        try:
+            info_type =  self.command_list[self.command_list.index("--info_type")+1]
+            info_type_list = info_type.strip("[]").split(",")
+        except Exception as e:
+            self.parent.log.logger[self.parent.log_key].error(f"unable to create info_list per request, skipping [{e}]")
         
         if info_type_list:
             for item in ["ip_address","ip-address","nodeid","node-id","node_id"]:
@@ -199,11 +197,15 @@ class Peers():
 
 
     def _handle_is_extended(self,peer,public_port):
+        print_state = self._get_state_print(peer)
+        if not print_state:
+            return
+        
         status_results  = f"  {colored('PEER IP:','blue',attrs=['bold'])} {self.print_peer}\n"  
         peer_state = self._get_peer_status()              
         status_results  += f"  {colored('PEER STATE:','blue',attrs=['bold'])} {peer_state}\n"                      
         csv_info_type_dict = False
-        
+
         if self.info_type_list:
             csv_info_type_dict = {}
             for item in self.info_type_list:
@@ -299,6 +301,18 @@ class Peers():
                     return key
         return "unknown"
 
+
+    def _get_state_print(self,peer):
+        if not self.requested_states: 
+            return True
+
+        self.status_results = False
+        for state in self.states:
+            if peer in self.peer_results[state.lower()]:
+                return state
+        return False
+    
+
     # setters 
     # ==============
 
@@ -358,6 +372,9 @@ class Peers():
 
         if "--basic" in self.command_list:
             self.is_basic = True
+        elif "--extended" in self.command_list:
+            print("") # add spacer
+            self.print_header = False
         else:
             status_header += f"{self.peer_title2: <36}"
             status_header += f"{self.peer_title3: <36}"
@@ -368,10 +385,12 @@ class Peers():
 
 
     def print_results(self):
+        results_counter = 0
+
         for lookup in self.lookups:
             break_counter = self.more_break
             for item, peer in enumerate(self.peer_results[lookup]):
-                do_print = True
+                found_state = True
                 public_port = self.peer_results["peers_publicport"][item]
                 
                 if not self.is_basic: # will do this later otherwise
@@ -385,8 +404,6 @@ class Peers():
                     if more: break
                     self.print_header = True
                     break_counter = self.more_break
-                else:
-                    break_counter -= self.more_subtrahend+1
                     
                 self.current_peer = peer
                 self.print_peer = f"{peer}:{public_port}" 
@@ -399,13 +416,8 @@ class Peers():
                     status_results = f"  {self.print_peer: <{spacing}}"                        
                 else:
                     if self.requested_states:
-                        do_print = False
-                        self.status_results = False
-                        for state in self.states:
-                            if peer in self.peer_results[state.lower()]:
-                                do_print = True
-                                break
-                    if do_print:
+                        found_state = self._get_state_print(peer)
+                    if found_state:
                         spacing = 23
                         if self.nodeid != "UnableToReach": self.nodeid = f"{self.nodeid[0:8]}....{self.nodeid[-8:]}"
                         if self.nodeid != "UnableToReach": self.wallet = f"{self.wallet[0:8]}....{self.wallet[-8:]}"
@@ -413,7 +425,7 @@ class Peers():
                         status_results += f"{self.nodeid: <{spacing}}"                      
                         status_results += f"{self.wallet: <{spacing}}"   
                         if self.requested_states:
-                            status_results += f"{state: <{spacing}}"
+                            status_results += f"{found_state: <{spacing}}"
                         elif self.peer_title4:
                             status_results += f"{lookup: <{spacing}}"  
                         self.status_results = status_results 
@@ -428,10 +440,36 @@ class Peers():
                         "newline": True,
                     })
                 elif not self.create_csv and self.status_results:
+                    self.found_results = True
+                    results_counter += 1
                     if self.print_header:    
                         print(self.status_header)
                         self.print_header = False
                     print(self.status_results)
+                    break_counter -= self.more_subtrahend+1
+
+        print_end = "no results"
+        print_color = "red"
+        if self.found_results:
+            print_end = "complete"
+            print_color = "green"
+
+        print("")
+        self.functions.print_cmd_status({
+            "text_start": "Peer search",
+            "brackets": "completed",
+            "status": print_end,
+            "status_color": print_color,
+            "newline": True,
+        })
+
+        if results_counter > 0:
+            self.functions.print_cmd_status({
+                "text_start": "Results found",
+                "status": str(results_counter),
+                "status_color": "yellow",
+                "newline": True,
+            })
 
 
     def print_csv_success(self):

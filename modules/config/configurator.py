@@ -68,6 +68,7 @@ class Configurator():
         self.encryption_failed = True
         self.scenario = False
         self.hypergraph = False
+        self.return_to_main_menu_request = False
 
         self.edit_error_msg = ""
         self.detailed = "init"
@@ -744,6 +745,9 @@ class Configurator():
                 "newline": False if self.detailed else "bottom"
             })
             p12_answers = self.ask_confirm_questions({"questions": questions})
+            if self.return_to_main_menu_request:
+                return
+            
             p12_pass = {"passphrase": "None", "pass2": "None"}
 
             if self.keep_pass_visible:
@@ -762,6 +766,8 @@ class Configurator():
                             "questions": pass_questions,
                             "confirm": False
                         })
+                        if self.return_to_main_menu_request:
+                            return
                         if not compare_digest(p12_pass["passphrase"],p12_pass["pass2"]):
                             confirm = False
                             cprint("  passphrase did not match","red",attrs=["bold"])
@@ -1501,16 +1507,25 @@ class Configurator():
         # append the changing items to the append obj
         if not defaults: defaults = {}
         if questions:
-            append_obj = {
-                f"{profile}": {
-                    **defaults,
-                    **self.ask_confirm_questions({
-                        "questions": questions,
-                        "confirm": confirm,
-                    }),
-                },
-                **append_obj,
-            } 
+            try:
+                append_obj = {
+                    f"{profile}": {
+                        **defaults,
+                        **self.ask_confirm_questions({
+                            "questions": questions,
+                            "confirm": confirm,
+                        }),
+                    },
+                    **append_obj,
+                } 
+            except:
+                cprint("  Returning to main menu...","red")
+                return
+            
+        if self.return_to_main_menu_request:
+            cprint("  Returning to main menu...","red")
+            return
+            
         elif defaults: append_obj = {
             f"{profile}": {
                 **defaults,
@@ -2579,6 +2594,8 @@ class Configurator():
                 "is_global": True,
                 "apply": False  # don't apply this will be done later
             })
+            if self.return_to_main_menu_request:
+                return
             if not update_token:
                 self.config_obj_apply["global"]["token"] = self.alerting_config["token"]
             data = deepcopy(self.config_obj_apply["global"])
@@ -3219,6 +3236,21 @@ class Configurator():
             if user_confirm:
                 return value_dict
             
+            self.c.functions.print_paragraphs([
+                ["You may return to the main menu abadonding these changes or try again.",1],
+            ])
+            re_main_menu = self.c.functions.confirm_action({
+                    "prompt": f"Return to Main Menu?",
+                    "yes_no_default": "n",
+                    "prompt_color": "red",
+                    "return_on": "y",
+                    "exit_if": False
+                })   
+            
+            if re_main_menu:
+                self.return_to_main_menu_request = True
+                return {}
+                 
     # =====================================================
     # EDIT CONFIG METHODS  
     # =====================================================
@@ -3326,6 +3358,8 @@ class Configurator():
             elif option == "m":
                 self.action = False
                 self.setup()
+
+            self.return_to_main_menu_request = False # reset
             if option == "q" or self.quit_mobile or (self.mobile and (return_option != "pe" and return_option != "m")):
                 self.quit_configurator()
                 return # if mobile this will 
@@ -3710,7 +3744,11 @@ class Configurator():
         
         while True:
             restart_error = False
+
             enable_answers = self.ask_confirm_questions({"questions": questions})
+            if self.return_to_main_menu_request:
+                return
+
             enable_answers["auto_restart"] = enable_answers["auto_restart"].lower()
             enable_answers["auto_upgrade"] = enable_answers["auto_upgrade"].lower()
             enable_answers["on_boot"] = enable_answers["on_boot"].lower()

@@ -298,188 +298,197 @@ class Functions():
         pull_node_id = command_obj.get("pull_node_id",False)
         count_consensus = command_obj.get("count_consensus",False)
 
-        if not peer_obj:
-            ip_address = self.default_edge_point["host"]
-            api_port = self.default_edge_point["host_port"]
-        else:
-            ip_address = peer_obj["ip"]  
-            localhost_ports = self.pull_profile({
-                "req": "ports",
-                "profile": profile,
-            })
-            
-            if peer_obj["ip"] == "127.0.0.1":
-                api_port = localhost_ports["public"]
-            else:
-                try:
-                    api_port = peer_obj["publicPort"]
-                except:
-                    api_port = self.get_info_from_edge_point({
-                        "caller": "get_peer_count",
-                        "profile": profile,
-                        "desired_key": "publicPort",
-                        "specific_ip": ip_address,
-                    })
-        
-        if count_only:
-            count = self.get_cluster_info_list({
-                "ip_address": ip_address,
-                "port": api_port,
-                "api_endpoint": "/cluster/info",
-                "spinner": False,
-                "attempt_range": 4,
-                "error_secs": 3
-            })
-            try:
-                count = count.pop()
-            except:
-                pass  # skip to avoid unnecessary crash if the cluster info comes back bad during iteration
-            if count:
-                return(count["nodectl_found_peer_count"])
-            else:
-                return count
-        
-        if count_consensus:
-            consensus_count = self.get_cluster_info_list({
-                "ip_address": ip_address,
-                "port": api_port,
-                "api_endpoint": "/consensus/latest/peers",
-                "spinner": False,
-                "attempt_range": 4,
-                "error_secs": 3
-            })
-            try:
-                consensus_count = consensus_count.pop()
-            except:
-                consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
-        else:
-            consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
-        
-        peer_list = list()
-        state_list = list()
-        peers_publicport = list()
-
-        peers_ready = list()        
-        peers_observing = list()
-        peers_waitingforready = list()
-        peers_waitingforobserving = list()
-        peers_downloadinprogress = list()
-        peers_waitingfordownload = list()
-        
-        node_online = False
-        node_states = self.get_node_states()
-        
-        def pull_states(line):
-            if line["state"] == "Observing":
-                peers_observing.append(line['ip'])  # count observing nodes
-            elif line["state"] == "Ready":
-                peers_ready.append(line['ip'])  # count ready nodes
-            elif line["state"] == "WaitingForReady":
-                peers_waitingforready.append(line['ip'])
-            elif line["state"] == "WaitingForObserving":
-                peers_waitingforobserving.append(line['ip'])
-            elif line["state"] == "DownloadInProgress":
-                peers_downloadinprogress.append(line['ip'])
-            elif line["state"] == "WaitingForDownload":
-                peers_waitingfordownload.append(line['ip'])            
-
-        try:        
-            if compare:
-                cluster_ip = ip_address
-            elif not edge_obj:
-                cluster_ip = edge_obj["ip"]
-                api_port = edge_obj["publicPort"]
-            elif edge_obj["ip"] == "127.0.0.1" or ip_address == "self":
-                cluster_ip = "127.0.0.1"
-                api_port = localhost_ports["public"]
-            else:
-                cluster_ip = edge_obj["ip"]
-                try:
-                    api_port = edge_obj["publicPort"]
-                except:
-                    api_port = self.get_info_from_edge_point({
-                        "caller": "get_peer_count",
-                        "profile": profile,
-                        "desired_key": "publicPort",
-                        "specific_ip": edge_obj["ip"],
-                    })
-        except Exception as e:
-            self.log.logger[self.log_key].error(f"Unable to determine cluster_ip, exiting request [{e}]")
-            self.error_messages.error_code_messages({
-                "line_code": "api_error",
-                "error_code": "fnt-411",
-                "extra": profile,
-                "extra2": self.config_obj[profile]["edge_point"],
-            })
-            
-        attempts = 1
-        while True:
-            try:
-                session = self.set_request_session()
-                session.verify = False
-                session.timeout = 2
-                url = f"http://{cluster_ip}:{api_port}/cluster/info"
-                peers = session.get(url,timeout=self.session_timeout)
-            except:
-                if attempts > 3:
-                    return "error"
-                attempts = attempts+1
-                sleep(.5)
-            else:
-                break
-            finally:
-                session.close()
-
         try:
-            peers = peers.json()
-        except:
-            pass
-        else:
-            ip_address = self.ip_address if ip_address == "127.0.0.1" or ip_address == "self" else ip_address
-            id_ip = ("ip","id") if len(ip_address) < 128 else ("id","ip")
-            try:
-                for line in peers:
-                    if ip_address in line[id_ip[0]]:
-                        if pull_node_id:
-                            self.our_node_id = line[id_ip[1]]
-                            return
-                        node_online = True
-                        peer_list.append(line[id_ip[0]])
-                        peers_publicport.append(line['publicPort'])
-                        pull_states(line)
-                        state_list.append("*")
-                    else:
-                        # append state abbreviations
-                        for state in node_states:
-                            if state[0] in line["state"]:
-                                pull_states(line)
-                                peer_list.append(line[id_ip[0]])
-                                peers_publicport.append(line['publicPort'])
-                                state_list.append(state[1])
-            except Exception as e:
-                self.log.logger[self.log_key].error(f"get peer count - an error occurred attempting to review the line items on a /cluster/info api request | error [{e}]")
-                pass
+            if not peer_obj:
+                ip_address = self.default_edge_point["host"]
+                api_port = self.default_edge_point["host_port"]
+            else:
+                ip_address = peer_obj["ip"]  
+                localhost_ports = self.pull_profile({
+                    "req": "ports",
+                    "profile": profile,
+                })
+                
+                if peer_obj["ip"] == "127.0.0.1":
+                    api_port = localhost_ports["public"]
+                else:
+                    try:
+                        api_port = peer_obj["publicPort"]
+                    except:
+                        api_port = self.get_info_from_edge_point({
+                            "caller": "get_peer_count",
+                            "profile": profile,
+                            "desired_key": "publicPort",
+                            "specific_ip": ip_address,
+                        })
             
-            return {
-                "peer_list": peer_list,
-                "peers_publicport": peers_publicport,
-                "state_list": state_list,
-                "observing": peers_observing,
-                "waitingforready": peers_waitingforready,
-                "waitingforobserving": peers_waitingforobserving,
-                "waitingfordownload": peers_waitingfordownload,
-                "downloadinprogress": peers_downloadinprogress,
-                "ready": peers_ready,
-                "peer_count": len(peer_list),
-                "observing_count": len(peers_observing),
-                "waitingforready_count": len(peers_waitingforready),
-                "waitingforobserving_count": len(peers_waitingforobserving),
-                "waitingfordownload_count": len(peers_waitingfordownload),
-                "downloadinprogress_count": len(peers_downloadinprogress),
-                "consensus_count": consensus_count["nodectl_found_peer_count"],
-                "ready_count": len(peers_ready),
-                "node_online": node_online
-            }
+            if count_only:
+                count = self.get_cluster_info_list({
+                    "ip_address": ip_address,
+                    "port": api_port,
+                    "api_endpoint": "/cluster/info",
+                    "spinner": False,
+                    "attempt_range": 4,
+                    "error_secs": 3
+                })
+                try:
+                    count = count.pop()
+                except:
+                    pass  # skip to avoid unnecessary crash if the cluster info comes back bad during iteration
+                if count:
+                    return(count["nodectl_found_peer_count"])
+                else:
+                    return count
+            
+            if count_consensus:
+                consensus_count = self.get_cluster_info_list({
+                    "ip_address": ip_address,
+                    "port": api_port,
+                    "api_endpoint": "/consensus/latest/peers",
+                    "spinner": False,
+                    "attempt_range": 4,
+                    "error_secs": 3
+                })
+                try:
+                    consensus_count = consensus_count.pop()
+                except:
+                    consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
+            else:
+                consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
+            
+            peer_list = list()
+            state_list = list()
+            peers_publicport = list()
+
+            peers_ready = list()        
+            peers_observing = list()
+            peers_waitingforready = list()
+            peers_waitingforobserving = list()
+            peers_downloadinprogress = list()
+            peers_waitingfordownload = list()
+            
+            node_online = False
+            node_states = self.get_node_states()
+            
+            def pull_states(line):
+                if line["state"] == "Observing":
+                    peers_observing.append(line['ip'])  # count observing nodes
+                elif line["state"] == "Ready":
+                    peers_ready.append(line['ip'])  # count ready nodes
+                elif line["state"] == "WaitingForReady":
+                    peers_waitingforready.append(line['ip'])
+                elif line["state"] == "WaitingForObserving":
+                    peers_waitingforobserving.append(line['ip'])
+                elif line["state"] == "DownloadInProgress":
+                    peers_downloadinprogress.append(line['ip'])
+                elif line["state"] == "WaitingForDownload":
+                    peers_waitingfordownload.append(line['ip'])            
+
+            try:        
+                if compare:
+                    cluster_ip = ip_address
+                elif not edge_obj:
+                    cluster_ip = edge_obj["ip"]
+                    api_port = edge_obj["publicPort"]
+                elif edge_obj["ip"] == "127.0.0.1" or ip_address == "self":
+                    cluster_ip = "127.0.0.1"
+                    api_port = localhost_ports["public"]
+                else:
+                    cluster_ip = edge_obj["ip"]
+                    try:
+                        api_port = edge_obj["publicPort"]
+                    except:
+                        api_port = self.get_info_from_edge_point({
+                            "caller": "get_peer_count",
+                            "profile": profile,
+                            "desired_key": "publicPort",
+                            "specific_ip": edge_obj["ip"],
+                        })
+            except Exception as e:
+                self.log.logger[self.log_key].error(f"Unable to determine cluster_ip, exiting request [{e}]")
+                self.error_messages.error_code_messages({
+                    "line_code": "api_error",
+                    "error_code": "fnt-411",
+                    "extra": profile,
+                    "extra2": self.config_obj[profile]["edge_point"],
+                })
+                
+            attempts = 1
+            while True:
+                try:
+                    session = self.set_request_session()
+                    session.verify = False
+                    session.timeout = 2
+                    url = f"http://{cluster_ip}:{api_port}/cluster/info"
+                    peers = session.get(url,timeout=self.session_timeout)
+                except:
+                    if attempts > 3:
+                        return "error"
+                    attempts = attempts+1
+                    sleep(.5)
+                else:
+                    break
+                finally:
+                    session.close()
+
+            try:
+                peers = peers.json()
+            except:
+                pass
+            else:
+                ip_address = self.ip_address if ip_address == "127.0.0.1" or ip_address == "self" else ip_address
+                id_ip = ("ip","id") if len(ip_address) < 128 else ("id","ip")
+                try:
+                    for line in peers:
+                        if ip_address in line[id_ip[0]]:
+                            if pull_node_id:
+                                self.our_node_id = line[id_ip[1]]
+                                return
+                            node_online = True
+                            peer_list.append(line[id_ip[0]])
+                            peers_publicport.append(line['publicPort'])
+                            pull_states(line)
+                            state_list.append("*")
+                        else:
+                            # append state abbreviations
+                            for state in node_states:
+                                if state[0] in line["state"]:
+                                    pull_states(line)
+                                    peer_list.append(line[id_ip[0]])
+                                    peers_publicport.append(line['publicPort'])
+                                    state_list.append(state[1])
+                except Exception as e:
+                    self.log.logger[self.log_key].error(f"get peer count - an error occurred attempting to review the line items on a /cluster/info api request | error [{e}]")
+                    pass
+                
+                return {
+                    "peer_list": peer_list,
+                    "peers_publicport": peers_publicport,
+                    "state_list": state_list,
+                    "observing": peers_observing,
+                    "waitingforready": peers_waitingforready,
+                    "waitingforobserving": peers_waitingforobserving,
+                    "waitingfordownload": peers_waitingfordownload,
+                    "downloadinprogress": peers_downloadinprogress,
+                    "ready": peers_ready,
+                    "peer_count": len(peer_list),
+                    "observing_count": len(peers_observing),
+                    "waitingforready_count": len(peers_waitingforready),
+                    "waitingforobserving_count": len(peers_waitingforobserving),
+                    "waitingfordownload_count": len(peers_waitingfordownload),
+                    "downloadinprogress_count": len(peers_downloadinprogress),
+                    "consensus_count": consensus_count["nodectl_found_peer_count"],
+                    "ready_count": len(peers_ready),
+                    "node_online": node_online
+                }
+        except Exception as e:
+            self.log.logger[self.log_key].error(f"get peer count - an error occurred during function execution [{e}]")
+            self.error_messages.error_code_messages({
+                "line_code": "unknown_error",
+                "error_code": "fnt-488",
+                "extra": e,
+                "extra2": "Please wait a moment and try again; contact an administrator if issue persists.",
+            })
 
 
     def get_node_states(self,types="all",state_list=False):
@@ -2304,7 +2313,7 @@ class Functions():
         try:
             repo_profiles = self.get_from_api(self.nodectl_profiles_url,"json")
         except:
-            self.log.logger[self.log_key].error("functions --> pull_remote_profiles --> unable to access network.")
+            self.log.logger[self.log_key].error(f"functions --> pull_remote_profiles --> unable to access network. [{self.nodectl_profiles_url}]")
             self.error_messages.error_code_messages({
                 "error_code": "fnt-1993",
                 "line_code": "off_network",
