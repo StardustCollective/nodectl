@@ -16,20 +16,20 @@ def ac_build_script(cli):
     valid_commands = pull_valid_command()
     valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
 
-    install_options = "--normal --quick-install --user --p12-destination-path --user-password " # make sure ends with a space
-    install_options += "--p12-passphrase --p12-migration-path --p12-alias --cluster-config --confirm --quiet " 
-    install_options += "--skip-encryption --json-output --skip-system-validation"
+    install_options = "--normal --quick-install --user --p12-destination-path --user-password help" # make sure ends with a space
+    install_options += "--p12-passphrase --p12-migration-path --p12-alias --cluster-config --confirm --quiet help" 
+    install_options += "--skip-encryption --json-output --skip-system-validation help"
     
-    upgrade_options = "--ni --nodectl_only --pass -v -f"
+    upgrade_options = "--ni --nodectl_only --pass -v -f help"
 
-    viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory "
-    viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json --section"
+    viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory help"
+    viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json --section help"
 
-    displaychain_options = "-p --np --json_output --full_report --days, --json_output"
+    displaychain_options = "-p --np --json_output --full_report --days, --json_output help"
 
-    autorestart_options = "status enable disable alert_test send_report clear_alerts restart"
+    autorestart_options = "status enable disable alert_test send_report clear_alerts restart help"
 
-    delegate_options = "update status remove"
+    delegate_options = "update status remove help"
 
     find_options = "-s -t"
     auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
