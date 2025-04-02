@@ -365,7 +365,7 @@ class P12Class():
                             cprint("  Global profile passphrase doesn't match, is incorrect, or is not found.","yellow")
             except:
                 self.error_messages.error_code_messages({
-                    "error_code": "p12-227",
+                    "error_code": "p-227",
                     "line_code": "invalid_passphrase"
                 })
             
@@ -567,7 +567,7 @@ class P12Class():
                 })
                 if results is None or results == "":
                     results = "invalid password"
-                if not "invalid password" in str(results.lower()) and not "error" in str(results.lower()) and not "Cannot find" in str(results.lower()):
+                if not "invalid password" in str(results.lower()) and not "error" in str(results.lower()) and not "cannot find" in str(results.lower()):
                     self.log.logger[self.log_key].info("p12 file unlocked successfully - openssl")
                     return_result = True
                 else:
