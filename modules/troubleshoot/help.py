@@ -641,6 +641,48 @@ def build_help(functions,command_obj):
      or
   # {colored('sudo nodectl -sl -p <profile_name>','cyan')}  
       '''
+
+    if extended == "delegate":
+      help_text += title("Delegated Staking")
+      help_text += f'''
+  This command is used to enable Constellation Network's 
+  delegated staking** with your desired settings.  
+
+  It includes configuring:  
+  - Your node’s name.  
+  - A brief description of your node.
+  - The commission percentage you wish to charge for 
+    allowing delegators to stake their $DAG through 
+    your node.  
+
+  These settings define how your node appears within the network and 
+  how it participates in delegated staking.
+  
+  optional:
+  {colored('status','green')}
+  {colored('update','green')}
+  {colored('remove','green')}
+  {colored('help','green')}
+  
+  Please visit the official Constellation Network 
+  Documentation Hub for detailed instructions on
+  how to use this command.
+
+  Example Usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl delegate help','cyan')}
+  
+  view your current delegated staking menu options
+  # {colored('sudo nodectl delegate','cyan')}  
+  
+  view your current delegated staking status
+  # {colored('sudo nodectl delegate status','cyan')}  
+  
+  learn about removal
+  # {colored('sudo nodectl delegate remove','cyan')}  
+
+      '''
   
     if extended == "show_cpu_memory":
       help_text += title("Show CPU and MEMORY")

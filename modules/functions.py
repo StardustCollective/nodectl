@@ -1102,8 +1102,11 @@ class Functions():
                 "extra": None
             })
         else:
-            if response.status_code == 404:
-                return response.reason
+            try:
+                if response.status_code == 404:
+                    return response.reason
+            except:
+                pass
             if utype == "yaml_raw":
                 return response.content.decode("utf-8").replace("\n","").replace(" ","")
             elif utype == "yaml":

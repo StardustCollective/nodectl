@@ -11,7 +11,7 @@ from string import ascii_letters
 from secrets import compare_digest, choice
 from time import sleep
 from itertools import chain
-from decimal import Decimal, getcontext
+from decimal import Decimal, getcontext, localcontext, ROUND_DOWN
 
 from .migration import Migration
 from .config import Configuration
@@ -1690,10 +1690,12 @@ class Configurator():
             "questions": questions, 
             "profile": profile
         })
+        if self.return_to_main_menu_request:
+            return
         
         self.c.functions.print_paragraphs([
-            ["",1],[" WARNING ",0,"red,on_yellow"], ["You must now update your firewall settings to allow",0],
-            ["ports",0], 
+            ["",1],[" WARNING ",0,"red,on_yellow"], 
+            ["You must now update your firewall settings to allow",0], ["ports",0], 
             [f"{self.c.config_obj[profile]['public_port']}, {self.c.config_obj[profile]['p2p_port']}",0,"yellow"], 
             ["through inbound via the ingress rules.",2],
             ["Changing the service API ports forced a",0],
@@ -2163,34 +2165,7 @@ class Configurator():
             self.staking_config = {item: False for item in stake_list}
             self.staking_config["enable"] = "True"
         else:
-            # placeholder for enable/disable
-            # self.c.functions.print_paragraphs([
-            #     ["Delegated staking was detected as:",0],[f"{self.staking_config['enable']}",1,"yellow"],
-            # ])
-            # For future development placeholder - enable option will remain: True
-
-            # if self.staking_config["enable"]:
-            #     if self.c.functions.confirm_action({
-            #         "prompt": "Disable delegated staking?",
-            #         "yes_no_default": "n",
-            #         "return_on": "y",
-            #         "exit_if": False
-            #     }):
-            #         self.staking_config["enable"] = "False"
-            #         do_edit = False
-            #         disable_only = True
-
             if do_edit:
-                # placeholder for enable/disable
-                # if not self.staking_config["enable"]:
-                #     if self.c.functions.confirm_action({
-                #         "prompt": "Enable delegated staking?",
-                #         "yes_no_default": "y",
-                #         "return_on": "y",
-                #         "exit_if": False
-                #     }):
-                #         self.staking_config["enable"] = True
-
                 if self.c.functions.confirm_action({
                     "prompt": "Update configuration?",
                     "yes_no_default": "n",
@@ -2214,8 +2189,16 @@ class Configurator():
             description2 += "of staking rewards that will be collected as a fee in exchange for offering delegation capabilities. "
             description2 += "Choose a value that aligns with your operational strategy and community engagement goals."
 
+            getcontext().prec = 20 
             if self.staking_config["rewardFraction"]:
-                rewardFraction_default = "{:.8f}".format((self.staking_config["rewardFraction"] / 1e8) * 100)
+                with localcontext() as ctx:
+                    ctx.prec = 20
+                    ctx.rounding = ROUND_DOWN
+
+                    ux_val = (Decimal(self.staking_config["rewardFraction"]) / Decimal("100000000")) * Decimal("100")
+                    ux_val = ux_val.quantize(Decimal("1.0000"))
+                    ux_val = format(ux_val, 'f').rstrip('0').rstrip('.') if '.' in format(ux_val, 'f') else format(ux_val, 'f')
+                rewardFraction_default = str(ux_val)
             else:
                 rewardFraction_default = "5"
 
@@ -2247,19 +2230,22 @@ class Configurator():
                 "is_global": True,
                 "apply": False  # don't apply this will be done later
             })
+
+            if self.return_to_main_menu_request:
+                return
+
             data = deepcopy(self.config_obj_apply["global"])
-    
+
             precision_percent = data["rewardFraction"]
-            getcontext().prec = 20 
             while True:
                 precision_percent_error = False
                 try:
-                    precision_percent = float(precision_percent)
-                    precision_percent = precision_percent / 100
+                    precision_percent = Decimal(precision_percent) / Decimal("100")
+                    precision_percent = int(precision_percent * Decimal("100000000"))
                 except:
                     precision_percent_error = True
-
-                if not precision_percent_error and (precision_percent < .05 or precision_percent > .10):
+                                                                                                        
+                if not precision_percent_error and (precision_percent < 5000000 or precision_percent > 10000000):
                     precision_percent_error = True
                 
                 if precision_percent_error:
@@ -2277,7 +2263,6 @@ class Configurator():
                     precision_percent = input(prompt)
                     print("")
                 else:
-                    precision_percent = int(Decimal(precision_percent) * Decimal("100000000"))
                     data["rewardFraction"] = precision_percent
                     break
         else:
@@ -2342,13 +2327,13 @@ class Configurator():
         if do_edit:
             self.c.functions.print_paragraphs([
                 ["",1],
-                [" COMPLETE! ",0,"yellow,on_green"],["Your delegated staking configuration is setup and ready to be enabled.",2,"green"],
+                [" COMPLETE! ",0,"yellow,on_green"],["Your delegated staking configuration is setup and ready to be updated.",2,"green"],
                 
-                ["In order to enable delegating staking, your validator node will need to configure a delegated staking package",0],
+                ["In order to update delegating staking, your validator node will need to configure a delegated staking package",0],
                 ["sign it with your p12 key store",0,"yellow"], ["and transmit it to the metagraph. This will be done automatically",0],
-                ["by nodectl, once you execute the",0], ["enable",0,"yellow"], ["command.",2],
+                ["by nodectl, once you execute the",0], ["update",0,"yellow"], ["command.",2],
 
-                [" Review config:",0,"blue","bold"], ["sudo nodectl delegrated_staking status",1,"yellow"],
+                [" Review config:",0,"blue","bold"], ["sudo nodectl delegated_staking status",1,"yellow"],
                 ["Please execute:",0,"blue","bold"], ["sudo nodectl delegated_staking update",2,"yellow"],
             ])
             self.c.functions.print_any_key({})
@@ -2954,6 +2939,9 @@ class Configurator():
             if file_repo_type == "jar":
                 description4 = f"The jar repository needs to have a version associated with it.  This will make sure that that correction version "
                 description4 += "of the jar binaries are downloaded, allowing you to stay current with the network cluster in question."
+                one_off2 = "version"
+            if file_repo_type == "seed":
+                description4 = f"The seed version is a future placeholder for future features.  Please leave as 'default'."
                 one_off2 = "version"
                 
             questions = {
@@ -3908,6 +3896,9 @@ class Configurator():
                 "ptype": "global_edit_prepare",
                 "set_default": True
             })
+            if self.return_to_main_menu_request:
+                return
+            
             if self.config_obj["global_p12"]["passphrase"] == None or self.config_obj["global_p12"]["passphrase"] == "None":
                 if self.old_last_cnconfig['global_auto_restart']["auto_restart"]:
                     self.c.functions.print_paragraphs([

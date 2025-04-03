@@ -29,6 +29,7 @@ class DelegatedStaking:
         self.verbose = False
         self.dbl_verbose = False
         self.update_required, self.first_run = False, False
+        self.spacing_value = 18
 
         self.set_crypto()
         self.set_nodeid()
@@ -85,14 +86,15 @@ class DelegatedStaking:
         self.handle_final_payload_build()
         
         print("")
-        
+
         self.print_value_comparison()   
         self.send_payload()
 
         self.dbl_verbose, self.verbose = False, False # do not reprint payload if verbose is enabled
         cprint("  Pausing to allow network to process","yellow")
         sleep(2)
-        
+        print("")
+
         self.status() # verify all is well
 
 
@@ -198,6 +200,8 @@ class DelegatedStaking:
     # ==== handlers ====
 
     def handle_compare_last_ref(self):
+        if self.first_run: return
+
         url = f"{self.ds_url}{self.nodeid}"
 
         for n in range(1,3):
@@ -209,6 +213,8 @@ class DelegatedStaking:
                 break
         
         if response == "Not Found":
+            if self.action == "status":
+                self.print_not_configured_message()
             self.print_first_run()
             self.first_run = True
             self.update_required = True
@@ -234,7 +240,7 @@ class DelegatedStaking:
             api_value = response["latest"]["value"][section][response_key]
 
             if local_value == api_value:
-                self.ds_config_match[key]["match_str"] = colored(f"{'True':<{18}}", "green", attrs=["bold"])
+                self.ds_config_match[key]["match_str"] = colored(f"{'True':<{self.spacing_value}}", "green", attrs=["bold"])
                 self.ds_config_match[key]["match"] = True
             else:
                 self.update_required = True
@@ -285,19 +291,21 @@ class DelegatedStaking:
 
 
     def handle_last_ref_init(self):
+        if len(self.ds_config.name) > self.spacing_value:
+            self.spacing_value = len(self.ds_config.name)+2
         self.ds_config_match = {
             "name": {
-                "match_str": colored(f"{'False':<{18}}","red",attrs=["bold"]),
+                "match_str": colored(f"{'False':<{self.spacing_value}}","red",attrs=["bold"]),
                 "match": False,
                 "value": self.ds_config.name,
             },
             "description": {
-                "match_str": colored(f"{'False':<{18}}","red",attrs=["bold"]),
+                "match_str": colored(f"{'False':<{self.spacing_value}}","red",attrs=["bold"]),
                 "match": False,
                 "value": self.ds_config.description,
             },
             "rewardFraction": {
-                "match_str": colored(f"{'False':<{18}}","red",attrs=["bold"]),
+                "match_str": colored(f"{'False':<{self.spacing_value}}","red",attrs=["bold"]),
                 "match": False,
                 "value": self.ds_config.rewardFraction,
             }
@@ -315,71 +323,113 @@ class DelegatedStaking:
 
 
     def print_value_comparison(self):
-        last_hash = self.complete_payload["value"]["parent"]["hash"]
-        last_hash_short = f"{last_hash[:8]}...{last_hash[-8:]}"
-        reward_percent = f"{(self.ds_config_match['rewardFraction']['value'] / 1e8) * 100}%"
+        if self.first_run: 
+            self.print_first_run_complete()
+        else:
+            last_hash = self.complete_payload["value"]["parent"]["hash"]
+            last_hash_short = f"{last_hash[:8]}...{last_hash[-8:]}"
+            reward_percent = f"{(self.ds_config_match['rewardFraction']['value'] / 1e8) * 100}%"
 
-        self._log_msg("info",f'Last Ordinal: {self.complete_payload["value"]["parent"]["ordinal"]}')
-        self._log_msg("info",f"Last hash: {last_hash}")
-        self._log_msg("info",f'Current Name: {self.ds_config_match["name"]["value"]}')        
-        self._log_msg("info",f'Current Description: {self.ds_config_match["description"]["value"]}')        
-        self._log_msg("info",f'Current Commission: {self.ds_config_match["rewardFraction"]["value"]} [{reward_percent}]')
+            self._log_msg("info",f'Last Ordinal: {self.complete_payload["value"]["parent"]["ordinal"]}')
+            self._log_msg("info",f"Last hash: {last_hash}")
+            self._log_msg("info",f'Current Name: {self.ds_config_match["name"]["value"]}')        
+            self._log_msg("info",f'Current Description: {self.ds_config_match["description"]["value"]}')        
+            self._log_msg("info",f'Current Commission: {self.ds_config_match["rewardFraction"]["value"]} [{reward_percent}]')
 
-        print_out_list = [
-            {
-                "header_elements": {
-                    "NAME": self.ds_config_match["name"]["value"],
-                    "COMMISSION": reward_percent,
+            print_out_list = [
+                {
+                    "header_elements": {
+                        "NAME": self.ds_config_match["name"]["value"],
+                        "COMMISSION": reward_percent,
+                    },
+                    "spacing": self.spacing_value,
                 },
-                "spacing": 18,
-            },
-            {
-                "header_elements": {
-                    "NAME MATCH": self.ds_config_match["name"]["match_str"],
-                    "COMM MATCH": self.ds_config_match["rewardFraction"]["match_str"]
+                {
+                    "header_elements": {
+                        "NAME MATCH": self.ds_config_match["name"]["match_str"],
+                        "COMM MATCH": self.ds_config_match["rewardFraction"]["match_str"]
+                    },
+                    "spacing": self.spacing_value,
                 },
-                "spacing": 18,
-            },
-            {
-                "header_elements": {                
-                    "DESCRIPTION": self.ds_config_match["description"]["value"],
+                {
+                    "header_elements": {                
+                        "DESCRIPTION": self.ds_config_match["description"]["value"],
+                    },
+                    "spacing": self.spacing_value,
                 },
-                "spacing": 18,
-            },
-            {
-                "header_elements": {
-                    "DESCRIPTION MATCH": self.ds_config_match["description"]["match_str"]
+                {
+                    "header_elements": {
+                        "DESCRIPTION MATCH": self.ds_config_match["description"]["match_str"]
+                    },
+                    "spacing": self.spacing_value,
                 },
-                "spacing": 18,
-            },
-            {
-                "header_elements": {
-                    "LAST ORDINAL": self.complete_payload["value"]["parent"]["ordinal"],
-                    "LAST HASH": last_hash_short
+                {
+                    "header_elements": {
+                        "LAST ORDINAL": self.complete_payload["value"]["parent"]["ordinal"],
+                        "LAST HASH": last_hash_short
+                    },
+                    "spacing": self.spacing_value,
                 },
-                "spacing": 18,
-            },
-        ]
-    
-        for header_elements in print_out_list:
-            self.functions.print_show_output({
-                "header_elements" : header_elements
-            }) 
+            ]
+        
+            for header_elements in print_out_list:
+                self.functions.print_show_output({
+                    "header_elements" : header_elements
+                }) 
 
-        if self.verbose and self.update_required: # do not print if no update made
-            self.functions.print_paragraphs([
-                ["",1],["PAYLOAD VALUE",2,"blue","bold"],
-                ["*","half","green","bold"],
-                ["** PAYLOAD START **",1,"white"],
-                ["*","half","green","bold"],
-            ])
-            print(colored(json.dumps(self.complete_payload,indent=4),"light_yellow"),end="\n")
-            self.functions.print_paragraphs([
-                ["*","half","green","bold"],
-                ["** PAYLOAD END **",1,"white"],
-                ["*","half","green","bold"],
-            ])
-        print("")
+            if self.verbose and self.update_required: # do not print if no update made
+                self.functions.print_paragraphs([
+                    ["",1],["PAYLOAD VALUE",2,"blue","bold"],
+                    ["*","half","green","bold"],
+                    ["** PAYLOAD START **",1,"white"],
+                    ["*","half","green","bold"],
+                ])
+                print(colored(json.dumps(self.complete_payload,indent=4),"light_yellow"),end="\n")
+                self.functions.print_paragraphs([
+                    ["*","half","green","bold"],
+                    ["** PAYLOAD END **",1,"white"],
+                    ["*","half","green","bold"],
+                ])
+            print("")
+
+
+    def print_first_run_complete(self):
+        self.functions.print_paragraphs([
+            [" CONGRATULATIONS ",2,"yellow,on_green"],
+            ["The",0], ["nodectl utility",0,"yellow"], 
+            ["has completed your first delegated staking update.",2,"green"],
+
+            ["No future action or requirements are needed at this time.",2,"green"],
+
+            ["To confirm your",0], ["delegated staking",0,"yellow"], ["configuration",0],
+            ["please issue the delegate",0],["status",0,"yellow"],["command.",1],
+            ["Command:",0,"blue","bold"], ["sudo nodectl delegate status",2,"yellow"],
+       ])
+
+
+    def print_not_configured_message(self):
+        self.functions.print_paragraphs([
+            [" DELEGATED STAKING STATUS RESULT ",2,"yellow,on_red"],
+            ["The",0,"magenta"], ["nodectl utility",0,"yellow"], 
+            ["has determined that you attempted to retrieve the",0,"magenta"],
+            ["delegated staking status",0,"yellow"], ["for this node,",0,"magenta"],
+            ["but",0,"magenta"], ["no previous updates",0,"magenta","bold"],
+            ["to this node's delegated staking parameters were found on the metagraph.",2,"magenta"],
+
+            ["If you reached this message, it likely means your configuration is in place",0],
+            ["but, you have not yet issued your first update request.",2],
+
+            ["Command:",0,"blue","bold"], ["sudo nodectl update",2,"yellow"],
+
+            ["If you believe you have reached this message in error",0],
+            ["please try again.",0,"magenta"], ["If the issue persists, contact an Administrator on",0],
+            ["Constellation Network's official Discord channel",0,"blue","bold"], ["for assistance.",2], 
+
+            ["You may also visit the",0], ["Constellation Network's official Documentation Hub",0,"blue","bold"],
+            ["for detailed documentation about this feature and how to use it.",2],
+        ])
+
+        exit(0)
 
 
     def print_no_update_needed(self):
@@ -420,7 +470,7 @@ class DelegatedStaking:
             "yes_no_default": "n",
             "return_on": "CONSTELLATION",
             "strict": True,
-            "prompt": f"Send request and enable delegated staking?",
+            "prompt": f"Send request and update delegated staking?",
             "exit_if": True,
         })            
 
@@ -429,8 +479,7 @@ class DelegatedStaking:
         self.functions.print_paragraphs([
             [" IMPORTANT ",2,"red,on_green","bold"],
             ["Once delegating staking is enabled on a",0], ["validator node",0,"yellow"],
-            ["it",0], ["cannot be disabled.",0,"red","bold"], 
-            ["Please carefully consider this before proceeding with the delegation process.",2],
+            ["it",0], ["cannot be disabled.",2,"red","bold"], 
 
             [" NO NEGATIVE IMPACT ",2,"red,on_green","bold"], 
             ["Delegating your node to the community of delegated stakers has no negative effects on your",0],

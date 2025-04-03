@@ -7375,8 +7375,9 @@ class CLI():
                     "options": ["status","update","remove"],
                     "return_value": True,
                     "color": "blue",
-                    "r_and_q": "both",
-                })            
+                    "r_and_q": "q",
+                })  
+            print("")          
 
         delegated = DelegatedStaking({
             "profile": profile,
