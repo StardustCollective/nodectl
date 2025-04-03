@@ -110,6 +110,7 @@ class DelegatedStaking:
 
     def status(self):
         self.general_router()
+        self.handle_final_payload_build()
         self.print_value_comparison()
         exit(0)    
 
