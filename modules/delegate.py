@@ -28,7 +28,9 @@ class DelegatedStaking:
         self.data = None
         self.verbose = False
         self.dbl_verbose = False
-        self.update_required, self.first_run = False, False
+        self.update_required = False
+        self.first_run = False
+        self.first_time_confirmed = False
         self.spacing_value = 18
 
         self.set_crypto()
@@ -90,11 +92,14 @@ class DelegatedStaking:
         self.print_value_comparison()   
         self.send_payload()
 
-        self.dbl_verbose, self.verbose = False, False # do not reprint payload if verbose is enabled
+        self.dbl_verbose = False
+        self.verbose = False # do not reprint payload if verbose is enabled
+        self.first_run = False # no longer first run 
+
         cprint("  Pausing to allow network to process","yellow")
         sleep(2)
         print("")
-
+        
         self.status() # verify all is well
 
 
@@ -105,7 +110,6 @@ class DelegatedStaking:
 
     def status(self):
         self.general_router()
-        self.handle_final_payload_build()
         self.print_value_comparison()
         exit(0)    
 
@@ -200,7 +204,7 @@ class DelegatedStaking:
     # ==== handlers ====
 
     def handle_compare_last_ref(self):
-        if self.first_run: return
+        if self.first_run and self.first_time_confirmed: return
 
         url = f"{self.ds_url}{self.nodeid}"
 
@@ -323,74 +327,76 @@ class DelegatedStaking:
 
 
     def print_value_comparison(self):
-        if self.first_run: 
+        if not self.first_time_confirmed:
+            self.first_time_confirmed = True
+        elif self.first_run:
             self.print_first_run_complete()
-        else:
-            last_hash = self.complete_payload["value"]["parent"]["hash"]
-            last_hash_short = f"{last_hash[:8]}...{last_hash[-8:]}"
-            reward_percent = f"{(self.ds_config_match['rewardFraction']['value'] / 1e8) * 100}%"
 
-            self._log_msg("info",f'Last Ordinal: {self.complete_payload["value"]["parent"]["ordinal"]}')
-            self._log_msg("info",f"Last hash: {last_hash}")
-            self._log_msg("info",f'Current Name: {self.ds_config_match["name"]["value"]}')        
-            self._log_msg("info",f'Current Description: {self.ds_config_match["description"]["value"]}')        
-            self._log_msg("info",f'Current Commission: {self.ds_config_match["rewardFraction"]["value"]} [{reward_percent}]')
+        last_hash = self.complete_payload["value"]["parent"]["hash"]
+        last_hash_short = f"{last_hash[:8]}...{last_hash[-8:]}"
+        reward_percent = f"{(self.ds_config_match['rewardFraction']['value'] / 1e8) * 100}%"
 
-            print_out_list = [
-                {
-                    "header_elements": {
-                        "NAME": self.ds_config_match["name"]["value"],
-                        "COMMISSION": reward_percent,
-                    },
-                    "spacing": self.spacing_value,
-                },
-                {
-                    "header_elements": {
-                        "NAME MATCH": self.ds_config_match["name"]["match_str"],
-                        "COMM MATCH": self.ds_config_match["rewardFraction"]["match_str"]
-                    },
-                    "spacing": self.spacing_value,
-                },
-                {
-                    "header_elements": {                
-                        "DESCRIPTION": self.ds_config_match["description"]["value"],
-                    },
-                    "spacing": self.spacing_value,
-                },
-                {
-                    "header_elements": {
-                        "DESCRIPTION MATCH": self.ds_config_match["description"]["match_str"]
-                    },
-                    "spacing": self.spacing_value,
-                },
-                {
-                    "header_elements": {
-                        "LAST ORDINAL": self.complete_payload["value"]["parent"]["ordinal"],
-                        "LAST HASH": last_hash_short
-                    },
-                    "spacing": self.spacing_value,
-                },
-            ]
-        
-            for header_elements in print_out_list:
-                self.functions.print_show_output({
-                    "header_elements" : header_elements
-                }) 
+        self._log_msg("info",f'Last Ordinal: {self.complete_payload["value"]["parent"]["ordinal"]}')
+        self._log_msg("info",f"Last hash: {last_hash}")
+        self._log_msg("info",f'Current Name: {self.ds_config_match["name"]["value"]}')        
+        self._log_msg("info",f'Current Description: {self.ds_config_match["description"]["value"]}')        
+        self._log_msg("info",f'Current Commission: {self.ds_config_match["rewardFraction"]["value"]} [{reward_percent}]')
 
-            if self.verbose and self.update_required: # do not print if no update made
-                self.functions.print_paragraphs([
-                    ["",1],["PAYLOAD VALUE",2,"blue","bold"],
-                    ["*","half","green","bold"],
-                    ["** PAYLOAD START **",1,"white"],
-                    ["*","half","green","bold"],
-                ])
-                print(colored(json.dumps(self.complete_payload,indent=4),"light_yellow"),end="\n")
-                self.functions.print_paragraphs([
-                    ["*","half","green","bold"],
-                    ["** PAYLOAD END **",1,"white"],
-                    ["*","half","green","bold"],
-                ])
-            print("")
+        print_out_list = [
+            {
+                "header_elements": {
+                    "NAME": self.ds_config_match["name"]["value"],
+                    "COMMISSION": reward_percent,
+                },
+                "spacing": self.spacing_value,
+            },
+            {
+                "header_elements": {
+                    "NAME MATCH": self.ds_config_match["name"]["match_str"],
+                    "COMM MATCH": self.ds_config_match["rewardFraction"]["match_str"]
+                },
+                "spacing": self.spacing_value,
+            },
+            {
+                "header_elements": {                
+                    "DESCRIPTION": self.ds_config_match["description"]["value"],
+                },
+                "spacing": self.spacing_value,
+            },
+            {
+                "header_elements": {
+                    "DESCRIPTION MATCH": self.ds_config_match["description"]["match_str"]
+                },
+                "spacing": self.spacing_value,
+            },
+            {
+                "header_elements": {
+                    "LAST ORDINAL": self.complete_payload["value"]["parent"]["ordinal"],
+                    "LAST HASH": last_hash_short
+                },
+                "spacing": self.spacing_value,
+            },
+        ]
+    
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            }) 
+
+        if self.verbose and self.update_required: # do not print if no update made
+            self.functions.print_paragraphs([
+                ["",1],["PAYLOAD VALUE",2,"blue","bold"],
+                ["*","half","green","bold"],
+                ["** PAYLOAD START **",1,"white"],
+                ["*","half","green","bold"],
+            ])
+            print(colored(json.dumps(self.complete_payload,indent=4),"light_yellow"),end="\n")
+            self.functions.print_paragraphs([
+                ["*","half","green","bold"],
+                ["** PAYLOAD END **",1,"white"],
+                ["*","half","green","bold"],
+            ])
+        print("")
 
 
     def print_first_run_complete(self):
@@ -404,7 +410,9 @@ class DelegatedStaking:
             ["To confirm your",0], ["delegated staking",0,"yellow"], ["configuration",0],
             ["please issue the delegate",0],["status",0,"yellow"],["command.",1],
             ["Command:",0,"blue","bold"], ["sudo nodectl delegate status",2,"yellow"],
-       ])
+        ])
+
+        exit(0)
 
 
     def print_not_configured_message(self):

@@ -2726,10 +2726,13 @@ class CLI():
             })
             if nodectl_uptodate == "current_greater":  
                 self.functions.print_paragraphs([
-                    ["",1],["Use this version of nodectl with caution because it may produce undesired affects.",0,"yellow"],
+                    ["",1],[" POSSIBLE PRE-RELEASE ",0,"red,on_yellow"],
+                    ["Use this version of nodectl with caution because it may produce undesired affects.",0,"yellow"],
                     ["If the",0,"yellow"], ["sudo nodectl upgrade",0], ["command was used against this version, you may run",0,"yellow"],
                     ["into undesired results if you attempt to downgrade to a previous version.  A new installation of nodectl would be",0,"yellow"],
                     ["a better option to resume on a stable release.",2,"yellow"],
+
+                    ["Proceed with caution.",2,"magenta"],
                 ])   
             elif nodectl_uptodate and nodectl_uptodate != "current_less":
                 self.functions.print_paragraphs([
