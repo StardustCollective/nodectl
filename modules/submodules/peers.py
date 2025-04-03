@@ -45,6 +45,7 @@ class Peers():
 
         self.lookups = ["peer_list"]
         self.search_title = "all peers"
+        self.command_list = ["--state" if item == "--states" else item for item in self.command_list]
 
 
     def handle_csv_file(self):
