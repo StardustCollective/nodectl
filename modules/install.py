@@ -1853,7 +1853,7 @@ class Installer():
         self.functions.print_paragraphs([
             [f"{next_step+2}",0,"magenta","bold"], [")",-1,"magenta"], [f"Stay logged in to this VPS terminal session.",1,"cyan"],
             [f"{next_step+3}",0,"magenta","bold"], [")",-1,"magenta"], [f"Open new terminal.",1,"cyan"],
-            [f"{next_step+4}",0,"magenta","bold"], [")",-1,"magenta"], [f"Confirm ability to log in as:",0,"cyan"],[f"{self.options.user}.",1,"blue","bold"],
+            [f"{next_step+4}",0,"magenta","bold"], [")",-1,"magenta"], [f"Confirm ability to log in as:",0,"cyan"],[f"{self.user.username}.",1,"blue","bold"],
             [f"{next_step+5}",0,"magenta","bold"], [")",-1,"magenta"], [f"Log out of this original terminal session.",1,"cyan"],
             [f"{next_step+6}",0,"magenta","bold"], [")",-1,"magenta"], ["Wait for next cluster restart.",1,"cyan"],
             [f"{next_step+7}",0,"magenta","bold"], [")",-1,"magenta"], ["Confirm your node's status:",1,"cyan"],
