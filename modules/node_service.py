@@ -798,7 +798,7 @@ class Node():
                         "phrase": "Pausing",
                         "p_type": "cmd",
                         "step": -1,
-                        "end_phrase": f"of {cprint('8','cyan',attrs=['bold'])} seconds"
+                        "end_phrase": f"of {colored('8','cyan',attrs=['bold'])} {colored('seconds','magenta')}"
                     })
             
             if exception_found and action == "auto_join":

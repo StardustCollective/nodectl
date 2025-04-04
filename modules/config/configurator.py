@@ -2333,8 +2333,8 @@ class Configurator():
                 ["sign it with your p12 key store",0,"yellow"], ["and transmit it to the metagraph. This will be done automatically",0],
                 ["by nodectl, once you execute the",0], ["update",0,"yellow"], ["command.",2],
 
-                [" Review config:",0,"blue","bold"], ["sudo nodectl delegated_staking status",1,"yellow"],
-                ["Please execute:",0,"blue","bold"], ["sudo nodectl delegated_staking update",2,"yellow"],
+                [" Review config:",0,"blue","bold"], ["sudo nodectl delegated status",1,"yellow"],
+                ["Please execute:",0,"blue","bold"], ["sudo nodectl delegated update",2,"yellow"],
             ])
             self.c.functions.print_any_key({})
         

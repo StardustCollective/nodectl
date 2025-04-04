@@ -30,7 +30,7 @@ class DelegatedStaking:
         self.dbl_verbose = False
         self.update_required = False
         self.first_run = False
-        self.first_time_confirmed = False
+        self.update_executed = False
         self.spacing_value = 18
 
         self.set_crypto()
@@ -45,7 +45,7 @@ class DelegatedStaking:
     # ==== primary actions ====
 
     def general_router(self):
-        self.print_title()
+        self.print_title(f"REQUESTED {self.action}")
         self.handle_payload_init()
         self.handle_last_ref_init()
         self.handle_compare_last_ref()
@@ -57,6 +57,13 @@ class DelegatedStaking:
         if not self.update_required:
             self.print_no_update_needed()
 
+        self.handle_final_payload_build()
+        self.functions.print_header_title({
+            "line1": "STATUS BEFORE UPDATE",
+            "single_line": True,
+            "newline": "bottom",
+        })
+        self.print_value_comparison() 
         self.print_disable_warning()
         self.get_p12p()
 
@@ -85,26 +92,27 @@ class DelegatedStaking:
         if self.debug or self.dbl_verbose: 
             self.crypto.debug = True
         self.crypto.log_data()
-        self.handle_final_payload_build()
-        
-        print("")
 
-        self.print_value_comparison()   
+        self.handle_final_payload_build()
         self.send_payload()
 
         self.dbl_verbose = False
         self.verbose = False # do not reprint payload if verbose is enabled
-        self.first_run = False # no longer first run 
 
-        cprint("  Pausing to allow network to process","yellow")
-        sleep(2)
+        cprint("  Pausing to allow network to process.","yellow")
+        self.functions.print_timer({
+            "seconds": 3,
+            "phrase": "Pausing",
+            "p_type": "cmd",
+            "step": -1,
+            "end_phrase": f"of {colored('3','yellow',attrs=['bold'])} {colored('seconds','magenta')}"
+        })
         print("")
-        
         self.status() # verify all is well
 
 
     def remove(self):
-        self.print_title()
+        self.print_title(f"REQUESTED {self.action}")
         self.print_disable_warning()
 
 
@@ -144,8 +152,8 @@ class DelegatedStaking:
                 exit(1)
             else:
                 self.functions.print_paragraphs([
-                    ["",1],[" SUCCESS ",0,"yellow,on_green"], 
-                    ["You have successfully updating your delegated stacking status on the cluster!",2,"green","bold"],
+                    ["",1],[" SUCCESS ",0,"red,on_green"], 
+                    ["You have successfully submitted your delegated stacking update to the metagraph!",2,"green","bold"],
                 ])
                 self._log_msg("info",f"payload sent to the metagraph layer0 | [{self.ds_url}] | [{response_text}]")
 
@@ -192,7 +200,7 @@ class DelegatedStaking:
             ["$DAG",0,"yellow"], ["digital currency transfers, transactions, and manipulations,",0],
             ["authentication is required before proceeding.",2],
 
-            ["You will be prompted to enter your",0], ["p12 passphrase",0,"yellow"], 
+            ["You are being prompted to enter your",0], ["p12 passphrase",0,"yellow"], 
             ["to verify your identity and secure the transaction process. This step ensures that only",0],
             ["authorized users can execute sensitive operations.",2],
 
@@ -205,11 +213,11 @@ class DelegatedStaking:
     # ==== handlers ====
 
     def handle_compare_last_ref(self):
-        if self.first_run and self.first_time_confirmed: return
+        if self.first_run and self.update_executed: return
 
         url = f"{self.ds_url}{self.nodeid}"
 
-        for n in range(1,3):
+        for _ in range(1,3):
             response = self.functions.get_from_api(url,"yaml")
             if response == "Not Found":
                 self._log_msg("warning","Response from lookup resulted in a [404 not found] this may be because the node has not yet participated in an active delegated staking session. You may safely ignore this message unless other issues arise.")
@@ -241,8 +249,12 @@ class DelegatedStaking:
 
         for key in self.ds_config_match:
             section, response_key = api_response_mapping[key]
-            local_value = self.ds_config_match[key]["value"]
+            local_value = getattr(self.ds_config, key, "no match value")
             api_value = response["latest"]["value"][section][response_key]
+
+            if self.update_executed:
+                if self.payload_value["parent"]["ordinal"] == response["lastRef"]["ordinal"]:
+                    local_value = api_value
 
             if local_value == api_value:
                 self.ds_config_match[key]["match_str"] = colored(f"{'True':<{self.spacing_value}}", "green", attrs=["bold"])
@@ -319,17 +331,19 @@ class DelegatedStaking:
 
     # ==== print methods ====
 
-    def print_title(self):
+    def print_title(self,title):
+        if self.update_executed: return
+
         self.functions.print_header_title({
-            "line1": f"REQUESTED {self.action}",
+            "line1": title,
             "single_line": True,
             "newline": "bottom"
         })
 
 
     def print_value_comparison(self):
-        if not self.first_time_confirmed:
-            self.first_time_confirmed = True
+        if not self.update_executed:
+            self.update_executed = True
         elif self.first_run:
             self.print_first_run_complete()
 
@@ -485,16 +499,17 @@ class DelegatedStaking:
 
 
     def print_disable_warning(self):
-        self.functions.print_paragraphs([
-            [" IMPORTANT ",2,"red,on_green","bold"],
-            ["Once delegating staking is enabled on a",0], ["validator node",0,"yellow"],
-            ["it",0], ["cannot be disabled.",2,"red","bold"], 
+        if self.first_run or self.action == "remove":
+            self.functions.print_paragraphs([
+                [" IMPORTANT ",2,"red,on_green","bold"],
+                ["Once delegating staking is enabled on a",0], ["validator node",0,"yellow"],
+                ["it",0], ["cannot be disabled.",2,"red","bold"], 
 
-            [" NO NEGATIVE IMPACT ",2,"red,on_green","bold"], 
-            ["Delegating your node to the community of delegated stakers has no negative effects on your",0],
-            ["node's performance or node rewards. This process is designed to enhance network participation",0],
-            ["without compromising your node's functionality or incentives.",2],
-        ])
+                [" NO NEGATIVE IMPACT ",2,"red,on_green","bold"], 
+                ["Delegating your node to the community of delegated stakers has no negative effects on your",0],
+                ["node's performance or node rewards. This process is designed to enhance network participation",0],
+                ["without compromising your node's functionality or incentives.",2],
+            ])
 
 
 if __name__ == "__main__":

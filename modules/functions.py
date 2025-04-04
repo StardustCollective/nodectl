@@ -1087,6 +1087,7 @@ class Functions():
 
     def get_from_api(self,url,utype):
         is_json = True if utype == "json" else False
+        session = False
         session = self.set_request_session(is_json)
         try:
             if utype == "json":
