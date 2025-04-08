@@ -5209,6 +5209,15 @@ class CLI():
                   
 
     def cli_check_tcp_ports(self,command_obj):
+        try:
+            _ = socket.has_ipv6 and path.exists("/proc/net/if_inet6")
+        except Exception:
+            self.functions.print_paragraphs([
+                ["You must have the Debian",0,"red"], ["IPv6",0,"yellow"], ["module installed",0,"red"],
+                ["to utilize this feature",2,"red"]
+            ])
+            exit(colored("  No IPv6 module found","red"))
+
         caller = command_obj.get("caller","check_tcp_ports")
         argv_list = command_obj.get("argv_list",[])   
         self.functions.check_for_help(argv_list,"check_tcp_ports")
@@ -5225,7 +5234,7 @@ class CLI():
             profile_names = [profile]
 
         self.print_title("TCP PORT TESTING")
-        self.functions.print_paragrpahs([
+        self.functions.print_paragraphs([
             ["See",0],["help",0,"yellow"],["for more information on this command.",1]
         ])
 

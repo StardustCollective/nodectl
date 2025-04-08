@@ -1,6 +1,7 @@
 import math
 import random
 import json
+import scapy.utils
 import urllib3
 import csv
 import yaml
@@ -49,57 +50,13 @@ from grp import getgrnam
 from shutil import copy2
 from sys import exit, stdout, stdin, modules
 from pathlib import Path
-from types import SimpleNamespace
+from types import SimpleNamespace, ModuleType
 from packaging import version
 from .troubleshoot.help import build_help
 from pycoingecko import CoinGeckoAPI
 
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
-
-def ipv6_available():
-    try:
-        return socket.has_ipv6 and path.exists("/proc/net/if_inet6")
-    except Exception:
-        return False
-
-if not ipv6_available():
-    for mod in [
-        "scapy.route6",
-        "scapy.utils6",
-        "scapy.layers.inet6",
-        "scapy.layers.vxlan",
-        "scapy.layers.vrrp",
-        "scapy.layers.tuntap",
-        "scapy.layers.dhcp6",
-        "scapy.layers.ipsec",
-        "scapy.layers.isakmp",
-        "scapy.layers.ppp",
-        "scapy.layers.l2tp",
-        "scapy.layers.dcerpc",
-        "scapy.layers.ldap",
-        "scapy.layers.dns",       # indirectly imports inet6
-        "scapy.layers.lltd",
-        "scapy.layers.llmnr",
-        "scapy.layers.netflow",
-        "scapy.layers.sixlowpan",
-        "scapy.layers.smb",
-        "scapy.layers.smbclient",
-        "scapy.layers.smbserver",
-        "scapy.arch.linux.rtnetlink",  # root cause
-    ]:
-        modules[mod] = None
-
-    import scapy.config
-    scapy.config.conf.ipv6_enabled = False
-
-    # Remove known IPv6 layers that cause issues if IPv6 is broken/missing
-    scapy.config.conf.load_layers = [
-        layer for layer in scapy.config.conf.load_layers
-        if layer not in ("inet6", "vxlan", "vrrp", "tuntap")  # you can add more if needed
-    ]
-from scapy.all import TCP, sniff
-
 
 class TerminateFunctionsException(Exception): pass
 
@@ -3137,6 +3094,17 @@ class Functions():
      
            
     def test_for_tcp_packet(self, command_obj):
+        try:
+            _ = socket.has_ipv6 and path.exists("/proc/net/if_inet6")
+        except Exception:
+            self.print_paragraphs([
+                ["You must have the Debian",0,"red"], ["IPv6",0,"yellow"], ["module installed",0,"red"],
+                ["to utilize this feature",2,"red"]
+            ])
+            exit(colored("  No IPv6 module found","red"))
+
+        from scapy.all import TCP, sniff 
+
         interface = command_obj.get("interface", False)
         timeout = command_obj.get("timeout", 10)
         tcp_test_results = command_obj.get("tcp_test_results", {})
