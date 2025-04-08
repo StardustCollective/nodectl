@@ -47,7 +47,7 @@ from os import getenv, path, walk, environ, get_terminal_size, scandir, popen, l
 from pwd import getpwnam
 from grp import getgrnam
 from shutil import copy2
-from sys import exit, stdout, stdin
+from sys import exit, stdout, stdin, modules
 from pathlib import Path
 from types import SimpleNamespace
 from packaging import version
@@ -58,13 +58,38 @@ from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 
 def ipv6_available():
-    return False
     try:
         return socket.has_ipv6 and path.exists("/proc/net/if_inet6")
     except Exception:
         return False
 
 if not ipv6_available():
+    for mod in [
+        "scapy.route6",
+        "scapy.utils6",
+        "scapy.layers.inet6",
+        "scapy.layers.vxlan",
+        "scapy.layers.vrrp",
+        "scapy.layers.tuntap",
+        "scapy.layers.dhcp6",
+        "scapy.layers.ipsec",
+        "scapy.layers.isakmp",
+        "scapy.layers.ppp",
+        "scapy.layers.l2tp",
+        "scapy.layers.dcerpc",
+        "scapy.layers.ldap",
+        "scapy.layers.dns",       # indirectly imports inet6
+        "scapy.layers.lltd",
+        "scapy.layers.llmnr",
+        "scapy.layers.netflow",
+        "scapy.layers.sixlowpan",
+        "scapy.layers.smb",
+        "scapy.layers.smbclient",
+        "scapy.layers.smbserver",
+        "scapy.arch.linux.rtnetlink",  # root cause
+    ]:
+        modules[mod] = None
+
     import scapy.config
     scapy.config.conf.ipv6_enabled = False
 

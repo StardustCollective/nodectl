@@ -185,6 +185,11 @@ class Configurator():
             "argv_list": [action,"configurator"],
         })
 
+        try:
+            self.p12_obj = deepcopy(self.c.p12)
+        except:
+            pass # safe to ignore
+
         versioning = Versioning({
             "config_obj": self.config_obj,
             "print_messages": False,
@@ -798,6 +803,30 @@ class Configurator():
             "status_color": "green",
         })
         
+        if not self.p12_obj.keyphrase_validate({
+            "profile": "global" if ptype == "global" else profile,
+            "passwd": f"{p12_values['passphrase']}",
+            "operation": "p12_passphrase",
+        }):
+            self.c.functions.print_paragraphs([
+                ["",1],[" PASSPHRASE ISSUE ",0,"yellow,on_red"], ["You have attempted to input a passphrase",0,"red"],
+                ["that was not able to unlock your",0,"red"],["p12",0,"yellow"], ["keystore.",2,"red"],
+
+                ["Your configuration will",0,"red"], ["MOST LIKELY",0,"magenta"], ["fail validation",0,"red"],
+                ["rending the nodectl utility unusable.",2,"red"],
+
+                ["It is strongly advised to stop here. Recover your passphrase from your passphrase manager or notes",0],
+                ["and try again using the",0], ["G",0,"yellow"], ["option from the edit menu.",2],
+            ])
+            if self.c.functions.confirm_action({
+                "prompt": f"Return to the main menu?",
+                "yes_no_default": "y",
+                "return_on": "y",
+                "exit_if": False    
+            }):
+                self.return_to_main_menu_request = True
+                return
+
         if not self.is_all_global and profile == "None":
             self.is_all_global = False
             p12_value = {} # reset
@@ -4329,7 +4358,9 @@ class Configurator():
 
     def perform_encryption(self,profile,encryption_obj,effp,pass3,caller):
         pass_key = "passphrase"
-        first_run, write_append, pass_error = False, True, False
+        write_append = True
+        first_run = False 
+        pass_error = False
         enc_pass = None
         pass4 = pass3
         
@@ -4338,7 +4369,7 @@ class Configurator():
         except:
             pass
 
-        for attempt in range(0,2):
+        for attempt in range(0,6):
             if pass3 and pass3 != "None":
                 pass3 = pass3.strip()
                 pass3 = str(pass3) # required if passphrase is enclosed in quotes
@@ -4365,6 +4396,15 @@ class Configurator():
                 pass_error = True
 
             if pass_error:
+                if attempt < 4:
+                    if self.c.functions.confirm_action({
+                        "yes_no_default": "y",
+                        "return_on": "y",
+                        "prompt": "Try again?",
+                        "exit_if": False,
+                    }):
+                        pass_error = False
+                        continue
                 self.error_messages.error_code_messages({
                     "error_code": "cfr-3092",
                     "line_code": "invalid_passphrase",
@@ -4372,11 +4412,14 @@ class Configurator():
                 })
 
             if not self.quick_install and not pass3:
-                self.c.functions.print_header_title({
-                    "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
-                    "newline": "both",
-                    "single_line": True,
-                })
+                if attempt > 0:
+                    print("")
+                else:
+                    self.c.functions.print_header_title({
+                        "line1": "GLOBAL P12" if profile == "global_p12" else profile.upper(),
+                        "newline": "both",
+                        "single_line": True,
+                    })
 
             default_seed = ''.join(choice(ascii_letters) for _ in range(16))
             if self.quick_install or self.action == "install":
@@ -4403,7 +4446,17 @@ class Configurator():
                                 "error_code": "cfr-4308",
                                 "line_code": "corrupt_p12_keystore",
                             })
-                        pass3 = f"{pass1.strip()}"
+                        else:
+                            if not pass1:
+                                self.c.functions.print_paragraphs([
+                                    ["",1],["p12 passphrase did not validate against the configured",0,"red"],
+                                    ["keystore on this node.",1,"red"],
+                                ])
+                                pass_error = True
+                                continue
+
+                            pass_error = False
+                            pass3 = f"{pass1.strip()}"
             
             if not self.quick_install and first_run:
                 print("")

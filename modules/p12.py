@@ -346,6 +346,8 @@ class P12Class():
         self.log.logger[self.log_key].info(f"p12 keyphrase validation process started")
         
         for attempts in range(0,5):
+            if operation in ["encryption"] and attempts > 0:
+                return False
             if profile == "global":
                 self.set_variables(True,None)      
                 if self.config_obj["global_p12"]["encryption"] and not manual: 
@@ -383,7 +385,7 @@ class P12Class():
                     sleep(.5)
                     passwd = self.config_obj["global_p12"]["passphrase"]  # redundant
 
-            if not passwd:
+            if not passwd or passwd == "None":
                 if caller in force_exceptions:
                     self.functions.print_paragraphs([
                         ["You may press",0],["q",0,"yellow"],["+",0],
@@ -391,6 +393,9 @@ class P12Class():
                         ["to quit",1],
                         ["You will not see the",0,"magenta"],["q",0,"yellow"],["echoed to the screen.",1,"magenta"],
                     ])
+                if operation == "p12_passphrase" and attempts < 2:
+                    cprint("  Unable to unlock p12 with provided passphrase","red",attrs=["bold"])
+
                 pass_ask = colored(f'  Please enter your p12 passphrase to validate','cyan')
                 if profile != "global":
                     pass_ask += colored(f'\n  profile [','cyan')
@@ -438,12 +443,15 @@ class P12Class():
                     attempts += 1
                 self.functions.print_clear_line()
                 print(f"{colored('  Passphrase invalid, please try again attempt [','red',attrs=['bold'])}{colored(attempts,'yellow')}{colored('] of 3','red',attrs=['bold'])}")
-            passwd = self.config_obj["global_p12"]["passphrase"]
+            if operation not in ["encryption"]: 
+                passwd = self.config_obj["global_p12"]["passphrase"]
             if attempts > 1:
                 passwd = False
             
             
             if attempts > 2:
+                if operation in ["p12_passphrase","encryption"]:
+                    return False
                 self.error_messages.error_code_messages({
                     "error_code": "p-146",
                     "line_code": "invalid_passphrase",
