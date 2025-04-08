@@ -1,15 +1,4 @@
-from time import sleep, perf_counter
-from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, SEEK_END, SEEK_CUR
-from shutil import copy2, move
-from sys import exit, setrecursionlimit
-from types import SimpleNamespace
-from getpass import getpass
-from termcolor import colored, cprint
-from secrets import compare_digest
-from copy import deepcopy
-from scapy.all import sniff
-from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
+
 from .troubleshoot.logger import Logging
 
 class Menu():
@@ -195,3 +184,7 @@ class Menu():
             choice = (choice[1],self.argv)
 
         return choice
+    
+    
+if __name__ == "__main__":
+    print("This module is not designed to be run independently, please refer to the documentation")

@@ -153,7 +153,7 @@ class DelegatedStaking:
             else:
                 self.functions.print_paragraphs([
                     ["",1],[" SUCCESS ",0,"red,on_green"], 
-                    ["You have successfully submitted your delegated stacking update to the metagraph!",2,"green","bold"],
+                    ["You have successfully submitted your delegated staking update to the metagraph!",2,"green","bold"],
                 ])
                 self._log_msg("info",f"payload sent to the metagraph layer0 | [{self.ds_url}] | [{response_text}]")
 
@@ -469,7 +469,7 @@ class DelegatedStaking:
     def print_first_run(self):
         self.functions.print_paragraphs([
             [" WARNING ",0,"red,on_yellow"], ["The nodectl utility has detected",0,"red"],
-            ["that this is the first time",0],  ["delegated stacking",0,"yellow"], 
+            ["that this is the first time",0],  ["delegated staking",0,"yellow"], 
             ["has been requested from this node using the",0],
             ["p12 key store",0,"yellow"], ["currently configured.",2],
 

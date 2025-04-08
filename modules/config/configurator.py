@@ -2135,7 +2135,7 @@ class Configurator():
 
         if not self.staking_config:
             self.c.functions.print_paragraphs([
-                [" New Configuration Detected! ",2,"green,on_yellow"],
+                [" New Configuration Detected! ",2,"red,on_yellow"],
                 ["Or invalid configuration detected that will be overwritten.",2,"red"],
 
                 ["CONFIGURATION NOTICE",1,"magenta","bold"], 
@@ -2153,7 +2153,7 @@ class Configurator():
                 ["update",0,"blue","bold"], ["operation is completed.",2,"yellow"],
 
                 ["The configurator solely handles the creation or updating of the delegated staking configuration. It does not",0,"yellow"],
-                ["initiate delegated staking automatically. To activate the configuration, a manual",2,"yellow"],
+                ["initiate delegated staking automatically. To activate the configuration, a manual",0,"yellow"],
                 ["update",0,"blue","bold"],["request must be issued.",2,"yellow"],
 
                 ["Carefully consider your settings before finalizing the configuration.",2,"magenta"],
@@ -2265,8 +2265,62 @@ class Configurator():
                 else:
                     data["rewardFraction"] = precision_percent
                     break
+
+
+            def update_error_value(error_found):
+                for key, errored_key in error_found.items():
+                    if errored_key:
+                        if key == "str_error":
+                            reason = "not a string"
+                        elif key == "utf_error":
+                            reason = "invalid utf-8 string"
+                        elif key == "len_error":
+                            e_values = errored_key.split(":")
+                            errored_key = e_values[0]
+                            reason = f"Must be 140 characters or less [len:{e_values[1]}]"
+                            
+                        self.log.logger[self.log_key].error(f"delegated staking parameter error [{errored_key}] reason [{reason}]")
+                        self.c.functions.print_paragraphs([
+                            [" ERROR ",0,"yellow,on_red"], ["Invalid",0,"red"], [errored_key,0,"yellow"], ["value found.",1,"red"],
+                            ["Reason:",0,"blue","bold"], [reason,2,"yellow"]
+                        ])
+                        prompt = colored("  Please re-enter ","cyan")   
+                        prompt += colored(errored_key,"yellow")
+                        prompt += colored(" value again: ","cyan")    
+                        return input(prompt)
+            
+
+            while True:
+                error_found = {
+                    "str_error": False,
+                    "utf_error": False,
+                    "len_error": False,
+                }
+
+                for key in ["name","description"]:
+                    length_requirement = 140
+                    val_value = data[key]
+                    try:
+                        if isinstance(val_value, bytes):
+                            val_value = val_value.decode("utf-8")
+                        if not isinstance(val_value, str):
+                            error_found["str_error"] = key
+                        if len(val_value) > length_requirement:
+                            error_found["len_error"] = f"{key}:{len(val_value)}"
+                    except:
+                        error_found["utf_error"] = key
+                    if any(error_found.values()):
+                        break
+                
+                if any(error_found.values()):
+                    data[key] = update_error_value(error_found)  
+                else:
+                    break          
+
         else:
             data = deepcopy(self.staking_config)
+
+        
 
         if do_edit:
             data["enable"] = "False" if self.staking_config["enable"] else "True" # opposite
@@ -2334,9 +2388,9 @@ class Configurator():
                 ["by nodectl, once you execute the",0], ["update",0,"yellow"], ["command.",2],
 
                 ["To review your config settings issue:",1,"blue","bold"], 
-                ["sudo nodectl delegated status",1,"yellow"],
+                ["sudo nodectl delegate status",1,"yellow"],
                 ["To update the metagraph execute:",1,"blue","bold"], 
-                ["sudo nodectl delegated update",2,"yellow"],
+                ["sudo nodectl delegate update",2,"yellow"],
             ])
             self.c.functions.print_any_key({})
         
@@ -2370,7 +2424,7 @@ class Configurator():
 
         if not self.alerting_config:
             self.c.functions.print_paragraphs([
-                [" New Configuration Detected! ",1,"green,on_yellow"],
+                [" New Configuration Detected! ",1,"red,on_yellow"],
                 ["Or invalid configuration detected that will be overwritten.",2,"red"],
                 ["STEP ONE",1,"magenta","bold"], ["-","half","magenta"],["Please refer to the",0,"white","bold"],["Constellation Network",0,"blue","bold"],
                 ["documentation hub to follow the quick start guide to prepare your:",1,"white","bold"],
@@ -2409,6 +2463,16 @@ class Configurator():
                     "exit_if": False
                 }):
                     self.alerting_config["enable"] = False
+
+                if self.alerting_config["enable"]:
+                    if self.c.functions.confirm_action({
+                        "prompt": "Update configuration?",
+                        "yes_no_default": "n",
+                        "return_on": "n",
+                        "exit_if": False
+                    }):
+                        self.return_to_main_menu_request = True
+                        return
             else:
                 if self.c.functions.confirm_action({
                     "prompt": "Enable alerting?",

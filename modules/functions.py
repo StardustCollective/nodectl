@@ -26,7 +26,6 @@ from urllib.parse import urlparse, urlunparse
 from retry_requests import retry
 from requests.exceptions import HTTPError, RequestException, Timeout, ConnectionError
 
-from scapy.all import TCP, sniff
 from hurry.filesize import size, alternative
 from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
 from getpass import getuser
@@ -57,6 +56,25 @@ from pycoingecko import CoinGeckoAPI
 
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
+
+def ipv6_available():
+    return False
+    try:
+        return socket.has_ipv6 and path.exists("/proc/net/if_inet6")
+    except Exception:
+        return False
+
+if not ipv6_available():
+    import scapy.config
+    scapy.config.conf.ipv6_enabled = False
+
+    # Remove known IPv6 layers that cause issues if IPv6 is broken/missing
+    scapy.config.conf.load_layers = [
+        layer for layer in scapy.config.conf.load_layers
+        if layer not in ("inet6", "vxlan", "vrrp", "tuntap")  # you can add more if needed
+    ]
+from scapy.all import TCP, sniff
+
 
 class TerminateFunctionsException(Exception): pass
 
