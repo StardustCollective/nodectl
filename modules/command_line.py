@@ -6403,6 +6403,12 @@ class CLI():
         profile_error = False
         profile = None
         executor0, executor1, executor2, executor3, executor4 = False, False, False, False, False
+        already_started_migration = False
+
+        forced = False
+        if "--forced" in profile_argv:
+            self.log.logger[self.log_key].warning("execute_directory_restructure -> data migration request with [--forced] detected and will ignore fail safes.")
+            forced = True
 
         if not self.auto_restart:
             self.functions.print_header_title({
@@ -6519,7 +6525,7 @@ class CLI():
                     "prompt_color": "magenta",
                     "exit_if": True,
                 })
-        elif env != "testnet" and "v3" != version[:2]:
+        elif not forced and env != "testnet" and "v3" != version[:2]:
             if not self.auto_restart:
                 cprint("  Migrate not needed","red")
             return "not_needed"
@@ -6561,7 +6567,9 @@ class CLI():
             r_brackets = "required"
 
             self.log.logger[self.log_key].info(f"cli -> execute_directory_restructure -> testing for migration requirement")
-            if path.isdir(f"{data_dir}/hash") and path.isdir(f"{data_dir}/ordinal"):
+
+            if path.isdir(f"{data_dir}/hash") and path.isdir(f"{data_dir}/ordinal") and not forced:
+                already_started_migration = True
                 r_color = "green"
                 r_brackets = "passed"
                 r_status = "skipping"                
@@ -6577,7 +6585,21 @@ class CLI():
                     "dotted_animation": False,
                 })
 
-        if r_status == "skipping": 
+        if forced:
+            self.functions.print_paragraphs([
+                ["",1],[" FORCED ",0,"red,on_yellow"], ["A new data directory structure has already",0,"yellow"],
+                ["been detected on this node, but",0,"yellow"], ["--forced",0,"red"],
+                ["was detected. If you have previously attempted the migration and the process",0,"yellow"],
+                ["did not fully complete,",0,"magenta"], ["it should be safe to continue from this point.",1,"yellow"],
+            ])
+            _ = self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt": "Continue with Migration?",
+                "prompt_color": "cyan",
+                "exit_if": True,
+            })
+        elif r_status == "skipping": 
             self.log.logger[self.log_key].info("cli -> execute_directory_restructure -> found this process is not needed -> skipping")
             return "not_needed"
 
@@ -6678,7 +6700,7 @@ class CLI():
         if not self.auto_restart:
             self.functions.print_paragraphs([
                 ["",1], [" WARNING ",0,"red,on_yellow"], ["The migration of the data for v3.x.x",0,"yellow"],
-                ["may take a few minutes to complete. Please exercise patience while this",0,"yellow"],
+                ["may take more than few minutes to complete. Please exercise patience while this",0,"yellow"],
                 ["process completes.",2,"yellow"],
             ])
 
