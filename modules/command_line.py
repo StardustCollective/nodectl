@@ -6406,8 +6406,8 @@ class CLI():
         already_started_migration = False
 
         forced = False
-        if "--forced" in profile_argv:
-            self.log.logger[self.log_key].warning("execute_directory_restructure -> data migration request with [--forced] detected and will ignore fail safes.")
+        if "--force" in profile_argv:
+            self.log.logger[self.log_key].warning("execute_directory_restructure -> data migration request with [--force] detected and will ignore fail safes.")
             forced = True
 
         if not self.auto_restart:
@@ -6588,7 +6588,7 @@ class CLI():
         if forced:
             self.functions.print_paragraphs([
                 ["",1],[" FORCED ",0,"red,on_yellow"], ["A new data directory structure has already",0,"yellow"],
-                ["been detected on this node, but",0,"yellow"], ["--forced",0,"red"],
+                ["been detected on this node, but",0,"yellow"], ["--force",0,"red"],
                 ["was detected. If you have previously attempted the migration and the process",0,"yellow"],
                 ["did not fully complete,",0,"magenta"], ["it should be safe to continue from this point.",1,"yellow"],
             ])
