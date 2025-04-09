@@ -1,7 +1,6 @@
 import math
 import random
 import json
-import scapy.utils
 import urllib3
 import csv
 import yaml
@@ -24,8 +23,9 @@ import base64
 
 from requests import Session
 from urllib.parse import urlparse, urlunparse
-from retry_requests import retry
 from requests.exceptions import HTTPError, RequestException, Timeout, ConnectionError
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from hurry.filesize import size, alternative
 from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
@@ -1122,11 +1122,20 @@ class Functions():
         var = SimpleNamespace(**command_obj)
         spinner = command_obj.get("spinner",True)
         results = False
+
+        try:
+            s_timeout = var.timeout
+        except:
+            s_timeout = (0.1, 0.5)
         
         uri = f"http://{var.ip_address}:{var.port}{var.api_endpoint}"
         if var.port == 443:
             uri = f"https://{var.ip_address}{var.api_endpoint}"
             
+        # uri = "http://10.255.255.1:80/api/something"
+
+        session = self.set_request_session(True)
+
         with ThreadPoolExecutor() as executor:
             do_thread = False # avoid race conditions
             # self.log.logger[self.log_key].debug(f"auto_restart set to [{self.auto_restart}]")
@@ -1139,39 +1148,37 @@ class Functions():
                         "color": "magenta",
                     })   
                 
-            for n in range(var.attempt_range+1):
-                try:
-                    session = self.set_request_session()
-                    session.verify = False
-                    session.timeout=2
-                    results = session.get(uri, timeout=self.session_timeout).json()
-                except:
-                    if n > var.attempt_range:
-                        if not self.auto_restart:
-                            self.network_unreachable_looper()
-                        else:
-                            self.event = False
-                            return
-                    self.log.logger[self.log_key].warning(f"attempt to pull details for LB failed, trying again - attempt [{n+1}] of [10] - sleeping [{var.error_secs}s]")
-                    sleep(var.error_secs)
-                else:
-                    if "consensus" in var.api_endpoint:
-                        results = results["peers"]
-                    try:
-                        results.append({
-                            "nodectl_found_peer_count": len(results)
-                        })
-                    except:
-                        self.log.logger[self.log_key].warning("network may have become unavailable during cluster_info_list verification checking.")
-                        results = [{"nodectl_found_peer_count": 0}]
-                finally:
-                    session.close()
-                    
+            try:
+                response = session.get(uri,timeout=s_timeout)
+                response.raise_for_status()
+                results = response.json()
+
+                if "consensus" in var.api_endpoint:
+                    results = results["peers"]
+                results.append({
+                    "nodectl_found_peer_count": len(results)
+                })
+
                 self.event = False
-                return results 
-            
-            if do_thread:
-                self.event = False  
+
+            except Timeout as e:
+                self.log.logger[self.log_key].warning(f"[Timeout]  {e} for {uri}")
+                results = False
+            except ConnectionError as e:
+                self.log.logger[self.log_key].warning(f"[ConnectionError] {e} for {uri}")
+                results = False
+            except RequestException as e:
+                self.log.logger[self.log_key].warning(f"[RequestException] {e} for {uri}")
+                results = False
+            except Exception as e:
+                self.log.logger[self.log_key].warning(f"[Unexpected error] {e} for {uri}")
+                results = False
+            finally:
+                if do_thread:
+                    self.event = False  
+                session.close()
+
+        return results
             
         
     def get_dirs_by_profile(self,command_obj):
@@ -1324,6 +1331,7 @@ class Functions():
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type","list")
+        s_timeout = command_obj.get("timeout",1)
         
         json = True if header == "json" else False
         return_data = []
@@ -1347,8 +1355,7 @@ class Functions():
         try:
             session = self.set_request_session(json)
             session.verify = False
-            session.timeout = 2
-            results = session.get(uri, timeout=self.session_timeout).json()
+            results = session.get(uri, timeout=s_timeout).json()
             results = results[get_results]
         except Exception as e:
             self.log.logger[self.log_key].warning(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
@@ -1766,13 +1773,16 @@ class Functions():
         session.headers.update(get_headers)   
         session.params = {'random': random.randint(10000,20000)}
 
-        session = retry(
-            session = session,
-            retries=u_retries, 
-            backoff_factor=.1, 
-            status_to_retry=(429, 500, 502, 503, 504),  
-            allowed_methods=["GET", "POST", "PUT", "PATCH"],
+        retries = Retry(
+            total=3,
+            backoff_factor=0.02,  
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"],
+            raise_on_status=False,
         )
+
+        session.mount("http://", HTTPAdapter(max_retries=retries))
+        session.mount("https://", HTTPAdapter(max_retries=retries))
 
         return session
     
