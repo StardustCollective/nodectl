@@ -26,6 +26,7 @@ from .logger import Logging
 # environment_error
 
 # file_not_found
+# file_issue
 
 # invalid_passphrase
 # invalid_passphrase_pass
@@ -717,6 +718,15 @@ class Error_codes():
                     [" Hint: ",0,"blue","bold"], [var.extra2,2,"yellow"],
                 ])                         
                 
+                                     
+        elif var.line_code == "file_issue":
+            self.log.logger[self.log_key].warning(f"file manipulation failed with [{var.extra}], and nodectl could not recover: exited utility .")
+            self.functions.print_paragraphs([
+                ["System has attempted to access a file unsuccessfully.",2,"red","bold"],
+                ["Operation cancelled to avoid unexpected errors | Please try again later.",2,"magenta"],
+                [" Error: ",0,"blue","bold"], [var.extra,2,"yellow"],
+            ])     
+            
                                      
         elif var.line_code == "download_invalid":
             self.log.logger[self.log_key].critical(f"invalid download forced operation to halt. url [{var.extra}], exited utility .")

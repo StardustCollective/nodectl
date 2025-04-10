@@ -215,6 +215,7 @@ class Peers():
                         "api_port": public_port,
                         "api_endpoint": "/metrics",
                         "result_type": "text",
+                        "timeout": (1,0.5),
                     })
                 if info_type_results is None:
                     self.parent.log.logger[self.parent.log_key].warning(f"info_type requested but not found: [{self.info_type_list}]")
@@ -414,7 +415,7 @@ class Peers():
                     self.first_item = False
                 elif self.is_basic:
                     spacing = 23
-                    status_results = f"  {self.print_peer: <{spacing}}"                        
+                    self.status_results = f"  {self.print_peer: <{spacing}}"                        
                 else:
                     if self.requested_states:
                         found_state = self._get_state_print(peer)

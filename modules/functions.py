@@ -855,6 +855,7 @@ class Functions():
         api_endpoint = command_obj.get("api_endpoint","/node/info")
         info_list = command_obj.get("info_list",["all"])
         result_type = command_obj.get("result_type","json")
+        r_timeout = command_obj.get("timeout",(0.2,0.5))
         
         # dictionary
         #  api_host: to do api call against
@@ -882,7 +883,6 @@ class Functions():
         result_list = []
         try:
             r_session = self.set_request_session()
-            r_timeout = (0.2,0.5)
             session = r_session.get(api_url, timeout=r_timeout)
             if result_type == "json":
                 session = session.json()
@@ -4100,12 +4100,23 @@ class Functions():
                 else:
                     response.raise_for_status()
                     etag = response.headers.get("ETag")
-                    with open(local,'wb') as output_file:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            output_file.write(chunk)
-                    if etag:
-                        with open(f'{local}.etag','w') as output_file_etag:
-                            output_file_etag.write(etag)
+                    for n in range(0,2):
+                        try:
+                            with open(local,'wb') as output_file:
+                                for chunk in response.iter_content(chunk_size=8192):
+                                    output_file.write(chunk)
+                            if etag:
+                                with open(f'{local}.etag','w') as output_file_etag:
+                                    output_file_etag.write(etag)
+                        except Exception as e:
+                            if n > 0:
+                                self.error_messages.error_code_messages({
+                                    "error_code": "fnt-4114",
+                                    "line_code": "file_issue",
+                                    "extra": e,
+                                })
+                            if path.exists(local):
+                                remove(local)
             self.log.logger[self.log_key].info(f"functions --> download_file [{url}] successful output file [{local}]")
         except HTTPError as e:
             self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
