@@ -327,7 +327,6 @@ class Versioning():
                                     "api_port": api_port,
                                     "api_endpoint": api_endpoint,
                                     "info_list": info_list,
-                                    "tolerance": 2,
                                 })
                             except:
                                 version = "v0.0.0"
@@ -343,7 +342,6 @@ class Versioning():
                                             "api_port": self.functions.lb_urls[self.config_obj[profile]["environment"]][1],
                                             "api_endpoint": "/node/info",
                                             "info_list": ["version"],
-                                            "tolerance": 2,
                                         })
                                     except:
                                         version = "v0.0.0"
@@ -460,11 +458,12 @@ class Versioning():
                 "new_time": self.old_version_obj["next_updated"]
             })
     
+        session = self.functions.set_request_session()
+        s_timeout = (0.2,0.5)
         for _ in range(0,2):
             if do_update or self.force:
                 try:
-                    session = self.functions.set_request_session()
-                    upgrade_path = session.get(self.upgrade_path_path, timeout=self.session_timeout)
+                    upgrade_path = session.get(self.upgrade_path_path, timeout=s_timeout)
                 except:
                     # only trying once (not that important)
                     
@@ -518,7 +517,8 @@ class Versioning():
 
         try:
             session = self.functions.set_request_session()
-            pre_release = session.get(pre_release_uri, timeout=self.session_timeout).json()
+            s_timeout = (0.2,0.5)
+            pre_release = session.get(pre_release_uri, timeout=s_timeout).json()
         except Exception as e:
             self.log.logger[self.log_key].warning(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
         else:

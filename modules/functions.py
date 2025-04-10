@@ -290,197 +290,33 @@ class Functions():
 
             
     def get_peer_count(self,command_obj):
-        peer_obj = command_obj.get("peer_obj",False)
-        edge_obj = command_obj.get("edge_obj",False)
-        profile = command_obj.get("profile",None)
-        compare = command_obj.get("compare",False)
-        count_only = command_obj.get("count_only",False)
-        pull_node_id = command_obj.get("pull_node_id",False)
-        count_consensus = command_obj.get("count_consensus",False)
+        from  modules.submodules.peer_count import PeerCount
+        peer_count_obj = PeerCount(command_obj)
+        peer_count_obj.parent = self
+        peer_count_obj.node_states = self.get_node_states()
 
         try:
-            if not peer_obj:
-                ip_address = self.default_edge_point["host"]
-                api_port = self.default_edge_point["host_port"]
-            else:
-                ip_address = peer_obj["ip"]  
-                localhost_ports = self.pull_profile({
-                    "req": "ports",
-                    "profile": profile,
-                })
-                
-                if peer_obj["ip"] == "127.0.0.1":
-                    api_port = localhost_ports["public"]
-                else:
-                    try:
-                        api_port = peer_obj["publicPort"]
-                    except:
-                        api_port = self.get_info_from_edge_point({
-                            "caller": "get_peer_count",
-                            "profile": profile,
-                            "desired_key": "publicPort",
-                            "specific_ip": ip_address,
-                        })
+            peer_count_obj.get_tcp_stack()
             
-            if count_only:
-                count = self.get_cluster_info_list({
-                    "ip_address": ip_address,
-                    "port": api_port,
-                    "api_endpoint": "/cluster/info",
-                    "spinner": False,
-                    "attempt_range": 4,
-                    "error_secs": 3
-                })
-                try:
-                    count = count.pop()
-                except:
-                    pass  # skip to avoid unnecessary crash if the cluster info comes back bad during iteration
-                if count:
-                    return(count["nodectl_found_peer_count"])
-                else:
-                    return count
+            if peer_count_obj.count_only:
+                return peer_count_obj.handle_count_only()
             
-            if count_consensus:
-                consensus_count = self.get_cluster_info_list({
-                    "ip_address": ip_address,
-                    "port": api_port,
-                    "api_endpoint": "/consensus/latest/peers",
-                    "spinner": False,
-                    "attempt_range": 4,
-                    "error_secs": 3
-                })
-                try:
-                    consensus_count = consensus_count.pop()
-                except:
-                    consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
-            else:
-                consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
+            peer_count_obj.handle_consensus()
+            peer_count_obj.get_cluster_tcp_stack()
             
-            peer_list = list()
-            state_list = list()
-            peers_publicport = list()
-
-            peers_ready = list()        
-            peers_observing = list()
-            peers_waitingforready = list()
-            peers_waitingforobserving = list()
-            peers_downloadinprogress = list()
-            peers_waitingfordownload = list()
+            peer_count_obj.get_peers()
+            if peer_count_obj.peers == "error":
+                return "error"
             
-            node_online = False
-            node_states = self.get_node_states()
-            
-            def pull_states(line):
-                if line["state"] == "Observing":
-                    peers_observing.append(line['ip'])  # count observing nodes
-                elif line["state"] == "Ready":
-                    peers_ready.append(line['ip'])  # count ready nodes
-                elif line["state"] == "WaitingForReady":
-                    peers_waitingforready.append(line['ip'])
-                elif line["state"] == "WaitingForObserving":
-                    peers_waitingforobserving.append(line['ip'])
-                elif line["state"] == "DownloadInProgress":
-                    peers_downloadinprogress.append(line['ip'])
-                elif line["state"] == "WaitingForDownload":
-                    peers_waitingfordownload.append(line['ip'])            
-
-            try:        
-                if compare:
-                    cluster_ip = ip_address
-                elif not edge_obj:
-                    cluster_ip = edge_obj["ip"]
-                    api_port = edge_obj["publicPort"]
-                elif edge_obj["ip"] == "127.0.0.1" or ip_address == "self":
-                    cluster_ip = "127.0.0.1"
-                    api_port = localhost_ports["public"]
-                else:
-                    cluster_ip = edge_obj["ip"]
-                    try:
-                        api_port = edge_obj["publicPort"]
-                    except:
-                        api_port = self.get_info_from_edge_point({
-                            "caller": "get_peer_count",
-                            "profile": profile,
-                            "desired_key": "publicPort",
-                            "specific_ip": edge_obj["ip"],
-                        })
-            except Exception as e:
-                self.log.logger[self.log_key].error(f"Unable to determine cluster_ip, exiting request [{e}]")
-                self.error_messages.error_code_messages({
-                    "line_code": "api_error",
-                    "error_code": "fnt-411",
-                    "extra": profile,
-                    "extra2": self.config_obj[profile]["edge_point"],
-                })
-                
-            attempts = 1
-            while True:
-                try:
-                    session = self.set_request_session()
-                    session.verify = False
-                    session.timeout = 2
-                    url = f"http://{cluster_ip}:{api_port}/cluster/info"
-                    peers = session.get(url,timeout=self.session_timeout)
-                except:
-                    if attempts > 3:
-                        return "error"
-                    attempts = attempts+1
-                    sleep(.5)
-                else:
-                    break
-                finally:
-                    session.close()
-
             try:
-                peers = peers.json()
+                peer_count_obj.peers = peer_count_obj.peers.json()
             except:
-                pass
+                return "error"
             else:
-                ip_address = self.ip_address if ip_address == "127.0.0.1" or ip_address == "self" else ip_address
-                id_ip = ("ip","id") if len(ip_address) < 128 else ("id","ip")
-                try:
-                    for line in peers:
-                        if ip_address in line[id_ip[0]]:
-                            if pull_node_id:
-                                self.our_node_id = line[id_ip[1]]
-                                return
-                            node_online = True
-                            peer_list.append(line[id_ip[0]])
-                            peers_publicport.append(line['publicPort'])
-                            pull_states(line)
-                            state_list.append("*")
-                        else:
-                            # append state abbreviations
-                            for state in node_states:
-                                if state[0] in line["state"]:
-                                    pull_states(line)
-                                    peer_list.append(line[id_ip[0]])
-                                    peers_publicport.append(line['publicPort'])
-                                    state_list.append(state[1])
-                except Exception as e:
-                    self.log.logger[self.log_key].error(f"get peer count - an error occurred attempting to review the line items on a /cluster/info api request | error [{e}]")
-                    pass
-                
-                return {
-                    "peer_list": peer_list,
-                    "peers_publicport": peers_publicport,
-                    "state_list": state_list,
-                    "observing": peers_observing,
-                    "waitingforready": peers_waitingforready,
-                    "waitingforobserving": peers_waitingforobserving,
-                    "waitingfordownload": peers_waitingfordownload,
-                    "downloadinprogress": peers_downloadinprogress,
-                    "ready": peers_ready,
-                    "peer_count": len(peer_list),
-                    "observing_count": len(peers_observing),
-                    "waitingforready_count": len(peers_waitingforready),
-                    "waitingforobserving_count": len(peers_waitingforobserving),
-                    "waitingfordownload_count": len(peers_waitingfordownload),
-                    "downloadinprogress_count": len(peers_downloadinprogress),
-                    "consensus_count": consensus_count["nodectl_found_peer_count"],
-                    "ready_count": len(peers_ready),
-                    "node_online": node_online
-                }
+                peer_count_obj.set_peer_count_obj()
+            
+            return peer_count_obj.final_peer_obj
+        
         except Exception as e:
             self.log.logger[self.log_key].error(f"get peer count - an error occurred during function execution [{e}]")
             self.error_messages.error_code_messages({
@@ -1018,7 +854,6 @@ class Functions():
         api_port = command_obj.get("api_port")
         api_endpoint = command_obj.get("api_endpoint","/node/info")
         info_list = command_obj.get("info_list",["all"])
-        tolerance = command_obj.get("tolerance",2)
         result_type = command_obj.get("result_type","json")
         
         # dictionary
@@ -1045,25 +880,18 @@ class Functions():
             info_list = ["state","session","clusterSession","host","version","publicPort","p2pPort","id"]
         
         result_list = []
-        for n in range(0,tolerance):
-            try:
-                r_session = self.set_request_session()
-                r_session.timeout = (2,2)
-                r_session.verify = False
-                session = r_session.get(api_url, timeout=self.session_timeout)
-                if result_type == "json":
-                    session = session.json()
-            except Exception as e:
-                self.log.logger[self.log_key].error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
-                self.log.logger[self.log_key].error(f"get_api_node_info - error [{e}]")
-                if n == tolerance-1:
-                    self.log.logger[self.log_key].warning(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
-                    return None
-                sleep(1.5)
-            else:
-                break
-            finally:
-                r_session.close()
+        try:
+            r_session = self.set_request_session()
+            r_timeout = (0.2,0.5)
+            session = r_session.get(api_url, timeout=r_timeout)
+            if result_type == "json":
+                session = session.json()
+        except Exception as e:
+            self.log.logger[self.log_key].error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}]")
+            self.log.logger[self.log_key].error(f"get_api_node_info - error [{e}]")
+            return None
+        finally:
+            r_session.close()
 
         if result_type == "json" and len(session) < 2 and "data" in session.keys():
             session = session["data"]
@@ -1087,13 +915,13 @@ class Functions():
 
     def get_from_api(self,url,utype):
         is_json = True if utype == "json" else False
-        session = False
         session = self.set_request_session(is_json)
+        s_timeout = (0.2,0.5)
         try:
             if utype == "json":
-                response = session.get(url, timeout=self.session_timeout).json()
+                response = session.get(url, timeout=s_timeout).json()
             else:
-                response = session.get(url, timeout=self.session_timeout)
+                response = session.get(url, timeout=s_timeout)
         except Exception as e:
             self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}].")
             self.error_messages.error_code_messages({
@@ -1126,7 +954,7 @@ class Functions():
         try:
             s_timeout = var.timeout
         except:
-            s_timeout = (0.1, 0.5)
+            s_timeout = (0.1,0.5)
         
         uri = f"http://{var.ip_address}:{var.port}{var.api_endpoint}"
         if var.port == 443:
@@ -1331,7 +1159,7 @@ class Functions():
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type","list")
-        s_timeout = command_obj.get("timeout",1)
+        s_timeout = command_obj.get("timeout",(0.2,0.5))
         
         json = True if header == "json" else False
         return_data = []
@@ -1883,6 +1711,9 @@ class Functions():
         
         self.log.logger[self.log_key].debug(f"pull_node_session: session_obj [{session_obj}]")
         
+        r_session = self.set_request_session(True)
+        s_timeout = (0.1,0.5)
+
         for i,node in enumerate(nodes):
             state = None
                 
@@ -1907,9 +1738,7 @@ class Functions():
             self.log.logger[self.log_key].debug(f"pull_node_session -> url: {url}")
             
             try:
-                r_session = self.set_request_session()
-                r_session.verify = False
-                session = r_session.get(url, timeout=self.session_timeout).json()
+                session = r_session.get(url, timeout=s_timeout).json()
             except:
                 self.log.logger[self.log_key].error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
             finally:
@@ -2024,26 +1853,20 @@ class Functions():
                     "color": "magenta",
                 })                     
 
-            for n in range(5):
-                try:
-                    session = self.set_request_session()
-                    session.verify = True
-                    session.timeout = 2
-                    uri = self.set_proof_uri({})
-                    # url =f"https://{self.be_urls[environment]}/addresses/{wallet}/balance"
-                    uri = f"{uri}/addresses/{wallet}/balance"
-                    balance = session.get(uri, timeout=self.session_timeout).json()
-                    balance = balance["data"]
-                    balance = balance["balance"]
-                except:
-                    self.log.logger[self.log_key].error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
-                    if n == 9:
-                        self.log.logger[self.log_key].warning(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
-                        break
-                    sleep(1.5)
-                finally:
-                    session.close()
-                break   
+            try:
+                session = self.set_request_session(True)
+                session.verify = True
+                s_timeout = (0.1,0.5)
+                uri = self.set_proof_uri({})
+                uri = f"{uri}/addresses/{wallet}/balance"
+                balance = session.get(uri, timeout=s_timeout).json()
+                balance = balance["data"]
+                balance = balance["balance"]
+            except:
+                self.log.logger[self.log_key].error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}]")
+                self.log.logger[self.log_key].warning(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
+            finally:
+                session.close()
             self.event = False              
         
         try:  
@@ -2418,43 +2241,37 @@ class Functions():
                     "/node/health",               
                     )
 
-        for n in range(0,4):
-            try:
-                session = self.set_request_session()
-                session.verify = True
-                session.timeout = 2
-                health = session.get(uri, timeout=self.session_timeout)
-            except:
-                self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
-                if n > 2:
-                    if not self.auto_restart:
-                        self.network_unreachable_looper()
-                        return False
-                pass
-            else:  
-                if health.status_code != 200:
-                    self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
-                    if n > 2:
-                        if not self.auto_restart:
-                            self.network_unreachable_looper()
-                            return False
-                    else:
-                        pass
-                else:
-                    return True
-            finally:
-                session.close()
-                
+        session = self.set_request_session()
+        s_timeout = (0.1,0.5)
+
+        try:
+            health = session.get(uri, timeout=s_timeout)
+        except:
+            self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
             if not self.auto_restart:
-                sleep(1)
+                self.network_unreachable_looper()
+                return False
+        else:  
+            if health.status_code != 200:
+                self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
+                if not self.auto_restart:
+                    self.network_unreachable_looper()
+                    return False
+            else:
+                return True
+        finally:
+            session.close()
+            
+        if not self.auto_restart:
+            sleep(1)
             
             
     def check_health_endpoint(self,api_port): 
         try:
             session = self.set_request_session()
             session.verify = False
-            session.timeout = 2
-            r = session.get(f'http://127.0.0.1:{api_port}/node/health', timeout=self.session_timeout)
+            s_timeout = (0.1,0.5)
+            r = session.get(f'http://127.0.0.1:{api_port}/node/health', timeout=s_timeout)
         except:
             pass
         else:
@@ -2847,8 +2664,8 @@ class Functions():
                         try: 
                             session = self.set_request_session()
                             session.verify = False
-                            session.timeout = 2 
-                            state = session.get(uri, timeout=self.session_timeout).json()
+                            s_timeout = (0.1,0.5)
+                            state = session.get(uri, timeout=s_timeout).json()
                             color = self.change_connection_color(state)
                             self.log.logger[self.log_key].debug(f"test_peer_state -> uri [{uri}]")
 
@@ -4276,8 +4093,8 @@ class Functions():
         try:
             session = self.set_request_session()
             session.verify = True
-            params = {'random': random.randint(10000, 20000)}
-            with session.get(url,params=params, stream=True) as response:
+            s_params = {'random': random.randint(10000, 20000)}
+            with session.get(url,params=s_params, stream=True) as response:
                 if response.status_code == 304: # file did not change
                     self.log.logger[self.log_key].warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
                 else:

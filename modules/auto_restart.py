@@ -339,7 +339,6 @@ class AutoRestart():
                 ep_status = self.functions.get_api_node_info({
                     "api_host": self.config_obj[self.thread_profile]["edge_point"],
                     "api_port": self.config_obj[self.thread_profile]["edge_point_tcp_port"],
-                    
                 })
                 if ep_status == "LB_Not_Ready":
                     attempts = self.wait_for_ep_looper("ep_wait_ext",attempts)

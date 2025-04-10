@@ -209,7 +209,6 @@ class CLI():
             quick_results = self.functions.get_api_node_info({
                 "api_host": self.functions.get_ext_ip(),
                 "api_port": port,
-                "tolerance": 1,
                 "info_list": ["state","id","session"]
             })
             if quick_results == None:
@@ -4118,6 +4117,7 @@ class CLI():
                             break
 
                     if command == "peers" and len(false_lookups) > 0:
+                        self.functions.event = False
                         return false_lookups
                             
                     if cluster_ips:
@@ -7826,29 +7826,28 @@ class CLI():
         error = True
         return_data = {}
         action = "history" if not reward_only else "rewards_per_id"
-        for _ in range(0,5): # 5 attempts
-            data = self.functions.get_snapshot({
-                "action": action,
-                "history": snapshot_size,
-                "environment": environment,
-                "profile": profile,
-            })   
-            
-            try:
-                start_time = datetime.strptime(data[-1]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
-                end_time = datetime.strptime(data[0]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
-                return_data["start_ordinal"] = data[-1]["ordinal"]
-                return_data["end_ordinal"] = data[0]["ordinal"]
-                return_data["elapsed_time"] = end_time - start_time
-            except Exception as e:
-                self.log.logger[self.log_key].error(f"received data from backend that wasn't parsable, trying again | [{e}]")
-                sleep(2)
-            else:
-                error = False
-                return_data["start_time"] = start_time
-                return_data["end_time"] = end_time
-                return_data["data"] = data
-                break
+
+        data = self.functions.get_snapshot({
+            "action": action,
+            "history": snapshot_size,
+            "environment": environment,
+            "profile": profile,
+        })   
+        
+        try:
+            start_time = datetime.strptime(data[-1]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
+            end_time = datetime.strptime(data[0]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
+            return_data["start_ordinal"] = data[-1]["ordinal"]
+            return_data["end_ordinal"] = data[0]["ordinal"]
+            return_data["elapsed_time"] = end_time - start_time
+        except Exception as e:
+            self.log.logger[self.log_key].error(f"received data from backend that wasn't parsable, trying again | [{e}]")
+            sleep(2)
+        else:
+            error = False
+            return_data["start_time"] = start_time
+            return_data["end_time"] = end_time
+            return_data["data"] = data
             
         if error:
             self.error_messages.error_code_messages({
