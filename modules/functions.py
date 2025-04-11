@@ -4117,6 +4117,8 @@ class Functions():
                                 })
                             if path.exists(local):
                                 remove(local)
+                        else:
+                            break
             self.log.logger[self.log_key].info(f"functions --> download_file [{url}] successful output file [{local}]")
         except HTTPError as e:
             self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
