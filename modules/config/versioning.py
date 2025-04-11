@@ -459,7 +459,7 @@ class Versioning():
             })
     
         session = self.functions.set_request_session()
-        s_timeout = (0.2,0.5)
+        s_timeout = (1,1)
         for _ in range(0,2):
             if do_update or self.force:
                 try:
@@ -517,7 +517,7 @@ class Versioning():
 
         try:
             session = self.functions.set_request_session()
-            s_timeout = (0.2,0.5)
+            s_timeout = (1,1)
             pre_release = session.get(pre_release_uri, timeout=s_timeout).json()
         except Exception as e:
             self.log.logger[self.log_key].warning(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")

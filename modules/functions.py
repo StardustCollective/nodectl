@@ -855,7 +855,7 @@ class Functions():
         api_endpoint = command_obj.get("api_endpoint","/node/info")
         info_list = command_obj.get("info_list",["all"])
         result_type = command_obj.get("result_type","json")
-        r_timeout = command_obj.get("timeout",(0.2,0.5))
+        r_timeout = command_obj.get("timeout",(1,1))
         
         # dictionary
         #  api_host: to do api call against
@@ -916,7 +916,7 @@ class Functions():
     def get_from_api(self,url,utype):
         is_json = True if utype == "json" else False
         session = self.set_request_session(is_json)
-        s_timeout = (0.2,0.5)
+        s_timeout = (1,1)
         try:
             if utype == "json":
                 response = session.get(url, timeout=s_timeout).json()
@@ -948,7 +948,7 @@ class Functions():
     def get_cluster_info_list(self,command_obj):
         # ip_address, port, api_endpoint, error_secs, attempt_range
         var = SimpleNamespace(**command_obj)
-        s_timeout = command_obj.get("timeout",(0.1,0.5))
+        s_timeout = command_obj.get("timeout",(1,1))
         spinner = command_obj.get("spinner",True)
         results = False
         
@@ -1155,7 +1155,7 @@ class Functions():
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type","list")
-        s_timeout = command_obj.get("timeout",(0.2,0.5))
+        s_timeout = command_obj.get("timeout",(1,1))
         
         json = True if header == "json" else False
         return_data = []
@@ -1708,7 +1708,7 @@ class Functions():
         self.log.logger[self.log_key].debug(f"pull_node_session: session_obj [{session_obj}]")
         
         r_session = self.set_request_session(True)
-        s_timeout = (0.1,0.5)
+        s_timeout = (1,1)
 
         for i,node in enumerate(nodes):
             state = None
@@ -1852,7 +1852,7 @@ class Functions():
             try:
                 session = self.set_request_session(True)
                 session.verify = True
-                s_timeout = (0.1,0.5)
+                s_timeout = (1,1)
                 uri = self.set_proof_uri({})
                 uri = f"{uri}/addresses/{wallet}/balance"
                 balance = session.get(uri, timeout=s_timeout).json()
@@ -2238,7 +2238,7 @@ class Functions():
                     )
 
         session = self.set_request_session()
-        s_timeout = (0.1,0.5)
+        s_timeout = (1,1)
 
         try:
             health = session.get(uri, timeout=s_timeout)
@@ -2266,7 +2266,7 @@ class Functions():
         try:
             session = self.set_request_session()
             session.verify = False
-            s_timeout = (0.1,0.5)
+            s_timeout = (1,1)
             r = session.get(f'http://127.0.0.1:{api_port}/node/health', timeout=s_timeout)
         except:
             pass
@@ -2660,7 +2660,7 @@ class Functions():
                         try: 
                             session = self.set_request_session()
                             session.verify = False
-                            s_timeout = (0.1,0.5)
+                            s_timeout = (1,1)
                             state = session.get(uri, timeout=s_timeout).json()
                             color = self.change_connection_color(state)
                             self.log.logger[self.log_key].debug(f"test_peer_state -> uri [{uri}]")
