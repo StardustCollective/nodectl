@@ -948,13 +948,9 @@ class Functions():
     def get_cluster_info_list(self,command_obj):
         # ip_address, port, api_endpoint, error_secs, attempt_range
         var = SimpleNamespace(**command_obj)
+        s_timeout = command_obj.get("timeout",(0.1,0.5))
         spinner = command_obj.get("spinner",True)
         results = False
-
-        try:
-            s_timeout = var.timeout
-        except:
-            s_timeout = (0.1,0.5)
         
         uri = f"http://{var.ip_address}:{var.port}{var.api_endpoint}"
         if var.port == 443:

@@ -1,6 +1,7 @@
 import re
 from os import get_terminal_size        
 from termcolor import colored
+from time import sleep
 
 from modules.troubleshoot.errors import Error_codes
 
@@ -44,6 +45,7 @@ class Peers():
         self.more_subtrahend = 0
 
         self.lookups = ["peer_list"]
+        self.retry_list = []
         self.search_title = "all peers"
         self.command_list = ["--state" if item == "--states" else item for item in self.command_list]
 
@@ -178,20 +180,29 @@ class Peers():
 
 
     def _handle_is_basic(self,peer,public_port):
-        nodeid = self.parent.cli_grab_id({
-            "dag_addr_only": True,
-            "command": "peers",
-            "argv_list": ["-p",self.profile,"-t",peer,"--port",public_port,"-l"]
-        })
-        if isinstance(nodeid,list):
-            nodeid = "UnableToRetrieve"
-            wallet = "UnableToRetrieve"
-        else:
-            wallet = self.parent.cli_nodeid2dag({
-                "nodeid": nodeid,
-                "caller": "show_peers",
-                "profile": self.profile,
+        for n in range(0,2): # future upgrade placeholder
+            nodeid = self.parent.cli_grab_id({
+                "dag_addr_only": True,
+                "command": "peers",
+                "argv_list": ["-p",self.profile,"-t",peer,"--port",public_port,"-l"]
             })
+            if isinstance(nodeid,list):
+                nodeid = "UnableToRetrieve"
+                wallet = "UnableToRetrieve"
+                self.parent.log.logger[self.parent.log_key].warning(f"peers -> peer [{peer}] unable to retrieve nodeid.")
+                if n < 1:
+                    self.retry_list.append(peer)
+                    self.parent.log.logger[self.parent.log_key].warning(f"peers -> peer [{peer}] unable to retrieve nodeid.")
+                # sleep(.8)
+                break  # future upgrade placeholder
+            else:
+                wallet = self.parent.cli_nodeid2dag({
+                    "nodeid": nodeid,
+                    "caller": "show_peers",
+                    "profile": self.profile,
+                })
+                self.parent.log.logger[self.parent.log_key].debug(f"peers -> peer [{peer}] | wallet [{wallet}] retrieved nodeid successfully.")
+                break
 
         self.nodeid = nodeid
         self.wallet = wallet
@@ -472,6 +483,12 @@ class Peers():
                 "status_color": "yellow",
                 "newline": True,
             })
+
+        if len(self.retry_list) > 0:
+            self.parent.log.logger[self.parent.log_key].warning(f"peers -> unable to retrieve [{len(self.retry_list)}] peers requested.")
+            self.parent.log.logger[self.parent.log_key].warning(f"peers -> unable to retrieve list [{self.retry_list}].")
+            pass
+
 
 
     def print_csv_success(self):
