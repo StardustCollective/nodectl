@@ -2334,7 +2334,7 @@ class Configurator():
                             val_value = val_value.decode("utf-8")
                         if not isinstance(val_value, str):
                             error_found["str_error"] = key
-                        if len(val_value) > length_requirement:
+                        if len(val_value) > length_requirement or len(val_value) < 5:
                             error_found["len_error"] = f"{key}:{len(val_value)}"
                     except:
                         error_found["utf_error"] = key

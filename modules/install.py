@@ -2,7 +2,7 @@ import json
 import distro
 import modules.uninstall as uninstaller
 
-from os import makedirs, path, environ, get_terminal_size, chmod, system
+from os import makedirs, path, environ, get_terminal_size, chmod
 from shutil import copy2, move, rmtree
 from time import sleep
 from termcolor import colored, cprint

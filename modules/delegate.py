@@ -33,6 +33,7 @@ class DelegatedStaking:
         self.update_executed = False
         self.spacing_value = 18
 
+        self._validate_config()
         self.set_crypto()
         self.set_nodeid()
         self.set_init_values()
@@ -263,12 +264,16 @@ class DelegatedStaking:
                 self.update_required = True
 
 
-    def handle_error(self,line,code):
-        self.error_messages.error_code_messages({
+    def handle_error(self,line,code,extra2=False):
+        error_obj = {
             "line_code": line,
             "error_code": code,
             "extra": f"{self.error}",
-        })
+        }
+        if extra2:
+            error_obj["extra2"] = extra2
+
+        self.error_messages.error_code_messages(error_obj)
 
 
     def handle_payload_init(self):
@@ -510,6 +515,46 @@ class DelegatedStaking:
                 ["node's performance or node rewards. This process is designed to enhance network participation",0],
                 ["without compromising your node's functionality or incentives.",2],
             ])
+
+    # ==== misc ====
+
+    def _validate_config(self):
+        errors = []
+        length_requirement = 140
+
+        valid_keys = ["enable","name","description","rewardFraction"]
+        found_keys = list(vars(self.ds_config).keys())
+        if set(valid_keys) != set(found_keys):
+            errors.append("invalid config file format. missing keys?.")
+
+        if not isinstance(self.ds_config.enable,bool):
+            errors.append("invalid config file format. enable not bool.")
+
+        try:
+            if self.ds_config.rewardFraction < 5000000 or self.ds_config.rewardFraction > 10000000:
+                raise
+        except:
+            errors.append("invalid commission percent between 5 and 10.")
+
+        for key in ["name","description"]:
+            val_value = getattr(self.ds_config,key)
+            try:
+                if isinstance(val_value, bytes):
+                    val_value = val_value.decode("utf-8")
+                if not isinstance(val_value, str):
+                    errors.append(f"invalid string [{key}]")
+                if len(val_value) > length_requirement or len(val_value) < 5:
+                    errors.append(f"invalid string length [{key}] at [{len(val_value)}]")
+            except:
+                errors.append(f"invalid encoding [utf] for [{key}]")
+   
+        if len(errors) > 0:
+            self.error = "format"
+            self.handle_error(
+                "config_error",
+                "del-548",
+                errors,
+            )
 
 
 if __name__ == "__main__":

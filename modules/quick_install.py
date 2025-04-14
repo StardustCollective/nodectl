@@ -1,5 +1,4 @@
-from os import get_terminal_size, system 
-from sys import exit
+from os import get_terminal_size 
 from time import sleep
 from types import SimpleNamespace
 from termcolor import colored

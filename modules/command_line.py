@@ -6231,7 +6231,7 @@ class CLI():
         })        
 
 
-    def cli_execute_directory_restructure(self, profile_argv,version=False,non_interactive=False):
+    def cli_execute_directory_restructure(self, profile_argv,version=False,non_interactive=False,new_install=False):
         profile_error = False
         profile = None
         executor0, executor1, executor2, executor3, executor4 = False, False, False, False, False
@@ -6373,13 +6373,44 @@ class CLI():
             ])
 
         if not path.isdir(data_dir):
+            dir_error_show = False
             if self.auto_restart: return False
-            self.error_messages.error_code_messages({
-                "error_code": "cli-6069",
-                "line_code": "config_error",
-                "extra": "format",
-                "extra2": "Please join Discord and report this error.",
-            })
+            if not new_install:
+                self.functions.print_paragraphs([
+                    ["*","half","blue","bold"],
+                    [" WARNING ",0,"red,on_yellow"], ["The nodectl utility was",0,"yellow"], 
+                    ["unable to determine the proper directory structure",0,"red"],
+                    ["required to complete a possibly needed data migration.",2,"yellow"],
+
+                    ["It is also",0,"magenta"], ["unable to verify",0,"red"], ["if this is a",0,"magenta"],
+                    ["new installation?",2,"magenta"],
+
+                    ["If this is not a brand-new installation it is not recommended to proceed.",0,"red"],
+                    ["Continuing the upgrade may corrupt the node's snapshot chain",0,"red"],
+                    ["and render it",0,"red"], ["invalid,",0,"red","bold"], ["requiring a full",0,"red"],
+                    ["reinitialization from genesis.",2,"red"],
+
+                    ["Please confirm your node’s status before proceeding. If unsure, seek guidance",0,"yellow"],
+                    ["to avoid data loss or extended downtime.",2,"yellow"],
+                ])
+                if non_interactive:
+                    dir_error_show = True
+                if not self.functions.confirm_action({
+                        "yes_no_default": "n",
+                        "return_on": "y",
+                        "prompt": "Is this a NEW installation?",
+                        "prompt_color": "green",
+                        "exit_if": False,
+                    }):
+                    dir_error_show = True
+
+                if dir_error_show:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cli-6069",
+                        "line_code": "config_error",
+                        "extra": "format",
+                        "extra2": "Please join Discord and report this error.",
+                    })
 
         with ThreadPoolExecutor() as executor1:
             if not self.auto_restart:
@@ -7430,7 +7461,7 @@ class CLI():
         if "--vv" in command_list:
             delegated.verbose = True
             delegated.dbl_verbose = True
-            
+
         if action == "update":
             delegated.update()
         elif action == "remove":

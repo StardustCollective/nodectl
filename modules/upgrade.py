@@ -33,6 +33,7 @@ class Upgrader():
         self.environment = command_obj.get("environment",False)
         
         self.debug = command_obj.get("debug",False)
+        self.new_install = True if "--new-install" in self.argv_list else False
         self.cli_global_pass = False
         self.step = 1
         self.status = "" #empty
@@ -987,7 +988,8 @@ class Upgrader():
                     result = self.cli.cli_execute_directory_restructure(
                         profile,
                         self.profile_progress[profile]["download_version"],
-                        self.non_interactive
+                        self.non_interactive,
+                        self.new_install,
                     )
                     result_color = "yellow"
                     if result == "not_needed": 
