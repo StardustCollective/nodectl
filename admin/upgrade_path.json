@@ -5,17 +5,17 @@
   ],
 
   "testnet": {
-    "version": "v2.17.0",
+    "version": "v2.17.1",
     "upgrade": "True",
     "current_stable": "v2.17.0"
   },
   "mainnet": {
-    "version": "v2.17.0",
+    "version": "v2.17.1",
     "upgrade": "True",
     "current_stable": "v2.16.1"
   },
   "integrationnet": {
-    "version": "v2.17.0",
+    "version": "v2.17.1",
     "upgrade": "True",
     "current_stable": "v2.17.0"
   },
