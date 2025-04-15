@@ -305,6 +305,8 @@ class DelegatedStaking:
 
 
     def handle_final_payload_build(self):
+        if not self.crypto.hex_signature:
+            self.crypto.hex_signature = "NotCreatedYet"
         self.payload_proofs["proofs"][0]["signature"] = self.crypto.hex_signature
         self.complete_payload = {
             "value": {**self.payload_value},
@@ -354,7 +356,8 @@ class DelegatedStaking:
 
         last_hash = self.complete_payload["value"]["parent"]["hash"]
         last_hash_short = f"{last_hash[:8]}...{last_hash[-8:]}"
-        reward_percent = f"{(self.ds_config_match['rewardFraction']['value'] / 1e8) * 100}%"
+        reward_percent = round((self.ds_config_match['rewardFraction']['value'] / 1e8)*100,3)
+        reward_percent = f"{reward_percent}%"
 
         self._log_msg("info",f'Last Ordinal: {self.complete_payload["value"]["parent"]["ordinal"]}')
         self._log_msg("info",f"Last hash: {last_hash}")

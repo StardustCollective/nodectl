@@ -2364,6 +2364,9 @@ class Configurator():
             "file": "delegated_staking",
         })
 
+        for escape_quote in ["name","description"]:
+            data[escape_quote] = data[escape_quote].replace("'","''")
+
         staking_file = staking_file.replace(f"enable: {data['enable']}", f"enable: {self.staking_config['enable']}")
         staking_file = staking_file.replace("nodegaragedelstname",data["name"])
         staking_file = staking_file.replace("nodegaragedelstdescription",f"{data['description']}")
