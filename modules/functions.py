@@ -1212,9 +1212,8 @@ class Functions():
                             return_data.append(results[value])
                         elif return_type == "dict":
                             return_data = {}
-                            for v in results:
-                                for item in results:
-                                    pass # for now
+                            for item in return_values:
+                                return_data[item] = results[item]
                 return return_data
             finally:
                 session.close()
