@@ -1,7 +1,6 @@
 import re
 from os import get_terminal_size        
 from termcolor import colored
-from time import sleep
 
 from modules.troubleshoot.errors import Error_codes
 

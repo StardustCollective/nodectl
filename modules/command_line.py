@@ -2,12 +2,11 @@ import re
 import base58
 import psutil
 import socket
-import ast
 
 from hashlib import sha256
 from time import sleep, perf_counter
-from datetime import datetime, timedelta
-from os import system, path, get_terminal_size, popen, remove, chmod, makedirs, walk, listdir, SEEK_END, SEEK_CUR
+from datetime import datetime
+from os import system, path, get_terminal_size, remove, chmod, makedirs, listdir
 from shutil import copy2, move
 from sys import exit
 from types import SimpleNamespace
@@ -15,7 +14,7 @@ from getpass import getpass
 from termcolor import colored, cprint
 from secrets import compare_digest
 from copy import deepcopy
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait as thread_wait
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from modules.p12 import P12Class
 from modules.troubleshoot.snapshot import * # discover_snapshots, merge_snap_results, ordhash_to_ordhash, process_snap_files, remove_elements, clean_info, set_count_dict, custom_input, print_report

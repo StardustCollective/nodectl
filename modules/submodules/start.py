@@ -1,4 +1,3 @@
-from termcolor import colored
 from sys import exit
 from concurrent.futures import ThreadPoolExecutor
 

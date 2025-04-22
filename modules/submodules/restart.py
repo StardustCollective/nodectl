@@ -1,4 +1,3 @@
-from termcolor import colored
 from time import sleep, perf_counter
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 
