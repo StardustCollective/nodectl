@@ -492,7 +492,8 @@ class NodeDAGid():
                 return False
             
             self.p12 = p12
-            return True
+            
+        return True
 
 
     def handle_ext_or_ready_state(self):
