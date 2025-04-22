@@ -175,7 +175,7 @@ class Installer():
 
         if self.options.normal_install:
             self.log.logger[self.log_key].info("installer -> long normal option chosen by Node Operator option input.")
-        elif not self.options.quick_install and not self.options.confirm_install:
+        elif not self.options.quick_install:
             self.functions.print_paragraphs([
                 [" QUICK INSTALL ",0,"yellow,on_blue"], ["nodectl's installer provides a",0,"white","bold"], 
                 ["quick install",0,"blue","bold"], ["option that utilizes all the",0,"white","bold"], ["recommended",0,"green","bold"],
