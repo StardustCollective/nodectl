@@ -1723,7 +1723,7 @@ class Installer():
         self.cli.config_obj = deepcopy(self.setup_config.config_obj)
         success = self.cli.cli_grab_id({
             "command":"nodeid",
-            "return_success": True,
+            "return_success": "set_value",
             "skip_display": True,
             "threading": False,
         })
