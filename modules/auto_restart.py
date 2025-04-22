@@ -18,8 +18,9 @@ class AutoRestart():
 
     def __init__(self,thread_profile,config_obj,first_thread):
         # THIS SERVICE IS THREADED TO RUN ALL PROFILES SEPARATELY
-        self.log = Logging()
+
         self.log_key = "auto"
+        self.log = Logging(self.log_key)
         
         self.config_obj = {
             **config_obj,

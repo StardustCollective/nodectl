@@ -20,10 +20,10 @@ class Send():
     
     def __init__(self,command_obj):
         
-        self.log = Logging()
+        self.log_key = command_obj["config_obj"]["global_elements"]["log_key"]
+        self.log = Logging(self.log_key)
         self.command_list = command_obj["command_list"]
         self.config_obj = command_obj["config_obj"]
-        self.log_key = command_obj["config_obj"]["global_elements"]["log_key"]
         
         self.functions = Functions(self.config_obj)
 

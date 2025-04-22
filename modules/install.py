@@ -50,7 +50,7 @@ class Installer():
         self.log_key = "main"
 
         self.error_messages = Error_codes(self.functions) 
-        self.log = Logging()
+        self.log = Logging("main")
         versioning = Versioning({
             "called_cmd": "show_version",
         })

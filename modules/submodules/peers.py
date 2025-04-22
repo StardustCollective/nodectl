@@ -145,10 +145,10 @@ class Peers():
 
 
     def handle_info_type_request(self):
-        if "--info_type" not in self.command_list: return
+        if "--info-type" not in self.command_list: return
 
         try:
-            info_type =  self.command_list[self.command_list.index("--info_type")+1]
+            info_type =  self.command_list[self.command_list.index("--info-type")+1]
             info_type_list = info_type.strip("[]").split(",")
         except Exception as e:
             self.parent.log.logger[self.parent.log_key].error(f"unable to create info_list per request, skipping [{e}]")

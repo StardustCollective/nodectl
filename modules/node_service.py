@@ -14,7 +14,7 @@ from .config.create_files import create_files
 class Node():
         
     def __init__(self,command_obj):
-        self.log = Logging()
+        self.log = Logging("init")
                 
         self.functions = command_obj.get("functions",False)
         if self.functions:
@@ -396,7 +396,7 @@ class Node():
                         self.functions.print_auto_restart_warning()
                     return False
             
-            error_str = colored("before trying again ","red")+colored(n,"yellow",attrs=["bold"])
+            error_str = colored("before trying again ","magenta")+colored(n+1,"yellow",attrs=["bold"])
             error_str += colored(" of ","red")+colored("3","yellow",attrs=["bold"])
 
             if interactive and not self.auto_restart:
@@ -417,12 +417,12 @@ class Node():
                 if not_ready_option.upper() == "S": 
                     break
 
-                error_str = colored("before trying again ","red")
+                error_str = colored("before trying again ","magenta")
                 user_wait = True
 
             if not self.auto_restart:
                 self.functions.print_timer({
-                    "seconds": 30,
+                    "seconds": 29,
                     "phrase": error_str,
                 })
                 if n > 3 and not user_wait:

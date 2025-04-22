@@ -18,7 +18,7 @@ class Cleaner():
         self.snapshot_called = False
         self.version_obj = self.functions.version_obj
         self.log_key = self.config_obj["global_elements"]["log_key"]
-        self.log = Logging()
+        self.log = Logging(self.log_key)
         self.error_messages = Error_codes(self.functions)    
         
         if command_obj["action"] == "snapshots":

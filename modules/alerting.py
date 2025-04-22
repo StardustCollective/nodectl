@@ -78,6 +78,8 @@ def prepare_alert(alert_profile, comm_obj, profile, env, functions, log):
 
 
 def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profile, env, log, direct=False):
+    max_api_history = 100
+
     try:
         cli.node_service = node_service
         nodeid = cli.cli_find(["-p",profile,"-t","self","return_only"])
@@ -104,7 +106,11 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
         })
 
         if comm_obj["report_currency"]:
-            report_data = cli.get_and_verify_snapshots(530,env,profile)
+            report_data = cli.get_and_verify_snapshots({
+                "snapshot_size": max_api_history,
+                "environment": env,
+                "profile": profile,
+            })
 
             for data in report_data["data"]:
                 for reward in data["rewards"]:

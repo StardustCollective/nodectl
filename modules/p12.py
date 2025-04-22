@@ -33,7 +33,7 @@ class P12Class():
         self.version_obj = self.functions.version_obj
         self.config_obj = self.functions.config_obj 
 
-        self.log = Logging(self.process)
+        self.log = Logging("init",self.process)
         try:
             self.log_key = self.config_obj["global_elements"]["log_key"]
         except:
@@ -342,7 +342,7 @@ class P12Class():
         mobile = command_obj.get("mobile",False)
 
         de, manual = False, False
-        force_exceptions = ["export_private_key","export-private-key","view_config","view-config"]
+        force_exceptions = ["export_private_key","view_config"]
         self.log.logger[self.log_key].info(f"p12 keyphrase validation process started")
         
         for attempts in range(0,5):

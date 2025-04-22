@@ -23,8 +23,9 @@ class Configuration():
     
     def __init__(self,command_obj):
 
-        self.log = Logging() 
         self.log_key = "main"
+        self.log = Logging(self.log_key) 
+
         
         self.versioning_service = False
         self.argv_list = command_obj["argv_list"]

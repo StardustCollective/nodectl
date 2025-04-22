@@ -41,7 +41,7 @@ class Status():
         self.load = .7
 
         self.error_codes = Error_codes(self.functions)
-        self.log = Logging()
+        self.log = Logging(self.log_key)
                         
         self.ip_address = self.functions.get_ext_ip()
         self.profile_names = self.functions.pull_profile({

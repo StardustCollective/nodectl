@@ -3,7 +3,7 @@ from .troubleshoot.logger import Logging
 
 class Menu():
     def __init__(self,command_obj) -> None:
-        self.log = Logging()
+        self.log = Logging("main")
         self.config_obj = command_obj["config_obj"]
         self.log_key = self.config_obj["global_elements"]["log_key"]
         self.profile_names = command_obj["profile_names"]

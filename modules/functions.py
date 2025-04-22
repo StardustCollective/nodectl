@@ -24,8 +24,6 @@ import base64
 from requests import Session
 from urllib.parse import urlparse, urlunparse
 from requests.exceptions import HTTPError, RequestException, Timeout, ConnectionError
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from hurry.filesize import size, alternative
 from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
@@ -79,7 +77,7 @@ class Functions():
             process = None
 
         if self.sudo_rights:
-            self.log = Logging(process)
+            self.log = Logging("init",process)
 
         self.config_obj = config_obj
             
@@ -856,7 +854,7 @@ class Functions():
         info_list = command_obj.get("info_list",["all"])
         result_type = command_obj.get("result_type","json")
         r_timeout = command_obj.get("timeout",(1,1))
-        
+        session = False
         # dictionary
         #  api_host: to do api call against
         #  api_port: for the L0 or cluster/metagraph channel
@@ -881,17 +879,23 @@ class Functions():
             info_list = ["state","session","clusterSession","host","version","publicPort","p2pPort","id"]
         
         result_list = []
-        try:
-            r_session = self.set_request_session()
-            session = r_session.get(api_url, timeout=r_timeout)
-            if result_type == "json":
-                session = session.json()
-        except Exception as e:
-            self.log.logger[self.log_key].error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}]")
-            self.log.logger[self.log_key].error(f"get_api_node_info - error [{e}]")
-            return None
-        finally:
-            r_session.close()
+        r_session = self.set_request_session()
+        
+        for attempt in range(0,4):
+            try:
+                session = r_session.get(api_url, timeout=r_timeout)
+                if result_type == "json":
+                    session = session.json()
+            except Exception as e:
+                self.log.logger[self.log_key].error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}]")
+                self.log.logger[self.log_key].error(f"get_api_node_info - error [{e}]")
+                if attempt > 2:
+                    r_session.close()
+                    return None
+            else:
+                break
+
+        r_session.close()
 
         if result_type == "json" and len(session) < 2 and "data" in session.keys():
             session = session["data"]
@@ -915,35 +919,38 @@ class Functions():
 
     def get_from_api(self,url,utype):
         is_json = True if utype == "json" else False
+        
         session = self.set_request_session(is_json)
         s_timeout = (1,1)
-        try:
-            if utype == "json":
-                response = session.get(url, timeout=s_timeout).json()
-            else:
-                response = session.get(url, timeout=s_timeout)
-        except Exception as e:
-            self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}].")
-            self.error_messages.error_code_messages({
-                "error_code": "fnt-876",
-                "line_code": "api_error",
-                "extra2": url,
-                "extra": None
-            })
-        else:
+        
+        for _ in range(0,4):
             try:
-                if response.status_code == 404:
-                    return response.reason
-            except:
-                pass
-            if utype == "yaml_raw":
-                return response.content.decode("utf-8").replace("\n","").replace(" ","")
-            elif utype == "yaml":
-                return yaml.safe_load(response.content)
-            return response
-        finally:
-            session.close()
-                        
+                if utype == "json":
+                    response = session.get(url, timeout=s_timeout).json()
+                else:
+                    response = session.get(url, timeout=s_timeout)
+            except Exception as e:
+                self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}].")
+                self.error_messages.error_code_messages({
+                    "error_code": "fnt-876",
+                    "line_code": "api_error",
+                    "extra2": url,
+                    "extra": None
+                })
+            else:
+                try:
+                    if response.status_code == 404:
+                        return response.reason
+                except:
+                    pass
+                if utype == "yaml_raw":
+                    return response.content.decode("utf-8").replace("\n","").replace(" ","")
+                elif utype == "yaml":
+                    return yaml.safe_load(response.content)
+                return response
+            finally:
+                session.close()
+                
                     
     def get_cluster_info_list(self,command_obj):
         # ip_address, port, api_endpoint, error_secs, attempt_range
@@ -958,7 +965,7 @@ class Functions():
             
         # uri = "http://10.255.255.1:80/api/something"
 
-        session = self.set_request_session(True)
+        session = self.set_request_session(True,0)
 
         with ThreadPoolExecutor() as executor:
             do_thread = False # avoid race conditions
@@ -972,35 +979,41 @@ class Functions():
                         "color": "magenta",
                     })   
                 
-            try:
-                response = session.get(uri,timeout=s_timeout)
-                response.raise_for_status()
-                results = response.json()
+            self.log.logger[self.log_key].debug(f"Using timeout={s_timeout} for {uri}")
+            for _ in range(0,4):
+                try:
+                    response = session.get(uri,timeout=s_timeout)
+                    response.raise_for_status()
+                    results = response.json()
 
-                if "consensus" in var.api_endpoint:
-                    results = results["peers"]
-                results.append({
-                    "nodectl_found_peer_count": len(results)
-                })
+                    if "consensus" in var.api_endpoint:
+                        results = results["peers"]
+                    results.append({
+                        "nodectl_found_peer_count": len(results)
+                    })
 
-                self.event = False
+                    self.event = False
 
-            except Timeout as e:
-                self.log.logger[self.log_key].warning(f"[Timeout]  {e} for {uri}")
-                results = False
-            except ConnectionError as e:
-                self.log.logger[self.log_key].warning(f"[ConnectionError] {e} for {uri}")
-                results = False
-            except RequestException as e:
-                self.log.logger[self.log_key].warning(f"[RequestException] {e} for {uri}")
-                results = False
-            except Exception as e:
-                self.log.logger[self.log_key].warning(f"[Unexpected error] {e} for {uri}")
-                results = False
-            finally:
-                if do_thread:
-                    self.event = False  
-                session.close()
+                except Timeout as e:
+                    self.log.logger[self.log_key].warning(f"[Timeout]  {e} for {uri}")
+                    results = False
+                except ConnectionError as e:
+                    self.log.logger[self.log_key].warning(f"[ConnectionError] {e} for {uri}")
+                    results = False
+                except RequestException as e:
+                    self.log.logger[self.log_key].warning(f"[RequestException] {e} for {uri}")
+                    self.test_response_code(response,e,uri)
+                    results = False
+                except Exception as e:
+                    self.log.logger[self.log_key].warning(f"[Unexpected error] {e} for {uri}")
+                    results = False
+                else:
+                    break
+                sleep(.07)
+
+            if do_thread:
+                self.event = False  
+            session.close()
 
         return results
             
@@ -1154,51 +1167,57 @@ class Functions():
         lookup_uri = command_obj.get("lookup_uri",self.set_proof_uri({"environment":environment, "profile": profile}))
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
-        return_type =  command_obj.get("return_type","list")
+        return_type =  command_obj.get("return_type",False)
         s_timeout = command_obj.get("timeout",(1,1))
         
         json = True if header == "json" else False
         return_data = []
-        error_secs = 2
+        error_secs = 1
+        session = False
         
         self.set_proof_uri({"environment":environment, "profile": profile},True)
         
         if action == "latest":
             uri = f"{lookup_uri}/{self.snapshot_type}/latest"
             if not return_values: return_values = ["timestamp","ordinal"]
+            if not return_type: return_type = "list"
         elif action == "history":
             uri = f"{lookup_uri}/{self.snapshot_type}?limit={history}"
-            return_type = "raw"
+            if not return_type: return_type = "raw"
         elif action == "ordinal":
             uri = f"{lookup_uri}/{self.snapshot_type}/{ordinal}"
+            if not return_type: return_type = "list"
         elif action == "rewards":
             uri = f"{lookup_uri}/{self.snapshot_type}/{ordinal}/rewards"
-            if not return_values: return_values = ["destination"]
-            return_type = "dict"
+            if not return_type: return_type = "dict"
         
-        try:
-            session = self.set_request_session(json)
-            session.verify = False
-            results = session.get(uri, timeout=s_timeout).json()
-            results = results[get_results]
-        except Exception as e:
-            self.log.logger[self.log_key].warning(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
-            sleep(error_secs)
-        else:
-            if return_type == "raw":
-                return_data = results
+        session = self.set_request_session(json)
+        session.verify = False
+        
+        for _ in range(0,4):
+            try:
+                results = session.get(uri, timeout=s_timeout).json()
+                results = results[get_results]
+            except Exception as e:
+                self.log.logger[self.log_key].warning(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
+                sleep(error_secs)
             else:
-                for value in return_values:
-                    if return_type == "list":
-                        return_data.append(results[value])
-                    elif return_type == "dict":
-                        return_data = {}
-                        for v in results:
-                            if not return_values or v in return_values:
-                                return_data[v] = results[v]
-            return return_data
-        finally:
-            session.close()
+                if return_type == "raw":
+                    return results
+                else:
+                    if not return_values:
+                        return results
+                    for value in return_values:
+                        if return_type == "list":
+                            return_data.append(results[value])
+                        elif return_type == "dict":
+                            return_data = {}
+                            for v in results:
+                                for item in results:
+                                    pass # for now
+                return return_data
+            finally:
+                session.close()
 
 
     def get_list_of_files(self,command_obj):
@@ -1583,11 +1602,6 @@ class Functions():
             "Expires": "0"
         }
 
-        # Optional ETag support (uncomment if needed)
-        # if local_file and path.isfile(f"{local_file}.etag"):
-        #     with open(f"{local_file}.etag",'r') as etag_f:
-        #         get_headers['If-None-Match'] = etag_f.read().strip()
-
         if json:
             get_headers.update({
                 'Accept': 'application/json',
@@ -1596,17 +1610,6 @@ class Functions():
         session = Session()            
         session.headers.update(get_headers)   
         session.params = {'random': random.randint(10000,20000)}
-
-        retries = Retry(
-            total=3,
-            backoff_factor=0.02,  
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET"],
-            raise_on_status=False,
-        )
-
-        session.mount("http://", HTTPAdapter(max_retries=retries))
-        session.mount("https://", HTTPAdapter(max_retries=retries))
 
         return session
     
@@ -1733,12 +1736,16 @@ class Functions():
             url = self.set_api_url(node,port,"/node/info")
             self.log.logger[self.log_key].debug(f"pull_node_session -> url: {url}")
             
-            try:
-                session = r_session.get(url, timeout=s_timeout).json()
-            except:
-                self.log.logger[self.log_key].error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
-            finally:
-                r_session.close()
+            for _ in range(0,4):
+                try:
+                    session = r_session.get(url, timeout=s_timeout).json()
+                except:
+                    self.log.logger[self.log_key].error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
+                    sleep(1)
+                else:
+                    break
+                finally:
+                    r_session.close()
 
             self.log.logger[self.log_key].info(f"pull_node_sessions found session [{session}] returned from test address [{node}] url [{url}] public_api_port [{port}]")
             try:
@@ -1811,88 +1818,7 @@ class Functions():
                     "extra": i_profile,
                     "extra2": None
                 })       
-    
-    
-    def pull_node_balance(self, command_obj):
-        ip_address = command_obj["ip_address"]
-        wallet = command_obj["wallet"]
-        environment = command_obj["environment"]
 
-        balance = 0
-        return_obj = {
-            "balance_dag": "unavailable",
-            "balance_usd": "unavailable",
-            "token_price": "unavailable",
-            "token_symbol": "unknown"
-        }
-        
-        if not self.auto_restart:
-            self.print_cmd_status({
-                "text_start": "Pulling DAG details from APIs",
-                "brackets": environment,
-                "status": "running",
-                "newline": True,
-            })
-
-            if environment != "mainnet":
-                self.print_paragraphs([
-                    [" NOTICE ",0,"red,on_yellow"], 
-                    [f"Wallet balances on {environment} are fictitious",0],["$TOKENS",0,"green"], 
-                    ["and will not be redeemable, transferable, or spendable.",2],
-                ])
-            
-        with ThreadPoolExecutor() as executor:
-            self.event = True
-            if not self.auto_restart:
-                _ = executor.submit(self.print_spinner,{
-                    "msg": f"Pulling node balances, please wait",
-                    "color": "magenta",
-                })                     
-
-            try:
-                session = self.set_request_session(True)
-                session.verify = True
-                s_timeout = (1,1)
-                uri = self.set_proof_uri({})
-                uri = f"{uri}/addresses/{wallet}/balance"
-                balance = session.get(uri, timeout=s_timeout).json()
-                balance = balance["data"]
-                balance = balance["balance"]
-            except:
-                self.log.logger[self.log_key].error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}]")
-                self.log.logger[self.log_key].warning(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
-            finally:
-                session.close()
-            self.event = False              
-        
-        try:  
-            balance = balance/1e8 
-        except:
-            balance = 0
-
-        usd = []
-        usd = self.get_crypto_price()  # position 5 in list
-
-        token = self.config_obj[self.default_profile]["token_coin_id"].lower()
-        try:
-            return_obj["token_price"] = usd[token]["formatted"]
-        except:
-            pass
-        try:
-            return_obj["balance_dag"] = "{:,.5f}".format(balance)
-        except:
-            pass
-        try:
-            return_obj["balance_usd"] = "${:,.2f}".format(balance*usd[token]["usd"])
-        except:
-            pass
-        try:
-            return_obj["token_symbol"] = f'${usd[token]["symbol"].upper()}'
-        except:
-            pass
-        
-        return return_obj
-    
    
     def pull_custom_variables(self):
         return_obj = {
@@ -2240,42 +2166,46 @@ class Functions():
         session = self.set_request_session()
         s_timeout = (1,1)
 
-        try:
-            health = session.get(uri, timeout=s_timeout)
-        except:
-            self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
-            if not self.auto_restart:
-                self.network_unreachable_looper()
-                return False
-        else:  
-            if health.status_code != 200:
-                self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
+        for _ in range(0,4):
+            try:
+                health = session.get(uri, timeout=s_timeout)
+            except:
+                self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if not self.auto_restart:
                     self.network_unreachable_looper()
                     return False
-            else:
-                return True
-        finally:
-            session.close()
+            else:  
+                if health.status_code != 200:
+                    self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
+                    if not self.auto_restart:
+                        self.network_unreachable_looper()
+                        return False
+                else:
+                    return True
+            finally:
+                session.close()
             
         if not self.auto_restart:
             sleep(1)
             
             
     def check_health_endpoint(self,api_port): 
-        try:
-            session = self.set_request_session()
-            session.verify = False
-            s_timeout = (1,1)
-            r = session.get(f'http://127.0.0.1:{api_port}/node/health', timeout=s_timeout)
-        except:
-            pass
-        else:
-            if r.status_code == 200:
-                self.log.logger[self.log_key].error(f"check health failed on endpoint [localhost] port [{api_port}]")
-                return True
-        finally:
-            session.close()
+        session = self.set_request_session()
+        session.verify = False
+        s_timeout = (1,1)
+        
+        for _ in range(0,4):
+            try:
+                r = session.get(f'http://127.0.0.1:{api_port}/node/health', timeout=s_timeout)
+            except:
+                sleep(1)
+            else:
+                if r.status_code == 200:
+                    self.log.logger[self.log_key].error(f"check health failed on endpoint [localhost] port [{api_port}]")
+                    return True
+                break
+            finally:
+                session.close()
             
         self.log.logger[self.log_key].debug(f"check health successful on endpoint [localhost] port [{api_port}]")
         return False   
@@ -2554,6 +2484,27 @@ class Functions():
             exit("  Tessellation Validator Node State Error")
             
             
+    def test_response_code(self,response,e,uri):
+        p_uri = urlparse(uri)
+        log_uri = f"{p_uri.scheme}://{p_uri.netloc}"
+        e = f"{e}"
+        e = e.split(":")
+        e = f"{e[0]}: URL: {uri}"
+        
+        try:
+            if response.status_code in [400,401,403,404,409,429,500,502,503,504]:
+                self.event = False
+                self.error_messages.error_code_messages({
+                    "error_code": "fnt-1007",
+                    "line_code": "api_error",
+                    "extra": e,
+                    "extra2": log_uri,
+                })
+                exit(0)
+        except Exception as ee:
+            pass
+                        
+                        
     def test_peer_state(self,command_obj):
         test_address = command_obj.get("test_address","127.0.0.1")
         caller = command_obj.get("caller","default")
@@ -2657,46 +2608,50 @@ class Functions():
                     uri = self.set_api_url(ip_address["ip"], ip_address["publicPort"],"/node/state")
                         
                     if ip_address["ip"] is not None:
-                        try: 
+                        for _ in range(0,4):
                             session = self.set_request_session()
                             session.verify = False
                             s_timeout = (1,1)
-                            state = session.get(uri, timeout=s_timeout).json()
-                            color = self.change_connection_color(state)
-                            self.log.logger[self.log_key].debug(f"test_peer_state -> uri [{uri}]")
+                            
+                            try: 
+                                state = session.get(uri, timeout=s_timeout).json()
+                                color = self.change_connection_color(state)
+                                self.log.logger[self.log_key].debug(f"test_peer_state -> uri [{uri}]")
 
-                            if n == 1:
-                                results['node_state_src'] = state
-                                if state != "ReadyToJoin":
-                                    results['node_on_src'] = True
-                                results['src_node_color'] = color
+                                if n == 1:
+                                    results['node_state_src'] = state
+                                    if state != "ReadyToJoin":
+                                        results['node_on_src'] = True
+                                    results['src_node_color'] = color
+                                else:
+                                    results['node_state_edge'] = state
+                                    if state != "ReadyToJoin":
+                                        results['node_on_edge'] = True
+                                    results['edge_node_color'] = color
+                                    
+                            except:
+                                if api_not_ready_flag: 
+                                    cpu, mem, _ = self.check_cpu_memory_thresholds()
+                                    if not cpu or not mem: 
+                                        self.log.logger[self.log_key].warning("functions -> test peer state -> setting status to [ApiNotReponding]")
+                                        results['node_state_src'] = "ApiNotResponding"
+                                        results['node_state_edge'] = "ApiNotResponding"
+                                    break_while = True
+                                # try 2 times before passing with ApiNotReady or ApiNotResponding
+                                attempt = attempt+1
+                                if attempt > 1:
+                                    api_not_ready_flag = True
+                                    break
+                                sleep(.5)
                             else:
-                                results['node_state_edge'] = state
-                                if state != "ReadyToJoin":
-                                    results['node_on_edge'] = True
-                                results['edge_node_color'] = color
-                                
-                        except:
-                            if api_not_ready_flag: 
-                                cpu, mem, _ = self.check_cpu_memory_thresholds()
-                                if not cpu or not mem: 
-                                    self.log.logger[self.log_key].warning("functions -> test peer state -> setting status to [ApiNotReponding]")
-                                    results['node_state_src'] = "ApiNotResponding"
-                                    results['node_state_edge'] = "ApiNotResponding"
                                 break_while = True
-                            # try 2 times before passing with ApiNotReady or ApiNotResponding
-                            attempt = attempt+1
-                            if attempt > 1:
-                                api_not_ready_flag = True
-                            sleep(.5)
-                            break
-                        else:
-                            break_while = True
-                            if simple: # do not check/update source node
                                 break
-                        finally:
-                            session.close()
-                
+                            finally:
+                                session.close()
+                                
+                        if simple: # do not check/update source node
+                            break
+                        
                 if break_while:
                     break
                 
@@ -3658,6 +3613,7 @@ class Functions():
             [f" {round(total_time,3)} ",0,"grey,on_green","bold"],
             [f"{unit}",2],
         ])
+        self.log.logger[self.log_key].info(f"{action} -> functions total time elapsed [{total_time}]")
 
 
     def print_help(self,command_obj):
@@ -4086,44 +4042,52 @@ class Functions():
         local = command_obj.get("local",path.split(url)[1])
         do_raise = False
         etag = None
-        try:
-            session = self.set_request_session()
-            session.verify = True
-            s_params = {'random': random.randint(10000, 20000)}
-            with session.get(url,params=s_params, stream=True) as response:
-                if response.status_code == 304: # file did not change
-                    self.log.logger[self.log_key].warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
-                else:
-                    response.raise_for_status()
-                    etag = response.headers.get("ETag")
-                    for n in range(0,2):
-                        try:
-                            with open(local,'wb') as output_file:
-                                for chunk in response.iter_content(chunk_size=8192):
-                                    output_file.write(chunk)
-                            if etag:
-                                with open(f'{local}.etag','w') as output_file_etag:
-                                    output_file_etag.write(etag)
-                        except Exception as e:
-                            if n > 0:
-                                self.error_messages.error_code_messages({
-                                    "error_code": "fnt-4114",
-                                    "line_code": "file_issue",
-                                    "extra": e,
-                                })
-                            if path.exists(local):
-                                remove(local)
-                        else:
-                            break
-            self.log.logger[self.log_key].info(f"functions --> download_file [{url}] successful output file [{local}]")
-        except HTTPError as e:
-            self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
-            do_raise = True
-        except RequestException as e:
-            self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
-            do_raise = True
-        finally:
-            session.close()
+        
+        session = self.set_request_session()
+        session.verify = True
+        s_params = {'random': random.randint(10000, 20000)}
+        
+        for _ in range(0,4):
+            try:
+                with session.get(url,params=s_params, stream=True) as response:
+                    if response.status_code == 304: # file did not change
+                        self.log.logger[self.log_key].warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
+                    else:
+                        response.raise_for_status()
+                        etag = response.headers.get("ETag")
+                        for n in range(0,2):
+                            try:
+                                with open(local,'wb') as output_file:
+                                    for chunk in response.iter_content(chunk_size=8192):
+                                        output_file.write(chunk)
+                                if etag:
+                                    with open(f'{local}.etag','w') as output_file_etag:
+                                        output_file_etag.write(etag)
+                            except Exception as e:
+                                if n > 0:
+                                    self.error_messages.error_code_messages({
+                                        "error_code": "fnt-4114",
+                                        "line_code": "file_issue",
+                                        "extra": e,
+                                    })
+                                if path.exists(local):
+                                    remove(local)
+                            else:
+                                break
+                self.log.logger[self.log_key].info(f"functions --> download_file [{url}] successful output file [{local}]")
+            except HTTPError as e:
+                self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+                do_raise = True
+                sleep(1)
+            except RequestException as e:
+                self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+                do_raise = True
+                sleep(1)
+            else:
+                do_raise = False
+                break
+            finally:
+                session.close()
 
         if do_raise:
             self.error_messages.error_code_messages({

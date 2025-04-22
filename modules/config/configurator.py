@@ -31,8 +31,9 @@ except ImportError:
 class Configurator():
     
     def __init__(self,argv_list):
-        self.log = Logging()
         self.log_key = "main"
+        self.log = Logging(self.log_key)
+
         self.log.logger[self.log_key].info("configurator request initialized")
 
         self.config_path = "/var/tessellation/nodectl/"
@@ -121,10 +122,10 @@ class Configurator():
     def handle_single_options(self,argv_list):
         send_error = False
 
-        if "--developer_mode" in argv_list:
-            cmd = "--developer_mode"
+        if "--developer-mode" in argv_list:
+            cmd = "--developer-mode"
             self.action = "dev_mode"
-            send_error = "developer_mode"
+            send_error = "developer-mode"
         elif "--includes" in argv_list:
             cmd = "--includes"
             self.action = "includes_section"

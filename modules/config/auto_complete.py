@@ -20,14 +20,14 @@ def ac_build_script(cli):
     install_options += "--p12-passphrase --p12-migration-path --p12-alias --cluster-config --confirm --quiet help" 
     install_options += "--skip-encryption --json-output --skip-system-validation help"
     
-    upgrade_options = "--ni --nodectl_only --pass -v -f help"
+    upgrade_options = "--ni --nodectl-only --pass -v -f help"
 
     viewconfig_options = "--passphrase --jar --custom --seed --priority --java --directory help"
     viewconfig_options += "--token --link --edge --basics --ports --tcp --pro --json --section help"
 
-    displaychain_options = "-p --np --json_output --full_report --days, --json_output help"
+    displaychain_options = "-p --np --json-output --full-report --days, --json-output help"
 
-    autorestart_options = "status enable disable alert_test send_report clear_alerts restart help"
+    autorestart_options = "status enable disable alert_test send-report clear-alerts restart help"
 
     delegate_options = "update status remove help"
 

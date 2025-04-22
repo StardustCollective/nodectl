@@ -19,7 +19,7 @@ from .config.time_setup import remove_ntp_services, handle_time_setup
 class Upgrader():
 
     def __init__(self,command_obj):
-        self.log = Logging()
+        self.log = Logging("init")
         self.log_key = command_obj["parent"].config_obj['global_elements']['log_key']
         self.log.logger[self.log_key].info("System Upgrade called, initializing upgrade.")
         
@@ -1579,22 +1579,22 @@ class Upgrader():
                 "newline": True   
             })
 
-        if "-f" in self.argv_list:
+        if "-f" in self.argv_list or "--force" in self.argv_list or "--forced" in self.argv_list:
             self.forced = True    
             print_argv("forced")      
-        if "-w" in self.argv_list:
+        if "-w" in self.argv_list or "--watch" in self.argv_list:
             self.watch = True
             print_argv("watch")
-        if "-l" in self.argv_list:
+        if "-l" in self.argv_list or "--list" in self.argv_list:
             self.show_list = True
             print_argv("show lists")
-        if "--dip" in self.argv_list:
+        if "--dip" in self.argv_list or "--dip-watch" in self.argv_list:
             self.show_download_status = True
             print_argv("dip watch")
-        if "--nodectl_only" in self.argv_list or "--nodectl-only" in self.argv_list:
+        if "--nodectl-only" in self.argv_list:
             self.nodectl_only = True
             print_argv( "nodectl_only")
-        if "-ni" in self.argv_list or "--ni" in self.argv_list:
+        if "-ni" in self.argv_list or "--ni" in self.argv_list or "--non-interactive" in self.argv_list:
             self.non_interactive = True 
             print_argv("non-interactive")     
 

@@ -24,6 +24,7 @@ class DownloadStatus():
         self.caller = self.command_obj.get("caller","download_status")
         
         self.functions = self.parent.functions
+
         self.config_obj = self.parent.config_obj
         self.log_key = self.config_obj["global_elements"]["log_key"]
         self.error_messages = Error_codes(self.config_obj) 

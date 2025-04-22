@@ -381,7 +381,7 @@ else
 fi
 
 sudo nodectl update_version_object --force
-sudo nodectl verify_nodectl --skip_override
+sudo nodectl verify_nodectl --skip-override
 sudo nodectl version
 echo ""
 '''
@@ -396,7 +396,7 @@ read -e -p "  ${pink}Press ${yellow}Y ${pink}then ${yellow}[ENTER] ${pink}to upg
 
 if [[ ("$CHOICE" == "y" || "$CHOICE" == "Y") ]]; then
     echo "${clr}"
-    sudo nodectl upgrade --nodectl_only -y
+    sudo nodectl upgrade --nodectl-only -y
 fi
 echo "$CHOICE" > /var/tessellation/nodectl/cnng_upgrade_results.txt 2>/dev/null
 echo "${clr}"
@@ -532,9 +532,9 @@ def auto_complete():
                     COMPREPLY=($(compgen -W "<number_of_days>" -- ${cur}))
                     return 0
                     ;;
-                --json_output)
+                --json-output)
                     COMPREPLY=($(compgen -W "<file_name or path>" -- ${cur}))
-                    COMPREPLY=($(compgen -W "--pretty_print" -- ${cur}))
+                    COMPREPLY=($(compgen -W "--pretty-print" -- ${cur}))
                     return 0
                     ;;
                 *)
@@ -557,7 +557,7 @@ def auto_complete():
                     COMPREPLY=($(compgen -W "<number_of_days>" -- ${cur}))
                     return 0
                     ;;
-                --json_output)
+                --json-output)
                     COMPREPLY=($(compgen -W "<file_name or path>" -- ${cur}))
                     return 0
                     ;;

@@ -163,7 +163,7 @@ def cli_commands(argv_list):
 
 
 def keyboardInterrupt():
-    log = Logging()
+    log = Logging("main")
     log.logger["main"].critical(f"user terminated nodectl prematurely with keyboard interrupt")
     print("")
     print(colored("  user terminating nodectl prematurely","red"))

@@ -552,9 +552,9 @@ def print_single_ordhash(profile,ordinal,hash,ordhash_inode,stamp,functions):
 
 
 def output_to_file(results, command_list, functions, logs):
-    output_file = command_list[command_list.index("--json_output")+1]
+    output_file = command_list[command_list.index("--json-output")+1]
     output_file = f"{functions.default_upload_location}{output_file}" if "/" not in output_file else output_file
-    indent_spacing = 4 if "--pretty_print" in command_list else None
+    indent_spacing = 4 if "--pretty-print" in command_list else None
     logs.logger.info(f"snapshots -> writting out json file. | location [{output_file}]")
 
     print("")

@@ -11,13 +11,13 @@ from logging.handlers import RotatingFileHandler
 
 class Logging():
         
-    def __init__(self,process=None):
+    def __init__(self,caller,process=None):
         self.log_file_name = "nodectl.log"
         self.auto_file_name = "nodectl_auto_restart.log"
         self.version_file_name = "nodectl_versioning.log"
         self.process = process
-        if process == "install" or process == "installer":
-            pass
+        self.caller = caller
+
         self.log_path = "/var/tessellation/nodectl/logs/"
 
         self.full_log_paths = {
@@ -76,7 +76,9 @@ class Logging():
         
             log_handler.setFormatter(formatter)
             self.logger[key].addHandler(log_handler)
-            self.logger[key].info(f"Logger module initialized with level [{self.level}]")
+        
+        if self.caller != "init":
+            self.logger[self.caller].info(f"Logger module initialized with level [{self.level}]")
 
 
     def check_for_log_file(self):

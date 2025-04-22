@@ -27,7 +27,7 @@ class ShellHandler:
 
     def __init__(self, command_obj, debug):
         try:
-            self.log = Logging() # install exception
+            self.log = Logging("init") # install exception
         except:
             print(colored("Are you sure your are running with 'sudo'","red",attrs=["bold"]))
             print(colored("nodectl unrecoverable error","red",attrs=["bold"]))
@@ -118,7 +118,7 @@ class ShellHandler:
             return cli 
 
         if self.called_command != "install":
-            if self.config_obj["global_elements"]["developer_mode"] or "--skip_warning_messages" in self.argv:
+            if self.config_obj["global_elements"]["developer_mode"] or "--skip-warning-messages" in self.argv:
                 cli = {
                     "skip_warning_messages": True,
                     "invalid_version": False,
@@ -274,12 +274,22 @@ class ShellHandler:
             
             elif self.called_command in restart_commands:
                 restart = True
-                slow_flag = False
-                cli_join_cmd = False
-                secs = 30
-                if self.called_command == "slow_restart" or self.called_command == "_sr":
-                    slow_flag = True
-                    secs = 600
+                    
+                if self.called_command in ["restart_only","slow_restart","_sr"]:
+                    if self.called_command == "_sr": 
+                        self.called_command = "slow_restart"
+                    switch = f'--{self.called_command.replace("_","-")}'
+                    self.cli.print_removed({
+                        "command": self.called_command,
+                        "version": "v2.17.1",
+                        "new_command": f"restart {switch}",
+                        "done_exit": True,
+                    })
+                    self.functions.print_help({
+                        "nodectl_version_only": True,
+                        "extended": "restart_only",
+                    })
+                                        
                 if self.called_command == "join":
                     if "all" in self.argv:
                         return_value = self.cli.print_removed({
@@ -295,18 +305,13 @@ class ShellHandler:
                     else:
                         self.cli.cli_join({
                             "skip_msg": False,
-                            "wait": True,
                             "argv_list": self.argv
                         })
                         restart = False
 
                 if restart:
                     self.cli.cli_restart({
-                        "secs": secs,
                         "restart_type": self.called_command,
-                        "slow_flag": slow_flag,
-                        "cli_join_cmd": cli_join_cmd,
-                        "cli_leave_cmd": False,
                         "argv_list": self.argv
                     })
 
@@ -423,6 +428,13 @@ class ShellHandler:
             elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
                 self.cli.show_seedlist_participation(self.argv)
             elif self.called_command == "download_status" or self.called_command == "_ds":
+                self.functions.print_paragraphs([
+                    ["🚧",0],[" TEMPORARY DISABLEMENT ",0,"blue,on_yellow"], 
+                    ["This feature has been temporarily disabled and will undergo a refactor to improve",0,"yellow"],
+                    ["its accuracy and stability.",2,"yellow"],
+                    ["Thank you for your understanding and patience.",2,"magenta"],
+                ])
+                exit(0)
                 self.cli.show_download_status({
                     "caller": "download_status",
                     "command_list": self.argv
@@ -595,7 +607,7 @@ class ShellHandler:
             except:
                 self.called_cmds.append("empty") 
             else:
-                self.called_cmds.append(self.argv[n])
+                self.called_cmds.append(self.argv[n].replace("_","-"))
                 
         self.argv = self.called_cmds
         self.called_command = self.called_command.replace("-","_")
@@ -907,7 +919,7 @@ class ShellHandler:
             "upgrade","restart","join",
         ]
         if self.called_command in cannot_use_offline:
-            if self.called_command == "upgrade" and "--nodectl_only" in self.argv: return # exception
+            if self.called_command == "upgrade" and "--nodectl-only" in self.argv: return # exception
             self.config_obj["global_elements"]["use_offline"] = False
 
 
@@ -1335,7 +1347,7 @@ class ShellHandler:
 
 
     def digital_signature(self,command_list):
-        if "--skip_validation" in command_list:
+        if "--skip-validation" in command_list:
             self.functions.print_paragraphs([
                 ["  WARNING ",0,"white,on_yellow"],
                 ["Digital signature verification skipped by user request",1,"red"],
@@ -1515,7 +1527,7 @@ class ShellHandler:
             [error_line,1,"red"]
         ])
 
-        if bg == "on_red" and "--skip_override" not in command_list:
+        if bg == "on_red" and "--skip-override" not in command_list:
             self.functions.print_paragraphs([
                 ["Would you like to attempt to update the binary hash by downloading this version of nodectl over itself?",1],
             ])
@@ -1857,6 +1869,7 @@ class ShellHandler:
         
         service_last_restart, service_next_restart = "N/A", "N/A"
         service_start_color = "yellow"
+        
         def find_service_times(pid):
             restart_interval_hours = 4
             try:

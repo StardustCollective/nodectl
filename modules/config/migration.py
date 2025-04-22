@@ -21,7 +21,7 @@ class Migration():
         self.profiles = self.functions.pull_profile({
             "req": "list",
         })
-        self.log = Logging()
+        self.log = Logging(self.log_key)
         self.functions.log = self.log
         self.log.logger[self.log_key].debug("migration process started...")
         self.errors = Error_codes(self.functions)

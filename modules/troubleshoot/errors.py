@@ -98,7 +98,7 @@ class Error_codes():
         self.debug = debug
         self.functions = functions
         process = self.setup_process()
-        self.log = Logging(process)
+        self.log = Logging("init",process)
         self.setup_log_key()
 
         try: self.functions.test_valid_functions_obj()

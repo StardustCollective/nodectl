@@ -12,7 +12,7 @@ class Troubleshooter():
             self.log_key = self.config_obj["global_elements"]["log_key"]
         except:
             self.log_key = "main"
-        self.log = Logging()
+        self.log = Logging(self.log_key)
         
         
     def setup_logs(self,command_obj):

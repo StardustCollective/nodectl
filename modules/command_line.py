@@ -39,7 +39,7 @@ class CLI():
     
     def __init__(self,command_obj):
         
-        self.log = Logging()
+        self.log = Logging("init")
         self.command_obj = command_obj
 
         self.profile = command_obj.get("profile",None)
@@ -92,7 +92,7 @@ class CLI():
         self.skip_warning_messages = False
         if not self.auto_restart:
             try:
-                if "--skip_warning_messages" in self.command_list or self.config_obj["global_elements"]["developer_mode"]:
+                if "--skip-warning-messages" in self.command_list or self.config_obj["global_elements"]["developer_mode"]:
                     self.skip_warning_messages = True 
             except:
                 # install command will not have a config_obj
@@ -185,426 +185,16 @@ class CLI():
     # ==========================================
     
     def show_system_status(self,command_obj):
-        rebuild = command_obj.get("rebuild",False)
-        do_wait = command_obj.get("wait",True)
-        spinner = command_obj.get("spinner",True)
-        threaded = command_obj.get("threaded",False)
-        static_nodeid = command_obj.get("static_nodeid",False)
-        command_list = command_obj.get("command_list",[])
+        from modules.submodules.show_status import ShowStatus
         
-        all_profile_request = False
-        called_profile = self.profile
-        called_command = command_obj.get("called","default")
+        status = ShowStatus(self,command_obj)
+        status.set_parameter()
+
+        self.functions.check_for_help(status.command_list,status.called_command)
         
-        if called_command == "_s": called_command = "status"
-        if called_command == "_qs": called_command = "quick_status"
-        if called_command == "stop": called_command = "quick_status"
-
-        self.functions.check_for_help(command_list,called_command)
-        
-        profile_list = self.profile_names
-        ordinal_dict = {}
-        
-        def quick_status_pull(port):
-            quick_results = self.functions.get_api_node_info({
-                "api_host": self.functions.get_ext_ip(),
-                "api_port": port,
-                "info_list": ["state","id","session"]
-            })
-            if quick_results == None:
-                quick_results = ["ApiNotReady"]
-            
-            return quick_results
-                
-        for key,value in command_obj.items():
-            if key == "-p" and (value == "all" or value == "empty"):
-                all_profile_request = True
-                break
-            if key == "-p" and value != "empty":
-                profile_list = [value]
-                called_profile = value
-                self.functions.check_valid_profile(called_profile)
-                
-        
-        watch_enabled = True if "-w" in command_list else False
-        print_title = True if "--legend" in command_list else False
-
-        watch_seconds = 15
-        watch_passes = 0
-        watch_enabled, range_error = False, False
-        
-        if "-w" in command_list:
-            try: 
-                watch_seconds = command_list[command_list.index("-w")+1]
-                watch_seconds = int(watch_seconds)
-            except: 
-                if watch_seconds != "--skip_warning_messages" and watch_seconds != "-p": 
-                    # watch requested with valid next option, skipping error message and using default
-                    self.log.logger[self.log_key].error("invalid value for [-w] option, needs to be an integer. Using default of [6].")
-                    range_error = True
-                watch_seconds = 15
-            watch_enabled = True
-            if watch_seconds < 6:
-                range_error = True
-                watch_seconds = 6
-                
-        with ThreadPoolExecutor() as executor:
-            if watch_enabled:
-                try:
-                    executor.submit(self.functions.get_user_keypress,{
-                        "prompt": None,
-                        "prompt_color": "magenta",
-                        "options": ["Q"],
-                        "quit_option": "Q",
-                        "quit_with_exception": True,
-                    })
-                except self.functions.exception:
-                    self.functions.cancel_event = True
-                    self.functions.print_paragraphs([
-                        ["Action cancelled by user",1,"green"]
-                    ])
-                    exit(0)
-                            
-            def convert_time_node_id(elements):
-                grab_id = False
-                try:
-                    restart_time = self.functions.get_date_time({
-                        "action":"session_to_date",
-                        "elapsed": elements[2],
-                    })
-                    
-                    uptime = self.functions.get_date_time({
-                        "action": "get_elapsed",
-                        "old_time": restart_time
-                    })
-                    uptime = self.functions.get_date_time({
-                        "action": "estimate_elapsed",
-                        "elapsed": uptime,
-                    })
-                except:
-                    restart_time = "n/a"
-                    uptime = "n/a"
-                
-                if static_nodeid:
-                    node_id = f"{static_nodeid[:8]}...{static_nodeid[-8:]}"
-                elif self.node_id_obj:
-                    try:
-                        node_id = self.node_id_obj[f"{profile}_short"]
-                    except:
-                        grab_id = True
-                else:
-                    grab_id = True
-
-                if grab_id:
-                    try:
-                        node_id = f"{elements[1][:8]}...{elements[1][-8:]}"
-                    except:
-                        try:
-                            node_id = self.cli_grab_id({
-                                "command": "nodeid",
-                                "argv_list": ["-p",called_profile],
-                                "dag_addr_only": True,
-                                "ready_state": True if self.config_obj["global_elements"]["node_profile_states"][profile] == "Ready" else False
-                            })
-                            node_id = self.functions.cleaner(node_id,"new_line")
-                            node_id = f"{node_id[:8]}...{node_id[-8:]}"
-                        except:
-                            node_id = "unknown"
-                
-                return restart_time, uptime, node_id
-                        
-            while True:
-                if self.functions.cancel_event: 
-                    exit("  Event Canceled")
-                if watch_enabled:
-                    watch_passes += 1
-
-                    _ = self.functions.process_command({
-                        "proc_action": "clear",
-                    })
-
-                    self.functions.print_paragraphs([
-                        ["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
-                        ["Do not use",0],["ctrl",0,"yellow"],["and",0],["c",2,"yellow"],
-                    ])
-                    if range_error:
-                        self.functions.print_paragraphs([
-                            [" RANGE ERROR ",0,"red,on_yellow"],["using [",0], 
-                            ["15",0,"yellow"], ["] second default.",2]
-                        ]) 
-                
-                try:
-                    ordinal_dict["backend"] = str(self.functions.get_snapshot({
-                        "history": 1, 
-                        "environment": self.config_obj[called_profile]["environment"],
-                        "profile": called_profile
-                    })[1])
-                except Exception as e:
-                    if isinstance(ordinal_dict,dict):
-                        ordinal_dict = {
-                            **ordinal_dict,
-                            "backend": "n/a"
-                        }
-                    else:
-                        self.error_messages.error_code({
-                            "error_code": "cmd-261",
-                            "line_code": "api_error",
-                            "extra2": e,
-                        })
-                
-                for n,profile in enumerate(profile_list):
-                    self.log.logger[self.log_key].info(f"show system status requested | {profile}")      
-                    self.set_profile(profile)
-                    called_profile = profile
-                                        
-                    ordinal_dict = {
-                        **ordinal_dict,
-                        **self.show_download_status({
-                            "command_list": ["-p",profile],
-                            "caller": "status",
-                        })
-                    }
-                    for key, value in ordinal_dict.items():
-                        if isinstance(value, int): ordinal_dict[key] = str(value)
-                    
-                    if called_command == "quick_status" or called_command == "_qs":
-                        if n == 0:
-                            self.functions.print_paragraphs([
-                                ["",1],[" NODE STATUS QUICK RESULTS ",2,"yellow,on_blue","bold"],
-                            ])                    
-                        quick_results = quick_status_pull(self.functions.config_obj[called_profile]["public_port"])
-                        restart_time, uptime, node_id = convert_time_node_id(quick_results)
-                            
-                        self.functions.print_paragraphs([
-                            [f"{called_profile} State:",0,"yellow","bold"],[quick_results[0],1,"blue","bold"],
-                            ["nodeid:",0,"yellow"],[node_id,1],
-                            ["Last Restart:",0,"yellow"],[restart_time,1],
-                            ["Estimated Uptime:",0,"yellow"],[uptime,2],
-                        ])
-                        continue
-                    
-                    quick_results = quick_status_pull(self.functions.config_obj[profile]["public_port"])
-                    
-                    try_known_id = False
-                    try:
-                        if quick_results[1] == "unknown": try_known_id = True
-                    except: 
-                        try_known_id = True
-                    
-                    if try_known_id:
-                        try: quick_results[1] = self.nodeid
-                        except: pass
-                        
-                    if n > 0: 
-                        print_title = False 
-                        if all_profile_request:
-                            spinner = False
-                        print("")
-
-                    self.functions.get_service_status()
-                    edge_point = self.functions.pull_edge_point(profile)
-
-                    self.log.logger[self.log_key].debug("show system status - ready to pull node sessions")
-                    
-                    sessions = self.functions.pull_node_sessions({
-                        "edge_device": edge_point,
-                        "caller": called_command,
-                        "spinner": spinner,
-                        "profile": called_profile, 
-                        "key": "clusterSession"
-                    })
-
-                    consensus_match = self.cli_check_consensus({
-                        "profile": self.profile,
-                        "caller": "status",
-                        "state": sessions["state1"]
-                    })
-                    if consensus_match == 0:
-                        consensus_match = 1
-
-                    def setup_output():
-                        on_network = colored("False","red")
-                        cluster_session = sessions["session0"]
-                        node_session = sessions["session1"]
-                        join_state = sessions['state1']
-                                        
-                        if sessions["session0"] == 0:
-                            # on_network = colored("NetworkUnreachable","red")
-                            on_network = colored("EdgePointDown","red")
-                            cluster_session = colored("SessionNotFound".ljust(20," "),"red")
-                            join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                        else:
-                            if sessions["state1"] == "ReadyToJoin":
-                                join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                                on_network = colored("ReadyToJoin","yellow")
-                            if sessions["session0"] == sessions["session1"]:
-                                if sessions["state1"] == "ApiNotResponding":
-                                    on_network = colored("TryAgainLater","magenta")
-                                    join_state = colored(f"ApiNotResponding".ljust(20),"magenta")
-                                elif sessions["state1"] == "WaitingForDownload" or sessions["state1"] == "SessionStarted":
-                                    join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                                    on_network = colored("True","magenta",attrs=["bold"])
-                                elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "Initial":
-                                    # there are other states other than Ready and Observing when on_network
-                                    on_network = colored("True","green",attrs=["bold"])
-                                    join_state = colored(f"{sessions['state1']}".ljust(20),"green")
-                                    if sessions["state1"] == "Observing" or sessions["state1"] == "WaitingForReady":
-                                        join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
-                                else:
-                                    node_session = colored("SessionIgnored".ljust(20," "),"red")
-                                    join_state = colored(f"{sessions['state1']}".ljust(20),"red")
-                            if sessions["session0"] != sessions["session1"] and sessions["state1"] == "Ready":
-                                    on_network = colored("False","red")
-                                    join_state = colored(f"{sessions['state1']} (forked)".ljust(20),"yellow")
-                                            
-                        if sessions["session1"] == 0:
-                            node_session = colored("SessionNotFound".ljust(20," "),"red")
-                        
-                        if join_state == "ApiNotReady":
-                            join_state = colored("ApiNotReady","red",attrs=["bold"])
-
-                        return {
-                            "on_network": on_network,
-                            "cluster_session": cluster_session,
-                            "node_session": node_session,
-                            "join_state": join_state
-                        }
-                        
-                    output = setup_output()
-                    clean_state = self.functions.cleaner(output["join_state"],"ansi_escape_colors")
-                    self.config_obj["global_elements"]["node_profile_states"][called_profile] = clean_state  # to speed up restarts and upgrades
-                    
-                    if not self.skip_build:
-                        if rebuild:
-                            if do_wait:
-                                self.functions.print_timer({
-                                    "seconds":20
-                                })
-                                                               
-                            sessions["state1"] = self.functions.test_peer_state({
-                                "threaded": threaded,
-                                "spinner": spinner,
-                                "profile": called_profile,
-                                "simple": True
-                            })
-                        
-                            output = setup_output()
-        
-                        restart_time, uptime, node_id = convert_time_node_id(quick_results)  # localhost
-                        cluster_results = [None, None, output["cluster_session"]]  # cluster
-                        cluster_restart_time, cluster_uptime, _ = convert_time_node_id(cluster_results)
-                                                
-                        system_boot = psutil.boot_time()
-                        system_uptime = datetime.now().timestamp() - system_boot
-                        system_uptime = timedelta(seconds=system_uptime)
-                        system_uptime = self.functions.get_date_time({
-                            "action":"estimate_elapsed",
-                            "elapsed": system_uptime,
-                        })
-                        system_boot = datetime.fromtimestamp(system_boot)
-                        system_boot = system_boot.strftime("%Y-%m-%d %H:%M:%S")
-                        
-                        if called_command == "alerting":
-                            return {
-                                "system_boot": system_boot,
-                                "system_uptime": system_uptime,
-                                "restart_time": restart_time,
-                                "uptime": uptime,
-                                "cluster_restart_time": cluster_restart_time,
-                                "cluster_uptime": cluster_uptime,
-                            }
-                        
-                        if print_title:
-                            self.functions.print_states()
-                            self.functions.print_paragraphs([
-                                ["Current Session:",0,"magenta"], ["The metagraph cluster session",1],
-                                ["  Found Session:",0,"magenta"], ["Node's current cluster session",1],
-                                [" Latest Ordinal:",0,"magenta"], ["Node consensus ordinal",1],
-                                ["      Last DLed:",0,"magenta"], ["Last found ordinal downloaded by node",1],
-                                ["Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
-                                ["      Consensus:",0,"magenta"], ["Is this node participating in consensus rounds",1],
-                                ["          Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
-                                ["         Uptime:",0,"magenta"], ["Amount of time node or Cluster has been online",2],
-                            ])
-                        
-                        if self.config_obj[profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
-                             ordinal_dict["backend"] = "N/A"
-                                        
-                        print_out_list = [
-                            {
-                                "PROFILE": called_profile,
-                                "SERVICE": self.functions.config_obj["global_elements"]["node_service_status"][called_profile],
-                                "JOIN STATE": output["join_state"],
-                            },
-                            {
-                                "PUBLIC API TCP":self.functions.config_obj[called_profile]["public_port"],
-                                "P2P API TCP": self.functions.config_obj[called_profile]["p2p_port"],
-                                "CLI API TCP": self.functions.config_obj[called_profile]["cli_port"]
-                            },
-                            {
-                                "LATEST ORDINAL":ordinal_dict["latest"],
-                                "LAST DLed": ordinal_dict["current"],
-                                "BLK EXP ORDINAL": ordinal_dict["backend"],
-                            },
-                            {
-                                "CURRENT SESSION": output["cluster_session"],
-                                "FOUND SESSION": output["node_session"],
-                                "ON NETWORK": output["on_network"],
-                            },
-                        ]
-                        
-                        print_out_list2 = [
-                            {
-                                "CLUSTER START": cluster_restart_time,
-                                "NODE START": restart_time,
-                                "SYSTEM START": system_boot,
-                            },
-                            {
-                                "CLUSTER UPTIME": cluster_uptime,
-                                "NODE UPTIME": uptime,
-                                "SYSTEM UPTIME:": system_uptime,
-                            },
-                        ]
-                        
-                        print_out_list3 = [
-                            {
-                                "NODE ID": node_id,
-                                "IN CONSENSUS": consensus_match,
-                            }
-                        ]
-                        
-                        if called_command == "uptime":
-                            print_out_list = print_out_list2
-                        else:
-                            if self.config_obj[profile]["layer"] > 0:
-                                print_out_list3[0].pop("IN CONSENSUS", None)
-                            print_out_list = print_out_list + print_out_list2 + print_out_list3
-                            if self.config_obj[profile]["layer"] > 0:
-                                print_out_list.pop(2)
-                            
-                            self.functions.event = False  # if spinner was called stop it first.
-                            
-                        for header_elements in print_out_list:
-                            self.functions.print_show_output({
-                                "header_elements" : header_elements
-                            })
-                            
-                if watch_enabled:
-                    if self.functions.cancel_event: 
-                        exit("  Event Canceled")
-                    self.functions.print_paragraphs([
-                        ["",1],["Press",0],["'q'",0,"yellow,on_red"], ['to quit',1],
-                        ["Watch passes:",0,"magenta"], [f"{watch_passes}",0,"yellow"],
-                        ["Intervals:",0,"magenta"], [f"{watch_seconds}s",1,"yellow"],
-                    ])
-                    self.functions.print_timer({
-                        "p_type": "cmd",
-                        "seconds": watch_seconds,
-                        "step": -1,
-                        "phrase": "Waiting",
-                        "end_phrase": "before updating",
-                    })
-                else: break    
+        status.set_profile()
+        status.set_watch_parameters()
+        status.process_status()        
                 
 
     def show_service_status(self,command_list):
@@ -1565,243 +1155,27 @@ class CLI():
                        
     def show_current_rewards(self,command_list):
         self.functions.check_for_help(command_list,"show_current_rewards") 
-        reward_amount = dict()
-        color = "red"
-        found = "FALSE"
-        title = "NODE P12"
-        argv_list = False
-        profile = self.functions.default_profile
-        snapshot_size = command_list[command_list.index("-s")+1] if "-s" in command_list else 50
-        target_dag_addr, create_csv = False, False
 
-        def send_error(code, line="input_error", extra=None, extra2=None):
-            self.error_messages.error_code_messages({
-                "error_code": code,
-                "line_code": line,
-                "extra": extra,
-                "extra2": extra2,
-            })   
+        from modules.submodules.current_rewards import CurrentRewards
+        current_rewards = CurrentRewards(self,command_list)
 
-        try:
-            if int(snapshot_size) > 375 or int(snapshot_size) < 1:
-                self.functions.print_paragraphs([
-                    [" INPUT ERROR ",0,"white,on_red"], ["the",0,"red"],
-                    ["-s",0], ["option in the command",0,"red"], ["show_current_rewards",0], 
-                    ["must be in the range between [",0,"red"], ["10",-1,"yellow","bold"], ["] and [",-1,"red"],
-                    ["375",-1,"yellow","bold"], ["], please try again.",-1,"red"],["",2],
-                ])
-                cprint("  show_current_reward -s option must be in range between [10] and [375]","red",attrs=["bold"])
-                return
-        except:
-            send_error("cmd-825")
-        
-        data = self.get_and_verify_snapshots(snapshot_size, self.config_obj[profile]["environment"],profile)        
-            
-        if "-p" in command_list:
-            profile = command_list[command_list.index("-p")+1]
-            self.functions.check_valid_profile(profile)
-            
-        if "-w" in command_list:
-            search_dag_addr = command_list[command_list.index("-w")+1]
-            self.functions.is_valid_address("DAG",False,search_dag_addr)
-            title = "REQ WALLET"
-        elif self.node_id_obj:
-            search_dag_addr = self.node_id_obj[f"{profile}_wallet"]
-        elif "--peer" in command_list:
-            try:
-                target_ip_address = command_list[command_list.index("--peer")+1]
-            except:
-                send_error("cmd-1741","input_error","target","must be a valid IP address")
-            if not self.functions.is_valid_address("ip_address",True,target_ip_address):
-                send_error("cmd-1802","input_error","target","must be a valid IP address or not found on cluster")
-            public_port = self.get_info_from_edge_point({
-                "caller": "get_peer_count",
-                "profile": profile,
-                "desired_key": "publicPort",
-                "specific_ip": target_ip_address,
-            })
-            argv_list = ["-p",profile,"-t",target_ip_address,"--port", public_port,"-l"]
+        current_rewards.set_parameters()
+        current_rewards.handle_snapshot_size()
+        current_rewards.get_data()
+        current_rewards.set_search_n_target_addr()
+        current_rewards.handle_target_addr()
+        current_rewards.set_csv()
+        current_rewards.parse_rewards()
+        current_rewards.set_elapsed_time()
+        current_rewards.process_csv()
+        current_rewards.set_print_out_list()
+        current_rewards.print_initial_output()
 
-        else:
-            self.cli_grab_id({
-                "dag_addr_only": True,
-                "command": "dag",
-                "argv_list": argv_list if argv_list else ["-p",profile]
-            })
-            search_dag_addr = self.nodeid.strip("\n")
-            search_dag_addr = self.cli_nodeid2dag({
-                "nodeid": search_dag_addr,
-                "profile": profile,
-            })
-
-        if ("--target" in command_list or "-t" in command_list) and not argv_list:
-            try:
-                target_dag_addr = command_list[command_list.index("-t")+1]
-            except:
-                try:
-                    target_dag_addr = command_list[command_list.index("--target")+1]
-                except:
-                    send_error("cmd-1741","input_error","target","must be a valid DAG wallet address")
-            self.functions.is_valid_address("DAG",False,target_dag_addr)
-
-        if "--csv" in command_list:
-            self.functions.print_cmd_status({
-                "text_start": "Create csv for",
-                "brackets": "show current rewards",
-                "status": "running"
-            })
-            create_csv = True 
-            if "-np" not in command_list:
-                command_list.append("-np")
-            if "--output" in command_list:
-                csv_file_name = command_list[command_list.index("--output")+1]
-                if "/" in csv_file_name:
-                    send_error("cmd-442","invalid_file_or_path",csv_file_name)
-
-            else:
-                prefix = self.functions.get_date_time({"action": "datetime"})
-                csv_file_name = f"{prefix}-{search_dag_addr[0:8]}-{search_dag_addr[-8:]}-rewards-data.csv"
-            csv_path = f"{self.config_obj[profile]['directory_uploads']}{csv_file_name}"
-
-
-        for rewards in data["data"]:
-            try:
-                for reward in rewards["rewards"]:
-                    if reward["destination"] in reward_amount:
-                        reward_amount[reward["destination"]] += reward["amount"]
-                        color = "green"; found = "TRUE"
-                    else:
-                        reward_amount[reward["destination"]] = reward["amount"]
-            except:
-                send_error("cmd-1677","api_error")
-
-        if target_dag_addr:
-            for target in reward_amount.keys():
-                if target == target_dag_addr:
-                    first = [target, reward_amount[target]]
-                    break
-        else:
-            try:
-                first = reward_amount.popitem()  
-            except:
-                first = [0,0]
-
-        title = f"{title} ADDRESS FOUND ({colored(found,color)}{colored(')','blue',attrs=['bold'])}"   
-        
-        elapsed = self.functions.get_date_time({
-            "action": "estimate_elapsed",
-            "elapsed": data["elapsed_time"]
-        })
-                           
-        print_out_list = [
-            {
-                "header_elements": {
-                "START SNAPSHOT": data["data"][-1]["timestamp"],
-                "STOP SNAPSHOT": data["data"][0]["timestamp"],
-                },
-                "spacing": 25,
-            },
-            {
-                "header_elements": {
-                "START ORDINAL": data["start_ordinal"],
-                "END ORDINAL": data["end_ordinal"],
-                },
-                "spacing": 25,
-            },
-            {
-                "header_elements": {
-                "ELAPSED TIME": elapsed,
-                "SNAPSHOTS": snapshot_size,
-                "REWARDED COUNT": len(reward_amount),
-                },
-                "spacing": 14,
-            },
-            {
-                "header_elements": {
-                "-BLANK-":None,
-                f"{title}": colored(search_dag_addr,color),
-                },
-            },
-            {
-                "header_elements": {
-                "REWARDED DAG ADDRESSES": first[0],
-                "AMOUNT REWARDED": "{:,.3f}".format(first[1]/1e8)
-                },
-                "spacing": 40,
-            },
-        ]
-        
-        if create_csv:
-            self.log.logger[self.log_key].info(f"current rewards command is creating csv file [{csv_file_name}] and adding headers")
-            csv_headers = [
-                
-                ["General"],
-                
-                ["start ordinal","end ordinal","snapshot count","start snapshot",
-                 "end snapshot","dag address count"],
-                
-                [data["start_ordinal"],data["end_ordinal"],snapshot_size,data["data"][-1]["timestamp"],
-                 data["data"][0]["timestamp"],len(reward_amount)],
-                 
-                ["rewards"],
-                
-                ["DAG address","amount rewards"],
-                [first[0],"{:,.3f}".format(first[1]/1e8)],
-
-            ]
-                
-            self.functions.create_n_write_csv({
-                "file": csv_path,
-                "rows": csv_headers
-            })
-        else:
-            for header_elements in print_out_list:
-                self.functions.print_show_output({
-                    "header_elements" : header_elements,
-                })   
-
-        if target_dag_addr:
+        if current_rewards.target_dag_addr:
             return
-        
-        do_more = False if "-np" in command_list else True
-        if do_more:
-            console_size = get_terminal_size()
-            more_break = round(console_size.lines)-20   
-            
-        for n, (address, amount) in enumerate(reward_amount.items()):
-            if do_more and n % more_break == 0 and n > 0:
-                more = self.functions.print_any_key({
-                    "quit_option": "q",
-                    "newline": "both",
-                })
-                if more:
-                    break
-                
-            amount = "{:,.3f}".format(amount/1e8)
-            if create_csv:
-                self.functions.create_n_write_csv({
-                    "file": csv_path,
-                    "row": [address,amount]
-                })
-            else:
-                if address == search_dag_addr:
-                    print(f"  {colored(address,color)}  {colored(amount,color)}{colored('**','yellow',attrs=['bold'])}")
-                else:
-                    print(f"  {address}  {amount}")        
-    
-        if create_csv:
-            self.log.logger[self.log_key].info(f"csv file created: location: [{csv_path}]") 
-            self.functions.print_cmd_status({
-                "text_start": "Create csv for",
-                "brackets": "show current rewards",
-                "newline": True,
-                "status": "complete"
-            })
-            self.functions.print_paragraphs([
-                ["CSV created successfully",1,"green","bold"],
-                ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                ["location:",0,], [self.config_obj[profile]['directory_uploads'],1,"yellow","bold"]
-            ])  
+
+        current_rewards.print_list_results()        
+        current_rewards.handle_csv_instructions()
         
 
     def show_dip_error(self,command_list):
@@ -2006,13 +1380,13 @@ class CLI():
         if self.skip_warning_messages:
             self.functions.print_paragraphs([
                 [" WARNING ",1,"yellow,on_red"], ["Developer Mode",0,"yellow"],["or",0,"red"],
-                ["--skip_warning_messages",0,"yellow"], ["was enabled.",1,"red"],
+                ["--skip-warning-messages",0,"yellow"], ["was enabled.",1,"red"],
                 ["This command will",0,"red"],
                 ["automatically disable this option in order to function properly.",1,"red"],
             ])
             self.skip_warning_messages = False
             self.functions.print_cmd_status({
-                "text_start": "disabling --skip_warning_messages",
+                "text_start": "disabling --skip-warning-messages",
                 "status": "complete",
                 "status_color": "green",
                 "newline": True,
@@ -2835,504 +2209,73 @@ class CLI():
     # ==========================================
                        
     def cli_start(self,command_obj):
-        profile = command_obj.get("profile",self.profile)        
-        argv_list = command_obj.get("argv_list",[])
-        spinner = command_obj.get("spinner",False)
-        service_name = command_obj.get("service_name",self.service_name)
-        threaded = command_obj.get("threaded", False)
-        static_nodeid = command_obj.get("static_nodeid",False)
-        skip_seedlist_title = command_obj.get("skip_seedlist_title",False)
-        existing_node_id = command_obj.get("node_id",False)
-        self.functions.check_for_help(argv_list,"start")
+        from modules.submodules.start import StartNode
+        
+        cli_start = StartNode(self,command_obj)
+        
+        cli_start.set_parameters()
+        cli_start.handle_check_for_help()
+        cli_start.set_progress_obj()
+        cli_start.print_start_init()
+        cli_start.handle_seedlist()
+        cli_start.set_service_state()
+        cli_start.print_start_complete()        
+        cli_start.print_timer()        
+        cli_start.process_start_results()
+        cli_start.print_final_status()
 
-        self.log.logger[self.log_key].info(f"Start service request initiated.")
-        progress = {
-            "text_start": "Start request initiated",
-            "brackets": self.functions.cleaner(service_name,'service_prefix'),
-            "status": "running",
-            "newline": True,
-        }
-        self.functions.print_cmd_status(progress)
-
-        if self.config_obj[profile]["seed_path"] != "disable/disable":
-            check_seed_list_options = ["-p",profile,"skip_warnings","-id",existing_node_id]
-            if skip_seedlist_title: check_seed_list_options.append("skip_seedlist_title")
-            found = self.check_seed_list(check_seed_list_options)
-            self.functions.print_cmd_status({
-                "text_start": "Node found on Seed List",
-                "status": found,
-                "status_color": "green" if found == True else "red",
-                "newline": True,
-            })
-            if not found:
-                self.functions.print_paragraphs([
-                    [" WARNING ",0,"red,on_yellow"], ["nodeid was not found on the seed list.",1,"red"]
-                ])
-                if not self.functions.confirm_action({
-                    "prompt": "Continue with start action?",
-                    "yes_no_default": "n",
-                    "return_on": "y",
-                    "exit_if": False
-                }):
-                    self.functions.print_paragraphs([
-                        ["Action canceled by Operator",1,"green"]
-                    ])
-                    exit(0)
-            
-        self.node_service.change_service_state({
-            "profile": profile,
-            "action": "start",
-            "service_name": service_name,
-            "caller": "cli_start"
-        })
         
-        self.functions.print_cmd_status({
-            **progress,
-            "status": "complete",
-        }) 
-        
-        self.functions.print_timer({
-            "p_type": "cmd",
-            "seconds": 6,
-            "step": -1,
-            "phrase": "Waiting",
-            "end_phrase": "before starting",
-        })
-
-        with ThreadPoolExecutor() as executor:
-            if spinner:
-                self.functions.event = True
-                _ = executor.submit(self.functions.print_spinner,{
-                    "msg": f"Fetching status [{profile}], please wait ",
-                    "color": "cyan",
-                })      
-            else:  
-                self.functions.print_cmd_status({
-                    "text_start": "Fetching status",
-                    "brackets": profile,
-                    "newline": True,
-                })
-        
-            self.functions.event = False
-            
-            show_status_obj = {
-                "called": "status",
-                "spinner": False,
-                "rebuild": True,
-                "wait": False,
-                "threaded": threaded,
-                "static_nodeid": static_nodeid if static_nodeid else False,
-                "-p": profile                
-            }
-            
-            try:
-                if self.command_obj["command"] == "start":
-                    show_status_obj["called"] = "start"
-            except: pass
-        
-            self.functions.cancel_event = False
-            self.show_system_status(show_status_obj)
-        
-
     def cli_stop(self,command_obj):
-        show_timer = command_obj.get("show_timer",True)
-        spinner = command_obj.get("spinner",False)
-        argv_list = command_obj.get("argv_list",[])
-        profile = command_obj.get("profile",self.profile)
-        static_nodeid = command_obj.get("static_nodeid",False)
-        check_for_leave = command_obj.get("check_for_leave",False)
-        leave_first, rebuild, result = False, True, False
-    
-        sleep(command_obj.get("delay",0))
+        from modules.submodules.stop import StopNode
         
-        self.functions.check_for_help(argv_list,"stop")
-        self.set_profile(profile)
-
-        self.log.logger[self.log_key].info(f"cli_stop -> stop process commencing | profile [{profile}]")
-        self.functions.print_cmd_status({
-            "status": "stop",
-            "status_color": "magenta",
-            "text_start": "Issuing system service",
-            "brackets": profile,
-            "newline": False,
-        })
-
-        if check_for_leave:
-            state = self.functions.test_peer_state({
-                "profile": profile,
-                "skip_thread": True,
-                "spinner": spinner,
-                "simple": True,
-                "current_source_node": "127.0.0.1",
-                "caller": "cli_stop",
-            })     
-            self.log.logger[self.log_key].info(f"cli_stop -> found state | profile [{profile}] | state [{state}]")
-            states = self.functions.get_node_states("on_network",True)
-
-            if state in states:
-                self.functions.print_paragraphs([
-                    ["",1],[" WARNING ",0,"white,on_red"], ["This profile",0],
-                    [profile,0,"yellow","bold"], ["is in state:",0], [state,2,"yellow","bold"],
-                ]) 
-                if "-l" in argv_list or "--leave" in argv_list:
-                    leave_first = True
-                else:
-                    leave_first = self.functions.confirm_action({
-                        "yes_no_default": "y",
-                        "return_on": "y",
-                        "prompt": "Do you want to leave first?",
-                        "exit_if": False,
-                    })
-                if leave_first:
-                    self.cli_leave({
-                        "secs": 30,
-                        "reboot_flag": False,
-                        "skip_msg": False,
-                        "argv_list": ["-p",profile],
-                    })
-                
-        progress = {
-            "status": "running",
-            "status_color": "yellow",
-            "text_start": "stop request initiated",
-            "brackets": self.functions.cleaner(self.service_name,'service_prefix'),
-            "newline": True,
-        }
-        print("")
-        self.functions.print_cmd_status(progress)
-        self.log.logger[self.log_key].info(f"Stop service request initiated. [{self.service_name}]")
+        cli_stop = StopNode(self,command_obj)
         
-        with ThreadPoolExecutor() as executor:
-            if spinner:
-                self.functions.event = True
-                show_timer = False
-                _ = executor.submit(self.functions.print_spinner,{
-                    "msg": "This could take some time, please wait",
-                    "color": "red",
-                })      
-            else:  
-                self.functions.print_cmd_status({
-                    "text_start": "This could take some time, please wait",
-                    "text_color": "red",
-                    "bold": True,
-                    "newline": False,
-                })
+        cli_stop.set_parameters()
+        cli_stop.process_delay()
+        cli_stop.handle_help()
+        cli_stop.handle_check_for_leave()
+        cli_stop.set_progress_obj()                
+        cli_stop.print_init_process()
+        cli_stop.process_stop_request()
 
-            try:
-                result = self.node_service.change_service_state({
-                    "profile": profile,
-                    "action": "stop",
-                    "service_name": self.service_name,
-                    "caller": "cli_stop"
-                })
-                self.functions.event = False
-            except Exception as e:
-                self.log.logger[self.log_key].error(f"cli_stop -> found issue with stop request [{e}]")
+        if cli_stop.result == "skip_timer":
+            cli_stop.set_show_timer(False)
 
-        if result == "skip_timer":
-            show_timer = False
-        if spinner:
-            show_timer = False
-        if self.functions.config_obj["global_elements"]["node_service_status"][profile] == "inactive (dead)":
-            rebuild = False
-        
-        self.log.logger[self.log_key].debug(f"cli_stop -> stop process completed | profile [{profile}]")
-        self.functions.print_cmd_status({
-            **progress,
-            "status": "complete",
-            "status_color": "green",
-            "newline": True
-        }) 
-
-        self.functions.cancel_event = False
-        self.show_system_status({
-            "rebuild": rebuild,
-            "called": "stop",
-            "wait": show_timer,
-            "spinner": spinner,
-            "static_nodeid": static_nodeid if static_nodeid else False,
-            "-p": profile
-        })
+        if cli_stop.spinner:
+            cli_stop.set_show_timer(False)
+            
+        cli_stop.set_rebuild()
+        cli_stop.print_progress_complete()
+        cli_stop.print_final_status()
 
         
     def cli_restart(self,command_obj):
-        argv_list = command_obj["argv_list"]
-        self.functions.check_for_help(argv_list,"restart")
-
-        restart_type = command_obj["restart_type"]
-        secs = command_obj["secs"]
-        slow_flag = command_obj["slow_flag"]
-        cli_leave_cmd = command_obj["cli_leave_cmd"]
-        cli_join_cmd = command_obj["cli_join_cmd"]
-        called_profile = argv_list[argv_list.index("-p")+1]
-        watch = True if "-w" in argv_list else False
-        interactive = True if "-i" in argv_list else False
-        non_interactive = True if "-ni" in argv_list or "--ni" in argv_list else False
-        dip = True if "--dip" in argv_list else False
-        link_types = ["gl0","ml0"] 
-        failure_retries = 3
-        input_error = False
-
-        if "-r" in argv_list:
-            try: failure_retries = int(argv_list[argv_list.index("-r")+1])
-            except: 
-                input_error = True
-                option = "r"
-                extra2 = f'-r {argv_list[argv_list.index("-r")+1]}'
-
-        if input_error:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-2138",
-                "line_code": "input_error",
-                "extra": option,
-                "extra2": f"invalid value found -> {extra2}"
-            })
-                
-        self.functions.print_clear_line()
-        performance_start = perf_counter()  # keep track of how long
-        self.log.logger[self.log_key].debug(f"cli_restart -> request commencing")
-        self.functions.print_cmd_status({
-            "text_start": "Restart request initiated",
-            "status": "running",
-            "status_color": "yellow",
-            "newline": True,
-        })
-
-        self.functions.print_cmd_status({
-            "text_start": "Node IP address",
-            "status": self.functions.get_ext_ip(),
-            "status_color": "green",
-            "newline": True,
-        }) 
+        from modules.submodules.restart import RestartNode
         
-        self.functions.set_default_variables({
-            "profile": called_profile,
-        })
+        cli_restart = RestartNode(self,command_obj)
         
-        if restart_type != "restart_only":
-            while True:
-                if self.functions.check_edge_point_health():
-                    break
+        cli_restart.set_parameters()
+        cli_restart.handle_help_request()
+        
+        cli_restart.set_performance_start()
+        cli_restart.handle_input_error()
+        cli_restart.print_restart_init() 
+        
+        cli_restart.set_default_variables()
+        cli_restart.process_ep_state()        
 
-        self.slow_flag = slow_flag
-        valid_request, single_profile = False, True
+        self.slow_flag = cli_restart.slow_flag
    
-        profile_pairing_list = self.functions.pull_profile({
-            "req": "order_pairing",
-        })
-        profile_order = profile_pairing_list.pop()
+        cli_restart.get_profiles()
+        cli_restart.handle_all_parameter()
+        cli_restart.handle_empty_profile()
+        cli_restart.handle_request_error()            
+        cli_restart.process_leave_stop()
+        cli_restart.process_seedlist_updates()
+        cli_restart.print_cursor_position()
 
-        
-        if called_profile == "all":
-            if "external" in profile_order: 
-                profile_order.remove("external")
-            single_profile = False
-            valid_request = True
-        elif called_profile != "empty" and called_profile != None:
-            for profile_list in profile_pairing_list:
-                for profile_dict in profile_list:
-                    if called_profile == profile_dict["profile"]:
-                        profile_pairing_list = [[profile_dict]]  # double list due to "all" parameter
-                        profile_order = [called_profile]
-                        valid_request = True
-                        break
-                    
-        if not valid_request:
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-744",
-                "line_code": "profile_error",
-                "extra": called_profile,
-                "extra2": None
-            })
-        
-        with ThreadPoolExecutor() as executor:
-            leave_list = []; stop_list = []; delay = 0
-            for n, profile in enumerate(profile_order):
-                self.log.logger[self.log_key].debug(f"cli_restart -> preparing to leave and stop | profile [{profile}]")
-                leave_obj = {
-                    "secs": secs,
-                    "delay": delay,
-                    "profile": profile,
-                    "reboot_flag": False,
-                    "threaded": True,
-                }
-                leave_list.append(leave_obj)
-                delay = delay+.3
-                stop_obj = {
-                    "show_timer": False,
-                    "profile": profile,
-                    "delay": delay,
-                    "argv_list": []
-                }
-                stop_list.append(stop_obj)  
-                         
-            # leave
-            self.print_title("LEAVING CLUSTERS") 
-            leave_list[-1]["skip_msg"] = False     
-            self.log.logger[self.log_key].info(f"cli_restart -> executing leave process against profiles found")               
-            futures = [executor.submit(self.cli_leave, obj) for obj in leave_list]
-            thread_wait(futures)
-
-            self.functions.print_cmd_status({
-                "text_start": "Leave network operations",
-                "status": "complete",
-                "status_color": "green",
-                "newline": True,
-            })
-        
-            # stop
-            self.log.logger[self.log_key].debug(f"cli_restart -> executing stop process against profiles found")
-            self.print_title(f"STOPPING PROFILE {'SERVICES' if called_profile == 'all' else 'SERVICE'}")    
-            stop_list[-1]["spinner"] = True
-            futures = [executor.submit(self.cli_stop, obj) for obj in stop_list]
-            thread_wait(futures)  
-            
-            self.functions.print_cmd_status({
-                "text_start": "Stop network services",
-                "status": "complete",
-                "status_color": "green",
-                "newline": True,
-            })        
-        
-        # seed list title printed in download_service class
-        for n, profile in enumerate(profile_order):
-            self.log.logger[self.log_key].debug(f"cli_restart -> handling seed list updates against profile [{profile}]")
-            self.node_service.set_profile(profile)
-
-            pos = self.node_service.download_constellation_binaries({
-                "caller": "update_seedlist",
-                "profile": profile,
-                "environment": self.config_obj[profile]["environment"],
-                "action": self.caller,
-
-            })
-            sleep(.5)    
-        print(f"\033[{pos['down']}B", end="", flush=True)
-        print("")
-            
-            
-        # ====================
-        # CONTROLLED START & JOIN OPERATIONS
-        # ====================
-
-        if not cli_leave_cmd:
-            for profile in profile_order:
-                self.set_profile(profile)
-                    
-                if restart_type == "restart_only":
-                    self.log.logger[self.log_key].debug(f"cli_restart -> 'restart_only' option found")
-                    link_profiles = self.functions.pull_profile({
-                        "profile": profile,
-                        "req": "all_link_profiles",
-                    })
-                    for link_type in link_types:
-                        if link_profiles[f"{link_type}_link_enable"]:
-                            state = self.functions.test_peer_state({
-                                "profile": link_profiles[f"{link_type}_profile"],
-                                "skip_thread": False,
-                                "simple": True
-                            })    
-                            
-                            if state != "Ready":
-                                link_profile = link_profiles[f"{link_type}_profile"]
-                                self.log.logger[self.log_key].warning(f"cli_restart -> restart_only with join requested for a profile that is dependent on other profiles | [{profile}] link profile [{link_profile}]")
-                                self.functions.print_paragraphs([
-                                    ["",1], 
-                                    [" WARNING ",2,"white,on_red"], 
-                                    
-                                    ["nodectl",0,"cyan","bold"], ["has detected a [",0], ["restart_only",-1,"yellow","bold"], 
-                                    ["] request.  However, the configuration is showing that this node is (",-1],
-                                    ["properly",0,"green","bold"], [") linking to a layer0 profile [",0],
-                                    [link_profile,-1,"yellow","bold"], ["].",-1], ["",2],
-                                    
-                                    ["Due to this",0], ["recommended",0,"cyan","bold"], ["configurational setup, the layer1 [",0],
-                                    [profile,-1,"yellow","bold"], ["]'s associated service will",-1], ["not",0,"red","bold"], 
-                                    ["be able to start until after",0],
-                                    [f"the {link_profile} profile is joined successfully to the network. A restart_only will not join the network.",2],
-                                    
-                                    ["      link profile: ",0,"yellow"], [link_profile,1,"magenta"],
-                                    ["link profile state: ",0,"yellow"], [state,2,"red","bold"],
-                                    
-                                    ["This",0], ["restart_only",0,"magenta"], ["request will be",0], ["skipped",0,"red","bold"],
-                                    [f"for {profile}.",-1]
-                                ])
-                            
-                service_name = self.config_obj[profile]["service"] 
-                start_failed_list = []
-                if not service_name.startswith("cnng-"): service_name = f"cnng-{service_name}"
-                    
-                for n in range(1,failure_retries+1):
-                    self.log.logger[self.log_key].debug(f"cli_restart -> service[s] associated with [{called_profile}]")
-                    self.print_title(f"RESTARTING PROFILE {'SERVICES' if called_profile == 'all' else 'SERVICE'}")
-                    self.cli_start({
-                        "spinner": False,
-                        "profile": profile,
-                        "service_name": service_name,
-                        "skip_seedlist_title": True,
-                    })
-                    
-                    peer_test_results = self.functions.test_peer_state({
-                        "profile": profile,
-                        "test_address": "127.0.0.1",
-                        "simple": True,
-                    })
-
-                    ready_states = self.functions.get_node_states("ready_states",True)
-                    if peer_test_results in ready_states:  # ReadyToJoin and Ready
-                        self.log.logger[self.log_key].debug(f"cli_restart -> found state [{peer_test_results}] profile [{profile}]")
-                        break
-                    else:
-                        if n == failure_retries:
-                            self.log.logger[self.log_key].error(f"cli_restart -> service failed to start [{service_name}] profile [{profile}]")
-                            self.functions.print_paragraphs([
-                                [profile,0,"red","bold"], ["service failed to start...",1]
-                            ])
-                            ts = Troubleshooter({"config_obj": self.config_obj})
-                            self.show_profile_issues(["-p",profile],ts)
-                            self.functions.print_auto_restart_warning()
-                            start_failed_list.append(profile)
-                            
-                        self.functions.print_paragraphs([
-                            [" Issue Found: ",0,"yellow,on_red","bold"],
-                            [f"{profile}'s service was unable to start properly.",1,"yellow"], 
-                            ["Attempting stop/start again",0], 
-                            [str(n),0,"yellow","bold"],
-                            ["of",0], [str(failure_retries),1,"yellow","bold"]
-                        ])
-                        sleep(1)
-                        self.cli_stop = {
-                            "show_timer": False,
-                            "profile": profile,
-                            "argv_list": []
-                        }
-                
-                if cli_join_cmd or restart_type != "restart_only":
-                    environment = self.config_obj[profile]["environment"]
-                    self.print_title(f"JOINING [{environment.upper()}] [{profile.upper()}]")   
-
-                    if profile not in start_failed_list:
-                        self.log.logger[self.log_key].info(f'cli_restart -> sending to join process. | profile [{profile}]')
-                        self.cli_join({
-                            "skip_msg": False,
-                            "caller": "cli_restart",
-                            "skip_title": True,
-                            "wait": False,
-                            "watch": watch,
-                            "dip": dip,
-                            "interactive": interactive,
-                            "non_interactive": non_interactive,
-                            "single_profile": single_profile,
-                            "argv_list": ["-p",profile]
-                        })
-                    else:
-                        self.log.logger[self.log_key].error(f'cli_restart -> restart process failed due to improper join, skipping join process. | profile [{profile}]')
-                        self.functions.print_paragraphs([
-                            [profile,0,"red","bold"], ["did not start properly; therefore,",0,"red"],
-                            ["the join process cannot begin",0,"red"], ["skipping",1, "yellow"],
-                        ])
-                        
-        print("")        
-        self.functions.print_perftime(performance_start,"restart")
+        cli_restart.process_start_join()
+        cli_restart.print_performance()                        
                 
 
     def cli_reboot(self,command_list):
@@ -3442,1025 +2385,129 @@ class CLI():
     
 
     def cli_join(self,command_obj):
-        argv_list = command_obj.get("argv_list")
-        self.functions.check_for_help(argv_list,"join")
-
+        from modules.submodules.join import Join
+        cli_join = Join(self,command_obj)
         start_timer = perf_counter()
-                
-        skip_msg = command_obj.get("skip_msg",False)
-        skip_title = command_obj.get("skip_title",False)
-        watch_peer_counts = command_obj.get("watch",False)
-        single_profile = command_obj.get("single_profile",True)
-        upgrade = command_obj.get("upgrade",False)
-        interactive = command_obj.get("interactive",False)
-        non_interactive = command_obj.get("non_interactive",False)
-        dip_status = command_obj.get("dip",False)
-        caller = command_obj.get("caller",False)
         
-        called_profile = argv_list[argv_list.index("-p")+1]
-        self.set_profile(called_profile)
-            
-        result, snapshot_issues, tolerance_result = False, False, False
-        first_attempt = True
-
-        # every 4 seconds updated
-        wfd_count, wfd_max = 0, 5  # WaitingForDownload
-        dip_count, dip_max = 0, 8 # DownloadInProgress
-        ss_count, ss_max = 0, 35 # SessionStarted 
+        cli_join.handle_help_arg()
+        cli_join.set_parameters()
         
-        attempt = ""
+        cli_join.print_title()        
+        cli_join.print_joining()
+
+        cli_join.handle_layer0_links()
+        cli_join.set_state(self.profile,True)    
         
-        defined_connection_threshold = .8
-        max_timer = 300
-        offline_msg = False
-        peer_count, old_peer_count, src_peer_count, increase_check = 0, 0, 0, 0
-        
-        gl0_link = self.functions.config_obj[called_profile]["gl0_link_enable"]
-        ml0_link = self.functions.config_obj[called_profile]["ml0_link_enable"]
+        cli_join.print_review()
 
-        states = self.functions.get_node_states("on_network",True)
-        break_states = self.functions.get_node_states("past_observing",True)
-                
-        def print_update():
-            nonlocal first_attempt
-            if first_attempt:
-                first_attempt = False
-                self.functions.print_paragraphs([
-                    ["",1],["State:",0,"magenta"], ["SessionStarted",0,"yellow"], ["may take up to",0,"magenta"],
-                    ["120+",0,"yellow"],["seconds to properly synchronize with peers to enhance join accuracy.",1,"magenta"],
-                    [" Max Timer ",0,"yellow,on_blue"],["300",0,"yellow"], ["seconds",1],
-                    ["-","half","blue","bold"],
-                ])
-                
-            self.functions.print_clear_line()
-            print(colored("  Peers:","cyan"),colored(f"{src_peer_count}","yellow"),
-                colored("Connected:","cyan"),colored(f"{peer_count}","yellow"), 
-                colored("State:","cyan"),colored(f"{state}","yellow"), 
-                colored("Timer:","cyan"),colored(f"{allocated_time}","yellow"),
-                end='\r')
-                    
-        if not skip_title:
-            self.print_title(f"JOINING {called_profile.upper()}")  
-        
-        if not skip_msg:
-            self.log.logger[self.log_key].info(f"cli_join -> join starting| profile [{self.profile}]")
-            self.functions.print_cmd_status({
-                "text_start": "Joining",
-                "brackets": self.profile,
-                "status": "please wait",
-                "status_color": "magenta",
-                "newLine": True
-            })
-
-        if (gl0_link or ml0_link) and not single_profile:
-            found_dependency = False
-            if not watch_peer_counts: # check to see if we can skip waiting for Ready
-                for link_profile in self.profile_names:
-                    for link_type in ["gl0","ml0"]:
-                        if eval(f"{link_type}_link"):
-                            if self.functions.config_obj[called_profile][f"{link_type}_link_profile"] == link_profile:
-                                self.log.logger[self.log_key].debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}]")
-                                found_dependency = True
-                            elif self.functions.config_obj[called_profile][f"{link_type}_link_profile"] == "None" and not found_dependency:
-                                self.log.logger[self.log_key].debug(f"cli_join -> found [{link_type}] dependency | profile [{called_profile}] external [{self.functions.config_obj[link_profile][f'{link_type}_link_host']}] external port [{self.functions.config_obj[link_profile][f'{link_type}_link_port']}]")
-                                found_dependency = True
-
-            if not found_dependency:
-                self.log.logger[self.log_key].debug(f"cli_join -> no dependency found | profile [{called_profile}]")
-                single_profile = True
-
-            
-        state = self.functions.test_peer_state({
-            "profile": self.profile,
-            "simple": True
-        })
-        
-        self.log.logger[self.log_key].debug(f"cli_join -> reviewing node state | profile [{self.profile}] state [{state}]")
-        self.functions.print_cmd_status({
-            "text_start": "Reviewing",
-            "brackets": self.profile,
-            "status": state,
-            "color": "magenta",
-            "newline": True,
-        })
-
-        if state == "Ready":
-            self.log.logger[self.log_key].warning(f"cli_join -> profile already in proper state, nothing to do | profile [{self.profile}] state [{state}]")
-            self.functions.print_paragraphs([
-                ["Profile already in",0,"green"],
-                [" Ready ",0,"grey,on_green","bold"],
-                ["state, nothing to do",1,"green"]
-            ])
+        if cli_join.handle_ready_state():
             return
         
-        if state == "ApiNotReady":
-            self.log.logger[self.log_key].warning(f"cli_join -> service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
-            self.functions.print_paragraphs([
-                ["Profile state in",0,"red"], [state,0,"red","bold"],
-                ["state, cannot join",1,"red"], ["Attempting to start service [",0],
-                [self.service_name.replace('cnng-',''),-1,"yellow","bold"], ["] again.",-1], ["",1]
-            ])
-            
-            self.log.logger[self.log_key].debug(f"cli_join -> attempting to start service | profile [{self.profile}] service [{self.service_name}]")
-            self.cli_start({
-                "spinner": True,
-                "profile": self.profile,
-                "service_name": self.service_name,
-            })
+        cli_join.handle_apinotready()
+        cli_join.handle_static_peer()
         
-        if self.config_obj[self.profile]["static_peer"]:
-            self.log.logger[self.log_key].info(f"cli_join -> sending to node services to start join process | profile [{self.profile}] static peer [{self.config_obj[self.profile]['edge_point']}]")
-        join_result = self.node_service.join_cluster({
-            "caller": "cli_join",
-            "action":"cli",
-            "interactive": True if watch_peer_counts or interactive else False, 
-        })
-      
-        if gl0_link or ml0_link:
-            if "not Ready" in str(join_result):
-                color = "red"
-                attempt = " attempt"
-            else:
-                color = "green"
-        else:
-            color = "green"
-        
-        if color == "green":
-            for allocated_time in range(0,max_timer):
-                sleep(1)
-                self.log.logger[self.log_key].debug(f"cli_join -> watching join process | profile [{self.profile}]")
-                if allocated_time % 5 == 0 or allocated_time < 1:  # 5 second mark or first attempt
-                    if allocated_time % 10 == 0 or allocated_time < 1:
-                        # re-check source every 10 seconds
-                        src_peer_count = self.functions.get_peer_count({
-                            "profile": self.profile,
-                            "count_only": True,
-                        })
-
-                    peer_count = self.functions.get_peer_count({
-                        "peer_obj": {"ip": "127.0.0.1"},
-                        "profile": self.profile,
-                        "count_only": True,
-                    })
-                
-                    if peer_count == old_peer_count and allocated_time > 1:
-                        # did not increase
-                        if peer_count == False:
-                            self.troubleshooter.setup_logs({"profile": called_profile})
-                            error_msg = self.troubleshooter.test_for_connect_error("all")
-                            if error_msg:
-                                self.functions.print_paragraphs([
-                                    ["",1], ["Possible Error",1,"red","bold"],
-                                    [f"{error_msg[1][0]['find']}",1,"magenta"],
-                                    [f"{error_msg[1][0]['user_msg']}",1,"magenta"],
-                                ])
-                            self.functions.print_auto_restart_warning()
-                            print("")
-                            exit(1)
-                        increase_check += 1
-                    if state == "WaitingForDownload":
-                        if wfd_count > wfd_max:
-                            snapshot_issues = "wfd_break"
-                            result = False
-                            tolerance_result = False # force last error to print
-                            break
-                        wfd_count += 1
-                    if state == "Offline":
-                        offline_msg = True
-                        result = False
-                        tolerance_result = False
-                        break
-                    if state == "SessionStarted":
-                        if ss_count > ss_max:
-                            result = False
-                            tolerance_result = False # force last error to print
-                            break
-                        ss_count += 1
-                    if state == "DownloadInProgress":
-                        if dip_status:
-                            self.functions.print_paragraphs([
-                                ["",2],[" IMPORTANT ",0,"red,on_yellow"], ["the",0], ["--dip",0,"yellow"],
-                                ["option has been identified.  This will prompt nodectl to execute the",0],
-                                ["download_status",0,"magenta"], ["command.",2],
-                                ["The",0,],["DownloadInProgress",0,"magenta"], ["stage of the",0],["join cluster",0,"magenta"],
-                                ["process can be time consuming. If there's a desire to cancel watching the",0], ["DownloadInProgress",0,"magenta"],
-                                ["stage, pressing the",0],["ctrl",0,"blue","bold"],["and",0],["c",0,"blue","bold"],
-                                ["will exit this process.",2], 
-                                
-                                ["Cancelling an issued",0,"green"], ["--dip",0,"yellow"], ["option will",0,"green"], ["NOT",0,"green","bold"], ["harm or halt the join or restart process;",0,"green"],
-                                ["instead, it will just exit the visual aspects of this command and allow the node process to continue in the",0,"green"],
-                                ["background.",2,"green"],
-                                
-                                ["Issue:",0,],["sudo nodectl download_status help",1,"yellow"],
-                                ["to learn about the dedicated standalone command.",2],
-                            ])
-                            if non_interactive: continue_dip = True
-                            else:  
-                                continue_dip = self.functions.confirm_action({
-                                "yes_no_default": "n",
-                                "return_on": "y",
-                                "prompt_color": "magenta",
-                                "prompt": "Watch DownloadInProgress status?",
-                                "exit_if": True
-                                })
-                            if continue_dip:
-                                self.show_download_status({
-                                    "caller": caller,
-                                    "command_list": ["-p", called_profile],
-                                })
-                                break
-                        elif dip_count > dip_max:
-                            snapshot_issues = "dip_break"
-                            result = False
-                            tolerance_result = False # force last error to print
-                            break
-                        dip_count += 1
-                    else:
-                        increase_check = 0
-                        state = self.functions.test_peer_state({
-                            "profile": called_profile,
-                            "skip_thread": True,
-                            "simple": True,
-                        })
-                        if not watch_peer_counts:
-                            if state in break_states or (single_profile and state in states):
-                                print_update()
-                                result = True
-                                break
-                            
-                try:
-                    connect_threshold = peer_count/src_peer_count
-                    if peer_count >= src_peer_count and state != "SessionStarted": 
-                        result = True
-                    else:
-                        if connect_threshold >= defined_connection_threshold and increase_check > 1:
-                            if state in break_states:
-                                tolerance_result = True
-                        else:
-                            old_peer_count = peer_count
-                except Exception as e:
-                    self.log.logger[self.log_key].error(f"cli-join - {e}")
-                
-
-                if allocated_time % 1 == 0:  
-                    print_update()
-                        
-                if result or tolerance_result or allocated_time > max_timer or increase_check > 8: # 8*5=40
-                    no_new_status = "error" if state not in break_states else state
-                    if increase_check > 3:
-                        self.functions.print_cmd_status({
-                            "text_start": "No new nodes discovered for ~40 seconds",
-                            "status": no_new_status,
-                            "status_color": "red",
-                            "newLine": True
-                        })
-                    break
+        cli_join.process_join_cluster()
+        cli_join.handle_link_color()
+        cli_join.process_post_join()
             
-            # ========================
-                
-            if snapshot_issues:
-                if snapshot_issues == "wfd_break":
-                    self.log.logger[self.log_key].error(f"cli_join -> possible issue found | profile [{self.profile}] issue [WaitingForDownload]")
-                    self.functions.print_paragraphs([
-                        ["",2],["nodectl has detected",0],["WaitingForDownload",0,"red","bold"],["state.",2],
-                        ["This is an indication that your node may be stuck in an improper state.",0],
-                        ["Please contact technical support in the Discord Channels for more help.",1],
-                    ])                    
-                if snapshot_issues == "dip_break":
-                    self.log.logger[self.log_key].warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
-                    self.functions.print_paragraphs([
-                        ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],["state.",2],
-                        ["This is",0], ["not",0,"green","bold"], ["an issue; however, nodes may take",0],
-                        ["longer than expected time to complete this process.  nodectl will terminate the",0],
-                        ["watching for peers process during this join in order to avoid undesirable wait times.",1],
-                    ])       
-            elif not result and tolerance_result:
-                self.log.logger[self.log_key].warning(f"cli_join -> leaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
-                self.functions.print_clear_line()
-                self.functions.print_paragraphs([
-                    ["",1],["nodectl tolerance connection status of [",0,],
-                    [f"{defined_connection_threshold*100}%",-1,"yellow","bold"], ["] met or exceeded successfully,",-1],
-                    ["continuing join request.",1]
-                ])
-            elif not result and not tolerance_result:
-                self.log.logger[self.log_key].error(f"cli_join -> may have found an issue during join process; however, this may not be of concern if the node is in proper state | profile [{self.profile}]")
-                self.functions.print_clear_line()
-                self.functions.print_paragraphs([
-                    ["",1], [" WARNING ",0,"yellow,on_red","bold"], ["Issue may be present?",0,"red"],
-                    ["Please issue the following command to review the node's details.",1,"red"], 
-                    ["sudo nodectl check-connection -p <profile_name>",1],
-                    ["Follow instructions if error persists",2,"red"],
-                    
-                    [" NOTE ",0,"grey,on_green"], ["Missing a few nodes on the Hypergraph independent of the network, is",0,"green"],
-                    ["not an issue.  There will be other nodes leaving and joining the network; possibly, at all times.",1,"green"],
-                ])
-            if offline_msg:
-                self.functions.print_paragraphs([
-                    ["",1],[" Please start the node first. ",1,"yellow,on_red"],
-                ])
-                
-        print("")
-        self.log.logger[self.log_key].info(f"cli_join -> join process has completed | profile [{self.profile}] result [{join_result}]")
-        self.functions.print_cmd_status({
-            "text_start": f"Join process{attempt} complete",
-            "status": join_result,
-            "status_color": color,
-            "newline": True
-        })
-        if peer_count < src_peer_count and not watch_peer_counts:
-            call_type = "upgrade" if upgrade else "default"
-            self.functions.print_paragraphs([
-                [" IMPORTANT ",0,"grey,on_green"], ["It is ok that the peer count < cluster peer count",1,"yellow"],
-                ["because watch mode was",0,"yellow"], ["not",0,"red"], [f"chosen by {call_type}.",1,"yellow"],
-            ])
-            if not upgrade:
-                self.functions.print_paragraphs([
-                    ["add",0,"yellow"], ["-w",0,"cyan","bold"], ["to wait and show full peer count display.",1,"yellow"],
-                ])
-
-        if color == "red":
-            self.functions.print_paragraphs([
-                ["'sudo nodectl check-connection -p <profile_name>'",2,color]
-            ])
-            
-        stop_timer = perf_counter()
-        self.log.logger[self.log_key].debug(f"join process completed in: [{stop_timer - start_timer}s]")
-        self.functions.print_clear_line()
-        print("")
+        cli_join.parse_snapshot_issues()
+        cli_join.parse_tolerance_issues()
         
-        self.functions.print_cmd_status({
-            "text_start": "Checking status",
-            "brackets": self.profile,
-            "newline": True,
-        })
+        cli_join.handle_offline_state()
+        cli_join.handle_join_complete()
 
-        self.functions.cancel_event = False
-        self.show_system_status({
-            "rebuild": True,
-            "wait": False,
-            "-p": self.profile
-        })
+        cli_join.process_incomplete_peer_connections()
+
+        cli_join.handle_bad_join()
+        cli_join.print_completed_join(start_timer)
                 
                 
     def cli_leave(self,command_obj):
-        profile = command_obj.get("profile", self.profile)
-        print_timer = command_obj.get("print_timer", True)
-        secs = command_obj.get("secs", 30)
-        reboot_flag = command_obj.get("reboot_flag", False)
-        skip_msg = command_obj.get("skip_msg", False)
-        threaded = command_obj.get("threaded", False)
-        leave_obj, backup_line = False, False
-        max_retries = 5
-                
-        sleep(command_obj.get("delay",0))
-
-        api_port = self.functions.config_obj[profile]["public_port"]
-        slow = ""
+        from modules.submodules.leave import LeaveNode
         
-        if self.slow_flag:
-            slow = "Slow Reset "
+        cli_leave = LeaveNode(self,command_obj)
+    
+        cli_leave.set_parameters()
+        cli_leave.set_progress_obj()
+        cli_leave.handle_pause()
+        cli_leave.print_leave_init()
+        cli_leave.process_leave_cluster()
+
+        if cli_leave.skip_msg:
+            return
             
-        self.functions.print_cmd_status({
-            "status": profile,
-            "text_start": f"{slow}Leaving the cluster for profile",
-            "newline": True
-        })
-        
-        if reboot_flag:
-             secs = 15 # reboot don't need to wait
-                       
-        self.node_service.set_profile(profile)
-        
-        def call_leave_cluster():
-            state = self.node_service.leave_cluster({
-                "skip_thread": True,
-                "threaded": threaded,
-                "profile": profile,
-                "secs": secs,
-                "cli_flag": True,
-                "current_source_node": "127.0.0.1",   
-            })
-            return state
+        while True:
+            cli_leave.parse_leave_status()
+            cli_leave.print_leaving_msg()
+            cli_leave.print_leave_progress()
+            cli_leave.set_state_obj()    
+            cli_leave.get_profile_state()
+                
+            cli_leave.print_leave_progress(True)    
 
-        call_leave_cluster()
+            if cli_leave.process_leave_status(): 
+                cli_leave.print_outofcluster_msg()
+                break
 
-        if not skip_msg:
-            start = 1
-            skip_log_lookup = False
-            while True:
-                self.log.logger[self.log_key].info(f"cli_leave -> leave in progress | profile [{profile}] port [{api_port}] | ip [127.0.0.1]")
-                if start > max_retries+1:
-                    self.log.logger[self.log_key].warning(f"Node did not seem to leave the cluster properly, executing leave command again. | profile [{profile}]")
-                    call_leave_cluster()
+            if cli_leave.leave_obj: 
+                break    
+            
+            cli_leave.handle_not_outofcluster()
+            if cli_leave.handle_max_retries(): 
+                break
 
-                self.functions.print_cmd_status({
-                    "text_start": "Node going",
-                    "brackets": "Offline",
-                    "text_end": "please be patient",
-                    "status": profile,
-                    "newline": True,
-                })
-                progress = {
-                    "status": "testing",
-                    "text_start": "Retrieving Node Service State",
-                    "brackets": profile,
-                    "newline": False,
-                }
-                self.functions.print_cmd_status(progress)
+            cli_leave.parse_log_wait_for_leave()
+            cli_leave.get_profile_state()
+
+            if cli_leave.process_leave_status(): 
+                break
+            if cli_leave.start > 2:
+                cli_leave.set_skip_lookup(True)
+    
+            if cli_leave.skip_log_lookup:
+                cli_leave.print_leave_timer()
                     
-                get_state_obj = {
-                    "profile": profile,
-                    "caller": "leave",
-                    "skip_thread": True,
-                    "simple": True,
-                    "treaded": threaded,
-                }
-                state = self.functions.test_peer_state(get_state_obj)
-                
-                self.functions.print_cmd_status({
-                    **progress,
-                    "status": state,
-                })
-                
-                if state in self.functions.not_on_network_list:
-                    self.log.logger[self.log_key].debug(f"cli_leave -> leave process complete | profile [{profile}] state [{state}] | ip [127.0.0.1]")
-                    self.functions.print_cmd_status({
-                        "status": "OutOfCluster",
-                        "status_color": "green",
-                        "text_start": "Service with profile",
-                        "text_start": "cluster status",
-                        "brackets": profile,
-                        "newline": True
-                    })
-                    break
-                elif leave_obj: break
-                elif start > 1:
-                    if backup_line: print(f'\x1b[1A', end='')
-                    self.log.logger[self.log_key].warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
-                    self.functions.print_cmd_status({
-                        "text_start": f"{profile} not out of cluster",
-                        "text_color": "red",
-                        "status": state,
-                        "status_color": "yellow",
-                        "newline": True
-                    })  
-                
-                if start > 4:
-                    self.log.logger[self.log_key].warning(f"command line leave request reached [{start}] secs without properly leaving the cluster, aborting attempts | profile [{profile}]")
-                    if print_timer:
-                        self.functions.print_cmd_status({
-                            "text_start": "Unable to gracefully leave",
-                            "brackets": profile,
-                            "status": "skipping",
-                            "newline": True,
-                            "status_color": "red"
-                        })
-                    break
-                if print_timer:
-                    self.prepare_and_send_logs(["-p",profile,"scrap"])
-                    try:
-                        self.log.logger[self.log_key].debug(f"cli_leave -> leave process waiting for | profile [{profile}] state to be [leaving] | ip [127.0.0.1]")
-                        leave_obj = self.send.scrap_log({
-                            "profile": profile,
-                            "msg": "Wait for node to transition to leaving",
-                            "value": "Node state changed to=Leaving",
-                            "key": "message",
-                            "thread": False,
-                            "timeout": 40,
-                            "parent": self,
-                        })
-                    except Exception as e:
-                        self.log.logger[self.log_key].error(f"leave object exception raised [{e}]")
-                        
-                    try: 
-                        timestamp = leave_obj["@timestamp"]
-                    except:
-                        self.log.logger[self.log_key].warning(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
-                        leave_str = "to allow node to gracefully leave"
-                        skip_log_lookup = True
-                        sleep(.5)
-
-                    state = self.functions.test_peer_state(get_state_obj)
-                    if state in self.functions.not_on_network_list: 
-                        self.log.logger[self.log_key].debug(f"cli_leave -> found out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1] - continuing")
-                        break
-                    elif start > 2:
-                        skip_log_lookup = True
-                        
-                    if skip_log_lookup:
-                        self.log.logger[self.log_key].debug(f"cli_leave -> pausing to allow leave process to complete | profile [{profile}] | ip [127.0.0.1]")
-                        self.functions.print_timer({
-                            "seconds": secs,
-                            "phrase": leave_str,
-                            "start": start,
-                        })
-                    else:
-                        leave_obj = False
-                        sleep(1)
-                        try:
-                            self.log.logger[self.log_key].debug(f"cli_leave -> checking for Offline status | profile [{profile}] | ip [127.0.0.1]")
-                            leave_obj = self.send.scrap_log({
-                                "profile": profile,
-                                "msg": "Wait for node to go offline",
-                                "value": "Node state changed to=Offline",
-                                "key": "message",
-                                "timeout": 20,
-                                "timestamp": timestamp if timestamp else False,
-                                "parent": self,
-                            })
-                        except Exception as e:
-                            self.log.logger[self.log_key].error(f"leave object exception raised [{e}]")
-                            skip_log_lookup = True
-                                
-                        state = self.functions.test_peer_state(get_state_obj)
-                        if state not in self.functions.not_on_network_list and start > 2: 
-                            self.log.logger[self.log_key].warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
-                            sleep(.1) 
-                            skip_log_lookup = True      
-                            backup_line = True  
-                        else: 
-                            break         
-                else:
-                    sleep(5) # silent sleep 
-                    
-                self.functions.print_clear_line()
-                start += 1      
+            if cli_leave.handle_wait_for_offline(): break
+       
+            sleep(5) # silent sleep
+            cli_leave.set_start_increment() 
+        
+        if self.primary_command == "leave":
+            self.show_system_status(command_obj)     
                     
         
     def cli_grab_id(self,command_obj):
-        # method is secondary method to obtain node id
-        argv_list = command_obj.get("argv_list",[None])
-        command = command_obj["command"]
-        return_success = command_obj.get("return_success",False)
-        skip_display = command_obj.get("skip_display",False)
-        outside_node_request = command_obj.get("outside_node_request",False)
-        dag_addr_only = command_obj.get("dag_addr_only",False)
-        ready_state = command_obj.get("ready_state",False)
-        threading = command_obj.get("threading",True)
-        profile = command_obj.get("profile",self.profile)
-        is_global = command_obj.get("is_global",True)
+        from modules.submodules.node_id import NodeDAGid
+        nodeid_dag_obj = NodeDAGid(self,command_obj)
 
-        nodeid = ""
-        ip_address = "127.0.0.1" # default
+        nodeid_dag_obj.set_parameters()
+        nodeid_dag_obj.handle_file_request()
+        nodeid_dag_obj.set_profile()
+        nodeid_dag_obj.set_static_target_ip()
 
-        balance_only = False
-        api_port, nodeid_to_ip, target, is_self, cmd, print_out_list = False, False, False, False, False, False
-        wallet_only = True if "-w" in argv_list or "--wallet" in argv_list else False
-
-        if command == "nodeid": 
-            title = "NODE ID"
-        else:
-            title = "DAG ADDRESS"
-            if "--balance" in argv_list: 
-                balance_only = True
-        file, create_csv = False, False
-        false_lookups = []
-
-        self.functions.check_for_help(argv_list,command)
-
-        # --file check must be checked first
-        if "--file" in argv_list:
-            file = argv_list[argv_list.index("--file")+1]
-        elif "-p" in argv_list:  # profile
-            profile = argv_list[argv_list.index("-p")+1] 
-            is_global = False
-
-        if not wallet_only:
-            if "-t" in argv_list:
-                try:
-                    ip_address = argv_list[argv_list.index("-t")+1]
-                except:
-                    argv_list.append("help")
-                target = True
-                outside_node_request = True
-
-            if "--port" in argv_list:
-                api_port = argv_list[argv_list.index("--port")+1] 
-        else:
-            outside_node_request = True
-            nodeid = argv_list[argv_list.index("-w")+1] 
-                                         
-        self.log.logger[self.log_key].info(f"Request to display nodeid | type {command}")
-
-        if not outside_node_request and not target:
-            self.functions.config_obj["global_elements"]["caller"] = "command_line"
-            action_obj = {
-                "action": command,
-                "functions": self.functions,
-            }
-            p12 = P12Class(action_obj)
-            p12.config_obj = deepcopy(self.config_obj)
-            extract_obj = {
-                "global": is_global,
-                "profile": profile,
-                "return_success": True if self.primary_command == "install" else False
-            }  
-            if file:
-                extract_obj["ext_p12"] = file          
-
-            success = p12.extract_export_config_env(extract_obj) 
-            if not success and return_success: 
-                return False
+        if not nodeid_dag_obj.handle_local_request():
+            return False
         
-        if ip_address != "127.0.0.1" or ready_state:
-            if target or ready_state:
-                t_ip = self.functions.get_info_from_edge_point({
-                    "profile": self.profile,
-                    "caller": "cli_grab_id",
-                    "specific_ip": ip_address,
-                })
-                api_port = t_ip["publicPort"]
-                nodeid = t_ip["id"]
-                
-            if not api_port:
-                try: 
-                    api_port = self.functions.config_obj[profile]["public_port"]
-                except:
-                    self.error_messages.error_code_messages({
-                        "error_code": "cmd_1953",
-                        "line_code": "profile_error",
-                        "extra": profile
-                    })
+        try:
+            nodeid_dag_obj.handle_ext_or_ready_state()
+        except Exception as e:
+            false_lookups = e.args[0] # readability
+            return false_lookups
 
-            with ThreadPoolExecutor() as executor:
-                self.functions.event = True
-                if threading:
-                    _ = executor.submit(self.functions.print_spinner,{
-                        "msg": f"Pulling node ID, please wait",
-                        "color": "magenta",
-                    })                     
-                if outside_node_request:
-                    for n in range(0,1):
-                        cluster_ips = self.functions.get_cluster_info_list({
-                            "ip_address": ip_address,
-                            "port": api_port,
-                            "api_endpoint": "/cluster/info",
-                            "error_secs": 3,
-                            "attempt_range": 3,
-                        })  
-                        
-                        try:
-                            cluster_ips.pop()   
-                        except:
-                            if ip_address not in false_lookups:
-                                false_lookups.append(ip_address)
-                            if n > 2 and command != "peers":
-                                self.error_messages.error_code_messages({
-                                    "error_code": "cmd-2484",
-                                    "line_code": "node_id_issue",
-                                    "extra": "external" if outside_node_request else None,
-                                })
-                            sleep(1)
-                        else:
-                            if ip_address in false_lookups:
-                                false_lookups.remove(ip_address)
-                            break
+        nodeid_dag_obj.set_command()        
+        nodeid_dag_obj.process_node_id()
 
-                    if command == "peers" and len(false_lookups) > 0:
-                        self.functions.event = False
-                        return false_lookups
-                            
-                    if cluster_ips:
-                        for desired_ip in cluster_ips:
-                            if desired_ip["id"] == nodeid:     
-                                ip_address = desired_ip["ip"]
-                                nodeid_to_ip = True
-                                break
-                    else:
-                        nodeid = colored("not found?","red")
-                        
-                    if not nodeid_to_ip:
-                        ip_address = colored("not found?","red")
-                    elif command == "dag":
-                        pass
-                    elif "-l" not in argv_list: nodeid = f"{nodeid[0:8]}....{nodeid[-8:]}"
+        if nodeid_dag_obj.dag_addr_only:
+            return nodeid_dag_obj.nodeid 
 
-                elif not nodeid:
-                    nodeid = self.functions.get_api_node_info({
-                        "api_host": ip_address,
-                        "api_port": api_port,
-                        "info_list": ["id","host"]
-                    })
-                    try:
-                        ip_address = nodeid[1]
-                        nodeid = nodeid[0]
-                    except:
-                        self.log.logger[self.log_key].warning(f"cli_grab_id: attempt to access api returned no response | command [{command}] ip [{ip_address}]")
-                        nodeid = colored("Unable To Retrieve","red")
-                self.functions.event = False           
-        else:
-            if "-wr" in argv_list:
-                cmd = "/usr/bin/java -jar /var/tessellation/cl-wallet.jar show-public-key"
-            else:
-                cmd = "/usr/bin/java -jar /var/tessellation/cl-wallet.jar show-id"
-        
-        if (ip_address == "127.0.0.1" and not wallet_only) or command == "dag":
-            with ThreadPoolExecutor() as executor:
-                if not nodeid:
-                    try:
-                        nodeid = self.config_obj["global_elements"]["nodeid_obj"][profile]
-                    except:
-                        self.functions.event = True
-                        if threading:
-                            _ = executor.submit(self.functions.print_spinner,{
-                                "msg": f"Pulling {title}, please wait",
-                                "color": "magenta",
-                            })                     
-                        nodeid = self.functions.process_command({
-                            "bashCommand": cmd,
-                            "proc_action": "poll"
-                        })
-                    
-                self.nodeid = nodeid
-                self.log.logger[self.log_key].debug(f"cli_grab_id: requested the node's nodeid and found | nodeid [{nodeid}] | profile [{profile}]")
-                if command == "dag" and not wallet_only:
-                    nodeid = self.cli_nodeid2dag({
-                        "nodeid": nodeid.strip(),
-                        "profile": profile,
-                    })
-                    self.log.logger[self.log_key].debug(f"cli_grab_id: requested the node's DAG address and found | nodeid [{nodeid}] | profile [{profile}]")
-                if ip_address == "127.0.0.1":
-                    ip_address = self.ip_address
-                    is_self = True
-                    
-                self.functions.event = False  
-
-        if dag_addr_only:
-            return nodeid
-        
-        if command == "dag":
-            if "--csv" in argv_list:
-                self.functions.print_cmd_status({
-                    "text_start": "Create csv for",
-                    "brackets": "show dag rewards",
-                    "status": "running"
-                })
-                create_csv = True 
-                if "-np" not in argv_list:
-                    argv_list.append("-np")
-                if "--output" in argv_list:
-                    csv_file_name = argv_list[argv_list.index("--output")+1]
-                    if "/" in csv_file_name:
-                        self.error_messages.error_code_messages({
-                            "error_code": "cmd-442",
-                            "line_code": "invalid_file_or_path",
-                            "extra": csv_file_name
-                        })
-                else:
-                    prefix = self.functions.get_date_time({"action": "datetime"})
-                    csv_file_name = f"{prefix}-{nodeid[0:8]}-{nodeid[-8:]}-show-dag-data.csv"
-                csv_path = f"{self.config_obj[profile]['directory_uploads']}{csv_file_name}"
-
-            # this creates a print /r status during retrieval so placed here to not affect output
-            if wallet_only:
-                self.functions.is_valid_address("DAG",False,nodeid)
-                
-            consensus = self.cli_check_consensus({
-                "caller": "dag",
-                "ip_address": ip_address,
-                "profile": profile,
-            })
-                    
-            for n in range(0,3):
-                wallet_balance = self.functions.pull_node_balance({
-                    "ip_address": ip_address,
-                    "wallet": nodeid.strip(),
-                    "environment": self.config_obj[profile]["environment"]
-                })
-
-                if n < 2 and int(float(wallet_balance["balance_dag"].replace(',', ''))) < 1:    
-                    self.log.logger[self.log_key].warning("cli_grab_id --> wallet balance came back as 0, trying again before reporting 0 balance.")
-                    if n < 1:
-                        sleep(1.5) # avoid asking too fast
-                    else:
-                        self.functions.print_paragraphs([
-                            ["Balance has come back a",0,"red"], ["0",0,"yellow"], ["after",0,"red"], ["2",0,"yellow"], ["attempts. Making",0,"red"],
-                            ["final attempt to find a balance before continuing, after pause to avoid perceived API violations.",1,"red"],
-                        ])
-                        self.functions.print_timer({
-                            "p_type": "cmd",
-                            "seconds": 45,
-                            "status": "pausing",
-                            "step": -1,
-                            "phrase": "Waiting",
-                            "end_phrase": "before trying again",
-                        })
-                    continue
-                break    
-            wallet_balance = SimpleNamespace(**wallet_balance)
-
-        # clear anything off the top of screen
-        if "quiet_install" in list(self.command_obj.values()):
-            pass
-        elif not create_csv:
-            self.functions.print_clear_line()
-
-        if not is_self and not wallet_only and not balance_only:
-            print_out_list = [
-                {
-                    "header_elements" : {
-                        "IP ADDRESS REQUESTED": ip_address,
-                    },
-                },
-            ]
-        if not skip_display:
-            if not outside_node_request and not create_csv:
-                if not balance_only:            
-                    if not file: self.show_ip([None])
-                    print_out_list = [
-                        {
-                            "header_elements" : {
-                                "P12 FILENAME": p12.p12_filename,
-                                "P12 LOCATION": p12.path_to_p12,
-                            },
-                            "spacing": 30
-                        },
-                    ]
-
-            if print_out_list:
-                for header_elements in print_out_list:
-                    self.functions.print_show_output({
-                        "header_elements" : header_elements
-                    })   
-            
-            if "-wr" in argv_list:
-                nodeidwr = []
-                nodeid = nodeid.split("\n")
-                for part in nodeid:
-                    part = re.sub('[^A-Za-z0-9]+', '', part)
-                    nodeidwr.append(part)
-                try:
-                    nodeid = f"{nodeidwr[1][1::]}{nodeidwr[2][1::]}"
-                except:
-                    self.log.logger[self.log_key].error(f"Unable to access nodeid from p12 file.")
-                    nodeid = "unable to derive"
-            else:
-                nodeid = nodeid.strip()
-                if nodeid == "":
-                    self.log.logger[self.log_key].error(f"Unable to access nodeid from p12 file.")
-                    nodeid = "unable to derive"
-            header_elements = {
-                title: nodeid,
-            }
-
-            print_out_list = [
-                {
-                    "header_elements" : header_elements,
-                },
-            ]
-            
-            if create_csv:
-                self.functions.create_n_write_csv({
-                    "file": csv_path,
-                    "rows": [
-                            ["ip address","dag address"],
-                            [ip_address,nodeid],
-                            ["balance","usd value","dag price"],
-                            [
-                                wallet_balance.balance_dag,
-                                wallet_balance.balance_usd,
-                                wallet_balance.token_price
-                            ]
-                        ]
-                })
-            elif not balance_only:
-                for header_elements in print_out_list:
-                    self.functions.print_show_output({
-                        "header_elements" : header_elements
-                    })
-                        
-            if command == "dag":
-                if not create_csv:
-                    print_out_list = [
-                        {
-                            f"{wallet_balance.token_symbol} BALANCE": f"{wallet_balance.balance_dag: <20}",
-                            "$USD VALUE": f"{wallet_balance.balance_usd}",
-                            f"{wallet_balance.token_symbol} PRICE": f"{wallet_balance.token_price}",
-                            "IN CONSENSUS": consensus,
-                        }
-                    ]
-                    if self.config_obj[profile]["layer"] > 0 or balance_only:
-                        print_out_list[0].pop("IN CONSENSUS", None)
-                
-                    for header_elements in print_out_list:
-                        self.functions.print_show_output({
-                            "header_elements" : header_elements
-                        })  
-                                    
-                if not "-b" in argv_list and not balance_only:
-                    total_rewards = 0
-                    data = self.get_and_verify_snapshots(375,self.config_obj[profile]["environment"],profile)
-                    elapsed = data["elapsed_time"]
-                    data = data["data"]
-                    show_title = True
-                    found = False
-                    data_point = 0
-                    
-                    do_more = False if "-np" in argv_list else True
-                    if do_more:
-                        console_size = get_terminal_size()
-                        more_break = round(console_size.lines)-20  
-
-                    for n, rewards in enumerate(data):
-                        for reward in rewards["rewards"]:
-                            if reward["destination"] == nodeid:
-                                found = True
-                                total_rewards += reward["amount"]
-                                if show_title:
-                                    show_title = False
-                                    if create_csv:
-                                        self.functions.create_n_write_csv({
-                                            "file": csv_path,
-                                            "rows": [
-                                                    ["timestamp","ordinal","reward","cumulative"],
-                                                    [
-                                                        data[n]["timestamp"],
-                                                        data[n]["ordinal"],
-                                                        reward["amount"]/1e8,
-                                                        total_rewards/1e8
-                                                    ]
-                                                ]
-                                        })
-                                    else:
-                                        print_out_list = [
-                                            {
-                                                "header_elements": {
-                                                    "TIMESTAMP": data[n]["timestamp"],
-                                                    "ORDINAL": data[n]["ordinal"],
-                                                    "REWARD": reward["amount"]/1e8,
-                                                    "TOTAL REWARDS": total_rewards/1e8
-                                                },
-                                                "spacing": 25,
-                                                "1": 10,
-                                                "2": 13,
-                                            },
-                                        ]
-                                        
-                                        for header_elements in print_out_list:
-                                            self.functions.print_show_output({
-                                                "header_elements" : header_elements
-                                            })
-                                else: 
-                                    if reward["amount"] > 999999:
-                                        if create_csv:
-                                            self.functions.create_n_write_csv({
-                                                "file": csv_path,
-                                                "row": [
-                                                            data[n]["timestamp"],
-                                                            data[n]["ordinal"],
-                                                            reward["amount"]/1e8,
-                                                            total_rewards/1e8
-                                                    ]
-                                            })
-                                        else:
-                                            self.functions.print_paragraphs([
-                                                [f'{data[n]["timestamp"]}  ',0,"white"],
-                                                [f'{data[n]["ordinal"]: <11}',0,"white"],
-                                                [f'{reward["amount"]/1e8: <14}',0,"white"],
-                                                [f'{total_rewards/1e8}',1,"white"],
-                                            ])                                    
-                                            if do_more and data_point % more_break == 0 and data_point > 0:
-                                                more = self.functions.print_any_key({
-                                                    "quit_option": "q",
-                                                    "newline": "both",
-                                                })
-                                                if more:
-                                                    cprint("  Terminated by Node Operator","red")
-                                                    return
-                                                show_title = True  
-                                data_point += 1 
-                                
-                    if found:
-                        elapsed = self.functions.get_date_time({
-                            "action": "estimate_elapsed",
-                            "elapsed": elapsed
-                        })
-                        
-                    if create_csv:
-                        self.functions.print_cmd_status({
-                            "text_start": "Create csv for",
-                            "brackets": "show dag rewards",
-                            "status": "complete",
-                            "newline": True,
-                        })
-                        
-                    if found:
-                        self.functions.print_paragraphs([
-                            ["",1],["Elapsed Time:",0], [elapsed,1,"green"]
-                        ])  
-            
-            
-            if create_csv:
-                self.functions.print_paragraphs([
-                    ["CSV created successfully",1,"green","bold"],
-                    ["filename:",0,], [csv_file_name,1,"yellow","bold"],
-                    ["location:",0,], [self.config_obj[profile]['directory_uploads'],1,"yellow","bold"]
-                ])  
+        nodeid_dag_obj.handle_dag_command()
+        nodeid_dag_obj.set_print_out_ip()
+        nodeid_dag_obj.print_display()
                                                    
-        if return_success:    
-            if return_success == "set_value":
-                self.nodeid = nodeid
-            elif nodeid == "unable to derive":
+        if nodeid_dag_obj.return_success:    
+            if nodeid_dag_obj.return_success == "set_value":
+                self.nodeid = nodeid_dag_obj.nodeid
+            elif nodeid_dag_obj.nodeid == "unable to derive":
                 return False 
             return True
             
@@ -5817,13 +3864,13 @@ class CLI():
                 "header_elements" : header_elements,
             })
 
-        if "--full_report" in command_list:
+        if "--full-report" in command_list:
             np = True if "--np" in command_list else False
             print_full_snapshot_report(
                 merged_dict, count_results["length_of_files"],
                 get_terminal_size(), self.functions, np, self.log
             )
-        if "--json_output" in command_list:
+        if "--json-output" in command_list:
             output_to_file(merged_dict,command_list, self.functions, self.log)
 
         if not fix:
@@ -7333,7 +5380,8 @@ class CLI():
             "command_list": command_list,
             "ip_address": self.ip_address,
         })             
-        if "scrap" in command_list: self.send = send
+        if "scrap" in command_list: 
+            self.send = send
         else:
             result = send.prepare_and_send_logs()
         
@@ -7484,8 +5532,8 @@ class CLI():
             "package": False,
         }
 
-        if "--input_json" in command_list:
-            signed_input_path = command_list[command_list.index("--input_json")+1]
+        if "--input-json" in command_list:
+            signed_input_path = command_list[command_list.index("--input-json")+1]
             signed_input_path = path.normpath(signed_input_path)
             try:
                 check_path = path.basename(signed_input_path)
@@ -7498,17 +5546,17 @@ class CLI():
             })
             sign_parms["input_json"] = signed_input_path
 
-        if "--output_json" in command_list:
-            signed_output_file = command_list[command_list.index("--output_json")+1]
+        if "--output-json" in command_list:
+            signed_output_file = command_list[command_list.index("--output-json")+1]
             signed_output_path = path.normpath(f"{self.functions.default_upload_location}/{signed_output_file}")
             self.functions.check_file_dir_exists({
                 "check_path": signed_output_path,
             })
             sign_parms["output_json"] = signed_output_file
 
-        for key_option in ["private_key","public_key"]:
+        for key_option in ["private-key","public-key"]:
             if key_option in command_list:
-                key_file = command_list[command_list.index(f"--{key_option}_path")+1]
+                key_file = command_list[command_list.index(f"--{key_option}-path")+1]
                 self.functions.check_file_dir_exists({
                     "check_path": key_file,
                     "always_exit": True,
@@ -7853,16 +5901,28 @@ class CLI():
     # reusable methods
     # ==========================================
 
-    def get_and_verify_snapshots(self,snapshot_size, environment, profile, reward_only=False):
+    def get_and_verify_snapshots(self,command_obj):
+        snapshot_size = command_obj["snapshot_size"]
+        environment = command_obj["environment"]
+        profile = command_obj["profile"]
+        ordinal = command_obj.get("ordinal",False)
+        return_on_error = command_obj.get("return_on_error",False)
+        return_type = command_obj.get("return_type","list")
+
         error = True
         return_data = {}
-        action = "history" if not reward_only else "rewards_per_id"
+        action = "history"
 
+        if ordinal:
+            action = "rewards"
+        
         data = self.functions.get_snapshot({
             "action": action,
             "history": snapshot_size,
             "environment": environment,
             "profile": profile,
+            "ordinal": ordinal,
+            "return_type": return_type,
         })   
         
         try:
@@ -7881,6 +5941,8 @@ class CLI():
             return_data["data"] = data
             
         if error:
+            if return_on_error: 
+                return False
             self.error_messages.error_code_messages({
                 "error_code": "cmd-3151",
                 "line_code": "api_error",
@@ -7893,11 +5955,11 @@ class CLI():
     # print commands
     # ==========================================
 
-    def print_title(self,line):
+    def print_title(self,line,newline="both"):
         self.functions.print_header_title({
             "line1": line,
             "single_line": True,
-            "newline": "both"
+            "newline": newline,
         })
         
 
@@ -7913,13 +5975,13 @@ class CLI():
             var.command = var.command.replace("_","-",1)
         self.log.logger[self.log_key].error(f"[{var.command}] requested --> removed for [{new_command}]")
         self.functions.print_paragraphs([
-            [f" WARNING ",0,"white,on_red","bold"], ["requested feature has been",0,"red"], ["removed",0,"red","bold"],["!",1,"red"],
+            ["",],[f" WARNING ",0,"white,on_red","bold"], ["requested feature has been",0,"red"], ["removed",0,"red","bold"],["!",1,"red"],
             ["      Feature:",0,"cyan","bold"], [var.command,1,"blue","bold"],
             ["As of version:",0,"cyan","bold"], [var.version,1,"yellow"]
         ])
         if is_new:
             self.functions.print_paragraphs([
-                ["  Replacement:",0,"cyan","bold"], [new_command,1,"green","bold"],
+                ["  Replacement:",0,"cyan","bold"], [new_command,2,"green","bold"],
                 [help_hint,1,"magenta"]
             ])
         if done_exit:

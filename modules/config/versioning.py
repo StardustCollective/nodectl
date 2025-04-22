@@ -17,7 +17,7 @@ class Versioning():
     def __init__(self,command_obj):
         
         process = command_obj.get("request",None)
-        self.log = Logging(process)
+        self.log = Logging("version",process)
 
         # important
         # migration -> verify_config_type -> simple verification value counters
@@ -25,7 +25,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.17.1"
+        nodectl_version = "v2.19.0"
         nodectl_yaml_version = "v2.1.1"
                 
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
@@ -466,7 +466,6 @@ class Versioning():
                     upgrade_path = session.get(self.upgrade_path_path, timeout=s_timeout)
                 except:
                     # only trying once (not that important)
-                    
                     self.log.logger[self.log_key].error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
                     if self.print_messages:
                         self.functions.print_paragraphs([
@@ -515,9 +514,10 @@ class Versioning():
         pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
         pre_release = {"prerelease":"Unknown"}
 
+        session = self.functions.set_request_session()
+        s_timeout = (1,1)
+            
         try:
-            session = self.functions.set_request_session()
-            s_timeout = (1,1)
             pre_release = session.get(pre_release_uri, timeout=s_timeout).json()
         except Exception as e:
             self.log.logger[self.log_key].warning(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
