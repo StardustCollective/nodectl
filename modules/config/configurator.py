@@ -3752,9 +3752,11 @@ class Configurator():
             "newline": "top",
         })
         
+        enable_answers = False
+        fast_set = False
         warning = False
         self.restart_needed = self.upgrade_needed = False
-        
+                
         for profile in self.c.config_obj.keys():
             if profile == "global_p12":
                 if self.c.config_obj[profile]["passphrase"] == "None":
@@ -3803,6 +3805,29 @@ class Configurator():
         upgrade = "disable" if self.c.config_obj["global_auto_restart"]["auto_upgrade"] else "enable"
         on_boot = "disable" if self.c.config_obj["global_auto_restart"]["on_boot"] else "enable"
         
+        enable_all_question = "enable" if all(val == "enable" for val in (restart, upgrade, on_boot)) else "disable"
+        all_prompt = "Do you want to ["
+        all_prompt += colored(enable_all_question,"yellow")
+        all_prompt += colored("] all auto_restart options?","cyan")
+        
+        self.c.functions.print_paragraphs([
+            ["",1], ["options:",0,"blue","bold"], 
+            ["auto_restart, auto_upgrade, on_boot",1,"green"],
+        ])
+        if self.c.functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt": all_prompt,
+            "exit_if": False,
+        }):
+            fast_set = True
+            enable_answers = {
+                "auto_restart": "y",
+                "auto_upgrade": "y",
+                "on_boot": "y",
+            }
+            print("")
+            
         questions = {
             "auto_restart": {
                 "question": f"  {colored('Do you want to [','cyan')}{colored(restart,'yellow',attrs=['bold'])}{colored('] auto_restart?','cyan')}",
@@ -3832,31 +3857,32 @@ class Configurator():
         while True:
             restart_error = False
 
-            enable_answers = self.ask_confirm_questions({"questions": questions})
-            if self.return_to_main_menu_request:
-                return
+            if not fast_set:
+                enable_answers = self.ask_confirm_questions({"questions": questions})
+                if self.return_to_main_menu_request:
+                    return
 
-            enable_answers["auto_restart"] = enable_answers["auto_restart"].lower()
-            enable_answers["auto_upgrade"] = enable_answers["auto_upgrade"].lower()
-            enable_answers["on_boot"] = enable_answers["on_boot"].lower()
-            
-            for command in ["auto_restart","auto_upgrade","on_boot"]:
-                enable_answers[command] = enable_answers[command].lower()
-                if enable_answers[command] == "yes": 
-                    enable_answers[command] == "y"
-                elif enable_answers[command] == "no": 
-                    enable_answers[command] == "n"
-                elif enable_answers[command] == "no": 
-                    enable_answers[command] == "n"
-                if enable_answers[command] != "n" and enable_answers[command] != "y":
-                    restart_error = True
-                    self.c.functions.print_paragraphs([
-                        [" WARNING ",0,"yellow,on_red"], ["invalid options chosen, this configuration change will not take effect.",1,"red"],
-                        ["Please try again",2,"magenta"],
-                    ])
-                    self.c.functions.print_any_key({})
-                    break
-            if restart_error: break
+                enable_answers["auto_restart"] = enable_answers["auto_restart"].lower()
+                enable_answers["auto_upgrade"] = enable_answers["auto_upgrade"].lower()
+                enable_answers["on_boot"] = enable_answers["on_boot"].lower()
+                
+                for command in ["auto_restart","auto_upgrade","on_boot"]:
+                    enable_answers[command] = enable_answers[command].lower()
+                    if enable_answers[command] == "yes": 
+                        enable_answers[command] == "y"
+                    elif enable_answers[command] == "no": 
+                        enable_answers[command] == "n"
+                    elif enable_answers[command] == "no": 
+                        enable_answers[command] == "n"
+                    if enable_answers[command] != "n" and enable_answers[command] != "y":
+                        restart_error = True
+                        self.c.functions.print_paragraphs([
+                            [" WARNING ",0,"yellow,on_red"], ["invalid options chosen, this configuration change will not take effect.",1,"red"],
+                            ["Please try again",2,"magenta"],
+                        ])
+                        self.c.functions.print_any_key({})
+                        break
+                if restart_error: break
 
             # auto_upgrade restrictions
             if restart == "disable" and upgrade == "disable":
@@ -3952,6 +3978,7 @@ class Configurator():
                         "newline": True,
                     })
                 break
+            
             self.c.functions.print_paragraphs([
                 [" ERROR ",0,"yellow,on_red"], ["auto_upgrade cannot be enabled without auto_restart, please try again.",1,"red"]
             ])
@@ -3968,6 +3995,7 @@ class Configurator():
             self.config_obj_apply["global_auto_restart"]["on_boot"] = "True" if enable_answers["on_boot"] == "y" else "False"
         
         if not restart_error: self.apply_vars_to_config()
+        sleep(1.5)
 
         
     def edit_append_profile_global(self,s_type):
