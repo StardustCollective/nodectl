@@ -289,8 +289,7 @@ class Functions():
             
     def get_peer_count(self,command_obj):
         from  modules.submodules.peer_count import PeerCount
-        peer_count_obj = PeerCount(command_obj)
-        peer_count_obj.parent = self
+        peer_count_obj = PeerCount(self, command_obj)
         peer_count_obj.node_states = self.get_node_states()
 
         try:
@@ -940,13 +939,15 @@ class Functions():
             else:
                 try:
                     if response.status_code == 404:
+                        status_code = response.status_code
                         return response.reason
                 except:
-                    pass
+                    status_code = "n/a"
                 if utype == "yaml_raw":
                     return response.content.decode("utf-8").replace("\n","").replace(" ","")
                 elif utype == "yaml":
                     return yaml.safe_load(response.content)
+                self.log.logger[self.log_key].debug(f"get_from_api --> status code [{status_code}] url request [{url}]")
                 return response
             finally:
                 session.close()
@@ -965,7 +966,7 @@ class Functions():
             
         # uri = "http://10.255.255.1:80/api/something"
 
-        session = self.set_request_session(True,0)
+        session = self.set_request_session(True)
 
         with ThreadPoolExecutor() as executor:
             do_thread = False # avoid race conditions
@@ -978,8 +979,7 @@ class Functions():
                         "msg": f"API making call outbound, please wait",
                         "color": "magenta",
                     })   
-                
-            self.log.logger[self.log_key].debug(f"Using timeout={s_timeout} for {uri}")
+
             for _ in range(0,4):
                 try:
                     response = session.get(uri,timeout=s_timeout)
@@ -995,19 +995,20 @@ class Functions():
                     self.event = False
 
                 except Timeout as e:
-                    self.log.logger[self.log_key].warning(f"[Timeout]  {e} for {uri}")
+                    self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [Timeout]  {e} for {uri}")
                     results = False
                 except ConnectionError as e:
-                    self.log.logger[self.log_key].warning(f"[ConnectionError] {e} for {uri}")
+                    self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [ConnectionError] {e} for {uri}")
                     results = False
                 except RequestException as e:
-                    self.log.logger[self.log_key].warning(f"[RequestException] {e} for {uri}")
+                    self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [RequestException] {e} for {uri}")
                     self.test_response_code(response,e,uri)
                     results = False
                 except Exception as e:
-                    self.log.logger[self.log_key].warning(f"[Unexpected error] {e} for {uri}")
+                    self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [Unexpected error] {e} for {uri}")
                     results = False
                 else:
+                    self.log.logger[self.log_key].debug(f"get_cluster_info_list --> from url [{uri}]")
                     break
                 sleep(.07)
 
@@ -1199,7 +1200,7 @@ class Functions():
                 results = session.get(uri, timeout=s_timeout).json()
                 results = results[get_results]
             except Exception as e:
-                self.log.logger[self.log_key].warning(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
+                self.log.logger[self.log_key].warning(f"get_snapshot --> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
                 sleep(error_secs)
             else:
                 if return_type == "raw":
@@ -1214,6 +1215,7 @@ class Functions():
                             return_data = {}
                             for item in return_values:
                                 return_data[item] = results[item]
+                self.log.logger[self.log_key].debug(f"get_snapshot --> | url [{uri}]")
                 return return_data
             finally:
                 session.close()
@@ -1594,7 +1596,7 @@ class Functions():
         })
         
 
-    def set_request_session(self,json=False,u_retries=3):
+    def set_request_session(self,json=False):
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
@@ -1608,7 +1610,6 @@ class Functions():
             
         session = Session()            
         session.headers.update(get_headers)   
-        session.params = {'random': random.randint(10000,20000)}
 
         return session
     
@@ -1739,14 +1740,15 @@ class Functions():
                 try:
                     session = r_session.get(url, timeout=s_timeout).json()
                 except:
-                    self.log.logger[self.log_key].error(f"pull_node_sessions - unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
+                    self.log.logger[self.log_key].error(f"pull_node_sessions --> unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
                     sleep(1)
                 else:
+                    self.log.logger[self.log_key].debug(f"pull_node_sessions --> pull request [{node}] public_api_port [{port}] url [{url}]")
                     break
                 finally:
                     r_session.close()
 
-            self.log.logger[self.log_key].info(f"pull_node_sessions found session [{session}] returned from test address [{node}] url [{url}] public_api_port [{port}]")
+            self.log.logger[self.log_key].info(f"pull_node_sessions --> found session [{session}] returned from test address [{node}] url [{url}] public_api_port [{port}]")
             try:
                 token = session[key]
             except Exception as e:
@@ -2169,17 +2171,18 @@ class Functions():
             try:
                 health = session.get(uri, timeout=s_timeout)
             except:
-                self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
+                self.log.logger[self.log_key].warning(f"check_edge_point_health --> unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if not self.auto_restart:
                     self.network_unreachable_looper()
                     return False
             else:  
                 if health.status_code != 200:
-                    self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
+                    self.log.logger[self.log_key].warning(f"check_edge_point_health --> unable to reach edge point [{uri}] returned code [{health.status_code}]")
                     if not self.auto_restart:
                         self.network_unreachable_looper()
                         return False
                 else:
+                    self.log.logger[self.log_key].debug(f"check_edge_point_health --> edge point [{uri}] returned code [{health.status_code}]")
                     return True
             finally:
                 session.close()
@@ -2200,13 +2203,13 @@ class Functions():
                 sleep(1)
             else:
                 if r.status_code == 200:
-                    self.log.logger[self.log_key].error(f"check health failed on endpoint [localhost] port [{api_port}]")
+                    self.log.logger[self.log_key].error(f"check_health_endpoint --> failed on endpoint [localhost] port [{api_port}]")
                     return True
                 break
             finally:
                 session.close()
             
-        self.log.logger[self.log_key].debug(f"check health successful on endpoint [localhost] port [{api_port}]")
+        self.log.logger[self.log_key].debug(f"check_health_endpoint --> check health successful on endpoint [localhost] port [{api_port}]")
         return False   
             
         
@@ -2550,9 +2553,9 @@ class Functions():
                     "spinner": spinner,
                 })
             except IndexError as e:
-                self.log.logger[self.log_key].error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | caller: [{caller}] current_source_node: [{current_source_node}] | e: {e}")
+                self.log.logger[self.log_key].error(f"test_peer_state --> IndexError retrieving get_info_from_edge_point | caller: [{caller}] current_source_node: [{current_source_node}] | e: {e}")
             except Exception as e:
-                self.log.logger[self.log_key].error(f"test_peer_state -> error retrieving get_info_from_edge_point | caller: [{caller}] | current_source_node: [{current_source_node}] | e: {e}")
+                self.log.logger[self.log_key].error(f"test_peer_state --> error retrieving get_info_from_edge_point | caller: [{caller}] | current_source_node: [{current_source_node}] | e: {e}")
                 send_error = (2160,e) # fnt-2160
         
         ip_addresses = [test_address,current_source_node]
@@ -2570,10 +2573,10 @@ class Functions():
                         "spinner": spinner,
                     })
                 except IndexError as e:
-                    self.log.logger[self.log_key].error(f"test_peer_state -> IndexError retrieving get_info_from_edge_point | ip_address {ip_addresses[n]} | e: {e}")
+                    self.log.logger[self.log_key].error(f"test_peer_state --> IndexError retrieving get_info_from_edge_point | ip_address {ip_addresses[n]} | e: {e}")
                     send_error = (2184,e) # fnt-2184
                 except Exception as e:
-                    self.log.logger[self.log_key].error(f"test_peer_state -> unable to get_info_from_edge_point | ip_address {ip_addresses[n]} | e: [{e}]")
+                    self.log.logger[self.log_key].error(f"test_peer_state --> unable to get_info_from_edge_point | ip_address {ip_addresses[n]} | e: [{e}]")
                     send_error = (2187,e) # fnt-2187
 
         if send_error and not self.auto_restart:
@@ -2632,7 +2635,7 @@ class Functions():
                                 if api_not_ready_flag: 
                                     cpu, mem, _ = self.check_cpu_memory_thresholds()
                                     if not cpu or not mem: 
-                                        self.log.logger[self.log_key].warning("functions -> test peer state -> setting status to [ApiNotReponding]")
+                                        self.log.logger[self.log_key].warning("test_peer_state --> test peer state -> setting status to [ApiNotReponding]")
                                         results['node_state_src'] = "ApiNotResponding"
                                         results['node_state_edge'] = "ApiNotResponding"
                                     break_while = True
@@ -2643,6 +2646,7 @@ class Functions():
                                     break
                                 sleep(.5)
                             else:
+                                self.log.logger[self.log_key].debug(f"test_peer_state --> test peer state -> url [{uri}]")
                                 break_while = True
                                 break
                             finally:
@@ -4073,13 +4077,13 @@ class Functions():
                                     remove(local)
                             else:
                                 break
-                self.log.logger[self.log_key].info(f"functions --> download_file [{url}] successful output file [{local}]")
+                self.log.logger[self.log_key].info(f"download_file --> [{url}] successful output file [{local}]")
             except HTTPError as e:
-                self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+                self.log.logger[self.log_key].error(f"download_file --> [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
                 do_raise = True
                 sleep(1)
             except RequestException as e:
-                self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
+                self.log.logger[self.log_key].error(f"download_file --> [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
                 do_raise = True
                 sleep(1)
             else:
@@ -4094,6 +4098,7 @@ class Functions():
                 "line_code": "file_not_found",
                 "extra": path.basename(command_obj['local']),
             })
+        self.log.logger[self.log_key].debug(f"download_file --> [{url}] was successfully downloaded to output file [{local}].")
 
 
     def process_command(self,command_obj):

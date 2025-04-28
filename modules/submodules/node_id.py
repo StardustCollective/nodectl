@@ -411,12 +411,13 @@ class NodeDAGid():
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
-                    self.log.logger[self.log_key].error(f"get_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}]")
+                    self.log.logger[self.log_key].error(f"node_id --> get_node_balance --> unable to pull request [{ip_address}] DAG address [{wallet}]")
                     self.log.logger[self.log_key].warning(f"get_node_balance session - returning [{balance}] because could not reach requested address")
-                    self._print_log_msg("error",f"get_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}]")
+                    self._print_log_msg("error",f"node_id --> get_node_balance --> unable to pull request [{ip_address}] DAG address [{wallet}]")
                     self._print_log_msg("warning",f"get_node_balance session - returning [{balance}] because could not reach requested address")
                     sleep(1)
                 else:
+                    self.log.logger[self.log_key].debug(f"node_id --> get_node_balance --> url [{uri}]")
                     break
                 finally:
                     session.close()

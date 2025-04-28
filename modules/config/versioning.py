@@ -466,7 +466,7 @@ class Versioning():
                     upgrade_path = session.get(self.upgrade_path_path, timeout=s_timeout)
                 except:
                     # only trying once (not that important)
-                    self.log.logger[self.log_key].error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
+                    self.log.logger[self.log_key].error("versioning --> pull_upgrade_path --> unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
                     if self.print_messages:
                         self.functions.print_paragraphs([
                             ["",1], ["Unable to determine upgrade path.  Please make sure you adhere to the proper upgrade path before",0,"red"],
@@ -474,6 +474,8 @@ class Versioning():
                         ])
                     self.upgrade_path = False
                     return
+                else:
+                    self.log.logger[self.log_key].debug(f"versioning --> pull_upgrade_path --> url [{self.upgrade_path_path}]")
                 finally:
                     session.close()
 
@@ -481,7 +483,7 @@ class Versioning():
                 try:
                     self.upgrade_path = eval(upgrade_path)
                 except Exception as e:
-                    self.log.logger[self.log_key].critical(f"versioning --> upgrade_path uri returned invalid data [{e}]")
+                    self.log.logger[self.log_key].critical(f"versioning --> pull_upgrade_path --> upgrade_path uri returned invalid data [{e}]")
                     self.print_error("ver-327","possible404",e,None)
 
                 self.upgrade_path["nodectl_pre_release"] = self.is_nodectl_pre_release()
@@ -524,9 +526,10 @@ class Versioning():
         else:
             try:
                 if "API rate limit" in pre_release["message"]:
-                    self.log.logger[self.log_key].warning(f"function - pull_upgrade_path - unable to determine if pre-release | [{pre_release['message']}]")
+                    self.log.logger[self.log_key].warning(f"versioning --> is_nodectl_pre_release - pull_upgrade_path - unable to determine if pre-release | [{pre_release['message']}]")
                     pre_release["prerelease"] = "Unknown"
             except: pass
+            self.log.logger[self.log_key].debug(f"versioning --> is_nodectl_pre_release - pull_upgrade_path - url | [{pre_release_uri}]")
         finally:
             session.close()
             

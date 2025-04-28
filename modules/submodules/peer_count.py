@@ -2,8 +2,8 @@ from time import sleep
 
 class PeerCount():
     
-    def __init__(self,command_obj):
-        self.parent = None
+    def __init__(self, parent, command_obj):
+        self.parent = parent
         self._set_parameters(command_obj)
 
 
@@ -84,10 +84,12 @@ class PeerCount():
         for _ in range(0,4):
             try:
                 peers = session.get(url,timeout=s_timeout)
-            except:
+            except Exception as e:
+                self.parent.log.logger[self.log_key].error(f"peer_count --> get_peers --> error found [{url}] error [{e}].")
                 peers = "error"
                 sleep(1)
             else:
+                self.parent.log.logger[self.log_key].debug(f"peer_count --> get_peers --> [{url}].")
                 break
             finally:
                 session.close()
@@ -115,6 +117,7 @@ class PeerCount():
         self.peers_downloadinprogress = list()
         self.peers_waitingfordownload = list()
         
+        self.log_key = self.parent.log_key
         self.node_states = None
 
 
