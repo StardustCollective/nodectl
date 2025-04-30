@@ -291,8 +291,7 @@ class Functions():
             
     def get_peer_count(self,command_obj):
         from  modules.submodules.peer_count import PeerCount
-        peer_count_obj = PeerCount(command_obj)
-        peer_count_obj.parent = self
+        peer_count_obj = PeerCount(self,command_obj)
         peer_count_obj.node_states = self.get_node_states()
 
         try:
