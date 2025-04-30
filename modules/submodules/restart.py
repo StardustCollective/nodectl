@@ -360,7 +360,7 @@ class RestartNode():
                     
     def _print_log_msg(self,log_type,msg):
         log_method = getattr(self.log, log_type, None)
-        log_method(f"restart request --> {msg}")
+        log_method(f"{self.__class__.__name__} request --> {msg}")
         
                             
     def print_restart_init(self):

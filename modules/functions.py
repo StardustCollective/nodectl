@@ -32,6 +32,7 @@ from re import match, sub, compile
 from textwrap import TextWrapper
 from subprocess import Popen, PIPE, call, run, check_output, CalledProcessError, DEVNULL, STDOUT
 from concurrent.futures import ThreadPoolExecutor
+from collections import Counter
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
 from copy import copy, deepcopy
@@ -39,7 +40,6 @@ from time import sleep, perf_counter, time
 from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
-from urllib.parse import urlparse, urlunparse
 from functools import partial
 
 from os import getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chown
@@ -123,7 +123,7 @@ class Functions():
             self.environment_name = False
             
         self.default_profile = None
-        self.default_edge_point = {}
+
         self.link_types = ["ml0","gl0"]   
         self.environment_names = []
              
@@ -132,6 +132,8 @@ class Functions():
         
         self.auto_restart = True if self.config_obj["global_elements"]["caller"] == "auto_restart" else False
         ignore_defaults = ["config","install","installer","auto_restart","ts","debug"]
+        
+        self.current_cluster_session_info = False
         if self.config_obj["global_elements"]["caller"] not in ignore_defaults: 
             self.set_default_variables({})
 
@@ -741,6 +743,7 @@ class Functions():
             for n in range(0,3):
                 try:
                     cluster_info = self.get_cluster_info_list({
+                        "profile": profile,
                         "ip_address": self.config_obj[profile]["edge_point"],
                         "port": self.config_obj[profile]["edge_point_tcp_port"],
                         "api_endpoint": api_str,
@@ -798,7 +801,8 @@ class Functions():
             for n in range(0,max_range):
                 try:
                     node = random.choice(cluster_info_tmp)
-                except:
+                except Exception as e:
+                    self.log.logger[self.log_key].error(f"get_info_from_edge_point reached error attempting to set random node [{e}]")
                     self.error_messages.error_code_messages({
                         "error_code": "fnt-745",
                         "line_code": "api_error",
@@ -852,7 +856,7 @@ class Functions():
         api_endpoint = command_obj.get("api_endpoint","/node/info")
         info_list = command_obj.get("info_list",["all"])
         result_type = command_obj.get("result_type","json")
-        r_timeout = command_obj.get("timeout",(1,1))
+        r_timeout = command_obj.get("timeout",False)
         session = False
         # dictionary
         #  api_host: to do api call against
@@ -878,7 +882,9 @@ class Functions():
             info_list = ["state","session","clusterSession","host","version","publicPort","p2pPort","id"]
         
         result_list = []
-        r_session = self.set_request_session()
+        r_session, rr_timeout = self.set_request_session()
+        if not r_timeout:
+            r_timeout = rr_timeout
         
         for attempt in range(0,4):
             try:
@@ -919,8 +925,7 @@ class Functions():
     def get_from_api(self,url,utype):
         is_json = True if utype == "json" else False
         
-        session = self.set_request_session(is_json)
-        s_timeout = (1,1)
+        session, s_timeout = self.set_request_session(is_json)
         
         for _ in range(0,4):
             try:
@@ -954,68 +959,82 @@ class Functions():
                 
                     
     def get_cluster_info_list(self,command_obj):
-        # ip_address, port, api_endpoint, error_secs, attempt_range
         var = SimpleNamespace(**command_obj)
-        s_timeout = command_obj.get("timeout",(1,1))
-        spinner = command_obj.get("spinner",True)
-        results = False
-        
-        uri = f"http://{var.ip_address}:{var.port}{var.api_endpoint}"
-        if var.port == 443:
-            uri = f"https://{var.ip_address}{var.api_endpoint}"
+        try:
+            results = self.config_obj["global_element"]["cluster_info_lists"][var.profile]
+        except:
+            # ip_address, port, api_endpoint, error_secs, attempt_range
+
+            s_timeout = command_obj.get("timeout",False)
+            spinner = command_obj.get("spinner",True)
+            results = False
             
-        # uri = "http://10.255.255.1:80/api/something"
+            uri = f"http://{var.ip_address}:{var.port}{var.api_endpoint}"
+            if var.port == 443:
+                uri = f"https://{var.ip_address}{var.api_endpoint}"
+                
+            # uri = "http://10.255.255.1:80/api/something"
 
-        session = self.set_request_session(True)
+            session, ss_timeout = self.set_request_session(True)
+            if not s_timeout:
+                s_timeout = ss_timeout
+                
+            with ThreadPoolExecutor() as executor:
+                do_thread = False # avoid race conditions
+                # self.log.logger[self.log_key].debug(f"auto_restart set to [{self.auto_restart}]")
+                if not self.auto_restart:
+                    if not self.event and spinner:
+                        self.event, do_thread = True, True
+                        self.print_clear_line()
+                        _ = executor.submit(self.print_spinner,{
+                            "msg": f"API making call outbound, please wait",
+                            "color": "magenta",
+                        })   
 
-        with ThreadPoolExecutor() as executor:
-            do_thread = False # avoid race conditions
-            # self.log.logger[self.log_key].debug(f"auto_restart set to [{self.auto_restart}]")
-            if not self.auto_restart:
-                if not self.event and spinner:
-                    self.event, do_thread = True, True
-                    self.print_clear_line()
-                    _ = executor.submit(self.print_spinner,{
-                        "msg": f"API making call outbound, please wait",
-                        "color": "magenta",
-                    })   
+                for attempt in range(0,2):
+                    if self.current_cluster_session_info:
+                        results = self.current_cluster_session_info
+                        break
+                    elif attempt < 1:
+                        self.set_session_from_cache(uri,var.profile)
+                        
+                if not self.current_cluster_session_info:
+                    for _ in range(0,4):
+                        try:
+                            response = session.get(uri,timeout=s_timeout)
+                            response.raise_for_status()
+                            results = response.json()
 
-            for _ in range(0,4):
-                try:
-                    response = session.get(uri,timeout=s_timeout)
-                    response.raise_for_status()
-                    results = response.json()
+                            if "consensus" in var.api_endpoint:
+                                results = results["peers"]
+                            results.append({
+                                "nodectl_found_peer_count": len(results)
+                            })
 
-                    if "consensus" in var.api_endpoint:
-                        results = results["peers"]
-                    results.append({
-                        "nodectl_found_peer_count": len(results)
-                    })
+                            self.event = False
 
-                    self.event = False
+                        except Timeout as e:
+                            self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [Timeout]  {e} for {uri}")
+                            results = False
+                        except ConnectionError as e:
+                            self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [ConnectionError] {e} for {uri}")
+                            results = False
+                        except RequestException as e:
+                            self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [RequestException] {e} for {uri}")
+                            self.test_response_code(response,e,uri)
+                            results = False
+                        except Exception as e:
+                            self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [Unexpected error] {e} for {uri}")
+                            results = False
+                        else:
+                            self.log.logger[self.log_key].debug(f"get_cluster_info_list --> from url [{uri}]")
+                            break
+                        sleep(.07)
 
-                except Timeout as e:
-                    self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [Timeout]  {e} for {uri}")
-                    results = False
-                except ConnectionError as e:
-                    self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [ConnectionError] {e} for {uri}")
-                    results = False
-                except RequestException as e:
-                    self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [RequestException] {e} for {uri}")
-                    self.test_response_code(response,e,uri)
-                    results = False
-                except Exception as e:
-                    self.log.logger[self.log_key].warning(f"get_cluster_info_list --> [Unexpected error] {e} for {uri}")
-                    results = False
-                else:
-                    self.log.logger[self.log_key].debug(f"get_cluster_info_list --> from url [{uri}]")
-                    break
-                sleep(.07)
-
-            if do_thread:
-                self.event = False  
-            session.close()
-
+                if do_thread:
+                    self.event = False  
+                session.close()
+            
         return results
             
         
@@ -1169,7 +1188,7 @@ class Functions():
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
         return_type =  command_obj.get("return_type",False)
-        s_timeout = command_obj.get("timeout",(1,1))
+        s_timeout = command_obj.get("timeout",False)
         
         json = True if header == "json" else False
         return_data = []
@@ -1192,7 +1211,9 @@ class Functions():
             uri = f"{lookup_uri}/{self.snapshot_type}/{ordinal}/rewards"
             if not return_type: return_type = "dict"
         
-        session = self.set_request_session(json)
+        session, ss_timeout = self.set_request_session(json)
+        if not s_timeout:
+            s_timeout = ss_timeout
         session.verify = False
         
         for _ in range(0,4):
@@ -1452,12 +1473,11 @@ class Functions():
         skip_error = command_obj.get("skip_error",False)
         profiles_only = command_obj.get("profiles_only",False)
         self.default_profile = False
-
+        self.default_edge_point = {}
+        
         if profile != "skip":
             try:
-                for layer in range(0,3):
-                    if self.default_profile:
-                        break
+                for layer in range(0,2):
                     for i_profile in self.config_obj.keys():
                         if "global" not in i_profile: 
                             if profile != None and profile != "all":
@@ -1472,12 +1492,11 @@ class Functions():
                                     self.config_obj[self.default_profile]["edge_point_tcp_port"],
                                     "" # no post_fix
                                 )
-                                self.default_edge_point = {
+                                self.default_edge_point[i_profile] = {
                                     "host": self.config_obj[self.default_profile]["edge_point"],
                                     "host_port":self.config_obj[self.default_profile]["edge_point_tcp_port"],
                                     "uri": uri
                                 } 
-                                break # on 1st and lowest layer   
             except Exception as e:
                 self.log.logger[self.log_key].error(f"functions unable to process profile while setting up default values | error [{e}]")
                 if not skip_error:
@@ -1499,6 +1518,7 @@ class Functions():
         self.ip_address = self.get_ext_ip()
 
         if not self.auto_restart: self.check_config_environment()
+        self.set_session_from_cache(False,profile)
                 
 
     def set_environment_names(self):
@@ -1596,7 +1616,10 @@ class Functions():
         })
         
 
-    def set_request_session(self,json=False):
+    def set_request_session(self,json=False,timeout=False):
+        if not timeout: 
+            timeout = (3,1)
+            
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
@@ -1611,7 +1634,7 @@ class Functions():
         session = Session()            
         session.headers.update(get_headers)   
 
-        return session
+        return session, timeout
     
         
     def set_console_setup(self,wrapper_obj):
@@ -1682,6 +1705,27 @@ class Functions():
         return size(bits,system=alternative)
     
 
+    def set_session_from_cache(self,url,profile):
+        if profile is None:
+            return
+        if not url:
+            url = self.default_edge_point[profile]["host"]
+            
+        parts = urlparse(url)
+        if parts.netloc == self.default_edge_point[profile]["host"]:
+            try:
+                cluster_sessions = [node.get("clusterSession") for node in self.config_obj["global_elements"]["cluster_info_lists"][profile]]
+                most_common, _ = Counter(cluster_sessions).most_common(1)[0]
+                for node in self.config_obj["global_elements"]["cluster_info_lists"][profile]:
+                    if node.get("clusterSession") == most_common:
+                        self.current_cluster_session_info = node
+                        return
+            except:
+                pass
+            
+        self.current_cluster_session_info = False
+
+    
     # =============================
     # pull functions
     # ============================= 
@@ -1710,8 +1754,7 @@ class Functions():
         
         self.log.logger[self.log_key].debug(f"pull_node_session: session_obj [{session_obj}]")
         
-        r_session = self.set_request_session(True)
-        s_timeout = (1,1)
+        r_session, s_timeout = self.set_request_session(True)
 
         for i,node in enumerate(nodes):
             state = None
@@ -1734,19 +1777,25 @@ class Functions():
             self.log.logger[self.log_key].debug(f"pull_node_sessions -> profile [{profile}] node [{node}] state found [{state}] assign to [{i}]")
             session_obj[f"state{i}"] = state
             url = self.set_api_url(node,port,"/node/info")
+            self.set_session_from_cache(url,profile)
+
             self.log.logger[self.log_key].debug(f"pull_node_session -> url: {url}")
             
-            for _ in range(0,4):
-                try:
-                    session = r_session.get(url, timeout=s_timeout).json()
-                except:
-                    self.log.logger[self.log_key].error(f"pull_node_sessions --> unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
-                    sleep(1)
-                else:
-                    self.log.logger[self.log_key].debug(f"pull_node_sessions --> pull request [{node}] public_api_port [{port}] url [{url}]")
-                    break
-                finally:
-                    r_session.close()
+            if self.current_cluster_session_info:
+                self.log.logger[self.log_key].debug(f"pull_node_sessions --> info request pulled from cache -- [{node}] public_api_port [{port}] url [{url}]")
+                session = self.current_cluster_session_info
+            else:
+                for _ in range(0,4):
+                    try:
+                        session = r_session.get(url, timeout=s_timeout).json()
+                    except:
+                        self.log.logger[self.log_key].error(f"pull_node_sessions --> unable to pull request [functions->pull_node_sessions] test address [{node}] public_api_port [{port}] url [{url}]")
+                        sleep(1)
+                    else:
+                        self.log.logger[self.log_key].debug(f"pull_node_sessions --> pull request [{node}] public_api_port [{port}] url [{url}]")
+                        break
+                    finally:
+                        r_session.close()
 
             self.log.logger[self.log_key].info(f"pull_node_sessions --> found session [{session}] returned from test address [{node}] url [{url}] public_api_port [{port}]")
             try:
@@ -2152,7 +2201,7 @@ class Functions():
     def check_edge_point_health(self,command_obj=False):
         # check_edge_point_health should be wrapped in a 
         # while loop from where it is called...
-        uri = f"{self.default_edge_point['uri']}/node/health"
+        uri = f"{self.default_edge_point[self.default_profile]['uri']}/node/health"
         
         if command_obj:    
             profile = command_obj.get("profile",False)
@@ -2164,8 +2213,7 @@ class Functions():
                     "/node/health",               
                     )
 
-        session = self.set_request_session()
-        s_timeout = (1,1)
+        session, s_timeout = self.set_request_session()
 
         for _ in range(0,4):
             try:
@@ -2192,9 +2240,8 @@ class Functions():
             
             
     def check_health_endpoint(self,api_port): 
-        session = self.set_request_session()
+        session, s_timeout = self.set_request_session()
         session.verify = False
-        s_timeout = (1,1)
         
         for _ in range(0,4):
             try:
@@ -2486,7 +2533,7 @@ class Functions():
             exit("  Tessellation Validator Node State Error")
             
             
-    def test_response_code(self,response,e,uri):
+    def test_response_code(self,response,e,uri,exit_on_error=False):
         p_uri = urlparse(uri)
         log_uri = f"{p_uri.scheme}://{p_uri.netloc}"
         e = f"{e}"
@@ -2496,12 +2543,14 @@ class Functions():
         try:
             if response.status_code in [400,401,403,404,409,429,500,502,503,504]:
                 self.event = False
-                self.error_messages.error_code_messages({
-                    "error_code": "fnt-1007",
-                    "line_code": "api_error",
-                    "extra": e,
-                    "extra2": log_uri,
-                })
+                if exit_on_error:
+                    self.error_messages.error_code_messages({
+                        "error_code": "fnt-1007",
+                        "line_code": "api_error",
+                        "extra": e,
+                        "extra2": log_uri,
+                    })
+                self.log.logger[self.log_key].error(f"functions --> test_response_code -> found [{e}]")
                 exit(0)
         except Exception as ee:
             pass
@@ -2611,9 +2660,8 @@ class Functions():
                         
                     if ip_address["ip"] is not None:
                         for _ in range(0,4):
-                            session = self.set_request_session()
+                            session, s_timeout = self.set_request_session()
                             session.verify = False
-                            s_timeout = (1,1)
                             
                             try: 
                                 state = session.get(uri, timeout=s_timeout).json()
@@ -4046,13 +4094,12 @@ class Functions():
         do_raise = False
         etag = None
         
-        session = self.set_request_session()
+        session, _ = self.set_request_session()
         session.verify = True
-        s_params = {'random': random.randint(10000, 20000)}
         
         for _ in range(0,4):
             try:
-                with session.get(url,params=s_params, stream=True) as response:
+                with session.get(url,stream=True) as response:
                     if response.status_code == 304: # file did not change
                         self.log.logger[self.log_key].warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
                     else:

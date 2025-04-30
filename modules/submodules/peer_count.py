@@ -9,8 +9,8 @@ class PeerCount():
 
     def get_tcp_stack(self):
         if not self.peer_obj:
-            ip_address = self.parent.default_edge_point["host"]
-            api_port = self.parent.default_edge_point["host_port"]
+            ip_address = self.parent.default_edge_point[self.profile]["host"]
+            api_port = self.parent.default_edge_point[self.profile]["host_port"]
         else:
             ip_address = self.peer_obj["ip"]  
             localhost_ports = self.parent.pull_profile({
@@ -78,8 +78,7 @@ class PeerCount():
         if self.api_port == 443:
             url = url.replace("http://","https://").replace(f":{self.api_port}","")
             
-        session = self.parent.set_request_session(True)
-        s_timeout = (0.2,0.6)
+        session, s_timeout = self.parent.set_request_session(True)
         
         for _ in range(0,4):
             try:
@@ -100,7 +99,7 @@ class PeerCount():
     def _set_parameters(self,command_obj):
         self.peer_obj = command_obj.get("peer_obj",False)
         self.edge_obj = command_obj.get("edge_obj",False)
-        self.profile = command_obj.get("profile",None)
+        self.profile = command_obj.get("profile",self.parent.profile)
         self.compare = command_obj.get("compare",False)
         self.count_only = command_obj.get("count_only",False)
         self.pull_node_id = command_obj.get("pull_node_id",False)
@@ -177,6 +176,7 @@ class PeerCount():
         if not self.count_only: return
 
         count = self.parent.get_cluster_info_list({
+            "profile": self.profile,
             "ip_address": self.ip_address,
             "port": self.api_port,
             "api_endpoint": "/cluster/info",
@@ -197,6 +197,7 @@ class PeerCount():
     def handle_consensus(self):
         if self.count_consensus:
             consensus_count = self.parent.get_cluster_info_list({
+                "profile": self.profile,
                 "ip_address": self.ip_address,
                 "port": self.api_port,
                 "api_endpoint": "/consensus/latest/peers",

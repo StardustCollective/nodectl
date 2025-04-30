@@ -12,6 +12,7 @@ from pathlib import Path
 from copy import deepcopy
 
 from .auto_restart import AutoRestart
+from .cn_requests import CnRequests
 from .functions import Functions
 from .upgrade import Upgrader
 from .install import Installer
@@ -49,7 +50,9 @@ class ShellHandler:
 
         self.functions = Functions(self.config_obj)
         self.error_messages = Error_codes(self.functions)
+        self.cn_requests = CnRequests(self)
         self.error_messages.functions = self.functions
+        
         
         try:
             self.version_class_obj = command_obj.versioning
@@ -200,6 +203,9 @@ class ShellHandler:
                 })
 
             self.set_node_obj() # needs cli object
+            self.cn_requests.set_parameters()
+            if self.cn_requests.get_cache_needed():
+                self.cn_requests.handle_edge_point_cache()
 
             restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
             service_change_commands = ["start","stop","leave"]

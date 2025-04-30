@@ -22,7 +22,7 @@ class DownloadStatus():
         self.command_obj = command_obj["command_obj"]
         self.command_list = self.command_obj["command_list"]
         self.caller = self.command_obj.get("caller","download_status")
-        
+        self.metrics = self.command_obj.get("metrics",False)
         self.functions = self.parent.functions
 
         self.config_obj = self.parent.config_obj
@@ -92,6 +92,7 @@ class DownloadStatus():
 
 
     # Data Retrieval and builders
+    
     def pull_local_dip_details(self):
         dip_details = []
                 
@@ -195,12 +196,15 @@ class DownloadStatus():
     def pull_ordinal_values(self):
         self.dip_status = {}
         
-        metrics = self.functions.get_snapshot({
-            "environment": self.config_obj[self.profile]["environment"],
-            "profile": self.profile,
-            "return_values": ["height","subHeight","ordinal"],
-            "return_type": "list",
-        })
+        if self.metrics:
+            metrics = list(self.metrics.values())
+        else:
+            metrics = self.functions.get_snapshot({
+                "environment": self.config_obj[self.profile]["environment"],
+                "profile": self.profile,
+                "return_values": ["height","subHeight","ordinal"],
+                "return_type": "list",
+            })
         
         try: self.dip_status["height"] = metrics[0]
         except: self.dip_status["height"] = -1
@@ -301,6 +305,7 @@ class DownloadStatus():
     
                 
     # Handlers    
+    
     def handle_wfd_state(self, state):
         if state != "WaitingForDownload": return
         self.functions.print_clear_line(5)
@@ -552,6 +557,7 @@ class DownloadStatus():
 
 
     # Main method
+    
     def download_status_process(self,dip_pass=1):
         with ThreadPoolExecutor() as executor:
             if self.caller == "download_status":
@@ -665,6 +671,7 @@ class DownloadStatus():
         
 
     # Print methods
+    
     def print_output(self,dip_pass):
         self.valid_output_received = True
         

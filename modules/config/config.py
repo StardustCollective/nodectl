@@ -941,6 +941,11 @@ class Configuration():
             self.log.logger[self.log_key].error(f"setting up configuration variables error detected [local_api]")
             error_found("global_elements","local API definition invalid",self.config_obj["global_elements"]["local_api"],"global")
         
+        self.config_obj["global_elements"]["cluster_info_lists"] = {}
+        self.config_obj["global_elements"]["cluster_consensus_lists"] = {}
+        self.config_obj["global_elements"]["api_peers"] = {}
+        self.config_obj["global_elements"]["snapshot_cache"] = {}
+        
         self.config_obj["global_elements"]["caller"] = None  # init key (used outside of this class)
         self.config_obj["global_elements"]["log_key"] = self.log_key
         self.config_obj["global_p12"]["p12_validated"] = False  # init key (used outside of this class)

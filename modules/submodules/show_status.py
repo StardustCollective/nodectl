@@ -39,6 +39,8 @@ class ShowStatus():
 
         self.watch_enabled = True if "-w" in self.command_list else False
         self.print_title = True if "--legend" in self.command_list else False
+        
+        self.latest_ordinal = False  
         self.watch_enabled = False
         self.range_error = False
         self.node_id = False
@@ -124,6 +126,7 @@ class ShowStatus():
             **self.parent.show_download_status({
                 "command_list": ["-p",self.current_profile],
                 "caller": "status",
+                "metrics": self.ordinal_dict,
             })
         }
         
@@ -190,7 +193,7 @@ class ShowStatus():
                     self.watch_passes += 1
                     self._print_watch_enabled()
                 
-                self._get_backend_ordinal()
+                self._get_latest_ordinal_details()
                 
                 for n, current_profile in enumerate(self.profile_list):
                     self.current_profile = current_profile
@@ -199,7 +202,7 @@ class ShowStatus():
                     self.parent.set_profile(self.current_profile)
                     self.called_profile = self.current_profile
                             
-                    self._set_ordinal_dict()            
+                    # self._set_ordinal_dict()            
 
                     if self.called_command == "quick_status" or self.called_command == "_qs":
                         self._process_quick_status(n)
@@ -290,37 +293,56 @@ class ShowStatus():
         return node_id
     
     
-    def _get_backend_ordinal(self):
+    def _get_latest_ordinal_details(self):
+        if self.parent.config_obj[self.called_profile]["layer"] > 0:
+            return
+        
         try:
-            self.ordinal_dict["backend"] = str(self.functions.get_snapshot({
-                "environment": self.parent.config_obj[self.called_profile]["environment"],
-                "profile": self.called_profile
-            })[1])
+            self.latest_ordinal = self.parent.config_obj["global_elements"]["snapshot_cache"][self.called_profile]["latest"]
         except Exception as e:
-            if isinstance(self.ordinal_dict,dict):
-                self.ordinal_dict = {
-                    **self.ordinal_dict,
-                    "backend": "n/a"
-                }
-            else:
-                self.parent.error_messages.error_code({
-                    "error_code": "cmd-261",
-                    "line_code": "api_error",
-                    "extra2": e,
-                })
+            self._print_log_msg("error",f"_get_latest_ordinal_details --> error [{e}]")
+          
+        # try:
+        #     ordinal_list = ["height","subHeight","ordinal"]
+        #     results = self.functions.get_snapshot({
+        #         "environment": self.parent.config_obj[self.called_profile]["environment"],
+        #         "profile": self.called_profile,
+        #         "return_values": ordinal_list,
+        #         "return_type": "list",
+        #     })
+        #     for i,item in enumerate(ordinal_list):
+        #         self.ordinal_dict[item] = str(results[i])
+        #     self.ordinal_dict["backend"] = results[2]
+        # except Exception as e:
+        #     if isinstance(self.ordinal_dict,dict):
+        #         self.ordinal_dict = {
+        #             **self.ordinal_dict,
+        #             "backend": "n/a"
+        #         }
+        #     else:
+        #         self.parent.error_messages.error_code({
+        #             "error_code": "cmd-261",
+        #             "line_code": "api_error",
+        #             "extra2": e,
+        #         })
+        # return
                 
                 
     def _get_cluster_sessions(self):
-        edge_point = self.functions.pull_edge_point(self.current_profile)
-
-        self._print_log_msg("debug","ready to pull node sessions")
-        self.sessions = self.functions.pull_node_sessions({
-            "edge_device": edge_point,
-            "caller": self.called_command,
-            "spinner": self.spinner,
-            "profile": self.called_profile, 
-            "key": "clusterSession"
-        })
+        
+        # edge_point = self.functions.pull_edge_point(self.current_profile)
+        # self.functions.config_obj["global_elements"]["cluster_info_lists"] = self.parent.config_obj["global_elements"]["cluster_info_lists"]
+        
+        # self._print_log_msg("debug","ready to pull node sessions")
+        # self.sessions = self.functions.pull_node_sessions({
+        #     "edge_device": edge_point,
+        #     "caller": self.called_command,
+        #     "spinner": self.spinner,
+        #     "profile": self.called_profile, 
+        #     "key": "clusterSession"
+        # })
+        # self.parent.config_obj["global_elements"]["cluster_info_lists"] = self.functions.config_obj["global_elements"]["cluster_info_lists"]
+        # return
     
     
     def _get_cluster_consensus(self):                    
@@ -444,7 +466,7 @@ class ShowStatus():
     
     def _print_log_msg(self,log_type,msg):
         log_method = getattr(self.log, log_type, None)
-        log_method(f"show_status --> {msg}")
+        log_method(f"{self.__class__.__name__} --> {msg}")
 
 
     def _print_watch_enabled(self):

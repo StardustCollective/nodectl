@@ -458,8 +458,8 @@ class Versioning():
                 "new_time": self.old_version_obj["next_updated"]
             })
     
-        session = self.functions.set_request_session()
-        s_timeout = (1,1)
+        session, s_timeout = self.functions.set_request_session()
+
         for _ in range(0,2):
             if do_update or self.force:
                 try:
@@ -516,8 +516,7 @@ class Versioning():
         pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
         pre_release = {"prerelease":"Unknown"}
 
-        session = self.functions.set_request_session()
-        s_timeout = (1,1)
+        session, s_timeout = self.functions.set_request_session()
             
         try:
             pre_release = session.get(pre_release_uri, timeout=s_timeout).json()

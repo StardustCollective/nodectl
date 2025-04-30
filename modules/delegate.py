@@ -125,7 +125,7 @@ class DelegatedStaking:
 
 
     def send_payload(self):
-        session = self.functions.set_request_session()
+        session, _ = self.functions.set_request_session()
     
         try:
             response = session.post(self.ds_url, json=self.complete_payload)
@@ -450,7 +450,7 @@ class DelegatedStaking:
             ["If you reached this message, it likely means your configuration is in place",0],
             ["but, you have not yet issued your first update request.",2],
 
-            ["Command:",0,"blue","bold"], ["sudo nodectl update",2,"yellow"],
+            ["Command:",0,"blue","bold"], ["sudo nodectl delegate update",2,"yellow"],
 
             ["If you believe you have reached this message in error",0],
             ["please try again.",0,"magenta"], ["If the issue persists, contact an Administrator on",0],

@@ -614,6 +614,7 @@ class CLI():
                 id = argv_list[argv_list.index("-id")+1]
                 try:
                     list = self.functions.get_cluster_info_list({
+                        "profile": profile,
                         "ip_address": self.config_obj[profile]["edge_point"],
                         "port": self.config_obj[profile]["edge_point_tcp_port"],
                         "api_endpoint": "/cluster/info",
@@ -999,6 +1000,7 @@ class CLI():
                 found_list = list(); not_found_list = list()
                 for n in range(0,2):
                     cluster_ips = self.functions.get_cluster_info_list({
+                        "profile": profile,
                         "ip_address": self.config_obj[profile]["edge_point"],
                         "port": self.config_obj[profile]["edge_point_tcp_port"],
                         "api_endpoint": "/cluster/info",
@@ -3168,6 +3170,7 @@ class CLI():
                         "api_endpoint_type": "consensus",
                     })   
                     node_list = self.functions.get_cluster_info_list({
+                        "profile": profile,
                         "ip_address": ip_address["ip"],
                         "port": ip_address["publicPort"],
                         "attempt_range": 3,

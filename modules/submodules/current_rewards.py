@@ -331,7 +331,7 @@ class CurrentRewards():
 
     def _print_log_msg(self,log_type,msg):
         log_method = getattr(self.log, log_type, None)
-        log_method(f"current_rewards --> {msg}")
+        log_method(f"{self.__class__.__name__} --> {msg}")
 
 
     def print_initial_output(self):

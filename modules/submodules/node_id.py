@@ -266,6 +266,7 @@ class NodeDAGid():
     def _process_outside_nodeid_request(self):
         false_lookups = []
         cluster_ips = self.functions.get_cluster_info_list({
+            "profile": self.profile,
             "ip_address": self.ip_address,
             "port": self.api_port,
             "api_endpoint": "/cluster/info",
@@ -394,9 +395,8 @@ class NodeDAGid():
         with ThreadPoolExecutor() as executor:
             self.functions.event = True
             
-            session = self.functions.set_request_session(True)
+            session, s_timeout = self.functions.set_request_session(True)
             session.verify = True
-            s_timeout = (1,1)
                         
             _ = executor.submit(self.functions.print_spinner,{
                 "msg": f"Pulling node balances, please wait",
@@ -411,19 +411,17 @@ class NodeDAGid():
                     balance = balance["data"]
                     balance = balance["balance"]
                 except:
-                    self.log.logger[self.log_key].error(f"node_id --> get_node_balance --> unable to pull request [{ip_address}] DAG address [{wallet}]")
-                    self.log.logger[self.log_key].warning(f"get_node_balance session - returning [{balance}] because could not reach requested address")
                     self._print_log_msg("error",f"node_id --> get_node_balance --> unable to pull request [{ip_address}] DAG address [{wallet}]")
                     self._print_log_msg("warning",f"get_node_balance session - returning [{balance}] because could not reach requested address")
                     sleep(1)
                 else:
-                    self.log.logger[self.log_key].debug(f"node_id --> get_node_balance --> url [{uri}]")
+                    self._print_log_msg("debug",f"node_id --> get_node_balance --> url [{uri}]")
                     break
                 finally:
                     session.close()
-                
-            self.functions.event = False              
-        
+
+            self.functions.event = False      
+              
         try:  
             balance = balance/1e8 
         except:
@@ -769,7 +767,7 @@ class NodeDAGid():
 
     def _print_log_msg(self,log_type,msg):
         log_method = getattr(self.log, log_type, None)
-        log_method(f"nodedagid --> {msg}")
+        log_method(f"{self.__class__.__name__} --> {msg}")
 
 
     def _print_individual_reward(self):
