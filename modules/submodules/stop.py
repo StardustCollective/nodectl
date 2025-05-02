@@ -179,11 +179,11 @@ class StopNode():
         self.functions.cancel_event = False
         self.parent.show_system_status({
             "rebuild": self.rebuild,
-            "called": "stop",
+            "called_command": "stop",
             "wait": self.show_timer,
             "spinner": self.spinner,
             "static_nodeid": self.static_nodeid if self.static_nodeid else False,
-            "-p": self.profile
+            "argv": ["-p",self.profile],
         })
         
 

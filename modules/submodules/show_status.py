@@ -4,8 +4,8 @@ from termcolor import colored
 from concurrent.futures import ThreadPoolExecutor
 from sys import exit
 from datetime import datetime, timedelta
-from types import SimpleNamespace
 
+from modules.cn_requests import CnRequests
 
 class ShowStatus():
     
@@ -17,9 +17,10 @@ class ShowStatus():
         self.spinner = command_obj.get("spinner",True)
         self.threaded = command_obj.get("threaded",False)
         self.static_nodeid = command_obj.get("static_nodeid",False)
-        self.command_list = command_obj.get("command_list",[])
+        self.argv = command_obj.get("argv",[])
         self.log = self.parent.log.logger[self.parent.log_key]
         self.functions = self.parent.functions
+        self.auto_restart_handler = command_obj.get("auto_restart_handler",False)
 
     # ==== SETTERS ====
 
@@ -27,27 +28,31 @@ class ShowStatus():
         self.all_profile_request = False
         self.called_profile = self.parent.profile
         self.current_profile = False
+        self.config_obj = self.parent.config_obj
+        self.auto_restart_setup = False
         
-        called_command = self.command_obj.get("called","default")
+        called_command = self.command_obj.get("called_command","default")
         if called_command == "_s": called_command = "status"
         if called_command == "_qs": called_command = "quick_status"
         if called_command == "stop": called_command = "quick_status"
         self.called_command = called_command
         
-        self.profile_list = self.parent.profile_names
+        self.profile_names = self.parent.profile_names
         self.ordinal_dict = {}        
 
-        self.watch_enabled = True if "-w" in self.command_list else False
-        self.print_title = True if "--legend" in self.command_list else False
+        self.watch_enabled = True if "-w" in self.argv else False
+        self.print_title = True if "--legend" in self.argv else False
         
+        self.cn_requests = CnRequests(self)
+        self.cn_requests.set_parameters()
+        self.cn_requests.get_cache_needed()
+                
         self.latest_ordinal = False  
-        self.watch_enabled = False
         self.range_error = False
         self.node_id = False
         self.restart_time = False
         self.uptime = False
         self.sessions = False
-        self.quick_results = False
         self.consensus_match = False
         
         self.watch_seconds = 15
@@ -55,14 +60,16 @@ class ShowStatus():
 
     
     def set_profile(self):
-        for key,value in self.command_obj.items():
-            if key == "-p" and (value == "all" or value == "empty"):
-                self.all_profile_request = True
-                break
-            if key == "-p" and value != "empty":
-                self.profile_list = [value]
-                self.called_profile = value
-                self.functions.check_valid_profile(self.called_profile)
+        profile = self.functions.set_argv(self.argv,"-p","all")
+        self.profile_names = self.parent.profile_names
+          
+        if profile == "all":
+            self.all_profile_request = True
+            return
+ 
+        self.called_profile = profile
+        self.profile_names = [profile]
+        self.functions.check_valid_profile(profile)   
             
             
     def _set_service_status(self):
@@ -73,72 +80,77 @@ class ShowStatus():
         sessions = self.sessions
         
         on_network = colored("False","red")
-        cluster_session = sessions["session0"]
-        node_session = sessions["session1"]
-        join_state = sessions['state1']
-                        
-        if sessions["session0"] == 0:
-            # on_network = colored("NetworkUnreachable","red")
+        cluster_session = sessions["cluster_session"]
+        node_session = sessions["node_session"]
+        join_state = sessions['node_state']
+        
+        consensus_match = colored(f"False","red",attrs=["bold"])
+        if self.consensus_match:
+            consensus_match = colored(f"True","green",attrs=["bold"])      
+                      
+        if sessions["cluster_session"] == 0:
             on_network = colored("EdgePointDown","red")
             cluster_session = colored("SessionNotFound".ljust(20," "),"red")
-            join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+            join_state = colored(f"{sessions['node_state']}".ljust(20),"yellow")
         else:
-            if sessions["state1"] == "ReadyToJoin":
-                join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+            if sessions["node_state"] == "ReadyToJoin":
+                join_state = colored(f"{sessions['node_state']}".ljust(20),"yellow")
                 on_network = colored("ReadyToJoin","yellow")
-            if sessions["session0"] == sessions["session1"]:
-                if sessions["state1"] == "ApiNotResponding":
+                
+            if sessions["cluster_session"] == sessions["node_cluster_session"]:
+                if sessions["node_state"] in ["DownloadInProgress"]:
+                    join_state = colored(f"{sessions['node_state']}".ljust(20),"yellow")
+                    consensus_match = colored(f"Preparing","yellow")
+                elif sessions["node_state"] == "ApiNotResponding":
                     on_network = colored("TryAgainLater","magenta")
                     join_state = colored(f"ApiNotResponding".ljust(20),"magenta")
-                elif sessions["state1"] == "WaitingForDownload" or sessions["state1"] == "SessionStarted":
-                    join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+                elif sessions["node_state"] in ["WaitingForDownload","SessionStarted"]:
+                    join_state = colored(f"{sessions['node_state']}".ljust(20),"yellow")
                     on_network = colored("True","magenta",attrs=["bold"])
-                elif sessions["state1"] != "ApiNotReady" and sessions["state1"] != "Offline" and sessions["state1"] != "Initial":
+                elif sessions["node_state"] != "ApiNotReady" and sessions["node_state"] != "Offline" and sessions["node_state"] != "Initial":
                     # there are other states other than Ready and Observing when on_network
                     on_network = colored("True","green",attrs=["bold"])
-                    join_state = colored(f"{sessions['state1']}".ljust(20),"green")
-                    if sessions["state1"] == "Observing" or sessions["state1"] == "WaitingForReady":
-                        join_state = colored(f"{sessions['state1']}".ljust(20),"yellow")
+                    join_state = colored(f"{sessions['node_state']}".ljust(20),"green")
+                    if sessions["node_state"] == "Observing" or sessions["node_state"] == "WaitingForReady":
+                        join_state = colored(f"{sessions['node_state']}".ljust(20),"yellow")
+                        consensus_match = colored(f"Preparing","yellow")
                 else:
                     node_session = colored("SessionIgnored".ljust(20," "),"red")
-                    join_state = colored(f"{sessions['state1']}".ljust(20),"red")
-            if sessions["session0"] != sessions["session1"] and sessions["state1"] == "Ready":
+                    join_state = colored(f"{sessions['node_state']}".ljust(20),"red")
+                    
+            if sessions["cluster_session"] != sessions["node_cluster_session"] and sessions["node_state"] == "Ready":
                     on_network = colored("False","red")
-                    join_state = colored(f"{sessions['state1']} (forked)".ljust(20),"yellow")
+                    join_state = colored(f"{sessions['node_state']} (forked)".ljust(20),"yellow")
                             
-        if sessions["session1"] == 0:
+        if sessions["node_session"] == 0:
             node_session = colored("SessionNotFound".ljust(20," "),"red")
         
         if join_state == "ApiNotReady":
             join_state = colored("ApiNotReady","red",attrs=["bold"])
-
-        return {
+    
+        service_state = self.parent.config_obj["global_elements"]["node_service_status"][self.called_profile]
+        if service_state == "inactive":
+            service_state = colored(f"{service_state}".ljust(20),"magenta")
+        elif service_state == "active":
+            service_state = colored(f"{service_state}".ljust(20),"light_green")
+            
+        self.main_output = {
             "on_network": on_network,
             "cluster_session": cluster_session,
             "node_session": node_session,
-            "join_state": join_state
+            "join_state": join_state,
+            "consensus_match": consensus_match,
+            "service_state": service_state,
         }
                         
-                        
+            
     def _set_ordinal_dict(self):
-        self.ordinal_dict = {
-            **self.ordinal_dict,
-            **self.parent.show_download_status({
-                "command_list": ["-p",self.current_profile],
-                "caller": "status",
-                "metrics": self.ordinal_dict,
-            })
-        }
+        self.ordinal_dict = self.cn_requests.get_cached_ordinal_details()
+
         
-        for key, value in self.ordinal_dict.items():
-            if isinstance(value, int): 
-                self.ordinal_dict[key] = str(value)
-                    
-        
-    def _set_node_cluster_times(self,output):
-        restart_time, uptime = self._handle_time_node_id(self.quick_results)  # localhost
-        cluster_results = [None, None, output["cluster_session"]]  # cluster
-        cluster_restart_time, cluster_uptime = self._handle_time_node_id(cluster_results)
+    def _set_node_cluster_times(self):
+        restart_time, uptime = self._handle_time_node_id(self.sessions)  # localhost
+        cluster_restart_time, cluster_uptime = self._handle_time_node_id(self.sessions,True)  # remote
                                 
         system_boot = psutil.boot_time()
         system_uptime = datetime.now().timestamp() - system_boot
@@ -161,10 +173,14 @@ class ShowStatus():
         
                                                     
     def set_watch_parameters(self):
-        if not "-w" in self.command_list: return
+        if not self.watch_enabled: return
         
+        self.watch_status = {}
+        for profile in self.profile_names:
+            self.watch_status[profile] = False
+            
         try: 
-            watch_seconds = self.command_list[self.command_list.index("-w")+1]
+            watch_seconds = self.argv[self.argv.index("-w")+1]
             watch_seconds = int(watch_seconds)
         except: 
             if watch_seconds != "--skip-warning-messages" and watch_seconds != "-p": 
@@ -195,21 +211,19 @@ class ShowStatus():
                 
                 self._get_latest_ordinal_details()
                 
-                for n, current_profile in enumerate(self.profile_list):
+                for n, current_profile in enumerate(self.profile_names):
                     self.current_profile = current_profile
                     self._print_log_msg("info",f"show system status requested | {self.current_profile}")
                     
                     self.parent.set_profile(self.current_profile)
                     self.called_profile = self.current_profile
                             
-                    # self._set_ordinal_dict()            
+                    self._set_ordinal_dict()            
 
                     if self.called_command == "quick_status" or self.called_command == "_qs":
                         self._process_quick_status(n)
                         continue
-                    
-                    self.quick_results = self._get_quick_status(self.functions.config_obj[self.current_profile]["public_port"])
-                    
+
                     if n > 0: 
                         self.print_title = False 
                         if self.all_profile_request:
@@ -218,26 +232,29 @@ class ShowStatus():
 
                     self._set_service_status()
                     self._get_cluster_sessions()
-                    self._get_cluster_consensus()
                     
-                    output = self._set_status_output()
+                    if self.parent.config_obj[self.called_profile]["layer"] < 1:
+                        self._get_cluster_consensus()
+                        
+                    self._set_status_output()
                                     
                     if not self.parent.skip_build:
                         self._handle_rebuild()
-                        self._set_node_cluster_times(output)
+                        self._set_node_cluster_times()
 
                         if self.called_command == "alerting":
                             raise Exception(self.node_cluster_times)
                         
                         self._print_title()
                         
-                        if self.parent.config_obj[self.current_profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
-                             self.ordinal_dict["backend"] = "N/A"
+                        # if self.config_obj[self.current_profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
+                        #      self.ordinal_dict["backend"] = "N/A"
                                         
-                        self._print_status_output(self.current_profile, output)
+                        self._print_status_output(self.current_profile)
                             
                 if self._handle_watch_request(None,False):            
                     break
+                self.cn_requests.handle_edge_point_cache()
 
     
     def _process_quick_status(self,n):
@@ -245,36 +262,14 @@ class ShowStatus():
             self.functions.print_paragraphs([
                 ["",1],[" NODE STATUS QUICK RESULTS ",2,"yellow,on_blue","bold"],
             ])                    
-        quick_results = self._get_quick_status(
-            self.functions.config_obj[self.called_profile]["public_port"]
-        )
-        self.restart_time, self.uptime = self._handle_time_node_id(quick_results)
+        self.quick_state = self.cn_requests.get_profile_state(self.called_profile)
+        sessions = self.cn_requests.get_cached_sessions(self.called_profile)
+        self.restart_time, self.uptime = self._handle_time_node_id(sessions)
             
-        self.functions.print_paragraphs([
-            [f"{self.called_profile} State:",0,"yellow","bold"],[quick_results[0],1,"blue","bold"],
-            ["nodeid:",0,"yellow"],[self.node_id,1],
-            ["Last Restart:",0,"yellow"],[self.restart_time,1],
-            ["Estimated Uptime:",0,"yellow"],[self.uptime,2],
-        ])
-        
+        self._print_quickstatus_output()
+
         
     # ==== GETTERS ====
-
-    def _get_quick_status(self,port):
-        quick_results = self.functions.get_api_node_info({
-            "api_host": self.functions.get_ext_ip(),
-            "api_port": port,
-            "info_list": ["state","id","session"]
-        })
-        if quick_results == None:
-            quick_results = ["ApiNotReady"]
-
-        try_known_id = quick_results[1] == "unknown" if len(quick_results) > 1 else True
-        if try_known_id:
-            quick_results.append(self._get_nodeid())
-            
-        return quick_results
-            
             
     def _get_nodeid(self):
         try:
@@ -294,66 +289,21 @@ class ShowStatus():
     
     
     def _get_latest_ordinal_details(self):
-        if self.parent.config_obj[self.called_profile]["layer"] > 0:
+        if self.config_obj[self.called_profile]["layer"] > 0:
             return
         
         try:
-            self.latest_ordinal = self.parent.config_obj["global_elements"]["snapshot_cache"][self.called_profile]["latest"]
+            self.latest_ordinal = self.config_obj["global_elements"]["snapshot_cache"][self.called_profile]["latest"]
         except Exception as e:
             self._print_log_msg("error",f"_get_latest_ordinal_details --> error [{e}]")
-          
-        # try:
-        #     ordinal_list = ["height","subHeight","ordinal"]
-        #     results = self.functions.get_snapshot({
-        #         "environment": self.parent.config_obj[self.called_profile]["environment"],
-        #         "profile": self.called_profile,
-        #         "return_values": ordinal_list,
-        #         "return_type": "list",
-        #     })
-        #     for i,item in enumerate(ordinal_list):
-        #         self.ordinal_dict[item] = str(results[i])
-        #     self.ordinal_dict["backend"] = results[2]
-        # except Exception as e:
-        #     if isinstance(self.ordinal_dict,dict):
-        #         self.ordinal_dict = {
-        #             **self.ordinal_dict,
-        #             "backend": "n/a"
-        #         }
-        #     else:
-        #         self.parent.error_messages.error_code({
-        #             "error_code": "cmd-261",
-        #             "line_code": "api_error",
-        #             "extra2": e,
-        #         })
-        # return
                 
                 
     def _get_cluster_sessions(self):
-        
-        # edge_point = self.functions.pull_edge_point(self.current_profile)
-        # self.functions.config_obj["global_elements"]["cluster_info_lists"] = self.parent.config_obj["global_elements"]["cluster_info_lists"]
-        
-        # self._print_log_msg("debug","ready to pull node sessions")
-        # self.sessions = self.functions.pull_node_sessions({
-        #     "edge_device": edge_point,
-        #     "caller": self.called_command,
-        #     "spinner": self.spinner,
-        #     "profile": self.called_profile, 
-        #     "key": "clusterSession"
-        # })
-        # self.parent.config_obj["global_elements"]["cluster_info_lists"] = self.functions.config_obj["global_elements"]["cluster_info_lists"]
-        # return
+        self.sessions = self.cn_requests.get_cached_sessions(self.called_profile)
     
     
-    def _get_cluster_consensus(self):                    
-        consensus_match = self.parent.cli_check_consensus({
-            "profile": self.current_profile,
-            "caller": "status",
-            "state": self.sessions["state1"]
-        })
-        if consensus_match == 0: consensus_match = 1
-        
-        self.consensus_match = consensus_match
+    def _get_cluster_consensus(self):   
+        self.consensus_match = self.cn_requests.get_cached_consensus(self.called_profile)
                         
                         
     # ==== INTERNALS ====
@@ -380,7 +330,7 @@ class ShowStatus():
                 ])
                 exit(0)
                 
-            return        
+            return False       
 
         if self.functions.cancel_event: 
             exit("  Event Canceled")
@@ -396,14 +346,16 @@ class ShowStatus():
             "phrase": "Waiting",
             "end_phrase": "before updating",
         })
+        
+        return False
          
 
-    def _handle_time_node_id(self,elements):
+    def _handle_time_node_id(self,sessions,remote=False):
         get_nodid = False
         try:
             restart_time = self.functions.get_date_time({
                 "action":"session_to_date",
-                "elapsed": elements[2],
+                "elapsed": sessions["cluster_session"] if remote else sessions["node_session"],
             })
             
             uptime = self.functions.get_date_time({
@@ -457,13 +409,17 @@ class ShowStatus():
                 "seconds":20
             })
                                             
-        self.sessions["state1"] = self._get_profile_state(self.called_profile)
+        self.sessions["node_state"] = self._get_profile_state(self.called_profile)
     
         return self._set_status_output()
             
             
     # ==== PRINTERS ====
     
+    def print_auto_restart_options(self):
+        self.auto_restart_handler("current_pid")
+        
+            
     def _print_log_msg(self,log_type,msg):
         log_method = getattr(self.log, log_type, None)
         log_method(f"{self.__class__.__name__} --> {msg}")
@@ -501,12 +457,12 @@ class ShowStatus():
         ])   
         
             
-    def _print_status_output(self,profile,output):
+    def _print_status_output(self,profile):
         print_out_list = [
             {
                 "PROFILE": self.called_profile,
-                "SERVICE": self.functions.config_obj["global_elements"]["node_service_status"][self.called_profile],
-                "JOIN STATE": output["join_state"],
+                "SERVICE": self.main_output["service_state"],
+                "JOIN STATE": self.main_output["join_state"],
             },
             {
                 "PUBLIC API TCP":self.functions.config_obj[self.called_profile]["public_port"],
@@ -514,45 +470,44 @@ class ShowStatus():
                 "CLI API TCP": self.functions.config_obj[self.called_profile]["cli_port"]
             },
             {
-                "LATEST ORDINAL":self.ordinal_dict["latest"],
-                "LAST DLed": self.ordinal_dict["current"],
-                "BLK EXP ORDINAL": self.ordinal_dict["backend"],
+                "LATEST ORDINAL": self.ordinal_dict.get(profile, {}).get("ordinal", False),
+                "EPOC PROGRESS": self.ordinal_dict.get(profile, {}).get("epocProgress", False),
+                "SNAPSHOT HASH": self.ordinal_dict.get(profile, {}).get("hash", False),
             },
             {
-                "CURRENT SESSION": output["cluster_session"],
-                "FOUND SESSION": output["node_session"],
-                "ON NETWORK": output["on_network"],
+                "CURRENT SESSION": str(self.main_output["cluster_session"]),
+                "NODE SESSION": str(self.main_output["node_session"]),
+                "ON NETWORK": self.main_output["on_network"],
             },
         ]
         
-        timers = SimpleNamespace(**self.node_cluster_times)
         print_out_list2 = [
             {
-                "CLUSTER START": timers.cluster_restart_time,
-                "NODE START":  timers.restart_time,
-                "SYSTEM START":  timers.system_boot,
+                "CLUSTER START": self.node_cluster_times["cluster_restart_time"],
+                "NODE START":  self.node_cluster_times["restart_time"],
+                "SYSTEM START":  self.node_cluster_times["system_boot"],
             },
             {
-                "CLUSTER UPTIME":  timers.cluster_uptime,
-                "NODE UPTIME":  timers.uptime,
-                "SYSTEM UPTIME:":  timers.system_uptime,
+                "CLUSTER UPTIME":  self.node_cluster_times["cluster_uptime"],
+                "NODE UPTIME":  self.node_cluster_times["uptime"],
+                "SYSTEM UPTIME:":  self.node_cluster_times["system_uptime"],
             },
         ]
         
         print_out_list3 = [
             {
                 "NODE ID": self.node_id,
-                "IN CONSENSUS": self.consensus_match,
+                "IN CONSENSUS": self.main_output["consensus_match"],
             }
         ]
         
         if self.called_command == "uptime":
             print_out_list = print_out_list2
         else:
-            if self.parent.config_obj[profile]["layer"] > 0:
+            if self.config_obj[profile]["layer"] > 0:
                 print_out_list3[0].pop("IN CONSENSUS", None)
             print_out_list = print_out_list + print_out_list2 + print_out_list3
-            if self.parent.config_obj[profile]["layer"] > 0:
+            if self.config_obj[profile]["layer"] > 0:
                 print_out_list.pop(2)
             
             self.functions.event = False  # if spinner was called stop it first.
@@ -561,7 +516,16 @@ class ShowStatus():
             self.functions.print_show_output({
                 "header_elements" : header_elements
             })
-            
+
+    
+    def _print_quickstatus_output(self):
+        self.functions.print_paragraphs([
+            [f"{self.called_profile} State:",0,"yellow","bold"],[self.quick_state,1,"blue","bold"],
+            ["nodeid:",0,"yellow"],[self.node_id,1],
+            ["Last Restart:",0,"yellow"],[self.restart_time,1],
+            ["Estimated Uptime:",0,"yellow"],[self.uptime,2],
+        ])
+        
         
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")  

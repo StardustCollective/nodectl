@@ -85,6 +85,7 @@ class Functions():
         self.nodectl_code_name = "Princess Warrior"
         self.version_obj = False
         self.cancel_event = False
+        self.ext_ip = False
         self.valid_commands = []
 
 
@@ -407,6 +408,9 @@ class Functions():
     
     
     def get_ext_ip(self):
+        if self.ext_ip and self.ext_ip != "unable to find": 
+            return self.ext_ip
+        
         bashCommand = "curl -s https://ipv4.icanhazip.com/"
         
         try:
@@ -429,6 +433,7 @@ class Functions():
         except:
             ip = "unable to find"
             
+        self.ext_ip = ip
         return ip
             
 
@@ -1725,6 +1730,9 @@ class Functions():
             
         self.current_cluster_session_info = False
 
+    
+    def set_argv(self, argv, key, default):
+        return argv[argv.index(key)+1] if key in argv else default
     
     # =============================
     # pull functions

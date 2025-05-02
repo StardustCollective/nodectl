@@ -102,7 +102,7 @@ def prepare_report(cli, node_service, functions, alert_profile, comm_obj, profil
         times = cli.show_system_status({
             "spinner": False,
             "threaded": False,
-            "called": "alerting",
+            "called_command": "alerting",
         })
 
         if comm_obj["report_currency"]:

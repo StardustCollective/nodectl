@@ -1454,7 +1454,7 @@ class Upgrader():
                 "rebuild": False,
                 "wait": False,
                 "-p": "empty",
-                "called": "_qs",
+                "called_command": "_qs",
             })
             self.functions.print_paragraphs([ 
                 ["nodectl only",0,"yellow","bold"], ["upgrade process completed!",1,"green","bold"],

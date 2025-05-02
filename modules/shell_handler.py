@@ -11,7 +11,6 @@ from types import SimpleNamespace
 from pathlib import Path
 from copy import deepcopy
 
-from .auto_restart import AutoRestart
 from .cn_requests import CnRequests
 from .functions import Functions
 from .upgrade import Upgrader
@@ -78,7 +77,7 @@ class ShellHandler:
         self.packages = {}
         
         self.setup_logging_key()
-        self.get_auto_restart_pid()
+        self.auto_restart_handler("get_pid")
         self.userid = geteuid()
         self.groupid = getgid()
 
@@ -204,6 +203,7 @@ class ShellHandler:
 
             self.set_node_obj() # needs cli object
             self.cn_requests.set_parameters()
+            self.cn_requests.log = self.log.logger[self.log_key]
             if self.cn_requests.get_cache_needed():
                 self.cn_requests.handle_edge_point_cache()
 
@@ -238,14 +238,12 @@ class ShellHandler:
                     self.check_auto_restart() # retest if auto_restart needs to be disabled
 
             if self.called_command in status_commands:
-                try: profile = self.argv[self.argv.index("-p")+1]
-                except: profile = "empty"
                 self.cli.show_system_status({
+                    "auto_restart_handler": self.auto_restart_handler,
                     "rebuild": False,
                     "wait": False,
-                    "-p": profile,
-                    "called": self.called_command,
-                    "command_list": self.argv
+                    "called_command": self.called_command,
+                    "argv": self.argv
                 })
             elif self.called_command in service_change_commands:
                 if not self.help_requested:
@@ -1737,19 +1735,19 @@ class ShellHandler:
         ])
         
 
-    def get_auto_restart_pid(self):
-        cmd = "ps -ef"
-        results = self.functions.process_command({
-            "bashCommand": cmd,
-            "proc_action": "poll"
-        })
+    # def get_auto_restart_pid(self):
+    #     cmd = "ps -ef"
+    #     results = self.functions.process_command({
+    #         "bashCommand": cmd,
+    #         "proc_action": "poll"
+    #     })
         
-        results = results.split("\n")
-        self.auto_restart_pid = False
-        for line in results:
-            if "service_restart" in line:
-                line = " ".join(line.split()).split(" ")
-                self.auto_restart_pid = int(line[1])
+    #     results = results.split("\n")
+    #     self.auto_restart_pid = False
+    #     for line in results:
+    #         if "service_restart" in line:
+    #             line = " ".join(line.split()).split(" ")
+    #             self.auto_restart_pid = int(line[1])
 
 
     def api_service_handler(self):
@@ -1765,329 +1763,39 @@ class ShellHandler:
        
 
     def auto_restart_handler(self,action,cli=False,manual=False):
-        restart_request = warning = False  
-        pid_color = "green"
-        end_status = "enabled"
+        from modules.submodules.auto_restart_handler import AutoRestartHandler
+        ar_handler = AutoRestartHandler(self,action,cli,manual)
         
-        if not self.auto_restart_pid:
-            self.auto_restart_pid = "disabled"
-            end_status = "not running"
-            pid_color = "blue"  
-              
-        if action == "restart":
-            action = "disable"
-            restart_request = True
+        ar_handler.set_parameters()
 
-        try:
-            alerting_enabled = self.config_obj["global_elements"]["alerting"]       
-        except:
-            alerting_enabled = False    
-
-        if action == "service_start":
-            self.log.logger[self.log_key].info("auto_restart - restart session threader - invoked.")
-            try:
-                with ThreadPoolExecutor(max_workers=6) as executor:
-                    thread_list = []
-                    # self.profile_names = ["dag-l0"]  # used for debugging purposes
-                    for n, profile in enumerate(self.profile_names):
-                        self.log.logger[self.log_key].info(f"auto_restart - restart threader -  invoked session threads for [{profile}]")
-                        first_thread = True if n < 1 else False
-                        time.sleep(2)
-                        future = executor.submit(
-                            AutoRestart,
-                            profile,
-                            self.functions.config_obj,
-                            first_thread,
-                        )
-                        thread_list.append(future)
-
-                    # thread_wait is an alias to wait, and will only execute the next line of this
-                    # code before the exception kills the entire process therefor it is not logged
-                    thread_wait(thread_list,return_when=concurrent.futures.FIRST_EXCEPTION)
-                    _ = self.functions.process_command({
-                        "bashCommand": 'sudo systemctl restart node_restart@"enable"',
-                        "proc_action": "subprocess_devnull",
-                    })
-            except Exception as e:
-                self.log.logger[self.log_key].error(f"auto_restart - restart session threader - error [{e}]")
-                self.error_messages.error_code_messages({
-                    "error_code": "sh-1030",
-                    "line_code": "auto_restart_error",
-                    "extra": f"{e}",
-                    "extra2": profile,
-                })
+        if ar_handler.process_invalid_action():
+            return
+        
+        ar_handler.handle_service_restart()
             
-        if action == "disable":
-            if cli:
-                end_status = "not running"
-                end_color = "blue"
-                if self.auto_restart_pid != "disabled":
-                    end_status = "disabled" # because disabling
-                    end_color = "green"
-                    self.functions.print_clear_line()
-                    self.functions.print_paragraphs([
-                        [" FOUND ",0, "yellow,on_red"], ["auto_restart instance.",1,"red"],
-                    ])
-                    
-                progress = {
-                    "text_start": "AutoRestart service with pid",
-                    "text_color": "red",
-                    "brackets": str(self.auto_restart_pid),
-                    "status": "terminating",
-                    "color": "yellow",
-                }
-                self.functions.print_cmd_status(progress)
-                _ = self.functions.process_command({
-                    "bashCommand": 'sudo systemctl stop node_restart@"enable"',
-                    "proc_action": "subprocess_devnull",
-                })
-                # test pid removal
-                self.get_auto_restart_pid()
+        if ar_handler.handle_cli_service_disable():
+            return
                 
-                
-                self.functions.print_cmd_status({
-                    **progress,
-                    "status": end_status,
-                    "status_color": end_color,
-                    "newline": True,
-                })
-                
-                if self.auto_restart_pid != "disabled" and not restart_request:
-                    verb = "of next" if manual else "of"
-                    if self.auto_restart_enabled:
-                        cprint(f"  Auto Restart will reengage at completion {verb} requested task","green")
-                    elif self.called_command != "uninstall":
-                        cprint("  This will need to be restarted manually...","red")
-                    self.log.logger[self.log_key].debug(f"auto_restart process pid: [{self.auto_restart_pid}] killed") 
-                    self.auto_restart_pid = False # reset 
-
-                if restart_request:
-                    _ = self.functions.process_command({
-                        "bashCommand": 'sudo systemctl start node_restart@"enable"',
-                        "proc_action": "subprocess_devnull",
-                    })
-                    cprint("  auto_restart restart request completed.","green",attrs=["bold"])
-                    time.sleep(.5)
-                    self.get_auto_restart_pid()
-                    action = "check_pid"
-                else:
-                    return
+        ar_handler.get_service_times()
+            
+        return_value = ar_handler.set_print_output()
+        if return_value:
+            return return_value
         
-        service_last_restart, service_next_restart = "N/A", "N/A"
-        service_start_color = "yellow"
-        
-        def find_service_times(pid):
-            restart_interval_hours = 4
-            try:
-                with open(f"/proc/{pid}/stat", "r") as f:
-                    stat_info = f.read().split()
-                start_time_ticks = int(stat_info[21])
-
-                with open("/proc/uptime", "r") as f:
-                    uptime_seconds = float(f.readline().split()[0])
-
-                clock_ticks = sysconf(sysconf_names["SC_CLK_TCK"])
-                start_time_seconds = start_time_ticks / clock_ticks
-
-                system_boot_time = datetime.now() - timedelta(seconds=uptime_seconds)
-                service_last_restart = system_boot_time + timedelta(seconds=start_time_seconds)
-                service_next_restart = service_last_restart + timedelta(hours=restart_interval_hours)
-                service_last_restart = service_last_restart.strftime('%Y-%m-%d %H:%M:%S')
-                service_next_restart = service_next_restart.strftime('%Y-%m-%d %H:%M:%S')
-
-                return service_last_restart, service_next_restart, "green"
-            except Exception as e:
-                self.log.logger[self.log_key].warning(f"auto_restart_handler -> uanble to determine service last and next restart values | error [{e}]")
-                return "N/A","N/A","red"
-                      
-        if action == "check_pid" or action == "current_pid" or action =="status":
-            config_restart = self.functions.config_obj["global_auto_restart"]["auto_restart"]
-            config_restart = "True" if config_restart else "False"
-            config_restart_color = "green" if config_restart == "True" else "red"
-            
-            config_upgrade = self.functions.config_obj["global_auto_restart"]["auto_upgrade"]
-            config_upgrade = "True" if config_upgrade else "False"
-            config_upgrade_color = "green" if config_upgrade == "True" else "red"
-            
-            config_boot = self.functions.config_obj["global_auto_restart"]["on_boot"]
-            config_boot = "True" if config_boot else "False"
-            config_boot_color = "green" if config_boot  == "True" else "red"
-
-            alerting_state = "True" if alerting_enabled else "False"
-            alerting_state_color = "green" if alerting_enabled else "red"
-            
-            self.functions.print_clear_line()
-            self.functions.print_paragraphs([
-                ["AUTO RESTART STATUS CHECK",1,"yellow","bold"]
-            ])
-            
-            print_out_list = [
-                {
-                    "-BLANK-" :None,
-                    "SERVICE PROCESS FOUND (PID)": f"{colored(self.auto_restart_pid,pid_color)}"
-                }
-            ]
-            
-            for header_elements in print_out_list:
-                self.functions.print_show_output({
-                    "header_elements" : header_elements
-            })          
-
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            if isinstance(self.auto_restart_pid,int):
-                service_last_restart, service_next_restart, service_start_color = find_service_times(self.auto_restart_pid)
-
-            print_out_list = [
-                {
-                    "header_elements" : {
-                        "AUTO RESTART": colored(f'{config_restart: <{14}}',config_restart_color),
-                        "AUTO UPGRADE": colored(f'{config_upgrade: <{14}}',config_upgrade_color),
-                        "ON BOOT": colored(f'{config_boot: <{14}}',config_boot_color),
-                        "ALERTING": colored(alerting_state,alerting_state_color),
-                    },
-                    "spacing": 14
-                },
-                {
-                    "header_elements" : {
-                        "CURRENT TIME": colored(current_time,"green"),
-                    },
-
-                },
-                {
-                    "header_elements" : {
-                        "LAST RESTART": colored(f'{service_last_restart: <{22}}',service_start_color),
-                        "NEXT RESTART": colored(service_next_restart,service_start_color),
-                    },
-                    "spacing": 22
-                }
-            ]
-
-            self.functions.print_paragraphs([
-                ["",1],["CONFIGURATION SETTINGS",1,"blue","bold"]
-            ])            
-            for header_elements in print_out_list:
-                self.functions.print_show_output({
-                    "header_elements" : header_elements,
-            })          
-            
-            if restart_request: return "auto_restart"
-            return
-        
-        if action == "clear_alerts":
-            self.functions.print_paragraphs([
-                ["",1],["Clearing auto_restart persistent alert settings.",1],
-            ])
-            for profile in self.profile_names:
-                if path.isfile(f"{self.functions.nodectl_path}{profile}_alert_report"):
-                    remove(f"{self.functions.nodectl_path}{profile}_alert_report")
-                    self.log.logger[self.log_key].info(f"auto_restart_handler -> cleared alerting for profile [{profile}]")
-                else:
-                    self.log.logger[self.log_key].info(f"auto_restart_handler -> did not find persistent alerting for profile [{profile}] - skipped")
-            self.auto_restart_handler("restart",True,True)
+        if ar_handler.handle_clear_alerts():
             return
 
-        if action == "alert_test" or action == "send_report":
-            s_type = "Test alert"
-            self.functions.print_paragraphs([
-                ["",1],["Sending test auto_restart alert",2],
-            ])
-            try:
-                _ = self.config_obj["global_elements"]["alerting"] 
-                if action == "alert_test":
-                    prepare_alert(
-                        "test",self.config_obj["global_elements"]["alerting"],
-                        self.functions.default_profile,
-                        self.config_obj[self.functions.default_profile]["environment"],
-                        self.functions, self.log
-                    )
-                else:
-                    s_type = "Report"
-                    # cli, node_service, functions, alert_profile, comm_obj, profile, env, log
-                    cli = self.build_cli_obj(True)
-                    session_list = self.functions.pull_node_sessions({
-                        "edge_device": self.functions.pull_edge_point(self.functions.default_profile),
-                        "profile": self.functions.default_profile,
-                        "caller": "auto_restart",
-                        "key": "clusterSession"
-                    })
-                    prepare_report(
-                        cli, cli.node_service, self.functions, session_list, 
-                        self.config_obj["global_elements"]["alerting"],
-                        self.functions.default_profile, 
-                        self.config_obj[self.functions.default_profile]["environment"], 
-                        self.log, direct=True
-                    )
-
-                self.functions.print_paragraphs([
-                    [f"{s_type} Sent.",1,"green"],
-                    ["recipient:",0], [self.config_obj["global_elements"]["alerting"]["recipients"],2,"yellow"],
-                ])
-            except Exception as e:
-                self.log.logger[self.log_key].error(f"shell_handler -> auto_restart_handler -> unable to send {s_type.lower()} error [{e}]")
-                self.functions.print_paragraphs([
-                    ["Alerting configuration not found, aborting.",2,"red"],
-                ])
+        if ar_handler.handle_alert_tests():
             return
-
-        if action != "enable":  # change back to action != "empty" when enabled in prod
-            cprint("  Unknown auto_restart parameter detected, exiting","red")
-            return
-
-        keys = list(self.functions.config_obj.keys())
-        keys.append("global_p12")
         
-        for profile in keys:
-            if profile == "global_p12":
-                if self.functions.config_obj[profile]["passphrase"] == "None":
-                    warning = True
-                    break
-            elif profile in self.profile_names:
-                if self.functions.config_obj[profile]["p12_passphrase"] == "None":
-                    warning = True
-                    break
-            
-        if warning:
-            self.functions.print_paragraphs([
-                [" ERROR ",0,"yellow,on_red"], ["Auto Restart",0,"red","underline"], 
-                ["cannot be manually enabled if the node's passphrases are not set in the configuration.",0,"red"],
-                ["nodectl",0,"blue","bold"],["will not have the ability to authenticate to the HyperGraph in an automated fashion.",2,"red"],
-                ["Action cancelled",1,"yellow"],
-            ])
+        if ar_handler.process_p12_keys():
             exit("  auto restart passphrase error")
 
-        if self.auto_restart_pid != "disabled":
-            if self.auto_restart_enabled and not self.auto_restart_quiet:
-                self.functions.print_paragraphs([
-                    ["",1], ["This node's restart service",0,"green"], 
-                    ["does not",0,"green","underline"], ["need to be restarted because pid [",0,"green"],
-                    [str(self.auto_restart_pid),-1,"yellow","bold"],
-                    ["] was found already.",-1,"green"],["",1]
-                ])
-                if alerting_enabled:
-                    self.functions.print_paragraphs([
-                        ["The node's alerting service is enabled.",1,"green"], 
-                    ])                
-            elif not self.auto_restart_quiet:
-                self.functions.print_paragraphs([
-                    ["",1], ["This node's restart service was not started because pid [",0,"yellow"],
-                    [str(self.auto_restart_pid),-1,"green","bold"],
-                    ["] was found already.",-1,"yellow"],["",1]
-                ])
-            self.log.logger[self.log_key].warning(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
+        if ar_handler.handle_service_disable():
             return
-        
-        _ = self.functions.process_command({
-            "bashCommand": f'sudo systemctl start node_restart@"{action}"',
-            "proc_action": "subprocess_devnull",
-        })
-        if cli:
-            print("")
-            cprint("  This node's restart service restarted. ","green")
-            if alerting_enabled:
-                self.functions.print_paragraphs([
-                    ["The node's alerting service is enabled.",1,"green"], 
-                ])             
-    
+
+        ar_handler.print_final_cli_message()        
+
     
     def upgrade_node(self,argv_list):
         if "help" in argv_list:

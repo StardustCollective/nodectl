@@ -46,13 +46,13 @@ class StartNode():
 
     def _set_status_obj(self):
         self.show_status_obj = {
-            "called": "status",
+            "called_command": "status",
             "spinner": False,
             "rebuild": True,
             "wait": False,
             "threaded": self.threaded,
             "static_nodeid": self.static_nodeid if self.static_nodeid else False,
-            "-p": self.profile                
+            "argv": ["-p",self.profile]                
         }  
         
               

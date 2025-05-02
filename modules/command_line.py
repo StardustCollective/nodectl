@@ -188,12 +188,14 @@ class CLI():
         
         status = ShowStatus(self,command_obj)
         status.set_parameter()
+        status.cn_requests.log = self.log.logger[self.log_key]
 
-        self.functions.check_for_help(status.command_list,status.called_command)
+        self.functions.check_for_help(status.argv,status.called_command)
         
         status.set_profile()
         status.set_watch_parameters()
-        status.process_status()        
+        status.process_status()    
+        status.print_auto_restart_options()    
                 
 
     def show_service_status(self,command_list):

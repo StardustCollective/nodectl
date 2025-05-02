@@ -20,7 +20,7 @@ class DownloadStatus():
         self.parent = command_obj["parent"]
         
         self.command_obj = command_obj["command_obj"]
-        self.command_list = self.command_obj["command_list"]
+        self.argv = self.command_obj["argv"]
         self.caller = self.command_obj.get("caller","download_status")
         self.metrics = self.command_obj.get("metrics",False)
         self.functions = self.parent.functions
@@ -320,7 +320,7 @@ class DownloadStatus():
             "newline": True,
         })
         
-        if not "-ni" in self.command_list and not "--ni" in self.command_list:
+        if not "-ni" in self.argv and not "--ni" in self.argv:
             self.functions.print_paragraphs([
                 ["adding",0,"magenta"],["--ni",0,"yellow"]
             ])
@@ -468,7 +468,7 @@ class DownloadStatus():
 
 
     def handle_time_estimate(self):
-        if not "--estimate" in self.command_list: 
+        if not "--estimate" in self.argv: 
             self.estimated_finished = "Watching Ordinal Downloads"
             self.est_countdown = "*"
             self.est_title = "Status:"
@@ -575,12 +575,12 @@ class DownloadStatus():
 
             self.start_time = perf_counter()
         
-            if "-p" in self.command_list:
-                self.profile = self.command_list[self.command_list.index("-p")+1]
+            if "-p" in self.argv:
+                self.profile = self.argv[self.argv.index("-p")+1]
                 self.log.logger[self.log_key].info(f"download_status called and using profile [{self.profile}]")
-            else: self.command_list.append("help")
+            else: self.argv.append("help")
             
-            self.functions.check_for_help(self.command_list,"download_status")
+            self.functions.check_for_help(self.argv,"download_status")
             
             if self.caller == "status" and not path.exists(self.log_file):
                     self.dip_status = {
@@ -651,13 +651,13 @@ class DownloadStatus():
                     self.print_output(dip_pass)
                     self.pull_ordinal_values()
                     
-                    if "--snapshot" in self.command_list: break
+                    if "--snapshot" in self.argv: break
             except TypeError as e:
                 self.log.logger[self.log_key].error(f"DownloadStatus -> download_status -> TypeError [{e}] -> skipping update and restarting pass from [{dip_pass}] to [{dip_pass+1}]")
             except Exception as e:
                 self.log.logger[self.log_key].error(f"DownloadStatus -> download_status -> Error [{e}] -> skipping update and restarting pass from [{dip_pass}] to [{dip_pass+1}]")
 
-            if "--snapshot" in self.command_list or self.terminate_program: 
+            if "--snapshot" in self.argv or self.terminate_program: 
                 self.clear_and_exit()
 
             # double check recursively
