@@ -1,0 +1,16 @@
+{
+    "hybrid": {
+        "disk": 343597383680,
+        "memory": 8589934592,
+        "cpu": 8
+    },
+    "layer1": {
+        "disk": 85899345920,
+        "memory": 4294967296,
+        "cpu": 2
+    },
+    "global": {
+        "debian_release": "12",
+        "ubuntu_release": "22.04"
+    }
+  }
