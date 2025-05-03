@@ -56,6 +56,7 @@ class ShellHandler:
         self.auto_restart_quiet = False
         self.environment_requested = None
         self.called_command = None
+        self.mobile = False
         
         self.current_date = datetime.now().strftime("%Y-%m-%d")
         self.node_service = "" #empty
@@ -110,7 +111,7 @@ class ShellHandler:
         return cli
     
          
-    def start_cli(self,argv):
+    def start_cli(self,argv,cli_iterative=False):
         self.argv = argv
         self.check_error_argv(argv)
         
@@ -120,341 +121,397 @@ class ShellHandler:
         self.log.logger.info(f"shell_handler -> start_cli -> obtain ip address: {self.ip_address}")
                 
         # commands that do not need all resources
-        if "main_error" in argv:
-            self.functions.auto_restart = False
-            self.log.logger.error(f"invalid command called [{self.called_command}] sending to help file.")
-            self.functions.print_help({
-                "usage_only": True,
-                "nodectl_version_only": True,
-                "hint": "unknown",
-            })
-        version_cmd = ["-v","_v","version"]
-        if argv[1] in version_cmd:
-            self.functions.auto_restart = False
-            self.show_version()
-            exit(0)
-        verify_command = ["verify_nodectl","_vn","-vn"]
-        if argv[1] in verify_command:
-            self.functions.auto_restart = False
-            self.digital_signature(argv)
-            exit(0)
-        elif self.called_command == "restore_config":
-            self.restore_config(self.argv)
-            exit(0)
-
-        self.check_valid_command()
-        self.set_version_obj_class()
-        self.check_can_use_offline()
-        self.setup_profiles()
-        self.check_auto_restart()
-        self.check_skip_services()
-        self.check_for_static_peer()
-        self.handle_versioning()
-        self.check_for_profile_requirements()
-
-        if "all" in self.argv:
-            self.check_all_profile()     
-
-        self.cli = self.build_cli_obj()
-        
-        if self.cli != None and self.cli.invalid_version:
-            self.functions.confirm_action({
-                "yes_no_default": "NO",
-                "return_on": "YES",
-                "strict": True,
-                "prompt_color": "red",
-                "prompt": "Are you sure you want to continue?",
-                "exit_if": True
-            })
-            
-        restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
-        service_change_commands = ["start","stop","leave"]
-        status_commands = ["status","_s","quick_status","_qs","uptime"]
-        node_id_commands = ["id","dag","nodeid"]
-        cv_commands = ["check_versions","_cv"]
-        removed_clear_file_cmds = [
-            "clear_uploads","_cul","_cls","clear_logs",
-            "clear_snapshots","clear_backups",
-            "reset_cache","_rc","clean_snapshots","_cs",
-        ] # only if there is not a replacement command
-        ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
-        config_list = ["view_config","validate_config","_vc", "_val"]
-        clean_files_list = ["clean_files","_cf"]
-        download_commands = ["refresh_binaries","_rtb","update_seedlist","_usl"]
-        
-        if self.called_command != "service_restart":
-            self.functions.print_clear_line()
-        
-        if self.called_command in status_commands:
-            try: profile = self.argv[self.argv.index("-p")+1]
-            except: profile = "empty"
-            self.cli.show_system_status({
-                "rebuild": False,
-                "wait": False,
-                "print_title": True,
-                "-p": profile,
-                "called": self.called_command,
-                "command_list": self.argv
-            })
-            
-        elif self.called_command in service_change_commands:
-            if not self.help_requested:
-                try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
-                except: 
-                    self.log.logger.error("shell_handler -> profile error caught by fnt-998")
-                    exit(0) # profile error caught by fnt-998
-            if not self.help_requested:            
-                if self.called_command == "start":
-                    self.cli.cli_start({
-                        "argv_list": self.argv,
-                    })
-                elif self.called_command == "stop":
-                    self.cli.cli_stop({
-                        "show_timer": False,
-                        "spinner": True,
-                        "upgrade_install": False,
-                        "argv_list": self.argv,
-                        "check_for_leave": True,
-                    })
-                elif self.called_command == "leave":
-                    self.cli.cli_leave({
-                        "secs": 30,
-                        "reboot_flag": False,
-                        "skip_msg": False,
-                        "argv_list": self.argv,
-                        "threaded": True,
-                    })
-            else:  
-                self.functions.print_help({
-                    "extended": self.called_command,
-                })     
-          
-        elif self.called_command in restart_commands:
-            restart = True
-            slow_flag = False
-            cli_join_cmd = False
-            secs = 30
-            if self.called_command == "slow_restart" or self.called_command == "_sr":
-                slow_flag = True
-                secs = 600
-            if self.called_command == "join":
-                if "all" in self.argv:
-                    return_value = self.cli.print_removed({
-                        "command": "-p all on join",
-                        "is_new_command": False,
-                        "version": "v2.0.0",
-                        "done_exit": False
-                    })
-                    self.functions.print_help({
-                        "nodectl_version_only": True,
-                        "extended": "join_all",
-                    })
-                else:
-                    self.cli.cli_join({
-                        "skip_msg": False,
-                        "wait": True,
-                        "argv_list": self.argv
-                    })
-                    restart = False
-
-            if restart:
-                self.cli.cli_restart({
-                    "secs": secs,
-                    "restart_type": self.called_command,
-                    "slow_flag": slow_flag,
-                    "cli_join_cmd": cli_join_cmd,
-                    "cli_leave_cmd": False,
-                    "argv_list": self.argv
-                })
-
-        elif self.called_command == "list":
-            self.cli.show_list(self.argv)  
-        elif self.called_command == "show_current_rewards" or self.called_command == "_scr":
-            self.cli.show_current_rewards(self.argv)  
-        elif self.called_command == "find":
-            self.cli.cli_find(self.argv)
-        elif self.called_command == "peers":
-            self.cli.show_peers(self.argv)
-        elif self.called_command == "whoami":
-            self.cli.show_ip(self.argv)
-        elif self.called_command == "nodeid2dag":
-            self.cli.cli_nodeid2dag(self.argv)
-        elif self.called_command == "show_node_states" or self.called_command == "_sns":
-            self.cli.show_node_states(self.argv)
-        elif self.called_command == "passwd12":
-            return_value = self.cli.passwd12(self.argv)
-        elif self.called_command == "reboot":
-            self.cli.cli_reboot(self.argv)
-        # elif self.called_command == "remote_access" or self.called_command == "_ra":
-        #     self.cli.enable_remote_access(self.argv)
-        elif self.called_command in node_id_commands:
-            command = "dag" if self.called_command == "dag" else "nodeid"
-            self.cli.cli_grab_id({
-                "command": command,
-                "argv_list": self.argv
-            })
-        elif self.called_command == "upgrade_nodectl_testnet":
-            self.cli.print_removed({
-                "command": self.called_command,
-                "version": "v2.8.0",
-                "new_command": "upgrade_nodectl"
-            })
-        elif self.called_command == "remove_snapshots":
-            self.cli.print_removed({
-                "command": self.called_command,
-                "version": "v2.13.1",
-                "new_command": "display_snapshot_chain",
-            })
-        elif self.called_command == "upgrade_nodectl":
-            self.set_version_obj_class()
-            return_value = self.cli.upgrade_nodectl({
-                "version_class_obj": self.version_class_obj,
-                "argv_list": self.argv,
-                "help": self.argv[0]
-            })
-        elif self.called_command in ssh_commands:
-            self.cli.ssh_configure({
-                "command": self.called_command,
-                "argv_list": self.argv   
-            })
-        elif self.called_command in clean_files_list:
-            command_obj = {"argv_list": self.argv, "action": "normal"}
-            self.cli.clean_files(command_obj)
-            
-        elif self.called_command in removed_clear_file_cmds:
-            return_value = self.cli.print_removed({
-                "command": self.called_command,
-                "version": "v2.0.0",
-                "new_command": "n/a"
-            })
-            
-        elif self.called_command == "check_seedlist" or self.called_command == "_csl":
-            return_value = self.cli.check_seed_list(self.argv)
-        elif self.called_command == "check_consensus" or self.called_command == "_con":
-            self.cli.cli_check_consensus({"argv_list":self.argv})
-        elif self.called_command == "check_minority_fork" or self.called_command == "_cmf":
-            self.cli.cli_minority_fork_detection({"argv_list":self.argv})
-        elif self.called_command == "backup_config":
-            self.cli.backup_config(self.argv)
-        elif self.called_command == "create_p12":
-            self.cli.cli_create_p12(self.argv)
-        elif self.called_command == "export_private_key": 
-            self.cli.export_private_key(self.argv)
-        elif self.called_command == "check_source_connection" or self.called_command == "_csc":
-            return_value = self.cli.check_source_connection(self.argv)
-        elif self.called_command == "show_node_proofs" or self.called_command == "_snp":
-            return_value = self.cli.show_current_snapshot_proofs(self.argv)
-        elif self.called_command == "check_connection" or self.called_command == "_cc":
-            self.cli.check_connection(self.argv)
-        elif self.called_command == "display_snapshot_chain":
-            self.cli.cli_snapshot_chain(self.argv)
-        elif self.called_command == "node_last_snapshot":
-            self.cli.cli_node_last_snapshot(self.argv)
-        elif self.called_command == "send_logs" or self.called_command == "_sl":
-            self.cli.prepare_and_send_logs(self.argv)
-        elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
-            self.cli.show_seedlist_participation(self.argv)
-        elif self.called_command == "download_status" or self.called_command == "_ds":
-            self.cli.show_download_status({
-                "caller": "download_status",
-                "command_list": self.argv
-            })
-        elif self.called_command in cv_commands:
-            self.set_version_obj_class()
-            self.cli.check_versions({
-                "command_list": self.argv,
-                "version_class_obj": self.version_class_obj,
-            })
-        elif "auto_" in self.called_command:
-            if self.called_command == "auto_upgrade":
-                if "help" not in self.argv:
-                    self.argv.append("help")
-                self.called_command = "auto_restart"
-            if "help" in self.argv:
+        while True:
+            if "main_error" in argv:
+                self.functions.auto_restart = False
+                self.log.logger.error(f"invalid command called [{self.called_command}] sending to help file.")
                 self.functions.print_help({
                     "usage_only": True,
                     "nodectl_version_only": True,
-                    "extended": "auto_restart",
+                    "hint": "unknown",
                 })
-            else:
-                self.auto_restart_handler(self.argv[0],True,True)
-        elif self.called_command == "service_restart":
-            if self.argv[0] == "--variable1=enable": self.argv[0] = "enable" # on-boot 
-            if self.argv[0] != "enable":
-               self.log.logger.error(f"start cli --> invalid request [{self.argv[0]}]")
-               exit(0)
-            self.auto_restart_handler("service_start",True)
-        elif self.called_command == "api_server":
-            self.api_service_handler()
-        elif self.called_command == "log" or self.called_command == "logs":
-            return_value = self.cli.show_logs(self.argv)
-        elif "install" in self.called_command:
-            self.install(self.argv)
-        elif self.called_command == "upgrade":
-            self.upgrade_node(self.argv)
-        elif self.called_command == "upgrade_path" or self.called_command == "_up":
-            self.cli.check_nodectl_upgrade_path({
-                "called_command": self.called_command,
-                "argv_list": self.argv,
-                "version_class_obj": self.version_class_obj,
-            })
-        elif self.called_command == "upgrade_vps":
-            self.cli.cli_upgrade_vps(self.argv)
-        elif self.called_command in download_commands:
-            self.cli.tess_downloads({
-                "caller": self.called_command,
-                "argv_list": self.argv,
-            })
-        elif self.called_command == "health":
-            self.cli.show_health(self.argv)
-        elif self.called_command == "show_profile_issues":
-            self.cli.show_profile_issues(self.argv)
-        elif self.called_command == "execute_starchiver":
-            self.cli.cli_execute_starchiver(self.argv)
-        elif self.called_command == "execute_tests":
-            self.cli.cli_execute_tests(self.argv)
-        elif self.called_command == "prepare_file_download":
-            self.cli.cli_prepare_file_download(self.argv)
-        elif self.called_command == "show_service_log" or self.called_command == "_ssl":
-            self.cli.show_service_log(self.argv)
-        elif self.called_command == "show_service_status" or self.called_command == "_sss":
-            self.cli.show_service_status(self.argv)
-        elif self.called_command == "show_cpu_memory" or self.called_command == "_scm":
-            self.cli.show_cpu_memory(self.argv)
-        elif self.called_command == "sync_node_time" or self.called_command == "_snt":
-            self.cli.cli_sync_time(self.argv)
-        elif self.called_command == "sec":
-            self.cli.show_security(self.argv)
-        elif self.called_command == "price" or self.called_command == "prices":
-            self.cli.show_prices(self.argv)
-        elif "market" in self.called_command:
-            return_value = self.cli.show_markets(self.argv)
-        elif self.called_command == "show_dip_error" or self.called_command == "_sde":
-            self.cli.show_dip_error(self.argv)
-        elif self.called_command == "show_p12_details" or self.called_command == "_spd":
-            self.cli.show_p12_details(self.argv)
-        elif self.called_command == "getting_started":
-            self.functions.check_for_help(["help"],"getting_started")
-        elif self.called_command == "test_only":
-            self.cli.test_only(self.argv)
+            version_cmd = ["-v","_v","version"]
+            if argv[1] in version_cmd:
+                self.functions.auto_restart = False
+                self.show_version()
+                exit(0)
 
-        elif self.called_command == "help" or self.called_command == "_h":
-                self.functions.print_help({
-                    "usage_only": False,
-                })
-        elif self.called_command == "help_only": 
-            self.functions.print_help({
-                "usage_only": True,
-                "hint": False,
-            })
-        elif self.called_command in config_list:
-            self.functions.print_help({
-                "usage_only": True,
-                "nodectl_version_only": True,
-                "extended": self.called_command,
-            })
+            if argv[1] == "verify_specs":
+                self.functions.auto_restart = False
+                self.verify_specs()
+                exit(0)
+
+            verify_command = ["verify_nodectl","_vn","-vn"]
+            if argv[1] in verify_command:
+                self.functions.auto_restart = False
+                return_caller = self.digital_signature(argv)
+                if return_caller: return return_caller
+                exit(0)
+            elif self.called_command == "restore_config":
+                self.restore_config(self.argv)
+                exit(0)
+
+            self.check_valid_command()
+            self.set_version_obj_class()
+            self.check_can_use_offline()
+            self.setup_profiles()
+            self.check_auto_restart()
+            self.check_skip_services()
+            self.check_for_static_peer()
+            self.handle_versioning()
+            self.check_diskspace()
+            self.check_for_profile_requirements()
+
+            if "all" in self.argv:
+                self.check_all_profile()     
+
+            try:
+                _ = self.cli
+            except:
+                self.cli = self.build_cli_obj()
             
-        self.handle_exit(return_value)
+            if self.cli != None and self.cli.invalid_version:
+                self.functions.confirm_action({
+                    "yes_no_default": "NO",
+                    "return_on": "YES",
+                    "strict": True,
+                    "prompt_color": "red",
+                    "prompt": "Are you sure you want to continue?",
+                    "exit_if": True
+                })
+
+            restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
+            service_change_commands = ["start","stop","leave"]
+            status_commands = ["status","_s","quick_status","_qs","uptime"]
+            node_id_commands = ["id","dag","nodeid"]
+            cv_commands = ["check_versions","_cv"]
+            removed_clear_file_cmds = [
+                "clear_uploads","_cul","_cls","clear_logs",
+                "clear_snapshots","clear_backups",
+                "reset_cache","_rc","clean_snapshots","_cs",
+            ] # only if there is not a replacement command
+            ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
+            config_list = ["view_config","validate_config","_vc", "_val"]
+            clean_files_list = ["clean_files","_cf"]
+            download_commands = ["refresh_binaries","_rtb","update_seedlist","_usl"]
+
+            if self.called_command == "install" and "--quiet" in self.argv:
+                pass
+            elif self.called_command != "service_restart":
+                self.functions.print_clear_line()
+            
+            if self.called_command == "console" or self.called_command == "mobile":
+                if self.called_command == "mobile": 
+                    self.mobile, self.cli.mobile = True, True
+                    cli_iterative = self.called_command 
+                self.called_command, self.argv = self.cli.cli_console(self.argv)
+                if self.called_command in ["view_config","verify_nodectl","configure"]:
+                    return ['main.py',self.called_command] + self.argv
+                else:
+                    self.check_auto_restart() # retest if auto_restart needs to be disabled
+
+            if self.called_command in status_commands:
+                try: profile = self.argv[self.argv.index("-p")+1]
+                except: profile = "empty"
+                self.cli.show_system_status({
+                    "rebuild": False,
+                    "wait": False,
+                    "print_title": True,
+                    "-p": profile,
+                    "called": self.called_command,
+                    "command_list": self.argv
+                })
+            elif self.called_command in service_change_commands:
+                if not self.help_requested:
+                    try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
+                    except: 
+                        self.log.logger.error("shell_handler -> profile error caught by fnt-998")
+                        exit(0) # profile error caught by fnt-998            
+                    if self.called_command == "start":
+                        self.cli.cli_start({
+                            "argv_list": self.argv,
+                        })
+                    elif self.called_command == "stop":
+                        self.cli.cli_stop({
+                            "show_timer": False,
+                            "spinner": True,
+                            "upgrade_install": False,
+                            "argv_list": self.argv,
+                            "check_for_leave": True,
+                        })
+                    elif self.called_command == "leave":
+                        self.cli.cli_leave({
+                            "secs": 30,
+                            "reboot_flag": False,
+                            "skip_msg": False,
+                            "argv_list": self.argv,
+                            "threaded": True,
+                        })
+                else:  
+                    self.functions.print_help({
+                        "extended": self.called_command,
+                    })     
+            
+            elif self.called_command in restart_commands:
+                restart = True
+                slow_flag = False
+                cli_join_cmd = False
+                secs = 30
+                if self.called_command == "slow_restart" or self.called_command == "_sr":
+                    slow_flag = True
+                    secs = 600
+                if self.called_command == "join":
+                    if "all" in self.argv:
+                        return_value = self.cli.print_removed({
+                            "command": "-p all on join",
+                            "is_new_command": False,
+                            "version": "v2.0.0",
+                            "done_exit": False
+                        })
+                        self.functions.print_help({
+                            "nodectl_version_only": True,
+                            "extended": "join_all",
+                        })
+                    else:
+                        self.cli.cli_join({
+                            "skip_msg": False,
+                            "wait": True,
+                            "argv_list": self.argv
+                        })
+                        restart = False
+
+                if restart:
+                    self.cli.cli_restart({
+                        "secs": secs,
+                        "restart_type": self.called_command,
+                        "slow_flag": slow_flag,
+                        "cli_join_cmd": cli_join_cmd,
+                        "cli_leave_cmd": False,
+                        "argv_list": self.argv
+                    })
+
+            elif self.called_command == "list":
+                self.cli.show_list(self.argv)  
+            elif self.called_command == "show_current_rewards" or self.called_command == "_scr":
+                self.cli.show_current_rewards(self.argv)  
+            elif self.called_command == "find":
+                self.cli.cli_find(self.argv)
+            elif self.called_command == "peers":
+                self.cli.show_peers(self.argv)
+            elif self.called_command == "whoami":
+                self.cli.show_ip(self.argv)
+            elif self.called_command == "nodeid2dag":
+                self.cli.cli_nodeid2dag(self.argv)
+            elif self.called_command == "show_node_states" or self.called_command == "_sns":
+                self.cli.show_node_states(self.argv)
+            elif self.called_command == "passwd12":
+                return_value = self.cli.passwd12(self.argv)
+            elif self.called_command == "reboot":
+                self.cli.cli_reboot(self.argv)
+            # elif self.called_command == "remote_access" or self.called_command == "_ra":
+            #     self.cli.enable_remote_access(self.argv)
+            elif self.called_command in node_id_commands:
+                command = "dag" if self.called_command == "dag" else "nodeid"
+                self.cli.cli_grab_id({
+                    "command": command,
+                    "argv_list": self.argv
+                })
+            elif self.called_command == "upgrade_nodectl_testnet":
+                self.cli.print_removed({
+                    "command": self.called_command,
+                    "version": "v2.8.0",
+                    "new_command": "upgrade_nodectl"
+                })
+            elif self.called_command == "remove_snapshots":
+                self.cli.print_removed({
+                    "command": self.called_command,
+                    "version": "v2.13.1",
+                    "new_command": "display_snapshot_chain",
+                })
+            elif self.called_command == "upgrade_nodectl" or self.called_command == "revision":
+                try:
+                    help_option = self.argv[0]
+                except:
+                    help_option = self.called_command
+
+                if self.called_command == "revision":
+                    # mobile iterative double-check
+                    self.cli.primary_command = "revision" 
+                self.set_version_obj_class()
+                self.cli.mobile = True
+                return_value = self.cli.upgrade_nodectl({
+                    "version_class_obj": self.version_class_obj,
+                    "argv_list": self.argv,
+                    "help": help_option,
+                })
+                if return_value and "return_caller" in return_value:
+                    cli_iterative = False
+                    if "mobile" in return_value:
+                        cli_iterative = "mobile_revision"
+                if return_value == "y": # upgrade requested - auto_restart already restarted
+                    return_value = "skip_auto_restart_restart"
+            elif self.called_command in ssh_commands:
+                self.cli.ssh_configure({
+                    "command": self.called_command,
+                    "argv_list": self.argv   
+                })
+            elif self.called_command in clean_files_list:
+                command_obj = {"argv_list": self.argv, "action": "normal"}
+                self.cli.clean_files(command_obj)
+                
+            elif self.called_command in removed_clear_file_cmds:
+                return_value = self.cli.print_removed({
+                    "command": self.called_command,
+                    "version": "v2.0.0",
+                    "new_command": "n/a"
+                })
+                
+            elif self.called_command == "check_seedlist" or self.called_command == "_csl":
+                return_value = self.cli.check_seed_list(self.argv)
+            elif self.called_command == "check_consensus" or self.called_command == "_con":
+                self.cli.cli_check_consensus({"argv_list":self.argv})
+            elif self.called_command == "check_minority_fork" or self.called_command == "_cmf":
+                self.cli.cli_minority_fork_detection({"argv_list":self.argv})
+            elif self.called_command == "check_tcp_ports" or self.called_command == "_ctp":
+                self.cli.cli_check_tcp_ports({"argv_list":self.argv})
+            elif self.called_command == "backup_config":
+                self.cli.backup_config(self.argv)
+            elif self.called_command == "create_p12":
+                self.cli.cli_create_p12(self.argv)
+            elif self.called_command == "export_private_key": 
+                self.cli.export_private_key(self.argv)
+            elif self.called_command == "check_source_connection" or self.called_command == "_csc":
+                return_value = self.cli.check_source_connection(self.argv)
+            elif self.called_command == "show_node_proofs" or self.called_command == "_snp":
+                return_value = self.cli.show_current_snapshot_proofs(self.argv)
+            elif self.called_command == "check_connection" or self.called_command == "_cc":
+                self.cli.check_connection(self.argv)
+            elif self.called_command == "display_snapshot_chain":
+                self.cli.cli_snapshot_chain(self.argv)
+            elif self.called_command == "node_last_snapshot":
+                self.cli.cli_node_last_snapshot(self.argv)
+            elif self.called_command == "send_logs" or self.called_command == "_sl":
+                self.cli.prepare_and_send_logs(self.argv)
+            elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
+                self.cli.show_seedlist_participation(self.argv)
+            elif self.called_command == "download_status" or self.called_command == "_ds":
+                self.cli.show_download_status({
+                    "caller": "download_status",
+                    "command_list": self.argv
+                })
+            elif self.called_command in cv_commands:
+                self.set_version_obj_class()
+                self.cli.check_versions({
+                    "command_list": self.argv,
+                    "version_class_obj": self.version_class_obj,
+                })
+            elif "auto_" in self.called_command:
+                if self.called_command == "auto_upgrade":
+                    if "help" not in self.argv:
+                        self.argv.append("help")
+                    self.called_command = "auto_restart"
+                if "help" in self.argv:
+                    self.functions.print_help({
+                        "usage_only": True,
+                        "nodectl_version_only": True,
+                        "extended": "auto_restart",
+                    })
+                else:
+                    self.auto_restart_handler(self.argv[0],True,True)
+                    if not self.mobile:
+                        exit(0)
+            elif self.called_command == "service_restart":
+                if self.argv[0] == "--variable1=enable": self.argv[0] = "enable" # on-boot 
+                if self.argv[0] != "enable":
+                    self.log.logger.error(f"start cli --> invalid request [{self.argv[0]}]")
+                    exit(0)
+                self.auto_restart_handler("service_start",True)
+                exit(0)
+            elif self.called_command == "api_server":
+                self.api_service_handler()
+            elif self.called_command == "log" or self.called_command == "logs":
+                return_value = self.cli.show_logs(self.argv)
+            elif "install" in self.called_command:
+                self.install(self.argv)
+            elif self.called_command == "upgrade":
+                self.upgrade_node(self.argv)
+            elif self.called_command == "upgrade_path" or self.called_command == "_up":
+                self.cli.check_nodectl_upgrade_path({
+                    "called_command": self.called_command,
+                    "argv_list": self.argv,
+                    "version_class_obj": self.version_class_obj,
+                })
+            elif self.called_command == "upgrade_vps":
+                self.cli.cli_upgrade_vps(self.argv)
+            elif self.called_command in download_commands:
+                self.cli.tess_downloads({
+                    "caller": self.called_command,
+                    "argv_list": self.argv,
+                })
+            elif self.called_command == "health":
+                self.cli.show_health(self.argv)
+            elif self.called_command == "show_profile_issues":
+                self.cli.show_profile_issues(self.argv)
+            elif self.called_command == "execute_starchiver":
+                self.cli.cli_execute_starchiver(self.argv)
+            elif self.called_command == "execute_tests":
+                self.cli.cli_execute_tests(self.argv)
+            elif self.called_command == "prepare_file_download":
+                self.cli.cli_prepare_file_download(self.argv)
+            elif self.called_command == "show_service_log" or self.called_command == "_ssl":
+                self.cli.show_service_log(self.argv)
+            elif self.called_command == "show_service_status" or self.called_command == "_sss":
+                self.cli.show_service_status(self.argv)
+            elif self.called_command == "show_cpu_memory" or self.called_command == "_scm":
+                self.cli.show_cpu_memory(self.argv)
+            elif self.called_command == "sync_node_time" or self.called_command == "_snt":
+                self.cli.cli_sync_time(self.argv)
+            elif self.called_command == "sec":
+                self.cli.show_security(self.argv)
+            elif self.called_command == "price" or self.called_command == "prices":
+                self.cli.show_prices(self.argv)
+            elif "market" in self.called_command:
+                return_value = self.cli.show_markets(self.argv)
+            elif self.called_command == "show_dip_error" or self.called_command == "_sde":
+                self.cli.show_dip_error(self.argv)
+            elif self.called_command == "show_p12_details" or self.called_command == "_spd":
+                self.cli.show_p12_details(self.argv)
+            elif self.called_command == "ipv6":
+                self.cli.cli_handle_ipv6(self.argv)
+            elif self.called_command == "getting_started":
+                self.functions.check_for_help(["help"],"getting_started")
+            elif self.called_command == "migrate_datadir":
+                self.cli.cli_execute_directory_restructure(self.argv)
+            elif self.called_command == "test_only":
+                self.cli.test_only(self.argv)
+
+            elif self.called_command == "help" or self.called_command == "_h":
+                    self.functions.print_help({
+                        "usage_only": False,
+                    })
+            elif self.called_command == "help_only": 
+                self.functions.print_help({
+                    "usage_only": True,
+                    "hint": False,
+                })
+            elif self.called_command in config_list:
+                self.functions.print_help({
+                    "usage_only": True,
+                    "nodectl_version_only": True,
+                    "extended": self.called_command,
+                })
+        
+            self.handle_exit(return_value)
+            if self.mobile: 
+                if cli_iterative in ["mobile_revision", "mobile_success"]:
+                    self.called_command = "mobile"
+                else:
+                    self.called_command = cli_iterative
+
+                if cli_iterative != "mobile_revision":
+                    self.functions.print_any_key({"newline": "top"})
+            else:
+                break
         
         
     # CHECK METHODS
@@ -514,20 +571,30 @@ class ShellHandler:
 
     def check_auto_restart(self,action="start"):
         # do we need to make sure auto_restart is turned off?
-        if action == "end":
+
+        skip_enable_restart_commands = ["leave","stop"]
+        if action == "end" or action == "mobile":
             if self.auto_restart_enabled and self.called_command != "auto_restart":
-                self.auto_restart_handler("enable",True)
-                exit(0)
+                if self.called_command in skip_enable_restart_commands:
+                    self.functions.print_paragraphs([
+                        [" WARNING ",0,"yellow,on_red"], ["The",0,"red"],
+                        [self.called_command,0,"yellow"], 
+                        ["command will not re-engage the auto_restart feature of nodectl.",1,"red"],
+                    ])
+                else:
+                    self.auto_restart_handler("enable",True)
+                if self.mobile: return
+                exit(0) 
                 
         kill_auto_restart_commands = [
-            "restart_only","slow_restart","-sr",
+            "restart_only","slow_restart","-sr","_sr",
             "leave","start","stop","restart","join", 
-            "nodectl_upgrade","upgrade_nodectl_testnet",
-            "execute_starchiver", "display_snapshot_chain",
+            "upgrade_nodectl","upgrade","execute_starchiver",
+            "display_snapshot_chain",
         ]
             
         print_quiet_auto_restart = [
-            "check_consensus",
+            "check_consensus","check_tcp_ports",
         ]
 
         if self.called_command in print_quiet_auto_restart:
@@ -538,15 +605,15 @@ class ShellHandler:
                 self.auto_restart_enabled = True
             
         if self.called_command in kill_auto_restart_commands:
-            self.log.logger.warn(f"cli request {self.called_command} received. DISABLING auto_restart if enabled")
+            self.log.logger.warning(f"cli request {self.called_command} received. DISABLING auto_restart if enabled")
             self.auto_restart_handler("disable",True)
                 
 
     def check_skip_services(self):
         # do we want to skip loading the node service obj?
         dont_skip_service_list = [
-            "status","_s","quick_status","_qs","reboot","uptime",
-            "start","stop","restart","slow_restart","_sr",
+            "status","_s","quick_status","_qs","reboot","uptime","revision",
+            "start","stop","restart","slow_restart","_sr","mobile","console",
             "restart_only","auto_restart","service_restart", # not meant to be started from cli
             "join","id", "nodeid", "dag", "passwd12","export_private_key",
             "find","leave","peers","check_source_connection","_csc",
@@ -558,11 +625,31 @@ class ShellHandler:
             self.skip_services = False
                 
 
+    def check_diskspace(self):
+        warning_threshold = 84
+        main_threshold = 94
+        size_str = self.functions.check_dev_device().strip()
+        size = int(size_str.split(" ")[0].replace("%",""))
+        
+        if size > main_threshold:
+            self.log.logger.critical(f"shell_handler -> disk check -> {size_str}")
+            self.functions.print_paragraphs([
+                [" CRITICAL ",0,"yellow,on_red"], ["Disk Space:",0,"magenta"],
+                [size_str,1,"red"]
+            ])
+        elif size > warning_threshold:
+            self.log.logger.warning(f"shell_handler -> disk check -> {size_str}")
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["Disk Space:",0,"yellow"],
+                [size_str,1,"magenta"]
+            ])
+
+
     def check_all_profile(self):
         # do we want to skip loading the node service obj?
         all_profile_allow_list = [
             "restart","restart_only","slow_restart","-sr","join","status",
-            "show_profile_issues",
+            "show_profile_issues","console","mobile",
         ]
         if self.called_command in all_profile_allow_list:
             return
@@ -649,7 +736,8 @@ class ShellHandler:
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf","node_last_snapshot",
-            "execute_starchiver","display_snapshot_chain"
+            "execute_starchiver","display_snapshot_chain",
+            "show_p12_details",
         ]  
 
         option_exceptions = [
@@ -658,8 +746,8 @@ class ShellHandler:
 
         if "-p" in self.argv:
             called_profile = self.argv[self.argv.index("-p")+1]
-            if self.called_command not in need_profile_list: return
             self.functions.check_valid_profile(called_profile)
+            if self.called_command not in need_profile_list: return
         
         if self.called_command in need_profile_list and self.called_command in need_environment_list:
             either_or_hint = True
@@ -813,7 +901,23 @@ class ShellHandler:
         self.config_obj[self.profile]["edge_point_tcp_port"] = static_peer_port
         self.config_obj[self.profile]["static_peer"] = True
 
-
+        self.functions.auto_restart = False
+        self.functions.event = False
+        self.functions.ip_address = self.functions.get_ext_ip()
+        self.functions.session_timeout = 2
+        state = self.functions.test_peer_state({
+            "profile": self.profile,
+            "current_source_node": "127.0.0.1",
+            "test_address": static_peer,
+            "simple": True
+        })
+        if state != "Ready":
+            self.error_messages.error_code_messages({
+                "error_code": "sh-830",
+                "line_code": "invalid_peer_address",
+                "extra": f"{static_peer}:{static_peer_port}",
+            })
+        
     # =============  
 
     def handle_versioning(self):
@@ -962,7 +1066,170 @@ class ShellHandler:
             })
             
 
+    def verify_specs(self):
+        specs = self.functions.get_distro_details()
+        info = specs["info"]
+        memory = self.functions.get_memory().total
+        disk = self.functions.get_disk().total
+        specs["cpu_count"] = specs["info"]["count"]
+
+        possible_issues = {
+            "release": False,
+            "debian": False,
+            "layer0_disk": False,
+            "layer1_disk": False,
+            "layer0_memory": False,
+            "layer1_memory": False,
+            "layer0_cpu_count": False, 
+            "layer1_cpu_count": False, 
+        }
+
+        self.functions.print_header_title({
+            "line1": "VERIFY NODECTL SPECS",
+            "line2": "Pre-installation Tool",
+            "newline": "top",
+            "upper": False,
+        })  
+        cprint("  Please choose node type to test:","blue",attrs=["bold"])
+        option = self.functions.print_option_menu({
+            "options": [
+                "Hybrid Dual Layer",
+                "Dor Validator",
+            ],
+            "let_or_num": "let",
+            "r_and_q": "q",
+            "color": "cyan",
+        }).lower()
+
+        node_type = "Hybrid"
+        if option == "d":
+            node_type = "Dor"
+
+
+        try:
+            debian = True
+            if specs["distributor_id"] == "Ubuntu":
+                specs["debian"] = specs["distributor_id"]
+                if specs["release"] == "24.04":
+                    possible_issues["release"] = specs["release"]
+            elif specs["distributor_id"] == "Debian":
+                specs["debian"] = specs["distributor_id"]
+                if specs["release"] == "12":
+                    possible_issues["release"] = specs["release"]
+            else:
+                debian = False
+        except:
+            debian = True
+            if specs["id"] == "Ubuntu":
+                if specs["release"] == "24.04":
+                    possible_issues["release"] = specs["release"]
+            elif specs["id"] == "Debian":
+                if specs["release"] == "12":
+                    possible_issues["release"] = specs["release"]
+            else:
+                debian = False
+        if not debian:
+            possible_issues["debian"] = "Not a Debian release"
+
+        if info["bits"] != 64:
+            possible_issues["bits"] = info["bits"]
+
+        specs["layer1_cpu_count"] = info["count"]
+        if info["count"] < 4:
+            possible_issues["layer1_cpu_count"] =info["count"]
+        specs["layer0_cpu_count"] = info["count"]
+        if info["count"] < 8:
+            possible_issues["layer0_cpu_count"] =info["count"]
+
+        specs["layer1_memory"] = memory
+        if memory < 4100000000: # 4G == 4294967296
+            possible_issues["layer1_memory"] = memory
+        specs["layer0_memory"] = memory
+        if memory < 8200000000: # 8G == 8589934592
+            possible_issues["layer0_memory"] = memory
+
+        specs["layer0_disk"] = disk
+        if disk < 320000000000: # 320G = 343597383680
+            possible_issues["layer0_disk"]
+        specs["layer1_disk"] = disk
+        if disk < 83000000000: # 80G = 85899345920
+            possible_issues["layer1_disk"]
+
+        requirements = {
+            "release": "11" if specs["distributor_id"] == "Debian" else "22.04",
+            "debian": "Debian",
+            "layer0_disk": 343597383680,
+            "layer1_disk": 85899345920,
+            "layer0_memory": 8589934592,
+            "layer1_memory": 4294967296,
+            "layer0_cpu_count": 8, 
+            "layer1_cpu_count": 4,             
+        }
+
+        if option == "h":
+            possible_issues = {key: value for key, value in possible_issues.items() if 'layer1' not in key}
+            specs = {key: value for key, value in specs.items() if 'layer1' not in key}
+        else:
+            possible_issues = {key: value for key, value in possible_issues.items() if 'layer0' not in key}
+            specs = {key: value for key, value in specs.items() if 'layer0' not in key}
+
+        passed = True
+        self.functions.print_paragraphs([
+            ["Node type:",0], [node_type,1,"yellow"],
+        ])
+        for item, value in possible_issues.items():
+            p_item = item
+            if "layer0" in item: p_item = item.replace("layer0_","")
+            if "layer1" in item: p_item = item.replace("layer1_","")
+            if not value:
+                self.functions.print_cmd_status({
+                    "text_start": p_item,
+                    "brackets": str(specs[item]),
+                    "status": "passed",
+                    "status_color": "green",
+                    "newline": True,
+                    "delay": 0.8,
+                })
+            else:
+                passed = False
+                self.functions.print_cmd_status({
+                    "text_start": p_item,
+                    "brackets": str(specs[item]),
+                    "status": "failed",
+                    "status_color": "red",
+                    "newline": True,
+                })                
+                self.functions.print_cmd_status({
+                    "text_start": p_item,
+                    "brackets": str(requirements[item]),
+                    "status": "required",
+                    "status_color": "yellow",
+                    "newline": True,
+                    "delay": 0.8,
+                })                
+        
+        if passed:
+            self.functions.print_paragraphs([
+                ["",1],[" SUCCESS ",0,"yellow,on_green","bold"],
+                ["This node meets are necessary specifications to run as a node.",2,"green"],
+            ])
+        else:
+            self.functions.print_paragraphs([
+                ["",1],[" FAILURE ",0,"yellow,on_red"],
+                ["This node",0,"red"], ["does not",0,"red","bold"],
+                ["meet the necessary specifications to run as a node.",2,"red"],
+            ])
+
+
     def digital_signature(self,command_list):
+        if "--skip_validation" in command_list:
+            self.functions.print_paragraphs([
+                ["  WARNING ",0,"white,on_yellow"],
+                ["Digital signature verification skipped by user request",1,"red"],
+            ])
+            return
+        found_error = False
+
         self.log.logger.info("Attempting to verify nodectl binary against code signed signature.")
         self.functions.check_for_help(command_list,"verify_nodectl")
         self.functions.print_header_title({
@@ -974,14 +1241,15 @@ class ShellHandler:
         
         short = True if "-s" in command_list else False
         version_obj = Versioning({"called_cmd": self.called_command})
-        node_arch = self.functions.get_arch()
+        node_arch = self.functions.get_distro_details()["arch"]
+        if "X86" in node_arch: node_arch = node_arch.lower()
         nodectl_version_github = version_obj.version_obj["nodectl_github_version"]
         nodectl_version_full = version_obj.version_obj["node_nodectl_version"]
         
         outputs, urls = [], []
         cmds = [  # must be in this order
             [ "nodectl_public","fetching public key","PUBLIC KEY","-----BEGINPUBLICKEY----"],
-            [ f'{nodectl_version_github}_{node_arch}.sha256',"fetching digital signature hash","BINARY HASH","SHA256"],
+            [ f'{nodectl_version_github}_{node_arch}.sha256',"fetching digital signature hash","BINARY HASH",("SHA2-256","SHA256")],
             [ f"{nodectl_version_github}_{node_arch}.sig","fetching digital signature","none","none"],
         ]
                 
@@ -997,6 +1265,9 @@ class ShellHandler:
             "status_color": "red",
             "delay": 0.3
         }
+
+        files = [f"/var/tmp/{file[0]}" for file in cmds]
+
         for n, cmd in enumerate(cmds): 
             self.functions.print_cmd_status({
                 **progress,
@@ -1022,7 +1293,7 @@ class ShellHandler:
                     "line_code": "download_invalid",
                     "extra": url,
                 })
-            
+
             if cmd[2] == "none":
                 self.functions.print_cmd_status({
                     "text_start": cmd[1],
@@ -1033,7 +1304,16 @@ class ShellHandler:
             else:
                 text_output = Path(full_file_path).read_text().lstrip()
                 if n != 1: text_output = text_output.replace(" ","")
-                if cmd[3] not in text_output:
+                if isinstance(cmd[3],tuple):
+                    found_error = True
+                    for s in cmd[3]:
+                        if s in text_output: 
+                            found_error = False
+                            break
+                elif cmd[3] not in text_output:
+                    found_error = True
+                if found_error:
+                    self.functions.remove_files(files,"digital_signature",False,True)
                     send_error(f"invalid {cmd[2]} downloaded or unable to download")
                 outputs.append(text_output.replace("-----BEGINPUBLICKEY-----","").replace("-----ENDPUBLICKEY-----","").replace("\n",""))
 
@@ -1113,15 +1393,29 @@ class ShellHandler:
             [f" {verb} ",1,f"blue,{bg}","bold"],
             [error_line,1,"red"]
         ])
-                 
-        #clean up
-        self.log.logger.info("cleaning up digital signature check files.")
-        for cmd in cmds[1:]:
-            if path.isfile(f'/var/tmp/{cmd[0]}'):
-                remove(f'/var/tmp/{cmd[0]}')
-        for file in [f"nodecl_{node_arch}","nodectl_public"]:
-            if path.isfile(f'/var/tmp/{file}'):
-                remove(f'/var/tmp/{file}')
+
+        if bg == "on_red" and "--skip_override" not in command_list:
+            self.functions.print_paragraphs([
+                ["Would you like to attempt to update the binary hash by downloading this version of nodectl over itself?",1],
+            ])
+            if self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt_color": "magenta",
+                "prompt": "Overwrite nodectl?",
+                "exit_if": False,
+            }):  
+                if "mobile" in command_list: return ["mobile","revision"]
+                return ["revision"]  
+            elif "mobile" in command_list: return ["mobile"]
+            else: 
+                cprint("  Terminated by user","green")
+                exit(0)
+        
+        if "mobile" in command_list: 
+            self.functions.print_any_key({})
+            return ["mobile_success"]
+        return False      
     
             
     def confirm_int_upg(self):
@@ -1147,12 +1441,13 @@ class ShellHandler:
                     "newline": True,
                 })   
                 
-        prompt_str = f"Are you sure you want to continue this {self.install_upgrade}?"
-        self.functions.confirm_action({
-            "yes_no_default": "y",
-            "return_on": "y",
-            "prompt": prompt_str,
-        })
+        if "-y" not in self.argv:
+            prompt_str = f"Are you sure you want to continue this {self.install_upgrade}?"
+            self.functions.confirm_action({
+                "yes_no_default": "y",
+                "return_on": "y",
+                "prompt": prompt_str,
+            })
 
 
     def restore_config(self,command_list):
@@ -1262,7 +1557,7 @@ class ShellHandler:
             "yes_no_default": "n",
         }):
             restore_file = restore_dict[str(option)]
-            self.log.logger.warn(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
+            self.log.logger.warning(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
             try:
                 backup_dir = self.config_obj[self.functions.default_profile]["directory_backups"]
             except:
@@ -1473,8 +1768,22 @@ class ShellHandler:
                     "header_elements" : header_elements,
             })          
             
+            if restart_request: return "auto_restart"
             return
         
+        if action == "clear_alerts":
+            self.functions.print_paragraphs([
+                ["",1],["Clearing auto_restart persistent alert settings.",1],
+            ])
+            for profile in self.profile_names:
+                if path.isfile(f"{self.functions.nodectl_path}{profile}_alert_report"):
+                    remove(f"{self.functions.nodectl_path}{profile}_alert_report")
+                    self.log.logger.info(f"auto_restart_handler -> cleared alerting for profile [{profile}]")
+                else:
+                    self.log.logger.info(f"auto_restart_handler -> did not find persistent alerting for profile [{profile}] - skipped")
+            self.auto_restart_handler("restart",True,True)
+            return
+
         if action == "alert_test" or action == "send_report":
             s_type = "Test alert"
             self.functions.print_paragraphs([
@@ -1553,7 +1862,7 @@ class ShellHandler:
                     [str(self.auto_restart_pid),-1,"green","bold"],
                     ["] found already.",-1,"yellow"],["",1]
                 ])
-            self.log.logger.warn(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
+            self.log.logger.warning(f"auto_restart start request initiated; however process exists: pid [{self.auto_restart_pid}]")
             return
         
         _ = self.functions.process_command({
@@ -1606,10 +1915,15 @@ class ShellHandler:
         self.version_class_obj = Versioning({"called_cmd": "setup_only"})
 
 
-    def handle_exit(self,value):
-        self.check_auto_restart("end")
-        exit(value)
+    def handle_exit(self,return_value):
+        if return_value == "skip_auto_restart_restart":
+            return_value = 0
+        else:
+            self.check_auto_restart("end")
+        if self.mobile: return
+        if return_value == "return_caller": exit(0) # don't display
+        exit(return_value)
         
         
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")
+    print("This class module is not designed to be run independently, please refer to the documentation")            

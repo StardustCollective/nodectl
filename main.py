@@ -10,13 +10,31 @@ global debug
 debug = False
 
 def cli_commands(argv_list):
-    current_shell = False
+    current_shell, return_caller = False, False
+
     try:
         _ = argv_list[1]
     except:
         argv_list = ["main_error","main_error"]
         
     while True:
+        if return_caller:
+            poss_cmds = ["revision","configure"]
+            found_mobile = True if "mobile" in argv_list else False
+            for cmd in poss_cmds:
+                if cmd in return_caller:
+                    if "revision" in return_caller:
+                        argv_list = ["main.py","revision","return_caller"]
+                    elif "configure" in return_caller:
+                        argv_list = return_caller+["return_caller"]
+                    if "mobile" in return_caller: 
+                        argv_list.append("mobile")
+                        found_mobile = False
+            if found_mobile or "mobile" in argv_list: 
+                argv_list = return_caller+["mobile"]
+                return_caller = ["main.py","mobile"]
+            elif "verify_nodectl" in return_caller:
+                argv_list = return_caller
         try:
             skip_config_list = ["install","verify_nodectl","-vn","restore_config"]
             exception_list = [
@@ -25,11 +43,12 @@ def cli_commands(argv_list):
                 "view_config","view-config","-vc",
             ]
             exception_list += skip_config_list
-            exclude_config = ["-v","_v","version"]
+            exclude_config = ["-v","_v","version","verify_specs"]
             
             if argv_list[1] in exception_list:
                 if argv_list[1] == "configure":
-                    Configurator(argv_list)
+                    argv_list = Configurator(argv_list)
+                    if argv_list.mobile: argv_list = ["main.py","mobile"]
                 elif argv_list[1] in skip_config_list:
                     current_shell = ShellHandler({
                         "config_obj": {"global_elements":{"caller": argv_list[1]}},
@@ -42,6 +61,8 @@ def cli_commands(argv_list):
                     }) 
                     if config_needed.requested_configuration:
                         Configurator(["-e"])
+                    elif return_caller:
+                        argv_list = return_caller
             else:
                 if "main_error" not in argv_list and argv_list[1] not in exclude_config:
                     config = Configuration({
@@ -60,8 +81,8 @@ def cli_commands(argv_list):
                     current_shell = ShellHandler({
                         "config_obj": {"global_elements":{"caller":caller}}
                     },False)
-            if current_shell:        
-                current_shell.start_cli(argv_list)
+            if current_shell:  
+                return_caller = current_shell.start_cli(argv_list)
                 
         except KeyboardInterrupt:
             log = Logging()

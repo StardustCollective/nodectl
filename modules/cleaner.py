@@ -42,7 +42,7 @@ class Cleaner():
             ["I/O",0,"yellow"], ["on the Node.",2],
             
             ["This should be done",0], ["only",0,"yellow","underline"], ["when either completely necessary due to disk space issues",0],
-            ["or when specifically requested from an Administrator (or experienced Node Operator) of the Hypergraph or a Metagraph.",2],
+            ["or when specifically requested from an Administrator (or experienced Node Operator) of the Hypergraph or a metagraph.",2],
             
             ["Check system health via:",1],
             ["sudo nodectl health",2,"green"],
@@ -91,6 +91,11 @@ class Cleaner():
         #    -t, dir_type=(str) [uploads, backups, logs]
         #    --ni (non-interactive)
         # ignore_list(list) list of list in order of directories list,
+        
+        def find_newest_config(dir_path):
+            files = [path.join(dir_path, f) for f in listdir(dir_path) if path.isfile(path.join(dir_path, f)) and "backup_cn-config" in f]
+            if not files: return False
+            return max(files, key=path.getmtime)
         
         action = command_obj.get("action")
         argv_list = command_obj.get("argv_list",self.argv_list)
@@ -161,6 +166,13 @@ class Cleaner():
             time_check = -1 if days == 730 else now - days * 86400
             
             dirs = self.functions.get_dirs_by_profile({"profile":"all"}) # {"profile": {dirs}}
+            if dir_type == "backups":
+                file = False
+                for dir in dirs:
+                    file = find_newest_config(dirs[dir]["directory_backups"])
+                    if file and file not in ignore_list:
+                        ignore_list.append(file)
+
             skip = self.find_or_replace_files(dir_type,dirs,"find_only",time_check,ignore_list)
             if not skip:
                 confirm = "y"
@@ -209,7 +221,7 @@ class Cleaner():
                         }
                         log_path_list.append(log_dict)
                     else:
-                        self.log.logger.warn(f"during a log cleanup attempt a directory was not found and skipped [{dirs[profile][c_dir]}]")
+                        self.log.logger.warning(f"during a log cleanup attempt a directory was not found and skipped [{dirs[profile][c_dir]}]")
         elif dir_type == "config_change":
             log_path_list.append({
                 "layer": "na",
@@ -283,7 +295,7 @@ class Cleaner():
 
                 except:
                     if dir_type == "config_change":
-                        self.log.logger.warn("during configuration change unable to find file to replace.")
+                        self.log.logger.warning("during configuration change unable to find file to replace.")
                         pass
                     else:
                         self.error_messages.error_code_messages({
@@ -302,6 +314,7 @@ class Cleaner():
             })
             skip = True
         else:
+            self.functions.print_clear_line()
             for p_file in file_list:
                 if dir_type != "directory_snapshots" and action == "find_only":
                     print(p_file) 

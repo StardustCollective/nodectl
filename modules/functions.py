@@ -5,13 +5,12 @@ import urllib3
 import csv
 import yaml
 import select
-import subprocess
 import socket
 import validators
 import uuid
 import glob
 import distro
-import requests
+import cpuinfo
 
 import pytz
 from tzlocal import get_localzone
@@ -22,14 +21,15 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 import base64
 
-from psutil import Process, cpu_percent, virtual_memory, process_iter, AccessDenied, NoSuchProcess
+from scapy.all import TCP
+from psutil import Process, cpu_percent, virtual_memory, process_iter, disk_usage, AccessDenied, NoSuchProcess
 from getpass import getuser
 from re import match, sub, compile
 from textwrap import TextWrapper
 from requests import get, Session
 from requests.exceptions import HTTPError, RequestException
-from subprocess import Popen, PIPE, call, run, check_output
-from concurrent.futures import ThreadPoolExecutor
+from subprocess import Popen, PIPE, call, run, check_output, CalledProcessError, DEVNULL, STDOUT
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from termcolor import colored, cprint, RESET
 from copy import copy, deepcopy
@@ -37,10 +37,9 @@ from time import sleep, perf_counter, time
 from shlex import split as shlexsplit
 from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
-from platform import platform
 from urllib.parse import urlparse, urlunparse
 
-from os import system, getenv, path, walk, environ, get_terminal_size, scandir, listdir, remove, chmod, chown
+from os import system, getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chmod, chown
 from pwd import getpwnam
 from grp import getgrnam
 from shutil import copy2, move
@@ -69,12 +68,11 @@ class Functions():
         self.version_obj = False
         self.cancel_event = False
         self.valid_commands = []
-        
-                        
+
+
     def set_statics(self):
         self.set_install_statics()
-        
-        self.error_messages = Error_codes(self.config_obj)         
+        self.set_error_obj()      
         # versioning
         self.node_nodectl_version = self.version_obj["node_nodectl_version"]
         self.node_nodectl_version_github = self.version_obj["nodectl_github_version"]
@@ -92,8 +90,8 @@ class Functions():
         self.nodectl_includes_url_raw = f"https://raw.githubusercontent.com/StardustCollective/nodectl/main/predefined_configs/includes"
         self.nodectl_download_url = f"https://github.com/stardustCollective/nodectl/releases/download/{self.node_nodectl_version}"
         # Tessellation reusable lists
-        self.not_on_network_list = ["ReadyToJoin","Offline","Initial","ApiNotReady","SessionStarted","Initial"]
-        self.pre_consensus_list = ["DownloadInProgress","WaitingForReady","WaitingForObserving","Observing"]
+        self.not_on_network_list = self.get_node_states("not_on_network",True)
+        self.pre_consensus_list = self.get_node_states("pre_consensus",True)
         self.our_node_id = ""
         self.join_timeout = 300 # 5 minutes
         self.session_timeout = 2 # seconds
@@ -118,6 +116,11 @@ class Functions():
         ignore_defaults = ["config","install","installer","auto_restart","ts","debug"]
         if self.config_obj["global_elements"]["caller"] not in ignore_defaults: self.set_default_variables({})
 
+
+    def set_error_obj(self):
+        self.error_messages = Error_codes(self.config_obj) 
+        return
+    
 
     def set_install_statics(self):
         self.lb_urls = {
@@ -160,9 +163,13 @@ class Functions():
         # https://www.coingecko.com/api/documentation
         # curl -X 'GET' \ 'https://api.coingecko.com/api/v3/coins/list?include_platform=false' \ -H 'accept: application/json'
         # https://api.coingecko.com/api/v3/coins/list?include_platform=false
-        from .data.coingecko_coin_list import coin_gecko_db
-        return coin_gecko_db
-
+        try:
+            from .data.coingecko_coin_list import coin_gecko_db
+            return coin_gecko_db
+        except Exception as e:
+            self.log.logger.error(f"functions -> get_local_coin_db -> error occurerd, skipping with error [{e}]")
+            cprint("  An unknown error occured, please try again","red")
+        
 
     def get_crypto_price(self):
         # The last element is used for balance calculations
@@ -268,7 +275,8 @@ class Functions():
         compare = command_obj.get("compare",False)
         count_only = command_obj.get("count_only",False)
         pull_node_id = command_obj.get("pull_node_id",False)
-            
+        count_consensus = command_obj.get("count_consensus",False)
+
         if not peer_obj:
             ip_address = self.default_edge_point["host"]
             api_port = self.default_edge_point["host_port"]
@@ -309,6 +317,22 @@ class Functions():
                 return(count["nodectl_found_peer_count"])
             else:
                 return count
+        
+        if count_consensus:
+            consensus_count = self.get_cluster_info_list({
+                "ip_address": ip_address,
+                "port": api_port,
+                "api_endpoint": "/consensus/latest/peers",
+                "spinner": False,
+                "attempt_range": 4,
+                "error_secs": 3
+            })
+            try:
+                consensus_count = consensus_count.pop()
+            except:
+                consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
+        else:
+            consensus_count = {'nodectl_found_peer_count': "UnableToDerive"}
         
         peer_list = list()
         state_list = list()
@@ -421,51 +445,89 @@ class Functions():
                 "waitingforobserving_count": len(peers_waitingforobserving),
                 "waitingfordownload_count": len(peers_waitingfordownload),
                 "downloadinprogress_count": len(peers_downloadinprogress),
+                "consensus_count": consensus_count["nodectl_found_peer_count"],
                 "ready_count": len(peers_ready),
                 "node_online": node_online
             }
 
 
-    def get_node_states(self,types="all"):
+    def get_node_states(self,types="all",state_list=False):
         if types == "all":
             node_states = [
                 ('Initial','i*'),
-                ('ReadyToJoin','rj*'),
+                ('ReadyToJoin','rtj*'),
                 ('StartingSession','ss*'),
                 ('SessionStarted','s*'),
-                ('ReadyToDownload','rd*'),
-                ('WaitingForDownload','wd*'),
-                ('DownloadInProgress','dp*'),
+                ('ReadyToDownload','rtd*'),
+                ('WaitingForDownload','wfd*'),
+                ('DownloadInProgress','dip*'),
                 ('Observing','ob*'),
                 ('WaitingForReady','wr*'),
                 ('WaitingForObserving','wo*'),
                 ('Ready',''),
                 ('Leaving','l*'),
                 ('Offline','o*'),
-                ('ApiNotReady','a*'),
-                ('ApiNotResponding','ar*'),
+                ('ApiNotReady','ar*'),
+                ('ApiNotResponding','anr*'),
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]
-        elif types == "on_network":
+        elif types == "on_network" or types == "pre_consensus" or types == "on_network_and_stuck":
             node_states = [
                 ('Observing','ob*'),
-                ('WaitingForReady','wr*'),
-                ('WaitingForObserving','wo*'),
+                ('WaitingForReady','wfr*'),
+                ('WaitingForObserving','wfo*'),
+                ('DownloadInProgress','dip*'),
                 ('Ready',''),
             ]
+            if types == "pre_consensus":
+                node_states.pop()
+            elif types == "on_network_and_stuck":
+                node_states.append(("WaitingForDownload",'wfd*'))
+        elif types == "not_on_network":
+            node_states = [
+                ('Initial','i*'),
+                ('ReadyToJoin','rtj*'),
+                ('StartingSession','ss*'),
+                ('SessionStarted','s*'),
+                ('ApiNotResponding','anr*'),
+                ('Offline','o*'),
+                ('ApiNotReady','ar*'),
+            ]
+        elif types == "stuck_in_states":
+            node_states = [
+                ('Observing','ob*'),
+                ('WaitingForDownload','wfd*'),
+                ('WaitingForReady','wfr*'),
+                ('SessionStarted','s*'),
+            ]
+        elif types == "past_dip":
+            node_states = [
+                ('WaitingForObserving','wfo*'),
+                ('Observing','ob*'),
+                ('WaitingForReady','wfr*'),
+                ('Ready',''),
+            ]            
         elif types == "past_observing":
             node_states = [
-                ('WaitingForReady','wr*'),
+                ('WaitingForReady','wfr*'),
                 ('Ready',''),
             ]            
         elif types == "ready_states":
             node_states = [
-                ('ReadyToJoin','rj*'),
+                ('ReadyToJoin','rtj*'),
                 ('Ready',''),
             ]            
+        elif types == "nodectl_only":
+            node_states = [
+                ('ApiNotReady','ar*'),
+                ('ApiNotResponding','anr*'),
+                ('SessionIgnored','si*'),
+                ('SessionNotFound','snf*'),
+            ]            
         
-                        
+        if state_list:
+            return list(list(zip(*node_states))[0])
         return node_states
     
     
@@ -591,6 +653,9 @@ class Functions():
 
         if action == "date":
             return new_time.strftime("%Y-%m-%d")
+        elif action == "convert_to_datetime":
+            new_time = datetime.fromtimestamp(new_time)
+            return new_time.strftime(format)
         elif action == "datetime":
             utc_now = datetime.now(pytz.utc)
             if time_zone == "self":
@@ -691,20 +756,13 @@ class Functions():
         
 
     def get_distro_details(self):
+        info = cpuinfo.get_cpu_info()
         return {
-            "arch": self.get_arch(),
-            **distro.lsb_release_info()
+            "arch": info.get('arch'),
+            **distro.lsb_release_info(),
+            "info": info,
         }
 
-
-    def get_arch(self):
-        arch = platform()
-        if "x86_64" in arch:
-            arch = "x86_64"
-        else:
-            arch = "arm64"
-        return arch       
-    
 
     def get_percentage_complete(self, command_obj):
         start = command_obj["start"]
@@ -782,11 +840,11 @@ class Functions():
                 except Exception as e:
                     self.log.logger.error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                     
-                if not cluster_info and n > 1:
+                if not cluster_info and n > 2:
                     if self.auto_restart:
                         return False
                     if random_node and self.config_obj["global_elements"]["use_offline"]:
-                        self.log.logger.warn("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
+                        self.log.logger.warning("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
                         random_node = False
                         self.config_obj[profile]["edge_point"] = self.get_ext_ip()
                         self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
@@ -798,7 +856,7 @@ class Functions():
                             "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                             "extra2": self.config_obj[profile]["layer"],
                         })
-                if not cluster_info and n > 2:
+                if not cluster_info and n > 0:
                     sleep(.8)
                 else:
                     break
@@ -825,7 +883,6 @@ class Functions():
                             "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
                             "extra2": self.config_obj[profile]["layer"],
                         })
-
             
             for n in range(0,max_range):
                 try:
@@ -863,7 +920,7 @@ class Functions():
                         return node[desired_key]
                     
                 except Exception as e:
-                    self.log.logger.warn(f"unable to find a Node with a State object, trying again | error {e}")
+                    self.log.logger.warning(f"unable to find a Node with a State object, trying again | error {e}")
                     sleep(1)
                 if n > 9:
                     self.log.logger.error(f"unable to find a Node on the current cluster with [{desired_key}] == [{desired_value}]") 
@@ -916,7 +973,7 @@ class Functions():
             except:
                 self.log.logger.error(f"get_api_node_info - unable to pull request | test address [{api_host}] public_api_port [{api_port}] attempt [{n}]")
                 if n == tolerance-1:
-                    self.log.logger.warn(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
+                    self.log.logger.warning(f"get_api_node_info - trying again attempt [{n} of [{tolerance}]")
                     return None
                 sleep(1.5)
             else:
@@ -932,7 +989,7 @@ class Functions():
             for info in info_list:
                 result_list.append(session[info])
         except:
-            self.log.logger.warn(f"Node was not able to retrieve [{info}] of [{info_list}] returning None")
+            self.log.logger.warning(f"Node was not able to retrieve [{info}] of [{info_list}] returning None")
             return "LB_Not_Ready"
         else:
             if "reason" in session.keys():
@@ -943,9 +1000,10 @@ class Functions():
 
     def get_from_api(self,url,utype,tolerance=5):
         
+        is_json = True if utype == "json" else False
         for n in range(1,tolerance+2):
             try:
-                session = self.set_request_session(True if utype == "json" else False)
+                session = self.set_request_session(False,is_json)
                 session.timeout = 2
                 if utype == "json":
                     response = session.get(url, timeout=self.session_timeout).json()
@@ -1007,7 +1065,7 @@ class Functions():
                         else:
                             self.event = False
                             return
-                    self.log.logger.warn(f"attempt to pull details for LB failed, trying again - attempt [{n+1}] of [10] - sleeping [{var.error_secs}s]")
+                    self.log.logger.warning(f"attempt to pull details for LB failed, trying again - attempt [{n+1}] of [10] - sleeping [{var.error_secs}s]")
                     sleep(var.error_secs)
                 else:
                     if "consensus" in var.api_endpoint:
@@ -1017,7 +1075,7 @@ class Functions():
                             "nodectl_found_peer_count": len(results)
                         })
                     except:
-                        self.log.logger.warn("network may have become unavailable during cluster_info_list verification checking.")
+                        self.log.logger.warning("network may have become unavailable during cluster_info_list verification checking.")
                         results = [{"nodectl_found_peer_count": 0}]
                 finally:
                     session.close()
@@ -1060,6 +1118,7 @@ class Functions():
         quit_with_exception = command_obj.get("quit_with_exception",False)
         parent = command_obj.get("parent",False)
         display = command_obj.get("display",True)
+        mobile = command_obj.get("mobile",False)
 
         self.key_pressed = None
         if prompt == None: prompt = ""
@@ -1092,7 +1151,7 @@ class Functions():
                 delay_second_char=0.75,
             )
         except Exception as e:
-            self.log.logger.warn(f"functions -> spinner exited with [{e}]")
+            self.log.logger.warning(f"functions -> spinner exited with [{e}]")
             
         if options[0] == "any_key" and quit_with_exception:
             if parent:
@@ -1109,6 +1168,7 @@ class Functions():
                     parent.terminate_program = True
                     parent.clear_and_exit(False)
                 raise TerminateFunctionsException("spinner cancel")
+            if mobile: return "q"
             exit(0)
             
         try: _ = self.key_pressed.lower()  # avoid NoneType error
@@ -1117,8 +1177,17 @@ class Functions():
 
 
     def get_size(self,start_path = '.',single=False):
+        try:
+            single = self.status_single_file
+        except:
+            # this is an exception for health command
+            pass
+
         if single:
-            return path.getsize(start_path)
+            try:
+                return path.getsize(start_path)
+            except:
+                return False
         total_size = 0
         for dirpath, dirnames, filenames in walk(start_path):
             for f in filenames:
@@ -1129,19 +1198,42 @@ class Functions():
         
         return total_size  
     
-    
-    def get_dir_size(self, r_path="."):
-        total = 0
-        if path.exists(r_path):
-            with scandir(r_path) as it:
-                for entry in it:
-                    if entry.is_file():
-                        total += entry.stat().st_size
-                    elif entry.is_dir():
-                        total += self.get_dir_size(entry.path)
-        return total
 
- 
+    def get_paths(self, r_dir):
+        for dirpath, _, filenames in walk(r_dir):
+            for filename in filenames:
+                yield path.join(dirpath, filename)
+
+
+    def get_dir_size(self, r_path=".",workers=False):
+        total = 0
+        if not workers:
+            if path.exists(r_path):
+                with scandir(r_path) as it:
+                    for entry in it:
+                        if entry.is_file():
+                            total += entry.stat().st_size
+                        elif entry.is_dir():
+                            total += self.get_dir_size(entry.path)
+            return total
+        
+        total = 0
+        file_paths = list(self.get_paths(r_path))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            sizes = list(executor.map(self.get_size, file_paths))
+
+        sizes = [0 if x is False else x for x in sizes]
+        return sum(sizes)
+    
+
+    def check_dev_device(self):
+        cmd = 'df -h | awk \'$NF=="/"{print $5 " of " $2}\''
+        device = popen(cmd)
+        device = device.read()
+        if device: return device
+        return "unknown"
+    
+    
     def get_snapshot(self,command_obj):
         action = command_obj.get("action","latest")
         ordinal = command_obj.get("ordinal",False)
@@ -1174,13 +1266,13 @@ class Functions():
             return_type = "dict"
         
         try:
-            session = self.set_request_session(json)
+            session = self.set_request_session(False,json)
             session.verify = False
             session.timeout = 2
             results = session.get(uri, timeout=self.session_timeout).json()
             results = results[get_results]
         except Exception as e:
-            self.log.logger.warn(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
+            self.log.logger.warning(f"get_snapshot -> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
             sleep(error_secs)
         else:
             if return_type == "raw":
@@ -1215,7 +1307,7 @@ class Functions():
                     for n,f_path in enumerate(Path(f'/{i_path}').rglob(file)):
                         possible_found[f"{n+1}"] = f"{f_path}"
             except:
-                self.log.logger.warn(f"unable to process path search | [/{i_path}/]")
+                self.log.logger.warning(f"unable to process path search | [/{i_path}/]")
             
         for i, file in possible_found.items():
             file = file.replace("//","/")
@@ -1317,6 +1409,7 @@ class Functions():
                 "line_code": "system_error",
                 "extra": "encryption generation issue.",
             })
+            exit(0)
 
 
     def get_includes(self,remote=False):
@@ -1334,7 +1427,7 @@ class Functions():
                     details = self.get_from_api(f_url,"yaml")
                     main_key = list(details.keys())
                     if len(main_key) > 1:
-                        self.log.logger.warn(f"config --> while handling includes, an invalid include file was loaded and ignored. [{main_key}]")
+                        self.log.logger.warning(f"config --> while handling includes, an invalid include file was loaded and ignored. [{main_key}]")
                     else:
                         self.config_obj["global_elements"][main_key[0]] = {}
                         for key, value in details[main_key[0]].items():
@@ -1346,7 +1439,7 @@ class Functions():
             self.log.logger.info(f'configuration -> no includes directory found; however, includes has been found as [{self.config_obj["global_elements"]["includes"]}] skipping local includes.')     
             return
 
-        self.log.logger.warn("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
+        self.log.logger.warning("config -> includes directory found, all found local configuration information will overwrite any remote details, if they both exist.")
         yaml_data = {}
         try:
             for filename in listdir(self.default_includes_path):
@@ -1361,10 +1454,10 @@ class Functions():
                                 **yaml_data,
                             }
                         except Exception as e:
-                            self.log.logger.warn(f"functions -> get_includes -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
+                            self.log.logger.warning(f"functions -> get_includes -> found an invalid yaml include file [{file}] -> ignoring with [{e}]")
                             continue
         except Exception as e:
-            self.log.logger.warn("functions -> get_includes -> found possible empty includes, nothing to do")
+            self.log.logger.warning("functions -> get_includes -> found possible empty includes, nothing to do")
 
         return
     
@@ -1379,6 +1472,14 @@ class Functions():
         # })     
         # return versioning.get_version_obj()
 
+
+    def get_memory(self):
+        return virtual_memory()
+
+
+    def get_disk(self):
+        return disk_usage('/')
+    
 
     # =============================
     # setter functions
@@ -1572,13 +1673,17 @@ class Functions():
         })
         
 
-    def set_request_session(self,json=False):
+    def set_request_session(self,local_file=False,json=False):
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0"
         }
-        
+
+        # if local_file and path.isfile(f"{local_file}.etag"):
+        #     with open(f"{local_file}.etag",'r') as etag_f:
+        #         get_headers['If-None-Match'] = etag_f.read().strip()
+
         if json:
             get_headers.update({
                 'Accept': 'application/json',
@@ -1619,7 +1724,7 @@ class Functions():
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warn("functions -> unable to sync the clock with the network, skipping")
+            self.log.logger.warning("functions -> unable to sync the clock with the network, skipping")
             return False
         else:
             result = result.stdout.decode().strip()
@@ -1633,7 +1738,7 @@ class Functions():
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warn("functions -> unable to sync the clock with the network, skipping")
+            self.log.logger.warning("functions -> unable to sync the clock with the network, skipping")
             return False
         else:
             track_output = track_output.stdout.decode().strip()
@@ -1645,7 +1750,7 @@ class Functions():
                 "proc_action": "subprocess_run_pipe",
             })
         except:
-            self.log.logger.warn("functions -> unable to view sources of the clock with the network, skipping")
+            self.log.logger.warning("functions -> unable to view sources of the clock with the network, skipping")
             return False
         else:
             source_output = source_output.stdout.decode().strip()
@@ -1718,7 +1823,7 @@ class Functions():
                 token = session[key]
             except Exception as e:
                 try:
-                    self.log.logger.warn(f"Peer did not return a token | reason [{session['reason']} error [{e}]]")
+                    self.log.logger.warning(f"Peer did not return a token | reason [{session['reason']} error [{e}]]")
                     session_obj[f"session{i}"] = f"{i}"
                 except:
                     if self.auto_restart:
@@ -1844,7 +1949,7 @@ class Functions():
                 except:
                     self.log.logger.error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}] attempt [{n}]")
                     if n == 9:
-                        self.log.logger.warn(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
+                        self.log.logger.warning(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
                         break
                     sleep(1.5)
                 finally:
@@ -2172,7 +2277,7 @@ class Functions():
                 ordered_predefined_envs[ordered_predefined_envs.index(env)] = f"{env} [HyperGraph]"
             elif env not in ordered_predefined_envs:
                 if add_postfix:
-                    env = f"{env} [Metagraph]"
+                    env = f"{env} [metagraph]"
                 ordered_predefined_envs.append(env)
 
         if retrieve == "profile_names" or retrieve == "chosen_profile":    
@@ -2186,7 +2291,7 @@ class Functions():
             })
 
         if add_postfix:
-            chosen_profile = chosen_profile.replace(" [HyperGraph]","").replace(" [Metagraph]","")
+            chosen_profile = chosen_profile.replace(" [HyperGraph]","").replace(" [metagraph]","")
 
         if set_in_functions: 
             self.environment_names = list(predefined_configs.keys())
@@ -2224,7 +2329,7 @@ class Functions():
                 session.timeout = 2
                 health = session.get(uri, timeout=self.session_timeout)
             except:
-                self.log.logger.warn(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
+                self.log.logger.warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
                 if n > 2:
                     if not self.auto_restart:
                         self.network_unreachable_looper()
@@ -2232,7 +2337,7 @@ class Functions():
                 pass
             else:  
                 if health.status_code != 200:
-                    self.log.logger.warn(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
+                    self.log.logger.warning(f"unable to reach edge point [{uri}] returned code [{health.status_code}]")
                     if n > 2:
                         if not self.auto_restart:
                             self.network_unreachable_looper()
@@ -2404,12 +2509,14 @@ class Functions():
                 self.log.logger.info(f"functions -> is_new_version -> versions match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return False            
             elif version.parse(current) > version.parse(remote):
-                self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                self.log.logger.warning(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return "current_greater"
             else:
-                self.log.logger.warn(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
+                self.log.logger.warning(f"functions -> is_new_version -> versions do NOT match | current [{current}] remote [{remote}] version type [{version_type}] caller [{caller}]")
                 return "current_less"
         except:
+            if version_type == "versioning_module_testnet":
+                return "current_greater"
             return "error"
     
     
@@ -2417,7 +2524,7 @@ class Functions():
         try:
             version.Version(check_version)
         except Exception as e:
-            self.log.logger.warn(f"is_version_valid returned False [{check_version}] e [{e}]")
+            self.log.logger.warning(f"is_version_valid returned False [{check_version}] e [{e}]")
             return False
         else:
             check_version = check_version.split(".")
@@ -2458,7 +2565,7 @@ class Functions():
             "profile": profile,
             "simple": True,
         })
-        continue_states = ["Observing","Ready","WaitingForReady","WaitingForObserving","DownloadInProgress"] 
+        continue_states = self.get_node_states("on_network",True) 
         if state not in continue_states or "active" not in self.config_obj["global_elements"]["node_service_status"][profile]:
             self.print_paragraphs([
                 [" PROBLEM FOUND ",0,"grey,on_red","bold"], ["",1],
@@ -2490,6 +2597,7 @@ class Functions():
         send_error = False
 
         def print_test_error(errors):
+            self.set_error_obj()
             self.error_messages.error_code_messages({
                 "line_code": "api_error",
                 "error_code": f"fnt-{errors[0]}",
@@ -2600,7 +2708,7 @@ class Functions():
                             if api_not_ready_flag: 
                                 cpu, mem, _ = self.check_cpu_memory_thresholds()
                                 if not cpu or not mem: 
-                                    self.log.logger.warn("functions -> test peer state -> setting status to [ApiNotReponding]")
+                                    self.log.logger.warning("functions -> test peer state -> setting status to [ApiNotReponding]")
                                     results['node_state_src'] = "ApiNotResponding"
                                     results['node_state_edge'] = "ApiNotResponding"
                                 break_while = True
@@ -2782,7 +2890,7 @@ class Functions():
     
     
     def test_for_root_ml_type(self,metagraph):
-        # Review the configuration and return the lowest Cluster or Metagraph
+        # Review the configuration and return the lowest Cluster or metagraph
         try: profile_names = self.profile_names
         except:
             profile_names = self.clear_global_profiles(self.config_obj)
@@ -2832,6 +2940,27 @@ class Functions():
             return True
         return False
      
+
+    def test_for_tcp_packet(self, packet):
+        # set self.parent before calling test_for_tcp_packets
+        try: _ = self.parent.tcp_test_results[self.port_int]
+        except:
+            self.parent.tcp_test_results[self.port_int] = {
+                "found_destination": False,
+                "found_source": False
+            }
+
+        if TCP in packet:
+            if packet[TCP].dport in [self.port_int]:
+                self.log.logger.debug(f"functions -> test_for_tcp_packet -> TCP destination packet found: {packet.summary()}")
+                self.parent.tcp_test_results[self.port_int]["found_destination"] = True
+            if packet[TCP].sport in [self.port_int]:
+                self.log.logger.debug(f"functions -> test_for_tcp_packet -> TCP source packet found: {packet.summary()}")
+                self.parent.tcp_test_results[self.port_int]["found_source"] = True
+        
+        return
+            
+
     # =============================
     # create functions
     # =============================  
@@ -2847,7 +2976,7 @@ class Functions():
         rows = command_obj.get("rows",False)
 
         if row and rows or not full_path:
-            self.log.logger("csv error detected, cannot write or row and rows in the same call.")
+            self.log.logger.error("csv error detected, cannot write or row and rows in the same call.")
             self.error_messages.error_code({
                 "line_code": "fnt-1795",
                 "error_code": "internal_error"
@@ -2900,6 +3029,7 @@ class Functions():
         p_type = command_obj.get("p_type","trad")
         step = command_obj.get("step",1)
         status = command_obj.get("status","preparing")
+        use_minutes = command_obj.get("use_minutes",False)
 
         if step > 0: 
             end_range = start+seconds
@@ -2917,6 +3047,15 @@ class Functions():
 
         for s in range(start,end_range+1,step):
             if self.cancel_event: break
+            ss = s
+            count_verb = "seconds"
+            if use_minutes:
+                if s > 59:
+                    count_verb = "minutes"
+                    minutes = ss // 60
+                    seconds = ss % 60
+                    ss = f"{minutes:02d}:{seconds:02d}"
+
                 
             if not self.auto_restart:
                 if p_type == "trad":
@@ -2925,11 +3064,11 @@ class Functions():
                             colored(f"{s}","yellow"),
                             colored("of","magenta"),
                             colored(f"{end_range_print}","yellow"),
-                            colored(f"seconds {phrase}","magenta"), end='\r')
+                            colored(f"{count_verb} {phrase}","magenta"), end='\r')
                 elif p_type == "cmd":
                     self.print_cmd_status({
                         "text_start": phrase,
-                        "brackets": str(s),
+                        "brackets": str(ss),
                         "text_end": end_phrase,
                         "status": status,
                     })
@@ -3035,10 +3174,11 @@ class Functions():
         # defaults
         header_color = "blue"
         header_attr = "bold" 
+        value_spacing_only = False
         d_spacing = 20
                
         for key,value in header_elements.items():
-            if key != "spacing" and key != "header_color" and key != "header_attr" and key != "header_elements":
+            if key != "spacing" and key != "header_color" and key != "header_attr" and key != "header_elements" and key != "value_spacing_only":
                 try:
                     int(key)
                 except:       
@@ -3060,10 +3200,14 @@ class Functions():
                     header_attr = value
                 if key == "spacing":
                     d_spacing = int(value)
+                if key == "value_spacing_only":
+                    value_spacing_only = True
         
         #for header, value in header_elements.items():
         for i, (header, value) in enumerate(header_elements.items()):
-            spacing = d_spacing
+            spacing = d_spacing if not value_spacing_only else 20
+            v_spacing = d_spacing
+
             if header == "-BLANK-":
                 print("")
             else:
@@ -3071,12 +3215,13 @@ class Functions():
                         spacing = cols[str(i)]
                 status_header += colored(f"  {header: <{spacing}}",header_color,attrs=[header_attr])
                 try:
-                    status_results += f"  {value: <{spacing}}"
+                    status_results += f"  {value: <{v_spacing}}"
                 except:
-                    value = "unavailable".ljust(spacing," ")
-                    status_results += f"  {value: <{spacing}}"
+                    value = "unavailable".ljust(v_spacing," ")
+                    status_results += f"  {value: <{v_spacing}}"
                 
-        print(status_header)
+        if "SKIP_HEADER" not in status_header:
+            print(status_header)
         print(status_results)
                 
 
@@ -3165,6 +3310,7 @@ class Functions():
         options_org = command_obj.get("options")
         options = deepcopy(options_org) # options relative to self.profile_names
         let_or_num = command_obj.get("let_or_num","num")
+        prepend_let = command_obj.get("prepend_let", False)
         return_value = command_obj.get("return_value",False)
         return_where = command_obj.get("return_where","Main")
         color = command_obj.get("color","cyan")
@@ -3177,30 +3323,54 @@ class Functions():
         
         prefix_list = []
         spacing = 0
+        blank = 0
+
+        if prepend_let:
+            i = 0
+            for n in range(len(options)):
+                if options[n] == "blank_spacer": continue
+                while chr(97 + i) in ["q","r"]:
+                    i +=1
+                letter = chr(97 + i)  # 97 is 'a'
+                options[n] = f"{letter} {options[n]}"  
+                i += 1
+
         for n, option in enumerate(options):
+            if "blank_spacer" in option: 
+                print("")
+                blank += 1
+                continue
+            if blank > 0: n -= blank
             prefix_list.append(str(n+1))
             if let_or_num == "let":
                 prefix_list[n] = option[0].upper()
                 option = option[1::]
                 spacing = -1
-            self.print_paragraphs([
+        
+            menu_item = [
                 [prefix_list[n],-1,color,"bold"],[")",-1,color],
                 [option,spacing,color], ["",1],
-            ])
+            ]
+            if color == "blue": menu_item[2] = [option,spacing,color,"bold"]
+            self.print_paragraphs(menu_item)
 
         if r_and_q:
             if r_and_q == "both" or r_and_q == "r":
-                self.print_paragraphs([
+                menu_item = [
                     ["",1],["R",0,color,"bold"], [")",-1,color], [f"eturn to {return_where} Menu",-1,color], ["",1],
-                ])
+                ]
+                if color == "blue": menu_item[3] = [f"eturn to {return_where} Menu",-1,color,"bold"]
+                self.print_paragraphs(menu_item)
                 prefix_list.append("R")
                 options.append("r")
                 newline = False
             if r_and_q == "both" or r_and_q == "q":
                 if newline: print("")
-                self.print_paragraphs([
+                menu_item = [
                     ["Q",-1,color,"bold"], [")",-1,color], ["uit",-1,color], ["",2],                
-                ])
+                ]
+                if color == "blue": menu_item[2] = ["uit",-1,color,"bold"]
+                self.print_paragraphs(menu_item)
                 prefix_list.append("Q")
                 options.append("q")
         else:
@@ -3220,6 +3390,7 @@ class Functions():
         if not return_value:
             return option
         for return_option in options:
+            if return_option == "blank_spacer": continue
             if let_or_num == "let":
                 if option.lower() == return_option[0].lower():
                     return return_option
@@ -3340,18 +3511,6 @@ class Functions():
         # [2] = color (optional default = cyan)
 
         console_size, console_setup = self.set_console_setup(wrapper_obj)
-        # console_size = get_terminal_size()  # columns, lines
-
-        # initial_indent = subsequent_indent = "  "
-        # if wrapper_obj is not None:
-        #         initial_indent = wrapper_obj.get("indent","  ")
-        #         subsequent_indent = wrapper_obj.get("sub_indent","  ")
-                
-        # console_setup = TextWrapper()
-        # console_setup.initial_indent = initial_indent
-        # console_setup.subsequent_indent = subsequent_indent
-        # console_setup.width=(console_size.columns - 2)
-
         attribute = []
         
         try:
@@ -3460,7 +3619,7 @@ class Functions():
             if newline == "bottom" or newline == "both":
                 print("")
         except Exception as e:
-            self.log.logger.warn(f"functions -> spinner -> errored with [{e}]")
+            self.log.logger.warning(f"functions -> spinner -> errored with [{e}]")
             return
             
     
@@ -3722,13 +3881,23 @@ class Functions():
             cleaned_url = urlunparse((parsed_url.scheme, parsed_url.netloc, cleaned_path,
                           parsed_url.params, parsed_url.query, parsed_url.fragment))
             return cleaned_url
-        
+        elif action == "remove_surrounding": # removing first and last - used for single and doubleq quotes mostly
+            return line[1:-1]
+
+
+    def escape_strings(self, input_string):
+        special_chars = r'\\|\'|"|\$|&|\||>|<|;|\(|\)|\[|\]|\*|\?|~|!|#| '
+        escaped_string = sub(f"([{special_chars}])", r'\\\1', input_string)
+
+        return escaped_string
+    
 
     def confirm_action(self,command_obj):
         self.log.logger.debug("confirm action request")
         
         yes_no_default = command_obj.get("yes_no_default")
         return_on = command_obj.get("return_on")
+        incorrect_input = command_obj.get("incorrect_input","incorrect input")
         
         prompt = command_obj.get("prompt")
         prompt_color = command_obj.get("prompt_color","cyan")
@@ -3754,7 +3923,7 @@ class Functions():
                 break
             confirm = confirm.lower() if not strict else confirm
             if confirm not in valid_options:
-                print(colored("  incorrect input","red"))
+                print(colored(f"  {incorrect_input}","red"))
             else:
                 break
             
@@ -3792,7 +3961,7 @@ class Functions():
            
     def network_unreachable_looper(self):
             seconds = 30
-            self.log.logger.warn("network has become unreachable, starting retry loop to avoid error")
+            self.log.logger.warning("network has become unreachable, starting retry loop to avoid error")
             if not self.auto_restart:
                 progress = {
                     "text_start": "Network unreachable pausing until reachable",
@@ -3818,7 +3987,10 @@ class Functions():
                 self.print_clear_line()
                 
 
-    def remove_files(self, file_or_list, caller, is_glob=False):
+    def remove_files(self, file_or_list, caller, is_glob=False, etag=False):
+        # is_glob:  False is not in use; directory location if to be used
+        # etag: if etags are associated with the file to remove
+        self.log.logger.info(f"functions -> remove_files -> cleaning up files | caller [{caller}].")
         files = file_or_list
         result = True
 
@@ -3826,6 +3998,11 @@ class Functions():
             files = glob.glob(is_glob)
         elif not isinstance(file_or_list,list):
             files = [file_or_list]
+
+        if etag:
+            e_files = deepcopy(files)
+            for file in e_files:
+                files.append(f"{file}.etag")
 
         for file in files:
             try:
@@ -3847,14 +4024,23 @@ class Functions():
         url = command_obj["url"]
         local = command_obj.get("local",path.split(url)[1])
         do_raise = False
+        etag = None
         try:
-            session = self.set_request_session()
+            session = self.set_request_session(local)
             session.verify = True
-            with session.get(url,stream=True) as response:
-                response.raise_for_status()
-                with open(local,'wb') as output_file:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        output_file.write(chunk)
+            params = {'random': random.randint(10000, 20000)}
+            with session.get(url,params=params, stream=True) as response:
+                if response.status_code == 304: # file did not change
+                    self.log.logger.warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
+                else:
+                    response.raise_for_status()
+                    etag = response.headers.get("ETag")
+                    with open(local,'wb') as output_file:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            output_file.write(chunk)
+                    if etag:
+                        with open(f'{local}.etag','w') as output_file_etag:
+                            output_file_etag.write(etag)
             self.log.logger.info(f"functions --> download_file [{url}] successful output file [{local}]")
         except HTTPError as e:
             self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
@@ -3862,6 +4048,8 @@ class Functions():
         except RequestException as e:
             self.log.logger.error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
             do_raise = True
+        finally:
+            session.close()
 
         if do_raise:
             raise
@@ -3881,10 +4069,10 @@ class Functions():
         working_directory = command_obj.get("working_directory",None)
         
         if proc_action == "clear":
-            subprocess.run('clear', shell=True)
+            run('clear', shell=True)
             return
         
-        if proc_action == "timeout":
+        if "timeout" in proc_action:
             if working_directory == None:
                 p = Popen(shlexsplit(bashCommand), stdout=PIPE, stderr=PIPE)
             else:
@@ -3895,7 +4083,7 @@ class Functions():
                 timer.start()
                 # stdout, stderr = p.communicate()
             except Exception as e:
-                self.log.logger.warn(f"function process command errored out with [{e}]")
+                self.log.logger.warning(f"function process command errored out with [{e}]")
             finally:
                 timer.cancel()
         
@@ -3909,81 +4097,82 @@ class Functions():
             results = []
             for n, cmd in enumerate(bashCommand):
                 if n == 0:
-                    results.append(subprocess.Popen(cmd, stdout=subprocess.PIPE))
+                    results.append(Popen(cmd, stdout=PIPE))
                     continue
-                results.append(subprocess.Popen(bashCommand[n],stdin=results[n-1].stdout, stdout=subprocess.PIPE))
+                results.append(Popen(bashCommand[n],stdin=results[n-1].stdout, stdout=PIPE))
                 
             output, _ = results[-1].communicate()
             return output.decode()
 
         if proc_action == "subprocess_co":
             try:
-                output = subprocess.check_output(bashCommand, shell=True, text=True)
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = check_output(bashCommand, shell=True, text=True)
+            except CalledProcessError as e:
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
             return output
         
         if proc_action == "subprocess_run":
-            output = subprocess.run(shlexsplit(bashCommand), shell=True, text=True)
+            output = run(shlexsplit(bashCommand), shell=True, text=True)
             return output
         
         if proc_action == "subprocess_run_check_only":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True)
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = run(shlexsplit(bashCommand), check=True)
+            except CalledProcessError as e:
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
                 
         if proc_action == "subprocess_run_pipe":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = run(shlexsplit(bashCommand), check=True, stdout=PIPE, stderr=PIPE)
+            except CalledProcessError as e:
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
                 
         if proc_action == "subprocess_run_only":
             try:
-                output = subprocess.run(shlexsplit(bashCommand))
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = run(shlexsplit(bashCommand))
+            except CalledProcessError as e:
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
         
         if proc_action == "subprocess_return_code":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=DEVNULL, check=True)
+            except CalledProcessError as e:
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = e
             return output.returncode
         
         if proc_action == "subprocess_devnull":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, check=True)
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=STDOUT, check=True)
+            except CalledProcessError as e:
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output  
               
         if proc_action == "subprocess_run_check_text":
             try:
-                output = subprocess.run(shlexsplit(bashCommand), check=True, text=True)
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"functions -> subprocess error -> error [{e}]")
+                output = run(shlexsplit(bashCommand), check=True, text=True)
+            except CalledProcessError as e:
+                self.log.logger.warning(f"functions -> subprocess error -> error [{e}]")
                 output = False
             return output
+        
 
         if proc_action == "subprocess_capture" or proc_action == "subprocess_rsync":
             verb = "capture" if "capture" in proc_action else "rsync"
             try:
-                result = subprocess.run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
+                result = run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
                 self.log.logger.info(f"{verb} completed successfully.")
-            except subprocess.CalledProcessError as e:
-                self.log.logger.warn(f"{verb} failed. Error: {e.stderr}")
+            except CalledProcessError as e:
+                self.log.logger.warning(f"{verb} failed. Error: {e.stderr}")
             except Exception as e:
-                self.log.logger.warn(f"An error occurred: {str(e)}")
+                self.log.logger.warning(f"An error occurred: {str(e)}")
             return result
 
         if autoSplit:
@@ -4008,7 +4197,7 @@ class Functions():
                                     stdout=PIPE,
                                     stderr=PIPE)
             except Exception as e:
-                self.log.logger.warn(f"function process command errored out with [{e}]")
+                self.log.logger.warning(f"function process command errored out with [{e}]")
                 skip = True
            
         if not skip:     
@@ -4022,7 +4211,7 @@ class Functions():
             result, err = p.communicate()
 
             if err and log_error:
-                self.log.logger.warn(f"process command [Bash Command] err: [{err}].")
+                self.log.logger.warning(f"process command [Bash Command] err: [{err}].")
                 
             if return_error:
                 return err.decode('utf-8')

@@ -50,9 +50,11 @@ def build_help(functions,command_obj):
         ["optional:",0],["--pass",0,"yellow"],["<passphrase>",1],
         ["    note:",0],["--pass will override the configuration's passphrase entry",2,"magenta"],
         ["optional:",0],["--peer",0,"yellow"],["<static_peer_ip>",1],
-        ["    note:",0],["--peer will override the configuration's random Node selection feature",2,"magenta"],
+        ["    note:",0],["--peer will override the configuration's random Node",1,"magenta"],
+        ["          selection feature",2,"magenta"],
         ["optional:",0],["--port",0,"yellow"],["<static_peer_tcp_port>",1],
-        ["    note:",0],["--port can be used with the --peer Node uses a non-default port.",2,"magenta"],
+        ["    note:",0],["--port can be used with the --peer option if the Node",1,"magenta"],
+        ["          uses a non-default port.",2,"magenta"],
         ["See extended help for more details including",0],["required",0,"blue","bold"], 
         ["parameters per command.",2],
         ["command: ",0], ["sudo nodectl <command> help",2,"yellow","bold"],
@@ -214,12 +216,16 @@ def build_help(functions,command_obj):
                                   for latest release of Tessellation
                               
     upgrade_nodectl | - upgrade nodectl to latest version
+    revision        | - upgrade nodectl to a revision of the current version
+
     upgrade_path    | - check nodectl upgrade path and verify where
                         current version is in relationship to the path
     
     disable_root_ssh | - have nodectl restrict access to your root user
     
-    enable_root_ssh  | - have nodectl reenable access to your root user    
+    enable_root_ssh  | - have nodectl reenable access to your root user 
+
+    ipv6 | - status, enable or disable ipv6 configuration on VPS
     
     change_ssh_port -p <port> | - change the port number used to access your
                                Node via the SSH protocol.  The port number
@@ -415,19 +421,19 @@ def build_help(functions,command_obj):
   {colored('*','green')}   > Indicates the ip searched against
         was either the edge and source ip
   {colored('i','green')}   > Initial State
-  {colored('rj','green')}  > ReadyToJoin State
+  {colored('rtj','green')}  > ReadyToJoin State
   {colored('ss','green')}  > StartingSession State
   {colored('s','green')}   > SessionStarted State
   {colored('rd','green')}  > ReadyToDownload State
-  {colored('wd','green')}  > WaitingForDownload State
-  {colored('wr','green')}  > WaitingForReady State
-  {colored('dp','green')}  > DownloadInProgress State
+  {colored('wfd','green')}  > WaitingForDownload State
+  {colored('wfr','green')}  > WaitingForReady State
+  {colored('dip','green')}  > DownloadInProgress State
   {colored('ob','green')}  > Observing State
       > Ready
   {colored('l','green')}   > Leaving State
   {colored('o','green')}   > Offline State
-  {colored('a','green')}   > ApiNotReady State (nodectl only)
-  {colored('a','green')}   > ApiNotResponding State (nodectl only)
+  {colored('ar','green')}   > ApiNotReady State (nodectl only)
+  {colored('anr','green')}   > ApiNotResponding State (nodectl only)
 
   {colored("If Node shows False","white",attrs=['bold'])}
   ===================
@@ -694,8 +700,8 @@ def build_help(functions,command_obj):
   Node admin username:
   # {colored('sudo nodectl create_p12','cyan')}  
 
-  build a new p12 file using a user named test.p12 and
-  the file location /tmp/my_new_p12_files.
+  build a new p12 file using a keystore file named test.p12 and
+  the file location = /tmp/my_new_p12_files.
   # {colored('sudo nodectl create_p12 --file test.p12 --location /tmp/my_new_p12_files/','cyan')}  
       '''
       
@@ -717,7 +723,7 @@ def build_help(functions,command_obj):
   show this help screen
   # {colored('sudo nodectl check_minority_fork help','cyan')}
      or
-  # {colored('sudo nodectl -con help','cyan')}
+  # {colored('sudo nodectl -cmf help','cyan')}
   
   execute minority fork check using profile
   # {colored('sudo nodectl check_minority_fork -p <profile_name>','cyan')}  
@@ -841,7 +847,7 @@ def build_help(functions,command_obj):
   *   > Indicates the ip searched against
         was either the edge and source ip
   i   > Initial State
-  rj  > ReadyToJoin State
+  rtj > ReadyToJoin State
   ss  > StartingSession State
   l   > Leaving State
   s   > SessionStarted State
@@ -1189,7 +1195,7 @@ def build_help(functions,command_obj):
         extended = "view_config"
         help_text += title(extended)
         help_text += f'''
-  The {colored(extended,'cyan')} command does not take any arguments.
+  The {colored(extended,'cyan')} command does not require any arguments.
   
   nodectl uses a configuration file in YAML format.
   This command will offer the Node Operator the ability to review
@@ -1213,7 +1219,7 @@ def build_help(functions,command_obj):
   {colored('--pro','cyan')} : view PRO score details
   {colored('--json','cyan')} : view config in json format + internal flags
 
-  optional option:
+  optional alias option:
   {colored('-vc','green')} 
   
   
@@ -1471,6 +1477,7 @@ def build_help(functions,command_obj):
   optional:
   {colored(' -w <DAG_address>','green')}
   {colored(' -b ','green')} ( brief )
+  {colored(' --balance ','green')} ( balance only )
   {colored('-np ','green')} ( no pagination )
   {colored('--csv','green')} create csv output instead of print out
   {colored('--output <file_name>','green')} used with --csv to create
@@ -1560,6 +1567,27 @@ def build_help(functions,command_obj):
   
   execute an upgrade of nodectl to version "v2.12.0"
   # {colored('sudo nodectl upgrade_nodectl -v v2.12.0','cyan')}
+
+  '''    
+        
+        
+    if extended == "revision":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored('revision','cyan')} command will launch the process requirements
+  to upgrade the nodectl binary on your Node to a revision of the same version.
+
+  This may be necessary if the digital hash signatures are invalid, you were 
+  using a pre-release version that has been revised before stable release, or 
+  your nodectl binary is not properly working.
+    
+  usage
+  -------------
+  show this help screen
+  # {colored('sudo nodectl revision help','cyan')}
+  
+  execute a revision upgrade of nodectl
+  # {colored('sudo nodectl revision','cyan')}
 
   '''    
         
@@ -1798,7 +1826,7 @@ def build_help(functions,command_obj):
   to communicate with the rest of the systems on the Internet.  This
   is the address that your Node will use to communicate with the rest
   of the decentralized Nodes that make up the Global Layer0, cluster or
-  Metagraph that your Node will attempt to communications 
+  metagraph that your Node will attempt to communications 
   with via p2p connections and APIs.
   
   optional option:
@@ -2549,7 +2577,7 @@ def build_help(functions,command_obj):
                       verifying the integrity of data.
   Creation Date:  When was the certificate created.
   Version:        The version number of the certificate.
-  Keys Found:     How many keys does this p12 key store file hold.
+  Keys Found:     How many keys does this p12 keystore file hold.
   Signature Algo: Method or algorithm used to generate a digital signature and 
                   verify its authenticity.
   Public Algo:    Public algorithm that is a type of cryptographic algorithm that 
@@ -2761,6 +2789,54 @@ def build_help(functions,command_obj):
   The {colored("enable_root_ssh","cyan")} command will do the opposite of the disable command.
   
   ''' 
+        
+        
+    if extended == "ipv6":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command takes multiple arguments. 
+  
+  {colored("WARNING:","red",attrs=['bold'])} This command will manipulate non-Tessellation Constellation 
+  Network files on your VPS.
+
+  required:
+  {colored('status','green')}  | show IPv6 configuration status 
+  {colored('disable','green')} | disable IPv6 configurations
+  {colored('enable','green')}  | enable IPv6 configurations
+
+  optional:
+  {colored('--ni','green')} | non-interactive (confirm all options)
+  {colored('--sysctl','green')} | recommended method 
+  {colored('--grub','green')} | proceed with caution
+  {colored('--all','green')} | use both systctl and grub (caution)
+
+  The {colored("ipv6","cyan")} command will enable or disable {colored("GRUB","cyan")} and {colored("sysctl","cyan")} IPv6 configuration files 
+  to either enable or disable (depending on the option provided) the VPS’s ability 
+  to use IPv6.
+
+  If the VPS was built without IPv6 during instantiation, this command 
+  will have no effect.
+
+  {colored('CAUTION','red')} using this command as it can render your node 
+  inaccessible; recovery will need to be done through the VPS console.
+  ''' 
+          
+    if extended == "console" or extended == "mobile":
+        help_text += title(extended)
+        help_text += f'''
+  The {colored(extended,'cyan')} command does not accept any arguments.
+
+  This command provides a single-click alphabetical menu of the most common 
+  commands used for administering your node with nodectl.
+
+  The key difference between the {colored('console','cyan')} and {colored('mobile','cyan')} commands is that the {colored('console','cyan')} 
+  command will issue a single command request and then return to the command prompt. 
+  The {colored('mobile','cyan')} command, on the other hand, iterates through multiple requests without 
+  returning to the command prompt, allowing Node Operators on mobile devices to issue 
+  fewer commands (and do less thumb typing) by returning to the main menu after 
+  each command.
+
+  ''' 
   
     if extended in simple_command_list:
         help_text += f'''
@@ -2783,4 +2859,4 @@ def build_help(functions,command_obj):
   
   
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")
+    print("This class module is not designed to be run independently, please refer to the documentation")        

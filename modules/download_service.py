@@ -1,5 +1,7 @@
 from os import path, makedirs, chmod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from termcolor import colored
+from copy import deepcopy
 import requests
 
 from .troubleshoot.errors import Error_codes
@@ -39,6 +41,7 @@ class Download():
 
         self.successful = True
         self.skip_asset_check = False
+        self.fallback = False
         self.retries = 3
         self.file_pos = 1
         self.file_count = 0
@@ -82,17 +85,25 @@ class Download():
         self.set_file_objects()
         self.set_seedfile_object()
         self.set_file_obj_order()
-        self.file_backup_handler()
+        self.file_backup_handler("backup")
         self.initialize_output_handler()
         self.threaded_download_handler()
-        self.file_backup_handler(False)
+        self.file_fallback_handler()
+        self.file_backup_handler("restore")
 
         return self.cursor_setup
 
     # Setters
         
-    def set_file_objects(self):
+    def set_file_objects(self,fallback=False):
         if self.caller == "update_seedlist": return
+        if self.fallback:
+            self.file_obj = deepcopy(self.file_obj_fallback)
+            return
+        
+        repo_location_key = "jar_repository"
+        if fallback:
+            repo_location_key = "jar_fallback_repository" 
         
         file_pos = 3
         file_obj = {}
@@ -109,12 +120,12 @@ class Download():
         if not self.requested_profile:
             for n, tool in enumerate(["cl-keytool.jar","cl-wallet.jar"]):
                 if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
-                    pre_uri = self.config_obj[self.profile_names[0]]["jar_repository"]
+                    pre_uri = self.config_obj[self.profile_names[0]][repo_location_key]
                 else:
                     pre_uri = self.functions.default_tessellation_repo
 
                 uri = self.set_download_options(
-                    pre_uri, self.tools_version, self.profile_names[0]
+                    pre_uri, self.tools_version, self.profile_names[0], fallback,
                 )
 
                 file_obj = {
@@ -132,7 +143,7 @@ class Download():
             if self.config_obj[profile]["is_jar_static"]: 
                 try:
                     download_version = self.config_obj[profile]["jar_version"]
-                    uri = self.config_obj[profile]["jar_repo"]
+                    uri = self.config_obj[profile][repo_location_key]
                 except:
                     self.error_messages.error_code_messages({
                         "error_code": "ds-134",
@@ -146,7 +157,7 @@ class Download():
                 
             elif self.config_obj[profile]["environment"] == self.environment:
                 uri = self.set_download_options(
-                    self.config_obj[profile]["jar_repository"], download_version, profile
+                    self.config_obj[profile][repo_location_key], download_version, profile, fallback,
                 )
 
             file_obj[f'{self.config_obj[profile]["jar_file"]}-cnng{profile}'] = {
@@ -158,9 +169,17 @@ class Download():
                 "dest_path": self.config_obj[profile]["jar_path"], 
                 "type": "binary"
             }
+            
+        if fallback:
+            self.file_obj_fallback = file_obj
+            self.file_pos_fallback = file_pos
+        else:
+            self.file_obj = file_obj
+            self.file_pos = file_pos
 
-        self.file_obj = file_obj
-        self.file_pos = file_pos
+        if self.config_obj["global_elements"]["jar_fallback"] and not fallback:
+            # recursive
+            self.set_file_objects(True)
 
         # debugging purposes
         # self.file_obj = {
@@ -173,7 +192,8 @@ class Download():
 
     def set_seedfile_object(self):
         self.log.logger.debug(f"{self.log_prefix} -> set_seedfile_object -> initiated.")
-        
+        if self.fallback: return
+
         if self.caller == "update_seedlist": self.file_obj = {}
 
         if self.requested_profile: profiles = [self.requested_profile]
@@ -203,7 +223,7 @@ class Download():
                 pass
             else:
                 seed_repo = self.set_download_options(
-                    seed_repo, self.download_version, profile, "seed"
+                    seed_repo, self.download_version, profile, False, "seed"
                 )
                 seed_repo = f"{seed_repo}/{seed_file}"
 
@@ -243,35 +263,59 @@ class Download():
 
 
     def set_default_version(self):
-        try:
-            # readability
-            env = self.functions.environment_name
+        if self.fallback: return
 
-            if self.requested_profile: profile = self.requested_profile
-            else: profile = self.functions.profile_names[0]
+        error_str = "The Download Service module may have conflicted with a parallel running versioning service at the time of the Node Operator's request."
+        for tries in range(0,5):
+            try:
+                # readability
+                env = self.functions.environment_name
 
-            if self.tools_version == "default":
-                self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+                if self.requested_profile: profile = self.requested_profile
+                else: profile = self.functions.profile_names[0]
 
-            if self.download_version == "default":
-                if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
-                    self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+                if self.tools_version == "default":
+                    self.tools_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+
+                if self.download_version == "default":
+                    if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph":
+                        self.download_version = self.functions.version_obj[env][profile]["cluster_tess_version"]
+                    else:
+                        self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
+            except Exception as e:
+                if tries < 1:
+                    self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
+                    continue
+                if tries < 2:
+                    if not self.auto_restart:
+                        self.functions.print_paragraphs([
+                            ["",1],[" STAND BY ",0,"red,on_yellow"],[error_str,1,"yellow"],
+                        ])
+                if tries < 4:
+                    phrase_str = colored("Attempt ","cyan")+colored(tries,"red")+colored(" of ","cyan")+colored("3","red")
+                    self.functions.print_timer({
+                        "p_type": "cmd",
+                        "seconds": 20 if tries < 3 else 60,
+                        "step": -1,
+                        "end_phrase": "...",
+                        "phrase": phrase_str,
+                        "status": "Pausing"
+                    })
+                    self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
                 else:
-                    self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
-        except Exception as e:
-            self.log.logger.error(f"{self.log_prefix} -> set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
-            self.error_messages.error_code_messages({
-                "error_code": "ds-265",
-                "line_code": "unknown_error",
-                "extra": e,
-                "extra2": "The Download Service module may have conflicted with a parallel running versioning service at the time of the Node Operator's request.",
-            })
+                    self.log.logger.error(f"{self.log_prefix} -> set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
+                    self.error_messages.error_code_messages({
+                        "error_code": "ds-265",
+                        "line_code": "unknown_error",
+                        "extra": e,
+                        "extra2": error_str,
+                    })
 
         return
     
 
-    def set_download_options(self,uri,download_version,profile,dtype="repo"):
-        github = False
+    def set_download_options(self, uri, download_version, profile, fallback, dtype="repo"):
+        github, s3 = False, False
         if isinstance(self.config_obj["global_elements"]["metagraph_name"],list):
             # future glean version off of a multi metagraph configuration
             pass
@@ -284,7 +328,13 @@ class Download():
             if self.config_obj[profile]["seed_github"]: github = True
             uri = self.config_obj[profile]["seed_repository"]
         else:
-            if self.config_obj[profile]["jar_github"]: github = True
+            if fallback:
+                if "github.com" in self.config_obj[profile]["jar_fallback_repository"]: github = True
+                elif "s3" in self.config_obj[profile]["jar_fallback_repository"] and "amazonaws" in self.config_obj[profile]["jar_fallback_repository"]:
+                    s3 = True
+            else:
+                if self.config_obj[profile]["jar_github"]: github = True
+                elif self.config_obj[profile]["jar_s3"]: s3 = True
 
         uri = self.functions.cleaner(uri,"trailing_backslash")
         if not uri.startswith("http"): # default to https://
@@ -292,6 +342,11 @@ class Download():
 
         if github:
             return f'{uri}/releases/download/{download_version}'
+        elif s3:
+            if download_version.startswith('v') and self.config_obj[profile]["environment"] == "testnet":
+                # exception for TestNet 
+                download_version = download_version[1:]
+            return f'{uri}/{download_version}'
         return uri
 
 
@@ -301,6 +356,10 @@ class Download():
         self.cursor_setup["down"] = len(self.file_obj)+1
         for n, file in enumerate(self.file_obj):
             self.file_obj[file]["pos"] = n
+
+        if self.config_obj["global_elements"]["jar_fallback"] and self.caller != "update_seedlist":
+            for n, file in enumerate(self.file_obj_fallback):
+                self.file_obj_fallback[file]["pos"] = n
 
 
     # Getters
@@ -315,7 +374,7 @@ class Download():
         raise Exception("file did not download properly")
 
 
-    def get_download(self,file_key, file_name):
+    def get_download(self,file_key, file_name, fallback=False):
         self.log.logger.info(f"{self.log_prefix} -> get_download -> downloading [{self.file_obj[file_key]['type']}] file: {file_name} uri [{self.file_obj[file_key]['uri']}] remote size [{self.file_obj[file_key]['remote_size']}]")
         file_path = self.file_obj[file_key]["dest_path"]
 
@@ -324,7 +383,7 @@ class Download():
             makedirs(file_path_only)
         
         if self.file_obj[file_key]["state"] == "disabled":
-            self.log.logger.warn(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_key]['type']}] disabled, skipping.")
+            self.log.logger.warning(f"{self.log_prefix} get_download -> downloading [{self.file_obj[file_key]['type']}] disabled, skipping.")
             return
 
         try:
@@ -362,9 +421,19 @@ class Download():
                         if asset["name"] == file_name:
                             self.file_obj[file_key]["remote_size"] = asset["size"]
                             return
-                self.file_obj[file_key]["remote_size"] = False
+                self.log.logger.error(f"{self.log_prefix} -> get_remote_file_size -> failed to retrieve the file size. Status code: {response.status_code}")
+                self.file_obj[file_key]["remote_size"] = -1
                 return 
-               
+            
+        elif "s3" in uri or "amazonaws" in uri:
+            response = requests.head(uri)
+            if response.status_code == 200:
+                    self.file_obj[file_key]["remote_size"] = int(response.headers.get('Content-Length', 0))
+                    return
+            else:
+                self.log.logger.error(f"{self.log_prefix} -> get_remote_file_size -> failed to retrieve the file size. Status code: {response.status_code}")
+                self.file_obj[file_key]["remote_size"] = -1
+                        
         self.file_obj[file_key]["remote_size"] = -1
         return           
 
@@ -379,7 +448,7 @@ class Download():
         
         file_path = self.file_obj[file_key]["dest_path"]
         if self.file_obj[file_key]["state"] == "disabled": 
-            self.log.logger.warn(f"download_service -> test_file_size -> {file_name} -> was determined to be [disabled] -> skipping")
+            self.log.logger.warning(f"download_service -> test_file_size -> {file_name} -> was determined to be [disabled] -> skipping")
             return True # skip test
         
         if path.exists(file_path):
@@ -399,6 +468,8 @@ class Download():
             for file_name in list(self.file_obj.keys()):
                 if self.file_obj[file_name]["state"] != "disabled":
                     self.get_download_looper(file_name)
+                    self.redundant_check()
+                    test = 1
         else:
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {executor.submit(self.get_download_looper, file_name): file_name for file_name in list(self.file_obj.keys())}
@@ -415,6 +486,8 @@ class Download():
                     else:
                         if self.file_obj[file_name]["state"] != "disabled":
                             self.file_obj[file_name]["state"] = "completed"
+                            if not self.functions.get_size(self.file_obj[file_name]["dest_path"],True):
+                                self.file_obj[file_name]["state"] = "failed"
                         self.print_status_handler(file_name)
 
         self.cursor_setup["reset"] = self.cursor_setup["clear"]-1
@@ -499,30 +572,50 @@ class Download():
             self.print_status_handler(file, True if file == list(self.file_obj.keys())[0] else False)
 
 
-    def file_backup_handler(self,backup=True):
+    def file_fallback_handler(self):
+        if not self.config_obj["global_elements"]["jar_fallback"]: return
+        self.config_obj["global_elements"]["jar_fallback"] = False  # do not allow multiple executions
+        file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] == "failed"]
+        if len(file_list) > 0:
+            if not self.auto_restart:
+                print(f"\033[{self.cursor_setup['down']}B", end="", flush=True)
+                self.functions.print_paragraphs([
+                    ["",2],[" FALLBACK ",0,"yellow,on_red"], ["nodectl identified a fallback for this cluster.",0,"yellow"],
+                    ["Attempting secondary download mechanism",1,"yellow"],
+                ])
+            self.fallback = True
+            self.execute_downloads()
+
+
+
+    def file_backup_handler(self,action):
         if not self.backup: 
-            self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
+            self.log.logger.warning(f"{self.log_prefix} file_backup_handler -> backup feature disabled")
+            return
+        if self.fallback and action == "backup": 
+            self.log.logger.debug(f"{self.log_prefix} file_backup_handler -> skipping redundant backup.")
             return
 
-        action = "restore"
-        if not backup: self.redundant_check()
+        if action == "restore": 
+            self.redundant_check()
 
         file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] == "failed"]
-        if backup:
-            action = "backup" 
+        if action == "backup":
             file_list = [file for file in list(self.file_obj.keys()) if self.file_obj[file]["state"] != "disabled"]
         
         self.log.logger.info(f"{self.log_prefix} file_backup_handler -> nodectl executing action [{action}] on the following files | [{file_list}]")
         
         if len(file_list) > 0:
             if action == "restore":
-                print(f"\033[5B", end="", flush=True)
-                self.cursor_setup = {key: value + 2 for key, value in self.cursor_setup.items() if key != "success"}
-                self.cursor_setup["success"] = False
-                self.log.logger.warn(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
-                self.functions.print_paragraphs([
-                    [" NOTE ",0,"yellow,on_red"], ["nodectl will only restore failed files",1,"red"],
-                ])
+                self.log.logger.warning(f"{self.log_prefix} file_backup_handler -> nodectl had to restore the following files | [{file_list}]")
+                if not self.auto_restart:
+                    print(f"\033[8B", end="", flush=True)
+                    self.cursor_setup = {key: value + 2 for key, value in self.cursor_setup.items() if key != "success"}
+                    self.cursor_setup["success"] = False
+                    self.cursor_setup["down"] = 0
+                    self.functions.print_paragraphs([
+                        [" NOTE ",0,"yellow,on_red"], ["nodectl will only restore failed files",1,"red"],
+                    ])
 
             for file in file_list:
                 print_start, print_complete = False, False
@@ -543,9 +636,11 @@ class Download():
 
 
     def redundant_check(self):
-        self.log.logger.debug(f"{self.log_prefix} extra redundant check initiated")
+        check_action = "auto_restart file size" if self.auto_restart else "extra redundant"
+        self.log.logger.debug(f"{self.log_prefix} {check_action} check initiated")
         for file in self.file_obj.keys():
             if self.file_obj[file]["state"] == "disabled": continue
+            if "seedlist" in str(self.file_obj[file]): continue
             file_size = self.functions.get_size(self.file_obj[file]["dest_path"],True)
             if file_size < 1 and file_size != self.file_obj[file]['remote_size']:
                 file_name = file.replace(f'-cnng{self.file_obj[file]["profile"]}',"")

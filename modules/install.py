@@ -24,6 +24,7 @@ from .config.valid_commands import pull_valid_command
 from .config.auto_complete import ac_validate_path, ac_build_script, ac_write_file
 from .config.time_setup import remove_ntp_services, handle_time_setup
 
+
 class Installer():
 
     def __init__(self,parent,argv_list):
@@ -85,7 +86,7 @@ class Installer():
         continue_warn = False
 
         if distro_name not in ["Ubuntu","Debian"]:
-            self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+            self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
             if not self.options.quiet:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], 
@@ -98,7 +99,7 @@ class Installer():
                 continue_warn = True
         if "Ubuntu" in distro_name:
             if ".10" in distro_version:
-                self.log.logger.warn(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
+                self.log.logger.warning(f"Linux Distribution not long term support, interim release identified... may not be fully supported: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
@@ -112,7 +113,7 @@ class Installer():
                     ])  
                     continue_warn = True
             elif "22.04" not in distro_version and "20.04" not in distro_version and "18.04" not in distro_version:
-                self.log.logger.warn(f"Linux Distribution not supported, results may vary: {distro_name}")
+                self.log.logger.warning(f"Linux Distribution not supported, results may vary: {distro_name}")
                 if not self.options.quiet:
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], 
@@ -220,7 +221,7 @@ class Installer():
                         "return_key": True,
                     })
                     if next_step == "q": 
-                        cprint("  Installation existed by Node Operator request","green",attrs="bold")
+                        cprint("  Installation exited on Node Operator request","green",attrs=["bold"])
                         exit(0)
 
                     print("")
@@ -273,7 +274,7 @@ class Installer():
             "--user-password","--p12-passphrase",
             "--p12-migration-path", "--p12-alias",
             "--quick-install", "--normal", "--json-output",
-            "--confirm","--override","--quiet",
+            "--confirm","--override","--quiet","--skip_encryption",
         ]
         
         self.options_dict["quick_install"] = False
@@ -283,6 +284,7 @@ class Installer():
         self.options_dict["override"] = False
         self.options_dict["quiet"] = False
         self.options_dict["json_output"] = False
+        self.options_dict["skip_encryption"] = False
         for option in option_list:
             if option.startswith("--"): o_option = option[2::]
             if o_option == "quick-install" and "--quick-install" in self.argv_list: 
@@ -297,21 +299,28 @@ class Installer():
             if o_option == "override" and "--override" in self.argv_list: 
                 self.options_dict["override"] = True
                 continue
-            if o_option == "json-output" and "--json-output" in self.argv_list: 
+            if (o_option == "json_output" and "--json-output" in self.argv_list) or (o_option == "json_output" and "--json_output" in self.argv_list): 
                 self.options_dict["json_output"] = True
                 continue
+            if (o_option == "skip_encryption" and "--skip-encryption" in self.argv_list) or (o_option == "skip_encryption" and "--skip_encryption" in self.argv_list): 
+                self.options_dict["skip_encryption"] = True
+                continue
             if o_option == "quiet" and "--quiet" in self.argv_list: 
-                self.log.logger.warn("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
+                self.log.logger.warning("installer found --quiet request when executing installer.  This is an ADVANCED option that requires all non-default options to be added at the command line.  Failure to do so may result in undesirable install, unstable execution of nodectl, or a failed installation.")
                 self.options_dict["quiet"] = True
                 self.options_dict["confirm_install"] = True
                 continue
+            if (o_option == "p12-passphrase" and "--p12-passphrase" in self.argv_list) or (o_option == "user-password" and "--user-password" in self.argv_list):
+                value = self.argv_list[self.argv_list.index(f"--{o_option}")+1]
+                if value.startswith('"') and value.endswith('"') or (value.startswith("'") and value.endswith("'")):
+                    self.argv_list[self.argv_list.index(f"--{o_option}")+1] = self.functions.cleaner(value,"remove_surrounding")
+
             self.options_dict[o_option] = self.argv_list[self.argv_list.index(option)+1] if option in self.argv_list else False
 
         self.options_dict = { key.replace("-","_"): value for key, value in self.options_dict.items() }
         self.options_dict["environment"] = False
         self.options_dict["metagraph_name"] = False
         self.options_dict["existing_p12"] = False
-
         self.options = SimpleNamespace(**self.options_dict)
         self.handle_quiet_mode()
 
@@ -327,7 +336,7 @@ class Installer():
         if self.options.quick_install:
             self.log.logger.info("installer identified quick installation")
             if self.options.p12_destination_path and not self.options.p12_alias:
-                self.log.logger.warn("installer -> p12 alias not supplied - will try to derive it dynamically.")
+                self.log.logger.warning("installer -> p12 alias not supplied - will try to derive it dynamically.")
 
 
     def handle_option_validation(self):
@@ -383,6 +392,9 @@ class Installer():
                 self.p12_session.user.password = self.options.user_password
 
             if not self.options.p12_passphrase:
+                if self.options.existing_p12: 
+                    self.p12_session.p12_migration = True
+                    self.p12_session.user.p12_migration = True
                 self.p12_session.ask_for_keyphrase()
                 self.options.p12_passphrase = self.p12_session.p12_password
                 self.p12_session.p12_password = self.options.p12_passphrase
@@ -399,25 +411,25 @@ class Installer():
         if not self.options.cluster_config and not self.options.quick_install:
             self.functions.print_paragraphs([
                 ["For a new installation, the Node Operator can choose to build this Node based",0,"green"],
-                ["on various network clusters or Metagraph pre-defined configurations.",2,"green"],
+                ["on various network clusters or metagraph pre-defined configurations.",2,"green"],
                 
-                ["If the network cluster or Metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
+                ["If the network cluster or metagraph this Node is being built to participate on is not part of this list, it is advised to",0],
                 ["choose",0], ["mainnet",0,"red,on_yellow"], ["as the default to complete the installation.",2], 
                 ["The MainNet configuration template will only be a placeholder to allow this Node to install all",0],
                 ["required components, to ensure successful implementation of this utility.",0],
                 
-                ["If a pre-defined network cluster or Metagraph listed above is not the ultimate role of this future Node,",0],
-                ["following a successful installation, the next steps should be for you to refer to the Metagraph",0],
-                ["Administrators of the Metagraph you are expected to finally connect with. The Administrator",0,],
-                ["will offer instructions on how to obtain the required configuration file for said Metagraph.",2],
-                ["Please key press number of a network cluster or Metagraph configuration below:",2,"blue","bold"],
+                ["If a pre-defined network cluster or metagraph listed above is not the ultimate role of this future Node,",0],
+                ["following a successful installation, the next steps should be for you to refer to the metagraph",0],
+                ["Administrators of the metagraph you are expected to finally connect with. The Administrator",0,],
+                ["will offer instructions on how to obtain the required configuration file for said metagraph.",2],
+                ["Please key press number of a network cluster or metagraph configuration below:",2,"blue","bold"],
             ])
 
         if not self.options.configuration_file:
             print("")
             self.functions.print_paragraphs([
                 [" ",1],
-                ["Please choose which Hypergraph or Metagraph you would like to install on this server:",2],
+                ["Please choose which Hypergraph or metagraph you would like to install on this server:",2],
                 ["HYPERGRAPH or METAGRAPH",1,"yellow","bold"],
                 ["predefined choices",1,"blue","bold"],
                 ["-","half","blue","bold"]
@@ -432,6 +444,13 @@ class Installer():
         if self.options.cluster_config.lower() == "q":
             cprint("  Installation cancelled by user\n","red")
             exit(0)
+        if not self.options.quick_install:
+            self.functions.print_cmd_status({
+                "text_start": "Environment chosen",
+                "status": self.options.cluster_config,
+                "status_color": "green",
+                "newline": True,
+            })
         
                 
     def handle_existing(self):
@@ -455,11 +474,11 @@ class Installer():
         
         if len(found_files) > 0 or len(found_files2) > 0:
             if len(found_files) > 0:
-                self.log.logger.warn("install found possible existing tessellation core components")
+                self.log.logger.warning("install found possible existing tessellation core components")
             if len(found_files2) > 0:
-                self.log.logger.warn("install found possible existing nodectl service components")
+                self.log.logger.warning("install found possible existing nodectl service components")
             if self.options.quick_install:
-                self.log.logger.warn("install -> quick_install -> Found possible existing installation and configuration files, removing previous elements.")
+                self.log.logger.warning("install -> quick_install -> Found possible existing installation and configuration files, removing previous elements.")
             else:
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING ",0,"yellow,on_red"], ["An existing Tessellation installation may be present on this server.  Preforming a fresh installation on top of an existing installation can produce",0,"red"],
@@ -539,6 +558,42 @@ class Installer():
             })
 
 
+    def handle_transfer_ssh_valiation(self):
+        for n in range(1,3):
+            do_validation = self.user.transfer_ssh_key()
+            if not do_validation:
+                return
+            ssh_path = f"/home/{self.user.username}/.ssh/"
+            size_test = path.getsize(ssh_path)
+            if size_test > 0:
+                self.log.logger.info(f"installer -> ssh key transfer validated [{ssh_path}]")
+                return
+            self.log.logger.error(f"installer -> ssh key transfer validated [{ssh_path}] attempt [{n}] of [3]")
+            if not self.options.quick_install:
+                self.functions.print_cmd_status({
+                    "text_start": "Error transfering SSH key",
+                    "brackets": f"{n} of 3",
+                    "status": "Failed" if n > 2 else "Retrying",
+                    "status_color": "red",
+                    "newline": True,
+                })
+            sleep(.8)
+
+        self.log.logger.error(f"installer -> ssh key transfer failed validatation: please manually verify the authorized_keys file and access to your Node after the installation and before closing the remote terminal. [{ssh_path}]")
+        if not self.options.quick_install: 
+            self.functions.print_paragraphs([
+                ["",1],[" WARNING ",0,"yellow,on_red"], ["nodectl was unable to successful transfer the",0,"red"],
+                ["SSH Authorization File",0,"yellow"], ["to the nodeadmin user:",0,"red"], 
+                [self.user.username,0,"yellow"], ["after 3 attempts.",2,"red"],
+                ["The installation will continue; however, you may not be able to access the",0,"magenta"],
+                ["nodeadmin user:",0,"magenta"],[self.user.username,0,"yellow"], ["remotely via SSH until the SSH key pair",0,"magenta"],
+                ["authorization file is properly transfered over to the nodeadmin's",0,"magenta"],
+                [".ssh",0,"yellow"], ["folder.",2,"magenta"],
+                ["Please contact a System Administrator for further help, via the Constallation Netwwork Offical Discord server.",2],
+            ])
+            self.functions.print_any_key({"newline":"bottom"})
+
+
     def populate_node_service(self):
         self.log.logger.info("installer -> populating node services module")
         if not self.options.quick_install:                
@@ -570,7 +625,15 @@ class Installer():
 
     def download_binaries(self):  
         self.log.logger.info("installer -> installing binaries")
-        download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_metagraph_version"]
+        for _ in range(0,2):
+            try:
+                download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_metagraph_version"]
+            except:
+                self.versioning.called_cmd = "normal"
+                self.version_obj = self.versioning.get_cached_version_obj()
+            else:
+                break
+
         if self.options.metagraph_name == "hypergraph":
             download_version = self.version_obj[self.options.environment][self.metagraph_list[0]]["cluster_tess_version"]
 
@@ -638,7 +701,7 @@ class Installer():
         if self.options.quick_install:
             if quick_ssh: 
                 # second element of quick install
-                self.user.transfer_ssh_key()
+                self.handle_transfer_ssh_valiation()
             else: self.user.create_debian_user()
         else:
             self.functions.print_any_key({"newline":"top"})
@@ -650,12 +713,12 @@ class Installer():
                 if not self.options.user_password:
                     self.user.ask_for_password()
                 self.user.create_debian_user()
-                self.user.transfer_ssh_key()
+            self.handle_transfer_ssh_valiation()
         
         # update permissions
-        if self.options.p12_destination_path:
+        if self.options.p12_destination_path and path.isfile(self.options.p12_destination_path):
             self.functions.set_chown(path.dirname(self.options.p12_destination_path), self.user.username,self.user.username)
-        if path.exists(f"/home{self.user.username}"):
+        if path.exists(f"/home/{self.user.username}"):
             self.functions.set_chown(f"/home/{self.user.username}", self.user.username,self.user.username)
         return
 
@@ -680,7 +743,7 @@ class Installer():
                 ["Network Cluster:",0], [self.options.metagraph_name,0,"yellow"], ["->",0], [self.options.environment,2,"yellow"],
                 
                 ["After installation is complete, the Node Operator may alter the",0,"magenta"], ["nodectl",0,"blue","bold"],
-                ["configuration to allow connection to the",0,"magenta"], ["network cluster or Metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
+                ["configuration to allow connection to the",0,"magenta"], ["network cluster or metagraph",0,"blue","bold"], ["of choice via the command:",2,"magenta"],
                 
                 ["sudo nodectl configure",2],
             ])
@@ -742,9 +805,9 @@ class Installer():
         if not self.options.quick_install:
             print("")
             self.functions.print_header_title({
-            "line1": "SYSTEM REQUIREMENTS",
-            "single_line": True,
-            "newline": "both"  
+                "line1": "SYSTEM REQUIREMENTS",
+                "single_line": True,
+                "newline": "both"  
             })
         
         self.packages = {
@@ -809,7 +872,7 @@ class Installer():
                             "status": "complete",
                             "newline": True
                         })
-        remove_ntp_services()
+        remove_ntp_services(self.log)
         handle_time_setup(self.functions,self.options.quick_install,False,self.options.quiet,self.log)
         
 
@@ -827,10 +890,10 @@ class Installer():
             self.functions.print_cmd_status(progress)
 
         if path.isfile("/swapfile"):
-            self.log.logger.warn("installer -> swap file already exists - install skipping action")
+            self.log.logger.warning("installer -> swap file already exists - install skipping action")
             result = "already exists"
             color = "magenta"
-            self.log.logger.warn("Installation making swap file skipped because already detected")
+            self.log.logger.warning("Installation making swap file skipped because already detected")
         else:
             self.log.logger.info("Installation making swap file")
 
@@ -935,7 +998,7 @@ class Installer():
             if generate and not self.options.existing_p12:
                 self.p12_session.p12_file_location, self.p12_session.p12_filename = path.split(self.options.p12_destination_path) 
                 self.p12_session.key_alias = self.options.p12_alias
-                self.p12_session.p12_password = self.options.p12_passphrase
+                self.p12_session.p12_password = f"{self.options.p12_passphrase}"
                 self.p12_session.generate()
                 self.options.existing_p12 = True
         else:
@@ -954,6 +1017,10 @@ class Installer():
             if self.options.p12_passphrase:
                 self.p12_session.p12_password = self.options.p12_passphrase
             else:
+                if self.p12_migrated: 
+                    self.p12_session.existing_p12 = self.options.p12_destination_path
+                    self.p12_session.p12_migration = True
+                    self.p12_session.user.p12_migration = True
                 self.p12_session.ask_for_keyphrase()
 
             if self.options.p12_alias:
@@ -970,7 +1037,7 @@ class Installer():
                 self.options.p12_destination_path = f"{self.p12_session.p12_file_location}/{self.p12_session.p12_filename}"
                 self.options.p12_destination_path = self.functions.cleaner(self.options.p12_destination_path,"double_slash")
             if not self.options.p12_passphrase:
-                self.options.p12_passphrase = self.p12_session.p12_password
+                self.options.p12_passphrase = f"{self.p12_session.p12_password}"
             if not self.options.p12_alias and not self.options.existing_p12:
                 self.options.p12_alias = self.p12_session.key_alias
        
@@ -987,9 +1054,9 @@ class Installer():
 
         if not self.options.p12_passphrase:
             try:
-                self.options.p12_passphrase = self.p12_session.p12_password
+                self.options.p12_passphrase = f"{self.p12_session.p12_password}"
             except:
-                self.log.logger.warn("installer unable to obtain p12 passphrase, unexpected results on the installer may be presented, but may not affect the installation.")
+                self.log.logger.warning("installer unable to obtain p12 passphrase, unexpected results on the installer may be presented, but may not affect the installation.")
                 
         try:
             self.options.p12_alias = self.p12_session.show_p12_details(
@@ -1007,7 +1074,7 @@ class Installer():
         if verify:
             if verify != self.options.p12_alias:
                 self.log.logger.error(f"installer -> found requested option alias [{verify}] but found [{self.options.p12_alias}] error found [{'true' if not self.found_errors else 'false'}]")
-                self.log.logger.warn(f"installer ->  using found [{self.options.p12_alias}] which might cause user errors in the future.  Important, if this was a quick installation, nodectl will create a default alias that may not match a migrated p12 file, without an alias supplied; in this case, this warning can be ignored.")
+                self.log.logger.warning(f"installer ->  using found [{self.options.p12_alias}] which might cause user errors in the future.  Important, if this was a quick installation, nodectl will create a default alias that may not match a migrated p12 file, without an alias supplied; in this case, this warning can be ignored.")
 
         if self.options.quick_install: return
 
@@ -1273,24 +1340,27 @@ class Installer():
         if self.options.quick_install:
             self.configurator.quick_install = True
             self.configurator.detailed = False
-            encrypt = True
+            encrypt = False if self.options.skip_encryption else True
         else:
-            self.functions.print_header_title({
-                "line1": "ENCRYPTION SERVICES",
-                "single_line": True,
-                "newline": "both"
-            })
-            self.functions.print_paragraphs([
-                ["Do you want to encrypt the passphrase in your",0],
-                ["cn-config.yaml",0,"yellow"], ["configuration file?",1],
-            ])
-            encrypt = self.functions.confirm_action({
-                "yes_no_default": "y",
-                "return_on": "y",
-                "prompt": "Encrypt?",
-                "prompt_color": "magenta",
-                "exit_if": False,
-            })
+            if self.options.skip_encryption:
+                encrypt = False
+            else:
+                self.functions.print_header_title({
+                    "line1": "ENCRYPTION SERVICES",
+                    "single_line": True,
+                    "newline": "both"
+                })
+                self.functions.print_paragraphs([
+                    ["Do you want to encrypt the passphrase in your",0],
+                    ["cn-config.yaml",0,"yellow"], ["configuration file?",1],
+                ])
+                encrypt = self.functions.confirm_action({
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "prompt": "Encrypt?",
+                    "prompt_color": "magenta",
+                    "exit_if": False,
+                })
 
         if encrypt:
             self.encryption_performed = True
@@ -1299,7 +1369,7 @@ class Installer():
             self.configurator.c.config_obj = self.setup_config.config_obj
             if self.found_errors:
                 self.encryption_performed = False
-                self.log.logger.error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private key store passphrase.  Please fix any issues and use the configure module to encrypt later if desired.")
+                self.log.logger.error("installer -> There may be an issue with your p12 values, installer cannot encrypt the private keystore passphrase.  Please fix any issues and use the configure module to encrypt later if desired.")
             else:
                 self.configurator.prepare_configuration("edit_config")
                 self.configurator.passphrase_enable_disable_encryption("install")
@@ -1415,13 +1485,13 @@ class Installer():
                 self.p12_session.key_alias = self.options.p12_alias
 
             if self.p12_session.p12_password == "blank" or self.p12_session.p12_password == "":
-                self.p12_session.p12_password = self.options.p12_passphrase
+                self.p12_session.p12_password = f"{self.options.p12_passphrase}"
 
             if not self.options.p12_destination_path:
                 self.options.p12_destination_path = f"{self.p12_session.p12_file_location}{self.p12_session.p12_filename}"
 
             p12_replace_list = [
-                ("passphrase", f'"{self.p12_session.p12_password}"'),
+                ("passphrase", f"'{self.p12_session.p12_password}'"),
                 ("key_location",self.p12_session.p12_file_location),
                 ("key_name", self.p12_session.p12_filename),
                 ("key_alias",self.p12_session.key_alias),
@@ -1545,7 +1615,7 @@ class Installer():
 
     def print_cluster_config_details(self):
         self.functions.print_cmd_status({
-            "text_start": "HyperGraph/Metagraph",
+            "text_start": "HyperGraph/metagraph",
             "status": self.options.metagraph_name,
             "status_color": "yellow",
             "newline": True,
@@ -1600,9 +1670,12 @@ class Installer():
         if self.options.json_output:
             with open(f"{self.functions.nodectl_path}node_details.json","w") as node_detail_file:
                 json.dump(node_details,node_detail_file,indent=4)
+            if self.options.quiet:
+                print(f"json output located in {self.functions.nodectl_path}node_details.json\n")
+                print(json.dumps(node_details,indent=4))
 
         if self.options.quiet:
-            print(node_details)
+            # print(node_details) # debug
             return
         
         self.print_main_title()
@@ -1642,7 +1715,7 @@ class Installer():
         if not self.encryption_performed:
             self.functions.print_paragraphs([
                 ["",1], [" ENCRYPTION FAILURE ",0,"red,on_yellow"], 
-                ["An issue was detected with the p12 private key store. To encrypt the passphrase, ensure that the passphrase",0,"red"],
+                ["An issue was detected with the p12 private keystore. To encrypt the passphrase, ensure that the passphrase",0,"red"],
                 ["is correct and tested. After confirming the passphrase, you can attempt to encrypt it again.",2,"red"],
 
                 ["You may use the configurator to update the p12 settings and attempt encryption by following",0,"red"],
@@ -1685,18 +1758,42 @@ class Installer():
         ])     
         if not success:
             self.functions.print_paragraphs([
-                ["1",0,"magenta","bold"], [")",-1,"magenta"], ["Correct any errors of your p12 key store.",1,"red"],
+                ["1",0,"magenta","bold"], [")",-1,"magenta"], ["Correct any errors of your p12 keystore.",1,"red"],
             ])  
             next_step = 2   
 
         self.functions.print_paragraphs([
-            [f"{next_step}",0,"magenta","bold"], [")",-1,"magenta"], ["Submit your NodeID to Constellation Admins.",1,"cyan"],
-            [f"{next_step+1}",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node.",1,"cyan"],
-            [f"{next_step+2}",0,"magenta","bold"], [")",-1,"magenta"], [f"sudo nodectl check_seedlist -p {metagraph_list[0]}",1,"cyan"],
-            [f"{next_step+3}",0,"magenta","bold"], [")",-1,"magenta"], ["sudo nodectl restart -p all",1,"cyan"],
-            [f"{next_step+4}",0,"magenta","bold"], [")",-1,"magenta"], [f"Log out and log back in with as {self.options.user} with your new {self.options.user} password.",2,"cyan"],
-            ["enod!",2,"white","bold"],
+            [f"{next_step}",0,"magenta","bold"], [")",-1,"magenta"], ["Submit nodeid to Constellation Discord Admins.",1,"cyan"],
         ])     
+        if self.options.environment == "mainnet":
+            self.functions.print_paragraphs([
+                [f"{next_step+1 }",0,"magenta","bold"], [")",-1,"magenta"], ["Collateralize your Node's wallet.",1,"cyan"],
+            ])
+        else:     
+            self.functions.print_paragraphs([
+                [f"{next_step+1}",0,"magenta","bold"], [")",-1,"magenta"], ["Update your Lattice account to provide:",1,"cyan"],
+                ["   - DAG wallet to prove collateralize requirements.",1,"cyan"],
+                [f"   - {self.options.environment} nodeid.",1,"cyan"],
+            ])
+        self.functions.print_paragraphs([
+            [f"{next_step+2}",0,"magenta","bold"], [")",-1,"magenta"], [f"Stay logged in to this VPS terminal session.",1,"cyan"],
+            [f"{next_step+3}",0,"magenta","bold"], [")",-1,"magenta"], [f"Open new terminal.",1,"cyan"],
+            [f"{next_step+4}",0,"magenta","bold"], [")",-1,"magenta"], [f"Confirm ability to log in as:",0,"cyan"],[f"{self.options.user}.",1,"blue","bold"],
+            [f"{next_step+5}",0,"magenta","bold"], [")",-1,"magenta"], [f"Log out of this original terminal session.",1,"cyan"],
+            [f"{next_step+6}",0,"magenta","bold"], [")",-1,"magenta"], ["Wait for next cluster restart.",1,"cyan"],
+            [f"{next_step+7}",0,"magenta","bold"], [")",-1,"magenta"], ["Confirm your node's status:",1,"cyan"],
+            [f"   - Command:",0,"blue","bold"], [f"sudo nodectl check_seedlist -p {metagraph_list[0]}",1,"cyan"],
+            [f"   - Command:",0,"blue","bold"], ["sudo nodectl restart -p all",2,"cyan"],
+            ["enod!",2,"white","bold"],
+        ])   
+
+        if path.exists('/var/run/reboot-required'):
+            self.functions.print_paragraphs([
+                [" IMPORTANT ",0,"yellow,on_blue"], 
+                ["nodectl determined that VPS distribution level modifications may not have been applied yet. A",0,"blue","bold"],
+                ["reboot",0,"red","bold"],["is necessary.",0,"blue","bold"],
+                ["Recommended:",0], ["sudo nodectl reboot",2,"magenta"],
+            ])
 
         self.log.logger.info("nodectl installation completed in []")   
         

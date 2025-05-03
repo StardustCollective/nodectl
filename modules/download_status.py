@@ -115,12 +115,12 @@ class DownloadStatus():
                         try:
                             dip_details.append(json.loads(line))
                         except json.JSONDecodeError as e:
-                            self.log.logger.warn(f"download_status -> Unable to parse JSON from log -> decoding error: [{e}]") 
+                            self.log.logger.warning(f"download_status -> Unable to parse JSON from log -> decoding error: [{e}]") 
                         if n > 249 and not self.initialize: break  
                     self.functions.event = False
                           
         except Exception as e:
-            self.log.logger.warn(f"download_status -> Unable to open JSON from log -> error: [{e}]") 
+            self.log.logger.warning(f"download_status -> Unable to open JSON from log -> error: [{e}]") 
             
         for cmd in self.cmds:
             for n, j_obj in enumerate(dip_details):
@@ -273,7 +273,7 @@ class DownloadStatus():
         try:
             _ = f"{self.dip_vals.hash_marks}"
         except Exception as e:
-            self.log.logger.warn(f"download_status - formatting error on dynamic string creation - [{e}]")
+            self.log.logger.warning(f"download_status - formatting error on dynamic string creation - [{e}]")
             self.dip_vals.hash_marks = self.dip_vals.last_hash_marks
         
         if self.dip_vals.percentage1 < 0: 

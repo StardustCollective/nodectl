@@ -1,10 +1,11 @@
 import json
 
-from os import stat, path, remove, listdir, cpu_count
+from os import stat, path, remove, walk, get_terminal_size
 from time import time
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, wait as thread_wait
+from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
 from termcolor import colored, cprint
 from datetime import datetime
+
 
 def process_snap_files(files, snapshot_dir, log, find_inode):
     result = {}
@@ -31,7 +32,7 @@ def process_snap_files(files, snapshot_dir, log, find_inode):
                 result[inode]["stamp"].append(file_mtime)
 
         except Exception as e:
-            log.logger.warn(f"snaphost --> Error processing file {ord_hash_name}: {e}")
+            log.logger.warning(f"snapshot --> Error processing file {ord_hash_name}: {e}")
     
     return result
 
@@ -182,7 +183,7 @@ def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_day
                 "status_color": "red",
                 "newline": True,
             })
-            log.logger.warn(f"snaphost --> removing snapshot {info_path}")
+            log.logger.warning(f"snaphost --> removing snapshot {info_path}")
             if not debug: 
                 remove(info_path)
 
@@ -211,7 +212,7 @@ def clean_info(snapshot_info_dir, functions, log, inode_dict, start,end, old_day
                                 "status_color": "red",
                                 "newline": True,
                             })
-                            log.logger.warn(f"snaphost --> removing snapshot {info_path}")
+                            log.logger.warning(f"snaphost --> removing snapshot {info_path}")
                             if not debug: 
                                 remove(info_path)
         if count > 0:
@@ -236,7 +237,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
                 if old_days > 0 and stamp < threshold_time: # -1 is disabled
                         old_count += 2
                         oe = "old ordinal element"
-                        log.logger.warn(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
+                        log.logger.warning(f"snapshot --> remove old snaps requested [{old_days}] - found old snap or ordinal [{ord_hash}] that will be removed.")  
                 elif int(ord_hash) < start:
                     skip = True
                 else:
@@ -258,7 +259,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
                 "status_color": "red",
                 "newline": True,
             })
-            log.logger.warn(f"snapshot --> removing ordinal {snap_to_remove}")
+            log.logger.warning(f"snapshot --> removing ordinal {snap_to_remove}")
             count += 1
             if not debug and path.isfile(snap_to_remove): 
                 remove(snap_to_remove)
@@ -288,7 +289,7 @@ def remove_elements(inode_dict, snapshot_dir, functions, log, start, old_days, d
         print_count(c,functions)
 
 
-def print_report(count_results,fix,functions):
+def print_report(count_results, fix, snapshot_dir, functions):
     functions.print_cmd_status({
         "text_start": "Valid chain ordinals",
         "status": f'{count_results["match_count"]:,}',
@@ -313,12 +314,23 @@ def print_report(count_results,fix,functions):
         "status_color": "yellow",
         "newline": True,
     })
-
+    functions.print_cmd_status({
+        "text_start": "Hightest ordinal",
+        "status": count_results["ord_highest"],
+        "status_color": "yellow",
+        "newline": True,
+    })
+    functions.print_cmd_status({
+        "text_start": "Lowest ordinal",
+        "status": count_results["ord_lowest"],
+        "status_color": "yellow",
+        "newline": True,
+    })
     print("")
 
     functions.print_cmd_status({
         "text_start": "Start removing ordinal",
-        "status": count_results["ord_lowest"],
+        "status": count_results["lowest_no_inode"],
         "status_color": "yellow",
         "newline": True,
     })
@@ -357,6 +369,30 @@ def print_report(count_results,fix,functions):
             "status_color": "yellow",
             "newline": True,
         })
+
+
+    if len(count_results["invalid_hash_ord_list"]) > 0:
+        if functions.confirm_action({
+            "yes_no_default": "n",
+            "return_on": "y",
+            "prompt": f'Display [{count_results["solo_count"]}] invalid items?',
+            "exit_if": False,
+        }):
+            functions.print_paragraphs([
+                [" ",1], ["Invalid Ordinal -> Hash List",1,"red","bold"],
+                ["root path:",0], [snapshot_dir,1,"yellow"],
+            ])
+            for item, invalid_hash in enumerate(count_results["invalid_hash_ord_list"]):
+                console_size = get_terminal_size()
+                more_break = round(console_size.lines)-20 
+                if item % more_break == 0 and item > 0:
+                    more = functions.print_any_key({
+                        "quit_option": "q",
+                        "newline": "both",
+                    })
+                    if more: break                                
+                invalid_hash = invalid_hash.replace(snapshot_dir,"")
+                cprint(f"  {invalid_hash}","red")
 
 
 def print_full_snapshot_report(results, file_len, cols, functions, np, logs):
@@ -419,96 +455,6 @@ def print_full_snapshot_report(results, file_len, cols, functions, np, logs):
             print("")
             print(f"  {inode:<12}{ordinal:<12}{stamp:<12}")
             print(f"  {hash}")
-
-
-def discover_snapshots(snapshot_dir, functions, log, inode=False):
-    return_results = {
-        "results": None,
-        "valid": False,
-        "length_of_files": 0,
-        "max_ordinal": -1,
-    }
-    files = []
-    max_ord = -1
-
-    with ThreadPoolExecutor() as executor:
-        functions.status_dots = True
-        status_obj = {
-            "text_start": f"Analyze Node chain",
-            "status": "running",
-            "status_color": "yellow",
-            "dotted_animation": True,
-            "newline": False,
-            "timeout": False,
-        }
-        _ = executor.submit(functions.print_cmd_status,status_obj)
-
-        # files = [f for f in listdir(snapshot_dir) if path.isfile(path.join(snapshot_dir, f))]
-        try:
-            for ordhash in listdir(snapshot_dir):
-                if path.isfile(path.join(snapshot_dir, ordhash)):
-                    files.append(ordhash)
-                    try:
-                        if len(ordhash) < 64 and int(ordhash) > max_ord:
-                            max_ord = int(ordhash)
-                    except Exception as e:
-                        log.logger.error(f"unable to determine snapshot data type, skipping [{ordhash}]")
-        except:
-            log.logger.warn(f"snapshots --> unable to open or find snapshot items in [{snapshot_dir}]")
-
-        num_workers = cpu_count()
-        chunk_size = len(files) // num_workers
-        length_of_files = len(files)
-
-        functions.status_dots = False
-        functions.print_cmd_status({
-            "text_start": "Found on Node",
-            "brackets": f"{length_of_files:,}",
-            "text_end": "inc files",
-            "status": "completed",
-            "status_color": "green",
-            "dotted_animation": False,
-            "newline": True,
-        })
-
-    if length_of_files < 1:  
-        return return_results
-
-    with ThreadPoolExecutor() as executor:
-        functions.status_dots = True
-        status_obj = {
-            "text_start": f"Discovering Node snapshots",
-            "status": "running",
-            "status_color": "yellow",
-            "dotted_animation": True,
-            "newline": False,
-            "timeout": False,
-        }
-        _ = executor.submit(functions.print_cmd_status,status_obj)
-
-        with ProcessPoolExecutor(max_workers=num_workers) as executor2:
-            futures = []
-            for i in range(0, length_of_files, chunk_size):
-                file_chunk = files[i:i + chunk_size]
-                futures.append(executor2.submit(process_snap_files, file_chunk, snapshot_dir, log, inode))
-            results = [future.result() for future in as_completed(futures)]
-
-        results = [d for d in results if d] # remove all empty dictionaries
-
-        functions.status_dots = False
-        functions.print_cmd_status({
-            "text_start": "Ordinal analysis process",
-            "status": "completed",
-            "status_color": "green",
-            "dotted_animation": False,
-            "newline": True,
-        })
-
-    return_results["results"] = results
-    return_results["valid"] = True
-    return_results["length_of_files"] = length_of_files
-    return_results["max_ordinal"] = max_ord
-    return return_results
 
 
 def custom_input(start,end,functions):
@@ -640,4 +586,226 @@ def output_to_file(results, command_list, functions, logs):
         ["Node ordinal hash database output json created.",1],
         ["file:",0], [output_file,2,"yellow"],
     ])
-                
+
+
+def discover_snapshots(snapshot_dir, functions, log):
+
+    # Paths to the hash and ordinal directories
+    hash_dir = path.join(snapshot_dir, 'hash')
+    ordinal_dir = path.join(snapshot_dir, 'ordinal')
+
+    # Initialize data structures
+    hash_inodes = {}
+    ordinal_inodes = {}
+    ordinals_no_match = []
+    no_match_list = []
+    valid_pairs = 0
+    invalid_hashes = 0
+    invalid_ordinals = 0
+    total_hashes = 0
+    total_ordinals = 0
+    highest_ordinal = 0
+    lowest_ordinal = -1
+    ordinals_age_buckets = {
+        'day_0_old': 0,
+        'day_10_old': 0,
+        'day_10_old': 0,
+        'day_20_old': 0,
+        'day_30_old': 0,
+        'day_60_old': 0,
+    }
+
+    current_time = time()
+
+    status, status_color = "Complete","green"
+    with ThreadPoolExecutor() as executor:
+        functions.cancel_event = False
+        status_obj = {
+            "p_type": "cmd",
+            "seconds": 180,
+            "step": -1,
+            "phrase": "Traverse snapshot ordinals",
+            "status": "Analyzing",
+            "use_minutes": True,
+        }
+        _ = executor.submit(functions.print_timer,status_obj)
+        try:
+            for dirpath, _, filenames in walk(ordinal_dir):
+                for filename in filenames:
+                    filepath = path.join(dirpath, filename)
+                    if not filename.isdigit():
+                        continue  # Skip non-ordinal files
+                    try:
+                        stat_info = stat(filepath)
+                        inode = stat_info.st_ino
+                        mtime = stat_info.st_mtime
+                    except Exception as e:
+                        print(f"Error accessing file {filepath}: {e}")
+                        continue
+
+                    total_ordinals += 1
+                    ordinal = int(filename)
+                    if ordinal > highest_ordinal:
+                        highest_ordinal = ordinal
+                    if ordinal < lowest_ordinal or lowest_ordinal < 0:
+                        lowest_ordinal = ordinal
+
+                    age_days = (current_time - mtime) / (24 * 3600)
+                    if age_days < 10:
+                        ordinals_age_buckets['day_0_old'] += 1
+                    elif 10 <= age_days < 20:
+                        ordinals_age_buckets['day_10_old'] += 1
+                    elif 20 <= age_days < 30:
+                        ordinals_age_buckets['day_20_old'] += 1
+                    elif 30 <= age_days < 60:
+                        ordinals_age_buckets['day_30_old'] += 1
+                    else:
+                        ordinals_age_buckets['day_60_old'] += 1
+
+                    ordinal_inodes.setdefault(inode, []).append(filepath)
+        except Exception as e:
+            log.logger.error(f"snapshot -> discovering snapshot state [ordinal] elements failed with [{e}]")
+            status, status_color = "Failed","red"
+        finally:
+            functions.cancel_event = True    
+            functions.print_cmd_status({
+                "text_start": "Ordinal snapshot analysis",
+                "status": status,
+                "status_color": status_color,
+                "newline": True,
+            })                
+
+    status, status_color = "Complete","green"
+    with ThreadPoolExecutor() as executor:
+        functions.cancel_event = False
+        status_obj = {
+            "p_type": "cmd",
+            "seconds": 780,
+            "step": -1,
+            "phrase": "Traverse snapshot hashes",
+            "status": "Analyzing",
+            "use_minutes": True,
+        }
+        _ = executor.submit(functions.print_timer,status_obj)
+        try:
+            for dirpath, _, filenames in walk(hash_dir):
+                for filename in filenames:
+                    filepath = path.join(dirpath, filename)
+                    if not is_hash_filename(filename):
+                        continue  # Skip non-hash files
+                    try:
+                        stat_info = stat(filepath)
+                        inode = stat_info.st_ino
+                    except Exception as e:
+                        log.logger.error(f"Error accessing file {filepath}: {e}")
+                        continue
+
+                    total_hashes += 1
+                    # Add to hash_inodes
+                    hash_inodes.setdefault(inode, []).append(filepath)
+        except Exception as e:
+            log.logger.error(f"snapshot -> discovering snapshot state [hash] elements failed with [{e}]")
+            status, status_color = "Failed","red"
+        finally:
+            functions.cancel_event = True    
+            functions.print_cmd_status({
+                "text_start": "Hash snapshot analysis",
+                "status": status,
+                "status_color": status_color,
+                "newline": True,
+            })   
+
+    status, status_color = "Complete","green"
+    with ThreadPoolExecutor() as executor:
+        functions.status_dots = True
+        status_obj = {
+            "text_start": f"Matching",
+            "brackets": "ordinal->hash",
+            "text_end": "snapshots",
+            "status": "running",
+            "status_color": "yellow",
+            "timeout": False,
+            "dotted_animation": True,
+            "newline": False,
+        }
+        _ = executor.submit(functions.print_cmd_status,status_obj)    
+        try:
+            for inode in hash_inodes:
+                if inode in ordinal_inodes:
+                    valid_pairs += 1
+                else:
+                    invalid_hashes += 1
+                    for filepath in hash_inodes[inode]:
+                        filename = path.basename(filepath)
+                        no_match_list.append(filepath)
+        except Exception as e:
+            log.logger.error(f"snapshot -> matching [hash] to [ordinal] failed with [{e}]")
+            status, status_color = "Failed","red"
+        finally:
+            functions.status_dots = False
+            functions.print_cmd_status({
+                **status_obj,
+                "status": status,
+                "status_color": status_color,
+                "dotted_animation": False,
+                "newline": True,
+            })
+
+    status, status_color = "Complete","green"
+    with ThreadPoolExecutor() as executor:
+        functions.status_dots = True
+        status_obj = {
+            "text_start": f"Matching",
+            "brackets": "hash->ordinal",
+            "text_end": "snapshots",
+            "status": "running",
+            "status_color": "yellow",
+            "timeout": False,
+            "dotted_animation": True,
+            "newline": False,
+        }
+        _ = executor.submit(functions.print_cmd_status,status_obj) 
+        try:   
+            for inode in ordinal_inodes:
+                if inode not in hash_inodes:
+                    invalid_ordinals += 1
+                    # Collect the ordinals that don't have matching hash files
+                    for filepath in ordinal_inodes[inode]:
+                        filename = path.basename(filepath)
+                        ordinals_no_match.append(int(filename))
+                        no_match_list.append(filepath)
+        except Exception as e:
+            log.logger.error(f"snapshot -> matching [ordinal] to [hash] failed with [{e}]")
+            status, status_color = "Failed","red"
+        finally:
+            functions.status_dots = False
+            functions.print_cmd_status({
+                **status_obj,
+                "status": status,
+                "status_color": status_color,
+                "dotted_animation": False,
+                "newline": True,
+            })
+        
+    lowest_ordinal_no_match = min(ordinals_no_match) if ordinals_no_match else None
+    results = {}
+    results["valid"] = True
+    results["match_count"] = valid_pairs
+    results["solo_count"] = invalid_hashes+invalid_ordinals
+    results["ord_count"] = total_ordinals
+    results["hash_count"] = total_hashes
+    results["ord_lowest"] = lowest_ordinal
+    results["ord_highest"] = highest_ordinal
+    results["lowest_no_inode"] = lowest_ordinal_no_match
+    results["invalid_hash_ord_list"] = no_match_list
+
+    for bucket, count in ordinals_age_buckets.items():
+        results[bucket] = count
+
+    return results
+
+
+def is_hash_filename(filename):
+    if len(filename) == 64 and all(c in '0123456789abcdefABCDEF' for c in filename):
+        return True
+    return False

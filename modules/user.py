@@ -28,7 +28,7 @@ class UserClass:
         self.password = None
 
         self.keep_user = False
-        self.migrating_p12 = False
+        self.p12_migration = False
         self.quick_install = False
         
         
@@ -36,7 +36,7 @@ class UserClass:
         self.ask_for_username()
         self.ask_for_password()
         self.create_debian_user()
-        self.transfer_ssh_key()
+        # transfer_ssh_key called outside of this router
 
   
     def ask_for_username(self):
@@ -208,8 +208,7 @@ class UserClass:
         # name = p12 or username
         # type = password, keyphrase, or passphrase
         
-        # pattern = "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-])(?=.*?[^'])([^'\"]*$)" # no single quotes, double quotes, or periods.
-        pattern = "^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[#?!@$%^&*-])[^'\"\\s.]+$" # no single quotes, double quotes, spaces or periods.
+        pattern = "^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[#?!@$%^&*-])[A-Za-z0-9#?!@$%^&*-]+$" # no single quotes, double quotes, spaces or periods.
         conjunction = "an" if length < 10 else "a"
         cprint(f">> Please enter {conjunction} {length} character minimum","magenta")
         first = f">> {type} for {name}: "
@@ -238,7 +237,8 @@ class UserClass:
         while True:
             results = []
             pass1 = getpass(colored(first,"magenta"))
-            pass2 = getpass(colored(second,"magenta"))
+            if self.p12_migration: pass2 = pass1  # only ask once on migration
+            else: pass2 = getpass(colored(second,"magenta"))
 
             try:
                 if not compare_digest(pass1,pass2):
@@ -249,7 +249,7 @@ class UserClass:
                     "line_code": "invalid_passphrase_pass",
                 })
         
-            if not self.migrating_p12:
+            if not self.p12_migration:
                 if len(pass1) < length:
                     results.append("len")
                 
@@ -360,7 +360,7 @@ class UserClass:
                 "exit_if": False
             })
             if not confirm:
-                return
+                return False
 
             progress = {
                 "text_start": "Transferring SSH key to",
@@ -466,8 +466,12 @@ class UserClass:
             else:
                 self.log.logger.error(f"transfer_ssh_key -> quick installer -> unable to read file [{dest_dir_file}]") 
         
-        index = filedata.find('ssh-rsa')
-        filedata = filedata[index:]
+        index_rsa = filedata.find('ssh-rsa')
+        index_ed25519 = filedata.find('ssh-ed25519')
+        if index_rsa > -1:
+            filedata = filedata[index_rsa:]
+        elif index_ed25519 > -1:
+            filedata = filedata[index_ed25519:]
         
         with open(dest_dir_file,'w') as cur_file:
             cur_file.write(filedata)
@@ -521,6 +525,7 @@ class UserClass:
                 "status_color": "green" if verb == "disabled" else "red"
             })
 
+        return True
 
     def disable_root_user(self):
         # check for non-root users
@@ -622,4 +627,5 @@ class UserClass:
 
             
 if __name__ == "__main__":
-    print("This class module is not designed to be run independently, please refer to the documentation")
+    print("This class module is not designed to be run independently, please refer to the documentation")  
+  

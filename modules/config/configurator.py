@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from termcolor import colored, cprint
 from os import system, path, environ, makedirs, listdir, chmod, remove
-from shutil import copy2, move
+from shutil import copy2, move, rmtree
 from sys import exit
 from getpass import getpass, getuser
 from types import SimpleNamespace
@@ -62,14 +62,19 @@ class Configurator():
         self.dev_enable_disable = False
         self.requested_profile = None
         self.header_title = None
+        self.mobile = False
+        self.quit_mobile = False
         self.installer = False
         self.quick_install = False
         self.encryption_failed = True
+        self.scenario = False
+        self.hypergraph = False
 
         self.edit_error_msg = ""
         self.detailed = "init"
         if "-a" in argv_list: self.detailed = False
         elif "-d" in argv_list: self.detailed = True
+        if "mobile" in argv_list: self.mobile = True
 
         self.p12_items = [
             "nodeadmin", "key_location", "key_name", "key_alias", "passphrase"
@@ -181,6 +186,17 @@ class Configurator():
             "called_cmd": "show_version",
         })
         
+        try:
+            self.hypergraph = self.c.config_obj["global_elements"]["metagraph_name"]
+        except:
+            self.log.logger.warning("configurator -> prepare_config -> missing Hypergraph/metagraph type")
+
+        try:
+            self.alerting_config = {**self.c.config_obj["global_elements"]["alerting"]}
+        except:
+            self.log.logger.debug("configuration did not find any alerting configuration")
+            self.alerting_config = False
+
         self.c.config_obj["global_elements"] = {"caller":"config"}
         self.c.functions.log = self.log
         self.c.functions.version_obj = versioning.version_obj
@@ -289,6 +305,7 @@ class Configurator():
             elif option.lower() == "e":
                 self.is_new_config = False
                 self.edit_config()
+                if self.quit_mobile: return
                 
             option = "reset"
     
@@ -306,7 +323,7 @@ class Configurator():
         if self.detailed:
             self.c.functions.print_paragraphs([
                 ["nodectl",0,"blue","bold"], ["can build a configuration for you based on",0], ["predefined",0,"blue","bold"],
-                ["profiles. These profiles are setup by the Constellation Network or Metagraph Administrators",0],
+                ["profiles. These profiles are setup by the Constellation Network or metagraph Administrators",0],
                 ["(or Layer0) companies that plan to ride on the Hypergraph.",2],
 
                 ["Before continuing, please make sure you have the following checklist completed, to save time.",2,"yellow"],
@@ -345,16 +362,25 @@ class Configurator():
         self.apply_vars_to_config()
         self.upgrade_needed = False
 
+        if not self.scenario or self.scenario > 2:
+            self.cleanup_old_profiles()
+            self.cleanup_service_files(False)
+            if not self.override and self.scenario: self.cleanup_create_snapshot_dirs() 
+        else:
+            self.c.functions.print_paragraphs([
+                ["",1],["New configuration detected. Cleanup of old services and data will be skipped.",0,"red"],
+                ["Depending on your situation you may have old data and services from an abandoned profiles on this Node.",2,'red'],
+            ])
+
         self.build_service_file({
             "action": "Create",
         }) 
-        
-        self.cleanup_old_profiles()
-        self.cleanup_service_files(False)
-        if not self.override: self.cleanup_create_snapshot_dirs() 
+
         self.prepare_configuration("edit_config",False)
         self.move_config_backups()
         
+        self.build_dir_structure()
+
         self.c.functions.print_paragraphs([
             ["",1],[" CONGRATULATIONS ",1,"yellow,on_green"],
             ["A new profile has been created successfully.",2,"green","bold"],
@@ -381,7 +407,7 @@ class Configurator():
             })
             self.c.functions.print_paragraphs([
                 ["Scenario One:",1,"cyan","bold"], ["This entails setting up a brand new Node. In this case, it is highly recommended that you",0,"green"],
-                ["exit here",0,"red"], ["and utilize the installer to build your new Node. Refer to the documentation for full details and options on how to use the installer.",1,"green"],
+                ["exit here",0,"red","bold"], ["and utilize the installer to build your new Node. Refer to the documentation for full details and options on how to use the installer.",1,"green"],
                 ["recommended:",0,"yellow"], ["sudo nodectl install –quick-install",2],
 
                 ["Scenario Two:",1,"cyan","bold"], ["This involves an existing Node where you need to apply a new configuration to handle new features or add",0,"green"],
@@ -389,8 +415,10 @@ class Configurator():
                 ["share the same profile name and",0,"green"], ["will not",0,"yellow"], ["interfere with the existing configuration (clusters and profiles)",0,"green"],
                 ["already on this Node.",2,"green"],
 
-                ["Scenario Three:",1,"cyan","bold"], ["You are here for in reference to",0,"green"],["scenario two",0,], ["but",0,"red","bold"],
-                ["the new configuration",0,"green"], ["is going to conflict",0,"red"], ["with an existing profile of a different cluster on this Node.",2,"green"],
+                ["Scenario Three:",1,"cyan","bold"], ["You would like to",0,"green"], ["migrate",0,"red","bold"], ["or",0,"green"], ["replace",0,"red","bold"],
+                ["the configuration on this existing Node for use on another cluster.",1,"green"], 
+                ["Example:",0],["Migrate a Node from Constellation Network's",0,"green"], ["IntegrationNet",0,"yellow"], ["to Constellation Network's",0,"green"],
+                ["MainNet.",2,"yellow"],
 
                 ["Scenario Four:",1,"cyan","bold"], ["You have encountered a configuration error that is preventing you from continuing to use nodectl",0,"red"],
                 ["and would like to attempt to overwrite your configuration, preserve as much information as possible, and avoid losing any data.",2,"red"],
@@ -409,8 +437,8 @@ class Configurator():
 
                 ["Definitions",1,"cyan","bold"],
                 ["Cluster:",0,"yellow"],["A network of connected Nodes.",1],
-                ["Hypergraph:",0,"yellow"],["Constellation's main cluster.",1],
-                ["Metagraph:",0,"yellow"],["Business or non-constellation owned cluster, that links to the Hypergraph layer0 cluster.",2],
+                ["Hypergraph:",0,"yellow"],["Constellation's main layer0 & layer1 cluster.",1],
+                ["metagraph:",0,"yellow"],["Business or non-constellation owned cluster, that links to the metagraph layer0 & Hypergraph layer0 cluster.",2],
             ])
 
             print_scenarios()  
@@ -427,42 +455,47 @@ class Configurator():
             self.c.functions.print_paragraphs([
                 ["Most likely you are continuing because you decided that scenario",0,"green"],
                 ["two, three, or four",0,"yellow"], ["fit your requirements.",2,"green"],
-                ["Are you here because of scenario",0,"green"], ["FOUR",0,"yellow"], 
-                ["(overriding an existing or corrupt configuration)?",2,"green"],
             ])
-            self.override = self.c.functions.confirm_action({
-                "prompt": "Yes? ",
-                "yes_no_default": "y",
-                "return_on": "y",
-                "exit_if": False,            
-            })
+            scenario_list = ["Scenario 1","Scenario 2","Scenario 3","Scenario 4"]
+            self.scenario = int(self.c.functions.print_option_menu({
+                "options": scenario_list,
+                "let_or_num": "num",
+                "color": "cyan",
+                "return_value": False
+            }))
+            self.c.functions.print_paragraphs([
+                [" Chosen: ",0,"white,on_blue"],[scenario_list[self.scenario-1],1,"green"],
+            ])
+            if self.scenario > 2: self.override = True
             if self.override:
                 self.c.functions.print_paragraphs([
-                    ["",1],[" WARNING ",0,"red,on_yellow"], ["nodectl will attempt to pull information from your current",0],
-                    ["configuration in order to persist data. However, you may encounter various nodectl errors during this process",0],
-                    ["if the configuration is not recoverable.",2],
+                    ["",1],[" WARNING ",0,"red,on_yellow"], ["nodectl will attempt to pull information from your current",0,"yellow"],
+                    ["configuration in order to persist data. However, you may encounter various nodectl errors during this process",0,"yellow"],
+                    ["if the configuration is not recoverable.",2,"yellow"],
                     
-                    ["The purpose of this attempt to override the existing configuration is to persist data.",0],
-                    ["If errors occur, nodectl will automatically exit.",2], 
+                    ["The purpose of this attempt to override the existing configuration is to persist data.",0,"yellow"],
+                    ["If errors occur, nodectl will automatically exit.",2,"yellow"], 
 
-                    ["You can restart the configurator,",0], ["decline",0,"red"], ["the override configuration option, proceed with the next steps,",0],
-                    ["and then after the process is completed, use the configurator to update your various",0],
-                    ["non-default information, such as private key [p12] details.",2],
+                    ["You can restart the configurator,",0,"yellow"], ["decline",0,"red"], ["the override configuration option, proceed with the next steps,",0,"yellow"],
+                    ["and then after the process is completed, use the configurator to update your various",0,"yellow"],
+                    ["non-default information, such as private key [p12] details.",2,"yellow"],
 
                     ["See the documentation for further details:",1],
                     ["https://docs.constellationnetwork.io/validate",2,"blue","bold"],
                 ])
                 self.c.functions.print_any_key({"prompt":"Press any key to continue"})
-            else:
+            
+            if self.scenario == 3: 
                 _ = self.c.functions.process_command({"proc_action": "clear"})
                 print_scenarios()
                 self.c.functions.print_paragraphs([
-                    ["If you are here because of scenario",0,"green"], ["THREE",0,"red"], ["there may be a situation where you are migrating your node to",0,"green"],
-                    ["another (new) cluster that happens to share the same profile name as the existing profile name already on this Node. If",0,"green"],
-                    ["and only if you are joining a new cluster that shares the same profile name, it is important to stop your Node’s original",0,"green"],
+                    ["You are here because scenario",0,"green"], ["THREE",0,"red","bold"], ["was chosen. There may be a situation where you are migrating your node to",0,"green"],
+                    ["another (new) cluster that happens to share the same profile name as the existing profile name already on this Node.",2,"green"],
+                    ["Regardless, it is important to stop your Node’s original",0,"green"],
                     ["profile by issuing a leave and stop command to remove your Node from the old cluster. Failure to do so can lead",0,"green"],
                     ["to undesired and unknown results or errors.",1,"green"],
                     ["Command:",0,"yellow"], ["sudo nodectl stop -p <profile_name>",2,"cyan"],
+                    ["nodectl will prompt you to assist in the removal of data related to the old cluster you are migrating from later in this process.",2,"red"]
                 ])
 
                 self.c.functions.confirm_action({
@@ -482,7 +515,7 @@ class Configurator():
             self.c.functions.print_paragraphs([
                 ["Please choose the",0], ["profile",0,"blue","bold"], ["below that matches the configuration you are seeking to build.",2],
                 ["If not found, please consult the Constellation Network Doc Hub for details or contact Constellation Network Administration on Discord.",2],
-                ["You can also put in a request to have your Metagraph's configuration added, by contacting a Constellation Network representative.",2],
+                ["You can also put in a request to have your metagraph's configuration added, by contacting a Constellation Network representative.",2],
             ]) 
         if self.override: 
             self.prepare_configuration(action="edit_config_from_new")
@@ -546,9 +579,22 @@ class Configurator():
         if self.action == "new":
             self.migrate.keep_pass_visible = True
 
-        
+    
+    def build_shell_obj(self):
+        try:
+            shell = ShellHandler({
+                "config_obj": self.c.config_obj
+                },False)
+        except:
+            from ..shell_handler import ShellHandler
+            shell = ShellHandler({
+                "config_obj": self.c.config_obj
+                },False)
+        return shell
+    
+
     # =====================================================
-    # P12 BUILD METHODS
+    #  BUILD METHODS
     # =====================================================
     
     def request_p12_details(self,command_obj):
@@ -590,7 +636,7 @@ class Configurator():
                     [new_config_warning,line_skip,"red"]
                 ])
                 self.preserve_pass = self.c.functions.confirm_action({
-                    "prompt": "Preserve Global p12 details? ",
+                    "prompt": "Preserve global p12 details? ",
                     "yes_no_default": "n",
                     "return_on": "y",
                     "exit_if": False                
@@ -634,9 +680,7 @@ class Configurator():
                     
                 nodeadmin_default = self.sudo_user
                 location_default = f"/home/{self.sudo_user}/tessellation/"
-                p12_default = ""
-            
-            p12_required = False if set_default else True
+                p12_default = f"{self.sudo_user}-node.p12"
             
             questions = {
                 "nodeadmin": {
@@ -652,10 +696,10 @@ class Configurator():
                     "required": False,
                 },
                 "key_name": {
-                    "question": f"  {colored('Enter in your p12 file name: ','cyan')}",
+                    "question": f"  {colored('Enter in your p12 file name:','cyan')}",
                     "description": "This is the name of your p12 private key file.  It should have a '.p12' extension.",
                     "default": p12_default,
-                    "required": p12_required,
+                    "required": False,
                 },
             }
             
@@ -692,9 +736,9 @@ class Configurator():
             p12_pass = {"passphrase": "None", "pass2": "None"}
 
             if self.keep_pass_visible:
-                single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the passphrase for this profile","cyan")}'
+                single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the passphrase for this profile?","cyan")}'
                 if ptype == "global":
-                    single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the global passphrase","cyan")}'
+                    single_visible_str = f'{colored("Would you like to","cyan")} {colored("hide","yellow",attrs=["bold"])} {colored("the global passphrase?","cyan")}'
                 if not self.c.functions.confirm_action({
                     "prompt": single_visible_str,
                     "yes_no_default": "n",
@@ -881,6 +925,16 @@ class Configurator():
         self.preserve_pass = True  
     
     
+    def passphrase_quote_test(self,pass_line):
+        if "passphrase:" not in pass_line: return pass_line
+        if "None" in pass_line: return pass_line
+        pass_line = pass_line.split(":")
+        pass_line[1] = pass_line[1].replace("\n","").strip() # remove "\n" and spaces
+        if pass_line[1].startswith("'") and pass_line[1].endswith("'"): return
+        pass_line[1] = f"'{pass_line[1]}'\n"
+        return f"{pass_line[0]}: {pass_line[1]}"
+
+
     def apply_vars_to_config(self):
         ignore_list = []
         search_dup_only = False
@@ -890,6 +944,7 @@ class Configurator():
                 search_dup_only = True
             for p_key, p_value in values.items():
                     replace_line = f"    {p_key}: {p_value}\n"
+                    replace_line = self.passphrase_quote_test(replace_line)
                     if search_dup_only: replace_line = False
                     _ , ignore_line = self.c.functions.test_or_replace_line_in_file({
                         "file_path": self.yaml_path,
@@ -904,10 +959,12 @@ class Configurator():
             search_dup_only = False
             if "global" in profile:  # key
                 for item, value in values.items():
+                    replace_line = f"    {item}: {value}\n"
+                    replace_line = self.passphrase_quote_test(replace_line)                    
                     self.c.functions.test_or_replace_line_in_file({
                         "file_path": self.yaml_path,
                         "search_line": f"    {item}:",
-                        "replace_line": f"    {item}: {value}\n",
+                        "replace_line": replace_line,
                         "skip_backup": True,
                     })
                     
@@ -969,7 +1026,63 @@ class Configurator():
                 "newline": True,
             })
         
-                        
+
+    def build_dir_structure(self):
+        self.log.logger.info("configurator -> build_dir_structure -> dynamic elements")
+
+        self.c.functions.print_header_title({
+            "line1": "SETUP DIRECTORIES",
+            "single_line": True,
+            "newline": "both"
+        })
+
+        def progress(text,end):
+            color = "green" if end else "yellow"
+            status = "complete" if end else "building"
+            
+            self.c.functions.print_cmd_status({
+                "text_start": text,
+                "status": status,
+                "status_color": color,
+                "newline": end,
+                "delay": .1,
+            })  
+        
+        self.log.logger.info("configurator -> build_dir_structure -> creating directory structure data, backups, and uploads") 
+
+        m_progress = {
+            "text_start": "Creating",
+            "brackets": "Node",
+            "text_end": "directories",
+            "status": "running",
+            "newline": True
+        }
+        self.c.functions.print_cmd_status(m_progress)
+        
+        dir_obj = {
+            "tessellation": "/var/tessellation/",
+            "nodectl": self.c.functions.nodectl_path,
+        }
+        for profile in self.metagraph_list:
+            dir_obj[f"{profile}_backups"] = self.config_obj[profile]["directory_backups"]
+            dir_obj[f"{profile}_uploads"] = self.config_obj[profile]["directory_uploads"]
+            if self.config_obj[profile]["layer"] < 1:
+                dir_obj[f"{profile}_data_layer0"] = f"/var/tessellation/{profile}/data/snapshot"
+            else:
+                dir_obj[f"{profile}_data_layer1"] = f"/var/tessellation/{profile}/"
+
+        for ux, dir in dir_obj.items():
+            progress(ux,False)
+            if not path.isdir(dir): makedirs(dir)
+            progress(ux,True)
+            
+        self.c.functions.print_cmd_status({
+            **m_progress,
+            "status": "complete",
+            "status_color": "green"
+        })
+     
+
     # =====================================================
     # MANUAL BUILD METHODS
     # =====================================================
@@ -1412,8 +1525,8 @@ class Configurator():
         
         description = "The distributed ledger technology 'DLT' generally called the blockchain "
         description += "($DAG Constellation Network uses directed acyclic graph 'DAG') is designed by layer type. This needs to be a valid "
-        description += "integer (number) between 0 and 4, for the 5 available layers. Constellation Network or Metagraph clusters are generally always layer 0 or 1. "
-        description += "Hypergraph/Metagraph Layer 0 can be referred to as ML0, Hypergraph/Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description += "integer (number) between 0 and 4, for the 5 available layers. Constellation Network or metagraph clusters are generally always layer 0 or 1. "
+        description += "Hypergraph/metagraph Layer 0 can be referred to as ML0, Hypergraph/metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0.  ML0 and ML1 should link to GL0.  ML1 should link to ML0. "
         description += "See the linking section for link options and details."
         
@@ -1472,11 +1585,11 @@ class Configurator():
         
         self.manual_section_header(profile,"ENVIRONMENT")  
           
-        description = "Hypergraph/Metagraph Layer 0 can be referred to as ML0, Hypergraph/Metagraph Layer1 can be referred to as ML1 and the Constellation "
+        description = "Hypergraph/metagraph Layer 0 can be referred to as ML0, Hypergraph/metagraph Layer1 can be referred to as ML1 and the Constellation "
         description += "Network Global Layer0 Hypergraph can be referred to as GL0. "
         description += "This networks require an environment identifier used internally; by the network, to define certain " 
-        description += "operational variables. Depending on the Metagraph, this is used to define " 
-        description += "customized elements within the Metagraph. You should obtain this information " 
+        description += "operational variables. Depending on the metagraph, this is used to define " 
+        description += "customized elements within the metagraph. You should obtain this information " 
         description += "from the Administrators of this network. "
                 
         questions = {
@@ -1604,9 +1717,9 @@ class Configurator():
         layer_types = ["gl0","ml0"]
         
         def print_header():
-            link_description = "Generally, a Hypergraph/Metagraph Layer0 (ML0) and/or Hypergraph/Metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
+            link_description = "Generally, a Hypergraph/metagraph Layer0 (ML0) and/or Hypergraph/metagraph Layer1 (ML1) will be required to link to the Hypergraph Global Layer0 "
             link_description += "(GL0) network to transmit consensus information between the local Node and the Validator Nodes on the Layer0 network. "
-            link_description += "The Node Operator should consult with your Constellation Network or Metagraph Administrators for further details. "
+            link_description += "The Node Operator should consult with your Constellation Network or metagraph Administrators for further details. "
             link_description += "Also, a ML1 will be required to link to the ML0 thereby creating to separate links. "
             link_description += "IMPORTANT: If you plan to use the recommended process of linking to ML1 to GL0, ML1 to ML0, and/or ML0 to GL0 "
             link_description += "through another profile residing on this Node, it is required to answer \"yes\" to the link to self question, "
@@ -1827,10 +1940,10 @@ class Configurator():
         self.manual_section_header(profile,"TOKEN IDENTIFIER")
         print("")
         
-        description = "When working within a Metagraph, you will need to define the Metagraph's ID "
-        description += "this ID will identify the Metagraph that you are connecting to via an identifier that "
+        description = "When working within a metagraph, you will need to define the metagraph's ID "
+        description += "this ID will identify the metagraph that you are connecting to via an identifier that "
         description += "resembles a DAG wallet address; however, it is a not a wallet address. "
-        description += "You should obtain this identifier from the Metagraph administration.  It should normally be "
+        description += "You should obtain this identifier from the metagraph administration.  It should normally be "
         description += "supplied with a pre-defined configuration.  Constellation Network MainNet, TestNet, and IntegrationNet "
         description += "should have this key pair value set to 'disable'. "
         description += "If the 'token_identifier' is set to 'global', the global 'metagraph_token_identifier' will be used. "
@@ -1859,7 +1972,7 @@ class Configurator():
             questions = {
                 f"{key_name}": {
                     "question": question,
-                    "description": "Metagraph token Identifier",
+                    "description": "metagraph token Identifier",
                     "default": default,
                     "required": False,
                 },
@@ -1893,7 +2006,7 @@ class Configurator():
         self.manual_section_header(profile,"TOKEN COMPANY SPECIFIER ID")
         print("")
         
-        description = "The Metagraph you are working with may have a dedicated token specific to that Metagraph. "
+        description = "The metagraph you are working with may have a dedicated token specific to that metagraph. "
         description += "If the token is recognized by CoinGecko it will be displayed when issuing the 'dag','price', or 'market' commands. "
         description += "If the token is NOT recognized by CoinGecko, you should enter 'constellation-labs' or 'default'. "
         description += "This will set nodectl to 'constellation-labs' and display '$DAG' when appropriate. "
@@ -1902,7 +2015,7 @@ class Configurator():
         description += "list until you find your 'Coin' and click on it.  On the LEFT side of the details for your 'Coin' you will see 'API ID'. Enter that "
         description += "value here, when requested."
         
-        description2 = "Handle Hypergraph/Metagraph cryptocurrency token symbol identification."
+        description2 = "Handle Hypergraph/metagraph cryptocurrency token symbol identification."
 
         if self.detailed:
             self.c.functions.print_paragraphs([
@@ -1960,6 +2073,251 @@ class Configurator():
             "defaults": defaults,
             "is_global": True if profile == "global_elements" else False
         })
+        
+        
+    def manual_setup_alerting(self,profile="Global"):
+
+        self.header_title = {
+            "line1": "SETUP ALERTING",
+            "line2": "Online Alerting",
+            "show_titles": False,
+            "clear": True,
+            "newline": "both",
+        }
+
+        defaults, questions, manual = False, False, False
+        do_edit = True
+        
+        self.manual_section_header(profile,"ALERTING SETUP")
+
+        if self.detailed:
+            self.c.functions.print_paragraphs([
+                ["",1],["Setting up OR enabling alerting on your node provides added confidence that your node is properly",0,"white","bold"],
+                ["connected to the clusters. It is important to note that alerting is done directly from the node and",0,"white","bold"],
+                ["connected to the clusters. It is important to note that alerting is done directly from the node.",2,"white","bold"],
+                ["ALERTING WILL NOT DETECT IF YOUR NODE IS DISCONNECTED FROM THE INTERNET.",2,"red","bold"],
+                ["The alerting only detects cluster-related outages.",2,"white","bold"],
+                ["Additionally, the alerting module offers daily reports that provide a simple overview of your node's",0,"white","bold"],
+                ["status, delivered at a time you choose according to the setup configuration.",2,"white","bold"],
+            ])
+
+        if not self.alerting_config:
+            self.c.functions.print_paragraphs([
+                [" New Configuration Detected! ",1,"green,on_yellow"],
+                ["Or invalid configuration detected that will be overwritten.",2,"red"],
+                ["STEP ONE",1,"magenta","bold"], ["-","half","magenta"],["Please refer to the",0,"white","bold"],["Constellation Network",0,"blue","bold"],
+                ["documentation hub to follow the quick start guide to prepare your:",1,"white","bold"],
+                ["  - gmail account",1,"yellow"],
+                ["  - gmail Pass token",1,"yellow"],
+                ["  - proper timezone identification identifier",2,"yellow"],
+                ["https://docs.constellationnetwork.io/validate/quick-start/alerting-quickstart",2,"blue","bold"],
+                ["Save these values to your notes and then return to this process upon completion.",2,"white","bold"],
+            ])
+            self.c.functions.print_any_key({})
+            default_recipients = ""
+            alert_list = [
+                "gmail","token","send_method","gmail","token","recipients",
+                "local_time_zone","begin_alert_utc","end_alert_utc","report_hour_utc"
+            ]
+            self.alerting_config = {item: False for item in alert_list}
+            self.alerting_config["enable"] = "True"
+        else:
+            self.c.functions.print_paragraphs([
+                ["Alerting was detected as:",0],[f"{self.alerting_config['enable']}",1,"yellow"],
+            ])
+            if self.alerting_config["enable"]:
+                if self.c.functions.confirm_action({
+                    "prompt": "Disable alerting?",
+                    "yes_no_default": "n",
+                    "return_on": "y",
+                    "exit_if": False
+                }):
+                    self.alerting_config["enable"] = False
+            else:
+                if self.c.functions.confirm_action({
+                    "prompt": "Enable alerting?",
+                    "yes_no_default": "y",
+                    "return_on": "y",
+                    "exit_if": False
+                }):
+                    self.alerting_config["enable"] = True
+                if self.c.functions.confirm_action({
+                    "prompt": "Update configuration?",
+                    "yes_no_default": "n",
+                    "return_on": "n",
+                    "exit_if": False
+                }):
+                    do_edit = False
+
+            default_recipients = ""
+            for r in self.alerting_config["recipients"]:
+                default_recipients = default_recipients+","+r
+            default_recipients = default_recipients[1:]
+            default_recipients = default_recipients.replace(" ","")
+
+        description0 = "This is the gmail account that you setup with the App password and created for your App password token through."
+        description1 = "This is the App password token you created during the initial gmail account setup."
+        description2 = "'multi' (recommended) send strategy will send a single email per email address.  The 'single' send strategy will "
+        description2 += "Send a single message to all emails in the same message."
+        description3 = "What email addresses do you want the alerts and daily report sent to?  If you have multiple emails that will "
+        description3 += "receiving messages from the alerting module such as a mobile provider email and a local email, you must separate "
+        description3 += "each email by a comma. example) 'email1@gmail.com,email2@yahoo.com'."
+        description4 = "In order to make your alerts more reader friendly, nodectl will convert the default UTC time utilized by the node "
+        description4 += "into your local time zone for you. You should have retrieved this string value from the quick start guide on "
+        description4 += "Constellation Network's documentation hub: https://docs.constellationnetwork.io/validate/quick-start/alerting-quickstart"
+        description5 = "What hour in UTC 24 hour format, do you want alerting to start.  Enter 0 for always."
+        description6 = "What hour in UTC 24 hour format, do you want alerting to end.  Enter 0 for always."
+        description7 = "What hour in UTC 24 hour format, do you want the daily report to be sent.  Each day, nodectl will send the report "
+        description7 += "only once, as soon as the configured UTC hour is reached."
+
+        if self.alerting_config and self.alerting_config["enable"] and do_edit:
+            questions = {
+                "gmail": {
+                    "question": f"  {colored('Enter a forwarding','cyan')} {colored('gmail','yellow')} {colored('account','cyan')}",
+                    "description": description0,
+                    "required": False,
+                    "default": self.alerting_config["gmail"] if self.alerting_config["gmail"] else ""
+                },
+                "token": {
+                    "question": f"  {colored('Enter your gmail','cyan')} {colored('token','yellow')} {colored('App password','cyan')}",
+                    "description": description1,
+                    "required": False,
+                    "default": self.alerting_config["token"] if self.alerting_config["token"] else ""
+                },
+                "send_method": {
+                    "question": f"  {colored('Enter desired','cyan')} {colored('send','yellow')} {colored('method','cyan')}",
+                    "description": description2,
+                    "required": False,
+                    "default": self.alerting_config["send_method"] if self.alerting_config["token"] else "multi"
+                },
+                "recipients": {
+                    "question": f"  {colored('Enter','cyan')} {colored('ALL','yellow')} {colored('recipient emails separated by commas','cyan')}",
+                    "description": description3,
+                    "required": False,
+                    "default": default_recipients
+                },
+                "local_time_zone": {
+                    "question": f"  {colored('Enter your local','cyan')} {colored('timezone','yellow')} {colored('identifier','cyan')}",
+                    "description": description4,
+                    "required": False,
+                    "default": self.alerting_config["local_time_zone"] if self.alerting_config["local_time_zone"] else "UTC"
+                },
+                "begin_alert_utc": {
+                    "question": f"  {colored('What 24 hour format do you want alerts to','cyan')} {colored('begin','yellow')} {colored('alerting','cyan')}",
+                    "description": description5,
+                    "required": False,
+                    "default": self.alerting_config["begin_alert_utc"] if self.alerting_config["begin_alert_utc"] else 0
+                },
+                "end_alert_utc": {
+                    "question": f"  {colored('What 24 hour format do you want alerts to','cyan')} {colored('end','yellow')} {colored('alerting','cyan')}",
+                    "description": description6,
+                    "required": False,
+                    "default": self.alerting_config["end_alert_utc"] if self.alerting_config["end_alert_utc"] else 0
+                },
+                "report_hour_utc": {
+                    "question": f"  {colored('What 24 hour format hour would you like your daily','cyan')} {colored('report','yellow')} {colored('sent','cyan')}",
+                    "description": description7,
+                    "required": False,
+                    "default": self.alerting_config["report_hour_utc"] if self.alerting_config["report_hour_utc"] else 18
+                },
+            }    
+
+            self.manual_append_build_apply({
+                "questions": questions, 
+                "profile": profile,
+                "defaults": defaults,
+                "is_global": True,
+                "apply": False  # don't apply this will be done later
+            })
+            data = deepcopy(self.config_obj_apply["Global"])
+        else:
+            data = deepcopy(self.alerting_config)
+                
+        if self.alerting_config["enable"]: data["enable"] = "False" # opposite
+        else: data["enable"] = "True"
+
+        if not self.node_service:
+            self.prepare_node_service_obj()
+        alerting_file = self.node_service.create_files({
+            "file": "alerting",
+        })
+
+        alerting_file = alerting_file.replace(f"enable: {data['enable']}", f"enable: {self.alerting_config['enable']}")
+        alerting_file = alerting_file.replace("nodegarageemail",data["gmail"])
+        alerting_file = alerting_file.replace("nodegaragegmailtoken",f"{data['token']}")
+        alerting_file = alerting_file.replace("nodegaragemethod",data["send_method"])
+        alerting_file = alerting_file.replace("nodegaragebegin",str(data["begin_alert_utc"]))
+        alerting_file = alerting_file.replace("nodegarageend",str(data["end_alert_utc"]))
+        alerting_file = alerting_file.replace("nodegaragereport",str(data["report_hour_utc"]))
+        alerting_file = alerting_file.replace("nodeagaragelocaltimezone",data["local_time_zone"])
+
+        if isinstance(data["recipients"],str):
+            emails = data["recipients"].split(",")
+        else:
+            emails = data["recipients"]
+
+        invalid = []
+        recipient_values = ""
+        for email in emails:
+            recipient_values += f"    - \'{email}\'\n"
+            if not isinstance(email,str) or "@" not in email:
+                invalid.append(f"{email}: invalid source gmail address format detected..")
+
+        # validate requirements before continuing
+        for key,value in data.items():
+            if key == "enable":
+                if value != "True" and value != "False":
+                    invalid.append("enable is not 'True' or 'False'.")
+            if key == "gmail":
+                if not isinstance(value,str) or "@" not in value:
+                    invalid.append(f"{value}: invalid source gmail address format detected.")
+            if key == "send_method":
+                if value != "multi" and value != "single":
+                    invalid.append(f"send_method: {value}': must be 'multi' or 'single' only.")
+            if key in ["begin_alert_utc","end_alert_utc","report_hour_utc"]:
+                try:
+                    i_value = int(value)
+                    if i_value < 0 or i_value > 24:
+                        raise
+                except:
+                    invalid.append(f"{key} is not a valid integer between 0 and 24")
+
+        if len(invalid) > 0:
+            cprint("  ERRORS DETECTED","red",attrs=["bold"])
+            cprint("  ---------------","red",attrs=["bold"])
+            for error in invalid:
+                cprint(f"  {error}","red")
+            cprint("\n  ABORTING CONFIGURATION CHANGES\n","red",attrs=["bold"])
+            self.c.functions.print_any_key({})
+            return
+        
+        if not path.exists(self.c.functions.default_includes_path):
+            makedirs(self.c.functions.default_includes_path)
+
+        final_alerting_file = ""
+        for line in alerting_file.split("\n"):
+            if "    - \'" not in line: 
+                final_alerting_file += line+"\n"
+            else: 
+                final_alerting_file += recipient_values
+
+        with open(f"{self.c.functions.default_includes_path}alerting.yaml","w") as file:
+            file.write(final_alerting_file)
+
+        print("")
+        self.c.functions.print_cmd_status({
+            "text_start": "Alerting configuration built",
+            "status": "complete",
+            "newline": True,
+        })
+
+        shell = self.build_shell_obj()
+        shell.profile_names = self.metagraph_list
+        shell.auto_restart_handler("enable")
+        self.c.functions.print_paragraphs([
+            ["",1],["auto_restart service restarted to enable or disable alerting.",1],
+        ])
+        self.c.functions.print_any_key({})
 
   
     def manual_build_dirs(self,profile=False):   
@@ -2027,7 +2385,7 @@ class Configurator():
             "defaults": defaults,
             "apply": False  # don't apply this will be done later
         })
- 
+
  
     def manual_build_file_repo(self, file_repo_type, profile=False): 
         if file_repo_type == "pro_rating" and self.c.config_obj[profile]["layer"] > 0:
@@ -2373,6 +2731,14 @@ class Configurator():
         questions = command_obj["questions"]
         confirm = command_obj.get("confirm",True)
         
+        if self.scenario:
+            self.c.functions.print_paragraphs([
+                ["",1],[" WARNING ",0,"yellow,on_red"], ["Depending on the reason you reached this section",0],
+                ["the default options in",0], ["yellow",0,"yellow"], ["are",0],["suggestions only.",2,"green","bold"],
+                ["Please enter the values that best meet your p12 keystore setup.",1,"red","bold"],
+                ["-","half"],
+            ])
+
         alternative_confirm_keys = questions.get("alt_confirm_dict",{})
         if len(alternative_confirm_keys) > 0:
             alternative_confirm_keys = questions.pop("alt_confirm_dict")
@@ -2396,6 +2762,7 @@ class Configurator():
                         self.c.functions.print_paragraphs([[description,2,"white","bold"]])
                     if v_type == "pass":
                         input_value = getpass(question)
+                        input_value = f"{input_value}"
                     else:
                         input_value = input(question)
                         if v_type == "bool":
@@ -2460,12 +2827,15 @@ class Configurator():
     def edit_config(self):
         # self.action = "edit"
         return_option = "init"
-        
+        option = "init"
+
         while True:
             self.prepare_configuration("edit_config",True)
             self.metagraph_list = self.c.metagraph_list
             
-            if self.action == "edit_profile" or self.action == "edit_change_profile":
+            if return_option == "m":
+                option = "m"
+            elif self.action == "edit_profile" or self.action == "edit_change_profile" or option == "e":
                 option = "e"
             elif self.action == "dev_mode" or self.action == "includes_section":
                 option = "de"
@@ -2495,7 +2865,7 @@ class Configurator():
                 })
 
                 # options = ["E","A","G","R","L","M","Q"]
-                options = ["E","G","R","L","P","M","Q","T","I"]
+                options = ["E","G","R","L","P","M","N","Q","T","I"]
                 if return_option.upper() not in options:
                     self.c.functions.print_paragraphs([
                         ["E",-1,"magenta","bold"], [")",-1,"magenta"], ["E",0,"magenta","underline"], ["dit Individual Profile Sections",-1,"magenta"], ["",1],
@@ -2506,6 +2876,7 @@ class Configurator():
                         ["R",-1,"magenta","bold"], [")",-1,"magenta"], ["Auto",0,"magenta"], ["R",0,"magenta","underline"], ["estart Configuration",-1,"magenta"], ["",1],
                         ["L",-1,"magenta","bold"], [")",-1,"magenta"], ["Set",0,"magenta"],["L",0,"magenta","underline"], ["og Level",-1,"magenta"], ["",1],
                         ["P",-1,"magenta","bold"], [")",-1,"magenta"], ["P",0,"magenta","underline"], ["assphrase Encryption",-1,"magenta"], ["",1],
+                        ["N",-1,"magenta","bold"], [")",-1,"magenta"], ["Setup Alerti",0,"magenta"], ["n",-1,"magenta","underline"],["g",-1,"magenta"],["",1],
                         ["M",-1,"magenta","bold"], [")",-1,"magenta"], ["M",0,"magenta","underline"], ["ain Menu",-1,"magenta"], ["",1],
                         ["Q",-1,"magenta","bold"], [")",-1,"magenta"], ["Q",0,"magenta","underline"], ["uit",-1,"magenta"], ["",2],
                     ])
@@ -2551,10 +2922,13 @@ class Configurator():
             elif option == "l": self.manual_log_level()
             elif option == "i": self.manual_define_token_identifier("global_elements")
             elif option == "t": self.manual_define_token_coin("global_elements")
+            elif option == "n": self.manual_setup_alerting()
             elif option == "m":
                 self.action = False
                 self.setup()
-            if option == "q": self.quit_configurator()
+            if option == "q" or self.quit_mobile or (self.mobile and (return_option != "pe" and return_option != "m")):
+                self.quit_configurator()
+                return # if mobile this will 
 
                 
     def edit_profiles(self):
@@ -2593,8 +2967,10 @@ class Configurator():
         if choice == "r": 
             self.action = "edit"
             self.edit_config()
-        if choice == "q": 
+        if choice == "q" or self.quit_mobile: 
             self.quit_configurator()
+            if self.mobile: 
+                return "qp"
             
         self.profile_to_edit = choice
         return choice
@@ -2621,8 +2997,10 @@ class Configurator():
                 self.profile_to_edit = profile
             else:
                 profile = self.edit_profiles()
-            
-                         
+
+        if self.mobile and profile == "qp":
+            return "pe"
+               
         section_change_names = [
             ("System Service",4),
             ("Directory Structure",5),
@@ -2700,13 +3078,15 @@ class Configurator():
             option_list.extend(options2)
             
             prompt = colored("  Enter an option: ","magenta",attrs=["bold"])
-            option = input(prompt)
+            option = input(prompt).lower()
         
             if option == "m": 
                 self.action = "edit"
                 return "m"
             elif option == "p": 
                 self.action = "edit_profile"
+                if self.mobile: 
+                    return "pe"
                 return "e"
             elif option == "h": 
                 self.move_config_backups()
@@ -2714,7 +3094,9 @@ class Configurator():
                 self.c.functions.config_obj["global_elements"]["metagraph_name"] = "None"
                 self.c.functions.profile_names = self.metagraph_list
                 self.c.functions.check_for_help(["help"],"configure")
-            elif option == "q": self.quit_configurator()
+            elif option == "q": 
+                self.quit_configurator()
+                if self.mobile: return
             elif option == "r":
                 self.c.view_yaml_config("migrate")
                 print_config_section()
@@ -2984,16 +3366,7 @@ class Configurator():
                     restart_error = True
 
             if not restart_error:
-                try:
-                    shell = ShellHandler({
-                        "config_obj": self.c.config_obj
-                        },False)
-                except:
-                    from ..shell_handler import ShellHandler
-                    shell = ShellHandler({
-                        "config_obj": self.c.config_obj
-                        },False)
-
+                shell = self.build_shell_obj()
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 # auto restart
@@ -3392,16 +3765,7 @@ class Configurator():
             })
             
             if self.c.config_obj["global_auto_restart"]["auto_restart"] == True:
-                try:
-                    shell = ShellHandler({
-                        "config_obj": self.c.config_obj
-                        },False)
-                except:
-                    from ..shell_handler import ShellHandler
-                    shell = ShellHandler({
-                        "config_obj": self.c.config_obj
-                        },False)
-
+                shell = self.build_shell_obj()
                 shell.argv = []
                 shell.profile_names = self.metagraph_list
                 self.c.functions.print_cmd_status({
@@ -3453,6 +3817,7 @@ class Configurator():
         try:
             enc_pass = self.c.config_obj[profile][pass_key].strip()
             enc_pass = str(enc_pass) # required if passphrase is enclosed in quotes
+            enc_pass = f"{enc_pass}"
         except:
             self.log.logger.error("Unable to find passphrase in configuration file.")
             pass_error = True
@@ -3486,10 +3851,10 @@ class Configurator():
                 pass1 = getpass(f"  p12 passphrase: ")
                 pass1 = self.c.p12.keyphrase_validate({
                     "profile": "global" if profile == "global_p12" else profile,
-                    "passwd": pass1,
+                    "passwd": f"{pass1}",
                     "operation": "encryption",
                 })
-                pass3 = pass1.strip()
+                pass3 = f"{pass1.strip()}"
         
         if not self.quick_install and first_run:
             print("")
@@ -3511,7 +3876,7 @@ class Configurator():
             })    
 
         try:
-            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": pass3, "salt2": default_seed})
+            hashed, enc_key = self.c.functions.get_persist_hash({"pass1": f"{pass3}", "salt2": default_seed})
             if not hashed: raise Exception("hashing issue")
             if not enc_key: raise Exception("encryption generation issue")
         except Exception as e:
@@ -3556,7 +3921,7 @@ class Configurator():
 
         fe = fe.strip()
 
-        return fe, pass3
+        return fe, f"{pass3}"
 
 
     def passphrase_enable_disable_encryption(self,caller):
@@ -3568,7 +3933,7 @@ class Configurator():
         enable = False if self.c.config_obj["global_p12"]["encryption"] else True
 
         if self.action == "install" and not enable:
-            self.log.logger.warn("configurator -> During install or upgrade -> encryption found enabled already.")
+            self.log.logger.warning("configurator -> During install or upgrade -> encryption found enabled already.")
             return
         
         efp = "/etc/security/"
@@ -3633,7 +3998,7 @@ class Configurator():
             if not efp_error: 
                 try: remove(effp)  
                 except:
-                    self.log.logger.warn("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
+                    self.log.logger.warning("configurator -> encryption service -> unable to remove an existing encryption key file -> this error can be safely ignored.")
             if efp_error:
                 self.log.logger.error("configurator -> encryption service -> unable to find necessary file system distribution file security. Is this a Debian OS?")
                 self.error_messages.error_code_messages({
@@ -3648,6 +4013,7 @@ class Configurator():
                 for n in range(0,3):
                     fe, pass3 = self.perform_encryption(profile,encryption_obj,effp,pass3,caller)
                     if fe == "skip": break
+                    pass3 = f"{pass3}"
 
                     sleep(.8)
                     test_p = self.c.functions.get_persist_hash({
@@ -3660,7 +4026,7 @@ class Configurator():
                     else:
                         if not self.quick_install:
                             cprint("\n  please wait...","magenta")
-                            self.log.logger.warn(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
+                            self.log.logger.warning(f"configurator -> encryption service -> encryption did not complete successfully, trying again [{n+1}] of [3]")
 
                 if fe == "skip": continue
 
@@ -3674,7 +4040,6 @@ class Configurator():
                             ["unable to be verified. The encryption operation was cancelled to avoid disabling nodectl's ability to validate the",0,"red"],
                             ["p12 file on this Node. You can try again or change your p12 passphrase. The passphrase should not contain:",1,"red"],
                             ["  - spaces",1,"yellow"],
-                            ["  - $ (dollar signs)",1,"yellow"],
                             ["  - single or double quotes",1,"yellow"],
                             ["  - section signs",2,"yellow"],
                             ["sudo nodectl passwd12",2],
@@ -3693,14 +4058,14 @@ class Configurator():
                         **self.config_obj_apply,
                         f"{profile}": {
                             "encryption": "True",
-                            "passphrase": fe,
+                            "passphrase": f"{fe}",
                         }
                     } 
                 else:
                     self.config_obj_apply = {
                         **self.config_obj_apply,
                         f"{profile}": {
-                            "p12_passphrase": fe,
+                            "p12_passphrase": f"{fe}",
                         }
                     } 
                 if not self.quick_install:
@@ -3724,7 +4089,7 @@ class Configurator():
                     [f"Please reset specific",0,"red"], ["dedicated profile",0,"yellow"], 
                     ["passphrases via the configurator to",0,"red"],
                     ["resume nodectl's ability to automate processes that require the",0,"red"],
-                    ["p12",0,"yellow"], ["key store elements to function.",2,"red"],
+                    ["p12",0,"yellow"], ["keystore elements to function.",2,"red"],
 
                     ["Alternatively, you can resume using",0,"red"],
                     ["--pass <passphrase>",0], ["at the command prompt.",2,"red"],
@@ -4010,7 +4375,7 @@ class Configurator():
                     ["Profile Directories Found",2,"blue","bold"]
                 ])
                 if stype == "profiles": 
-                    _ = self.functions.process_command({
+                    _ = self.c.functions.process_command({
                         "bashCommand": "sudo tree /var/tessellation/ -I 'data|logs|nodectl|backups|uploads|*.jar|*seedlist'",
                         "proc_action": "subprocess_run_check_only",
                     })
@@ -4019,7 +4384,7 @@ class Configurator():
                 
                 
     def cleanup_old_profiles(self):
-        cleanup = False
+        cleanup = True
         clean_up_old_list = []
         self.log.logger.info("configurator is verifying old profile cleanup.")
         
@@ -4031,23 +4396,42 @@ class Configurator():
 
         if self.print_old_file_warning("profiles"): return
                 
-        for old_profile in self.old_last_cnconfig.keys():
-            if old_profile not in self.config_obj.keys():
-                cleanup = True
-                clean_up_old_list.append(old_profile)
-                self.log.logger.warn(f"configuration found abandoned profile [{old_profile}]")
+        # for old_profile in self.old_last_cnconfig.keys():
+        #     if old_profile not in self.config_obj.keys():
+        #         cleanup = True
+        #         clean_up_old_list.append(old_profile)
+        #         self.log.logger.warning(f"configuration found abandoned profile [{old_profile}]")
         
-        for old_profile in clean_up_old_list:
-            self.c.functions.print_cmd_status({
-                "text_start": "Abandoned",
-                "brackets": old_profile,
-                "text_end": "profile",
-                "status": "found",
-                "color": "red",
-                "newline": True,
-            })
+        # for old_profile in clean_up_old_list:
+        #     self.c.functions.print_cmd_status({
+        #         "text_start": "Abandoned",
+        #         "brackets": old_profile,
+        #         "text_end": "profile",
+        #         "status": "found",
+        #         "color": "red",
+        #         "newline": True,
+        #     })
+
+        old_profiles = list(self.old_last_cnconfig.keys())
+        old_profiles = self.c.functions.clear_global_profiles(old_profiles)
+        try:
+            for old_profile in old_profiles:
+                self.log.logger.warning(f"configuration found possible abandoned profile [{old_profile}]")
+                self.c.functions.print_cmd_status({
+                    "text_start": "Abandoned",
+                    "brackets": old_profile,
+                    "text_end": "profile",
+                    "status": "found",
+                    "color": "red",
+                    "newline": True,
+                })
+        except:
+            cleanup = False
             
         if cleanup:
+            clean_action = "complete"
+            clean_color = "green"
+
             self.c.functions.print_paragraphs([
                 ["It is recommended to clean up old profiles to:",1,"magenta"],
                 ["  - Avoid conflicts",1],
@@ -4062,20 +4446,34 @@ class Configurator():
             })   
             if not self.clean_profiles: self.skip_clean_profiles_manual = True 
             if self.clean_profiles:
-                for profile in clean_up_old_list:
-                    _ = self.c.functions.process_command({
-                        "bashCommand": f"sudo rm -rf /var/tessellation/{profile}",
-                        "proc_action": "subprocess_devnull",
-                    })
-                    self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
+                for profile in old_profiles:
+                    with ThreadPoolExecutor() as executor:
+                        if path.exists(f"/var/tessellation/{profile}"): 
+                            self.c.functions.event = True
+                            _ = executor.submit(self.c.functions.print_spinner,{
+                                "msg": f"removing abandon profile: {profile} ",
+                                "color": "magenta",
+                                }) 
+                            rmtree(f"/var/tessellation/{profile}")
+                            self.c.functions.event = False
+                            self.log.logger.info(f"configuration removed abandoned profile [{profile}]")      
+                        else:
+                            self.log.logger.warning(f"configuration attempted to remove abandoned profile [{profile}] but not found, skipping")   
+                            clean_action = "skipped"
+                            clean_color = "yellow"   
+
                     self.c.functions.print_cmd_status({
                         "text_start": "Removed",
                         "brackets": profile,
                         "text_end": "profile",
-                        "status": "complete",
-                        "color": "green",
+                        "status": clean_action,
+                        "color": clean_color,
                         "newline": True,
                     })
+            else:
+                self.c.functions.print_paragraphs([
+                    ["Skipping profile data cleanup.",1,"magenta","bold"],
+                ])
         else:  
             self.c.functions.print_paragraphs([
                 ["No old profiles were identified.",1,"green","bold"],
@@ -4111,13 +4509,36 @@ class Configurator():
             })
             return
         
-        for old_profile in self.old_last_cnconfig.keys():
-            if old_profile not in self.config_obj.keys():
-                if "global" not in old_profile:
-                    cleanup = True
-                    if self.action == "new" or old_profile == self.profile_to_edit:
-                        clean_up_old_list.append(old_profile)
-                        self.log.logger.warn(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
+        old_profiles = list(self.old_last_cnconfig.keys())
+        old_profiles = self.c.functions.clear_global_profiles(old_profiles)  
+        for old_profile in old_profiles:
+            if old_profile not in self.config_obj.keys() or self.action == "new":
+                cleanup = True
+                if self.action == "new" or old_profile == self.profile_to_edit:
+                    clean_up_old_list.append(old_profile)
+                    self.old_last_cnconfig[old_profile]["service"] = self.c.setup_config_vars({
+                        "key": "default_service",
+                        "graph": self.hypergraph,
+                        "profile": old_profile,
+                        "cleanup": True,
+                        "layer": self.old_last_cnconfig[old_profile]["layer"],
+                        "env": self.old_last_cnconfig[old_profile]["environment"],
+                    })
+                    self.log.logger.warning(f'configuration found abandoned service file for [{old_profile}] name [{self.old_last_cnconfig[old_profile]["service"]}]')
+
+        if not self.config_obj:
+            self.config_obj = deepcopy(self.c.config_obj)
+            self.config_obj["global_elements"] = self.c.yaml_dict["nodectl"]["global_elements"]
+            
+        for profile in self.metagraph_list:
+            self.config_obj[profile]["service"] = self.c.setup_config_vars({
+                "key": "default_service",
+                "graph": self.config_obj["global_elements"]["metagraph_name"],
+                "profile": profile,
+                "cleanup": True,
+                "layer": self.config_obj[profile]["layer"],
+                "env": self.config_obj[profile]["environment"],
+            })            
         
         clean_up_old_list2 = deepcopy(clean_up_old_list)
 
@@ -4212,7 +4633,7 @@ class Configurator():
                 
                 for lookup_path in found_snap_list:
                     if path.isdir(lookup_path) and listdir(lookup_path):
-                        self.log.logger.warn("configurator found snapshots during creation of a new configuration.")
+                        self.log.logger.warning("configurator found snapshots during creation of a new configuration.")
                         found_snap = True
                 
                     if found_snap:
@@ -4493,8 +4914,11 @@ class Configurator():
         if path.isfile(self.yaml_path): 
             if path.isfile(self.yaml_path):
                 remove(self.yaml_path)
-        if requested:
+        if requested and not self.quit_mobile:
             cprint("  Configurator exited upon Node Operator request","green")
+        if self.mobile: 
+            self.quit_mobile = True
+            return
         exit(0)  
         
 
@@ -4621,7 +5045,7 @@ class Configurator():
         if backup_dir == "default": backup_dir = "/var/tessellation/backups/"  
                   
         if backup_dir == "empty":
-            self.log.logger.warn("backup migration skipped.")
+            self.log.logger.warning("backup migration skipped.")
             if self.detailed:
                 self.c.functions.print_paragraphs([
                     ["",1], ["While attempting to migrate backups from a temporary location the Configurator was not able",0,"red"],
