@@ -1,12 +1,12 @@
-import concurrent.futures
 import time
-
+import json
+import math
 from sys import exit
-from datetime import datetime, timedelta
+from datetime import datetime
 from termcolor import colored, cprint
-from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
-from os import geteuid, getgid, environ, system, walk, remove, path, makedirs, sysconf, sysconf_names
-from shutil import copy2, move
+from concurrent.futures import ThreadPoolExecutor
+from os import geteuid, getgid, environ, system, walk, path
+from shutil import copy2
 from types import SimpleNamespace
 from pathlib import Path
 from copy import deepcopy
@@ -20,7 +20,6 @@ from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
 from .config.versioning import Versioning
 from .config.valid_commands import pull_valid_command
-from .alerting import prepare_alert, prepare_report
 
 
 class ShellHandler:
@@ -47,9 +46,13 @@ class ShellHandler:
             except:
                 self.log_key = "main"
 
-        self.functions = Functions(self.config_obj)
+        self.functions = Functions()
+        self.functions.set_parameters()
+        self.functions.set_function_value("config_obj",self.config_obj)
+        self.functions.set_function_value("logs",self.log.logger[self.log_key])
+        
         self.error_messages = Error_codes(self.functions)
-        self.cn_requests = CnRequests(self)
+        self.cn_requests = CnRequests(self,self.log.logger[self.log_key])
         self.error_messages.functions = self.functions
         
         
@@ -103,8 +106,10 @@ class ShellHandler:
                 "profile_names": self.profile_names,
                 "functions": self.functions,
                 "valid_commands": self.valid_commands
-            }   
-            cli = CLI(command_obj)
+            } 
+
+            cli = CLI(self.log.logger[self.log_key])
+            cli.set_parameters(command_obj)
             cli.version_class_obj = self.version_class_obj
 
             try:
@@ -129,47 +134,76 @@ class ShellHandler:
                 
         return cli
     
-         
+    
+    def _get_cli_value(self, name, default=False):
+        return getattr(self, name, default)
+    
+    def _set_cli_value(self, name, value):
+        setattr(self, name, value)
+        
+    def _set_function_value(self, name, value):
+        setattr(self.functions, name, value)
+                     
+                     
     def start_cli(self,argv,cli_iterative=False):
+        from modules.nodectl_router import NodeCtlRouter
+
         self.argv = argv
         self.check_error_argv(argv)
         
-        self.skip_services = True
-        return_value = 0
+        # self.skip_services = True
+        # return_value = 0
 
         self.log.logger[self.log_key].info(f"shell_handler -> start_cli -> obtain ip address: {self.ip_address}")
                 
         # commands that do not need all resources
+
+            
+        router = NodeCtlRouter(
+            self, self._get_cli_value,self._set_cli_value,
+            self._set_function_value,
+        )
+        
+        router.set_parameters()
+        router.set_router_value("called_command",self.called_command)
         while True:
-            if "main_error" in argv:
-                self.functions.auto_restart = False
-                self.log.logger[self.log_key].error(f"invalid command called [{self.called_command}] sending to help file.")
-                self.functions.print_help({
-                    "usage_only": True,
-                    "nodectl_version_only": True,
-                    "hint": "unknown",
-                })
-            version_cmd = ["-v","_v","version"]
-            if argv[1] in version_cmd:
-                self.functions.auto_restart = False
-                self.show_version()
-                exit(0)
+            if router.process_main_error(): exit(0)
+            # if "main_error" in argv:
+            #     self.functions.auto_restart = False
+            #     self.log.logger[self.log_key].error(f"invalid command called [{self.called_command}] sending to help file.")
+            #     self.functions.print_help({
+            #         "usage_only": True,
+            #         "nodectl_version_only": True,
+            #         "hint": "unknown",
+            #     })
+            
+            if router.handle_version(): exit(0)
+            # version_cmd = ["-v","_v","version"]
+            # if argv[1] in version_cmd:
+            #     self.functions.auto_restart = False
+            #     self.show_version()
+            #     exit(0)
 
-            if argv[1] == "verify_specs":
-                self.functions.auto_restart = False
-                self.verify_specs(argv)
-                exit(0)
+            if router.handle_verify_specs(): exit(0)
+            # if argv[1] == "verify_specs":
+            #     self.functions.auto_restart = False
+            #     self.verify_specs(argv)
+            #     exit(0)
 
-            verify_command = ["verify_nodectl","_vn","-vn"]
-            if argv[1] in verify_command:
-                self.functions.auto_restart = False
-                return_caller = self.digital_signature(argv)
-                if return_caller: 
-                    return return_caller
-                exit(0)
-            elif self.called_command == "restore_config":
-                self.restore_config(self.argv)
-                exit(0)
+            return_caller = router.handle_verify_nodectl() 
+            if isinstance(return_caller,bool) and return_caller: exit(0)
+            if return_caller: return return_caller
+            # verify_command = ["verify_nodectl","_vn","-vn"]
+            # if argv[1] in verify_command:
+            #     self.functions.auto_restart = False
+            #     return_caller = self.digital_signature(argv)
+            #     if return_caller: 
+            #         return return_caller
+            #     exit(0)
+            if router.handle_restore_config(): exit(0)
+            # elif self.called_command == "restore_config":
+            #     self.restore_config(self.argv)
+            #     exit(0)
 
             self.check_valid_command()
             self.set_version_obj_class()
@@ -183,23 +217,19 @@ class ShellHandler:
             self.check_diskspace()
             self.check_for_profile_requirements()
 
-            if "all" in self.argv:
-                self.check_all_profile()     
+            router.process_all_profiles()
+            # if "all" in self.argv:
+            #     self.check_all_profile()     
 
-            try:
-                _ = self.cli
-            except:
+            if not hasattr(self, "cli"):
                 self.cli = self.build_cli_obj()
+                router.set_router_value("cli",self.cli)
+            # try:
+            #     _ = self.cli
+            # except:
+            #     self.cli = self.build_cli_obj()
 
-            if self.cli != None and self.cli.invalid_version:
-                self.functions.confirm_action({
-                    "yes_no_default": "NO",
-                    "return_on": "YES",
-                    "strict": True,
-                    "prompt_color": "red",
-                    "prompt": "Are you sure you want to continue?",
-                    "exit_if": True
-                })
+            router.handle_invalid_version()
 
             self.set_node_obj() # needs cli object
             self.cn_requests.set_parameters()
@@ -207,118 +237,125 @@ class ShellHandler:
             if self.cn_requests.get_cache_needed():
                 self.cn_requests.handle_edge_point_cache()
 
-            restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
-            service_change_commands = ["start","stop","leave"]
-            status_commands = ["status","_s","quick_status","_qs","uptime"]
-            node_id_commands = ["id","dag","nodeid"]
-            cv_commands = ["check_versions","_cv"]
-            removed_clear_file_cmds = [
-                "clear_uploads","_cul","_cls","clear_logs",
-                "clear_snapshots","clear_backups",
-                "reset_cache","_rc","clean_snapshots","_cs",
-            ] # only if there is not a replacement command
-            ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
-            config_list = ["view_config","validate_config","_vc", "_val"]
-            clean_files_list = ["clean_files","_cf"]
-            download_commands = ["refresh_binaries","_rtb","update_seedlist","_usl"]
+            # restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
+            # service_change_commands = ["start","stop","leave"]
+            # status_commands = ["status","_s","quick_status","_qs","uptime"]
+            # node_id_commands = ["id","dag","nodeid"]
+            # cv_commands = ["check_versions","_cv"]
+            # removed_clear_file_cmds = [
+            #     "clear_uploads","_cul","_cls","clear_logs",
+            #     "clear_snapshots","clear_backups",
+            #     "reset_cache","_rc","clean_snapshots","_cs",
+            # ] # only if there is not a replacement command
+            # ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
+            # config_list = ["view_config","validate_config","_vc", "_val"]
+            # clean_files_list = ["clean_files","_cf"]
+            # download_commands = ["refresh_binaries","_rtb","update_seedlist","_usl"]
 
-            if self.called_command == "install" and "--quiet" in self.argv:
-                pass
-            elif self.called_command != "service_restart":
-                self.functions.print_clear_line()
+            router.print_ux_clear_line()
+            # if self.called_command == "install" and "--quiet" in self.argv:
+            #     pass
+            # elif self.called_command != "service_restart":
+            #     self.functions.print_clear_line()
             
-            if self.called_command == "console" or self.called_command == "mobile":
-                if self.called_command == "mobile": 
-                    self.mobile, self.cli.mobile = True, True
-                    cli_iterative = self.called_command 
-                self.called_command, self.argv = self.cli.cli_console(self.argv)
-                if self.called_command in ["view_config","verify_nodectl","configure","export_private_key"]:
-                    return ['main.py',self.called_command] + self.argv
-                else:
-                    self.check_auto_restart() # retest if auto_restart needs to be disabled
+            router.handle_console_mobile()
+            # if self.called_command == "console" or self.called_command == "mobile":
+            #     if self.called_command == "mobile": 
+            #         self.mobile, self.cli.mobile = True, True
+            #         cli_iterative = self.called_command 
+            #     self.called_command, self.argv = self.cli.cli_console(self.argv)
+            #     if self.called_command in ["view_config","verify_nodectl","configure","export_private_key"]:
+            #         return ['main.py',self.called_command] + self.argv
+            #     else:
+            #         self.check_auto_restart() # retest if auto_restart needs to be disabled
 
-            if self.called_command in status_commands:
-                self.cli.show_system_status({
-                    "auto_restart_handler": self.auto_restart_handler,
-                    "rebuild": False,
-                    "wait": False,
-                    "called_command": self.called_command,
-                    "argv": self.argv
-                })
-            elif self.called_command in service_change_commands:
-                if not self.help_requested:
-                    try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
-                    except: 
-                        self.log.logger[self.log_key].error("shell_handler -> profile error caught by fnt-998")
-                        exit(0) # profile error caught by fnt-998            
-                    if self.called_command == "start":
-                        self.cli.cli_start({
-                            "argv_list": self.argv,
-                        })
-                    elif self.called_command == "stop":
-                        self.cli.cli_stop({
-                            "show_timer": False,
-                            "spinner": True,
-                            "upgrade_install": False,
-                            "argv_list": self.argv,
-                            "check_for_leave": True,
-                        })
-                    elif self.called_command == "leave":
-                        self.cli.cli_leave({
-                            "secs": 30,
-                            "reboot_flag": False,
-                            "skip_msg": False,
-                            "argv_list": self.argv,
-                            "threaded": True,
-                        })
-                else:  
-                    self.functions.print_help({
-                        "extended": self.called_command,
-                    })     
+            router.handle_status_command()
+            # if self.called_command in status_commands:
+            #     self.cli.show_system_status({
+            #         "auto_restart_handler": self.auto_restart_handler,
+            #         "rebuild": False,
+            #         "wait": False,
+            #         "called_command": self.called_command,
+            #         "argv": self.argv
+            #     })
             
-            elif self.called_command in restart_commands:
-                restart = True
+            router.handle_service_commands()
+            # elif self.called_command in service_change_commands:
+            #     if not self.help_requested:
+            #         try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
+            #         except: 
+            #             self.log.logger[self.log_key].error("shell_handler -> profile error caught by fnt-998")
+            #             exit(0) # profile error caught by fnt-998            
+            #         if self.called_command == "start":
+            #             self.cli.cli_start({
+            #                 "argv_list": self.argv,
+            #             })
+            #         elif self.called_command == "stop":
+            #             self.cli.cli_stop({
+            #                 "show_timer": False,
+            #                 "spinner": True,
+            #                 "upgrade_install": False,
+            #                 "argv_list": self.argv,
+            #                 "check_for_leave": True,
+            #             })
+            #         elif self.called_command == "leave":
+            #             self.cli.cli_leave({
+            #                 "secs": 30,
+            #                 "reboot_flag": False,
+            #                 "skip_msg": False,
+            #                 "argv_list": self.argv,
+            #                 "threaded": True,
+            #             })
+            #     else:  
+            #         self.functions.print_help({
+            #             "extended": self.called_command,
+            #         })     
+
+            router.process_restart_command()
+            # elif self.called_command in restart_commands:
+            #     restart = True
                     
-                if self.called_command in ["restart_only","slow_restart","_sr"]:
-                    if self.called_command == "_sr": 
-                        self.called_command = "slow_restart"
-                    switch = f'--{self.called_command.replace("_","-")}'
-                    self.cli.print_removed({
-                        "command": self.called_command,
-                        "version": "v2.17.1",
-                        "new_command": f"restart {switch}",
-                        "done_exit": True,
-                    })
-                    self.functions.print_help({
-                        "nodectl_version_only": True,
-                        "extended": "restart_only",
-                    })
+            #     if self.called_command in ["restart_only","slow_restart","_sr"]:
+            #         if self.called_command == "_sr": 
+            #             self.called_command = "slow_restart"
+            #         switch = f'--{self.called_command.replace("_","-")}'
+            #         self.cli.print_removed({
+            #             "command": self.called_command,
+            #             "version": "v2.17.1",
+            #             "new_command": f"restart {switch}",
+            #             "done_exit": True,
+            #         })
+            #         self.functions.print_help({
+            #             "nodectl_version_only": True,
+            #             "extended": "restart_only",
+            #         })
                                         
-                if self.called_command == "join":
-                    if "all" in self.argv:
-                        return_value = self.cli.print_removed({
-                            "command": "-p all on join",
-                            "is_new_command": False,
-                            "version": "v2.0.0",
-                            "done_exit": False
-                        })
-                        self.functions.print_help({
-                            "nodectl_version_only": True,
-                            "extended": "join_all",
-                        })
-                    else:
-                        self.cli.cli_join({
-                            "skip_msg": False,
-                            "argv_list": self.argv
-                        })
-                        restart = False
+            #     if self.called_command == "join":
+            #         if "all" in self.argv:
+            #             return_value = self.cli.print_removed({
+            #                 "command": "-p all on join",
+            #                 "is_new_command": False,
+            #                 "version": "v2.0.0",
+            #                 "done_exit": False
+            #             })
+            #             self.functions.print_help({
+            #                 "nodectl_version_only": True,
+            #                 "extended": "join_all",
+            #             })
+            #         else:
+            #             self.cli.cli_join({
+            #                 "skip_msg": False,
+            #                 "argv_list": self.argv
+            #             })
+            #             restart = False
 
-                if restart:
-                    self.cli.cli_restart({
-                        "restart_type": self.called_command,
-                        "argv_list": self.argv
-                    })
-
+            #     if restart:
+            #         self.cli.cli_restart({
+            #             "restart_type": self.called_command,
+            #             "argv_list": self.argv
+            #         })
+            if True:
+                pass
             elif self.called_command == "list":
                 self.cli.show_list(self.argv)  
             elif self.called_command == "delegate":
@@ -923,15 +960,18 @@ class ShellHandler:
             "upgrade","restart","join",
         ]
         if self.called_command in cannot_use_offline:
-            if self.called_command == "upgrade" and "--nodectl-only" in self.argv: return # exception
+            if self.called_command == "upgrade" and "--nodectl-only" in self.argv: 
+                return # exception
             self.config_obj["global_elements"]["use_offline"] = False
 
 
     def check_for_static_peer(self):
         # are we avoiding the load balancer?
         error_found = False
-        static_peer = False if not "--peer" in self.argv else self.argv[self.argv.index("--peer")+1]
-        static_peer_port = False if not "--port" in self.argv else int(self.argv[self.argv.index("--port")+1])
+        # static_peer = False if not "--peer" in self.argv else self.argv[self.argv.index("--peer")+1]
+        static_peer = self.functions.set_argv(self.argv, "--peer", False)
+        # static_peer_port = False if not "--port" in self.argv else int(self.argv[self.argv.index("--port")+1])
+        static_peer_port = self.functions.set_argv(self.argv,"--port", False)
 
         if not static_peer: 
             return
@@ -1013,6 +1053,18 @@ class ShellHandler:
         
     # =============  
 
+    # def handle_invalid_version(self):
+    #     if self.cli != None and self.cli.invalid_version:
+    #         self.functions.confirm_action({
+    #             "yes_no_default": "NO",
+    #             "return_on": "YES",
+    #             "strict": True,
+    #             "prompt_color": "red",
+    #             "prompt": "Are you sure you want to continue?",
+    #             "exit_if": True
+    #         })
+
+            
     def handle_versioning(self):
         if self.called_command == "install": called_cmd = "show_version"
         elif self.called_command in ["version","_v"]: return
@@ -1161,13 +1213,17 @@ class ShellHandler:
         self.profile = self.functions.default_profile  # default to first layer0 found
 
 
-    def show_version(self):
-        self.log.logger[self.log_key].info(f"show version check requested")
-        versioning = Versioning({
+    def build_version_obj(self):
+        return Versioning({
             "config_obj": self.config_obj,
             "print_messages": False,
             "called_cmd": "show_version",
         })
+    
+        
+    def show_version(self):
+        self.log.logger[self.log_key].info(f"show version check requested")
+        versioning = self.build_version_obj()
         version_obj = versioning.version_obj
         self.functions.print_clear_line()
         parts = self.functions.cleaner(version_obj["node_nodectl_version"],"remove_char","v")
@@ -1199,7 +1255,23 @@ class ShellHandler:
         memory = self.functions.get_memory().total
         disk = self.functions.get_disk().total
         specs["cpu_count"] = specs["info"]["count"]
-
+        
+        version_obj = self.build_version_obj()
+        
+        if not hasattr(self.cn_requests,"session"):
+            self.cn_requests.json = True
+            self.cn_requests.set_session()
+        requirements = self.cn_requests.get_raw_request(version_obj.spec_path)
+        if not requirements:
+            self.error_messages.error_code_messages({
+                "error_code": "sh-1257",
+                "line_code": "api_error",
+                "extra": None,
+                "extra2": "unable to reach nodectl repo to pull specs, try again later."
+            })
+        
+        requirements = json.loads(requirements.content.decode())
+        
         possible_issues = {
             "release": False,
             "debian": False,
@@ -1234,7 +1306,12 @@ class ShellHandler:
         if option == "d":
             node_type = "Dor"
 
-
+        def round_down(val):
+            if val <= 0:
+                return 0
+            magnitude = 10 ** int(math.log10(val))
+            return (val // magnitude) * magnitude
+        
         def test_ubuntu_debian(specs):
             try:
                 spec_key = specs["distributor_id"]
@@ -1262,35 +1339,35 @@ class ShellHandler:
             possible_issues["bits"] = info["bits"]
 
         specs["layer1_cpu_count"] = info["count"]
-        if info["count"] < 2:
+        if info["count"] < requirements["layer1"]["cpu"]:
             possible_issues["layer1_cpu_count"] =info["count"]
         specs["layer0_cpu_count"] = info["count"]
-        if info["count"] < 8:
+        if info["count"] < requirements["hybrid"]["cpu"]:
             possible_issues["layer0_cpu_count"] =info["count"]
 
         specs["layer1_memory"] = memory
-        if memory < 4100000000: # 4G == 4294967296
+        if memory < round_down(requirements["layer1"]["memory"]):
             possible_issues["layer1_memory"] = memory
         specs["layer0_memory"] = memory
-        if memory < 8200000000: # 8G == 8589934592
+        if memory < round_down(requirements["hybrid"]["memory"]):
             possible_issues["layer0_memory"] = memory
 
         specs["layer0_disk"] = disk
-        if disk < 320000000000: # 320G = 343597383680
+        if disk < round_down(requirements["hybrid"]["disk"]): # 320G = 343597383680
             possible_issues["layer0_disk"]
         specs["layer1_disk"] = disk
-        if disk < 83000000000: # 80G = 85899345920
+        if disk < round_down(requirements["layer1"]["disk"]): # 80G = 85899345920
             possible_issues["layer1_disk"]
 
         requirements = {
             "release": "11" if specs["distributor_id"] == "Debian" else "22.04",
             "debian": "Debian",
-            "layer0_disk": 343597383680,
-            "layer1_disk": 85899345920,
-            "layer0_memory": 8589934592,
-            "layer1_memory": 4294967296,
-            "layer0_cpu_count": 8, 
-            "layer1_cpu_count": 2,             
+            "layer0_disk": requirements["hybrid"]["disk"],
+            "layer1_disk": requirements["layer1"]["disk"],
+            "layer0_memory": requirements["hybrid"]["memory"],
+            "layer1_memory": requirements["layer1"]["memory"],
+            "layer0_cpu_count": requirements["hybrid"]["cpu"], 
+            "layer1_cpu_count": requirements["layer1"]["cpu"],             
         }
 
         if option == "h":
@@ -1587,167 +1664,19 @@ class ShellHandler:
             })
 
 
-    def restore_config(self,command_list):
-        date = False
+    def restore_config(self):
+        from modules.submodules.restore_config import RestoreConfig
 
-        def control_exit(date):
-            if not date: date = "all"
-            self.functions.print_paragraphs([
-                ["",1],["No backup files were located in:",0,"red","bold"],
-                [backup_dir,1,"yellow"], ["date:",0,"red","bold"],[date,1,"yellow"],
-                ["Exiting...",1,"red","bold"],
-            ])
-            exit(0)
+        restore_config = RestoreConfig(self)
 
-        if "--date" in command_list:
-            date = command_list[command_list.index("--date")+1]
-            try:
-                datetime.strptime(date, '%Y-%m-%d')
-            except ValueError:
-                self.error_messages.error_code_messages({
-                    "error_code": "cli-4630",
-                    "line_code": "input_error",
-                    "extra": f"invalid date format or date: {date}",
-                    "extra2": "must use 'YYYY-MM-DD' format with --date option"
-                })
-
-        self.functions.set_install_statics()
-        backup_dir = self.functions.default_backup_location
-        raw_restore_dict = self.functions.get_list_of_files({
-            "paths": [backup_dir],
-            "files": [f"*{date}*"] if date else ["*"],
-        })
-
-        if len(raw_restore_dict) < 1:
-            control_exit(date)
-
-        display_list, restore_dict, order  = [], {}, 0
-        for value in raw_restore_dict.values():
-            if date:
-                if date not in value: continue
-            if "backup" in value and "cn-config" in value:
-                try:
-                    format_replace = value.split(".")[1].split("backup")[0]
-                except:
-                    try:
-                        format_replace = value.split("_")[-1]
-                    except:
-                        continue
-                display = datetime.strptime(format_replace, '%Y-%m-%d-%H:%M:%SZ')
-                display_list.append(display.strftime('%Y-%m-%d - %H:%M:%S backup'))
-                order+=1
-                restore_dict[str(order)] = value
-
-        if len(display_list) < 1:
-            control_exit(date)
-
-        display_list.sort()
-
-        self.functions.print_header_title({
-            "line1": "RESTORE CONFIGURATION FILE",
-            "line2": "from backups",
-            "clear": True,
-            "newline": "top",
-        })
-
-        self.functions.print_paragraphs([
-            [" WARNING ",1,"yellow,on_red"],
-            ["Restoring the wrong configuration or a configuration from a previous version of nodectl that is not",0,"red"],
-            ["in the current upgrade path may cause nodectl to malfunction.",2,"red"],
-
-            ["Proceed with caution!",1,"magenta","bold"],
-            ["Please choose a date time option:",2,"yellow"],
-        ])
-
-        display_list.append("cancel operation")
-        option = self.functions.print_option_menu({
-            "options": display_list,
-            "press_type": "manual",
-            "newline": True,
-        })
-
-        try: 
-            option = int(option)
-            if option == len(display_list):
-                self.functions.print_paragraphs([
-                    ["",1],["nodectl quit by user request",2,"green"],
-                ])
-                raise Exception
-            self.functions.print_paragraphs([
-                ["",1],["restore file:",1,"yellow"],
-                [display_list[option-1],1,"green"],
-                [restore_dict[str(option)],2,"green"]
-            ])
-        except:
-            if option == len(display_list): exit(0)
-            self.error_messages.error_code_messages({
-                "error_code": "cli-4664",
-                "line_code": "input_error",
-                "extra": f"invalid option selected: {option}",
-                "extra2": "did you enter valid number option?"                
-            })
-
-        if self.functions.confirm_action({
-            "prompt": "Are you SURE you want to restore?",
-            "return_on": "y",
-            "exit_if": True,
-            "yes_no_default": "n",
-        }):
-            restore_file = restore_dict[str(option)]
-            self.log.logger[self.log_key].warning(f"restore_config option chosen cn-config file replaced with [{display_list[option-1]}] file [{restore_file}]")
-            try:
-                backup_dir = self.config_obj[self.functions.default_profile]["directory_backups"]
-            except:
-                backup_dir = "/var/tessellation/backups/"
-            
-            if backup_dir[-1] != "/": backup_dir = backup_dir+"/"
-            c_time = self.functions.get_date_time({"action":"datetime"})
-            if not path.isdir(backup_dir):
-                 makedirs(backup_dir)
-            secondary_backup = f"{backup_dir}backup_cn-config_{c_time}"
-
-            self.log.logger[self.log_key].info(f"restore_config is backing up current in place cn-config.yaml to [{secondary_backup}]")
-            self.functions.print_cmd_status({
-                "text_start": "backing up current config",
-                "status": "running",
-            })
-            copy2("/var/tessellation/nodectl/cn-config.yaml",secondary_backup)
-            time.sleep(.8)
-            self.functions.print_cmd_status({
-                "text_start": "backing up current config",
-                "status": "complete",
-                "newline": True,
-            })
-            self.functions.print_cmd_status({
-                "text_start": "restoring config",
-                "status": "running",
-            })            
-            self.log.logger[self.log_key].info(f"restore_config is restoring cn-config.yaml from [{restore_file}]")
-            copy2(restore_file,"/var/tessellation/nodectl/cn-config.yaml")
-            time.sleep(.8)
-            self.functions.print_cmd_status({
-                "text_start": "restoring config",
-                "status": "complete",
-                "newline": True,
-            })
-        self.functions.print_paragraphs([
-            ["configuration restored!",2,"green","bold"],
-        ])
-        
-
-    # def get_auto_restart_pid(self):
-    #     cmd = "ps -ef"
-    #     results = self.functions.process_command({
-    #         "bashCommand": cmd,
-    #         "proc_action": "poll"
-    #     })
-        
-    #     results = results.split("\n")
-    #     self.auto_restart_pid = False
-    #     for line in results:
-    #         if "service_restart" in line:
-    #             line = " ".join(line.split()).split(" ")
-    #             self.auto_restart_pid = int(line[1])
+        restore_config.set_parameters()
+        restore_config.get_files()
+        restore_config.set_display()
+        restore_config.print_headers()
+        restore_config.get_operator_option()
+        restore_config.handle_backup_location()
+        restore_config.execute_restore()    
+        restore_config.print_complete("restored")
 
 
     def api_service_handler(self):
@@ -1765,12 +1694,12 @@ class ShellHandler:
     def auto_restart_handler(self,action,cli=False,manual=False):
         from modules.submodules.auto_restart_handler import AutoRestartHandler
         ar_handler = AutoRestartHandler(self,action,cli,manual)
-        
         ar_handler.set_parameters()
-
-        if ar_handler.process_invalid_action():
-            return
         
+        if ar_handler.process_invalid_action():
+            return        
+
+        ar_handler.set_auto_restart_pid()
         ar_handler.handle_service_restart()
             
         if ar_handler.handle_cli_service_disable():
@@ -1876,5 +1805,9 @@ class ShellHandler:
         exit(return_value)
         
         
+    def _print_log_msg(self,log_type,msg):
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} --> {msg}")
+                
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")            

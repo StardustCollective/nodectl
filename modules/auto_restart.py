@@ -121,8 +121,12 @@ class AutoRestart():
     def build_class_objs(self):
         self.log.logger[self.log_key].info(f"auto_restart - thread [{self.thread_profile}] -> build node services class obj")
 
-        self.functions = Functions(self.config_obj) 
-        self.functions.auto_restart = True
+        self.functions = Functions() 
+        self.functions.set_parameters()
+        self.functions.set_function_value("config_obj",self.config_obj)
+        self.functions.set_function_value("auto_restart",True)
+        self.functions.set_function_value("log",self.log.logger[self.log_key])
+        # self.functions.auto_restart = True
         
         # versioning update is handled by nodectl's versioning service
         # which checks for updates every 2 minutes
@@ -175,7 +179,8 @@ class AutoRestart():
             "profile_names": self.profile_names,
             "functions": self.functions
         }   
-        self.cli = CLI(command_obj)
+        self.cli = CLI(self.log.logger[self.log_key])
+        self.cli.set_parameters(command_obj)
         self.cli.functions.set_default_directories()
         
         if not self.functions.config_obj["global_auto_restart"]["on_boot"]: 

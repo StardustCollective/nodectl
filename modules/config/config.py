@@ -15,9 +15,8 @@ from .migration import Migration
 from ..functions import Functions
 from ..p12 import P12Class
 from ..troubleshoot.errors import Error_codes
-from ..troubleshoot.logger import Logging
 from .versioning import Versioning
-
+from ..troubleshoot.logger import Logging
 
 class Configuration():
     
@@ -25,7 +24,6 @@ class Configuration():
 
         self.log_key = "main"
         self.log = Logging(self.log_key) 
-
         
         self.versioning_service = False
         self.argv_list = command_obj["argv_list"]
@@ -37,8 +35,8 @@ class Configuration():
         elif "service_restart" in self.argv_list or "debugging" in self.argv_list:
             self.log_key = "auto"
 
-        self.log.logger[self.log_key].info("configuration setup initialized")
-
+        self.log = self.log.logger[self.log_key]
+        
         if "help" in self.argv_list[0] or "main_error" in self.argv_list[0]: return
 
         self.config_obj = {}
@@ -113,7 +111,12 @@ class Configuration():
                 "caller": "config",
                 "log_key": self.log_key,
             }
-        self.functions = Functions(config_obj)
+
+        self.functions = Functions()
+        self.functions.set_parameters()
+        self.functions.set_function_value("config_obj",self.config_obj)
+        self.functions.set_function_value("log",self.log)
+        
         self.error_messages = Error_codes(self.functions)
         if check_sudo: self.functions.check_sudo()
         
@@ -207,7 +210,7 @@ class Configuration():
             self.yaml_dict = yaml.safe_load(yaml_data)
         except Exception as e:
             continue_to_error = True
-            self.log.logger[self.log_key].error(f"configuration file [cn-config.yaml] error code [cfg-32] not able to be loaded into memory, nodectl will attempt to issue a fix... | error: [{e}]")
+            self._print_log_msg("error",f"configuration file [cn-config.yaml] error code [cfg-32] not able to be loaded into memory, nodectl will attempt to issue a fix... | error: [{e}]")
             if "passphrase" in str(e):
                 change_made = self.yaml_passphrase_fix()
                 if change_made:
@@ -216,7 +219,7 @@ class Configuration():
                     try:
                         self.yaml_dict = yaml.safe_load(yaml_data)
                     except Exception as ee:
-                        self.log.logger[self.log_key].critical(f"configuration file [cn-config.yaml] error code [cfg-32] not able to be loaded into memory, issue with formatting. | error: [{ee}]")
+                        self._print_log_msg("critical",f"configuration file [cn-config.yaml] error code [cfg-32] not able to be loaded into memory, issue with formatting. | error: [{ee}]")
                     else:
                         continue_to_error = False
 
@@ -272,13 +275,13 @@ class Configuration():
             found_yaml_version = False
         
         if self.called_command in ["configurator","uninstall"]:
-            self.log.logger[self.log_key].debug(f"configuration module found {self.called_command} request, skipping migration attempts.")
+            self._print_log_msg("debug",f"configuration module found {self.called_command} request, skipping migration attempts.")
         elif not found_yaml_version or found_yaml_version != nodectl_yaml_version:
             if self.called_command == "auto_restart": 
-                self.log.logger[self.log_key].warning(f"configuration validator found migration path for nodectl version [{nodectl_version}] - auto_restart detected, ignoring")
+                self._print_log_msg("warning",f"configuration validator found migration path for nodectl version [{nodectl_version}] - auto_restart detected, ignoring")
                 exit(0)
             elif self.called_command == "upgrade_nodectl": 
-                    self.log.logger[self.log_key].warning(f"configuration validator found migration path for nodectl version [{nodectl_version}] - nodectl_upgrade detected, by-passing")
+                    self._print_log_msg("warning",f"configuration validator found migration path for nodectl version [{nodectl_version}] - nodectl_upgrade detected, by-passing")
                     self.functions.print_paragraphs([
                         [" WARNING ",0,"yellow,on_red"], ["upgrade may be required!",1,"yellow"],
                     ])
@@ -289,10 +292,10 @@ class Configuration():
                     "line_code": "upgrade_needed",
                     "extra": "Configuration yaml version mismatch."
                 })
-            self.log.logger[self.log_key].info(f"configuration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
+            self._print_log_msg("info",f"configuration validator found migration path for nodectl version [{nodectl_version}] - sending to migrator")
             self.migration()
         else:
-            self.log.logger[self.log_key].debug(f"configuration validator did not find a migration need for current configuration format - nodectl version [{nodectl_version}]")    
+            self._print_log_msg("debug",f"configuration validator did not find a migration need for current configuration format - nodectl version [{nodectl_version}]")    
             
             
     def finalize_config_tests(self):
@@ -301,7 +304,7 @@ class Configuration():
         try:
             _ = json.dumps(self.yaml_dict, sort_keys=True, indent=4)
         except:
-            self.log.logger[self.log_key].critical("configuration file [cn-config.yaml] error code [cfg-37] able to be formatted for reading, issue with formatting.")
+            self._print_log_msg("critical","configuration file [cn-config.yaml] error code [cfg-37] able to be formatted for reading, issue with formatting.")
             self.error_messages.error_code_messages({
                 "error_code": "cfg-37",
                 "line_code": "config_error",
@@ -715,14 +718,14 @@ class Configuration():
                 try:
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = defaults["token_coin_id"][metagraph_name]
                 except:
-                    self.log.logger[self.log_key].warning("config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
+                    self._print_log_msg("warning","config -> during configuration setup, nodectl could not determine the coin token id, defaulting to [constellation-labs]")
                     self.config_obj["global_elements"]["metagraph_token_coin_id"] = "constellation-labs"
 
         if self.config_obj["global_elements"]["metagraph_token_identifier"] == "default":
             try:
                 self.config_obj["global_elements"]["metagraph_token_identifier"] = defaults["token_identifier"][metagraph_name]
             except:
-                self.log.logger[self.log_key].warning("config -> during configuration setup, nodectl could not determine the token identifier")
+                self._print_log_msg("warning","config -> during configuration setup, nodectl could not determine the token identifier")
                 error_found("global","metagraph_token_identifier")
 
         for profile in self.metagraph_list:
@@ -799,7 +802,7 @@ class Configuration():
                             try:
                                 self.config_obj[profile][tdir] = def_value[metagraph_name]
                             except:
-                                self.log.logger[self.log_key].warning("config -> during configuration setup, nodectl could not determine collateral setting to [0]")
+                                self._print_log_msg("warning","config -> during configuration setup, nodectl could not determine collateral setting to [0]")
                                 self.config_obj[profile][tdir] = 0                            
                         elif tdir == "service":
                             try:
@@ -821,12 +824,12 @@ class Configuration():
                             try:
                                 self.config_obj[profile][tdir] = defaults[tdir][metagraph_name]
                             except:
-                                self.log.logger[self.log_key].warning("config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
+                                self._print_log_msg("warning","config -> during configuration setup, nodectl could not determine the token coin setting to default [constellation-labs]")
                                 self.config_obj[profile][tdir] = "constellation-labs"                            
                         else: 
                             self.config_obj[profile][tdir] = def_value  
                 except Exception as e:
-                    self.log.logger[self.log_key].error(f"setting up configuration variables error detected [{e}]")
+                    self._print_log_msg("error",f"setting up configuration variables error detected [{e}]")
                     error_found("profile",tdir,"error setting defaults",profile)
 
             # for installer
@@ -867,7 +870,7 @@ class Configuration():
                 if self.config_obj[profile]["seed_version"] == "default":
                     self.config_obj[profile]["seed_version"] = self.config_obj[profile]["jar_version"]
             except KeyError:
-                self.log.logger[self.log_key].error(f"setting up configuration variables error detected [seed_version]")
+                self._print_log_msg("error",f"setting up configuration variables error detected [seed_version]")
                 error_found("profile","seed_version","invalid or missing value",profile)
                 
             try:
@@ -876,7 +879,7 @@ class Configuration():
                     self.config_obj[profile]["jar_file"]
                 )
             except KeyError as e:
-                self.log.logger[self.log_key].error(f"setting up configuration variables error detected [{e}]")
+                self._print_log_msg("error",f"setting up configuration variables error detected [{e}]")
                 error_found("profile",e.args[0],"invalid or missing value",profile)
                 
             try:
@@ -890,7 +893,7 @@ class Configuration():
                         self.config_obj[profile]["seed_file"]
                     )
             except KeyError as e:
-                self.log.logger[self.log_key].error(f"setting up configuration variables error detected [{e}]")
+                self._print_log_msg("error",f"setting up configuration variables error detected [{e}]")
                 error_found("profile",e.args[0],"invalid or missing value",profile)
                 
             try:
@@ -909,7 +912,7 @@ class Configuration():
                         value = self.config_obj[profile]["priority_source_location"]
                         raise KeyError
             except KeyError as e:
-                self.log.logger[self.log_key].error(f"setting up configuration variables error detected [{e}]")
+                self._print_log_msg("error",f"setting up configuration variables error detected [{e}]")
                 error_found("profile",e.args[0],"invalid or missing value",profile)
                 
             try:
@@ -928,7 +931,7 @@ class Configuration():
                         value = self.config_obj[profile]["pro_rating_path"]
                         raise KeyError
             except KeyError as e:
-                self.log.logger[self.log_key].error(f"setting up configuration variables error detected [{e}]")
+                self._print_log_msg("error",f"setting up configuration variables error detected [{e}]")
                 error_found("profile",e.args[0],value,profile)
                 
             self.config_obj[profile]["p12_validated"] = False # initialize to False
@@ -938,7 +941,7 @@ class Configuration():
             return self.config_obj
         
         if self.config_obj["global_elements"]["local_api"] != "enable" and self.config_obj["global_elements"]["local_api"] != "disable":
-            self.log.logger[self.log_key].error(f"setting up configuration variables error detected [local_api]")
+            self._print_log_msg("error",f"setting up configuration variables error detected [local_api]")
             error_found("global_elements","local API definition invalid",self.config_obj["global_elements"]["local_api"],"global")
         
         self.config_obj["global_elements"]["cluster_info_lists"] = {}
@@ -967,7 +970,7 @@ class Configuration():
             "action": "normal_ops",
             "process": "normal_ops" if self.called_command != "service_restart" else self.called_command,
             "functions": self.functions,
-            "log_key": self.log_key,
+            "log": self.log,
         }
         self.p12 = P12Class(p12_obj)
         self.p12.functions = self.functions
@@ -1012,7 +1015,7 @@ class Configuration():
         passwd_required = False
         def verify_passwd(passwd, profile,re_enter=False):
             is_global = False
-            self.log.logger[self.log_key].debug("[verify_passwd] function called.")
+            self._print_log_msg("debug","[verify_passwd] function called.")
             try:
                 argv_list_1 = self.argv_list[1]
             except:
@@ -1057,7 +1060,7 @@ class Configuration():
                 force = True
                 break
             if not passwd:
-                self.log.logger[self.log_key].debug("config --> setup_passwd --> found passwd [None] retrying to avoid erroneous or invalid lookup.")
+                self._print_log_msg("debug","config --> setup_passwd --> found passwd [None] retrying to avoid erroneous or invalid lookup.")
                 sleep(1)
                 continue
             break
@@ -1152,13 +1155,13 @@ class Configuration():
                                 "api_port": profile_obj[profile][f"{m_or_g}_link_port"],
                                 "info_list": ["id"],
                             })[0]
-                            self.log.logger[self.log_key].info(f"config -> external [{m_or_g}] link key found, acquired: nodeid [{node_id}]")
+                            self._print_log_msg("info",f"config -> external [{m_or_g}] link key found, acquired: nodeid [{node_id}]")
                             profile_obj[profile][f"{m_or_g}_link_key"] = node_id
 
                 if write_out:  
                     g_done_ip, g_done_key, g_done_port, current_profile, skip_write = False, False, False, False, False
                     m_done_ip, m_done_key, m_done_port = False, False, False
-                    self.log.logger[self.log_key].warning("config -> found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
+                    self._print_log_msg("warning","config -> found [self] key words in yaml setup, changing to static values to speed up future nodectl executions")        
                     f = open(f"{self.functions.nodectl_path}cn-config.yaml")
                     with open("/var/tmp/cn-config-temp.yaml","w") as newfile:
                         for line in f:
@@ -1168,7 +1171,7 @@ class Configuration():
                             if current_profile:
                                 if "ml0_link_key: self" in line and not m_done_key:
                                     newfile.write(f"    ml0_link_key: {self.nodeid}\n")
-                                    self.log.logger[self.log_key].info(f"config -> self [ml0] link key found, updating config [{self.nodeid}]")
+                                    self._print_log_msg("info",f"config -> self [ml0] link key found, updating config [{self.nodeid}]")
                                     m_done_key,skip_write = True, True
                                 elif "ml0_link_host: self" in line and not m_done_ip:
                                     newfile.write(f"    ml0_link_host: {self.functions.get_ext_ip()}\n")
@@ -1375,7 +1378,7 @@ class Configuration():
                             path_value = self.config_obj[profile][s_type]
                             check_slash(st_val,path_value,s_type)
         except Exception as e:
-            self.log.logger[self.log_key].error(f"setup_path_formats -> p12 issue found - may have a configuration file error - check for trailing slash in p12 path file.")
+            self._print_log_msg("error",f"setup_path_formats -> p12 issue found - may have a configuration file error - check for trailing slash in p12 path file.")
             self.error_messages.error_code_messages({
                 "error_code": "cfg-819",
                 "line_code": "config_error",
@@ -1431,7 +1434,7 @@ class Configuration():
                 
                             
     def validate_profiles(self):
-        self.log.logger[self.log_key].debug("[validate_config] method called.")
+        self._print_log_msg("debug","[validate_config] method called.")
         self.num_of_global_sections = 3  # global_auto_restart, global_p12, global_elements
         profile_minimum_requirement = 1
         self.profiles = []
@@ -1524,9 +1527,9 @@ class Configuration():
                     self.config_obj[profile]["token_coin_id"] = self.config_obj["global_elements"]["metagraph_token_coin_id"]
 
             except Exception as e:
-                self.log.logger[self.log_key].critical(f"configuration format failure detected | exception [{e}]")
+                self._print_log_msg("critical",f"configuration format failure detected | exception [{e}]")
                 if self.action == "edit_config_from_new":
-                    self.log.logger[self.log_key].warning("configuration -> configuration override detected, ignoring error and continuing.")
+                    self._print_log_msg("warning","configuration -> configuration override detected, ignoring error and continuing.")
                     # since we have an error, we will bypass the p12 details and assume they are global
                     self.config_obj[profile]["global_p12_all_global"] = True
                     continue
@@ -1744,11 +1747,11 @@ class Configuration():
                                     else: 
                                         validated = True
                                 except KeyError as e:
-                                    self.log.logger[self.log_key].debug(f"config -> configuration object missing keys | error [{e}]")
+                                    self._print_log_msg("debug",f"config -> configuration object missing keys | error [{e}]")
                                     validated = False
                                     title = "invalid configuration file"
                                 except Exception as e:
-                                    self.log.logger[self.log_key].debug(f"config -> configuration profile types issue | error [{e}]")
+                                    self._print_log_msg("debug",f"config -> configuration profile types issue | error [{e}]")
                                     validated = False
                                     title = "invalid configuration file"
                                     
@@ -1774,7 +1777,7 @@ class Configuration():
                                     "special_case": special_case
                                 })        
         except:
-            self.log.logger[self.log_key].critical("config -> unable to validate configuration.  Corrupt or invalid.")
+            self._print_log_msg("critical","config -> unable to validate configuration.  Corrupt or invalid.")
             self.error_messages.error_code_messages({
                 "error_code": "cfg-1597",
                 "line_code": "config_error",
@@ -1847,7 +1850,7 @@ class Configuration():
         try:
             profile = self.functions.clear_global_profiles(self.config_obj)[0]
         except:
-            self.log.logger[self.log_key].warning("config --> unable to determine backup location, skipping cleanup.")
+            self._print_log_msg("warning","config --> unable to determine backup location, skipping cleanup.")
             return
         
         source = glob("/var/tessellation/nodectl/*backup*")
@@ -2013,7 +2016,7 @@ class Configuration():
                     ok_to_ignore = True if "snapshot" in error["key"] else False
                     
             except Exception as e:
-                self.log.logger[self.log_key].error(f"config -> print_report -> found error [{e}]")
+                self._print_log_msg("error",f"config -> print_report -> found error [{e}]")
                 self.send_error("cfg-1094")
 
             if self.action == "edit_config":
@@ -2049,7 +2052,7 @@ class Configuration():
                 
                 
     def send_error(self,code,extra="existence",extra2=None):
-        self.log.logger[self.log_key].critical(f"configuration file [cn-config.yaml] error code [{code}] not reachable - should be in {self.functions.nodectl_path}")
+        self._print_log_msg("critical",f"configuration file [cn-config.yaml] error code [{code}] not reachable - should be in {self.functions.nodectl_path}")
         self.error_messages.error_code_messages({
             "error_code": code,
             "line_code": "config_error",
@@ -2057,6 +2060,10 @@ class Configuration():
             "extra2": extra2
         }) 
 
-
+    def _print_log_msg(self,log_type,msg):
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} --> {msg}")
+        
+        
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation") 

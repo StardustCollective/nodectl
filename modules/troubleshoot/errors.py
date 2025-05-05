@@ -105,7 +105,10 @@ class Error_codes():
         except:
             # exception for config_obj send instead of functions obj
             from ..functions import Functions
-            self.functions = Functions(self.functions)
+            self.functions = Functions()
+            self.functions.set_parameters()
+            self.functions.set_function_value("config_obj",self.functions)
+            self.functions.set_function_value("logs",self.log.logger[self.log_key])
 
 
     def setup_process(self):
@@ -433,7 +436,8 @@ class Error_codes():
             ])
             if var.extra != None:
                 self.functions.print_paragraphs([
-                    ["Profile:",0,], [var.extra,2,"yellow","bold"],
+                    ["Profile:",0,], [var.extra,1,"yellow","bold"],
+                    ["Edge Point:",0,], [var.extra2,2,"yellow","bold"],
                 ])
             
             

@@ -18,7 +18,7 @@ class ShowStatus():
         self.threaded = command_obj.get("threaded",False)
         self.static_nodeid = command_obj.get("static_nodeid",False)
         self.argv = command_obj.get("argv",[])
-        self.log = self.parent.log.logger[self.parent.log_key]
+        self.log = self.parent.log
         self.functions = self.parent.functions
         self.auto_restart_handler = command_obj.get("auto_restart_handler",False)
 
@@ -43,7 +43,7 @@ class ShowStatus():
         self.watch_enabled = True if "-w" in self.argv else False
         self.print_title = True if "--legend" in self.argv else False
         
-        self.cn_requests = CnRequests(self)
+        self.cn_requests = CnRequests(self,self.log)
         self.cn_requests.set_parameters()
         self.cn_requests.get_cache_needed()
                 
@@ -447,13 +447,13 @@ class ShowStatus():
         self.functions.print_states()
         self.functions.print_paragraphs([
             ["Current Session:",0,"magenta"], ["The metagraph cluster session",1],
-            ["  Found Session:",0,"magenta"], ["Node's current cluster session",1],
-            [" Latest Ordinal:",0,"magenta"], ["Node consensus ordinal",1],
-            ["      Last DLed:",0,"magenta"], ["Last found ordinal downloaded by node",1],
-            ["Blk Exp Ordinal:",0,"magenta"], ["Latest found block explorer ordinal",1],
+            ["   Node Session:",0,"magenta"], ["Node's current session",1],
+            [" Latest Ordinal:",0,"magenta"], ["Cluster latest known ordinal",1],
+            ["  Epoc Progress:",0,"magenta"], ["Blockchain time cycle/round",1],
+            ["  Snapshot Hash:",0,"magenta"], ["Latest ordinal hash value (truncated)",1],
             ["      Consensus:",0,"magenta"], ["Is this node participating in consensus rounds",1],
-            ["          Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
-            ["         Uptime:",0,"magenta"], ["Amount of time node or Cluster has been online",2],
+            ["  Cluster Start:",0,"magenta"], ["When the cluster started (or restarted)",1],
+            ["    Node Uptime:",0,"magenta"], ["Amount of time node has been on the cluster",2],
         ])   
         
             

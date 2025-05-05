@@ -25,12 +25,14 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.19.0"
+        nodectl_version = "v3.0.0"
         nodectl_yaml_version = "v2.1.1"
                 
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
 
         self.upgrade_path_path = f'https://raw.githubusercontent.com/stardustCollective/nodectl/nodectl_{nodectl_version.replace(".","")}/admin/upgrade_path.json'
+        self.spec_path = f'https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/specs.json'
+        
         # self.upgrade_path_path = f'https://raw.githubusercontent.com/StardustCollective/nodectl/main/admin/upgrade_path.json'
                 
         self.print_messages = command_obj.get("print_messages",True)
@@ -80,14 +82,17 @@ class Versioning():
         self.version_obj_path = "/var/tessellation/nodectl/"
         self.version_obj_file = f"{self.version_obj_path}version_obj.json"
 
-        init_only = ["verify_nodectl","_vn","-vn","uninstall","setup_only"]
+        init_only = ["verify_nodectl","_vn","-vn","uninstall","setup_only","verify_specs"]
         if self.called_cmd in init_only: return
         
         self.execute_versioning()
         
     
     def build_objs(self):
-        self.functions = Functions(self.config_obj)
+        self.functions = Functions()
+        self.functions.set_parameters()
+        self.functions.set_function_value("config_obj",self.config_obj)
+        self.functions.set_function_value("logs",self.log.logger[self.log_key])
         self.error_messages = Error_codes(self.functions) 
         return
     
@@ -207,7 +212,8 @@ class Versioning():
                 "auto_restart": True, # avoid threading
                 "functions": self.functions
             }   
-            self.cli = CLI(command_obj)
+            self.cli = CLI(self.log.logger[self.log_key])
+            self.cli.set_parameters(command_obj)
             self.cli.functions.set_default_directories()
             self.functions.set_default_variables({
                 "profiles_only": True,

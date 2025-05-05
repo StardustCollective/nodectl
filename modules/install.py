@@ -1608,7 +1608,9 @@ class Installer():
             "ip_address": self.parent.ip_address,
             "skip_services": False
         }
-        self.cli = CLI(cli_obj)
+        
+        self.cli = CLI(self.log.logger[self.log_key])
+        self.cli.set_parameters(cli_obj)
         self.cli.functions.set_statics()
         self.cli.version_class_obj = self.parent.version_class_obj
         self.user = UserClass(self.cli)

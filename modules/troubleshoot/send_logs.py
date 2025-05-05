@@ -25,8 +25,11 @@ class Send():
         self.command_list = command_obj["command_list"]
         self.config_obj = command_obj["config_obj"]
         
-        self.functions = Functions(self.config_obj)
-
+        self.functions = Functions()
+        self.functions.set_parameters()
+        self.functions.set_function_value("config_obj",self.config_obj)
+        self.functions.set_function_value("logs",self.log.logger[self.log_key])
+        
         self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj["ip_address"]
 

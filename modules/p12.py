@@ -1,17 +1,14 @@
-import uuid
-from os import environ, path, system, makedirs, mkdir, getcwd, remove, chmod
-from re import match, search
+from os import environ, path, makedirs, mkdir, getcwd, remove, chmod
+from re import match
 from shutil import copy2, move
 from time import sleep
 from getpass import getpass
 from termcolor import colored, cprint
 from types import SimpleNamespace
 from uuid import uuid4
-from random import randint
-from .functions import Functions
+
 from .troubleshoot.errors import Error_codes
 from .troubleshoot.logger import Logging
-from .config.versioning import Versioning
 
 class P12Class():
         
@@ -21,31 +18,29 @@ class P12Class():
         self.p12_file_location = ""
         self.p12_filename = ""
         self.p12_password = ""
-        
-        self.app_env = command_obj.get("app_env","")
-        self.profile = command_obj.get("profile","global")
-        self.existing_p12 = command_obj.get("existing_p12",False) # installation migration
-        self.user = command_obj.get("user_obj",None)
-        self.cli = command_obj.get("cli_obj",None)
-        self.process = command_obj.get("process",None)
-        self.functions = command_obj["functions"]
-        self.functions.process = command_obj.get("process",None)
-        self.version_obj = self.functions.version_obj
-        self.config_obj = self.functions.config_obj 
 
-        self.log = Logging("init",self.process)
-        try:
-            self.log_key = self.config_obj["global_elements"]["log_key"]
-        except:
-            self.log_key = "main"
-
-        self.profile = self.functions.default_profile
         self.quick_install = False
         self.p12_migration = False
         self.pass_quit_request = False
         self.solo = False # part of install or solo request to create p12
         self.secure_mount_exists = False
         self.stored_passfile = False
+                        
+        self.log = command_obj["log"]
+        self.app_env = command_obj.get("app_env","")
+        self.profile = command_obj.get("profile","global")
+        self.existing_p12 = command_obj.get("existing_p12",False) # installation migration
+        self.user = command_obj.get("user_obj",None)
+        self.cli = command_obj.get("cli_obj",None)
+        self.process = command_obj.get("process",None)
+        
+        self.functions = command_obj["functions"]
+        self.functions.process = command_obj.get("process",None)
+        self.functions.set_function_value("log",self.log)
+        self.version_obj = self.functions.version_obj
+        self.config_obj = self.functions.config_obj 
+
+        self.profile = self.functions.default_profile
 
         self.error_messages = Error_codes(self.functions) 
         self.handle_pass_file(False)
@@ -68,6 +63,10 @@ class P12Class():
                     })
   
 
+    def set_p12_value(self, name, value):
+        setattr(self, name, value)
+        
+        
     def set_p12_alias(self,profile):
         key = "p12_alias"
         if profile == "global_p12": key = "key_alias"
@@ -202,9 +201,9 @@ class P12Class():
                     self.p12_filename = value
                     test_for_exist()
                     if self.validate_value(r"^[a-zA-Z0-9](?:[a-zA-Z0-9 ._-]*[a-zA-Z0-9])?\.[a-zA-Z0-9_-]+$",self.p12_filename):
-                        self.log.logger[self.log_key].info(f"p12 file accepted [{value}]")
+                        self._print_log_msg("info",f"p12 file accepted [{value}]")
                         break
-                    self.log.logger[self.log_key].warning("invalid p12 file name inputted")
+                    self._print_log_msg("warning","invalid p12 file name inputted")
                     cprint("  File name seems invalid, try again","red")
 
        
@@ -223,7 +222,7 @@ class P12Class():
             else: 
                 default_alias = f"{self.user.username}-alias"
         except:
-            self.log.logger[self.log_key].error("unable to determine alias")
+            self._print_log_msg("error","unable to determine alias")
             default_alias = f"{self.user.username}-alias"
 
         while True:
@@ -242,7 +241,7 @@ class P12Class():
                     "exit_if": False
                 })
                 if confirm:
-                    self.log.logger[self.log_key].info(f"p12 alias accepted [{alias}]")
+                    self._print_log_msg("info",f"p12 alias accepted [{alias}]")
                     break
                 
         self.key_alias = alias
@@ -270,7 +269,7 @@ class P12Class():
                 ["wallet and gain access to the Hypergraph.\"",2,"magenta"],
             ])
 
-        self.log.logger[self.log_key].info("p12 passphrase input requested")
+        self._print_log_msg("info","p12 passphrase input requested")
         
         for attempt in range(1,4):
             self.p12_password = self.user.get_verify_password(10,"your p12 private key","passphrase")
@@ -287,7 +286,7 @@ class P12Class():
 
                 existing_unlock = self.unlock()
                 if not existing_unlock:
-                    self.log.logger[self.log_key].warning(f"p12 passphrase invalid, unable to access private keystore [{attempt}] of [3]")
+                    self._print_log_msg("warning",f"p12 passphrase invalid, unable to access private keystore [{attempt}] of [3]")
                     self.functions.print_cmd_status({
                         "text_start": "Unable to unlock p12",
                         "brackets": f"{attempt} of 3",
@@ -343,7 +342,7 @@ class P12Class():
 
         de, manual = False, False
         force_exceptions = ["export_private_key","view_config"]
-        self.log.logger[self.log_key].info(f"p12 keyphrase validation process started")
+        self._print_log_msg("info",f"p12 keyphrase validation process started")
         
         for attempts in range(0,5):
             if operation in ["encryption"] and attempts > 0:
@@ -362,7 +361,7 @@ class P12Class():
                     if caller in force_exceptions:
                         cprint("  This command requires manual re-entry of your p12 passphrase","yellow")
                     else:
-                        self.log.logger[self.log_key].debug(f"p12 keyphrase validation process --> passphrase may be [False] warning user.")
+                        self._print_log_msg("debug",f"p12 keyphrase validation process --> passphrase may be [False] warning user.")
                         if attempts > 0:
                             cprint("  Global profile passphrase doesn't match, is incorrect, or is not found.","yellow")
             except:
@@ -372,7 +371,7 @@ class P12Class():
                 })
             
             if de: 
-                self.log.logger[self.log_key].debug(f"p12 keyphrase validation process - attempting decryption")
+                self._print_log_msg("debug",f"p12 keyphrase validation process - attempting decryption")
                 for _ in range(0,4):
                     de_passwd = self.functions.get_persist_hash({
                         "pass1": passwd,
@@ -417,7 +416,7 @@ class P12Class():
                 else:
                     raise
             except:
-                self.log.logger[self.log_key].debug(f"p12 keyphrase validation process - did not find p12 validated, attempting to unlock.")
+                self._print_log_msg("debug",f"p12 keyphrase validation process - did not find p12 validated, attempting to unlock.")
                 valid = self.unlock()
             
             if valid:
@@ -437,7 +436,7 @@ class P12Class():
                     self.config_obj[profile]["p12_validated"] = valid
                 break
 
-            self.log.logger[self.log_key].warning(f"invalid keyphrase entered [{attempts}] of 3")
+            self._print_log_msg("warning",f"invalid keyphrase entered [{attempts}] of 3")
             if attempts > 0 or mobile:
                 if mobile:
                     attempts += 1
@@ -514,7 +513,7 @@ class P12Class():
                         f.write(self.entered_p12_keyphrase)
                     chmod(passfile,0o600)
                 except:
-                    self.log.logger[self.log_key].error("handle_pass_file -> error with passphrase authentication file write.")
+                    self._print_log_msg("error","handle_pass_file -> error with passphrase authentication file write.")
                     if n > 0:
                         self.error_messages.error_code_messages({
                             "error_code": "p-441",
@@ -540,12 +539,12 @@ class P12Class():
             "proc_action": "wait"
         })
         if "Valid from:" in str(results):
-            self.log.logger[self.log_key].info("p12 file unlocked successfully - keytool")
+            self._print_log_msg("info","p12 file unlocked successfully - keytool")
             return_result = True
 
         # check p12 against method 2
         if not return_result:
-            self.log.logger[self.log_key].error("p12 file unlocked failed with method 1 [keytool]")
+            self._print_log_msg("error","p12 file unlocked failed with method 1 [keytool]")
             bashCommand2 = f"openssl pkcs12 -in {self.path_to_p12}{self.p12_filename} -clcerts -nokeys -passin file:{passfile}"
             results = self.functions.process_command({
                 "bashCommand": bashCommand2,
@@ -553,12 +552,12 @@ class P12Class():
                 "return_error": True
             })
             if "friendlyName" in str(results):
-                self.log.logger[self.log_key].info("p12 file unlocked successfully - [openssl]")
+                self._print_log_msg("info","p12 file unlocked successfully - [openssl]")
                 return_result = True
 
         # check p12 against method 3
         if not return_result:
-            self.log.logger[self.log_key].error("p12 file unlocked failed with method 2 [keytool]")
+            self._print_log_msg("error","p12 file unlocked failed with method 2 [keytool]")
             bashCommand = "openssl version"
             results = self.functions.process_command({
                 "bashCommand": bashCommand,
@@ -566,7 +565,7 @@ class P12Class():
                 "return_error": True
             })
             if "OpenSSL 3" in results:        
-                self.log.logger[self.log_key].debug("During p12 unlocking found OpenSSL v3")
+                self._print_log_msg("debug","During p12 unlocking found OpenSSL v3")
                 bashCommand3 = bashCommand1.replace("pkcs12","pkcs12 -provider default -provider legacy")
                 results = self.functions.process_command({
                     "bashCommand": bashCommand3,
@@ -576,25 +575,25 @@ class P12Class():
                 if results is None or results == "":
                     results = "invalid password"
                 if not "invalid password" in str(results.lower()) and not "error" in str(results.lower()) and not "cannot find" in str(results.lower()):
-                    self.log.logger[self.log_key].info("p12 file unlocked successfully - openssl")
+                    self._print_log_msg("info","p12 file unlocked successfully - openssl")
                     return_result = True
                 else:
-                    self.log.logger[self.log_key].error("p12 file unlocked failed with method 3a [openssl legacy]")
+                    self._print_log_msg("error","p12 file unlocked failed with method 3a [openssl legacy]")
             else:
                 msg = "p12 -> attempt to authenticate via nodectl with 4 different methods and failed. Unable to process because the SSL version is out-of-date, "
                 msg += f"consider upgrading the distributions OpenSSL package. | version found [{results.strip()}]"
-                self.log.logger[self.log_key].error("p12 file unlocked failed with all attempts.")
-                self.log.logger[self.log_key].warning(msg)
+                self._print_log_msg("error","p12 file unlocked failed with all attempts.")
+                self._print_log_msg("warning",msg)
         
         self.handle_pass_file(False)
         if not return_result: 
-            self.log.logger[self.log_key].info("p12 file authentication failed - keytool and openssl tried")
+            self._print_log_msg("info","p12 file authentication failed - keytool and openssl tried")
         return return_result
 
       
     def set_variables(self,is_global,profile):
         # version >= 1.11.0
-        self.log.logger[self.log_key].info("p12 file importing variables.")
+        self._print_log_msg("info","p12 file importing variables.")
         try:
             if is_global:
                 self.path_to_p12 = self.config_obj["global_p12"]["key_location"]
@@ -606,7 +605,7 @@ class P12Class():
             if not self.path_to_p12.endswith("/"):
                 self.path_to_p12 = f"{self.path_to_p12}/"
         except Exception as e:
-            self.log.logger[self.log_key].critical(f"P12Class -> set variables -> unable to scrap valid entries from configuration [{e}]")
+            self._print_log_msg("critical",f"set variables -> unable to scrap valid entries from configuration [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "p-494",
                 "line_code": "invalid_configuration_request",
@@ -662,7 +661,7 @@ class P12Class():
             ["=","full","white", "bold"], ["",1],
         ])
 
-        self.log.logger[self.log_key].info("p12 file private key request completed.")
+        self._print_log_msg("info","p12 file private key request completed.")
         
         f.close()
         if path.isfile(id_hex_file): 
@@ -679,7 +678,7 @@ class P12Class():
         return_success = command_obj.get("return_success",False)
         ext_p12 = command_obj.get("ext_p12",False)
         caller = command_obj.get("caller",False)
-        self.log.logger[self.log_key].debug(f"p12 --> config environment export requested by [{caller}]")
+        self._print_log_msg("debug",f"config environment export requested by [{caller}]")
 
         pass1 = None
         enc = False
@@ -731,14 +730,14 @@ class P12Class():
                 if profile != "global_p12": skey = f"p12_{skey}"
                 indiv_p12_obj[p12_key] = self.config_obj[profile][skey] 
         except Exception as e:
-            self.log.logger[self.log_key].critical(f"extract_export_config_env -> unable to extract p12 details from configuration. [{e}]")
+            self._print_log_msg("critical",f"extract_export_config_env -> unable to extract p12 details from configuration. [{e}]")
             self.error_messages.error_code_messages({
                 "error_code": "p-508",
                 "line_code": "invalid_passphrase",
                 "extra2": "wrong",
             })
 
-        self.log.logger[self.log_key].info("p12 file exporting p12 details into env variables.")
+        self._print_log_msg("info","p12 file exporting p12 details into env variables.")
             
         passes = ["CL_PASSWORD","CL_KEYPASS","CL_STOREPASS"]
         for key in passes:
@@ -747,7 +746,7 @@ class P12Class():
         try:
             environ["CL_KEYALIAS"] = indiv_p12_obj["key_alias"]
         except Exception as e:
-            self.log.logger[self.log_key].critical(f"unable to load environment variables for p12 extraction. | error [{e}] error_code [p-504]")
+            self._print_log_msg("critical",f"unable to load environment variables for p12 extraction. | error [{e}] error_code [p-504]")
             if return_success: return False
             self.error_messages.error_code_messages({
                 "error_code": "p-504",
@@ -758,7 +757,7 @@ class P12Class():
         try:
             environ["CL_KEYSTORE"] = indiv_p12_obj["key_store"]
         except Exception as e:
-            self.log.logger[self.log_key].critical(f"unable to load environment variables for p12 extraction. | error [{e}] error_code [p-514]")
+            self._print_log_msg("critical",f"unable to load environment variables for p12 extraction. | error [{e}] error_code [p-514]")
             if return_success: return False
             self.error_messages.error_code_messages({
                 "error_code": "p-514",
@@ -789,21 +788,21 @@ class P12Class():
 
         if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
             if self.quick_install:
-                self.log.logger[self.log_key].warning(f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
+                self._print_log_msg("warning",f"quick install found an existing p12 file, removing old file.  Node operator was warned prior to installation. removing [{self.p12_file_location}/{self.p12_filename}].")
                 if path.isfile(f"{self.p12_file_location}/{self.p12_filename}"):
                     remove(f"{self.p12_file_location}/{self.p12_filename}")
             else:
-                self.log.logger[self.log_key].warning(f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
+                self._print_log_msg("warning",f"p12 file already found so process skipped [{self.p12_file_location}/{self.p12_filename}].")
                 print_exists_warning = True
                 result = "exists skipping"
                 color = "magenta"
         elif not path.exists(self.p12_file_location):
-            self.log.logger[self.log_key].info(f"p12 file path being created {self.p12_file_location}")
+            self._print_log_msg("info",f"p12 file path being created {self.p12_file_location}")
             makedirs(self.p12_file_location)
-            self.log.logger[self.log_key].info(f"p12 file ownership permissions set {self.p12_file_location}/{self.p12_filename}")
+            self._print_log_msg("info",f"p12 file ownership permissions set {self.p12_file_location}/{self.p12_filename}")
             self.functions.set_chown(self.p12_file_location,self.user.username,self.user.username)
               
-        self.log.logger[self.log_key].info(f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
+        self._print_log_msg("info",f"p12 file creation initiated {self.p12_file_location}/{self.p12_filename}")  
         # do not use sudo here otherwise the env variables will not be associated
         bashCommand = "/usr/bin/java -jar /var/tessellation/cl-keytool.jar generate"
         result = self.functions.process_command(({
@@ -811,7 +810,7 @@ class P12Class():
             "proc_action": "timeout"
         }))
 
-        self.log.logger[self.log_key].info(f"p12 file permissions set {self.p12_file_location}/{self.p12_filename}")
+        self._print_log_msg("info",f"p12 file permissions set {self.p12_file_location}/{self.p12_filename}")
         self.functions.set_chown(f"{self.p12_file_location}/{self.p12_filename}",self.user.username, self.user.username)
         chmod(f"{self.p12_file_location}/{self.p12_filename}",0o400)
         result = "completed"
@@ -844,7 +843,7 @@ class P12Class():
             ["private key file (p12):",0,"white","bold"],
             [p12_location,1,"yellow"]
         ])
-        self.log.logger[self.log_key].info(f"p12 file passphrase change initiated [{p12_location}]")
+        self._print_log_msg("info",f"p12 file passphrase change initiated [{p12_location}]")
         
         temp_p12_file = "/tmp/cnng-temporary.p12"
         p12_file_exists = path.exists(temp_p12_file)
@@ -853,7 +852,7 @@ class P12Class():
         
         # backup old p12 file
         datetime = self.functions.get_date_time({"action":"datetime"})
-        self.log.logger[self.log_key].info(f"p12 file backup created [{p12_location}{datetime}.bak]")
+        self._print_log_msg("info",f"p12 file backup created [{p12_location}{datetime}.bak]")
         
         profile = self.functions.pull_profile({
             "req": "default_profile"
@@ -884,7 +883,7 @@ class P12Class():
             "proc_action": "wait"
         }))
         if "error" in results:
-            self.log.logger[self.log_key].error("p12 passphrase update failed")
+            self._print_log_msg("error","p12 passphrase update failed")
             if path.isfile(temp_p12_file): remove(temp_p12_file)
             return results
         
@@ -949,7 +948,7 @@ class P12Class():
                 "extra2": "p12",
             })
             
-        self.log.logger[self.log_key].info(f"show_p12_details -> initiated - p12 file location [{p12_location}]")
+        self._print_log_msg("info",f"show_p12_details -> initiated - p12 file location [{p12_location}]")
         
         if "--installer" in command_list:
             p12_passwd = command_list[command_list.index("--installer")+1]
@@ -988,7 +987,7 @@ class P12Class():
                 self.entered_p12_keyphrase = p12_passwd
             except Exception as e:
                 self.handle_pass_file(False)
-                self.log.logger[self.log_key].critical(f"p12 module was unable to process this p12 file [{e}]")
+                self._print_log_msg("critical",f"unable to process this p12 file [{e}]")
                 if "--installer" in command_list: raise Exception
                 self.error_messages.error_code_messages({
                     "error_code": "p-725",
@@ -1013,7 +1012,7 @@ class P12Class():
             value = item.split(":")[-1].strip()
 
             if "keytool error" in item:
-                self.log.logger[self.log_key].error(f"p12 -> show_p12_details p12 authentication issue: error [{value}] p12 file [{p12_location}]") 
+                self._print_log_msg("error",f"show_p12_details p12 authentication issue: error [{value}] p12 file [{p12_location}]") 
                 if self.process == "install": return
                 self.error_messages.error_code_messages({
                     "error_code": "p-603",
@@ -1218,6 +1217,10 @@ class P12Class():
         if self.p12_file_location[-1] != "/": self.p12_file_location += "/"
         self.show_p12_details(["--file",self.p12_file_location+self.p12_filename])
         
-             
+        
+    def _print_log_msg(self,log_type,msg):
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} request --> {msg}")
+                     
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

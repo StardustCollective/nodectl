@@ -113,8 +113,6 @@ def build_help(functions,command_obj):
                     - start
                     - stop
                     - restart
-                    - slow_restart
-                    - restart_only
                     - join
                     - leave
                     - count
@@ -162,9 +160,7 @@ def build_help(functions,command_obj):
     passwd12            | - change your p12's passphrase
                             
     restart  | - restart node services on node and join
-    
-    restart_only | - restart node services on node but don't join.
-    
+         
     upgrade_vps | - more simple verbose method of updating and upgrading
                     your VPS.
 
@@ -175,9 +171,7 @@ def build_help(functions,command_obj):
       
     uptime       | - check system, cluster, and node uptime.
                            
-    slow_restart | - restart the node with a 600 second delay to
-                         make sure it is fully off the network in the
-                         event you are seeing connection issues or other
+
     
     reboot | - acts exactly same as a distribution reboot; however, this command
                will make sure the node software does a clean 'leave' to leave
@@ -2447,12 +2441,18 @@ def build_help(functions,command_obj):
   {colored('-r','green')} - {colored('retries','cyan')}
         If specified at the command line, nodectl will replace all retries
         on failure with a numeric integer following the -r option.
-  {colored('--peer <ip_address>','green')} - {colored('retries','cyan')}
+  {colored('--peer <ip_address>','green')}
         If specified at the command line, nodectl will lookup that specific
         peer ip address, if it is participating in consensus, nodectl will
         use that node to join the cluster.  Note: This is an IP address only 
         without the port specified. 
-
+  {colored('--restart-only','green')}
+        restart node services on node but do not join. Node will remain in
+        {colored('ReadyToJoin','cyan')} state upon command completion.
+  {colored('--slow-restart','green')}
+        restart the node with a 600 second delay to make sure it is fully off 
+        the network in the event you are seeing connection issues or other
+        
   Example Usage
   -------------
   show this help screen

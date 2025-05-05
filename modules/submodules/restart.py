@@ -11,7 +11,7 @@ class RestartNode():
         self.restart_type = command_obj["restart_type"]
         self.argv_list = command_obj["argv_list"]
         
-        self.log = self.parent.log.logger[self.parent.log_key]
+        self.log = self.parent.log
         self.functions = self.parent.functions
 
 
