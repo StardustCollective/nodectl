@@ -12,7 +12,7 @@
   "mainnet": {
     "version": "v2.15.2",
     "upgrade": "True",
-    "current_stable": "v2.16.1"
+    "current_stable": "v2.17.3"
   },
   "integrationnet": {
     "version": "v2.15.2",
