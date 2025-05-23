@@ -21,7 +21,7 @@ class StartNode():
     def set_parameters(self):
         self.node_service = self.parent.node_service
         
-        self.log = self.parent.log.logger[self.parent.log_key]
+        self.log = self.parent.log
         self.functions = self.parent.functions
         self.config_obj = self.parent.config_obj
     
@@ -48,7 +48,7 @@ class StartNode():
         self.show_status_obj = {
             "called_command": "status",
             "spinner": False,
-            "rebuild": True,
+            "rebuild": "True",
             "wait": False,
             "threaded": self.threaded,
             "static_nodeid": self.static_nodeid if self.static_nodeid else False,
@@ -128,11 +128,6 @@ class StartNode():
                 [" WARNING ",0,"red,on_yellow"], ["nodeid was not found on the seed list.",1,"red"]
             ])
             
-            
-    def _print_log_msg(self,log_type,msg):
-        log_method = getattr(self.log, log_type, None)
-        log_method(f"{self.__class__.__name__} request --> {msg}")
-
 
     def print_start_init(self):
         self._print_log_msg("info",f"service request initiated.")
@@ -157,9 +152,16 @@ class StartNode():
         })
         
         
-    def print_final_status(self):
+    def print_final_status(self, rebuild=True):
+        self.show_status_obj["rebuild"] = rebuild
+        self.show_status_obj["print_auto_restart_status"] = False
         self.parent.show_system_status(self.show_status_obj)
 
 
+    def _print_log_msg(self,log_type,msg):
+            log_method = getattr(self.log, log_type, None)
+            log_method(f"{self.__class__.__name__} --> {msg}")
+            
+            
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")  

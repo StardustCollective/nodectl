@@ -31,6 +31,8 @@ class ShowStatus():
         self.config_obj = self.parent.config_obj
         self.auto_restart_setup = False
         
+        self.print_auto_restart_status = self.command_obj.get("print_auto_restart_status",True)
+        
         called_command = self.command_obj.get("called_command","default")
         if called_command == "_s": called_command = "status"
         if called_command == "_qs": called_command = "quick_status"
@@ -43,9 +45,9 @@ class ShowStatus():
         self.watch_enabled = True if "-w" in self.argv else False
         self.print_title = True if "--legend" in self.argv else False
         
-        self.cn_requests = CnRequests(self,self.log)
+        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value, self.log)
         self.cn_requests.set_parameters()
-        self.cn_requests.get_cache_needed()
+        self.cn_requests.get_is_cache_needed()
                 
         self.latest_ordinal = False  
         self.range_error = False
@@ -54,6 +56,7 @@ class ShowStatus():
         self.uptime = False
         self.sessions = False
         self.consensus_match = False
+
         
         self.watch_seconds = 15
         self.watch_passes = 0
@@ -71,6 +74,10 @@ class ShowStatus():
         self.profile_names = [profile]
         self.functions.check_valid_profile(profile)   
             
+            
+    def set_self_value(self,name,value):
+        setattr(self, name, value)
+        
             
     def _set_service_status(self):
         self.functions.get_service_status()
@@ -194,13 +201,79 @@ class ShowStatus():
             
         self.watch_seconds = watch_seconds
         
+        
+    # ==== GETTERS ====
+            
+    def _get_nodeid(self):
+        try:
+            node_id = self.parent.cli_grab_id({
+                "command": "nodeid",
+                "argv_list": ["-p",self.called_profile],
+                "dag_addr_only": True,
+                "ready_state": True if self._get_profile_state(self.called_profile, self.rebuild) == "Ready" else False
+            })
+            node_id = self.functions.cleaner(node_id,"new_line")
+            node_id = f"{node_id[:8]}...{node_id[-8:]}"
+        except Exception as e:
+            self._print_log_msg("error",f"attempting to pull nodeid [{e}]")
+            node_id = "unknown"
+            
+        return node_id
+    
+    
+    def _get_latest_ordinal_details(self):
+        if self.config_obj[self.called_profile]["layer"] > 0:
+            return
+        
+        try:
+            self.latest_ordinal = self.config_obj["global_elements"]["snapshot_cache"][self.called_profile]["latest"]
+        except Exception as e:
+            self._print_log_msg("error",f"_get_latest_ordinal_details --> error [{e}]")
+                
+                
+    def _get_cluster_sessions(self):
+        self.sessions = self.cn_requests.get_cached_sessions(self.called_profile)
+    
+    
+    def _get_cluster_consensus(self):   
+        self.consensus_match = self.cn_requests.get_cached_consensus(self.called_profile)
+            
+                        
+    def _get_profile_state(self, profile, rebuild):
+        if not rebuild: 
+            return self.config_obj["global_elements"]["profile_states"][profile]
 
+        self.cn_requests.set_session()
+        
+        if rebuild == "local":
+            self.cn_requests.set_cnrequest_value("use_local",True)
+            self.cn_requests.set_cluster_cache()
+            self.cn_requests.handle_local_node_state() 
+            self.cn_requests.set_cnrequest_value("use_local",False)
+            return
+                   
+        self.cn_requests.set_cluster_cache()
+        
+        # state = self.functions.test_peer_state({
+        #     "threaded": self.threaded,
+        #     "spinner": self.spinner,
+        #     "profile": profile,
+        #     "simple": True
+        # })
+        
+        # return state      
+        
+    
+    def get_self_value(self, name, default=False):
+        return getattr(self, name, default)
+    
     # ==== PARSERS / PROCESSORS ====
 
     def process_status(self):
+        self.cn_requests.set_self_value("use_profile_cache",True)
         with ThreadPoolExecutor() as executor:
             self._handle_watch_request(executor)
-            
+
             while True:
                 if self.functions.cancel_event: 
                     exit("  Event Canceled")
@@ -268,44 +341,7 @@ class ShowStatus():
             
         self._print_quickstatus_output()
 
-        
-    # ==== GETTERS ====
-            
-    def _get_nodeid(self):
-        try:
-            node_id = self.parent.cli_grab_id({
-                "command": "nodeid",
-                "argv_list": ["-p",self.called_profile],
-                "dag_addr_only": True,
-                "ready_state": True if self._get_profile_state(self.called_profile) == "Ready" else False
-            })
-            node_id = self.functions.cleaner(node_id,"new_line")
-            node_id = f"{node_id[:8]}...{node_id[-8:]}"
-        except Exception as e:
-            self._print_log_msg("error",f"attempting to pull nodeid [{e}]")
-            node_id = "unknown"
-            
-        return node_id
     
-    
-    def _get_latest_ordinal_details(self):
-        if self.config_obj[self.called_profile]["layer"] > 0:
-            return
-        
-        try:
-            self.latest_ordinal = self.config_obj["global_elements"]["snapshot_cache"][self.called_profile]["latest"]
-        except Exception as e:
-            self._print_log_msg("error",f"_get_latest_ordinal_details --> error [{e}]")
-                
-                
-    def _get_cluster_sessions(self):
-        self.sessions = self.cn_requests.get_cached_sessions(self.called_profile)
-    
-    
-    def _get_cluster_consensus(self):   
-        self.consensus_match = self.cn_requests.get_cached_consensus(self.called_profile)
-                        
-                        
     # ==== INTERNALS ====
 
 
@@ -388,17 +424,6 @@ class ShowStatus():
         
         self.node_id = node_id
         return restart_time, uptime
-    
-    
-    def _get_profile_state(self,profile):
-        state = self.functions.test_peer_state({
-            "threaded": self.threaded,
-            "spinner": self.spinner,
-            "profile": profile,
-            "simple": True
-        })
-        
-        return state
         
         
     def _handle_rebuild(self):
@@ -408,15 +433,17 @@ class ShowStatus():
             self.functions.print_timer({
                 "seconds":20
             })
-                                            
-        self.sessions["node_state"] = self._get_profile_state(self.called_profile)
-    
+            
+        self._get_cluster_sessions()                                
+        # self.sessions["node_state"] = self._get_profile_state(self.called_profile, self.rebuild)
+        
         return self._set_status_output()
             
             
     # ==== PRINTERS ====
     
     def print_auto_restart_options(self):
+        if not self.print_auto_restart_status: return
         self.auto_restart_handler("current_pid")
         
             

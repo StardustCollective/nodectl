@@ -25,7 +25,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v3.0.0"
+        nodectl_version = "v2.19.0"
         nodectl_yaml_version = "v2.1.1"
                 
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
@@ -91,8 +91,8 @@ class Versioning():
     def build_objs(self):
         self.functions = Functions()
         self.functions.set_parameters()
-        self.functions.set_function_value("config_obj",self.config_obj)
-        self.functions.set_function_value("logs",self.log.logger[self.log_key])
+        self.functions.set_self_value("config_obj",self.config_obj)
+        self.functions.set_self_value("logs",self.log.logger[self.log_key])
         self.error_messages = Error_codes(self.functions) 
         return
     

@@ -34,6 +34,8 @@ class Configuration():
             self.log_key = "version"
         elif "service_restart" in self.argv_list or "debugging" in self.argv_list:
             self.log_key = "auto"
+        elif "_cache_update_request" in self.argv_list:
+            self.log_key = "cache"
 
         self.log = self.log.logger[self.log_key]
         
@@ -114,8 +116,8 @@ class Configuration():
 
         self.functions = Functions()
         self.functions.set_parameters()
-        self.functions.set_function_value("config_obj",self.config_obj)
-        self.functions.set_function_value("log",self.log)
+        self.functions.set_self_value("config_obj",self.config_obj)
+        self.functions.set_self_value("log",self.log)
         
         self.error_messages = Error_codes(self.functions)
         if check_sudo: self.functions.check_sudo()

@@ -36,7 +36,7 @@ class P12Class():
         
         self.functions = command_obj["functions"]
         self.functions.process = command_obj.get("process",None)
-        self.functions.set_function_value("log",self.log)
+        self.functions.set_self_value("log",self.log)
         self.version_obj = self.functions.version_obj
         self.config_obj = self.functions.config_obj 
 

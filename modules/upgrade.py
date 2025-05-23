@@ -58,7 +58,7 @@ class Upgrader():
         self.p12 = P12Class(p12_obj)   
         
         
-    def build_cli_obj(self):
+    def _set_cli_obj(self):
         self.cli = self.parent.cli
         self.cli.caller = "upgrader"
         self.cli.command = "upgrade"
@@ -72,7 +72,7 @@ class Upgrader():
         self.setup_argv_list()
 
         self.environments_verification_handler()
-        self.build_cli_obj()
+        self._set_cli_obj()
 
         self.versioning_handler()
         self.profile_handler()

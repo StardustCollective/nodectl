@@ -123,9 +123,9 @@ class AutoRestart():
 
         self.functions = Functions() 
         self.functions.set_parameters()
-        self.functions.set_function_value("config_obj",self.config_obj)
-        self.functions.set_function_value("auto_restart",True)
-        self.functions.set_function_value("log",self.log.logger[self.log_key])
+        self.functions.set_self_value("config_obj",self.config_obj)
+        self.functions.set_self_value.value("auto_restart",True)
+        self.functions.set_self_value.value("log",self.log.logger[self.log_key])
         # self.functions.auto_restart = True
         
         # versioning update is handled by nodectl's versioning service

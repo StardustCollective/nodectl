@@ -40,8 +40,8 @@ class CLI():
         self.log = log
 
 
-    # set commands
-
+    # ==== SETTERS ====
+    
     def set_parameters(self,command_obj):
         self.profile = command_obj.get("profile",None)
         self.command_list = command_obj.get("command_list",[])
@@ -56,7 +56,7 @@ class CLI():
         self.set_variables()
     
     
-    def set_cli_value(self, name, value):
+    def set_self_value(self, name, value):
         setattr(self, name, value)
         
         
@@ -183,6 +183,63 @@ class CLI():
     def raise_exception(self):
         self.functions.set_exception()
         raise self.functions.exception
+    
+    
+    # ==== GETTERS ====
+
+    def get_self_value(self, name, default=False):
+        return getattr(self, name, default)
+    
+    
+    def get_and_verify_snapshots(self,command_obj):
+        snapshot_size = command_obj["snapshot_size"]
+        environment = command_obj["environment"]
+        profile = command_obj["profile"]
+        ordinal = command_obj.get("ordinal",False)
+        return_on_error = command_obj.get("return_on_error",False)
+        return_type = command_obj.get("return_type","list")
+
+        error = True
+        return_data = {}
+        action = "history"
+
+        if ordinal:
+            action = "rewards"
+        
+        data = self.functions.get_snapshot({
+            "action": action,
+            "history": snapshot_size,
+            "environment": environment,
+            "profile": profile,
+            "ordinal": ordinal,
+            "return_type": return_type,
+        })   
+        
+        try:
+            start_time = datetime.strptime(data[-1]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
+            end_time = datetime.strptime(data[0]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
+            return_data["start_ordinal"] = data[-1]["ordinal"]
+            return_data["end_ordinal"] = data[0]["ordinal"]
+            return_data["elapsed_time"] = end_time - start_time
+        except Exception as e:
+            self._print_log_msg("error",f"received data from backend that wasn't parsable, trying again | [{e}]")
+            sleep(2)
+        else:
+            error = False
+            return_data["start_time"] = start_time
+            return_data["end_time"] = end_time
+            return_data["data"] = data
+            
+        if error:
+            if return_on_error: 
+                return False
+            self.error_messages.error_code_messages({
+                "error_code": "cmd-3151",
+                "line_code": "api_error",
+                "extra": None,
+            })
+        
+        return return_data    
     
     
     # ==========================================
@@ -2143,7 +2200,7 @@ class CLI():
         
         if caller in ["_sl","send_logs"]: return # send_logs command exception
         
-        self.functions.set_function_value("log",self.log)
+        self.functions.set_self_value("log",self.log)
         self.functions.get_service_status()
 
         if caller in ["upgrade_nodectl","main_error","uninstall"]: return
@@ -2233,7 +2290,7 @@ class CLI():
         cli_start.print_start_complete()        
         cli_start.print_timer()        
         cli_start.process_start_results()
-        cli_start.print_final_status()
+        cli_start.print_final_status("local")
 
         
     def cli_stop(self,command_obj):
@@ -2263,7 +2320,7 @@ class CLI():
     def cli_restart(self,command_obj):
         from modules.submodules.restart import RestartNode
         
-        cli_restart = RestartNode(self,command_obj)
+        cli_restart = RestartNode(self, self.set_self_value, self.get_self_value, command_obj)
         
         cli_restart.set_parameters()
         cli_restart.handle_help_request()
@@ -2272,7 +2329,7 @@ class CLI():
         cli_restart.handle_input_error()
         cli_restart.print_restart_init() 
         
-        cli_restart.set_default_variables()
+        cli_restart.set_function_obj_variables()
         cli_restart.process_ep_state()        
 
         self.slow_flag = cli_restart.slow_flag
@@ -2407,7 +2464,7 @@ class CLI():
         cli_join.print_joining()
 
         cli_join.handle_layer0_links()
-        cli_join.set_state(self.profile,True)    
+        cli_join.set_state_n_profile(self.profile)    
         
         cli_join.print_review()
 
@@ -5909,59 +5966,6 @@ class CLI():
             return "return_caller"
         return return_value if return_value else 0
 
-    # ==========================================
-    # reusable methods
-    # ==========================================
-
-    def get_and_verify_snapshots(self,command_obj):
-        snapshot_size = command_obj["snapshot_size"]
-        environment = command_obj["environment"]
-        profile = command_obj["profile"]
-        ordinal = command_obj.get("ordinal",False)
-        return_on_error = command_obj.get("return_on_error",False)
-        return_type = command_obj.get("return_type","list")
-
-        error = True
-        return_data = {}
-        action = "history"
-
-        if ordinal:
-            action = "rewards"
-        
-        data = self.functions.get_snapshot({
-            "action": action,
-            "history": snapshot_size,
-            "environment": environment,
-            "profile": profile,
-            "ordinal": ordinal,
-            "return_type": return_type,
-        })   
-        
-        try:
-            start_time = datetime.strptime(data[-1]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
-            end_time = datetime.strptime(data[0]["timestamp"],"%Y-%m-%dT%H:%M:%S.%fZ")
-            return_data["start_ordinal"] = data[-1]["ordinal"]
-            return_data["end_ordinal"] = data[0]["ordinal"]
-            return_data["elapsed_time"] = end_time - start_time
-        except Exception as e:
-            self._print_log_msg("error",f"received data from backend that wasn't parsable, trying again | [{e}]")
-            sleep(2)
-        else:
-            error = False
-            return_data["start_time"] = start_time
-            return_data["end_time"] = end_time
-            return_data["data"] = data
-            
-        if error:
-            if return_on_error: 
-                return False
-            self.error_messages.error_code_messages({
-                "error_code": "cmd-3151",
-                "line_code": "api_error",
-                "extra": None,
-            })
-        
-        return return_data
                     
     # ==========================================
     # print commands

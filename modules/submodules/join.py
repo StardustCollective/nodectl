@@ -2,10 +2,13 @@ from termcolor import colored
 from time import sleep
 from sys import exit
 
+from modules.cn_requests import CnRequests
+
 class Join():
     
     def __init__(self,parent,command_obj):
         self.parent = parent
+        self.command_obj = command_obj
         self.skip_msg = command_obj.get("skip_msg",False)
         self.skip_title = command_obj.get("skip_title",False)
         self.watch_peer_counts = command_obj.get("watch",False)
@@ -17,7 +20,7 @@ class Join():
         self.caller = command_obj.get("caller",False)
         self.argv_list = command_obj.get("argv_list")
         
-        self.log = self.parent.log.logger[self.parent.log_key]
+        self.log = self.parent.log
         self.functions = self.parent.functions
         
         
@@ -27,7 +30,14 @@ class Join():
         
         self.called_profile = self.argv_list[self.argv_list.index("-p")+1]
         self.parent.set_profile(self.called_profile)
-            
+        
+        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value, self.log)
+        self.cn_requests.set_self_value("called_command","join")
+        self.cn_requests.set_self_value("config_obj",self.parent.config_obj)
+        self.cn_requests.set_self_value("profile_names",[self.called_profile])
+        self.cn_requests.set_parameters()
+        self.parent.node_service.set_self_value('cn_requests',self.cn_requests)
+        
         self.result = False
         self.snapshot_issues = False 
         self.tolerance_result = False
@@ -60,22 +70,67 @@ class Join():
         self.break_states = self.functions.get_node_states("past_observing",True)
                     
                     
-    def set_state(self,profile,simple,skip_thread=False):
-        self.state = self.functions.test_peer_state({
-            "profile": profile,
-            "simple": simple,
-            "skip_thread": skip_thread,
+    def set_state_n_profile(self,profile):
+        self.cn_requests.set_self_value("use_profile_cache",True)
+        self.state = self.cn_requests.get_profile_state(profile)
+        self.profile = profile
+        # self.state = self.functions.test_peer_state({
+        #     "profile": profile,
+        #     "simple": simple,
+        #     "skip_thread": skip_thread,
+        # })
+
+        
+    def set_self_value(self, name, value):
+        setattr(self, name, value)
+        
+
+    # ==== GETTERS ====
+    
+    def _get_peer_count(self):
+        self.peer_count = self.functions.get_peer_count({
+            "peer_obj": {"ip": "127.0.0.1"},
+            "profile": self.parent.profile,
+            "count_only": True,
         })
         
         
+    def get_self_value(self, name, default=False):
+        return getattr(self, name, default)
+    
+            
     # ==== PARSERS / PROCESSORS ====
 
     def process_join_cluster(self):
-        self.join_result = self.parent.node_service.join_cluster({
-            "caller": "cli_join",
-            "action":"cli",
-            "interactive": True if self.watch_peer_counts or self.interactive else False, 
-        }).strip()
+        self._print_log_msg("info",f"joining cluster profile [{self.profile}]")
+        
+        from modules.submodules.join_service import JoinService
+        join_service = JoinService(self,self.command_obj)
+        join_service.set_self_value("cn_requests",self.cn_requests)
+        join_service.set_self_value("profile",self.profile)
+        
+        join_service.set_parameters()
+        join_service.set_profile_api_ports()
+        join_service.set_link_obj()
+        join_service.print_caller_log()
+        join_service.get_link_types()
+        join_service.handle_static_peer()
+        join_service.set_join_data_obj()
+        join_service.set_clear_to_join()
+        join_service.process_prepare_to_join()
+        join_service.print_join_status()            
+        join_service.process_join()        
+        join_service.handle_exceptions()
+        join_service.handle_not_clear_to_join()
+                
+        if join_service.action == "cli":
+            return join_service.result   
+            
+        # self.join_result = self.parent.node_service.join_cluster({
+        #     "caller": "cli_join",
+        #     "action":"cli",
+        #     "interactive": True if self.watch_peer_counts or self.interactive else False, 
+        # }).strip()
 
         
     def process_post_join(self):
@@ -210,8 +265,7 @@ class Join():
             self._print_update()
             self.result = True
             return True
-        
-         
+                 
 
     def process_incomplete_peer_connections(self):
         if self.peer_count < self.src_peer_count and not self.watch_peer_counts:
@@ -270,17 +324,7 @@ class Join():
             self._print_tolerance_warning()
         elif not self.result and not self.tolerance_result:
             self._print_tolerance_error()
-            
 
-    # ==== GETTERS ====
-    
-    def _get_peer_count(self):
-        self.peer_count = self.functions.get_peer_count({
-            "peer_obj": {"ip": "127.0.0.1"},
-            "profile": self.parent.profile,
-            "count_only": True,
-        })
-        
 
     # ==== INTERNALS ====
 

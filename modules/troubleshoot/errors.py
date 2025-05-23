@@ -107,8 +107,8 @@ class Error_codes():
             from ..functions import Functions
             self.functions = Functions()
             self.functions.set_parameters()
-            self.functions.set_function_value("config_obj",self.functions)
-            self.functions.set_function_value("logs",self.log.logger[self.log_key])
+            self.functions.set_self_value("config_obj",self.functions)
+            self.functions.set_self_value("logs",self.log.logger[self.log_key])
 
 
     def setup_process(self):

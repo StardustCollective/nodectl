@@ -33,7 +33,7 @@ from textwrap import TextWrapper
 from subprocess import Popen, PIPE, call, run, check_output, CalledProcessError, DEVNULL, STDOUT
 from concurrent.futures import ThreadPoolExecutor
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from termcolor import colored, cprint, RESET
 from copy import copy, deepcopy
 from time import sleep, perf_counter, time
@@ -42,15 +42,25 @@ from sshkeyboard import listen_keyboard, stop_listening
 from threading import Timer
 from functools import partial
 
+from sys import exit, stdout, stdin, path as sys_path
 from os import getenv, path, walk, environ, get_terminal_size, scandir, popen, listdir, remove, chown
+HERE = path.dirname(path.abspath(__file__))
+PROJECT_ROOT = path.abspath(path.join(HERE, ".."))
+sys_path.insert(0, PROJECT_ROOT)
+
 from pwd import getpwnam
 from grp import getgrnam
 from shutil import copy2
-from sys import exit, stdout, stdin, modules
+
 from pathlib import Path
 from types import SimpleNamespace, ModuleType
 from packaging import version
-from .troubleshoot.help import build_help
+
+try:
+    from .troubleshoot.help import build_help
+except ImportError:
+    from troubleshoot.help import build_help
+    
 from pycoingecko import CoinGeckoAPI
 
 from modules.troubleshoot.errors import Error_codes
@@ -61,39 +71,23 @@ class TerminateFunctionsException(Exception): pass
 class Functions():
 
     def __init__(self):
-        # self.sudo_rights = config_obj.get("sudo_rights", True)
-
-        # try:
-        #     self.log_key = config_obj["global_elements"]["log_key"]
-        # except:
-        #     try:
-        #         self.log_key = config_obj["log_key"]
-        #     except:
-        #         self.log_key = "main"
-
-        # try:
-        #     process = config_obj['global_elements']['caller']
-        # except:
-        #     process = None
-
-        # if self.sudo_rights:
-        #     self.log = Logging("init",process)
-
-        # self.config_obj = config_obj
-            
         self.nodectl_path = "/var/tessellation/nodectl/"  # required here for configurator first run
         self.nodectl_code_name = "Princess Warrior"
         self.version_obj = False
         self.cancel_event = False
+        self.called_command = False
         self.ext_ip = False
         self.valid_commands = []
+        self.class_name = self.__class__.__name__
 
 
-    def get_function_value(self, name, default=False):
+    def get_self_value(self, name, default=False):
+        if name == "self":
+            return self
         return getattr(self, name, default)
     
     
-    def set_function_value(self, name, value):
+    def set_self_value(self, name, value):
         setattr(self, name, value)
         
         
@@ -102,6 +96,15 @@ class Functions():
         self.config_obj = False
         
         
+    def set_cn_requests_obj(self, log, params=False):
+        cn_requests = CnRequests(self.set_self_value,self.get_self_value, log)
+        
+        if params:
+            cn_requests.set_parameters()
+            
+        return cn_requests
+                
+                
     def set_statics(self):
         self.set_install_statics()
         self.set_error_obj()      
@@ -596,8 +599,14 @@ class Functions():
                 result += f"{minutes}M "
             result += f"{seconds}S"
             return result
+        elif action == "date_as_session":
+            dt = datetime.now(timezone.utc)
+            return int(dt.timestamp())
         elif action == "session_to_date":
             elapsed = elapsed/1000
+            elapsed = datetime.fromtimestamp(elapsed)
+            return elapsed.strftime(format)
+        elif action == "session_as_date":
             elapsed = datetime.fromtimestamp(elapsed)
             return elapsed.strftime(format)
         elif action == "uptime_seconds":
@@ -1435,7 +1444,9 @@ class Functions():
         return
     
 
-    def get_memory(self):
+    def get_memory(self,nodectl_only=False):
+        if nodectl_only:
+            return Process().memory_info().rss / 1024**2
         return virtual_memory()
 
 
@@ -1490,6 +1501,7 @@ class Functions():
         profile = command_obj.get("profile",None)
         skip_error = command_obj.get("skip_error",False)
         profiles_only = command_obj.get("profiles_only",False)
+        
         self.default_profile = False
         self.default_edge_point = {}
         
@@ -1523,8 +1535,8 @@ class Functions():
                         "line_code": "profile_error",
                         "extra": profile,
                     })
-            
-        self.config_obj["global_elements"]["node_profile_states"] = {}  # initialize 
+        
+        self.config_obj["global_elements"].setdefault("node_profile_states", {})    
         self.profile_names = self.clear_global_profiles(self.config_obj)
         
         try: self.profile_names.pop(self.profile_names.index("upgrader"))
@@ -1724,8 +1736,8 @@ class Functions():
     
 
     def set_session_from_cache(self,url,profile):
-        if profile is None:
-            return
+        if profile is None: return
+        
         if not url:
             url = self.default_edge_point[profile]["host"]
             
@@ -1745,7 +1757,10 @@ class Functions():
 
     
     def set_argv(self, argv, key, default):
-        return argv[argv.index(key)+1] if key in argv else default
+        try:
+            return argv[argv.index(key)+1] if key in argv else default
+        except:
+            return default
     
     # =============================
     # pull functions
@@ -2224,10 +2239,10 @@ class Functions():
         
         if "cluster_info_lists" in self.config_obj["global_elements"]:
             if len(self.config_obj["global_elements"]["cluster_info_lists"]) > 0:
-                if "cluster_info_lists" in self.config_obj["global_elements"]["cluster_info_lists"][profile]:
+                if profile in self.config_obj["global_elements"]["cluster_info_lists"]:
                     if len(self.config_obj["global_elements"]["cluster_info_lists"][profile]) > 0:
                         return
-                  
+               
         self.error_messages.error_code_messages({
             "error_code": "fnt-2225",
             "line_code": "api_error",

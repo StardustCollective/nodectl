@@ -109,6 +109,7 @@ def pull_valid_command():
     service_cmds = [
         "service_restart",
         "uvos","test_only",
+        "_cache_update_request",
     ]
     
     valid_short_cuts = [

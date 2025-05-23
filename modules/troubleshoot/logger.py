@@ -15,6 +15,7 @@ class Logging():
         self.log_file_name = "nodectl.log"
         self.auto_file_name = "nodectl_auto_restart.log"
         self.version_file_name = "nodectl_versioning.log"
+        self.node_cache_file_name = "nodectl_cache.log"
         self.process = process
         self.caller = caller
 
@@ -24,12 +25,14 @@ class Logging():
             "main": f"{self.log_path}{self.log_file_name}",
             "auto": f"{self.log_path}{self.auto_file_name}",
             "version": f"{self.log_path}{self.version_file_name}",
+            "cache": f"{self.log_path}{self.node_cache_file_name}",
         }
         self.level = "INFO"
         self.logger = {
             "main": logging.getLogger("nodectl_logging"),
             "version": logging.getLogger("nodectl_versioning"),
-            "auto": logging.getLogger("nodectl_autorestart")
+            "auto": logging.getLogger("nodectl_autorestart"),
+            "cache": logging.getLogger("nodectl_cache"),
         } 
            
         try:
@@ -85,7 +88,7 @@ class Logging():
         log_dir_exists = path.isdir(self.log_path)
 
         if not log_dir_exists and self.process not in ["install","installer"]:
-            cprint("  No installation found or log path not found.","red")
+            cprint("  No installation found ~OR~ log path not found.","red")
             cprint("  Creating log directory for nodectl","yellow")
             makedirs(self.log_path)
         for value in self.full_log_paths.values():
