@@ -114,7 +114,7 @@ Environment="SCRIPT_ARGS=%I"
 ExecStartPre=/var/tessellation/nodectl/auto_restart_logger.sh
 ExecStart=nodectl service_restart $SCRIPT_ARGS
 Restart=always
-RestartSec=15
+RestartSec=300
 RuntimeMaxSec=3600
 ExecStop=/bin/true
 

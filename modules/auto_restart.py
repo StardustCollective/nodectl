@@ -39,9 +39,6 @@ class AutoRestart():
         self.alerting = {}
         
         self.alert_on_up = True
-        self.sleep_on_critical = 15 if self.rapid_restart else 600
-        self.silent_restart_timer = 5 if self.rapid_restart else 30  
-        self.join_pause_timer = 5 if self.rapid_restart else 180
         
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
@@ -73,21 +70,12 @@ class AutoRestart():
         }
         self.fork_timer = 60*5 # 5 minutes
         
-        if self.rapid_restart: self.random_times = [5]; self.timer = 5; self.sleep_on_critical = 15
-        else:
-            self.random_times = []
-            for n in range(40,220,10):
-                self.random_times.append(n)
-            
-            self.sleep_times = []
-            for n in range(95,125,5):
-                self.sleep_times.append(n)
-                
-            self.timer = random.choice(self.sleep_times)
+
         
         self.log.logger[self.log_key].info(f"\n==================\nAUTO RESTART - {self.thread_profile} Thread - Initiated\n==================")
         
         self.build_class_objs()   
+        self.set_timers()
         self.setup_profile_states()
         self.setup_alerting()
         self.restart_handler()
@@ -188,6 +176,29 @@ class AutoRestart():
          self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] - setup ep - pulling ep details | remote [{self.edge_device}]")
         
 
+    def set_timers(self):
+        self.sleep_on_critical = 600
+        self.silent_restart_timer = 30  
+        self.join_pause_timer = 30
+        
+        if self.rapid_restart: 
+            self.random_times = [120]
+            self.timer = 120
+            self.sleep_on_critical = 160
+            
+        else:
+            self.random_times = []
+            for n in range(210,340,10):
+                self.random_times.append(n)
+            
+            self.sleep_times = []
+            for n in range(240,360,10):
+                self.sleep_times.append(n)
+                
+            random.seed(self.functions.get_uuid)
+            self.timer = random.choice(self.sleep_times)     
+              
+               
     # PROFILE MANIPULATE
     def clean_up_thread_profiles(self):
         # This method will clean up all unnecessary profiles that are not
@@ -598,8 +609,8 @@ class AutoRestart():
                     "profile": self.thread_profile,
                     "environment": self.environment,
                 })
-            self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [{self.silent_restart_timer}]")
-            sleep(self.silent_restart_timer)   # not truly necessary but adding more delay
+            # self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [{self.silent_restart_timer}]")
+            # sleep(self.silent_restart_timer)   # not truly necessary but adding more delay
             self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart [start] initiating | profile [{self.node_service.profile}]")
             self.stop_start_handler("start")
             
@@ -1016,7 +1027,7 @@ class AutoRestart():
                 consensus_fork = self.profile_states[self.node_service.profile]["consensus_fork"]
 
                 self.alert_handler()
-                extra_wait_time = random.choice(self.random_times)
+                # extra_wait_time = random.choice(self.random_times)
 
                 if action == "ep_wait":
                     warn_msg = "\n==========================================================================\n"
