@@ -195,7 +195,7 @@ class AutoRestart():
             for n in range(240,360,10):
                 self.sleep_times.append(n)
                 
-            random.seed(self.functions.get_uuid)
+            random.seed(self.functions.get_uuid(False))
             self.timer = random.choice(self.sleep_times)     
               
                
