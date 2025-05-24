@@ -1581,6 +1581,7 @@ class Functions():
 
     def set_request_session(self,json=False,u_retries=3):
         get_headers = {
+            'User-Agent': f"nodectl {self.version_obj['node_nodectl_version']}",
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0"
