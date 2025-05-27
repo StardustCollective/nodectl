@@ -7,17 +7,17 @@
   "testnet": {
     "version": "v2.17.3",
     "upgrade": "True",
-    "current_stable": "v2.17.5"
+    "current_stable": "v2.17.7"
   },
   "mainnet": {
     "version": "v2.17.3",
     "upgrade": "True",
-    "current_stable": "v2.17.5"
+    "current_stable": "v2.17.7"
   },
   "integrationnet": {
     "version": "v2.17.3",
     "upgrade": "True",
-    "current_stable": "v2.17.5"
+    "current_stable": "v2.17.7"
   },
   "nodectl_config": "v2.1.1",
 
