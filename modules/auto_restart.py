@@ -1048,8 +1048,8 @@ class AutoRestart():
                     warn_msg += "=========================================================================="
                     self.log.logger[self.log_key].warning(warn_msg)
                 else:
-                    self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  restart handler - random sleep before executing restart request | sleep [{extra_wait_time}s]")
-                    sleep(extra_wait_time)
+                    # self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  restart handler - random sleep before executing restart request | sleep [{extra_wait_time}s]")
+                    # sleep(extra_wait_time)
                     if not match:
                         warn_msg = "\n==========================================================================\n"
                         warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED - MAJORITY FORK detected | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
