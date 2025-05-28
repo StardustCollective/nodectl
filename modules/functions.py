@@ -1579,9 +1579,12 @@ class Functions():
         })
         
 
-    def set_request_session(self,json=False,u_retries=3):
+    def set_request_session(self,json=False):
+        user_agent = "nodectl"
+        if not isinstance(self.version_obj,bool):
+            user_agent = f"nodectl {self.version_obj['node_nodectl_version']}"
         get_headers = {
-            'User-Agent': f"nodectl {self.version_obj['node_nodectl_version']}",
+            'User-Agent': user_agent,
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0"
@@ -1599,7 +1602,7 @@ class Functions():
             
         session = Session()            
         session.headers.update(get_headers)   
-        session.params = {'random': random.randint(10000,20000)}
+        # session.params = {'random': random.randint(10000,20000)}
 
         retries = Retry(
             total=3,
@@ -4126,6 +4129,9 @@ class Functions():
         except RequestException as e:
             self.log.logger[self.log_key].error(f"functions --> download_file [{url}] was not successfully downloaded to output file [{local}] error [{e}]")
             do_raise = True
+        except Exception as e:
+            self.log.logger[self.log_key].error(f"functions --> download_file [{url}] received an unknown error [{local}] error [{e}]")
+            do_raise = True            
         finally:
             session.close()
 
