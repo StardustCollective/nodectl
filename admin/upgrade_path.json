@@ -1,23 +1,23 @@
 {
   "_comment1": "First path element must be the latest installed version required for upgrade.",
   "path": [
-    "v2.13.0","v2.12.11","v2.12.11","v2.11.3","v2.8.1","v2.8.0","v2.7.1","v1.12.0","v1.11.7","v1.8.1","v0.14.1","v0.1.0"
+    "v2.17.7","v2.13.0","v2.12.11","v2.12.11","v2.11.3","v2.8.1","v2.8.0","v2.7.1","v1.12.0","v1.11.7","v1.8.1","v0.14.1","v0.1.0"
   ],
 
   "testnet": {
     "version": "v2.17.0",
     "upgrade": "False",
-    "current_stable": "v2.17.7"
+    "current_stable": "v2.17.9"
   },
   "mainnet": {
     "version": "v2.17.0",
     "upgrade": "False",
-    "current_stable": "v2.17.7"
+    "current_stable": "v2.17.9"
   },
   "integrationnet": {
     "version": "v2.17.0",
     "upgrade": "False",
-    "current_stable": "v2.17.7"
+    "current_stable": "v2.17.9"
   },
   "nodectl_config": "v2.1.1",
 
