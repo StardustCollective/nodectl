@@ -6,18 +6,18 @@
 
   "testnet": {
     "version": "v2.17.7",
-    "upgrade": "True",
-    "current_stable": "v2.17.7"
+    "upgrade": "full",
+    "current_stable": "v2.17.9"
   },
   "mainnet": {
     "version": "v2.17.7",
-    "upgrade": "True",
-    "current_stable": "v2.17.7"
+    "upgrade": "full",
+    "current_stable": "v2.17.9"
   },
   "integrationnet": {
     "version": "v2.17.7",
-    "upgrade": "True",
-    "current_stable": "v2.17.7"
+    "upgrade": "full",
+    "current_stable": "v2.17.9"
   },
   "nodectl_config": "v2.1.1",
 
