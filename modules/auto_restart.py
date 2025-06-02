@@ -43,24 +43,6 @@ class AutoRestart():
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
         self.on_boot_handler_check = True
-        
-        self.stuck_timers = {
-            "Observing_tolerance": 5*60, 
-            "Observing_enabled": False,
-            "Observing_state_enabled": False,
-
-            "SessionStarted_tolerance": 5*60, 
-            "SessionStarted_enabled": False,
-            "SessionStarted_state_enabled": False,
-
-            "WaitingForDownload_tolerance": 5*60,
-            "WaitingForDownload_state_enabled": False,
-            "WaitingForDownload_enabled": False,    
-
-            "WaitingForReady_tolerance": 5*60,
-            "WaitingForReady_state_enabled": False,
-            "WaitingForReady_enabled": False,    
-        }
 
         self.persist_alert_file = f"/var/tessellation/nodectl/{self.thread_profile}_alert_report"
 
@@ -198,7 +180,25 @@ class AutoRestart():
             random.seed(self.functions.get_uuid(False))
             self.timer = random.choice(self.sleep_times)     
               
-               
+        self.stuck_timers = {
+            "Observing_tolerance": 15*60, 
+            "Observing_enabled": False,
+            "Observing_state_enabled": False,
+
+            "SessionStarted_tolerance": 11*60, 
+            "SessionStarted_enabled": False,
+            "SessionStarted_state_enabled": False,
+
+            "WaitingForDownload_tolerance": 5*60,
+            "WaitingForDownload_state_enabled": False,
+            "WaitingForDownload_enabled": False,    
+
+            "WaitingForReady_tolerance": 15*60,
+            "WaitingForReady_state_enabled": False,
+            "WaitingForReady_enabled": False,    
+        }
+        
+                       
     # PROFILE MANIPULATE
     def clean_up_thread_profiles(self):
         # This method will clean up all unnecessary profiles that are not
