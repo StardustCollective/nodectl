@@ -86,8 +86,8 @@ def service_bash():
 # alter this file and avoid undesired affects.
 # =========================================================
 
-/usr/bin/java -jar '-Xmsnodegaragexmsv' '-Xmxnodegaragexmxv' '-Xssnodegaragexssv' nodegaragetessbinaryfilepath run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
-'''   
+nice -n nodegaragecpupriority /usr/bin/java -jar -Xmsnodegaragexmsv -Xmxnodegaragexmxv -Xssnodegaragexssv nodegaragetessbinaryfilepath run-validator --public-port nodegaragepublic_port --p2p-port nodegaragep2p_port --cli-port nodegaragecli_port --seedlist nodegarageseedlistv --ratings nodegarageratingv --collateral nodegaragecollateral --l0-token-identifier nodegaragetoken
+'''
     return cur_file
 
 
@@ -114,7 +114,7 @@ Environment="SCRIPT_ARGS=%I"
 ExecStartPre=/var/tessellation/nodectl/auto_restart_logger.sh
 ExecStart=nodectl service_restart $SCRIPT_ARGS
 Restart=always
-RestartSec=15
+RestartSec=300
 RuntimeMaxSec=3600
 ExecStop=/bin/true
 

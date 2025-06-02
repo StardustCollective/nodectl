@@ -1648,7 +1648,7 @@ class Functions():
 
     def set_request_session(self,json=False,timeout=False):
         if not timeout: 
-            timeout = (3,1)
+            timeout = (5,3)
             
         get_headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",

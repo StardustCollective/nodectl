@@ -99,7 +99,7 @@ class PeerCount():
     def _set_parameters(self,command_obj):
         self.peer_obj = command_obj.get("peer_obj",False)
         self.edge_obj = command_obj.get("edge_obj",False)
-        self.profile = command_obj.get("profile",self.parent.profile)
+        self.profile = command_obj.get("profile",self.parent.default_profile)
         self.compare = command_obj.get("compare",False)
         self.count_only = command_obj.get("count_only",False)
         self.pull_node_id = command_obj.get("pull_node_id",False)
