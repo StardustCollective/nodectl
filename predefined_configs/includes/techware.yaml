@@ -1,4 +1,5 @@
 ---
 starchiver:
-   remote_uri: "https://techware.net/metagraph/starchiver"
+   remote_uri: "https://raw.githubusercontent.com/StardustCollective/Starchive-Extractor/main/"
    local_dir: "/var/tmp/"
+   executable: "starchiverT3-ext.sh"
