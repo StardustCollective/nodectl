@@ -881,6 +881,7 @@ class Functions():
         
         result_list = []
         try:
+            self.log.logger[self.log_key].debug(f"get_api_node_info - get request [{api_url}]")
             r_session = self.set_request_session()
             session = r_session.get(api_url, timeout=r_timeout)
             if result_type == "json":
@@ -917,6 +918,7 @@ class Functions():
         session = self.set_request_session(is_json)
         s_timeout = (5,3)
         try:
+            self.log.logger[self.log_key].debug(f"get_from_api --> get request --> posting to [{url}].")
             if utype == "json":
                 response = session.get(url, timeout=s_timeout).json()
             else:
@@ -970,7 +972,8 @@ class Functions():
                         "msg": f"API making call outbound, please wait",
                         "color": "magenta",
                     })   
-                
+            
+            self.log.logger[self.log_key].debug(f"get_cluster_info_list --> get request --> posting to [{uri}].")
             try:
                 response = session.get(uri,timeout=s_timeout)
                 response.raise_for_status()
@@ -1175,6 +1178,7 @@ class Functions():
             if not return_values: return_values = ["destination"]
             return_type = "dict"
         
+        self.log.logger[self.log_key].debug(f"get_snapshot --> get request --> posting to [{uri}].")
         try:
             session = self.set_request_session(json)
             session.verify = False
@@ -1738,7 +1742,7 @@ class Functions():
             self.log.logger[self.log_key].debug(f"pull_node_sessions -> profile [{profile}] node [{node}] state found [{state}] assign to [{i}]")
             session_obj[f"state{i}"] = state
             url = self.set_api_url(node,port,"/node/info")
-            self.log.logger[self.log_key].debug(f"pull_node_session -> url: {url}")
+            self.log.logger[self.log_key].debug(f"pull_node_session --> get request --> url: {url}")
             
             try:
                 session = r_session.get(url, timeout=s_timeout).json()
@@ -1856,6 +1860,7 @@ class Functions():
                     "color": "magenta",
                 })                     
 
+            self.log.logger[self.log_key].debug(f"pull_node_balance --> get request --> posting to [{uri}].")
             try:
                 session = self.set_request_session(True)
                 session.verify = True
@@ -2247,10 +2252,11 @@ class Functions():
         session = self.set_request_session()
         s_timeout = (5, 3)
 
+        self.log.logger[self.log_key].debug(f"check_edge_point_health --> get request --> posting to [{uri}].")
         try:
             health = session.get(uri, timeout=s_timeout)
         except:
-            self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
+            self.log.logger[self.log_key].warning(f"unable to reach edge point [{uri}]")
             if not self.auto_restart:
                 self.network_unreachable_looper()
                 return False
@@ -2270,6 +2276,7 @@ class Functions():
             
             
     def check_health_endpoint(self,api_port): 
+        self.log.logger[self.log_key].debug(f"check_health_endpoint --> get request --> posting to [127.0.0.1].")
         try:
             session = self.set_request_session()
             session.verify = False
@@ -2664,6 +2671,7 @@ class Functions():
                     uri = self.set_api_url(ip_address["ip"], ip_address["publicPort"],"/node/state")
                         
                     if ip_address["ip"] is not None:
+                        self.log.logger[self.log_key].debug(f"test_peer_state --> get request --> posting to [{uri}].")
                         try: 
                             session = self.set_request_session()
                             session.verify = False
@@ -4097,6 +4105,7 @@ class Functions():
             session = self.set_request_session()
             session.verify = True
 
+            self.log.logger[self.log_key].debug(f"functions --> download_file --> get request --> [{url}]")
             with session.get(url, stream=True) as response:
                 if response.status_code == 304: # file did not change
                     self.log.logger[self.log_key].warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")

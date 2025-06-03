@@ -66,7 +66,7 @@ class Versioning():
         self.update_file_only = False
         self.version_valid_cache = False
         self.date_time = None
-        self.session_timeout = 2
+        self.session_timeout = 5
 
         self.nodeids = {}
 
@@ -462,6 +462,7 @@ class Versioning():
         s_timeout = (5, 3)
         for _ in range(0,2):
             if do_update or self.force:
+                self.log.logger[self.log_key].debug(f"pull_upgrade_path --> get request --> posting to [{self.upgrade_path_path}].")
                 try:
                     upgrade_path = session.get(self.upgrade_path_path, timeout=s_timeout)
                 except:
@@ -515,6 +516,7 @@ class Versioning():
         pre_release_uri = f"https://api.github.com/repos/stardustCollective/nodectl/releases/tags/{p_version}"
         pre_release = {"prerelease":"Unknown"}
 
+        self.log.logger[self.log_key].debug(f"is_nodectl_pre_release --> get request --> posting to [{pre_release_uri}].")
         try:
             session = self.functions.set_request_session()
             s_timeout = (5, 3)
