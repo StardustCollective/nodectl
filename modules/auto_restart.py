@@ -40,31 +40,10 @@ class AutoRestart():
         self.alerting = {}
         
         self.alert_on_up = True
-        self.sleep_on_critical = 15 if self.rapid_restart else 600
-        self.silent_restart_timer = 5 if self.rapid_restart else 30  
-        self.join_pause_timer = 5 if self.rapid_restart else 180
         
         self.link_types = ["ml0","gl0"]
         self.independent_profile = False
         self.on_boot_handler_check = True
-        
-        self.stuck_timers = {
-            "Observing_tolerance": 5*60, 
-            "Observing_enabled": False,
-            "Observing_state_enabled": False,
-
-            "SessionStarted_tolerance": 5*60, 
-            "SessionStarted_enabled": False,
-            "SessionStarted_state_enabled": False,
-
-            "WaitingForDownload_tolerance": 5*60,
-            "WaitingForDownload_state_enabled": False,
-            "WaitingForDownload_enabled": False,    
-
-            "WaitingForReady_tolerance": 5*60,
-            "WaitingForReady_state_enabled": False,
-            "WaitingForReady_enabled": False,    
-        }
 
         self.persist_alert_file = f"/var/tessellation/nodectl/{self.thread_profile}_alert_report"
 
@@ -74,21 +53,12 @@ class AutoRestart():
         }
         self.fork_timer = 60*5 # 5 minutes
         
-        if self.rapid_restart: self.random_times = [5]; self.timer = 5; self.sleep_on_critical = 15
-        else:
-            self.random_times = []
-            for n in range(40,220,10):
-                self.random_times.append(n)
-            
-            self.sleep_times = []
-            for n in range(95,125,5):
-                self.sleep_times.append(n)
-                
-            self.timer = random.choice(self.sleep_times)
+
         
         self.log.logger[self.log_key].info(f"\n==================\nAUTO RESTART - {self.thread_profile} Thread - Initiated\n==================")
         
         self.build_class_objs()   
+        self.set_timers()
         self.setup_profile_states()
         self.setup_alerting()
         self.restart_handler()
@@ -194,6 +164,47 @@ class AutoRestart():
          self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] - setup ep - pulling ep details | remote [{self.edge_device}]")
         
 
+    def set_timers(self):
+        self.sleep_on_critical = 600
+        self.silent_restart_timer = 30  
+        self.join_pause_timer = 30
+        
+        if self.rapid_restart: 
+            self.random_times = [120]
+            self.timer = 120
+            self.sleep_on_critical = 160
+            
+        else:
+            self.random_times = []
+            for n in range(210,340,10):
+                self.random_times.append(n)
+            
+            self.sleep_times = []
+            for n in range(240,360,10):
+                self.sleep_times.append(n)
+                
+            random.seed(self.functions.get_uuid(False))
+            self.timer = random.choice(self.sleep_times)     
+              
+        self.stuck_timers = {
+            "Observing_tolerance": 15*60, 
+            "Observing_enabled": False,
+            "Observing_state_enabled": False,
+
+            "SessionStarted_tolerance": 11*60, 
+            "SessionStarted_enabled": False,
+            "SessionStarted_state_enabled": False,
+
+            "WaitingForDownload_tolerance": 5*60,
+            "WaitingForDownload_state_enabled": False,
+            "WaitingForDownload_enabled": False,    
+
+            "WaitingForReady_tolerance": 15*60,
+            "WaitingForReady_state_enabled": False,
+            "WaitingForReady_enabled": False,    
+        }
+        
+                       
     # PROFILE MANIPULATE
     def clean_up_thread_profiles(self):
         # This method will clean up all unnecessary profiles that are not
@@ -457,7 +468,7 @@ class AutoRestart():
         if continue_checking: # and min_fork_check: # check every 5 minutes
             for fork_type in ["minority_fork","consensus_fork"]:
                 if self.fork_handler(fork_type):
-                    self.profile_states[self.node_service.profile]["action"] = "restart_pending"
+                    self.profile_states[self.node_service.profile]["action"] = "restart_full"
                     continue_checking = False
                     break
             
@@ -485,7 +496,7 @@ class AutoRestart():
                 # local service is not started 
                 if session_list["session1"] == 0:
                     self.profile_states[self.node_service.profile]["match"] = False
-                self.profile_states[self.node_service.profile]["action"] = "restart_pending" 
+                self.profile_states[self.node_service.profile]["action"] = "restart_full" 
 
         if self.profile_states[self.node_service.profile]["node_state"] == "Ready":
             self.clear_timers_flags("timers")
@@ -569,19 +580,6 @@ class AutoRestart():
                 return True
 
 
-    def confirm_restart_looper(self):
-        for _ in range(0,5):
-            sleep(3)
-            self.set_session_and_state()
-            if self.profile_states[self.node_service.profile]["action"] == "NoActionNeeded":
-                return False
-            if self.profile_states[self.node_service.profile]["action"] not in ["restart_full","restart_pending"]:
-                return False
-    
-        self.profile_states[self.node_service.profile]["action"] = "restart_full"
-        return True # restart confirmed
-
-
     # CORE SERVICE MANIPULATION
     def check_service_state(self):
         self.node_service.get_service_status()
@@ -617,8 +615,8 @@ class AutoRestart():
                     "profile": self.thread_profile,
                     "environment": self.environment,
                 })
-            self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [{self.silent_restart_timer}]")
-            sleep(self.silent_restart_timer)   # not truly necessary but adding more delay
+            # self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart - sleeping [{self.silent_restart_timer}]")
+            # sleep(self.silent_restart_timer)   # not truly necessary but adding more delay
             self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  silent restart [start] initiating | profile [{self.node_service.profile}]")
             self.stop_start_handler("start")
             
@@ -820,7 +818,7 @@ class AutoRestart():
                 notice_warning = "auto_upgrade to obtain "
                 if sessionStartedState:
                     self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  version check handler - version changed while in [SessionStarted] updating to [restart_full]")
-                    self.profile_states[self.thread_profile]["action"] = "restart_pending"
+                    self.profile_states[self.thread_profile]["action"] = "restart_full"
                 auto_upgrade_success = self.node_service.download_constellation_binaries({
                     "caller": "refresh_binaries",
                     "profile": self.thread_profile,
@@ -1016,7 +1014,6 @@ class AutoRestart():
         self.log.logger[self.log_key].info(f"auto_restart - thread [{self.thread_profile}] -  restart handler - invoked | profile [{self.thread_profile}]")
 
         while True:
-            silent_restart = False
             if self.passphrase_warning:
                 self.log.logger[self.log_key].error(f"auto_restart - restart handler -  thread [{self.thread_profile}] found possible manual passphrase requirement - auto_restart will not be able to proper authenticate on restart requirement, sleeping [20 minutes].")
                 sleep(1200)
@@ -1034,9 +1031,9 @@ class AutoRestart():
                 state = self.profile_states[self.node_service.profile]["node_state"]
                 minority_fork = self.profile_states[self.node_service.profile]["minority_fork"]
                 consensus_fork = self.profile_states[self.node_service.profile]["consensus_fork"]
-                
+
                 self.alert_handler()
-                extra_wait_time = random.choice(self.random_times)
+                # extra_wait_time = random.choice(self.random_times)
 
                 if action == "ep_wait":
                     warn_msg = "\n==========================================================================\n"
@@ -1056,41 +1053,35 @@ class AutoRestart():
                     warn_msg += f"auto_restart - take no action at this time | thread [{self.thread_profile}] state [{state}]\n"
                     warn_msg += "=========================================================================="
                     self.log.logger[self.log_key].warning(warn_msg)
-                elif action == "restart_pending":
-                    silent_restart = self.confirm_restart_looper()
-                    action = self.profile_states[self.node_service.profile]["action"]
                 else:
-                    silent_restart = True
-
-            if silent_restart:
-                self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  restart handler - random sleep before executing restart request | sleep [{extra_wait_time}s]")
-                sleep(extra_wait_time)
-                if not match:
-                    warn_msg = "\n==========================================================================\n"
-                    warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED - MAJORITY FORK detected | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
-                    warn_msg += "=========================================================================="                        
-                    self.log.logger[self.log_key].warning(warn_msg)
-                elif consensus_fork:
-                    warn_msg = "\n==========================================================================\n"
-                    warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED CONSENSUS FORK detected | profile [{self.thread_profile}] state [{state}]\n"
-                    warn_msg += "=========================================================================="      
-                    self.log.logger[self.log_key].warning(warn_msg)
-                elif minority_fork:
-                    warn_msg = "\n==========================================================================\n"
-                    warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED MINORITY FORK detected | profile [{self.thread_profile}] state [{state}]\n"
-                    warn_msg += "=========================================================================="      
-                    self.log.logger[self.log_key].warning(warn_msg)
-                elif action == "restart_full":
-                    warn_msg = "\n==========================================================================\n"
-                    warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED but SESSION MATCH | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
-                    warn_msg += "=========================================================================="      
-                    self.log.logger[self.log_key].warning(warn_msg)
-                elif action == "join_only":
-                    warn_msg = "\n==========================================================================\n"
-                    warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - JOIN ONLY ACTION NEEDED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
-                    warn_msg += "=========================================================================="      
-                    self.log.logger[self.log_key].warning(warn_msg)
-                self.silent_restart(action)
+                    # self.log.logger[self.log_key].debug(f"auto_restart - thread [{self.thread_profile}] -  restart handler - random sleep before executing restart request | sleep [{extra_wait_time}s]")
+                    # sleep(extra_wait_time)
+                    if not match:
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - SESSION DID NOT MATCHED - MAJORITY FORK detected | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                        warn_msg += "=========================================================================="                        
+                        self.log.logger[self.log_key].warning(warn_msg)
+                    elif consensus_fork:
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED CONSENSUS FORK detected | profile [{self.thread_profile}] state [{state}]\n"
+                        warn_msg += "=========================================================================="      
+                        self.log.logger[self.log_key].warning(warn_msg)
+                    elif minority_fork:
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED MINORITY FORK detected | profile [{self.thread_profile}] state [{state}]\n"
+                        warn_msg += "=========================================================================="      
+                        self.log.logger[self.log_key].warning(warn_msg)
+                    elif action == "restart_full":
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - RESTART NEEDED but SESSION MATCH | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                        warn_msg += "=========================================================================="      
+                        self.log.logger[self.log_key].warning(warn_msg)
+                    elif action == "join_only":
+                        warn_msg = "\n==========================================================================\n"
+                        warn_msg += f"auto_restart - thread [{self.thread_profile}] -  restart handler - JOIN ONLY ACTION NEEDED | profile [{self.thread_profile}] state [{state}] sessions matched [{match}]\n"
+                        warn_msg += "=========================================================================="      
+                        self.log.logger[self.log_key].warning(warn_msg)
+                    self.silent_restart(action)
 
 
 if __name__ == "__main__":

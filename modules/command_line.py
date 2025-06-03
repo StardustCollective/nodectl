@@ -4036,9 +4036,12 @@ class CLI():
         self._print_log_msg("info","execute_starchiver initiated.")
         self.functions.check_for_help(command_list,"execute_starchiver")
 
+        empty_params = False
+        
         def set_key_pairs():
-            local_path = self.config_obj["global_elements"]["starchiver"]["local_dir"]+"starchiver"
-            repo = self.config_obj["global_elements"]["starchiver"]["remote_uri"]
+            executable = self.config_obj["global_elements"]["starchiver"]["executable"]
+            local_path = self.config_obj["global_elements"]["starchiver"]["local_dir"]+executable
+            repo = self.config_obj["global_elements"]["starchiver"]["remote_uri"]+executable
             return local_path, repo
 
         def send_error(extra2):
@@ -4056,22 +4059,6 @@ class CLI():
             "newline": False,
         })
 
-        profile = command_list[command_list.index("-p")+1]
-        if profile not in self.functions.profile_names:
-            send_error(f"is this a valid profile? [{profile}]")
-
-        self.functions.print_paragraphs([
-            [" WARNING ",0,"red,on_yellow"], ["This will execute the starchiver external community",0],
-            ["supported script.",2],
-            ["USE AT YOUR OWN RISK!",1,"red","bold"], 
-            ["The",0], ["starchiver",0,"yellow"], 
-            ["script is not supported by Constellation Network; however,",0],
-            ["it is a useful script included in nodectl's tool set to help expedite a node's ability to",0],
-            ["join the Constellation Network cluster of choice.",1],
-            ["This will be executed on:",0,"blue","bold"],[self.config_obj[profile]['environment'],1,"yellow"],
-            [f"{self.config_obj[profile]['environment']} cluster profile:",0,"blue","bold"],[profile,2,"yellow"],
-        ])
-
         try:
             local_path, repo = set_key_pairs()
         except:
@@ -4081,31 +4068,96 @@ class CLI():
             except:
                 send_error("make sure you have the proper include file in the includes directory [/var/tessellation/nodectl/includes/].")
 
+        print("")
+        self.functions.print_header_title({
+            "line1": "COMMUNITY STARCHIVER",
+            "single_line": True,
+            "newline": "both",
+        })
+        
         local_path = self.functions.cleaner(local_path,"double_slash")
-        data_path = f"/var/tessellation/{profile}/data"
-        cluster = self.config_obj[profile]["environment"]
-        bashCommand = f"{local_path} --data-path '{data_path}' --cluster '{cluster}'"
 
-        if "--datetime" in command_list:  
-            sc_date = command_list[command_list.index("--datetime")+1]
-            if self.functions.get_date_time({
-                "action": "valid_datetime",
-                "new_time": sc_date,
-            }):
-                try:
-                    int(sc_date)
-                except:
-                    if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
-                        sc_date = f"'{sc_date}'"
-                bashCommand += f" --datetime {sc_date}"
+        if all(v == "empty" for v in command_list):
+            bashCommand = local_path
+            profile = "missing"
+            cluster = "missing"
+            
+            self.functions.print_clear_line()
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["No parameters were detected",1,"yellow"],
+            ])
+
+            self.functions.confirm_action({
+                "yes_no_default": "n",
+                "return_on": "y",
+                "prompt_color": "magenta",
+                "prompt": f"Execute the starchiver script with empty paraemters?",
+                "exit_if": True,
+            }) 
+            
+            empty_params = True
+             
+        if not empty_params:  
+            if "--default" in command_list:
+                profile = self.profile_names[0]
             else:
-                bashCommand += f" --datetime"
+                profile = command_list[command_list.index("-p")+1]
+                
+            if profile not in self.functions.profile_names:
+                send_error(f"is this a valid profile? [{profile}]")
+                
+            data_path = f"/var/tessellation/{profile}/data"
+            cluster = self.config_obj[profile]["environment"]
+        
+            self.functions.print_paragraphs([
+                [" WARNING ",0,"red,on_yellow"], ["This will execute the starchiver external community",0],
+                ["supported script.",2],
+                ["USE AT YOUR OWN RISK!",1,"red","bold"], 
+                ["The",0], ["starchiver",0,"yellow"], 
+                ["script is not supported by Constellation Network; however,",0],
+                ["it is a useful script included in nodectl's tool set to help expedite a node's ability to",0],
+                ["join the Constellation Network cluster of choice.",1],
+                ["This will be executed on:",0,"blue","bold"],[self.config_obj[profile]['environment'],1,"yellow"],
+                [f"{self.config_obj[profile]['environment']} cluster profile:",0,"blue","bold"],[profile,2,"yellow"],
+            ])
+            
+            bashCommand = f"{local_path} --data-path '{data_path}' --cluster '{cluster}'"
 
-        elif "-d" in command_list: bashCommand += " -d"
-        elif "-o" in command_list: bashCommand += " -o"
+            if "--default" in command_list:
+                bashCommand += " --datetime -d --cleanup"
+            elif "--upload" in command_list:
+                if path.isfile(command_list[command_list.index("--datetime")+1]):
+                    bashCommand += f' --upload {command_list[command_list.index("--datetime")+1]}'
+                else:
+                    send_error(f"invalid path or file")
+            else: 
+                if "--datetime" in command_list:  
+                    sc_date = command_list[command_list.index("--datetime")+1]
+                    
+                    if sc_date.isdigit() and len(sc_date) == 10:
+                        bashCommand += f" --datetime {sc_date}"
+                    else:
+                        if self.functions.get_date_time({
+                            "action": "valid_datetime",
+                            "new_time": sc_date,
+                        }):
+                            try:
+                                int(sc_date)
+                            except:
+                                if (sc_date[0] != "'" and sc_date[-1] != "'") and (sc_date[0] != '"' and sc_date[-1] != '"'):
+                                    sc_date = f"'{sc_date}'"
+                            bashCommand += f" --datetime {sc_date}"
+                        else:
+                            bashCommand += f" --datetime"
+
+                if "-d" in command_list: bashCommand += " -d"
+                elif "-o" in command_list: bashCommand += " -o"
+                
+                if "--cleanup" in command_list: bashCommand += " --cleanup"
+                elif "--nocleanup" in command_list: bashCommand += " --nocleanup"
+                elif "--onlycleanup" in command_list: bashCommand += " --onlycleanup"
 
         self._print_log_msg("debug",f"execute_starchiver -> executing starchiver | profile [{profile}] | cluster [{cluster}] | command referenced [{bashCommand}]")
-
 
         self.functions.print_paragraphs([
             ["The following command will be executed at the terminal.",1],
@@ -4124,12 +4176,6 @@ class CLI():
 
         if "-d" in command_list and "-o" in command_list:
             send_error("invalid options requested together")
-
-        self.functions.print_header_title({
-            "line1": "COMMUNITY STARCHIVER",
-            "single_line": True,
-            "newline": "both",
-        })
 
         self.functions.print_cmd_status({
             "text_start": "Remove existing starchiver scripts",
@@ -4185,20 +4231,27 @@ class CLI():
             "newline": True,
         })
 
-        self.build_node_class()
-        self.set_profile(profile)
-        self.cli_leave({
-            "secs": 30,
-            "reboot_flag": False,
-            "skip_msg": False,
-            "print_timer": True,
-            "threaded": False,
-        })
-        self.cli_stop({
-            "show_timer": False,
-            "static_nodeid": False,
-            "argv_list": []
-        })
+        if empty_params:
+            self.functions.print_paragraphs([
+                ["Skipping nodectl cluster removal commands because no parameters were set by the Node Operator so",0,"yellow"],
+                ["nodectl",0], ["is unable to determine profile or environment to shutdown",0,"yellow"],                            
+            ])
+            sleep(1.5)
+        else:
+            self.build_node_class()
+            self.set_profile(profile)
+            self.cli_leave({
+                "secs": 30,
+                "reboot_flag": False,
+                "skip_msg": False,
+                "print_timer": True,
+                "threaded": False,
+            })
+            self.cli_stop({
+                "show_timer": False,
+                "static_nodeid": False,
+                "argv_list": []
+            })
 
         self.functions.print_cmd_status({
             "text_start": "Executing starchiver",
@@ -4218,7 +4271,7 @@ class CLI():
             "status_color": "green",
             "newline": True,
         })
-        if "--restart" in self.command_list:
+        if ("--restart" in self.command_list or "--default" in self.command_list) and not empty_params:
             self.cli_start({})
             self.cli_join({
                 "skip_msg": False,

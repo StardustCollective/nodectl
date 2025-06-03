@@ -158,6 +158,28 @@ class Node():
                     profile
                 ) 
                 
+                layer0 = 9
+                layer1 = 11
+                if "layer_scheduling_priority" in self.config_obj["global_elements"]:
+                    try: 
+                        layer0 = int(self.config_obj["global_elements"]["layer_scheduling_priority"]["layer0"])
+                        layer1 = int(self.config_obj["global_elements"]["layer_scheduling_priority"]["layer1"])
+                        if layer0 < 1:
+                            raise("invalid schedule")
+                        if layer1 < layer0 or layer1 < 1:
+                            raise("invalud schedule")
+                    except Exception as e:
+                        self.log.logger[self.log_key].error(f"build service bash entities | invalid [{e}] ... canceling request")
+                        self.error_messages.error_code_messages({
+                            "error_code": "ns-634",
+                            "line_code": "config_error",
+                            "extra": "format",
+                            "extra2": "layer scheduling priority custom configuration error",
+                        })
+
+                c_layer = layer0 if self.config_obj[profile]["layer"] < 1 else layer1
+                template = template.replace("nodegaragecpupriority",f'{c_layer}')
+                
                 if self.config_obj[profile]["seed_path"] == "disable":
                     template = template.replace("--seedlist nodegarageseedlistv","")
                     template = template.rstrip()

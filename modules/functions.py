@@ -308,6 +308,7 @@ class Functions():
             
     def get_peer_count(self,command_obj):
         from  modules.submodules.peer_count import PeerCount
+
         peer_count_obj = PeerCount(self, command_obj)
         peer_count_obj.node_states = self.get_node_states()
 
@@ -883,8 +884,8 @@ class Functions():
         api_endpoint = command_obj.get("api_endpoint","/node/info")
         info_list = command_obj.get("info_list",["all"])
         result_type = command_obj.get("result_type","json")
-        r_timeout = command_obj.get("timeout",False)
-        session = False
+        r_timeout = command_obj.get("timeout",(5, 3))
+        
         # dictionary
         #  api_host: to do api call against
         #  api_port: for the L0 or cluster/metagraph channel
@@ -909,11 +910,13 @@ class Functions():
             info_list = ["state","session","clusterSession","host","version","publicPort","p2pPort","id"]
         
         result_list = []
+
         r_session, rr_timeout = self.set_request_session()
         if not r_timeout:
             r_timeout = rr_timeout
         
         for attempt in range(0,4):
+            self._print_log_msg("debug",f"get_api_node_info - get request [{api_url}]")
             try:
                 session = r_session.get(api_url, timeout=r_timeout)
                 if result_type == "json":
@@ -951,10 +954,24 @@ class Functions():
 
     def get_from_api(self,url,utype):
         is_json = True if utype == "json" else False
-        
-        session, s_timeout = self.set_request_session(is_json)
-        
-        for _ in range(0,4):
+
+        session = self.set_request_session(is_json)
+        s_timeout = (5,3)
+        try:
+            self.log.logger[self.log_key].debug(f"get_from_api --> get request --> posting to [{url}].")
+            if utype == "json":
+                response = session.get(url, timeout=s_timeout).json()
+            else:
+                response = session.get(url, timeout=s_timeout)
+        except Exception as e:
+            self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}].")
+            self.error_messages.error_code_messages({
+                "error_code": "fnt-876",
+                "line_code": "api_error",
+                "extra2": url,
+                "extra": None
+            })
+        else:
             try:
                 if utype == "json":
                     response = session.get(url, timeout=s_timeout).json()
@@ -987,12 +1004,13 @@ class Functions():
                     
     def get_cluster_info_list(self,command_obj):
         var = SimpleNamespace(**command_obj)
+
         try:
             results = self.config_obj["global_element"]["cluster_info_lists"][var.profile]
         except:
             # ip_address, port, api_endpoint, error_secs, attempt_range
 
-            s_timeout = command_obj.get("timeout",False)
+            s_timeout = command_obj.get("timeout",(5,3))
             spinner = command_obj.get("spinner",True)
             results = False
             
@@ -1214,8 +1232,9 @@ class Functions():
         lookup_uri = command_obj.get("lookup_uri",self.set_proof_uri({"environment":environment, "profile": profile}))
         header = command_obj.get("header","normal")
         get_results = command_obj.get("get_results","data")
-        return_type =  command_obj.get("return_type",False)
-        s_timeout = command_obj.get("timeout",False)
+
+        return_type =  command_obj.get("return_type","list")
+        s_timeout = command_obj.get("timeout",(5, 3))
         
         json = True if header == "json" else False
         return_data = []
@@ -1250,6 +1269,7 @@ class Functions():
             except Exception as e:
                 self._print_log_msg("warning",f"get_snapshot --> attempt to access backend explorer or localhost ap failed with | [{e}] | url [{uri}]")
                 sleep(error_secs)
+
             else:
                 if return_type == "raw":
                     return results
@@ -1305,8 +1325,12 @@ class Functions():
         return possible_found
     
 
-    def get_uuid(self):
-        return str(uuid.uuid4())
+    def get_uuid(self,r_string=True):
+        if r_string: 
+            return str(uuid.uuid4())
+        
+        r_int = uuid.uuid4()
+        return r_int.int
     
 
     def get_persist_hash(self, command_obj):
@@ -1646,11 +1670,13 @@ class Functions():
         })
         
 
-    def set_request_session(self,json=False,timeout=False):
-        if not timeout: 
-            timeout = (5,3)
-            
+    def set_request_session(self,json=False):
+        user_agent = "nodectl"
+        if not isinstance(self.version_obj,bool):
+            user_agent = f"nodectl {self.version_obj['node_nodectl_version']}"
+
         get_headers = {
+            'User-Agent': user_agent,
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0"
@@ -1790,7 +1816,8 @@ class Functions():
         
         self._print_log_msg("debug",f"pull_node_session: session_obj [{session_obj}]")
         
-        r_session, s_timeout = self.set_request_session(True)
+        r_session = self.set_request_session(True)
+        s_timeout = (5, 3)
 
         for i,node in enumerate(nodes):
             state = None
@@ -1813,6 +1840,7 @@ class Functions():
             self._print_log_msg("debug",f"pull_node_sessions -> profile [{profile}] node [{node}] state found [{state}] assign to [{i}]")
             session_obj[f"state{i}"] = state
             url = self.set_api_url(node,port,"/node/info")
+
             self.set_session_from_cache(url,profile)
 
             self._print_log_msg("debug",f"pull_node_session -> url: {url}")
@@ -1904,6 +1932,83 @@ class Functions():
                     "extra": i_profile,
                     "extra2": None
                 })       
+
+
+        balance = 0
+        return_obj = {
+            "balance_dag": "unavailable",
+            "balance_usd": "unavailable",
+            "token_price": "unavailable",
+            "token_symbol": "unknown"
+        }
+        
+        if not self.auto_restart:
+            self.print_cmd_status({
+                "text_start": "Pulling DAG details from APIs",
+                "brackets": environment,
+                "status": "running",
+                "newline": True,
+            })
+
+            if environment != "mainnet":
+                self.print_paragraphs([
+                    [" NOTICE ",0,"red,on_yellow"], 
+                    [f"Wallet balances on {environment} are fictitious",0],["$TOKENS",0,"green"], 
+                    ["and will not be redeemable, transferable, or spendable.",2],
+                ])
+            
+        with ThreadPoolExecutor() as executor:
+            self.event = True
+            if not self.auto_restart:
+                _ = executor.submit(self.print_spinner,{
+                    "msg": f"Pulling node balances, please wait",
+                    "color": "magenta",
+                })                     
+
+            self.log.logger[self.log_key].debug(f"pull_node_balance --> get request --> posting to [{uri}].")
+            try:
+                session = self.set_request_session(True)
+                session.verify = True
+                s_timeout = (5, 3)
+                uri = self.set_proof_uri({})
+                uri = f"{uri}/addresses/{wallet}/balance"
+                balance = session.get(uri, timeout=s_timeout).json()
+                balance = balance["data"]
+                balance = balance["balance"]
+            except:
+                self.log.logger[self.log_key].error(f"pull_node_balance - unable to pull request [{ip_address}] DAG address [{wallet}]")
+                self.log.logger[self.log_key].warning(f"pull_node_balance session - returning [{balance}] because could not reach requested address")
+            finally:
+                session.close()
+            self.event = False              
+        
+        try:  
+            balance = balance/1e8 
+        except:
+            balance = 0
+
+        usd = []
+        usd = self.get_crypto_price()  # position 5 in list
+
+        token = self.config_obj[self.default_profile]["token_coin_id"].lower()
+        try:
+            return_obj["token_price"] = usd[token]["formatted"]
+        except:
+            pass
+        try:
+            return_obj["balance_dag"] = "{:,.5f}".format(balance)
+        except:
+            pass
+        try:
+            return_obj["balance_usd"] = "${:,.2f}".format(balance*usd[token]["usd"])
+        except:
+            pass
+        try:
+            return_obj["token_symbol"] = f'${usd[token]["symbol"].upper()}'
+        except:
+            pass
+        
+        return return_obj
 
    
     def pull_custom_variables(self):
@@ -2264,8 +2369,6 @@ class Functions():
         #             "/node/health",               
         #             )
 
-        # session, s_timeout = self.set_request_session()
-
         # for _ in range(0,4):
         #     try:
         #         health = session.get(uri, timeout=s_timeout)
@@ -2291,7 +2394,8 @@ class Functions():
             
             
     def check_health_endpoint(self,api_port): 
-        session, s_timeout = self.set_request_session()
+        session = self.set_request_session()
+	s_timeout = (5, 3)
         session.verify = False
         
         for _ in range(0,4):
@@ -2711,9 +2815,10 @@ class Functions():
                         
                     if ip_address["ip"] is not None:
                         for _ in range(0,4):
-                            session, s_timeout = self.set_request_session()
+                            session = self.set_request_session()
                             session.verify = False
-                            
+                            s_timeout = (5, 3)
+
                             try: 
                                 state = session.get(uri, timeout=s_timeout).json()
                                 color = self.change_connection_color(state)
@@ -4163,8 +4268,8 @@ class Functions():
         local = command_obj.get("local",path.split(url)[1])
         do_raise = False
         etag = None
-        
-        session, _ = self.set_request_session()
+
+        session = self.set_request_session()
         session.verify = True
         
         for _ in range(0,4):

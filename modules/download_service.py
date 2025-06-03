@@ -418,6 +418,7 @@ class Download():
             uri = uri.split("download")[0]
             artifact_uri = f"https://api.github.com/repos{uri}tags/{self.file_obj[file_key]['version']}"
             
+            self.log.logger[self.log_key].debug(f"get_remote_file_size --> get request --> [{artifact_uri}]")
             response = requests.get(artifact_uri)
             if response.status_code == 200:
                 response = response.json()

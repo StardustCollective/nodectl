@@ -877,8 +877,7 @@ class ShellHandler:
             "show_service_log","_ssl","download_status","_ds",
             "show_dip_error","_sde","check_consensus","_con",
             "check_minority_fork","_cmf","node_last_snapshot",
-            "execute_starchiver","display_snapshot_chain",
-            "show_p12_details",
+            "display_snapshot_chain", "show_p12_details",
         ]  
 
         option_exceptions = [
