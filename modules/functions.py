@@ -915,7 +915,7 @@ class Functions():
     def get_from_api(self,url,utype):
         is_json = True if utype == "json" else False
         session = self.set_request_session(is_json)
-        s_timeout = (5, 3)
+        s_timeout = (5,3)
         try:
             if utype == "json":
                 response = session.get(url, timeout=s_timeout).json()
@@ -4096,8 +4096,8 @@ class Functions():
         try:
             session = self.set_request_session()
             session.verify = True
-            s_params = {'random': random.randint(10000, 20000)}
-            with session.get(url,params=s_params, stream=True) as response:
+
+            with session.get(url, stream=True) as response:
                 if response.status_code == 304: # file did not change
                     self.log.logger[self.log_key].warning(f"functions --> download_file [{url}] response status code [{response.status_code}] - file fetched has not changed since last download attempt.")
                 else:

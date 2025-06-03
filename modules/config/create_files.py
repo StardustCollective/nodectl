@@ -436,6 +436,7 @@ def auto_complete():
     local viewconfig_opts="nodegarageviewconfigoptions"
     local autorestart_opts="nodegarageautorestartoptions"
     local delegate_opts="nodegaragedelegateoptions"
+    local starchiver_opts="nodegaragestarchiveroptions"
     local displaychain_opts="nodegaragedisplaychainoptions"
     local find_opts="nodegaragefindoptions"
     local default_opts="help"
@@ -506,6 +507,14 @@ def auto_complete():
             case "${prev}" in
                 *)
                     COMPREPLY=($(compgen -W "${delegate_opts}" -- ${cur}))
+                    return 0
+                    ;;
+            esac
+            ;;
+        execute_starchiver)
+            case "${prev}" in
+                *)
+                    COMPREPLY=($(compgen -W "${starchiver_opts}" -- ${cur}))
                     return 0
                     ;;
             esac

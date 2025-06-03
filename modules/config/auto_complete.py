@@ -30,6 +30,8 @@ def ac_build_script(cli):
     autorestart_options = "status enable disable alert_test send_report clear_alerts restart help"
 
     delegate_options = "update status remove help"
+    
+    starchiver_options = "-p --cleanup --nocleanup -d -o --data_path --cluster --datetime --onlycleanup"
 
     find_options = "-s -t"
     auto_complete_file = auto_complete_file.replace("nodegaragelocalcommands",valid_commands)
@@ -40,6 +42,7 @@ def ac_build_script(cli):
     auto_complete_file = auto_complete_file.replace("nodegaragefindoptions",find_options)
     auto_complete_file = auto_complete_file.replace("nodegarageautorestartoptions",autorestart_options)
     auto_complete_file = auto_complete_file.replace("nodegaragedelegateoptions",delegate_options)
+    auto_complete_file = auto_complete_file.replace("nodegaragestarchiveroptions",starchiver_options)
     auto_complete_file = auto_complete_file.replace('\\n', '\n')    
 
     return auto_complete_file
