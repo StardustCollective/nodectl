@@ -465,7 +465,7 @@ class Node():
             if n < 2: print("")
             print(colored(f"  API not ready on {self.profile}","red"),colored(state,"yellow"),end=" ")
             print(f'{colored("attempt ","red")}{colored(n,"yellow",attrs=["bold"])}{colored(" of 3","red")}',end="\r")
-            sleep(1.5)
+            sleep(5)
             
         if caller == "upgrade":
             return False

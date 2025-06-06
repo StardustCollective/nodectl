@@ -423,10 +423,14 @@ class ShellHandler:
             elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
                 self.cli.show_seedlist_participation(self.argv)
             elif self.called_command == "download_status" or self.called_command == "_ds":
-                self.cli.show_download_status({
-                    "caller": "download_status",
-                    "command_list": self.argv
+                self.cli.print_removed({
+                    "command": self.called_command,
+                    "version": "v2.17.15",
                 })
+                # self.cli.show_download_status({
+                #     "caller": "download_status",
+                #     "command_list": self.argv
+                # })
             elif self.called_command in cv_commands:
                 self.set_version_obj_class()
                 self.cli.check_versions({

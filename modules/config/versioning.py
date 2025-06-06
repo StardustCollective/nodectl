@@ -25,7 +25,7 @@ class Versioning():
         #                                    was introduced.  The value should remain
         #                                    at the last required migration upgrade_path
         
-        nodectl_version = "v2.17.13"
+        nodectl_version = "v2.17.15"
         nodectl_yaml_version = "v2.1.1"
                 
         node_upgrade_path_yaml_version = "v2.1.0" # if previous is 'current_less'; upgrade path needed (for migration module)
@@ -416,10 +416,10 @@ class Versioning():
                                     exit(1)
                                 self.log.logger[self.log_key].critical("versioning --> unable to determine versioning, skipping service updater.")
                                 # force a controlled error if possible
-                                self.functions.test_peer_state({
-                                    **test_obj,
-                                    "caller": "versioning",
-                                })
+                                # self.functions.test_peer_state({
+                                #     **test_obj,
+                                #     "caller": "versioning",
+                                # })
                                 return # if test passes
                             else: env_version_obj[profile][f"{versions[0]}"] = test
 
@@ -460,55 +460,52 @@ class Versioning():
     
         session = self.functions.set_request_session()
         s_timeout = (5, 3)
-        for _ in range(0,2):
-            if do_update or self.force:
-                self.log.logger[self.log_key].debug(f"pull_upgrade_path --> get request --> posting to [{self.upgrade_path_path}].")
-                try:
-                    upgrade_path = session.get(self.upgrade_path_path, timeout=s_timeout)
-                except:
-                    # only trying once (not that important)
-                    
-                    self.log.logger[self.log_key].error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
-                    if self.print_messages:
-                        self.functions.print_paragraphs([
-                            ["",1], ["Unable to determine upgrade path.  Please make sure you adhere to the proper upgrade path before",0,"red"],
-                            ["continuing this upgrade; otherwise, you may experience unexpected results.",2,"red"],
-                        ])
-                    self.upgrade_path = False
-                    return
-                finally:
-                    session.close()
 
-                upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
-                try:
-                    self.upgrade_path = eval(upgrade_path)
-                except Exception as e:
-                    self.log.logger[self.log_key].critical(f"versioning --> upgrade_path uri returned invalid data [{e}]")
-                    self.print_error("ver-327","possible404",e,None)
+        if do_update or self.force:
+            self.log.logger[self.log_key].debug(f"pull_upgrade_path --> get request --> posting to [{self.upgrade_path_path}].")
+            try:
+                upgrade_path = session.get(self.upgrade_path_path, timeout=s_timeout)
+            except:
+                # only trying once (not that important)
+                
+                self.log.logger[self.log_key].error("unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
+                if self.print_messages:
+                    self.functions.print_paragraphs([
+                        ["",1], ["Unable to determine upgrade path.  Please make sure you adhere to the proper upgrade path before",0,"red"],
+                        ["continuing this upgrade; otherwise, you may experience unexpected results.",2,"red"],
+                    ])
+                self.upgrade_path = False
+                return
+            finally:
+                session.close()
 
-                self.upgrade_path["nodectl_pre_release"] = self.is_nodectl_pre_release()
-                break
-            else:
-                self.upgrade_path = {
-                    "path": self.old_version_obj["upgrade_path"],
-                }
-                try:
-                    for environment in self.functions.environment_names:
-                        self.upgrade_path = {
-                            **self.upgrade_path,
-                            "nodectl_config": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
-                            "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
-                            "remote_yaml_version": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
-                            f"{environment}": {
-                                "version": self.old_version_obj["node_nodectl_version"],
-                                "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],
-                                "upgrade": self.old_version_obj[environment]["nodectl"]["upgrade"]
-                            }
+            upgrade_path =  upgrade_path.content.decode("utf-8").replace("\n","").replace(" ","")
+            try:
+                self.upgrade_path = eval(upgrade_path)
+            except Exception as e:
+                self.log.logger[self.log_key].critical(f"versioning --> upgrade_path uri returned invalid data [{e}]")
+                self.print_error("ver-327","possible404",e,None)
+
+            self.upgrade_path["nodectl_pre_release"] = self.is_nodectl_pre_release()
+        else:
+            self.upgrade_path = {
+                "path": self.old_version_obj["upgrade_path"],
+            }
+            try:
+                for environment in self.functions.environment_names:
+                    self.upgrade_path = {
+                        **self.upgrade_path,
+                        "nodectl_config": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
+                        "nodectl_pre_release": self.old_version_obj[environment]["nodectl"]["nodectl_prerelease"],
+                        "remote_yaml_version": self.old_version_obj[environment]["nodectl"]["nodectl_remote_config"],
+                        f"{environment}": {
+                            "version": self.old_version_obj["node_nodectl_version"],
+                            "current_stable": self.old_version_obj[environment]["nodectl"]["current_stable"],
+                            "upgrade": self.old_version_obj[environment]["nodectl"]["upgrade"]
                         }
-                except:
-                    do_update = True
-                else:
-                    break
+                    }
+            except:
+                do_update = True
 
                         
     def is_nodectl_pre_release(self):

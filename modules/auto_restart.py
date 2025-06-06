@@ -356,6 +356,7 @@ class AutoRestart():
                 else: 
                     return
                 
+                
         return self.functions.test_peer_state({
                     "test_address": self.profile_states[self.node_service.profile][f"{link_type}_link_ehost"],
                     "profile": self.node_service.profile,

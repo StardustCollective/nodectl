@@ -1028,8 +1028,6 @@ class CLI():
                         "ip_address": self.config_obj[profile]["edge_point"],
                         "port": self.config_obj[profile]["edge_point_tcp_port"],
                         "api_endpoint": "/cluster/info",
-                        "error_secs": 3,
-                        "attempt_range": 3,
                     })   
                 except Exception as e:
                     self.log.logger[self.log_key].error(f"request to find node id request failed | error [{e}]")
@@ -1413,8 +1411,6 @@ class CLI():
                         "ip_address": self.config_obj[profile]["edge_point"],
                         "port": self.config_obj[profile]["edge_point_tcp_port"],
                         "api_endpoint": "/cluster/info",
-                        "error_secs": 3,
-                        "attempt_range": 3,
                     })   
                     try:
                         count = cluster_ips.pop()   
@@ -3590,8 +3586,8 @@ class CLI():
                 sleep(1)
                 self.log.logger[self.log_key].debug(f"cli_join -> watching join process | profile [{self.profile}]")
                 if allocated_time % 5 == 0 or allocated_time < 1:  # 5 second mark or first attempt
-                    if allocated_time % 10 == 0 or allocated_time < 1:
-                        # re-check source every 10 seconds
+                    if allocated_time % 30 == 0 or allocated_time < 1:
+                        # re-check source every 30 seconds
                         src_peer_count = self.functions.get_peer_count({
                             "profile": self.profile,
                             "count_only": True,
@@ -3938,7 +3934,7 @@ class CLI():
                         self.log.logger[self.log_key].warning(f"cli_leave -> leave process unable to verify| profile [{profile}] leave progress | ip [127.0.0.1] - switching to new method")
                         leave_str = "to allow node to gracefully leave"
                         skip_log_lookup = True
-                        sleep(.5)
+                        sleep(2)
 
                     state = self.functions.test_peer_state(get_state_obj)
                     if state in self.functions.not_on_network_list: 
@@ -3956,7 +3952,7 @@ class CLI():
                         })
                     else:
                         leave_obj = False
-                        sleep(1)
+                        sleep(5)
                         try:
                             self.log.logger[self.log_key].debug(f"cli_leave -> checking for Offline status | profile [{profile}] | ip [127.0.0.1]")
                             leave_obj = self.send.scrap_log({
@@ -3975,7 +3971,7 @@ class CLI():
                         state = self.functions.test_peer_state(get_state_obj)
                         if state not in self.functions.not_on_network_list and start > 2: 
                             self.log.logger[self.log_key].warning(f"cli_leave -> leave process not out of cluster | profile [{profile}] state [{state}] | ip [127.0.0.1]")
-                            sleep(.1) 
+                            sleep(1) 
                             skip_log_lookup = True      
                             backup_line = True  
                         else: 
@@ -4095,8 +4091,6 @@ class CLI():
                             "ip_address": ip_address,
                             "port": api_port,
                             "api_endpoint": "/cluster/info",
-                            "error_secs": 3,
-                            "attempt_range": 3,
                         })  
                         
                         try:
@@ -5036,10 +5030,10 @@ class CLI():
 
         if "-w" in argv_list:
             try: seconds = int(argv_list[argv_list.index("-w")+1])
-            except: seconds = 16
-            if not isinstance(seconds,int): seconds = 16
-            if seconds < 15: 
-                seconds = 15
+            except: seconds = 30
+            if not isinstance(seconds,int): seconds = 30
+            if seconds < 30: 
+                seconds = 30
                 range_error = True
 
         if "-id" in argv_list:
@@ -5124,7 +5118,6 @@ class CLI():
                     node_list = self.functions.get_cluster_info_list({
                         "ip_address": ip_address["ip"],
                         "port": ip_address["publicPort"],
-                        "attempt_range": 3,
                         "api_endpoint": "/consensus/latest/peers",
                     })  
                     _ = node_list.pop() # clean off counter

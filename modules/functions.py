@@ -740,39 +740,32 @@ class Functions():
             }
             
         while True:
-            for n in range(0,3):
-                try:
-                    cluster_info = self.get_cluster_info_list({
-                        "ip_address": self.config_obj[profile]["edge_point"],
-                        "port": self.config_obj[profile]["edge_point_tcp_port"],
-                        "api_endpoint": api_str,
-                        "spinner": spinner,
-                        "error_secs": 3,
-                        "attempt_range": 7,
+            try:
+                cluster_info = self.get_cluster_info_list({
+                    "ip_address": self.config_obj[profile]["edge_point"],
+                    "port": self.config_obj[profile]["edge_point_tcp_port"],
+                    "api_endpoint": api_str,
+                    "spinner": spinner,
+                })
+            except Exception as e:
+                self.log.logger[self.log_key].error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
+                
+            if not cluster_info:
+                if self.auto_restart:
+                    return False
+                if random_node and self.config_obj["global_elements"]["use_offline"]:
+                    self.log.logger[self.log_key].warning("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
+                    random_node = False
+                    self.config_obj[profile]["edge_point"] = self.get_ext_ip()
+                    self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
+                    self.config_obj[profile]["static_peer"] = True 
+                else:               
+                    self.error_messages.error_code_messages({
+                        "error_code": "fnt-725",
+                        "line_code": "lb_not_up",
+                        "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
+                        "extra2": self.config_obj[profile]["layer"],
                     })
-                except Exception as e:
-                    self.log.logger[self.log_key].error(f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
-                    
-                if not cluster_info and n > 2:
-                    if self.auto_restart:
-                        return False
-                    if random_node and self.config_obj["global_elements"]["use_offline"]:
-                        self.log.logger[self.log_key].warning("functions -> get_info_from_edge_point -> LB may not be accessible, trying local.")
-                        random_node = False
-                        self.config_obj[profile]["edge_point"] = self.get_ext_ip()
-                        self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
-                        self.config_obj[profile]["static_peer"] = True 
-                    else:               
-                        self.error_messages.error_code_messages({
-                            "error_code": "fnt-725",
-                            "line_code": "lb_not_up",
-                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
-                            "extra2": self.config_obj[profile]["layer"],
-                        })
-                if not cluster_info and n > 0:
-                    sleep(.8)
-                else:
-                    break
                 
             cluster_info_tmp = deepcopy(cluster_info)
             try:
@@ -947,7 +940,7 @@ class Functions():
                         
                     
     def get_cluster_info_list(self,command_obj):
-        # ip_address, port, api_endpoint, error_secs, attempt_range
+        # ip_address, port, api_endpoint
         var = SimpleNamespace(**command_obj)
         s_timeout = command_obj.get("timeout",(5, 3))
         spinner = command_obj.get("spinner",True)
@@ -1161,7 +1154,7 @@ class Functions():
         
         json = True if header == "json" else False
         return_data = []
-        error_secs = 2
+        error_secs = 5
         
         self.set_proof_uri({"environment":environment, "profile": profile},True)
         
@@ -2703,7 +2696,7 @@ class Functions():
                             attempt = attempt+1
                             if attempt > 1:
                                 api_not_ready_flag = True
-                            sleep(.5)
+                            sleep(5)
                             break
                         else:
                             break_while = True
@@ -4014,7 +4007,7 @@ class Functions():
     
            
     def network_unreachable_looper(self):
-            seconds = 30
+            seconds = 45
             self.log.logger[self.log_key].warning("network has become unreachable, starting retry loop to avoid error")
             if not self.auto_restart:
                 progress = {
