@@ -2354,43 +2354,7 @@ class Functions():
             "extra": profile,
             "extra2": self.config_obj[profile]["edge_point"],
         })
-        
-        # check_edge_point_health should be wrapped in a 
-        # while loop from where it is called...
-        # uri = f"{self.default_edge_point[self.default_profile]['uri']}/node/health"
-        
-        # if command_obj:    
-        #     profile = command_obj.get("profile",False)
-            
-        #     if profile:
-        #         uri = self.set_api_url(
-        #             self.config_obj[profile]["edge_point"],
-        #             self.config_obj[profile]["edge_point_tcp_port"],
-        #             "/node/health",               
-        #             )
 
-        # for _ in range(0,4):
-        #     try:
-        #         health = session.get(uri, timeout=s_timeout)
-        #     except:
-        #         self._print_log_msg("warning",f"check_edge_point_health --> unable to reach edge point [{uri}] attempt [{n+1}] of [3]")
-        #         if not self.auto_restart:
-        #             self.network_unreachable_looper()
-        #             return False
-        #     else:  
-        #         if health.status_code != 200:
-        #             self._print_log_msg("warning",f"check_edge_point_health --> unable to reach edge point [{uri}] returned code [{health.status_code}]")
-        #             if not self.auto_restart:
-        #                 self.network_unreachable_looper()
-        #                 return False
-        #         else:
-        #             self._print_log_msg("debug",f"check_edge_point_health --> edge point [{uri}] returned code [{health.status_code}]")
-        #             return True
-        #     finally:
-        #         session.close()
-            
-        # if not self.auto_restart:
-        #     sleep(1)
             
             
     def check_health_endpoint(self,api_port): 

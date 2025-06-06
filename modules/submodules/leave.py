@@ -18,7 +18,7 @@ class LeaveNode():
 
     # ==== SETTERS ====
 
-    def _set_timestap(self):
+    def _set_timestamp(self):
         try: 
             self.timestamp = self.leave_obj["@timestamp"]
         except:
@@ -141,7 +141,7 @@ class LeaveNode():
         except Exception as e:
             self._print_log_msg("error",f"leave object exception raised [{e}]")
             
-        self._set_timestap()   
+        self._set_timestamp()   
              
     # ==== INTERNALS ====
 

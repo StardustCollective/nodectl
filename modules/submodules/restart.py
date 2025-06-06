@@ -229,6 +229,7 @@ class RestartNode():
                 self.parent.cli_start(self.start_obj)
                 
                 self.cn_requests.set_self_value("use_profile_cache",True)
+                self.cn_requests.set_self_value("config_obj",self.config_obj)
                 peer_test_results = self.cn_requests.get_profile_state(profile)
                 # peer_test_results = self._get_profile_state(profile)
                 ready_states = self.functions.get_node_states("ready_states",True)
@@ -410,6 +411,7 @@ class RestartNode():
     def print_cursor_position(self):
         print(f"\033[{self.pos['down']}B", end="", flush=True)
         print("")        
+
 
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")  

@@ -15,7 +15,14 @@ class StopNode():
         self.static_nodeid = command_obj.get("static_nodeid",False)
         self.check_for_leave = command_obj.get("check_for_leave",False)
         
-        self.log = self.parent.log.logger[self.parent.log_key]
+        try:
+            _ = self.parent.log.logger
+        except:
+            try:
+                self.log = self.parent.log.logger[self.parent.log_key]
+            except:
+                self.log = self.parent.log
+                
         self.functions = self.parent.functions
 
 

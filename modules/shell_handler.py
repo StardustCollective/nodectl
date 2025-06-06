@@ -163,14 +163,11 @@ class ShellHandler:
         self.argv = argv
         self.check_error_argv(argv)
         
-        # self.skip_services = True
-        # return_value = 0
+        self.skip_services = True
+        return_value = 0
 
         self._print_log_msg("info",f"shell_handler -> start_cli -> obtain ip address: {self.ip_address}")
                 
-        # commands that do not need all resources
-
-            
         router = NodeCtlRouter(
             self, self._get_self_value, self._set_self_value,
             self._set_function_value,
@@ -180,42 +177,14 @@ class ShellHandler:
         router.set_router_value("called_command",self.called_command)
         while True:
             if router.process_main_error(): exit(0)
-            # if "main_error" in argv:
-            #     self.functions.auto_restart = False
-            #     self._print_log_msg("error",f"invalid command called [{self.called_command}] sending to help file.")
-            #     self.functions.print_help({
-            #         "usage_only": True,
-            #         "nodectl_version_only": True,
-            #         "hint": "unknown",
-            #     })
-            
             if router.handle_version(): exit(0)
-            # version_cmd = ["-v","_v","version"]
-            # if argv[1] in version_cmd:
-            #     self.functions.auto_restart = False
-            #     self.show_version()
-            #     exit(0)
-
             if router.handle_verify_specs(): exit(0)
-            # if argv[1] == "verify_specs":
-            #     self.functions.auto_restart = False
-            #     self.verify_specs(argv)
-            #     exit(0)
-
+            
             return_caller = router.handle_verify_nodectl() 
             if isinstance(return_caller,bool) and return_caller: exit(0)
             if return_caller: return return_caller
-            # verify_command = ["verify_nodectl","_vn","-vn"]
-            # if argv[1] in verify_command:
-            #     self.functions.auto_restart = False
-            #     return_caller = self.digital_signature(argv)
-            #     if return_caller: 
-            #         return return_caller
-            #     exit(0)
+
             if router.handle_restore_config(): exit(0)
-            # elif self.called_command == "restore_config":
-            #     self.restore_config(self.argv)
-            #     exit(0)
 
             self.check_valid_command()
             self.set_version_obj_class()
@@ -230,147 +199,28 @@ class ShellHandler:
             self.check_for_profile_requirements()
 
             router.process_all_profiles()
-            # if "all" in self.argv:
-            #     self.check_all_profile()     
 
             if not hasattr(self, "cli"):
                 self.cli = self._set_cli_obj()
                 router.set_router_value("cli",self.cli)
-            # try:
-            #     _ = self.cli
-            # except:
-            #     self.cli = self._set_cli_obj()
 
             router.handle_invalid_version()
 
             self._set_node_obj() # needs cli object
             self._set_cn_requests()
             
-            router.handle_direct_node_cache_request()
+            # router.handle_direct_node_cache_request()
             if self.cn_requests.get_is_cache_needed():
                 self.cn_requests.set_self_value("node_file_cache_obj",self.node_file_cache_obj)
                 self.cn_requests.handle_edge_point_cache()
 
-            # restart_commands = ["restart","slow_restart","restart_only","_sr","join"]
-            # service_change_commands = ["start","stop","leave"]
-            # status_commands = ["status","_s","quick_status","_qs","uptime"]
-            # node_id_commands = ["id","dag","nodeid"]
-            # cv_commands = ["check_versions","_cv"]
-            # removed_clear_file_cmds = [
-            #     "clear_uploads","_cul","_cls","clear_logs",
-            #     "clear_snapshots","clear_backups",
-            #     "reset_cache","_rc","clean_snapshots","_cs",
-            # ] # only if there is not a replacement command
-            # ssh_commands = ["disable_root_ssh","enable_root_ssh","change_ssh_port"]
-            # config_list = ["view_config","validate_config","_vc", "_val"]
-            # clean_files_list = ["clean_files","_cf"]
-            # download_commands = ["refresh_binaries","_rtb","update_seedlist","_usl"]
-
             router.print_ux_clear_line()
-            # if self.called_command == "install" and "--quiet" in self.argv:
-            #     pass
-            # elif self.called_command != "service_restart":
-            #     self.functions.print_clear_line()
-            
             router.handle_console_mobile()
-            # if self.called_command == "console" or self.called_command == "mobile":
-            #     if self.called_command == "mobile": 
-            #         self.mobile, self.cli.mobile = True, True
-            #         cli_iterative = self.called_command 
-            #     self.called_command, self.argv = self.cli.cli_console(self.argv)
-            #     if self.called_command in ["view_config","verify_nodectl","configure","export_private_key"]:
-            #         return ['main.py',self.called_command] + self.argv
-            #     else:
-            #         self.check_auto_restart() # retest if auto_restart needs to be disabled
-
             router.handle_status_command()
-            # if self.called_command in status_commands:
-            #     self.cli.show_system_status({
-            #         "auto_restart_handler": self.auto_restart_handler,
-            #         "rebuild": False,
-            #         "wait": False,
-            #         "called_command": self.called_command,
-            #         "argv": self.argv
-            #     })
-            
             router.handle_service_commands()
-            # elif self.called_command in service_change_commands:
-            #     if not self.help_requested:
-            #         try: self.cli.set_profile(self.argv[self.argv.index("-p")+1])
-            #         except: 
-            #             self._print_log_msg("error","shell_handler -> profile error caught by fnt-998")
-            #             exit(0) # profile error caught by fnt-998            
-            #         if self.called_command == "start":
-            #             self.cli.cli_start({
-            #                 "argv_list": self.argv,
-            #             })
-            #         elif self.called_command == "stop":
-            #             self.cli.cli_stop({
-            #                 "show_timer": False,
-            #                 "spinner": True,
-            #                 "upgrade_install": False,
-            #                 "argv_list": self.argv,
-            #                 "check_for_leave": True,
-            #             })
-            #         elif self.called_command == "leave":
-            #             self.cli.cli_leave({
-            #                 "secs": 30,
-            #                 "reboot_flag": False,
-            #                 "skip_msg": False,
-            #                 "argv_list": self.argv,
-            #                 "threaded": True,
-            #             })
-            #     else:  
-            #         self.functions.print_help({
-            #             "extended": self.called_command,
-            #         })     
-
             router.process_restart_command()
-            # elif self.called_command in restart_commands:
-            #     restart = True
-                    
-            #     if self.called_command in ["restart_only","slow_restart","_sr"]:
-            #         if self.called_command == "_sr": 
-            #             self.called_command = "slow_restart"
-            #         switch = f'--{self.called_command.replace("_","-")}'
-            #         self.cli.print_removed({
-            #             "command": self.called_command,
-            #             "version": "v2.17.1",
-            #             "new_command": f"restart {switch}",
-            #             "done_exit": True,
-            #         })
-            #         self.functions.print_help({
-            #             "nodectl_version_only": True,
-            #             "extended": "restart_only",
-            #         })
-                                        
-            #     if self.called_command == "join":
-            #         if "all" in self.argv:
-            #             return_value = self.cli.print_removed({
-            #                 "command": "-p all on join",
-            #                 "is_new_command": False,
-            #                 "version": "v2.0.0",
-            #                 "done_exit": False
-            #             })
-            #             self.functions.print_help({
-            #                 "nodectl_version_only": True,
-            #                 "extended": "join_all",
-            #             })
-            #         else:
-            #             self.cli.cli_join({
-            #                 "skip_msg": False,
-            #                 "argv_list": self.argv
-            #             })
-            #             restart = False
-
-            #     if restart:
-            #         self.cli.cli_restart({
-            #             "restart_type": self.called_command,
-            #             "argv_list": self.argv
-            #         })
-            if True:
-                pass
-            elif self.called_command == "list":
+            
+            if self.called_command == "list":
                 self.cli.show_list(self.argv)  
             elif self.called_command == "delegate":
                 self.cli.delegated_staking(self.argv)
@@ -715,7 +565,7 @@ class ShellHandler:
         dont_skip_service_list = [
             "status","_s","quick_status","_qs","reboot","uptime","revision",
             "start","stop","restart","slow_restart","_sr","mobile","console",
-            "restart_only","auto_restart","service_restart", # not meant to be started from cli
+            "restart_only","auto_restart","service_restart",
             "join","id", "nodeid", "dag", "passwd12","export_private_key",
             "find","leave","peers","check_source_connection","_csc",
             "check_connection","_cc","refresh_binaries","_rtb","upgrade",

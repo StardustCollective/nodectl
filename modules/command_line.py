@@ -2458,6 +2458,8 @@ class CLI():
         start_timer = perf_counter()
         
         cli_join.handle_help_arg()
+        
+        cli_join.set_self_value("config_obj",self.config_obj)
         cli_join.set_parameters()
         
         cli_join.print_title()        
