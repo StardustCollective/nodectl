@@ -1690,7 +1690,7 @@ class Functions():
         session = Session()            
         session.headers.update(get_headers)   
 
-        return session, timeout
+        return session
     
         
     def set_console_setup(self,wrapper_obj):
@@ -2395,7 +2395,7 @@ class Functions():
             
     def check_health_endpoint(self,api_port): 
         session = self.set_request_session()
-	s_timeout = (5, 3)
+        s_timeout = (5,3)
         session.verify = False
         
         for _ in range(0,4):
