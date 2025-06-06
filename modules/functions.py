@@ -1602,7 +1602,7 @@ class Functions():
         # session.params = {'random': random.randint(10000,20000)}
 
         retries = Retry(
-            total=3,
+            total=1,
             backoff_factor=0.02,  
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["GET"],
