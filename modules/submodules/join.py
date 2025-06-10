@@ -6,37 +6,48 @@ from modules.cn_requests import CnRequests
 
 class Join():
     
-    def __init__(self,parent,command_obj):
-        self.parent = parent
+    def __init__(self,command_obj):
         self.command_obj = command_obj
-        self.skip_msg = command_obj.get("skip_msg",False)
-        self.skip_title = command_obj.get("skip_title",False)
-        self.watch_peer_counts = command_obj.get("watch",False)
-        self.single_profile = command_obj.get("single_profile",True)
-        self.upgrade = command_obj.get("upgrade",False)
-        self.interactive = command_obj.get("interactive",False)
-        self.non_interactive = command_obj.get("non_interactive",False)
-        self.dip_status = command_obj.get("dip",False)
-        self.caller = command_obj.get("caller",False)
-        self.argv_list = command_obj.get("argv_list")
         
-        self.log = self.parent.log
-        self.functions = self.parent.functions
-        
+        self.parent_getter = command_obj["getter"]
+        self.parent_setter = command_obj["setter"]
+
         
     # ==== SETTERS ====
 
     def set_parameters(self):
+
+        self.skip_msg = self.command_obj.get("skip_msg",False)
+        self.skip_title = self.command_obj.get("skip_title",False)
+        self.watch_peer_counts = self.command_obj.get("watch",False)
+        self.single_profile = self.command_obj.get("single_profile",True)
+        self.upgrade = self.command_obj.get("upgrade",False)
+        self.interactive = self.command_obj.get("interactive",False)
+        self.non_interactive = self.command_obj.get("non_interactive",False)
+        self.dip_status = self.command_obj.get("dip",False)
+        self.caller = self.command_obj.get("caller",False)
+        self.argv_list = self.command_obj.get("argv_list")
         
+        self.log = self.parent_getter("log")
+        self.functions = self.parent_getter("functions")
+                
         self.called_profile = self.argv_list[self.argv_list.index("-p")+1]
-        self.parent.set_profile(self.called_profile)
         
-        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value, self.log)
-        self.cn_requests.set_self_value("called_command","join")
-        self.cn_requests.set_self_value("config_obj",self.parent.config_obj)
-        self.cn_requests.set_self_value("profile_names",[self.called_profile])
-        self.cn_requests.set_parameters()
-        self.parent.node_service.set_self_value('cn_requests',self.cn_requests)
+        self.set_parent_profile = self.parent_getter("set_profile")
+        self.set_parent_profile(self.called_profile)
+        
+        self.node_service = self.parent_getter("node_service")
+        self.cn_requests = self.node_service.get_self_value("cn_requests")
+        self.config_obj = self.cn_requests.get_self_value("config_obj")
+        
+        self.show_download_status = self.parent_getter("show_download_status")
+        self.profile_names = self.parent_getter("profile_names")
+        self.service_name = self.parent_getter("service_name")
+        self.profile = self.parent_getter("profile")
+        self.cli_start = self.parent_getter("cli_start")
+        self.parent_print_title = self.parent_getter("print_title")
+        self.troubleshooter = self.parent_getter("troubleshooter")
+        self.show_system_status = self.parent_getter("show_system_status")
         
         self.result = False
         self.snapshot_issues = False 
@@ -70,15 +81,12 @@ class Join():
         self.break_states = self.functions.get_node_states("past_observing",True)
                     
                     
-    def set_state_n_profile(self,profile):
+    def set_state_from_profile(self, profile=False):
+        if not profile:
+            profile = self.profile
+            
         self.cn_requests.set_self_value("use_profile_cache",True)
-        self.state = self.cn_requests.get_profile_state(profile)
-        self.profile = profile
-        # self.state = self.functions.test_peer_state({
-        #     "profile": profile,
-        #     "simple": simple,
-        #     "skip_thread": skip_thread,
-        # })
+        self.state = self.cn_requests.get_profile_state(self.profile)
 
         
     def set_self_value(self, name, value):
@@ -89,10 +97,18 @@ class Join():
     
     def _get_peer_count(self):
         self.peer_count = self.functions.get_peer_count({
+            "called_command": "join",
             "peer_obj": {"ip": "127.0.0.1"},
-            "profile": self.parent.profile,
+            "profile": self.profile,
             "count_only": True,
+            "refresh": True,
         })
+        
+        
+    def _get_peer_state_update(self):
+        self.cn_requests.set_self_value("peer",False)
+        self.cn_requests.set_self_value("use_local",True)
+        self.state = self.cn_requests.get_current_peer_state(self.profile,True)
         
         
     def get_self_value(self, name, default=False):
@@ -105,9 +121,11 @@ class Join():
         self._print_log_msg("info",f"joining cluster profile [{self.profile}]")
         
         from modules.submodules.join_service import JoinService
-        join_service = JoinService(self,self.command_obj)
-        join_service.set_self_value("cn_requests",self.cn_requests)
-        join_service.set_self_value("profile",self.profile)
+        
+        command_obj = self.command_obj
+        command_obj["setter"] = self.set_self_value
+        command_obj["getter"] = self.get_self_value
+        join_service = JoinService(command_obj)
         
         join_service.set_parameters()
         join_service.set_profile_api_ports()
@@ -122,9 +140,6 @@ class Join():
         join_service.process_join()        
         join_service.handle_exceptions()
         join_service.handle_not_clear_to_join()
-                
-        if join_service.action == "cli":
-            return join_service.result   
             
         # self.join_result = self.parent.node_service.join_cluster({
         #     "caller": "cli_join",
@@ -140,13 +155,14 @@ class Join():
             self.allocated_time = allocated_time
             sleep(1)
             
-            self._print_log_msg("debug",f" watching join process | profile [{self.parent.profile}]")
+            self._print_log_msg("debug",f" watching join process | profile [{self.profile}]")
             if allocated_time % 5 == 0 or allocated_time < 1:  # 5 second mark or first attempt
                 self._process_allocated_time(allocated_time)
                 self._get_peer_count()
 
             
                 self._process_peer_increment()
+                self._get_peer_state_update()
                 
                 if self._process_wfd(): 
                     break
@@ -159,7 +175,6 @@ class Join():
                     break
 
                 self.increase_check = 0
-                self.set_state(self.called_profile,True,True)
 
                 if self._process_watch_peers(): 
                     break
@@ -176,7 +191,7 @@ class Join():
         if allocated_time % 10 == 0 or allocated_time < 1:
             # re-check source every 10 seconds
             self.src_peer_count = self.functions.get_peer_count({
-                "profile": self.parent.profile,
+                "profile": self.profile,
                 "count_only": True,
             })
             
@@ -242,7 +257,7 @@ class Join():
                 "exit_if": True
                 })
             if continue_dip:
-                self.parent.show_download_status({
+                self.show_download_status({
                     "caller": self.caller,
                     "command_list": ["-p", self.called_profile],
                 })
@@ -337,7 +352,7 @@ class Join():
             
         found_dependency = False
         if not self.watch_peer_counts: # check to see if we can skip waiting for Ready
-            for link_profile in self.parent.profile_names:
+            for link_profile in self.profile_names:
                 for link_type in ["gl0","ml0"]:
                     if getattr(self, f"{link_type}_link", True):
                         if self.functions.config_obj[self.called_profile][f"{link_type}_link_profile"] == link_profile:
@@ -358,7 +373,7 @@ class Join():
         if self.state != "Ready": 
             return False
         
-        self._print_log_msg("warning",f"profile already in proper state, nothing to do | profile [{self.parent.profile}] state [{self.state}]")
+        self._print_log_msg("warning",f"profile already in proper state, nothing to do | profile [{self.profile}] state [{self.state}]")
         self.functions.print_paragraphs([
             [" WARNING ",0,"blue,on_green"],
             ["Profile already in",0,"green"],
@@ -372,25 +387,25 @@ class Join():
     def handle_apinotready(self):
         if self.state != "ApiNotReady": return
         
-        self._print_log_msg("warning",f" service does not seem to be running | profile [{self.parent.profile}] service [{self.parent.service_name}]")
+        self._print_log_msg("warning",f" service does not seem to be running | profile [{self.profile}] service [{self.service_name}]")
         self.functions.print_paragraphs([
             ["Profile state in",0,"red"], [self.state,0,"red","bold"],
             ["state, cannot join",1,"red"], ["Attempting to start service [",0],
-            [self.parent.service_name.replace('cnng-',''),-1,"yellow","bold"],
+            [self.service_name.replace('cnng-',''),-1,"yellow","bold"],
             ["] again.",-1], ["",1]
         ])
 
-        self._print_log_msg("debug",f"attempting to start service | profile [{self.parent.profile}] service [{self.parent.service_name}]")
-        self.parent.cli_start({
+        self._print_log_msg("debug",f"attempting to start service | profile [{self.profile}] service [{self.service_name}]")
+        self.cli_start({
             "spinner": True,
-            "profile": self.parent.profile,
-            "service_name": self.parent.service_name,
+            "profile": self.profile,
+            "service_name": self.service_name,
         })
         
         
     def handle_static_peer(self):
-        if self.parent.config_obj[self.parent.profile]["static_peer"]:
-            self._print_log_msg("info",f"sending to node services to start join process | profile [{self.parent.profile}] static peer [{self.parent.config_obj[self.parent.profile]['edge_point']}]")
+        if self.config_obj[self.profile]["static_peer"]:
+            self._print_log_msg("info",f"sending to node services to start join process | profile [{self.profile}] static peer [{self.config_obj[self.profile]['edge_point']}]")
 
         
     def handle_link_color(self):
@@ -410,7 +425,7 @@ class Join():
         
     def handle_join_complete(self):
         print("")
-        self._print_log_msg("info",f"join process has completed | profile [{self.parent.profile}] result [{self.join_result}]")
+        self._print_log_msg("info",f"join process has completed | profile [{self.profile}] result [{self.join_result}]")
         self.functions.print_cmd_status({
             "text_start": f"Join process{self.attempt} complete",
             "status": self.join_result,
@@ -455,7 +470,7 @@ class Join():
 
 
     def _print_dip_issue(self):
-        self._print_log_msg("warning",f"leaving watch process due to expired waiting time tolerance | profile [{self.parent.profile}] state [DownloadInProgress]")
+        self._print_log_msg("warning",f"leaving watch process due to expired waiting time tolerance | profile [{self.profile}] state [DownloadInProgress]")
         self.functions.print_paragraphs([
             ["",2],["nodectl has detected",0],["DownloadInProgress",0,"yellow","bold"],["state.",2],
             ["This is",0], ["not",0,"green","bold"], ["an issue; however, nodes may take",0],
@@ -465,7 +480,7 @@ class Join():
             
             
     def _print_wfd_issue(self):
-        self._print_log_msg("error",f"possible issue found | profile [{self.parent.profile}] issue [WaitingForDownload]")
+        self._print_log_msg("error",f"possible issue found | profile [{self.profile}] issue [WaitingForDownload]")
         self.functions.print_paragraphs([
             ["",2],["nodectl has detected",0],["WaitingForDownload",0,"red","bold"],["state.",2],
             ["This is an indication that your node may be stuck in an improper state.",0],
@@ -474,7 +489,7 @@ class Join():
         
         
     def _print_tolerance_warning(self):
-        self._print_log_msg("warning",f"cleaving watch process due to expired waiting time tolerance | profile [{self.parent.profile}]")
+        self._print_log_msg("warning",f"cleaving watch process due to expired waiting time tolerance | profile [{self.profile}]")
         self.functions.print_clear_line()
         self.functions.print_paragraphs([
             ["",1],["nodectl tolerance connection status of [",0,],
@@ -484,7 +499,7 @@ class Join():
             
     
     def _print_tolerance_error(self):
-        self._print_log_msg("error",f"may have found an issue during join process; however, this may not be of concern if the node is in proper state | profile [{self.parent.profile}]")
+        self._print_log_msg("error",f"may have found an issue during join process; however, this may not be of concern if the node is in proper state | profile [{self.profile}]")
         self.functions.print_clear_line()
         self.functions.print_paragraphs([
             ["",1], [" WARNING ",0,"yellow,on_red","bold"], ["Issue may be present?",0,"red"],
@@ -526,11 +541,11 @@ class Join():
 
     def print_title(self):
         if self.skip_title: return
-        self.parent.print_title(f"JOINING {self.called_profile.upper()}")
+        self.parent_print_title(f"JOINING {self.called_profile.upper()}")
         
     
     def print_connection_error(self):
-        self.parent.troubleshooter.setup_logs({"profile": self.called_profile})
+        self.troubleshooter.setup_logs({"profile": self.called_profile})
         error_msg = self.troubleshooter.test_for_connect_error("all")
         if error_msg:
             self.functions.print_paragraphs([
@@ -546,10 +561,10 @@ class Join():
     def print_joining(self):
         if self.skip_msg: return
         
-        self._print_log_msg("info",f"cli_join -> join starting| profile [{self.parent.profile}]")
+        self._print_log_msg("info",f"cli_join -> join starting| profile [{self.profile}]")
         self.functions.print_cmd_status({
             "text_start": "Joining",
-            "brackets": self.parent.profile,
+            "brackets": self.profile,
             "status": "please wait",
             "status_color": "magenta",
             "newLine": True
@@ -557,10 +572,10 @@ class Join():
     
     
     def print_review(self):
-        self._print_log_msg("debug",f"reviewing node state | profile [{self.parent.profile}] state [{self.state}]")
+        self._print_log_msg("debug",f"reviewing node state | profile [{self.profile}] state [{self.state}]")
         self.functions.print_cmd_status({
             "text_start": "Reviewing",
-            "brackets": self.parent.profile,
+            "brackets": self.profile,
             "status": self.state,
             "color": "magenta",
             "newline": True,
@@ -573,17 +588,26 @@ class Join():
         
         self.functions.print_cmd_status({
             "text_start": "Checking status",
-            "brackets": self.parent.profile,
+            "brackets": self.profile,
             "newline": True,
         })
 
         self.functions.cancel_event = False
-        self.parent.show_system_status({
-            "rebuild": True,
-            "wait": False,
-            "-p": self.parent.profile
-        })
         
+        self.cn_requests.set_self_value("get_state",True)
+        self.cn_requests.set_self_value("use_local",True)
+        self.cn_requests.get_current_peer_state(self.profile)
+
+        self.show_system_status({
+            "called_command": "join",
+            "spinner": False,
+            "rebuild": "local",
+            "wait": False, 
+            "argv": ["-p", "dag-l0"], 
+            "print_auto_restart_status": False,
+            "config_obj": self.cn_requests.config_obj,
+        })
+
         print("")
         self.functions.print_perftime(start_timer,"join process")
 

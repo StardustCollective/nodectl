@@ -33,6 +33,7 @@ from modules.delegate import DelegatedStaking
 from modules.crypto.crypto_class import NodeCtlCryptoClass
 
 class TerminateCLIException(Exception): pass
+class FullReturn(Exception): pass
 
 class CLI():
     
@@ -249,11 +250,16 @@ class CLI():
     def show_system_status(self,command_obj):
         from modules.submodules.show_status import ShowStatus
         
-        status = ShowStatus(self,command_obj)
+        command_obj["getter"] = self.get_self_value
+        command_obj["setter"] = self.set_self_value
+        status = ShowStatus(command_obj)
         status.set_parameter()
 
         self.functions.check_for_help(status.argv,status.called_command)
-        
+
+        if command_obj.get("config_obj"): # if there an updated config?
+            status.set_self_value("config_obj",command_obj["config_obj"])   
+                 
         status.set_profile()
         status.set_watch_parameters()
         status.process_status()    
@@ -639,9 +645,12 @@ class CLI():
         self.functions.check_for_help(command_list,"peers")
         
         from modules.submodules.peers import Peers 
-        peers = Peers(self)
         
-        peers.handle_params()
+        peers = Peers(self.set_self_value, self.get_self_value)
+        
+        peers.set_parameters()
+        peers.handle_state_specific_request()
+        peers.set_title()
         peers.handle_csv_file()
         peers.handle_source_node()
         
@@ -649,19 +658,19 @@ class CLI():
             self.cli_find(peers.count_args)
             return
         
-        peers.handle_state_specific_request()
         peers.handle_info_type_request()
-        peers.get_ext_ip()
 
-        peers.peer_results = self.node_service.functions.get_peer_count({
-            "peer_obj": peers.sip, 
-            "profile": peers.profile, 
-            "compare": True
-        })
+        # peers.get_ext_ip()
+        
+        # peers.peer_results = self.node_service.functions.get_peer_count({
+        #     "peer_obj": peers.sip, 
+        #     "profile": peers.profile, 
+        #     "compare": True
+        # })
 
-        peers.handle_peer_error()
+        # peers.handle_peer_error()
+        peers.handle_wallets()
         peers.set_main_print_out()
-        peers.handle_local_host()
         peers.set_pagination()
         peers.print_submenu()
         peers.print_results()
@@ -2279,7 +2288,9 @@ class CLI():
     def cli_start(self,command_obj):
         from modules.submodules.start import StartNode
         
-        cli_start = StartNode(self,command_obj)
+        command_obj["get_self_value"] = self.get_self_value
+        command_obj["set_self_value"] = self.set_self_value
+        cli_start = StartNode(command_obj)
         
         cli_start.set_parameters()
         cli_start.handle_check_for_help()
@@ -2290,14 +2301,17 @@ class CLI():
         cli_start.print_start_complete()        
         cli_start.print_timer()        
         cli_start.process_start_results()
-        cli_start.print_final_status("local")
-
+        cli_start.print_final_status()
+        
         
     def cli_stop(self,command_obj):
         from modules.submodules.stop import StopNode
         
-        cli_stop = StopNode(self,command_obj)
+        command_obj["getter"] = self.get_self_value
+        command_obj["setter"] = self.set_self_value
         
+        cli_stop = StopNode(command_obj)
+
         cli_stop.set_parameters()
         cli_stop.process_delay()
         cli_stop.handle_help()
@@ -2320,7 +2334,7 @@ class CLI():
     def cli_restart(self,command_obj):
         from modules.submodules.restart import RestartNode
         
-        cli_restart = RestartNode(self, self.set_self_value, self.get_self_value, command_obj)
+        cli_restart = RestartNode(self.set_self_value, self.get_self_value, command_obj)
         
         cli_restart.set_parameters()
         cli_restart.handle_help_request()
@@ -2328,14 +2342,15 @@ class CLI():
         cli_restart.set_performance_start()
         cli_restart.handle_input_error()
         cli_restart.print_restart_init() 
-        
-        cli_restart.set_function_obj_variables()
-        cli_restart.process_ep_state()        
 
-        self.slow_flag = cli_restart.slow_flag
-   
+        cli_restart.set_function_obj_variables()
+        cli_restart.process_ep_state()    
+        
         cli_restart.get_profiles()
         cli_restart.handle_all_parameter()
+        
+        self.slow_flag = cli_restart.slow_flag
+   
         cli_restart.handle_empty_profile()
         cli_restart.handle_request_error()            
         cli_restart.process_leave_stop()
@@ -2454,19 +2469,21 @@ class CLI():
 
     def cli_join(self,command_obj):
         from modules.submodules.join import Join
-        cli_join = Join(self,command_obj)
+        
+        command_obj["setter"] = self.set_self_value
+        command_obj["getter"] = self.get_self_value
+        cli_join = Join(command_obj)
+        
         start_timer = perf_counter()
         
-        cli_join.handle_help_arg()
-        
-        cli_join.set_self_value("config_obj",self.config_obj)
         cli_join.set_parameters()
+        cli_join.handle_help_arg()
         
         cli_join.print_title()        
         cli_join.print_joining()
 
         cli_join.handle_layer0_links()
-        cli_join.set_state_n_profile(self.profile)    
+        cli_join.set_state_from_profile()    
         
         cli_join.print_review()
 
@@ -2501,6 +2518,7 @@ class CLI():
         cli_leave.set_progress_obj()
         cli_leave.handle_pause()
         cli_leave.print_leave_init()
+        cli_leave.get_profile_state(False)
         cli_leave.process_leave_cluster()
 
         if cli_leave.skip_msg:
@@ -2511,7 +2529,7 @@ class CLI():
             cli_leave.print_leaving_msg()
             cli_leave.print_leave_progress()
             cli_leave.set_state_obj()    
-            cli_leave.get_profile_state()
+            cli_leave.get_profile_state(True)
                 
             cli_leave.print_leave_progress(True)    
 
@@ -2527,7 +2545,7 @@ class CLI():
                 break
 
             cli_leave.parse_log_wait_for_leave()
-            cli_leave.get_profile_state()
+            cli_leave.get_profile_state(False)
 
             if cli_leave.process_leave_status(): 
                 break
@@ -2537,9 +2555,7 @@ class CLI():
             if cli_leave.skip_log_lookup:
                 cli_leave.print_leave_timer()
                     
-            if cli_leave.handle_wait_for_offline(): break
-       
-            sleep(5) # silent sleep
+            cli_leave.handle_wait_for_offline()
             cli_leave.set_start_increment() 
         
         if self.primary_command == "leave":
@@ -2582,209 +2598,35 @@ class CLI():
             return True
             
 
-    def cli_find(self,argv_list): # ip="empty",dest=None
-        self._print_log_msg("debug","find request initiated...")
+    def cli_find(self,argv_list):
         self.functions.check_for_help(argv_list,"find")
-        ordhash_lookup = False
-        list_file = False
         
-        self.profile = argv_list[argv_list.index("-p")+1]
-        source_obj = "empty"
-
-        if "--file" in argv_list:
-            list_file = argv_list[argv_list.index("--file")+1]
-            if not path.isfile(list_file):
-                self.error_messages.error_code_messages({
-                    "error_code": "cli-4414",
-                    "line_code": "file_not_found",
-                    "extra": list_file,
-                })
-            
-        if "-s"  in argv_list:
-            source_obj = {"ip": "127.0.0.1"} if argv_list[argv_list.index("-s")+1] == "self" else {"ip": argv_list[argv_list.index("-s")+1]}
-
-        target_obj = {"ip":"127.0.0.1"}
-        if "-t" in argv_list:
-            target_obj = argv_list[argv_list.index("-t")+1]
-
-            if target_obj == "ordinal" or target_obj == "hash":
-                ordhash = argv_list[argv_list.index(target_obj)+1]
-                ordhash_lookup = True
-                try:
-                    if target_obj == "ordinal":
-                        ordhash = int(ordhash)
-                    else:
-                        if len(ordhash) < 64 or len(ordhash) > 64: 
-                            raise Exception()
-                except:
-                    self.functions.check_for_help(["help"],"find")
-
-            if ordhash_lookup:
-                self.print_title(f"{target_obj} LOOKUP")
-                inode = process_snap_files([ordhash], self.set_data_dir(), self.log, False)
-                ordhash_inode = list(inode.keys())[0]
-                results = discover_snapshots(self.set_data_dir(),self.functions,self.log,ordhash_inode)
-                ordhash_lookup, stamp = ordhash_to_ordhash(results, target_obj)
-                if target_obj == "ordinal":
-                    ordinal = ordhash
-                    hash = ordhash_lookup
-                else:
-                    ordinal = ordhash_lookup
-                    hash = ordhash
-                
-                print_single_ordhash(self.profile,ordinal,hash,ordhash_inode,stamp,self.functions)
-                return
-
-            if not isinstance(target_obj,dict):
-                target_obj =  {"ip": "127.0.0.1"} if argv_list[argv_list.index("-t")+1] == "self" else {"ip": argv_list[argv_list.index("-t")+1]}
+        from modules.submodules.find import Find
         
-        target_ip = target_obj["ip"]
+        command_obj = {
+            "setter": self.set_self_value,
+            "getter": self.get_self_value,
+            "argv_list": argv_list,
+        }
+        
+        cli_find = Find(command_obj)
+        
+        try:
+            cli_find.set_parameters()
+        except FullReturn:
+            return
             
-        if source_obj == "empty":
-            source_obj = self.functions.get_info_from_edge_point({
-                "caller": "cli_find",
-                "profile": self.profile,
-            })
 
-        def pull_peer_results(target_ip, target_obj,source_obj):
-            peer_results = self.node_service.functions.get_peer_count({
-                "peer_obj": target_obj,
-                "edge_obj": source_obj,
-                "profile": self.profile,
-                "count_consensus": True,
-            })
-
-            if peer_results == "error" or peer_results == None:
-                self._print_log_msg("error",f"show count | attempt to access peer count function failed")
-                self.error_messages.error_code_messages({
-                    "error_code": "cmd-217",
-                    "line_code": "service",
-                    "extra": None,
-                    "extra2": None
-                })
-
-            node_found_color = "green" if peer_results["node_online"] == True else "red"
-            if target_obj["ip"] == "127.0.0.1" or target_obj["ip"] == "self":
-                target_ip = self.ip_address
-            if source_obj["ip"] == "127.0.0.1" or source_obj["ip"] == "self":
-                source_obj["ip"] = self.ip_address
-
-            id_ip = "ID"
-            if len(target_ip) > 127:
-                id_ip = "IP"
-                target_ip_id = self.functions.get_info_from_edge_point({
-                    "profile": self.profile,
-                    "caller": "cli_find",
-                    "desired_key": "ip",
-                    "specific_ip": target_ip,
-                })            
-                target_ip = f"{target_ip[:8]}...{target_ip[-8:]}"
-            else:
-                try:
-                    target_ip_id = self.functions.get_info_from_edge_point({
-                        "profile": self.profile,
-                        "caller": "cli_find",
-                        "desired_key": "id",
-                        "specific_ip": target_ip,
-                    })
-                except:
-                    target_ip_id = "unknown"
-            return peer_results, id_ip, target_ip_id, target_ip, node_found_color
-
-        if list_file:
-            list_results = []
-            with open(list_file,"r") as find_file:
-                results = find_file.readlines()
-                for n, list_node in enumerate(results):
-                    list_node = list_node.strip("\n")
-                    if len(list_node) != 128:
-                        self.error_messages.error_code_messages({
-                            "error_code": "cli_4520",
-                            "line_code": "invalid_nodeid",
-                            "extra": list_node,
-                        })
-                    list_node_obj = {"ip": list_node}
-                    if n > 0:
-                        peer_results_f, _, _, target_ip_f, node_found_color = pull_peer_results(list_node, list_node_obj, source_obj)
-                        list_results.append(
-                            ( peer_results_f['node_online'], 
-                              target_ip_f, 
-                              source_obj['ip'],
-                              node_found_color
-                            )
-                        )
-                    else:
-                        peer_results, id_ip, target_ip_id, target_ip, node_found_color = pull_peer_results(list_node, list_node_obj, source_obj) 
-                    
-        else:
-            peer_results, id_ip, target_ip_id, target_ip, node_found_color = pull_peer_results(target_ip, target_obj, source_obj) 
-
+        cli_find.handle_ordhash_lookup()
+        cli_find.set_empty_source_obj()
+        cli_find.handle_list_file_build()
+        cli_find.get_peer_results()
+        
         if "return_only" in argv_list:
-            return target_ip_id
+            return cli_find.target_obj[cli_find.lookup_type]
         
-        spacing = 21            
-        print_out_list = [
-            {
-                "header_elements" : {
-                    "CLUSTER PEERS": peer_results["peer_count"],
-                    "READY": peer_results["ready_count"],
-                    "PROFILE": self.profile,
-                },
-                "spacing": spacing
-            },
-            {
-                "header_elements" : {
-                    "Observing": peer_results["observing_count"],
-                    "WaitingForObserving": peer_results["waitingforobserving_count"],
-                    "WaitingForReady": peer_results["waitingforready_count"],
-                },
-                "spacing": spacing
-            },
-            {
-                "header_elements" : {
-                    "DownloadInProgress": peer_results["downloadinprogress_count"],
-                    "WaitingForDownload": peer_results["waitingfordownload_count"],
-                    "In Consensus": peer_results["consensus_count"],
-                },
-                "spacing": spacing
-            },
-            {
-                "header_elements" : {
-                    "TARGET NODE": target_ip,
-                    "SOURCE NODE": source_obj["ip"],
-                    "NODE FOUND": colored(f"{str(peer_results['node_online']).ljust(spacing)}",node_found_color),
-                },
-                "spacing": spacing
-            },
-        ]
-
-        if list_file:
-            for multi_result in list_results:
-                print_out_list = print_out_list + [
-                    {
-                        "header_elements" : {
-                            "-SKIP_HEADER1-": multi_result[1],
-                            "-SKIP_HEADER2-": source_obj["ip"],
-                            "-SKIP_HEADER3-": colored(f"{str(multi_result[0]).ljust(spacing)}",multi_result[3]),
-                        },
-                        "spacing": spacing
-                    }
-                ]
-
-        print_out_list = print_out_list+[
-            {
-                "header_elements" : {
-                    f"TARGET {id_ip}": target_ip_id,
-                },
-                "spacing": spacing
-            },
-        ]
+        cli_find.print_final_results()
         
-        for header_elements in print_out_list:
-            self.functions.print_show_output({
-                "header_elements" : header_elements
-            })  
-
         return
             
         

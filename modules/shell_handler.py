@@ -11,15 +11,15 @@ from types import SimpleNamespace
 from pathlib import Path
 from copy import deepcopy
 
-from .functions import Functions
-from .upgrade import Upgrader
-from .install import Installer
-from .command_line import CLI
-from .troubleshoot.errors import Error_codes
-from .troubleshoot.logger import Logging
-from .config.versioning import Versioning
-from .config.valid_commands import pull_valid_command
-
+from modules.functions import Functions
+from modules.upgrade import Upgrader
+from modules.install import Installer
+from modules.command_line import CLI
+from modules.troubleshoot.errors import Error_codes
+from modules.troubleshoot.logger import Logging
+from modules.config.versioning import Versioning
+from modules.config.valid_commands import pull_valid_command
+from modules.cn_requests import CnRequests
 
 class ShellHandler:
 
@@ -99,8 +99,14 @@ class ShellHandler:
             
 
     def _set_cn_requests(self):
-        self.functions.set_self_value("called_command",self.called_command)
-        self.cn_requests = self.functions.set_cn_requests_obj(self.log, True) 
+        self.set_function_value("called_command",self.called_command)
+        
+        self.cn_requests = CnRequests(self.set_self_value,self.get_self_value)
+        self.cn_requests.set_self_value("log", self.log)
+        self.cn_requests.set_self_value("argv", self.argv)
+        self.cn_requests.set_parameters()
+
+        self.cli.node_service.set_self_value("cn_requests",self.cn_requests)
         
            
     def _set_cli_obj(self, skip_check=False):
@@ -117,7 +123,7 @@ class ShellHandler:
                 "skip_services": self.skip_services,
                 "profile_names": self.profile_names,
                 "functions": self.functions,
-                "valid_commands": self.valid_commands
+                "valid_commands": self.valid_commands,
             } 
 
             cli = CLI(self.log)
@@ -147,13 +153,15 @@ class ShellHandler:
         return cli
     
     
-    def _get_self_value(self, name, default=False):
+    def get_self_value(self, name, default=False):
         return getattr(self, name, default)
     
-    def _set_self_value(self, name, value):
+    
+    def set_self_value(self, name, value):
         setattr(self, name, value)
         
-    def _set_function_value(self, name, value):
+        
+    def set_function_value(self, name, value):
         setattr(self.functions, name, value)
                      
                      
@@ -169,12 +177,12 @@ class ShellHandler:
         self._print_log_msg("info",f"shell_handler -> start_cli -> obtain ip address: {self.ip_address}")
                 
         router = NodeCtlRouter(
-            self, self._get_self_value, self._set_self_value,
-            self._set_function_value,
+            self, self.get_self_value, self.set_self_value,
+            self.set_function_value,
         )
         
         router.set_parameters()
-        router.set_router_value("called_command",self.called_command)
+        router.set_self_value("called_command",self.called_command)
         while True:
             if router.process_main_error(): exit(0)
             if router.handle_version(): exit(0)
@@ -192,7 +200,7 @@ class ShellHandler:
             self.setup_profiles()
             self.check_auto_restart()
             self.check_skip_services()
-            self.check_for_static_peer()
+            # self.check_for_static_peer()
             self.handle_versioning()
             self.check_fernet_rotation()
             self.check_diskspace()
@@ -202,7 +210,7 @@ class ShellHandler:
 
             if not hasattr(self, "cli"):
                 self.cli = self._set_cli_obj()
-                router.set_router_value("cli",self.cli)
+                router.set_self_value("cli",self.cli)
 
             router.handle_invalid_version()
 
@@ -220,6 +228,10 @@ class ShellHandler:
             router.handle_service_commands()
             router.process_restart_command()
             
+            router.handle_download_commands()
+            router.handle_peers_command()
+            router.handle_find_command()
+            
             if self.called_command == "list":
                 self.cli.show_list(self.argv)  
             elif self.called_command == "delegate":
@@ -228,10 +240,6 @@ class ShellHandler:
                 self.cli.sign(self.argv)  
             elif self.called_command == "show_current_rewards" or self.called_command == "_scr":
                 self.cli.show_current_rewards(self.argv)  
-            elif self.called_command == "find":
-                self.cli.cli_find(self.argv)
-            elif self.called_command == "peers":
-                self.cli.show_peers(self.argv)
             elif self.called_command == "whoami":
                 self.cli.show_ip(self.argv)
             elif self.called_command == "nodeid2dag":
@@ -244,7 +252,7 @@ class ShellHandler:
                 self.cli.cli_reboot(self.argv)
             # elif self.called_command == "remote_access" or self.called_command == "_ra":
             #     self.cli.enable_remote_access(self.argv)
-            elif self.called_command in node_id_commands:
+            elif self.called_command in ["temp_holder"]: # node_id_commands:
                 command = "dag" if self.called_command == "dag" else "nodeid"
                 self.cli.cli_grab_id({
                     "command": command,
@@ -284,16 +292,16 @@ class ShellHandler:
                         cli_iterative = "mobile_revision"
                 if return_value == "y": # upgrade requested - auto_restart already restarted
                     return_value = "skip_auto_restart_restart"
-            elif self.called_command in ssh_commands:
+            elif self.called_command in ["temp_holder"]: #ssh_commands:
                 self.cli.ssh_configure({
                     "command": self.called_command,
                     "argv_list": self.argv   
                 })
-            elif self.called_command in clean_files_list:
+            elif self.called_command in ["temp_holder"]: #clean_files_list:
                 command_obj = {"argv_list": self.argv, "action": "normal"}
                 self.cli.clean_files(command_obj)
                 
-            elif self.called_command in removed_clear_file_cmds:
+            elif self.called_command in ["temp_holder"]: #removed_clear_file_cmds:
                 return_value = self.cli.print_removed({
                     "command": self.called_command,
                     "version": "v2.0.0",
@@ -344,7 +352,7 @@ class ShellHandler:
                     "caller": "download_status",
                     "command_list": self.argv
                 })
-            elif self.called_command in cv_commands:
+            elif self.called_command in ["temp_holder"]: #cv_commands:
                 self.set_version_obj_class()
                 self.cli.check_versions({
                     "command_list": self.argv,
@@ -389,11 +397,6 @@ class ShellHandler:
                 })
             elif self.called_command == "upgrade_vps":
                 self.cli.cli_upgrade_vps(self.argv)
-            elif self.called_command in download_commands:
-                self.cli.tess_downloads({
-                    "caller": self.called_command,
-                    "argv_list": self.argv,
-                })
             elif self.called_command == "health":
                 self.cli.show_health(self.argv)
             elif self.called_command == "show_profile_issues":
@@ -442,7 +445,7 @@ class ShellHandler:
                     "usage_only": True,
                     "hint": False,
                 })
-            elif self.called_command in config_list:
+            elif self.called_command in ["temp_holder"]: # config_list:
                 self.functions.print_help({
                     "usage_only": True,
                     "nodectl_version_only": True,

@@ -2,36 +2,75 @@ from time import sleep
 
 class PeerCount():
     
-    def __init__(self, parent, command_obj):
-        self.parent = parent
+    def __init__(self, command_obj):
         self._set_parameters(command_obj)
 
 
+    def _set_parameters(self,command_obj):
+        self.parent_getter = command_obj["getter"]
+        self.parent_setter = command_obj["setter"]
+        
+        self.peer_obj = command_obj.get("peer_obj", False)
+        self.edge_obj = command_obj.get("edge_obj", False)
+        self.profile = command_obj.get("profile", self.parent_getter("default_profile"))
+        self.compare = command_obj.get("compare", False)
+        self.count_only = command_obj.get("count_only", False)
+        self.pull_node_id = command_obj.get("pull_node_id", False)
+        self.count_consensus = command_obj.get("count_consensus", False)
+        self.refresh = command_obj.get("refresh", False)
+        self.called_command = command_obj.get("called_command", False)
+        self.error_messages = self.parent_getter("error_messages")
+        self.cn_requests = self.parent_getter("cn_requests")
+        self.cluster_peer_list = self.cn_requests.config_obj["global_elements"]["cluster_info_lists"][self.profile]
+        
+        self.log = self.parent_getter("log")
+        self.log = self.parent_getter("log")
+        self.functions = self.parent_getter("functions")
+        
+        self.peer_list = list()
+        self.state_list = list()
+        self.peers_publicport = list()
+
+        self.peers_ready = list()        
+        self.peers_observing = list()
+        self.peers_waitingforready = list()
+        self.peers_waitingforobserving = list()
+        self.peers_downloadinprogress = list()
+        self.peers_waitingfordownload = list()
+        
+
+        self.node_states = None
+        
+        
     def get_tcp_stack(self):
         if not self.peer_obj:
-            ip_address = self.parent.default_edge_point[self.profile]["host"]
-            api_port = self.parent.default_edge_point[self.profile]["host_port"]
+            try:
+                ip_address = self.parent_getter("default_edge_point")["host"]
+                api_port = self.parent_getter("default_edge_point")["host_port"]
+            except:
+                ip_address = self.parent_getter("default_edge_point")[self.profile]["host"]
+                api_port = self.parent_getter("default_edge_point")[self.profile]["host_port"]                
         else:
-            ip_address = self.peer_obj["ip"]  
-            localhost_ports = self.parent.pull_profile({
-                "req": "ports",
-                "profile": self.profile,
+            ip_address = self.cn_requests.local_ip if self.peer_obj["ip"] == "127.0.0.1" else self.peer_obj["ip"]
+            api_port = next((node["publicPort"] for node in self.cluster_peer_list if node.get('ip') == ip_address), None)
+            if api_port is None and ip_address == self.cn_requests.local_ip:
+                api_port = self.cn_requests.config_obj[self.profile]["publicPort"]
+        
+        if ip_address is None:
+            self.error_messages.error_code_messages({
+                "error_code": "pc-57",
+                "line_code": "invalid_address",
+                "extra": "ip address",
+                "extra2": ip_address,
             })
-            
-            if self.peer_obj["ip"] == "127.0.0.1":
-                api_port = localhost_ports["public"]
-            else:
-                try:
-                    api_port = self.peer_obj["publicPort"]
-                except:
-                    api_port = self.parent.get_info_from_edge_point({
-                        "caller": "get_peer_count",
-                        "profile": self.profile,
-                        "desired_key": "publicPort",
-                        "specific_ip": ip_address,
-                    })  
-            self.localhost_ports = localhost_ports
-
+        if api_port is None:
+            self.error_messages.error_code_messages({
+                "error_code": "pc-57",
+                "line_code": "invalid_address",
+                "extra": "tcp port",
+                "extra2": ip_address,
+            })
+                
         self.api_port = api_port
         self.ip_address = ip_address
         
@@ -96,30 +135,6 @@ class PeerCount():
         self.peers = peers
 
 
-    def _set_parameters(self,command_obj):
-        self.peer_obj = command_obj.get("peer_obj",False)
-        self.edge_obj = command_obj.get("edge_obj",False)
-        self.profile = command_obj.get("profile",self.parent.default_profile)
-        self.compare = command_obj.get("compare",False)
-        self.count_only = command_obj.get("count_only",False)
-        self.pull_node_id = command_obj.get("pull_node_id",False)
-        self.count_consensus = command_obj.get("count_consensus",False)
-
-        self.peer_list = list()
-        self.state_list = list()
-        self.peers_publicport = list()
-
-        self.peers_ready = list()        
-        self.peers_observing = list()
-        self.peers_waitingforready = list()
-        self.peers_waitingforobserving = list()
-        self.peers_downloadinprogress = list()
-        self.peers_waitingfordownload = list()
-        
-        self.log_key = self.parent.log_key
-        self.node_states = None
-
-
     def set_peer_count_obj(self):
         final_peer_obj = None
         node_online = False
@@ -169,30 +184,27 @@ class PeerCount():
             "node_online": node_online
         }        
 
+        self.id_ip = id_ip
         self.final_peer_obj = final_peer_obj
 
 
     def handle_count_only(self):
         if not self.count_only: return
 
-        count = self.parent.get_cluster_info_list({
-            "profile": self.profile,
-            "ip_address": self.ip_address,
-            "port": self.api_port,
-            "api_endpoint": "/cluster/info",
-            "spinner": False,
-            "attempt_range": 4,
-            "error_secs": 3
-        })
-        try:
-            count = count.pop()
-        except:
-            pass  # skip to unimportant error if the cluster info comes back bad during iteration
-        if count:
-            count = (count["nodectl_found_peer_count"])
-
-        return count      
-
+        if self.refresh:
+            if self.called_command == "join":
+                self.cn_requests.set_self_value("peer", False)
+                self.cn_requests.set_self_value("use_local", True)
+            else:            
+                self.cn_requests.set_self_value("peer",self.ip_address)
+                self.cn_requests.set_self_value("api_public_port",self.api_port)
+            self.cn_requests.set_self_value("get_state", False) # want cluster/info
+            self.cn_requests.set_cluster_cache()
+            self.cluster_peer_list = self.cn_requests.config_obj["global_elements"]["cluster_info_lists"][self.profile]
+            
+        count = len(self.cluster_peer_list)
+        return count
+ 
 
     def handle_consensus(self):
         if self.count_consensus:

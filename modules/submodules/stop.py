@@ -4,38 +4,38 @@ from concurrent.futures import ThreadPoolExecutor
 
 class StopNode():
     
-    def __init__(self,parent,command_obj):
-        self.parent = parent
+    def __init__(self,command_obj):
         self.command_obj = command_obj
         
-        self.show_timer = command_obj.get("show_timer",True)
-        self.spinner = command_obj.get("spinner",False)
-        self.argv_list = command_obj.get("argv_list",[])
-        self.profile = command_obj.get("profile",self.parent.profile)
-        self.static_nodeid = command_obj.get("static_nodeid",False)
-        self.check_for_leave = command_obj.get("check_for_leave",False)
-        
-        try:
-            _ = self.parent.log.logger
-        except:
-            try:
-                self.log = self.parent.log.logger[self.parent.log_key]
-            except:
-                self.log = self.parent.log
-                
-        self.functions = self.parent.functions
+        self.parent_getter = command_obj.get("getter")
+        self.parent_setter = command_obj.get("setter")
 
 
     # ==== SETTERS ====
     
     def set_parameters(self):
+        self.log = self.parent_getter("log")
+        self.functions = self.parent_getter("functions")
+        self.node_service = self.parent_getter("node_service")
+
+        self.profile = self.parent_getter("profile")
+        self.service_name_clean = self.node_service.config_obj[self.profile]["service"]
+        self.service_name = f"cnng-{self.service_name_clean}"
+
+        self.parent_cli_leave = self.parent_getter("cli_leave")
+        self.parent_show_system_status = self.parent_getter("show_system_status")
+
+        self.show_timer = self.command_obj.get("show_timer",True)
+        self.spinner = self.command_obj.get("spinner",False)
+        self.argv_list = self.command_obj.get("argv_list",[])
+        
+        self.static_nodeid = self.command_obj.get("static_nodeid",False)
+        self.check_for_leave = self.command_obj.get("check_for_leave",False)
+                
         self.leave_first = False
         self.rebuild = False
         self.result = False
-        
         self.state = None
-        
-        self.parent.set_profile(self.profile)
 
 
     def set_progress_obj(self):
@@ -43,7 +43,7 @@ class StopNode():
             "status": "running",
             "status_color": "yellow",
             "text_start": "stop request initiated",
-            "brackets": self.functions.cleaner(self.parent.service_name,'service_prefix'),
+            "brackets": self.service_name_clean,
             "newline": True,
         }
         
@@ -55,10 +55,15 @@ class StopNode():
             
     
     def set_rebuild(self):
-        if self.functions.config_obj["global_elements"]["node_service_status"][self.profile] == "inactive (dead)":
+        self.rebuild = True
+        if self.functions.config_obj["global_elements"]["node_service_status"][self.profile] == "inactive":
             self.rebuild = False
             
-            
+    
+    def set_self_value(self, name, value):
+        setattr(self, name, value)
+        
+        
     # ==== GETTERS ====
     
     def _get_profile_state(self):
@@ -95,10 +100,10 @@ class StopNode():
                 })
 
             try:
-                self.result = self.parent.node_service.change_service_state({
+                self.result = self.node_service.change_service_state({
                     "profile": self.profile,
                     "action": "stop",
-                    "service_name": self.parent.service_name,
+                    "service_name": self.service_name,
                     "caller": "cli_stop"
                 })
                 self.functions.event = False
@@ -139,7 +144,7 @@ class StopNode():
                     "exit_if": False,
                 })
             if leave_first:
-                self.parent.cli_leave({
+                self.parent_cli_leave({
                     "secs": 30,
                     "reboot_flag": False,
                     "skip_msg": False,
@@ -166,7 +171,7 @@ class StopNode():
         
     
     def print_init_process(self):
-        self._print_log_msg("info",f"Stop service request initiated. [{self.parent.service_name}]")
+        self._print_log_msg("info",f"Stop service request initiated. [{self.service_name}]")
         
         print("")
         self.functions.print_cmd_status(self.progress)
@@ -184,11 +189,17 @@ class StopNode():
         
     def print_final_status(self):
         self.functions.cancel_event = False
-        self.parent.show_system_status({
+        
+        self.node_service.cn_requests.set_self_value("get_state",True)
+        self.node_service.cn_requests.set_self_value("use_local",True)
+        self.node_service.cn_requests.get_current_peer_state(self.profile)
+        
+        self.parent_show_system_status({
             "rebuild": self.rebuild,
             "called_command": "stop",
             "wait": self.show_timer,
             "spinner": self.spinner,
+            "config_obj": self.node_service.config_obj,
             "static_nodeid": self.static_nodeid if self.static_nodeid else False,
             "argv": ["-p",self.profile],
         })

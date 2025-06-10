@@ -97,8 +97,16 @@ class Versioning():
         return
     
     
+    def set_self_value(self, name, value):
+        setattr(self, name, value)
+        
+    
+    def get_self_value(self, name, default):
+        return getattr(self, name, default)
+    
+    
     def execute_versioning(self):
-        self.log.logger[self.log_key].debug(f"versioning - called [{self.logging_name}] - executing versioning update request.")
+        self._print_log_msg("debug",f"called [{self.logging_name}] - executing versioning update request.")
         if self.called_cmd == "show_version": return # nodectl only
         if self.called_cmd in ["upgrade","install","quick_install"]: self.force = True
 
@@ -111,19 +119,19 @@ class Versioning():
         self.get_cached_version_obj()
         
         if self.update_required:
-            self.log.logger[self.log_key].info(f"versioning - called by [{self.logging_name}] - updating versioning object")
+            self._print_log_msg("info",f"called by [{self.logging_name}] - updating versioning object")
         else:
             msg = f"localhost versioning object under {str(int(self.seconds/60))} minutes old."
-            self.log.logger[self.log_key].info(f"versioning - called by [{self.logging_name}] - {msg}")
+            self._print_log_msg("info",f"called by [{self.logging_name}] - {msg}")
             
             
     def get_version_obj(self):
-        self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - request for version_obj made.")
+        self._print_log_msg("debug",f"called by [{self.logging_name}] - request for version_obj made.")
         return self.version_obj
     
     
     def get_cached_version_obj(self):
-        self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - initiating cached version object check and request.")
+        self._print_log_msg("debug",f"called by [{self.logging_name}] - initiating cached version object check and request.")
                 
         self.date_time = self.functions.get_date_time({"action": "datetime"})
         self.next_time = self.functions.get_date_time({
@@ -136,10 +144,10 @@ class Versioning():
                 version_obj = json.load(file)
                 self.old_version_obj = deepcopy(version_obj)
         except FileNotFoundError:
-            self.log.logger[self.log_key].info(f"Versioning - File [{self.version_obj_file}] not found, creating...")
+            self._print_log_msg("info",f"File [{self.version_obj_file}] not found, creating...")
             self.new_creation = True
         except json.JSONDecodeError:
-            self.log.logger[self.log_key].error(f"Versioning Failed to decode JSON in [{self.version_obj_file}].")
+            self._print_log_msg("error",f"Versioning Failed to decode JSON in [{self.version_obj_file}].")
             if self.called_cmd != "uvos":
                 self.print_error("ver-126","invalid_file_format")
         
@@ -147,7 +155,7 @@ class Versioning():
             self.verify_version_object()
 
         if self.new_creation:
-            self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - new versioning json object file creation.")
+            self._print_log_msg("debug",f"called by [{self.logging_name}] - new versioning json object file creation.")
             self.write_version_obj_file()
         else:
             try:
@@ -159,10 +167,10 @@ class Versioning():
                 elapsed = {"seconds": -1}
                 elapsed = SimpleNamespace(**elapsed)
             if (self.force or elapsed.seconds > self.seconds) and (not self.auto_restart or self.service_uvos) and self.called_cmd != "migrator":
-                self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - out of date - updating.")
+                self._print_log_msg("debug",f"called by [{self.logging_name}] - out of date - updating.")
                 self.write_version_obj_file()
             else:
-                self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - up to date - no action taken.")
+                self._print_log_msg("debug",f"called by [{self.logging_name}] - up to date - no action taken.")
 
         if self.auto_restart: return version_obj            
         if not self.new_creation and not self.force: 
@@ -181,7 +189,7 @@ class Versioning():
         
         
     def pull_version_from_jar(self,jar_path):
-        self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - pulling tessellation version for jar file [{jar_path}].")
+        self._print_log_msg("debug",f"called by [{self.logging_name}] - pulling tessellation version for jar file [{jar_path}].")
         bashCommand = f"/usr/bin/java -jar {jar_path} --version"
         node_tess_version = self.functions.process_command({
             "bashCommand": bashCommand,
@@ -201,7 +209,7 @@ class Versioning():
         try:
             from ..command_line import CLI
 
-            self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - pulling nodeid from p12 file.")
+            self._print_log_msg("debug",f"called by [{self.logging_name}] - pulling nodeid from p12 file.")
             nodeids = {}
 
             command_obj = {
@@ -231,9 +239,9 @@ class Versioning():
                 json.dump(nodeids, dfile, indent=4)
             chmod(f"{self.functions.nodectl_path}/cn-nodeid.json",0o600)
         except Exception as e:
-            self.log.logger[self.log_key].error(f"attempting to pull node id from p12 failed with [{e}]")
+            self._print_log_msg("error",f"attempting to pull node id from p12 failed with [{e}]")
 
-        self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - found nodeids [{nodeids}]")
+        self._print_log_msg("debug",f"called by [{self.logging_name}] - found nodeids [{nodeids}]")
 
 
     def write_distro_details(self):
@@ -243,8 +251,14 @@ class Versioning():
         chmod(f"{self.functions.nodectl_path}/cn-distro.json",0o600)
 
 
+    def set_current_node_state(self):
+        self.functions.cn_requests.set_self_value("get_state",True)
+        self.functions.cn_requests.set_self_value("use_local",True)
+        return self.node_service.cn_requests.get_current_peer_state(self.functions.default_profile,True)
+        
+        
     def write_version_obj_file(self):
-        self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - write_version_obj_file initiated.")
+        self._print_log_msg("debug",f"called by [{self.logging_name}] - write_version_obj_file initiated.")
         self.update_required = True
         self.write_distro_details()
         self.pull_p12_details()            
@@ -262,25 +276,26 @@ class Versioning():
                 if self.auto_restart: self.functions.auto_restart = True
                 self.pull_upgrade_path()
 
-                test_obj = {
-                    "threaded": False,
-                    "caller": "versioning",
-                    "spinner": False,
-                    "print_output": False,
-                    "profile": self.functions.default_profile,
-                    "simple": True                
-                }
-                self.log.logger[self.log_key].debug(f"versioning - version test obj | [{test_obj}]")
-                state = self.functions.test_peer_state(test_obj)
+                # test_obj = {
+                #     "threaded": False,
+                #     "caller": "versioning",
+                #     "spinner": False,
+                #     "print_output": False,
+                #     "profile": self.functions.default_profile,
+                #     "simple": True                
+                # }
+                self._print_log_msg("debug",f"version test obj | [requesting state update]")
+                state = self.set_current_node_state()
+                # state = self.functions.test_peer_state(test_obj)
                 
                 if isinstance(state,tuple):
-                    self.log.logger[self.log_key].warning(f"versioning -> error detected [code:{state[0]}] with [{state[1]}] so the version object was not updated.  This could lead to invalid output from nodectl, or unexpected outcomes; however, most of the time this will not affect nodectl administration.")
+                    self._print_log_msg("info",f"error detected [code:{state[0]}] with [{state[1]}] so the version object was not updated.  This could lead to invalid output from nodectl, or unexpected outcomes; however, most of the time this will not affect nodectl administration.")
                     return
                 
                 if state == "ApiNotResponding" and self.called_cmd == "uvos": 
                     # after installation there should be a version obj already created
                     # no need to update file while node is not online.
-                    self.log.logger[self.log_key].warning(f"versioning - versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")
+                    self._print_log_msg("info",f"versioning service found [{self.functions.default_profile}] in state [{state}] exiting module.")
                     exit(0)                    
                         
                 if self.show_spinner:  
@@ -292,7 +307,7 @@ class Versioning():
                     }) 
             
                 # get cluster Tessellation
-                self.log.logger[self.log_key].debug(f"versioning - called by [{self.logging_name}] - building new version object.")
+                self._print_log_msg("debug",f"called by [{self.logging_name}] - building new version object.")
             
                 version_obj, env_version_obj = {}, {}
                 last_environment = False
@@ -368,7 +383,7 @@ class Versioning():
                         try:
                             node_tess_version = self.pull_version_from_jar(jar_path)            
                         except Exception as e:
-                            self.log.logger[self.log_key].error(f"attempting to pull node version from jar failed with [{e}]")
+                            self._print_log_msg("error",f"attempting to pull node version from jar failed with [{e}]")
                             node_tess_version = "v0.0.0"
 
                         if not "v" in version.lower():
@@ -390,7 +405,7 @@ class Versioning():
                                 version_obj[environment]["nodectl"]["upgrade"] = upgrade_path[environment]["upgrade"]
                                 version_obj[environment]["remote_yaml_version"] = upgrade_path["nodectl_config"]
                             except Exception as e:
-                                self.log.logger[self.log_key].error(f"versioning --> building object issue encountered | [{e}]")
+                                self._print_log_msg("error",f"building object issue encountered | [{e}]")
                                 self.functions.event = False
                                 if self.called_cmd != "uvos":
                                     self.print_error("ver-278","invalid_file_format",None,"sudo nodectl update_version_object")
@@ -418,14 +433,15 @@ class Versioning():
                                 version_obj[environment]["nodectl"]["nodectl_uptodate"] = test
                             if test == "error":
                                 if self.service_uvos: 
-                                    self.log.logger[self.log_key].error("versioning --> uvos -> unable to determine versioning, stopping service updater, versioning object not updated.")
+                                    self._print_log_msg("error","uvos -> unable to determine versioning, stopping service updater, versioning object not updated.")
                                     exit(1)
-                                self.log.logger[self.log_key].critical("versioning --> unable to determine versioning, skipping service updater.")
+                                self._print_log_msg("error","unable to determine versioning, skipping service updater.")
                                 # force a controlled error if possible
-                                self.functions.test_peer_state({
-                                    **test_obj,
-                                    "caller": "versioning",
-                                })
+                                state = self.set_current_node_state()
+                                # self.functions.test_peer_state({
+                                #     **test_obj,
+                                #     "caller": "versioning",
+                                # })
                                 return # if test passes
                             else: env_version_obj[profile][f"{versions[0]}"] = test
 
@@ -469,12 +485,12 @@ class Versioning():
 
         for _ in range(0,2):
             if do_update or self.force:
-                self.log.logger[self.log_key].debug(f"pull_upgrade_path --> get request --> posting to [{self.upgrade_path_path}].")
+                self._print_log_msg("debug",f"pull_upgrade_path --> get request --> posting to [{self.upgrade_path_path}].")
                 try:
                     upgrade_path = session.get(self.upgrade_path_path, timeout=s_timeout)
                 except:
                     # only trying once (not that important)
-                    self.log.logger[self.log_key].error("versioning --> pull_upgrade_path --> unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
+                    self._print_log_msg("error","pull_upgrade_path --> unable to pull upgrade path from nodectl repo, if the upgrade path is incorrect, nodectl may upgrade incorrectly.")
                     if self.print_messages:
                         self.functions.print_paragraphs([
                             ["",1], ["Unable to determine upgrade path.  Please make sure you adhere to the proper upgrade path before",0,"red"],
@@ -483,7 +499,7 @@ class Versioning():
                     self.upgrade_path = False
                     return
                 else:
-                    self.log.logger[self.log_key].debug(f"versioning --> pull_upgrade_path --> url [{self.upgrade_path_path}]")
+                    self._print_log_msg("debug",f"pull_upgrade_path --> url [{self.upgrade_path_path}]")
                 finally:
                     session.close()
 
@@ -491,7 +507,7 @@ class Versioning():
                 try:
                     self.upgrade_path = eval(upgrade_path)
                 except Exception as e:
-                    self.log.logger[self.log_key].critical(f"versioning --> pull_upgrade_path --> upgrade_path uri returned invalid data [{e}]")
+                    self._print_log_msg("error",f"pull_upgrade_path --> upgrade_path uri returned invalid data [{e}]")
                     self.print_error("ver-327","possible404",e,None)
 
                 self.upgrade_path["nodectl_pre_release"] = self.is_nodectl_pre_release()
@@ -525,20 +541,20 @@ class Versioning():
         pre_release = {"prerelease":"Unknown"}
 
 
-        self.log.logger[self.log_key].debug(f"is_nodectl_pre_release --> get request --> posting to [{pre_release_uri}].")
+        self._print_log_msg("debug",f"is_nodectl_pre_release --> get request --> posting to [{pre_release_uri}].")
         try:
             session = self.functions.set_request_session()
             s_timeout = (5, 3)
             pre_release = session.get(pre_release_uri, timeout=s_timeout).json()
         except Exception as e:
-            self.log.logger[self.log_key].warning(f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
+            self._print_log_msg("info",f"unable to reach api to check for pre-release uri [{pre_release_uri}] | exception [{e}]")
         else:
             try:
                 if "API rate limit" in pre_release["message"]:
-                    self.log.logger[self.log_key].warning(f"versioning --> is_nodectl_pre_release - pull_upgrade_path - unable to determine if pre-release | [{pre_release['message']}]")
+                    self._print_log_msg("info",f"is_nodectl_pre_release - pull_upgrade_path - unable to determine if pre-release | [{pre_release['message']}]")
                     pre_release["prerelease"] = "Unknown"
             except: pass
-            self.log.logger[self.log_key].debug(f"versioning --> is_nodectl_pre_release - pull_upgrade_path - url | [{pre_release_uri}]")
+            self._print_log_msg("debug",f"is_nodectl_pre_release - pull_upgrade_path - url | [{pre_release_uri}]")
         finally:
             session.close()
             
@@ -563,12 +579,12 @@ class Versioning():
             extra2 = self.upgrade_path_path
             
         if self.auto_restart:
-            self.log.logger[self.log_key].error(f"versioning -> pull_upgrade_path -> error encountered by auto_restart | code [{code}] | error_code [{ver}] | extra [{extra}] | hint [{hint}]")
+            self._print_log_msg("error",f"pull_upgrade_path -> error encountered by auto_restart | code [{code}] | error_code [{ver}] | extra [{extra}] | hint [{hint}]")
             exit(1)
         for n in range(0,3):
             try:
                 if self.auto_restart:
-                    self.log.logger[self.log_key].error("versioning -> pull_upgrade_path -> error encountered by auto_restart")
+                    self._print_log_msg("error","pull_upgrade_path -> error encountered by auto_restart")
                     exit(1)
                 self.error_messages.error_code_messages({
                     "error_code": ver,
@@ -630,9 +646,9 @@ class Versioning():
         missing_keys = recursive_verification(self.old_version_obj,root_keys)
         
         if len(missing_keys) > 0:
-            error_msg = "versioning --> verification obj (json) failed"
+            error_msg = "verification obj (json) failed"
             if not self.verify_only: error_msg += ", forcing rebuild of version object file."
-            self.log.logger[self.log_key].error(error_msg)
+            self._print_log_msg("error",error_msg)
             error_found = True
             self.force = True
             self.new_creation = True
@@ -641,8 +657,8 @@ class Versioning():
             if self.verify_only:
                 result, color = "verified OK", "green"
                 if error_found: 
-                    self.log.logger[self.log_key].error(f"versioning -> found missing | [{missing_keys}]")
-                    self.log.logger[self.log_key].error("versioning -> note: if there were [cn-config.yaml] changes, missing keys may be inaccurate, please force or update with the [-f] flag and then rerun the version updater.")
+                    self._print_log_msg("error",f"found missing | [{missing_keys}]")
+                    self._print_log_msg("error","note: if there were [cn-config.yaml] changes, missing keys may be inaccurate, please force or update with the [-f] flag and then rerun the version updater.")
                     result, color = "verified INVALID (check logs)","red"
                 
                 self.functions.print_paragraphs([
@@ -658,6 +674,11 @@ class Versioning():
             exit(0)
 
 
+    def _print_log_msg(self, log_type, msg):
+            log_method = getattr(self.log.logger[self.log_key], log_type, None)
+            log_method(f"{self.__class__.__name__} --> node_service -> {msg}")    
+            
+            
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")   
         

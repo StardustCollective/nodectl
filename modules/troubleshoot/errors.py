@@ -527,7 +527,7 @@ class Error_codes():
             ])            
             
         elif var.line_code == "invalid_address":
-            self.log.logger[self.log_key].critical(f"attempt to use an invalid {var.extra} address detected [{var.extra2}]")
+            self.log.logger[self.log_key].critical(f"attempt to use an invalid [{var.extra}] address detected [{var.extra2}]")
             self.functions.print_paragraphs([
                 ["Invalid",0,"red","bold"], [var.extra,0,"red","bold,underline"], ["address may have been entered.",2,"red","bold"],
                 ["Please",0,"red","bold"], ["verify",0,"yellow","bold"], ["the address entered",2,"red","bold"],

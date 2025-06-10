@@ -64,7 +64,6 @@ except ImportError:
 from pycoingecko import CoinGeckoAPI
 
 from modules.troubleshoot.errors import Error_codes
-from modules.cn_requests import CnRequests
 
 class TerminateFunctionsException(Exception): pass
 
@@ -96,13 +95,15 @@ class Functions():
         self.config_obj = False
         
         
-    def set_cn_requests_obj(self, log, params=False):
-        cn_requests = CnRequests(self.set_self_value,self.get_self_value, log)
+    # def set_cn_requests_obj(self, log, argv, params=False):
+    #     cn_requests = CnRequests(self.set_self_value,self.get_self_value)
+    #     cn_requests.set_self_value("log", log)
+    #     cn_requests.set_self_value("argv", argv)
         
-        if params:
-            cn_requests.set_parameters()
+    #     if params:
+    #         cn_requests.set_parameters()
             
-        return cn_requests
+    #     return cn_requests
                 
                 
     def set_statics(self):
@@ -309,7 +310,9 @@ class Functions():
     def get_peer_count(self,command_obj):
         from  modules.submodules.peer_count import PeerCount
 
-        peer_count_obj = PeerCount(self, command_obj)
+        command_obj["getter"] = self.get_self_value
+        command_obj["setter"] = self.set_self_value
+        peer_count_obj = PeerCount(command_obj)
         peer_count_obj.node_states = self.get_node_states()
 
         try:
@@ -344,6 +347,11 @@ class Functions():
             })
 
 
+    def get_ip_from_peers_cache(self, nodes, value, profile, return_type, type="ip"):
+        for node in  self.config_obj["global_elements"]["cluster_info_lists"][profile].items():
+            if node[type] == value:
+                return node
+            
     def get_node_states(self,types="all",state_list=False):
         if types == "all":
             node_states = [
@@ -1571,8 +1579,9 @@ class Functions():
         self.set_environment_names()
         self.ip_address = self.get_ext_ip()
 
-        if not self.auto_restart: self.check_config_environment()
-        self.set_session_from_cache(False,profile)
+        if not self.auto_restart: 
+            self.check_config_environment()
+        self.set_session_from_cache(False, profile)
                 
 
     def set_environment_names(self):
@@ -2852,9 +2861,13 @@ class Functions():
             })
 
 
-    def test_hostname_or_ip(self, hostname, http=True):
+    def test_hostname_or_ip(self, hostname, exit_on=False, http=True):
+        valid = False
         return_false_list = ["none","default","disabled"]
-        if hostname.lower() in return_false_list: return True
+        
+        if hostname.lower() in return_false_list: 
+            valid = True
+        
         try:
             socket.gethostbyaddr(hostname)
         except:
@@ -2864,12 +2877,25 @@ class Functions():
                 try:
                     validators.url(hostname)
                 except:
-                    return False
-                
+                    pass
+                else:
+                    valid = True
+        else:
+            valid = True
+                    
         if not http:
             if hostname.startswith("http:") or hostname.startswith("https:"):
-                return False
-        return True    
+                valid = False
+        
+        if valid or not exit_on:
+            return valid    
+        
+        self.error_messages.error_code_messages({
+            "error_code": "fnt-2886",
+            "line_code": "invalid_data",
+            "extra": hostname,
+            "extra2": "Must be a valid IP address or hostname",
+        })
     
     
     def test_or_replace_line_in_file(self,command_obj):
@@ -4222,6 +4248,8 @@ class Functions():
 
         elif not isinstance(file_or_list,list):
             files = [file_or_list]
+            
+        if not is_glob:
             result = do_remove(files)
 
         return result
@@ -4340,7 +4368,8 @@ class Functions():
             try:
                 output = check_output(bashCommand, shell=True, text=True)
             except CalledProcessError as e:
-                self._print_log_msg("warning",f"subprocess error -> error [{e}]")
+                # self._print_log_msg("warning",f"subprocess error -> error [{e}]")
+                pass
             return output
         
         if proc_action == "subprocess_run":
@@ -4351,7 +4380,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True)
             except CalledProcessError as e:
-                self._print_log_msg("warning",f"subprocess error -> error [{e}]")
+                # self._print_log_msg("warning",f"subprocess error -> error [{e}]")
                 output = False
             return output
                 
@@ -4359,7 +4388,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True, stdout=PIPE, stderr=PIPE)
             except CalledProcessError as e:
-                self._print_log_msg("warning",f"subprocess error -> error [{e}]")
+                # self._print_log_msg("warning",f"subprocess error -> error [{e}]")
                 output = False
             return output
                 
@@ -4367,7 +4396,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand))
             except CalledProcessError as e:
-                self._print_log_msg("warning",f"subprocess error -> error [{e}]")
+                # self._print_log_msg("warning",f"subprocess error -> error [{e}]")
                 output = False
             return output
         
@@ -4375,7 +4404,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=DEVNULL, check=True)
             except CalledProcessError as e:
-                self._print_log_msg("warning",f"subprocess error -> error [{e}]")
+                # self._print_log_msg("warning",f"subprocess error -> error [{e}]")
                 output = e
             return output.returncode
         
@@ -4383,7 +4412,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), stdout=DEVNULL, stderr=STDOUT, check=True)
             except CalledProcessError as e:
-                self._print_log_msg("warning",f"subprocess error -> error [{e}]")
+                # self._print_log_msg("warning",f"subprocess error -> error [{e}]")
                 output = False
             return output  
               
@@ -4391,7 +4420,7 @@ class Functions():
             try:
                 output = run(shlexsplit(bashCommand), check=True, text=True)
             except CalledProcessError as e:
-                self._print_log_msg("warning",f"subprocess error -> error [{e}]")
+                # self._print_log_msg("warning",f"subprocess error -> error [{e}]")
                 output = False
             return output
         
@@ -4402,9 +4431,11 @@ class Functions():
                 result = run(shlexsplit(bashCommand), check=True, text=True, capture_output=True)
                 self._print_log_msg("info",f"{verb} completed successfully.")
             except CalledProcessError as e:
-                self._print_log_msg("warning",f"{verb} failed. Error: {e.stderr}")
+                # self._print_log_msg("warning",f"{verb} failed. Error: {e.stderr}")
+                pass
             except Exception as e:
-                self._print_log_msg("warning",f"An error occurred: {str(e)}")
+                # self._print_log_msg("warning",f"An error occurred: {str(e)}")
+                pass
             return result
 
         if autoSplit:

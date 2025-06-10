@@ -10,9 +10,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 from time import time, sleep
 
-from ..functions import Functions
-from .logger import Logging
-
 class SendLogException(Exception):
     pass
 
@@ -20,25 +17,30 @@ class Send():
     
     def __init__(self,command_obj):
         
-        self.log_key = command_obj["config_obj"]["global_elements"]["log_key"]
-        self.log = Logging(self.log_key)
         self.command_list = command_obj["command_list"]
         self.config_obj = command_obj["config_obj"]
-        
-        self.functions = Functions()
-        self.functions.set_parameters()
-        self.functions.set_self_value("config_obj",self.config_obj)
-        self.functions.set_self_value("logs",self.log.logger[self.log_key])
-        
-        self.profile = self.command_list[self.command_list.index("-p")+1]
         self.ip_address = command_obj["ip_address"]
-
+        
+        self.log = False
+        self.functions = False
         self.nodectl_logs = False
+        self.profile = False
+        
         if self.profile == "nodectl":
             self.nodectl_logs = True
             self.profile = list(self.config_obj.keys())[0]
         
 
+    def set_parameters(self):
+        self.functions.set_parameters()
+        self.functions.set_self_value("config_obj",self.config_obj)
+        self.functions.set_self_value("log",self.log)
+        
+        
+    def set_self_value(self, name, value):
+        setattr(self, name, value)
+        
+                
     def handle_wdf_last_valid(self):
         self.functions.set_default_directories()
 
@@ -58,7 +60,7 @@ class Send():
                     if "Downloading snapshot" in log_entries[entry]:
                         snapshot_line = log_entries[entry]
                         ordinal_value = snapshot_line.split('SnapshotOrdinal{value=')[1].split('}')[0]
-                        self.log.logger[self.log_key].debug(f"send_log --> found last ordinal before WaitingForDownload state changed = [{ordinal_value}]")
+                        self._print_log_msg("debug",f"found last ordinal before WaitingForDownload state changed = [{ordinal_value}]")
                         return ordinal_value
         else:
             self.log.logger[self.log_key].error("send_log --> module unable to open or find log file.")
@@ -108,19 +110,19 @@ class Send():
         
         if choice == "3":
             if self.nodectl_logs:
-                self.log.logger[self.log_key].info(f"Request to upload all nodectl versioning logs")
+                self._print_log_msg("info",f"Request to upload all nodectl versioning logs")
                 choice = "33"
             else:
-                self.log.logger[self.log_key].info(f"Request to upload Tessellation archive logs initiated")
+                self._print_log_msg("info",f"Request to upload Tessellation archive logs initiated")
                 tar_package = self.listing_setup([archive_location]) 
 
             
         if choice in ["4","5"]:
             if self.nodectl_logs:
-                self.log.logger[self.log_key].info(f"Request to upload all nodectl logs")
+                self._print_log_msg("info",f"Request to upload all nodectl logs")
                 choice = "44"
             else:
-                self.log.logger[self.log_key].info(f"Request to upload Tessellation date specific logs")
+                self._print_log_msg("info",f"Request to upload Tessellation date specific logs")
                 cprint("  Date format must be [YYYY-MM-DD]","white",attrs=["bold"])
                 dates_obj = {
                     "location_dir": [archive_location],
@@ -151,7 +153,7 @@ class Send():
                 "text_start": "Current logs process started",
                 "newline": True,
             })
-            self.log.logger[self.log_key].info(f"Request to upload Tessellation current logs initiated")
+            self._print_log_msg("info",f"Request to upload Tessellation current logs initiated")
             tar_creation_origin = ""
             tar_creation_path = "/tmp/tess_logs/"
 
@@ -183,7 +185,7 @@ class Send():
             
             with ThreadPoolExecutor() as executor:
                 self.functions.status_dots = True
-                self.log.logger[self.log_key].info(f"send_logs is building temporary tarball path and transferring files.")
+                self._print_log_msg("info",f"building temporary tarball path and transferring files.")
  
                 _ = executor.submit(self.functions.print_cmd_status,{
                     "text_start": "Transferring",
@@ -248,7 +250,7 @@ class Send():
 
         with ThreadPoolExecutor() as executor:
             self.functions.status_dots = True
-            self.log.logger[self.log_key].info(f"send_logs is building temporary tarball path and transferring files.")
+            self._print_log_msg("info",f"building temporary tarball path and transferring files.")
             
             _ = executor.submit(self.functions.print_cmd_status,{
                 "text_start": "Generating gzip tarball",
@@ -264,7 +266,7 @@ class Send():
             })
 
             self.functions.status_dots = False
-            self.log.logger[self.log_key].info(f"tarball creation requested saved to [{tar_dest}] size [{dir_size}]")
+            self._print_log_msg("info",f"tarball creation requested saved to [{tar_dest}] size [{dir_size}]")
             self.functions.print_cmd_status({
                 "text_start": "Generating gzip tarball",
                 "status": "complete",
@@ -333,7 +335,7 @@ class Send():
             ])
 
         # clean up
-        self.log.logger[self.log_key].warning(f"send log tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
+        self._print_log_msg("info",f"tmp directory clean up, removing [{tar_package['tar_creation_path']}]")
         try:
             if path.isdir(tar_creation_path):
                 rmtree(tar_creation_path)
@@ -484,7 +486,7 @@ class Send():
                                             continue
                                     return log_entry
                             except json.JSONDecodeError as e:
-                                self.log.logger[self.log_key].debug(f"send_log -> scrapping log found [{e}] retry [{time() - start_time}] of [{timeout}]")
+                                self._print_log_msg("debug",f"send_log -> scrapping log found [{e}] retry [{time() - start_time}] of [{timeout}]")
 
                             current_time = time()
                             if current_time - start_time > timeout: 
@@ -498,10 +500,15 @@ class Send():
                 return False
                           
         except Exception as e:
-            self.log.logger[self.log_key].warning(f"send_logs -> Reached an Exception -> error: [{e}]")  
+            self._print_log_msg("info",f"Reached an Exception -> error: [{e}]")  
             if thread: self.functions.event = False  
-            return False     
+            return False  
         
+           
+    def _print_log_msg(self,log_type,msg):
+            log_method = getattr(self.log, log_type, None)
+            log_method(f"{self.__class__.__name__} --> {msg}")        
+                
                         
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")                      

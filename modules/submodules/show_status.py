@@ -9,29 +9,38 @@ from modules.cn_requests import CnRequests
 
 class ShowStatus():
     
-    def __init__(self,parent,command_obj):
-        self.parent = parent
+    def __init__(self,command_obj):
         self.command_obj = command_obj
-        self.rebuild = command_obj.get("rebuild",False)
-        self.do_wait = command_obj.get("wait",True)
-        self.spinner = command_obj.get("spinner",True)
-        self.threaded = command_obj.get("threaded",False)
-        self.static_nodeid = command_obj.get("static_nodeid",False)
-        self.argv = command_obj.get("argv",[])
-        self.log = self.parent.log
-        self.functions = self.parent.functions
-        self.auto_restart_handler = command_obj.get("auto_restart_handler",False)
+        
+        self.parent_getter = command_obj["getter"]
+        self.parent_setter = command_obj["setter"]
+
 
     # ==== SETTERS ====
 
     def set_parameter(self):
+        self.rebuild = self.command_obj.get("rebuild",False)
+        self.do_wait = self.command_obj.get("wait",True)
+        self.spinner = self.command_obj.get("spinner",True)
+        self.threaded = self.command_obj.get("threaded",False)
+        self.static_nodeid = self.command_obj.get("static_nodeid",False)
+        self.argv = self.command_obj.get("argv",[])
+        self.print_auto_restart_status = self.command_obj.get("print_auto_restart_status",True)
+        self.auto_restart_handler = self.command_obj.get("auto_restart_handler",False)
+        
         self.all_profile_request = False
-        self.called_profile = self.parent.profile
         self.current_profile = False
-        self.config_obj = self.parent.config_obj
         self.auto_restart_setup = False
         
-        self.print_auto_restart_status = self.command_obj.get("print_auto_restart_status",True)
+        self.log = self.parent_getter("log")
+        self.functions =  self.parent_getter("functions")
+        self.called_profile =  self.parent_getter("profile")
+        self.config_obj = self.parent_getter("config_obj")
+        self.node_id_obj = self.parent_getter("node_id_obj")
+        self.cli_grab_id = self.parent_getter("cli_grab_id")
+        self.profile_names =  self.parent_getter("profile_names")
+        self.parent_set_profile = self.parent_getter("set_profile")
+        self.skip_build = self.parent_getter("skip_build")
         
         called_command = self.command_obj.get("called_command","default")
         if called_command == "_s": called_command = "status"
@@ -39,13 +48,12 @@ class ShowStatus():
         if called_command == "stop": called_command = "quick_status"
         self.called_command = called_command
         
-        self.profile_names = self.parent.profile_names
         self.ordinal_dict = {}        
 
         self.watch_enabled = True if "-w" in self.argv else False
         self.print_title = True if "--legend" in self.argv else False
         
-        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value, self.log)
+        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value)
         self.cn_requests.set_parameters()
         self.cn_requests.get_is_cache_needed()
                 
@@ -64,7 +72,7 @@ class ShowStatus():
     
     def set_profile(self):
         profile = self.functions.set_argv(self.argv,"-p","all")
-        self.profile_names = self.parent.profile_names
+        self.profile_names =  self.parent_getter("profile_names")
           
         if profile == "all":
             self.all_profile_request = True
@@ -135,7 +143,7 @@ class ShowStatus():
         if join_state == "ApiNotReady":
             join_state = colored("ApiNotReady","red",attrs=["bold"])
     
-        service_state = self.parent.config_obj["global_elements"]["node_service_status"][self.called_profile]
+        service_state = self.config_obj["global_elements"]["node_service_status"][self.called_profile]
         if service_state == "inactive":
             service_state = colored(f"{service_state}".ljust(20),"magenta")
         elif service_state == "active":
@@ -206,7 +214,7 @@ class ShowStatus():
             
     def _get_nodeid(self):
         try:
-            node_id = self.parent.cli_grab_id({
+            node_id = self.cli_grab_id({
                 "command": "nodeid",
                 "argv_list": ["-p",self.called_profile],
                 "dag_addr_only": True,
@@ -288,7 +296,7 @@ class ShowStatus():
                     self.current_profile = current_profile
                     self._print_log_msg("info",f"show system status requested | {self.current_profile}")
                     
-                    self.parent.set_profile(self.current_profile)
+                    self.parent_set_profile(self.current_profile)
                     self.called_profile = self.current_profile
                             
                     self._set_ordinal_dict()            
@@ -306,12 +314,12 @@ class ShowStatus():
                     self._set_service_status()
                     self._get_cluster_sessions()
                     
-                    if self.parent.config_obj[self.called_profile]["layer"] < 1:
+                    if self.config_obj[self.called_profile]["layer"] < 1:
                         self._get_cluster_consensus()
                         
                     self._set_status_output()
                                     
-                    if not self.parent.skip_build:
+                    if not self.skip_build:
                         self._handle_rebuild()
                         self._set_node_cluster_times()
 
@@ -408,19 +416,16 @@ class ShowStatus():
         
         if self.static_nodeid:
             node_id = f"{self.static_nodeid[:8]}...{self.static_nodeid[-8:]}"
-        elif self.parent.node_id_obj:
+        elif self.node_id_obj:
             try:
-                node_id = self.parent.node_id_obj[f"{self.current_profile}_short"]
+                node_id = self.node_id_obj[f"{self.current_profile}_short"]
             except:
                 get_nodid = True
         else:
             get_nodid = True
 
         if get_nodid:
-            try:
-                node_id = f"{elements[1][:8]}...{elements[1][-8:]}"
-            except:
-                node_id = self._get_nodeid()
+            node_id = self._get_nodeid()
         
         self.node_id = node_id
         return restart_time, uptime
@@ -444,6 +449,8 @@ class ShowStatus():
     
     def print_auto_restart_options(self):
         if not self.print_auto_restart_status: return
+        if not self.auto_restart_handler: return
+        
         self.auto_restart_handler("current_pid")
         
             

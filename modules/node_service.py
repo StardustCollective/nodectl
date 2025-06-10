@@ -93,6 +93,10 @@ class Node():
         return getattr(self, name)
     
     
+    def get_self_value(self,value,default=False):
+        return getattr(self, value, default)
+    
+    
     # def _get_link_types(self):
     #     if self.link_obj["gl0_linking_enabled"] or self.link_obj["ml0_linking_enabled"]:
     #         self._print_log_msg("info",f"join environment [{self.functions.config_obj[self.profile]['environment']}] - join request waiting for Layer0 to become [Ready]")
@@ -119,15 +123,16 @@ class Node():
     def download_constellation_binaries(self,command_obj):
         action = command_obj.get("action",False)
         if action and not "install" in action:
-            self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+            if not self.version_obj:
+                self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
 
         download_service = Download({
-            "parent": self,
             "command_obj": command_obj,
-            "version_obj": self.version_obj,
-            "log": self.log,
+            "get_self_value": self.get_self_value,
+            "set_self_value": self.set_self_value,
         })
         
+        download_service.set_parameters()
         return download_service.execute_downloads()
 
 
@@ -404,15 +409,24 @@ class Node():
         try_again = True
 
         while True:
-            n = n+1
+            n += 1
             user_wait = False
-            source_node_list = self.functions.get_api_node_info({
-                "api_host": self.config_obj[self.profile][f"{link_type}_link_host"],
-                "api_port": self.config_obj[self.profile][f"{link_type}_link_port"],
-                "info_list": ["id","host","p2pPort","state"]
-            })
+                
+            link_host = self.config_obj[self.profile][f"{link_type}_link_host"]
+            link_profile = self.config_obj[self.profile][f"{link_type}_link_profile"]
+            
+            for attempt in range(0,2):
+                link_node = next(
+                    (node for node in self.config_obj["global_elements"]["cluster_info_lists"][link_profile] if node["ip"] == link_host), False
+                )
+                if link_node: 
+                    break
+                self.cn_requests.set_self_value("use_local", True)
+                self.cn_requests.set_self_value("peer", False)
+                self.cn_requests.set_cluster_cache()
+                self.config_obj = self.cn_requests.config_obj
 
-            if source_node_list == None or not source_node_list: 
+            if not link_node: 
                 if n > 2:                    
                     self.error_messages.error_code_messages({
                         "error_code": "ns-634",
@@ -420,29 +434,29 @@ class Node():
                         "extra": "format",
                         "extra2": "Is the linking between profiles setup correctly?",
                     })
-                self._print_log_msg("error",f"build_remote_link -> unable to determine the source node links | source_node_list [{str(source_node_list)}]")
+                self._print_log_msg("error",f"build_remote_link -> unable to determine the source node links | target_linking_node [{str(link_node)}]")
                 continue # try again... 
 
             if not self.auto_restart:
                 self.functions.print_cmd_status({
                     "text_start": f"{link_type.upper()} Link Node State:",
-                    "brackets": source_node_list[3],
-                    "text_end": "" if source_node_list[3] == "Ready" else "not",
+                    "brackets": link_node["state"],
+                    "text_end": "" if link_node["state"] == "Ready" else "not",
                     "status": "Ready",
-                    "status_color": "green" if source_node_list[3] == "Ready" else "red",
+                    "status_color": "green" if link_node["state"] == "Ready" else "red",
                     "newline": True
                 })
 
-            if source_node_list[3] == "Ready":
-                self._print_log_msg("debug",f"build_remote_link -> source node [{source_node_list[3]}] in state [{source_node_list[3]}].")
+            if link_node["state"] == "Ready":
+                self._print_log_msg("debug",f"build_remote_link -> source node [{link_node['ip']}] in state [{link_node['state']}].")
                 return True
 
             if n > 2:
-                if source_node_list[3] == "WaitingForReady" and try_again:
+                if link_node['state'] == "WaitingForReady" and try_again:
                     try_again = False
                     n = 0  
                 else:                  
-                    self._print_log_msg("error",f"build_remote_link -> node link not [Ready] | source node [{source_node_list[3]}].")
+                    self._print_log_msg("error",f"build_remote_link -> node link not [Ready] | source node [{link_node['state']}].")
                     if not self.auto_restart:
                         self.functions.print_paragraphs([
                             [" ERROR ",0,"yellow,on_red"], ["Cannot join with link node not in \"Ready\" state.",1,"red"],
@@ -579,17 +593,19 @@ class Node():
         secs = command_obj.get("secs",30)
         cli_flag = command_obj.get("cli_flag",False)
         profile = command_obj.get("profile",self.profile)
-        skip_thread = command_obj.get("skip_thread",False)
-        threaded = command_obj.get("threaded",False)
+        # skip_thread = command_obj.get("skip_thread",False)
+        # threaded = command_obj.get("threaded",False)
+        state = command_obj.get("state","ApiNotReady")
         self.set_profile(profile)
 
-        state = self.functions.test_peer_state({
-            "caller": "leave",
-            "threaded": threaded,
-            "profile": self.profile,
-            "skip_thread": skip_thread,
-            "simple": True
-        })         
+
+        # state = self.functions.test_peer_state({
+        #     "caller": "leave",
+        #     "threaded": threaded,
+        #     "profile": self.profile,
+        #     "skip_thread": skip_thread,
+        #     "simple": True
+        # })         
         
         if state not in self.functions.not_on_network_list: # otherwise skip
             self._print_log_msg("debug",f"cluster leave process | profile [{profile}] state [{state}] ip [127.0.0.1]")

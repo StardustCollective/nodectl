@@ -1704,8 +1704,16 @@ class Configuration():
                             elif "host" in req_type:
                                 if req_type == "host_def" and test_value == "default": validated = True
                                 elif req_type == "host_def_dis" and test_value == "disable": validated = True
-                                elif self.functions.test_hostname_or_ip(test_value,False) or test_value == "self": validated = True
-                                else: title = "invalid host or ip"
+                                
+                                if ":" in test_value:
+                                    parts = test_value.rsplit(":", 1)
+                                    if len(parts) == 2: # handles IPv6 (future)
+                                        test_value, _ = parts
+                                
+                                elif self.functions.test_hostname_or_ip(test_value, False, False) or test_value == "self":
+                                    validated = True
+                                else: 
+                                    title = "invalid host or ip"
                             
                             elif req_type == "128hex":
                                 pattern = "^[a-fA-F0-9]{128}$"

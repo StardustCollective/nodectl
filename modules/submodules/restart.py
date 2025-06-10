@@ -1,13 +1,13 @@
 from time import sleep, perf_counter
 from concurrent.futures import ThreadPoolExecutor, wait as thread_wait
+from sys import exit
 
 from modules.troubleshoot.ts import Troubleshooter
 from modules.cn_requests import CnRequests
 
 class RestartNode():
     
-    def __init__(self, parent, setter, getter, command_obj):
-        self.parent = parent
+    def __init__(self, setter, getter, command_obj):
         self.setter = setter
         self.getter = getter
         self.command_obj = command_obj
@@ -27,6 +27,7 @@ class RestartNode():
             "profile": profile,
             "reboot_flag": False,
             "threaded": True,
+            "cn_requests": self.cn_requests,
         }
         
         
@@ -45,6 +46,7 @@ class RestartNode():
             "profile": profile,
             "service_name": service_name,
             "skip_seedlist_title": True,
+            "start_type": "restart"
         }         
         
     
@@ -53,11 +55,22 @@ class RestartNode():
                 
                 
     def set_parameters(self):
-        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value, self.log)
+        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value)
         self.cn_requests.set_self_value("config_obj",self.getter("config_obj"))
         self.cn_requests.set_self_value("called_command","restart")
         self.cn_requests.set_self_value("profile_names",self.getter("profile_names"))
         self.cn_requests.set_parameters()
+        
+        self.print_title = self.getter("print_title")
+        self.error_messages = self.getter("error_messages")
+        self.show_profile_issues = self.getter("show_profile_issues")
+        
+        self.cli_join = self.getter("cli_join")
+        self.cli_start = self.getter("cli_start")
+        self.cli_leave = self.getter("cli_leave")
+        self.cli_stop = self.getter("cli_stop")
+        self.cli_join = self.getter("cli_join")
+        self.node_service = self.getter("node_service")
         
         self.called_profile = self.argv_list[self.argv_list.index("-p")+1]
 
@@ -98,8 +111,10 @@ class RestartNode():
         
         
     def set_function_obj_variables(self):
+        profile = self.functions.default_profile if self.called_profile == "all" else self.called_profile
+        
         self.functions.set_default_variables({
-            "profile": self.called_profile,
+            "profile": profile,
         })
         
         
@@ -130,11 +145,11 @@ class RestartNode():
         if self.restart_type == "restart_only": return
             
         environment = self.getter("config_obj")[profile]["environment"]
-        self.parent.print_title(f"JOINING [{environment.upper()}] [{profile.upper()}]")   
+        self.print_title(f"JOINING [{environment.upper()}] [{profile.upper()}]")   
 
         if profile not in self.start_failed_list:
             self._print_log_msg("info",f'sending to join process. | profile [{profile}]')
-            self.parent.cli_join({
+            self.cli_join({
                 "skip_msg": False,
                 "caller": "cli_restart",
                 "skip_title": True,
@@ -192,19 +207,19 @@ class RestartNode():
                 stop_list.append(self.stop_obj)  
                          
             # leave
-            self.parent.print_title("LEAVING CLUSTERS") 
+            self.print_title("LEAVING CLUSTERS") 
             leave_list[-1]["skip_msg"] = False     
             self._print_log_msg("info",f"executing leave process against profiles found")               
-            futures = [executor.submit(self.parent.cli_leave, obj) for obj in leave_list]
+            futures = [executor.submit(self.cli_leave, obj) for obj in leave_list]
             thread_wait(futures)
 
             self._print_stage_complete("Leave network operations")
         
             # stop
             self._print_log_msg("debug",f"executing stop process against profiles found")
-            self.parent.print_title(f"STOPPING PROFILE {'SERVICES' if self.called_profile == 'all' else 'SERVICE'}","top")    
+            self.print_title(f"STOPPING PROFILE {'SERVICES' if self.called_profile == 'all' else 'SERVICE'}","top")    
             stop_list[-1]["spinner"] = True
-            futures = [executor.submit(self.parent.cli_stop, obj) for obj in stop_list]
+            futures = [executor.submit(self.cli_stop, obj) for obj in stop_list]
             thread_wait(futures)  
             
             self._print_stage_complete("Stop network services")    
@@ -212,8 +227,8 @@ class RestartNode():
         
     def process_start_join(self):
         for profile in self.profile_order:
-            self.parent.set_profile(profile)
-            self.parent.config_obj = self.config_obj
+            self.setter("profile", profile)
+            self.setter("config_obj", self.config_obj)
                 
             if self.restart_type == "restart_only":
                 self._process_restart_only()
@@ -224,11 +239,11 @@ class RestartNode():
                 
             for n in range(1,self.failure_retries+1):
                 self._print_log_msg("debug",f"service[s] associated with [{self.called_profile}]")
-                self.parent.print_title(f"RESTARTING PROFILE {'SERVICES' if self.called_profile == 'all' else 'SERVICE'}")
+                self.print_title(f"RESTARTING PROFILE {'SERVICES' if self.called_profile == 'all' else 'SERVICE'}")
                 self._set_start_obj(profile, service_name)
-                self.parent.cli_start(self.start_obj)
+                self.cli_start(self.start_obj)
                 
-                self.cn_requests.set_self_value("use_profile_cache",True)
+                self.cn_requests.set_self_value("use_profile_cache",False)
                 self.cn_requests.set_self_value("config_obj",self.config_obj)
                 peer_test_results = self.cn_requests.get_profile_state(profile)
                 # peer_test_results = self._get_profile_state(profile)
@@ -240,15 +255,14 @@ class RestartNode():
                 else:
                     if n > self.failure_retries-1:
                         self._handle_start_errors(profile, service_name)
-                        
-                    self._print_start_error(profile, n)
-                    sleep(1)
-                    self.cli_stop = {
+                        self._print_start_error(profile, n)
+
+                    self.cli_stop_obj = {
                         "show_timer": False,
                         "profile": profile,
                         "argv_list": []
                     }
-                    self.parent.cli_stop(self.cli_stop)
+                    self.cli_stop(self.cli_stop_obj)
             
             self._process_restart_full(profile)
                     
@@ -256,9 +270,9 @@ class RestartNode():
     def process_seedlist_updates(self):
         for n, profile in enumerate(self.profile_order):
             self._print_log_msg("debug",f"handling seed list updates against profile [{profile}]")
-            self.parent.node_service.set_profile(profile)
+            self.node_service.set_profile(profile)
 
-            self.pos = self.parent.node_service.download_constellation_binaries({
+            self.pos = self.node_service.download_constellation_binaries({
                 "caller": "update_seedlist",
                 "profile": profile,
                 "environment": self.getter("config_obj")[profile]["environment"],
@@ -278,7 +292,7 @@ class RestartNode():
     def handle_input_error(self):
         if not self.input_error: return
         
-        self.parent.error_messages.error_code_messages({
+        self.error_messages.error_code_messages({
             "error_code": "rn-85",
             "line_code": "input_error",
             "extra": self.option,
@@ -289,7 +303,7 @@ class RestartNode():
     def handle_request_error(self):
         if self.valid_request: return
         
-        self.parent.error_messages.error_code_messages({
+        self.error_messages.error_code_messages({
             "error_code": "rn-96",
             "line_code": "profile_error",
             "extra": self.called_profile,
@@ -302,8 +316,8 @@ class RestartNode():
         self.functions.print_paragraphs([
             [profile,0,"red","bold"], ["service failed to start...",1]
         ])
-        ts = Troubleshooter({"config_obj": self.parent.config_obj})
-        self.parent.show_profile_issues(["-p",profile],ts)
+        ts = Troubleshooter({"config_obj": self.config_obj})
+        self.show_profile_issues(["-p",profile],ts)
         self.functions.print_auto_restart_warning()
         self.start_failed_list.append(profile)
                         
@@ -318,6 +332,8 @@ class RestartNode():
         
         
     def handle_empty_profile(self):
+        if self.called_profile == "all": return
+        
         if self.called_profile != "empty" and self.called_profile != None:
             for profile_list in self.profile_pairing_list:
                 for profile_dict in profile_list:
@@ -344,8 +360,10 @@ class RestartNode():
             [f"{profile}'s service was unable to start properly.",1,"yellow"], 
             ["Attempting stop/start again",0], 
             [str(n),0,"yellow","bold"],
-            ["of",0], [str(self.failure_retries),1,"yellow","bold"]
+            ["of",0], [str(self.failure_retries),2,"yellow","bold"],
+            ["nodectl will stop processing request, please try again later.",1,"red"]
         ])
+        exit(0)
 
 
     def _print_join_error(self, profile):

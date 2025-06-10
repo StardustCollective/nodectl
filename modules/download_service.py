@@ -9,38 +9,44 @@ from .troubleshoot.errors import Error_codes
 class Download():
     
     def __init__(self,command_obj):
+        self.command_obj = command_obj["command_obj"]
+        self.parent_getter = command_obj["get_self_value"]
+        self.parent_setter = command_obj["set_self_value"]
 
-        self.parent = command_obj["parent"]
-        self.log = command_obj["log"]
-        command_obj = command_obj["command_obj"]
-        action = command_obj.get("action",False)
-                
-        self.auto_restart = self.parent.auto_restart
 
-        self.functions = self.parent.functions
-        self.config_obj = self.parent.config_obj
-                
-        self.error_messages = Error_codes(self.config_obj) 
+    def set_parameters(self):        
+        self.action = self.command_obj.get("action","normal")
+        
+        self.log = self.parent_getter("log")
+        self.auto_restart = self.parent_getter("auto_restart")
+        self.functions = self.parent_getter("functions")
+        self.config_obj = self.parent_getter("config_obj")
+        self.error_messages = self.parent_getter("error_messages")
+        
+        self.caller = self.command_obj.get("caller","node_service")
+                        
+        self.requested_profile = self.command_obj.get("profile",False)
+        # if not self.requested_profile:
+        #     self.requested_profile = self.parent_getter("profile")
+        
+        self.version_obj = self.parent_getter("version_obj")
+        self.version_class_obj = self.parent_getter("version_class_obj")
 
         self.log_prefix = "download_service ->"
         if self.auto_restart:
             self.log_prefix = f"auto_restart -> {self.log_prefix}"
-        if action == "quiet_install":
+        if self.action == "quiet_install":
             self.log_prefix = f"download_service -> quiet installation ->"
             self.auto_restart = True # utilize the auto_restart flag to disable threading and printouts
             self.functions.auto_restart = True
             
-        self.caller = command_obj.get("caller","node_service")
-        self.action = command_obj.get("action","normal")
-        self.requested_profile = command_obj.get("profile",False)
-        self.download_version = command_obj.get("download_version","default")
-        self.tools_version = command_obj.get("tools_version",self.download_version)
-        self.install_upgrade = command_obj.get("install_upgrade",False)
-        self.environment = command_obj.get("environment",False)
-        self.argv_list = command_obj.get("argv_list",[])
-        self.backup = command_obj.get("backup", True)
-        self.version_obj = command_obj.get("version_obj",False)
-
+        self.download_version = self.command_obj.get("download_version","default")
+        self.tools_version = self.command_obj.get("tools_version",self.download_version)
+        self.install_upgrade = self.command_obj.get("install_upgrade",False)
+        self.environment = self.command_obj.get("environment",False)
+        self.argv_list = self.command_obj.get("argv_list",[])
+        self.backup = self.command_obj.get("backup", True)
+        
         self.successful = True
         self.skip_asset_check = False
         self.fallback = False
@@ -76,11 +82,14 @@ class Download():
             self.profile_names = self.functions.clear_global_profiles(self.profile_names)
 
         if not self.environment:
-            self.error_messages.error_code_messages({
-                "error_code": "ds-95",
-                "line_code": "environment_error",
-                "extra": "binary downloads",
-            })
+            try:
+                self.environment = self.config_obj[self.requested_profile]["environment"]
+            except KeyError:
+                self.error_messages.error_code_messages({
+                    "error_code": "ds-95",
+                    "line_code": "environment_error",
+                    "extra": "binary downloads",
+                })
 
 
     def execute_downloads(self):
@@ -216,7 +225,7 @@ class Download():
 
             if self.download_version == "default":
                 self._print_log_msg("info",f"[{self.environment}] seedlist")   
-                self.download_version = self.parent.version_obj[self.environment][profile]['cluster_tess_version']
+                self.download_version = self.version_obj[self.environment][profile]['cluster_tess_version']
 
             if self.config_obj["global_elements"]["metagraph_name"] == "hypergraph" and self.environment != "mainnet":
                 # does not matter if the global_elements -> metagraph_name is set, if not mainnet
@@ -272,7 +281,6 @@ class Download():
         error_str = "The Download Service module may have conflicted with a parallel running versioning service at the time of the Node Operator's request."
         for tries in range(0,5):
             try:
-                # readability
                 env = self.functions.environment_name
 
                 if self.requested_profile: 
@@ -290,7 +298,8 @@ class Download():
                         self.download_version = self.functions.version_obj[env][profile]["cluster_metagraph_version"]
             except Exception as e:
                 if tries < 1:
-                    self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
+                    self.functions.set_self_value("cn_requests", self.parent_getter("cn_requests"))
+                    self.functions.version_obj = self.functions.handle_missing_version(self.version_class_obj)
                     continue
                 if tries < 2:
                     if not self.auto_restart:
@@ -307,7 +316,7 @@ class Download():
                         "phrase": phrase_str,
                         "status": "Pausing"
                     })
-                    self.functions.version_obj = self.functions.handle_missing_version(self.parent.version_class_obj)
+                    self.functions.version_obj = self.functions.handle_missing_version(self.version_class_obj)
                 else:
                     self._print_log_msg("error",f"set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
                     self.error_messages.error_code_messages({
