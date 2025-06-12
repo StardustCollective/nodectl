@@ -174,7 +174,7 @@ class Configuration():
                 self.validated = False
             self.print_report()
 
-        self.functions.get_includes()
+        self.functions.get_includes({})
         self.cleanup_backups()
         if self.action not in continue_list:
             exit(0)

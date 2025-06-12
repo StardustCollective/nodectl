@@ -4,30 +4,31 @@ from concurrent.futures import ThreadPoolExecutor
 class StartNode():
     
     def __init__(self,command_obj):
-        self.parent_getter = command_obj["get_self_value"]
-        self.parent_setter = command_obj["set_self_value"]
         self.command_obj = command_obj
         
+        self.parent_getter = command_obj["get_self_value"]
+        self.parent_setter = command_obj["set_self_value"]
+
 
     # ==== SETTERS ====
+    
     def set_parameters(self):
-        self.profile = self.command_obj.get("profile",self.parent_getter("profile"))        
+        self.cn_requests = self.command_obj["cn_requests"]
         self.argv_list = self.command_obj.get("argv_list",[])
-        self.spinner = self.command_obj.get("spinner",False)
+
+        self.profile = self.command_obj.get("profile",self.parent_getter("profile"))    
+        self.skip_seedlist_title = self.command_obj.get("skip_title", True)
+
         self.service_name = self.command_obj.get("service_name",self.parent_getter("service_name"))
-        self.threaded = self.command_obj.get("threaded", False)
-        self.static_nodeid = self.command_obj.get("static_nodeid",False)
-        self.skip_seedlist_title = self.command_obj.get("skip_seedlist_title",False)
-        self.existing_node_id = self.command_obj.get("node_id",False)
-        
         self.node_service = self.parent_getter("node_service")
         
         self.log = self.parent_getter("log")
         self.functions = self.parent_getter("functions")
-        self.config_obj = self.parent_getter("config_obj")
         self.check_seed_list = self.parent_getter("check_seed_list")
         self.show_system_status = self.parent_getter("show_system_status")
-    
+
+        self.spinner = self.command_obj.get("spinner", False)
+        
     
     def set_progress_obj(self):
         self.progress = {
@@ -43,28 +44,30 @@ class StartNode():
             "profile": self.profile,
             "action": "start",
             "service_name": self.service_name,
-            "caller": "cli_start"
+            "caller": "cli_start",
+            "cn_requests": self.cn_requests,
         })
         
 
     def _set_status_obj(self):
         self.show_status_obj = {
-            "called_command": "status",
-            "spinner": False,
-            "rebuild": "True",
-            "wait": False,
-            "threaded": self.threaded,
-            "static_nodeid": self.static_nodeid if self.static_nodeid else False,
-            "argv": ["-p",self.profile]                
-        }  
+            "called_command": "start",
+            "argv": ["-p",self.profile],                
+            "cn_requests": self.cn_requests,
+            "print_auto_restart_status": False,
+        }
         
               
     # ==== GETTERS ====
     
+    def get_self_value(self, name, default=False):
+        return getattr(self, name, default)
     
     # ==== PARSERS / PROCESSORS ====
 
     def process_start_results(self):
+        self.cn_requests.config_obj = self.functions.get_service_status(self.cn_requests.config_obj,True) # update service states
+        
         with ThreadPoolExecutor() as executor:
             if self.spinner:
                 self.functions.event = True
@@ -99,11 +102,20 @@ class StartNode():
 
 
     def handle_seedlist(self):
-        if self.config_obj[self.profile]["seed_path"] != "disable/disable":
-            check_seed_list_options = ["-p",self.profile,"skip_warnings","-id",self.existing_node_id]
-            if self.skip_seedlist_title: check_seed_list_options.append("skip_seedlist_title")
-            found = self.check_seed_list(check_seed_list_options)
+        if self.cn_requests.config_obj[self.profile]["seed_path"] != "disable/disable":
+            node_id = self.cn_requests.get_node_id(self.profile)
+            check_seed_list_options = ["-p",self.profile,"skip_warnings","-id",node_id]
+            
+            if self.skip_seedlist_title:
+                check_seed_list_options.extend(["skip_seedlist_title","return_only"])
+                
+            found = self.check_seed_list({
+                "command_list": check_seed_list_options,
+                "cn_requests": self.cn_requests,
+            })
+            
             self._print_seedlist_progress(found)
+            
             if not found:
                 if not self.functions.confirm_action({
                     "prompt": "Continue with start action?",
@@ -155,16 +167,12 @@ class StartNode():
         })
         
         
-    def print_final_status(self, rebuild=True):
+    def print_final_status(self, rebuild=False):
         self.show_status_obj["rebuild"] = rebuild
         self.show_status_obj["print_auto_restart_status"] = False
-        
-        print("")
-            
-        self.node_service.cn_requests.set_self_value("get_state",True)
-        self.node_service.cn_requests.set_self_value("use_local",True)
-        self.node_service.cn_requests.get_current_peer_state(self.profile)
-        self.show_status_obj["config_obj"] = self.node_service.config_obj
+
+        self.node_service.cn_requests.get_current_local_state(self.profile)
+        self.show_status_obj["config_obj"] = self.node_service.cn_requests.config_obj
         self.show_system_status(self.show_status_obj)
 
 

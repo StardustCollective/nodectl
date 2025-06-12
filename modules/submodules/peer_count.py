@@ -3,6 +3,7 @@ from time import sleep
 class PeerCount():
     
     def __init__(self, command_obj):
+        self.command_obj = command_obj
         self._set_parameters(command_obj)
 
 
@@ -20,10 +21,7 @@ class PeerCount():
         self.refresh = command_obj.get("refresh", False)
         self.called_command = command_obj.get("called_command", False)
         self.error_messages = self.parent_getter("error_messages")
-        self.cn_requests = self.parent_getter("cn_requests")
-        self.cluster_peer_list = self.cn_requests.config_obj["global_elements"]["cluster_info_lists"][self.profile]
         
-        self.log = self.parent_getter("log")
         self.log = self.parent_getter("log")
         self.functions = self.parent_getter("functions")
         
@@ -38,8 +36,21 @@ class PeerCount():
         self.peers_downloadinprogress = list()
         self.peers_waitingfordownload = list()
         
-
         self.node_states = None
+        
+        self._set_config_cn_requests()
+        
+        
+    def _set_config_cn_requests(self):
+        self.cn_requests = self.command_obj.get("cn_requests", False)
+        if not self.cn_requests:
+            self.cn_requests = self.parent_getter("cn_requests")
+            
+        self.config_obj = self.command_obj.get("config_obj", False)
+        if not self.config_obj:
+            self.config_obj = self.cn_requests.get_self_value("config_obj")
+            
+        self.cluster_peer_list = self.config_obj["global_elements"]["cluster_info_lists"][self.profile]
         
         
     def get_tcp_stack(self):

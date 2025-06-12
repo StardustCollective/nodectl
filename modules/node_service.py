@@ -6,7 +6,6 @@ from requests import Session
 from types import SimpleNamespace
 
 from modules.troubleshoot.errors import Error_codes
-from modules.troubleshoot.ts import Troubleshooter
 from modules.download_service import Download
 
 from modules.config.create_files import create_files
@@ -23,9 +22,6 @@ class Node():
         else:
             self.config_obj = command_obj["config_obj"]
         
-        self.troubleshooter = Troubleshooter({
-            "config_obj": self.config_obj,
-        })        
         self.error_messages = Error_codes(self.functions) 
         self.profile = command_obj.get("profile",None)
         self.profile_names = command_obj.get("profile_names",None)
@@ -415,24 +411,35 @@ class Node():
             link_host = self.config_obj[self.profile][f"{link_type}_link_host"]
             link_profile = self.config_obj[self.profile][f"{link_type}_link_profile"]
             
+            if not self.config_obj["global_elements"]["cluster_info_lists"].get(link_profile):
+                self.cn_requests.set_self_value("config_obj",self.config_obj)
+                self.cn_requests.set_self_value("peer",False)
+                self.cn_requests.set_self_value("use_local",False)
+                self.cn_requests.set_self_value("get_state",False)
+                self.cn_requests.set_self_value("use_ep",True)
+                self.cn_requests.set_self_value("profile_names",[link_profile])
+                self.cn_requests.set_cluster_cache()
+                self.config_obj = self.cn_requests.get_self_value("config_obj")
+                self.config_obj["global_elements"]["cluster_info_lists"][link_profile].pop()
+                
             for attempt in range(0,2):
                 link_node = next(
                     (node for node in self.config_obj["global_elements"]["cluster_info_lists"][link_profile] if node["ip"] == link_host), False
                 )
                 if link_node: 
                     break
-                self.cn_requests.set_self_value("use_local", True)
-                self.cn_requests.set_self_value("peer", False)
-                self.cn_requests.set_cluster_cache()
-                self.config_obj = self.cn_requests.config_obj
 
             if not link_node: 
+                extra2 = "Is the profile linking configured correctly? nodectl was unable to find "
+                extra2 += "or connect to the linking settings in this configuration. This could also " 
+                extra2 += "indicate that the profile or the external node this node is configured to "
+                extra2 += "link to is not part of the cluster."
                 if n > 2:                    
                     self.error_messages.error_code_messages({
                         "error_code": "ns-634",
                         "line_code": "config_error",
                         "extra": "format",
-                        "extra2": "Is the linking between profiles setup correctly?",
+                        "extra2": extra2,
                     })
                 self._print_log_msg("error",f"build_remote_link -> unable to determine the source node links | target_linking_node [{str(link_node)}]")
                 continue # try again... 
@@ -531,16 +538,18 @@ class Node():
         caller = command_obj["caller"]
         profile = command_obj.get("profile",self.profile)
         service_display = self.functions.cleaner(service_name,'service_prefix')
+        cn_requests = command_obj["cn_requests"]
             
         self._print_log_msg("debug",f"changing service state method - action [{action}] service_name [{service_display}] caller = [{caller}]")
-        self.functions.get_service_status()
+        cn_requests.config_obj = self.functions.get_service_status(cn_requests.config_obj, True)
+        
         if action == "start":
-            if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] < 1:
+            if cn_requests.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] < 1:
                 if not self.auto_restart:
                     self.functions.print_clear_line()
                     self.functions.print_paragraphs([
                         ["Skipping service change request [",0,"yellow"], [service_display,-1,], ["] because the service is already set to",-1,"yellow"],
-                        [self.functions.config_obj["global_elements"]['node_service_status'][profile],1,"yellow"]
+                        [cn_requests.config_obj["global_elements"]['node_service_status'][profile],1,"yellow"]
                     ])
                 self._print_log_msg("warning",f"change service state [{service_display}] request aborted because service [inactive (dead)]")
                 return
@@ -552,7 +561,7 @@ class Node():
             })
 
         if action == "stop":
-            if self.functions.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] > 0:
+            if cn_requests.config_obj["global_elements"]["node_service_status"][f"{profile}_service_return_code"] > 0:
                 self._print_log_msg("warning",f"service stop on profile [{profile}] skipped because service [{service_display}] is [{self.functions.config_obj['global_elements']['node_service_status'][profile]}]")
                 if not self.auto_restart:
                     self.functions.print_clear_line()
@@ -589,35 +598,37 @@ class Node():
         
         
     def leave_cluster(self,command_obj):
-        # secs=50=(int),cli_flag=(bool)=False):
-        secs = command_obj.get("secs",30)
-        cli_flag = command_obj.get("cli_flag",False)
-        profile = command_obj.get("profile",self.profile)
-        # skip_thread = command_obj.get("skip_thread",False)
-        # threaded = command_obj.get("threaded",False)
-        state = command_obj.get("state","ApiNotReady")
-        self.set_profile(profile)
+        print("leave_cluster --- moved to cn_requsts")
+        exit(0)
+        # # secs=50=(int),cli_flag=(bool)=False):
+        # secs = command_obj.get("secs",30)
+        # cli_flag = command_obj.get("cli_flag",False)
+        # profile = command_obj.get("profile",self.profile)
+        # # skip_thread = command_obj.get("skip_thread",False)
+        # # threaded = command_obj.get("threaded",False)
+        # state = command_obj.get("state","ApiNotReady")
+        # self.set_profile(profile)
 
 
-        # state = self.functions.test_peer_state({
-        #     "caller": "leave",
-        #     "threaded": threaded,
-        #     "profile": self.profile,
-        #     "skip_thread": skip_thread,
-        #     "simple": True
-        # })         
+        # # state = self.functions.test_peer_state({
+        # #     "caller": "leave",
+        # #     "threaded": threaded,
+        # #     "profile": self.profile,
+        # #     "skip_thread": skip_thread,
+        # #     "simple": True
+        # # })         
         
-        if state not in self.functions.not_on_network_list: # otherwise skip
-            self._print_log_msg("debug",f"cluster leave process | profile [{profile}] state [{state}] ip [127.0.0.1]")
-            cmd = f"curl -X POST http://127.0.0.1:{self.api_ports['cli']}/cluster/leave"
-            self.functions.process_command({
-                "bashCommand": cmd,
-                "proc_action": "timeout"
-            })
-            if not cli_flag:
-                sleep(secs)
+        # if state not in self.functions.not_on_network_list: # otherwise skip
+        #     self._print_log_msg("debug",f"cluster leave process | profile [{profile}] state [{state}] ip [127.0.0.1]")
+        #     cmd = f"curl -X POST http://127.0.0.1:{self.api_ports['cli']}/cluster/leave"
+        #     self.functions.process_command({
+        #         "bashCommand": cmd,
+        #         "proc_action": "timeout"
+        #     })
+        #     if not cli_flag:
+        #         sleep(secs)
                 
-        return state
+        # return state
                        
 
     # def join_cluster(self,command_obj):

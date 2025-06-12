@@ -252,9 +252,7 @@ class Versioning():
 
 
     def set_current_node_state(self):
-        self.functions.cn_requests.set_self_value("get_state",True)
-        self.functions.cn_requests.set_self_value("use_local",True)
-        return self.node_service.cn_requests.get_current_peer_state(self.functions.default_profile,True)
+        return self.functions.cn_requests.get_current_local_state(self.functions.default_profile,True)
         
         
     def write_version_obj_file(self):

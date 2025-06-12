@@ -5,11 +5,10 @@ from concurrent.futures import ThreadPoolExecutor
 from sys import exit
 from datetime import datetime, timedelta
 
-from modules.cn_requests import CnRequests
-
 class ShowStatus():
     
     def __init__(self,command_obj):
+        # Will use the config_obj with Cache from cn_requests getter
         self.command_obj = command_obj
         
         self.parent_getter = command_obj["getter"]
@@ -23,6 +22,7 @@ class ShowStatus():
         self.do_wait = self.command_obj.get("wait",True)
         self.spinner = self.command_obj.get("spinner",True)
         self.threaded = self.command_obj.get("threaded",False)
+        self.cn_requests = self.command_obj.get("cn_requests", False)
         self.static_nodeid = self.command_obj.get("static_nodeid",False)
         self.argv = self.command_obj.get("argv",[])
         self.print_auto_restart_status = self.command_obj.get("print_auto_restart_status",True)
@@ -35,13 +35,12 @@ class ShowStatus():
         self.log = self.parent_getter("log")
         self.functions =  self.parent_getter("functions")
         self.called_profile =  self.parent_getter("profile")
-        self.config_obj = self.parent_getter("config_obj")
         self.node_id_obj = self.parent_getter("node_id_obj")
         self.cli_grab_id = self.parent_getter("cli_grab_id")
         self.profile_names =  self.parent_getter("profile_names")
         self.parent_set_profile = self.parent_getter("set_profile")
         self.skip_build = self.parent_getter("skip_build")
-        
+                
         called_command = self.command_obj.get("called_command","default")
         if called_command == "_s": called_command = "status"
         if called_command == "_qs": called_command = "quick_status"
@@ -52,11 +51,8 @@ class ShowStatus():
 
         self.watch_enabled = True if "-w" in self.argv else False
         self.print_title = True if "--legend" in self.argv else False
-        
-        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value)
-        self.cn_requests.set_parameters()
-        self.cn_requests.get_is_cache_needed()
-                
+        self.print_small_title = True if self.called_command == "status" else False
+                        
         self.latest_ordinal = False  
         self.range_error = False
         self.node_id = False
@@ -64,7 +60,6 @@ class ShowStatus():
         self.uptime = False
         self.sessions = False
         self.consensus_match = False
-
         
         self.watch_seconds = 15
         self.watch_passes = 0
@@ -89,7 +84,7 @@ class ShowStatus():
             
     def _set_service_status(self):
         self.functions.get_service_status()
-            
+
 
     def _set_status_output(self):
         sessions = self.sessions
@@ -143,7 +138,7 @@ class ShowStatus():
         if join_state == "ApiNotReady":
             join_state = colored("ApiNotReady","red",attrs=["bold"])
     
-        service_state = self.config_obj["global_elements"]["node_service_status"][self.called_profile]
+        service_state = self.cn_requests.config_obj["global_elements"]["node_service_status"][self.called_profile]
         if service_state == "inactive":
             service_state = colored(f"{service_state}".ljust(20),"magenta")
         elif service_state == "active":
@@ -230,11 +225,11 @@ class ShowStatus():
     
     
     def _get_latest_ordinal_details(self):
-        if self.config_obj[self.called_profile]["layer"] > 0:
+        if self.cn_requests.config_obj[self.called_profile]["layer"] > 0:
             return
         
         try:
-            self.latest_ordinal = self.config_obj["global_elements"]["snapshot_cache"][self.called_profile]["latest"]
+            self.latest_ordinal = self.cn_requests.config_obj["global_elements"]["snapshot_cache"][self.called_profile]["latest"]
         except Exception as e:
             self._print_log_msg("error",f"_get_latest_ordinal_details --> error [{e}]")
                 
@@ -249,7 +244,7 @@ class ShowStatus():
                         
     def _get_profile_state(self, profile, rebuild):
         if not rebuild: 
-            return self.config_obj["global_elements"]["profile_states"][profile]
+            return self.cn_requests.config_obj["global_elements"]["profile_states"][profile]
 
         self.cn_requests.set_session()
         
@@ -261,16 +256,7 @@ class ShowStatus():
             return
                    
         self.cn_requests.set_cluster_cache()
-        
-        # state = self.functions.test_peer_state({
-        #     "threaded": self.threaded,
-        #     "spinner": self.spinner,
-        #     "profile": profile,
-        #     "simple": True
-        # })
-        
-        # return state      
-        
+    
     
     def get_self_value(self, name, default=False):
         return getattr(self, name, default)
@@ -314,7 +300,7 @@ class ShowStatus():
                     self._set_service_status()
                     self._get_cluster_sessions()
                     
-                    if self.config_obj[self.called_profile]["layer"] < 1:
+                    if self.cn_requests.config_obj[self.called_profile]["layer"] < 1:
                         self._get_cluster_consensus()
                         
                     self._set_status_output()
@@ -327,14 +313,13 @@ class ShowStatus():
                             raise Exception(self.node_cluster_times)
                         
                         self._print_title()
-                        
-                        # if self.config_obj[self.current_profile]["environment"] not in ["mainnet","integrationnet","testnet"]:
-                        #      self.ordinal_dict["backend"] = "N/A"
-                                        
                         self._print_status_output(self.current_profile)
                             
                 if self._handle_watch_request(None,False):            
                     break
+                
+                print("need to make this use peer not edge point")
+                exit(0)
                 self.cn_requests.handle_edge_point_cache()
 
     
@@ -473,9 +458,17 @@ class ShowStatus():
                 [" RANGE ERROR ",0,"red,on_yellow"],["using [",0], 
                 ["15",0,"yellow"], ["] second default.",2]
             ]) 
-
-
+    
+        
     def _print_title(self):
+        if self.print_small_title:
+            self.functions.print_header_title({
+                "line1": "STATUS REQUEST",
+                "single_line": True,
+                "show_titles": False,
+                "newline": "top"
+            })  
+                      
         if not self.print_title: return
         
         self.functions.print_states()
@@ -492,6 +485,23 @@ class ShowStatus():
         
             
     def _print_status_output(self,profile):
+        print("")
+        
+        try:
+            latest_ord = self.ordinal_dict.get(profile, {}).get("ordinal", False)
+        except:
+            latest_ord = "n/a"
+            
+        try:
+            latest_epoc = self.ordinal_dict.get(profile, {}).get("epocProgress", False),
+        except:
+            latest_epoc = "n/a"
+            
+        try:
+            snap_hash = self.ordinal_dict.get(profile, {}).get("hash", False),
+        except:
+            snap_hash = "n/a"            
+            
         print_out_list = [
             {
                 "PROFILE": self.called_profile,
@@ -504,9 +514,9 @@ class ShowStatus():
                 "CLI API TCP": self.functions.config_obj[self.called_profile]["cli_port"]
             },
             {
-                "LATEST ORDINAL": self.ordinal_dict.get(profile, {}).get("ordinal", False),
-                "EPOC PROGRESS": self.ordinal_dict.get(profile, {}).get("epocProgress", False),
-                "SNAPSHOT HASH": self.ordinal_dict.get(profile, {}).get("hash", False),
+                "LATEST ORDINAL": latest_ord,
+                "EPOC PROGRESS": latest_epoc,
+                "SNAPSHOT HASH": snap_hash,
             },
             {
                 "CURRENT SESSION": str(self.main_output["cluster_session"]),
@@ -538,10 +548,10 @@ class ShowStatus():
         if self.called_command == "uptime":
             print_out_list = print_out_list2
         else:
-            if self.config_obj[profile]["layer"] > 0:
+            if self.cn_requests.config_obj[profile]["layer"] > 0:
                 print_out_list3[0].pop("IN CONSENSUS", None)
             print_out_list = print_out_list + print_out_list2 + print_out_list3
-            if self.config_obj[profile]["layer"] > 0:
+            if self.cn_requests.config_obj[profile]["layer"] > 0:
                 print_out_list.pop(2)
             
             self.functions.event = False  # if spinner was called stop it first.

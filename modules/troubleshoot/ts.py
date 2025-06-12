@@ -1,22 +1,20 @@
 
 import json
 from copy import deepcopy
-from .logger import Logging
 
 class Troubleshooter():
     
-    def __init__(self,command_obj):    
-        self.config_obj = deepcopy(command_obj["config_obj"])
-
-        try:
-            self.log_key = self.config_obj["global_elements"]["log_key"]
-        except:
-            self.log_key = "main"
-        self.log = Logging(self.log_key)
+    def __init__(self,command_obj):
+        self.command_obj = command_obj    
+        self.parent_getter = command_obj["getter"]
+        self.parent_setter = command_obj["setter"]
+        self.cn_requests = deepcopy(command_obj["cn_requests"])
+        
+        self.log = command_obj.parent_getter("log")
         
         
     def setup_logs(self,command_obj):
-        profile_names = list(self.config_obj.keys())
+        profile_names = list(self.cn_requests.config_obj.keys())
         self.log_dict = {}
         single_profile = command_obj.get("profile",False)
         if single_profile:
@@ -30,7 +28,7 @@ class Troubleshooter():
 
 
     def test_for_connect_error(self,lines):
-        self.log.logger[self.log_key].info("checking logs for simple error messages")
+        self._print_log_msg("info","checking logs for simple error messages")
         no_of_errors, found = 4, 0
         end_results, ERROR_list = [], []
 
@@ -100,7 +98,7 @@ class Troubleshooter():
                             try:
                                 ERROR_list.append(json.loads(line))
                             except json.JSONDecodeError as e:
-                                self.log.logger[self.log_key].warning(f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
+                                self._print_log_msg("warning",f"troubleshooter -> Unable to parse JSON from log -> decoding error: [{e}]") 
                             if lines != "all" and n > lines-1: 
                                 break
                                                    
@@ -128,14 +126,19 @@ class Troubleshooter():
 
             except Exception as e:
                 try:
-                    self.log.logger[self.log_key].error(f"error attempting to open log file | file [{file}] | error [{e}]")
+                    self._print_log_msg("error",f"error attempting to open log file | file [{file}] | error [{e}]")
                 except:
-                    self.log.logger[self.log_key].error(f"error attempting to open log file... file not present on system?")
+                    self._print_log_msg("error",f"error attempting to open log file... file not present on system?")
 
         if found > 0:
             return (profile,end_results)
         return False
     
+    
+    def _print_log_msg(self,log_type,msg):
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} request --> {msg}")
+            
 
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

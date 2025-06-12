@@ -978,7 +978,7 @@ class Error_codes():
             [" TERMINATING ",0,"yellow,on_red","bold"], ["nodectl",1,"yellow","bold"]                           
         ])
 
-        sys.exit("  nodectl exited on critical error.")
+        sys.exit(colored("  nodectl exited on critical error.","red"))
 
         
 if __name__ == "__main__":

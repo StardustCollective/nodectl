@@ -22,7 +22,6 @@ from modules.download_status import DownloadStatus
 from modules.status import Status
 from modules.node_service import Node
 from modules.troubleshoot.errors import Error_codes
-from modules.troubleshoot.logger import Logging
 from modules.cleaner import Cleaner
 from modules.troubleshoot.send_logs import Send
 from modules.troubleshoot.ts import Troubleshooter
@@ -63,15 +62,8 @@ class CLI():
         
     def set_variables(self):
         self.config_obj = self.functions.config_obj
-        # try:
-        #     self.log_key = self.config_obj["global_elements"]["log_key"]
-        # except:
-        #     self.config_obj["global_elements"]["log_key"] = "main"
-        #     self.log_key = "main"
-
         config_global_elements = self.config_obj.setdefault("global_elements", {})
         self.log_key = config_global_elements.setdefault("log_key", "main")
-        
 
         self.version_obj = self.functions.version_obj
 
@@ -87,10 +79,9 @@ class CLI():
         self.current_try = 0
         self.max_try = 2
         
+        self.cn_requests = None # set by setter
+        
         self.error_messages = Error_codes(self.functions)  
-        self.troubleshooter = Troubleshooter({
-            "config_obj": self.config_obj,
-        })
 
         if self.profile_names != None:
             self.profile_names = self.functions.clear_global_profiles(self.profile_names)
@@ -124,6 +115,14 @@ class CLI():
             return
 
 
+    def set_troubleshooter_object(self):
+        # cn_requests must be set with a setter call
+        self.troubleshooter = Troubleshooter({
+            "cn_requests": self.cn_requests,
+            "log": self.log.logger[self.log_key],
+        })
+        
+        
     def build_node_class(self):
         command_obj = {
             "caller": "cli",
@@ -179,6 +178,16 @@ class CLI():
         self.profile = profile
         self.node_service.set_profile(profile)
         self.set_profile_api_ports() 
+        
+        
+    def _set_command_obj_basics(self,command_obj):
+        command_obj = {
+            **command_obj,
+            "setter": self.set_self_value,
+            "getter": self.get_self_value,
+            "cn_requests": self.cn_requests,
+        }
+        return command_obj
         
 
     def raise_exception(self):
@@ -250,15 +259,11 @@ class CLI():
     def show_system_status(self,command_obj):
         from modules.submodules.show_status import ShowStatus
         
-        command_obj["getter"] = self.get_self_value
-        command_obj["setter"] = self.set_self_value
+        command_obj = self._set_command_obj_basics(command_obj)
         status = ShowStatus(command_obj)
         status.set_parameter()
 
         self.functions.check_for_help(status.argv,status.called_command)
-
-        if command_obj.get("config_obj"): # if there an updated config?
-            status.set_self_value("config_obj",command_obj["config_obj"])   
                  
         status.set_profile()
         status.set_watch_parameters()
@@ -659,19 +664,11 @@ class CLI():
             return
         
         peers.handle_info_type_request()
-
-        # peers.get_ext_ip()
-        
-        # peers.peer_results = self.node_service.functions.get_peer_count({
-        #     "peer_obj": peers.sip, 
-        #     "profile": peers.profile, 
-        #     "compare": True
-        # })
-
-        # peers.handle_peer_error()
         peers.handle_wallets()
+
         peers.set_main_print_out()
         peers.set_pagination()
+
         peers.print_submenu()
         peers.print_results()
         peers.print_csv_success()
@@ -1964,14 +1961,18 @@ class CLI():
             ])
             
     
-    def check_seed_list(self,command_list):
+    def check_seed_list(self,command_obj):
+        command_list = command_obj["command_list"]
+        cn_requests = self.cn_requests
+        
         self.functions.check_for_help(command_list,"check_seedlist")
         found = colored("False","red",attrs=["bold"])
         profile = command_list[command_list.index("-p")+1]
         skip = True if "skip_warnings" in command_list else False
         nodeid, nodeid_short = None, None
         skip_full_nodeid = False
-
+        return_only = True if "return_only" in command_list else False
+        
         if not "skip_seedlist_title" in command_list: self.print_title("CHECK SEED LIST REQUEST")
         
         argv_list = []
@@ -1987,10 +1988,7 @@ class CLI():
             argv_list = ["-t",target,"-l"]
         nodeid = command_list[command_list.index("-id")+1] if "-id" in command_list else False
 
-        if "-p" in command_list:
-            argv_list += ["-p",profile]
-
-        if self.functions.config_obj[profile]["seed_location"] == "disable":
+        if cn_requests.config_obj[profile]["seed_location"] == "disable":
             if skip:
                 return True
             self.functions.print_paragraphs([
@@ -2000,6 +1998,8 @@ class CLI():
             return 0
 
         if nodeid:
+            if return_only:
+                return True
             skip_full_nodeid = True
             self.functions.print_paragraphs([
                 ["NODE ID",1,"blue","bold"],
@@ -2029,7 +2029,7 @@ class CLI():
                     "extra2": "invalid nodeid; use -t for node ip address",
                 })
             nodeid = self.functions.cleaner(nodeid,"new_line")
-            seed_path = self.functions.cleaner(self.functions.config_obj[profile]["seed_path"],"double_slash")
+            seed_path = self.functions.cleaner(cn_requests.config_obj[profile]["seed_path"],"double_slash")
             test = self.functions.test_or_replace_line_in_file({
               "file_path": seed_path,
               "search_line": nodeid
@@ -2284,32 +2284,100 @@ class CLI():
     # ==========================================
     # cli main functional commands
     # ==========================================
-                       
-    def cli_start(self,command_obj):
-        from modules.submodules.start import StartNode
+
+    def cli_restart(self,command_obj):
+        from modules.submodules.restart import RestartNode
         
-        command_obj["get_self_value"] = self.get_self_value
-        command_obj["set_self_value"] = self.set_self_value
-        cli_start = StartNode(command_obj)
+        command_obj = self._set_command_obj_basics(command_obj)
+        cli_restart = RestartNode(command_obj)
         
-        cli_start.set_parameters()
-        cli_start.handle_check_for_help()
-        cli_start.set_progress_obj()
-        cli_start.print_start_init()
-        cli_start.handle_seedlist()
-        cli_start.set_service_state()
-        cli_start.print_start_complete()        
-        cli_start.print_timer()        
-        cli_start.process_start_results()
-        cli_start.print_final_status()
+        cli_restart.set_parameters()
+        cli_restart.handle_help_request()
+        
+        cli_restart.set_performance_start()
+        cli_restart.handle_input_error()
+        cli_restart.print_restart_init() 
+
+        cli_restart.set_function_obj_variables()
+        cli_restart.process_ep_state()    
+        
+        cli_restart.get_profiles()
+        cli_restart.handle_all_parameter()
+        
+        self.slow_flag = cli_restart.slow_flag
+   
+        cli_restart.handle_empty_profile()
+        cli_restart.handle_request_error()  
+                  
+        cli_restart.process_leave_stop()
+        cli_restart.process_seedlist_updates()
+        
+        cli_restart.print_cursor_position()
+
+        cli_restart.process_start_join()
+        cli_restart.print_performance()   
         
         
+    def cli_leave(self,command_obj):
+        from modules.submodules.leave import LeaveNode
+        
+        command_obj = self._set_command_obj_basics(command_obj)
+        cli_leave = LeaveNode(command_obj)
+    
+        cli_leave.set_parameters()
+        cli_leave.handle_check_for_help()
+        
+        cli_leave.set_progress_obj()
+        cli_leave.handle_pause()
+        cli_leave.print_leave_init()
+        cli_leave.get_profile_state()
+        cli_leave.process_leave_cluster()
+
+        if cli_leave.skip_msg:
+            return
+            
+        while True:
+            cli_leave.parse_leave_status()
+            cli_leave.print_leaving_msg()
+            cli_leave.print_leave_progress()
+            cli_leave.set_state_obj()    
+            cli_leave.get_profile_state()
+                
+            cli_leave.print_leave_progress(True)    
+
+            if cli_leave.process_leave_status(): 
+                cli_leave.print_outofcluster_msg()
+                break
+
+            if cli_leave.leave_obj: 
+                break    
+            
+            cli_leave.handle_not_outofcluster()
+            if cli_leave.handle_max_retries(): 
+                break
+
+            cli_leave.parse_log_wait_for_leave()
+            cli_leave.get_profile_state()
+
+            if cli_leave.process_leave_status(): 
+                break
+            if cli_leave.start > 2:
+                cli_leave.set_skip_lookup(True)
+    
+            if cli_leave.skip_log_lookup:
+                cli_leave.print_leave_timer()
+                    
+            cli_leave.handle_wait_for_offline()
+            cli_leave.set_start_increment() 
+        
+        if self.primary_command == "leave":
+            self.show_system_status(command_obj)                          
+    
+    
     def cli_stop(self,command_obj):
         from modules.submodules.stop import StopNode
         
-        command_obj["getter"] = self.get_self_value
-        command_obj["setter"] = self.set_self_value
-        
+        command_obj = self._set_command_obj_basics(command_obj)
         cli_stop = StopNode(command_obj)
 
         cli_stop.set_parameters()
@@ -2330,36 +2398,69 @@ class CLI():
         cli_stop.print_progress_complete()
         cli_stop.print_final_status()
 
-        
-    def cli_restart(self,command_obj):
-        from modules.submodules.restart import RestartNode
-        
-        cli_restart = RestartNode(self.set_self_value, self.get_self_value, command_obj)
-        
-        cli_restart.set_parameters()
-        cli_restart.handle_help_request()
-        
-        cli_restart.set_performance_start()
-        cli_restart.handle_input_error()
-        cli_restart.print_restart_init() 
 
-        cli_restart.set_function_obj_variables()
-        cli_restart.process_ep_state()    
+    def cli_start(self,command_obj):
+        from modules.submodules.start import StartNode
         
-        cli_restart.get_profiles()
-        cli_restart.handle_all_parameter()
+        command_obj["get_self_value"] = self.get_self_value
+        command_obj["set_self_value"] = self.set_self_value
+        cli_start = StartNode(command_obj)
         
-        self.slow_flag = cli_restart.slow_flag
-   
-        cli_restart.handle_empty_profile()
-        cli_restart.handle_request_error()            
-        cli_restart.process_leave_stop()
-        cli_restart.process_seedlist_updates()
-        cli_restart.print_cursor_position()
+        cli_start.set_parameters()
+        cli_start.handle_check_for_help()
+        cli_start.set_progress_obj()
+        cli_start.print_start_init()
+        cli_start.handle_seedlist()
+        cli_start.set_service_state()
+        cli_start.print_start_complete()        
+        cli_start.print_timer()        
+        cli_start.process_start_results()
+        cli_start.print_final_status()
 
-        cli_restart.process_start_join()
-        cli_restart.print_performance()                        
+
+    def cli_join(self,command_obj):
+        from modules.submodules.join import Join
+        
+        command_obj = self._set_command_obj_basics(command_obj)
+        cli_join = Join(command_obj)
+        
+        start_timer = perf_counter()
+        
+        cli_join.set_parameters()
+        cli_join.handle_help_arg()
+        
+        cli_join.print_title()        
+        cli_join.print_joining()
+
+        cli_join.handle_layer0_links()
+        cli_join.set_state_from_profile()    
+        
+        cli_join.print_review()
+
+        if cli_join.handle_invalid_join_state():
+            return
+        
+        cli_join.handle_apinotready()
+        cli_join.handle_static_peer()
+        
+        cli_join.process_join_cluster()
+        cli_join.handle_link_color()
+        cli_join.process_post_join()
+            
+        cli_join.parse_snapshot_issues()
+        cli_join.parse_tolerance_issues()
+        
+        cli_join.handle_offline_state()
+        cli_join.handle_join_complete()
+
+        cli_join.process_incomplete_peer_connections()
+
+        cli_join.handle_bad_join()
+        cli_join.print_completed_join(start_timer)
                 
+
+    # End Leave, Stop, Start, Join Methods
+    # ========================
 
     def cli_reboot(self,command_list):
 
@@ -2453,7 +2554,7 @@ class CLI():
             sleep(2)
             do_reboot()
             
-      
+                
     def cli_console(self,command_list) -> tuple:
         self.functions.check_for_help(command_list,self.primary_command)
         console = Menu({
@@ -2466,102 +2567,7 @@ class CLI():
         if choice == "q": exit(0)
         return choice
     
-
-    def cli_join(self,command_obj):
-        from modules.submodules.join import Join
-        
-        command_obj["setter"] = self.set_self_value
-        command_obj["getter"] = self.get_self_value
-        cli_join = Join(command_obj)
-        
-        start_timer = perf_counter()
-        
-        cli_join.set_parameters()
-        cli_join.handle_help_arg()
-        
-        cli_join.print_title()        
-        cli_join.print_joining()
-
-        cli_join.handle_layer0_links()
-        cli_join.set_state_from_profile()    
-        
-        cli_join.print_review()
-
-        if cli_join.handle_ready_state():
-            return
-        
-        cli_join.handle_apinotready()
-        cli_join.handle_static_peer()
-        
-        cli_join.process_join_cluster()
-        cli_join.handle_link_color()
-        cli_join.process_post_join()
             
-        cli_join.parse_snapshot_issues()
-        cli_join.parse_tolerance_issues()
-        
-        cli_join.handle_offline_state()
-        cli_join.handle_join_complete()
-
-        cli_join.process_incomplete_peer_connections()
-
-        cli_join.handle_bad_join()
-        cli_join.print_completed_join(start_timer)
-                
-                
-    def cli_leave(self,command_obj):
-        from modules.submodules.leave import LeaveNode
-        
-        cli_leave = LeaveNode(self,command_obj)
-    
-        cli_leave.set_parameters()
-        cli_leave.set_progress_obj()
-        cli_leave.handle_pause()
-        cli_leave.print_leave_init()
-        cli_leave.get_profile_state(False)
-        cli_leave.process_leave_cluster()
-
-        if cli_leave.skip_msg:
-            return
-            
-        while True:
-            cli_leave.parse_leave_status()
-            cli_leave.print_leaving_msg()
-            cli_leave.print_leave_progress()
-            cli_leave.set_state_obj()    
-            cli_leave.get_profile_state(True)
-                
-            cli_leave.print_leave_progress(True)    
-
-            if cli_leave.process_leave_status(): 
-                cli_leave.print_outofcluster_msg()
-                break
-
-            if cli_leave.leave_obj: 
-                break    
-            
-            cli_leave.handle_not_outofcluster()
-            if cli_leave.handle_max_retries(): 
-                break
-
-            cli_leave.parse_log_wait_for_leave()
-            cli_leave.get_profile_state(False)
-
-            if cli_leave.process_leave_status(): 
-                break
-            if cli_leave.start > 2:
-                cli_leave.set_skip_lookup(True)
-    
-            if cli_leave.skip_log_lookup:
-                cli_leave.print_leave_timer()
-                    
-            cli_leave.handle_wait_for_offline()
-            cli_leave.set_start_increment() 
-        
-        if self.primary_command == "leave":
-            self.show_system_status(command_obj)     
-                    
-        
     def cli_grab_id(self,command_obj):
         from modules.submodules.node_id import NodeDAGid
         nodeid_dag_obj = NodeDAGid(self,command_obj)
@@ -3881,6 +3887,7 @@ class CLI():
         self.functions.check_for_help(command_list,"execute_starchiver")
 
         empty_params = False
+        cn_requests = self.cn_requests
         
         def set_key_pairs():
             executable = self.config_obj["global_elements"]["starchiver"]["executable"]
@@ -3906,7 +3913,10 @@ class CLI():
         try:
             local_path, repo = set_key_pairs()
         except:
-            self.functions.get_includes("remote_only")
+            self.functions.get_includes({
+                "remote": "remote_only",
+                "cn_requests": cn_requests,
+            })
             try:
                 local_path, repo = set_key_pairs()
             except:
@@ -3968,7 +3978,7 @@ class CLI():
             bashCommand = f"{local_path} --data-path '{data_path}' --cluster '{cluster}'"
 
             if "--default" in command_list:
-                bashCommand += " --datetime -d --cleanup"
+                bashCommand += " --datetime --nocleanup"
             elif "--upload" in command_list:
                 if path.isfile(command_list[command_list.index("--datetime")+1]):
                     bashCommand += f' --upload {command_list[command_list.index("--datetime")+1]}'

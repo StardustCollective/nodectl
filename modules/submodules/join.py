@@ -17,6 +17,8 @@ class Join():
 
     def set_parameters(self):
 
+        self.cn_requests = self.command_obj["cn_requests"]
+        
         self.skip_msg = self.command_obj.get("skip_msg",False)
         self.skip_title = self.command_obj.get("skip_title",False)
         self.watch_peer_counts = self.command_obj.get("watch",False)
@@ -27,7 +29,7 @@ class Join():
         self.dip_status = self.command_obj.get("dip",False)
         self.caller = self.command_obj.get("caller",False)
         self.argv_list = self.command_obj.get("argv_list")
-        
+
         self.log = self.parent_getter("log")
         self.functions = self.parent_getter("functions")
                 
@@ -37,8 +39,6 @@ class Join():
         self.set_parent_profile(self.called_profile)
         
         self.node_service = self.parent_getter("node_service")
-        self.cn_requests = self.node_service.get_self_value("cn_requests")
-        self.config_obj = self.cn_requests.get_self_value("config_obj")
         
         self.show_download_status = self.parent_getter("show_download_status")
         self.profile_names = self.parent_getter("profile_names")
@@ -57,7 +57,7 @@ class Join():
         
         self.join_result = None
         self.state = None
-        
+        self.join_src_public_port = None
         self.first_attempt = True
         
         # every 4 seconds updated
@@ -95,16 +95,22 @@ class Join():
 
     # ==== GETTERS ====
     
-    def _get_peer_count(self):
-        self.peer_count = self.functions.get_peer_count({
-            "called_command": "join",
-            "peer_obj": {"ip": "127.0.0.1"},
-            "profile": self.profile,
-            "count_only": True,
-            "refresh": True,
-        })
+    def _get_peer_count(self, ptype):
+        if ptype == "src_peer_count":
+            peer = self.cn_requests.get_self_value("join_data_obj")["ip"]
+            self.cn_requests.set_self_value("peer",peer)
+            self.cn_requests.set_self_value("api_public_port",self.join_src_public_port)
+        elif ptype == "peer_count":
+            self.cn_requests.set_self_value("peer",False)
+            self.cn_requests.set_self_value("use_local",True)
         
+        self.cn_requests.set_self_value("get_state",False)
+        self.cn_requests.set_self_value("spinner",False)
+        self.cn_requests.set_cluster_cache()
         
+        return self.cn_requests.get_cluster_list_count() # info
+    
+            
     def _get_peer_state_update(self):
         self.cn_requests.set_self_value("peer",False)
         self.cn_requests.set_self_value("use_local",True)
@@ -134,18 +140,15 @@ class Join():
         join_service.get_link_types()
         join_service.handle_static_peer()
         join_service.set_join_data_obj()
+        
+        self.join_src_public_port = join_service.get_self_value("join_node_public_port")
+        
         join_service.set_clear_to_join()
         join_service.process_prepare_to_join()
         join_service.print_join_status()            
         join_service.process_join()        
         join_service.handle_exceptions()
         join_service.handle_not_clear_to_join()
-            
-        # self.join_result = self.parent.node_service.join_cluster({
-        #     "caller": "cli_join",
-        #     "action":"cli",
-        #     "interactive": True if self.watch_peer_counts or self.interactive else False, 
-        # }).strip()
 
         
     def process_post_join(self):
@@ -156,9 +159,9 @@ class Join():
             sleep(1)
             
             self._print_log_msg("debug",f" watching join process | profile [{self.profile}]")
-            if allocated_time % 5 == 0 or allocated_time < 1:  # 5 second mark or first attempt
+            if allocated_time % 9 == 0 or allocated_time < 1:  # 8 second mark or first attempt
                 self._process_allocated_time(allocated_time)
-                self._get_peer_count()
+                self.peer_count = self._get_peer_count("peer_count")
 
             
                 self._process_peer_increment()
@@ -178,7 +181,6 @@ class Join():
 
                 if self._process_watch_peers(): 
                     break
-
                         
             self._parse_connection_threshold()
             self._print_update(True)
@@ -190,10 +192,7 @@ class Join():
     def _process_allocated_time(self,allocated_time):
         if allocated_time % 10 == 0 or allocated_time < 1:
             # re-check source every 10 seconds
-            self.src_peer_count = self.functions.get_peer_count({
-                "profile": self.profile,
-                "count_only": True,
-            })
+            self.src_peer_count = self._get_peer_count("src_peer_count")
             
             
     def _process_peer_increment(self):
@@ -369,16 +368,17 @@ class Join():
         self.found_dependency = found_dependency    
             
     
-    def handle_ready_state(self):
-        if self.state != "Ready": 
+    def handle_invalid_join_state(self):
+        states = self.functions.get_node_states("cannot_join",True)
+        if self.state not in states: 
             return False
         
         self._print_log_msg("warning",f"profile already in proper state, nothing to do | profile [{self.profile}] state [{self.state}]")
         self.functions.print_paragraphs([
-            [" WARNING ",0,"blue,on_green"],
-            ["Profile already in",0,"green"],
-            ["Ready",0,"green","bold"],
-            ["state, the join process is not necessary.",1,"green"]
+            ["",1], [" WARNING ",0,"blue,on_green"],
+            ["Profile in state where it is unable to join.",0,"green"],
+            [f"{self.state}:",0,"green","bold"],
+            ["The join process cannot continue.",2,"green"]
         ])
         
         return True
@@ -392,7 +392,7 @@ class Join():
             ["Profile state in",0,"red"], [self.state,0,"red","bold"],
             ["state, cannot join",1,"red"], ["Attempting to start service [",0],
             [self.service_name.replace('cnng-',''),-1,"yellow","bold"],
-            ["] again.",-1], ["",1]
+            ["].",-1], ["",1]
         ])
 
         self._print_log_msg("debug",f"attempting to start service | profile [{self.profile}] service [{self.service_name}]")
@@ -404,8 +404,8 @@ class Join():
         
         
     def handle_static_peer(self):
-        if self.config_obj[self.profile]["static_peer"]:
-            self._print_log_msg("info",f"sending to node services to start join process | profile [{self.profile}] static peer [{self.config_obj[self.profile]['edge_point']}]")
+        if self.cn_requests.config_obj[self.profile]["static_peer"]:
+            self._print_log_msg("info",f"sending to node services to start join process | profile [{self.profile}] static peer [{self.cn_requests.config_obj[self.profile]['edge_point']}]")
 
         
     def handle_link_color(self):
@@ -419,7 +419,7 @@ class Join():
         if not self.offline_msg: return
 
         self.functions.print_paragraphs([
-            ["",1],[" Please start the node first. ",1,"yellow,on_red"],
+            ["",1],[" Please stop and start the node first. ",1,"yellow,on_red"],
         ])
         
         
@@ -603,9 +603,9 @@ class Join():
             "spinner": False,
             "rebuild": "local",
             "wait": False, 
-            "argv": ["-p", "dag-l0"], 
+            "argv": ["-p", self.profile], 
             "print_auto_restart_status": False,
-            "config_obj": self.cn_requests.config_obj,
+            "cn_requests": self.cn_requests,
         })
 
         print("")

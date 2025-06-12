@@ -3,66 +3,53 @@ from modules.troubleshoot.send_logs import Send
 
 class LeaveNode():
     
-    def __init__(self,parent,command_obj):
-        self.parent = parent
+    def __init__(self,command_obj):
         self.command_obj = command_obj
-        self.profile = command_obj.get("profile", self.parent.profile)
-        self.print_timer = command_obj.get("print_timer", True)
-        self.secs = command_obj.get("secs", 30)
-        self.reboot_flag = command_obj.get("reboot_flag", False)
-        self.skip_msg = command_obj.get("skip_msg", False)
-        self.threaded = command_obj.get("threaded", False)
-                
-        self.log = self.parent.log #.logger[self.parent.log_key]
-        self.functions = self.parent.functions
+        self.parent_getter = command_obj["getter"]
+        self.parent_setter = command_obj["setter"]
 
 
     # ==== SETTERS ====
 
-    def _set_timestamp(self):
-        try: 
-            self.timestamp = self.leave_obj["@timestamp"]
-        except:
-            self._print_log_msg("warning",f"leave process unable to verify| profile [{self.profile}] leave progress | ip [127.0.0.1] - switching to new method")
-            self.leave_str = "to allow node to gracefully leave"
-            # self.skip_log_lookup = True
-            sleep(.5)
-            
-
     def set_parameters(self):
+        self.cn_requests = self.command_obj["cn_requests"]
+        
+        self.profile = self.command_obj.get("profile", self.parent_getter("profile"))
+        self.print_timer = self.command_obj.get("print_timer", True)
+        self.secs = self.command_obj.get("secs", 30)
+        self.reboot_flag = self.command_obj.get("reboot_flag", False)
+        self.argv_list = self.command_obj.get("argv_list",[])
+        self.thread = self.command_obj.get("thread", False)
+        self.log = self.parent_getter("log") 
+        self.functions = self.parent_getter("functions")
+        self.node_service = self.parent_getter("node_service")
+                
         self.leave_obj = False 
         self.backup_line = False
         self.skip_log_lookup = False
         self.timestamp = False
-        
-        self.max_retries = 5
+        self.skip_msg = False
+        self.max_retries = 3
         self.start = 1
         
         self.state_obj = None
         self.state = None
         self.leave_str = None
                 
-        self.node_service = self.parent.node_service
-        self.config_obj = self.functions.config_obj
-        
-        self.api_port = self.config_obj[self.profile]["public_port"]
-        
-        self.slow = "Slow Reset " if self.parent.slow_flag else ""
+        self.slow = "Slow Reset " if self.parent_getter("slow_flag") else ""
         
         if self.reboot_flag:
              self.secs = 15 # reboot don't need to wait
              
         self.send = Send({
             "command_list": [],
-            "config_obj": self.config_obj,
+            "config_obj": self.cn_requests.config_obj,
             "ip_address": self.functions.get_ext_ip()
         })
         self.send.set_self_value("log",self.log)
         self.send.set_self_value("functions",self.functions)
-        self.send.set_self_value("proifle",self.profile)
+        self.send.set_self_value("profile",self.profile)
         self.send.set_parameters()
-        
-        self._set_cn_requests()
             
         
     def set_skip_lookup(self,enable=True):
@@ -101,45 +88,44 @@ class LeaveNode():
     
     def set_self_value(self, name, value):
         setattr(self, name, value)
-        
-        
-    def _set_cn_requests(self):
-        self.cn_requests = self.command_obj.get("cn_requests",False)
-        if not self.cn_requests:
-            self.cn_requests = self.node_service.get_self_value("cn_requests")
-            
-        self.cn_requests.set_self_value("config_obj",self.config_obj)
-        
-        
+
+
+    def _set_timestamp(self):
+        try: 
+            self.timestamp = self.leave_obj["@timestamp"]
+        except:
+            self._print_log_msg("warning",f"leave process unable to verify| profile [{self.profile}] leave progress | ip [127.0.0.1] - switching to new method")
+            self.leave_str = "to allow node to gracefully leave"
+            # self.skip_log_lookup = True
+            sleep(.5)      
+              
     # ==== GETTERS ====
     
-    def get_profile_state(self,cached=True):
-        self.cn_requests.set_session()
+    def get_profile_state(self):
+        # self.cn_requests.set_session()
         self.cn_requests.set_self_value("get_state",True)
         self.cn_requests.set_self_value("profile",self.profile)
-        self.cn_requests.set_self_value("config_obj",self.config_obj)
-        self.cn_requests.set_self_value("profile_names",self.parent.profile_names)
-        
-        if cached:
-            self.state = self.cn_requests.get_state_from_cache()
-            return
-        
-        self.cn_requests.get_state_from_api()
-        self.state = self.cn_requests.config_obj["global_elements"]["node_profile_states"][self.profile]
+        self.cn_requests.set_self_value("profile_names",self.parent_getter("profile_names"))
+        self.cn_requests.get_current_local_state(self.profile)
+        self.state = self.cn_requests.get_current_cached_state(self.profile)
 
     
     # ==== PARSERS / PROCESSORS ====
 
     def process_leave_cluster(self):
-        self.node_service.leave_cluster({
-            "skip_thread": True,
-            "threaded": self.threaded,
-            "profile": self.profile,
-            "secs": self.secs,
-            "cli_flag": True,
-            "current_source_node": "127.0.0.1", 
-            "state": self.state,
-        })
+        if self.state in self.functions.not_on_network_list:
+            self.functions.print_cmd_status({
+                "text_start": "Profile",
+                "brackets": self.profile,
+                "text_end": "already",
+                "status": self.state,
+                "status_color": "red",
+                "newline": True,
+            })
+            self.skip_msg = True
+            return
+        
+        self.cn_requests.handle_leave_cluster(self.profile)
 
 
     def process_leave_status(self):
@@ -154,8 +140,7 @@ class LeaveNode():
     
     
     def parse_leave_status(self):
-        self._print_log_msg("info",f"leave in progress | profile [{self.profile}] port [{self.api_port}] | ip [127.0.0.1]")
-        if self.start > self.max_retries+1:
+        if self.start > self.max_retries-1:
             self._print_log_msg("warning",f"node did not seem to leave the cluster properly, executing leave command again. | profile [{self.profile}]")
             self.process_leave_cluster()
             
@@ -237,6 +222,10 @@ class LeaveNode():
         
         # return True  
     
+    
+    def handle_check_for_help(self):
+        self.functions.check_for_help(self.argv_list,"start") 
+               
     # ==== PRINTERS ====
     
     def _print_log_msg(self,log_type,msg):
@@ -301,6 +290,7 @@ class LeaveNode():
             self.progress["status"] = self.state
         
         self.functions.print_cmd_status(self.progress)
+
 
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")  

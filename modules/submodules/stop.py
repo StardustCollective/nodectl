@@ -19,9 +19,12 @@ class StopNode():
         self.node_service = self.parent_getter("node_service")
 
         self.profile = self.parent_getter("profile")
+        
         self.service_name_clean = self.node_service.config_obj[self.profile]["service"]
         self.service_name = f"cnng-{self.service_name_clean}"
 
+        self.cn_requests = self.node_service.get_self_value("cn_requests")
+        self.config_obj = self.cn_requests.get_self_value("config_obj")
         self.parent_cli_leave = self.parent_getter("cli_leave")
         self.parent_show_system_status = self.parent_getter("show_system_status")
 
@@ -60,6 +63,14 @@ class StopNode():
             self.rebuild = False
             
     
+    def _set_service_state(self):
+        self.functions.set_self_value("config_obj",self.config_obj)
+        self.functions.get_service_status()
+        self.config_obj = self.functions.get_self_value("config_obj")
+        
+        pass
+    
+    
     def set_self_value(self, name, value):
         setattr(self, name, value)
         
@@ -67,14 +78,8 @@ class StopNode():
     # ==== GETTERS ====
     
     def _get_profile_state(self):
-        self.state = self.functions.test_peer_state({
-            "profile": self.profile,
-            "skip_thread": True,
-            "spinner": self.spinner,
-            "simple": True,
-            "current_source_node": "127.0.0.1",
-            "caller": "cli_stop",
-        }) 
+        self.state = self.cn_requests.get_current_local_state(self.profile, True)
+
              
     # ==== PARSERS / PROCESSORS ====
 
@@ -104,7 +109,8 @@ class StopNode():
                     "profile": self.profile,
                     "action": "stop",
                     "service_name": self.service_name,
-                    "caller": "cli_stop"
+                    "caller": "cli_stop",
+                    "cn_requests": self.cn_requests,
                 })
                 self.functions.event = False
             except Exception as e:
@@ -124,7 +130,8 @@ class StopNode():
         if not self.check_for_leave: return
         
         self._get_profile_state()
-   
+        self._print_current_state()
+        
         self._print_log_msg("info",f"found state | profile [{self.profile}] | state [{self.state}]")
         states = self.functions.get_node_states("on_network",True)
 
@@ -185,22 +192,28 @@ class StopNode():
             "status_color": "green",
             "newline": True
         }) 
+                
+
+    def _print_current_state(self):
+        self.functions.print_cmd_status({
+            "text_start": "Node found in state",
+            "status": self.state,
+            "status_color": "cyan",
+            "newline": True
+        }) 
         
         
     def print_final_status(self):
         self.functions.cancel_event = False
-        
-        self.node_service.cn_requests.set_self_value("get_state",True)
-        self.node_service.cn_requests.set_self_value("use_local",True)
-        self.node_service.cn_requests.get_current_peer_state(self.profile)
+        self._get_profile_state()
+        self._set_service_state()
         
         self.parent_show_system_status({
             "rebuild": self.rebuild,
             "called_command": "stop",
             "wait": self.show_timer,
             "spinner": self.spinner,
-            "config_obj": self.node_service.config_obj,
-            "static_nodeid": self.static_nodeid if self.static_nodeid else False,
+            "cn_requests": self.cn_requests,
             "argv": ["-p",self.profile],
         })
         

@@ -308,49 +308,30 @@ class Functions():
 
             
     def get_peer_count(self,command_obj):
-        from  modules.submodules.peer_count import PeerCount
-
-        command_obj["getter"] = self.get_self_value
-        command_obj["setter"] = self.set_self_value
-        peer_count_obj = PeerCount(command_obj)
-        peer_count_obj.node_states = self.get_node_states()
-
-        try:
-            peer_count_obj.get_tcp_stack()
-            
-            if peer_count_obj.count_only:
-                return peer_count_obj.handle_count_only()
-            
-            peer_count_obj.handle_consensus()
-            peer_count_obj.get_cluster_tcp_stack()
-            
-            peer_count_obj.get_peers()
-            if peer_count_obj.peers == "error":
-                return "error"
-            
-            try:
-                peer_count_obj.peers = peer_count_obj.peers.json()
-            except:
-                return "error"
-            else:
-                peer_count_obj.set_peer_count_obj()
-            
-            return peer_count_obj.final_peer_obj
+        print(" get_peer_count - this is no longer to be used ...")
+        print(" this is no longer to be used ...")
+        exit(0)
+        # config_obj = command_obj["config_obj"]
+        # cn_request = command_obj["cn_requests"]
+        # refresh = command_obj["refresh"]
         
-        except Exception as e:
-            self._print_log_msg("error",f"get peer count - an error occurred during function execution [{e}]")
-            self.error_messages.error_code_messages({
-                "line_code": "unknown_error",
-                "error_code": "fnt-488",
-                "extra": e,
-                "extra2": "Please wait a moment and try again; contact an administrator if issue persists.",
-            })
+        # try:
+        #     pass
+        # except Exception as e:
+        #     self._print_log_msg("error",f"get peer count - an error occurred during function execution [{e}]")
+        #     self.error_messages.error_code_messages({
+        #         "line_code": "unknown_error",
+        #         "error_code": "fnt-488",
+        #         "extra": e,
+        #         "extra2": "Please wait a moment and try again; contact an administrator if issue persists.",
+        #     })
 
 
     def get_ip_from_peers_cache(self, nodes, value, profile, return_type, type="ip"):
         for node in  self.config_obj["global_elements"]["cluster_info_lists"][profile].items():
             if node[type] == value:
                 return node
+            
             
     def get_node_states(self,types="all",state_list=False):
         if types == "all":
@@ -373,7 +354,7 @@ class Functions():
                 ('SessionIgnored','si*'),
                 ('SessionNotFound','snf*'),
             ]
-        elif types == "on_network" or types == "pre_consensus" or types == "on_network_and_stuck":
+        elif types == "on_network" or types == "pre_consensus" or types == "on_network_and_stuck" or types == "cannot_join":
             node_states = [
                 ('Observing','ob*'),
                 ('WaitingForReady','wfr*'),
@@ -383,8 +364,10 @@ class Functions():
             ]
             if types == "pre_consensus":
                 node_states.pop()
-            elif types == "on_network_and_stuck":
+            elif types == "on_network_and_stuck" or types == "cannot_join":
                 node_states.append(("WaitingForDownload",'wfd*'))
+            if types == "cannot_join":
+                node_states.append(('SessionStarted','s*'))
         elif types == "not_on_network":
             node_states = [
                 ('Initial','i*'),
@@ -488,25 +471,26 @@ class Functions():
             })            
     
 
-    def get_service_status(self):
-        # =========================
-        # this needs to be migrated to node_services
-        # move this to node.service
-        # =========================
+    def get_service_status(self, config_obj=False, do_return=False):
+        is_self_config_obj_used = False
+        if not config_obj: 
+            is_self_config_obj_used = True
+            config_obj = self.config_obj
+        
         self._print_log_msg("debug","get_service_status initialized")
-        self.config_obj["global_elements"]["node_service_status"] = {}
+        config_obj["global_elements"]["node_service_status"] = {}
         
         try: _ = self.profile_names
         except: self.set_default_variables({"skip_error":True})
         
         service_names = self.profile_names + ["node_restart@","node_version_updater"]
         service_names = self.clear_global_profiles(service_names)
-        self.config_obj["global_elements"]["node_service_status"]["service_list"] = service_names
+        config_obj["global_elements"]["node_service_status"]["service_list"] = service_names
 
         for service in service_names:
             service_name = service+".service"
             if service in self.profile_names:
-                service_name = f"cnng-{self.config_obj[service]['service']}"
+                service_name = f"cnng-{config_obj[service]['service']}"
 
             service_status = self.process_command({
                 "bashCommand": f"systemctl is-active --quiet {service_name}",
@@ -514,17 +498,17 @@ class Functions():
             })
 
             if service_status == 0:
-                self.config_obj["global_elements"]["node_service_status"][service] = "active"
+                config_obj["global_elements"]["node_service_status"][service] = "active"
             elif service_status == 768 or service_status == 3:
-                self.config_obj["global_elements"]["node_service_status"][service] = "inactive"
+                config_obj["global_elements"]["node_service_status"][service] = "inactive"
             else:
 
-                self.config_obj["global_elements"]["node_service_status"][service] = f"exit code"
-            self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] = service_status  
+                config_obj["global_elements"]["node_service_status"][service] = f"exit code"
+            config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] = service_status  
 
             for process in process_iter():
                 if service in self.profile_names:
-                    find_string = self.config_obj[service]["jar_file"]
+                    find_string = config_obj[service]["jar_file"]
                 elif "node_version_updater" in service:
                     find_string = "uvos"
                 elif "restart" in service:
@@ -539,17 +523,23 @@ class Functions():
                     continue
                 for item in cmdline:
                     if find_string in item:
-                        self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = process.pid
+                        config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = process.pid
 
             try:
-                _ = self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"]
+                _ = config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"]
             except KeyError:
-                self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = "??"
-            if self.config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] > 0:
-                self.config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = "n/a"
+                config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = "??"
+            if config_obj["global_elements"]["node_service_status"][f"{service}_service_return_code"] > 0:
+                config_obj["global_elements"]["node_service_status"][f"{service}_service_pid"] = "n/a"
 
-        self._print_log_msg("debug",f'get_service_status -> [{service}] -> [{service_status}] [{self.config_obj["global_elements"]["node_service_status"][service]}]')
+        self._print_log_msg("debug",f'get_service_status -> [{service}] -> [{service_status}] [{config_obj["global_elements"]["node_service_status"][service]}]')
 
+        if is_self_config_obj_used:
+            self.config_obj = config_obj
+            
+        if do_return:
+            return config_obj
+            
 
     def get_date_time(self,command_obj):
         action = command_obj.get("action",False)
@@ -744,145 +734,149 @@ class Functions():
     
 
     def get_info_from_edge_point(self,command_obj):
+        print(" get_info_from_edge_point - this is no longer to be used ...")
+        print(" this is no longer to be used ...")
+        exit(0)
+        
         # api_endpoint_type=(str) [consensus, info]
         # specific_ip=(ip_address) # will set range to 0 and not do a random
-        profile = command_obj.get("profile")
-        caller = command_obj.get("caller",False) # for logging and troubleshooting
-        api_endpoint_type = command_obj.get("api_endpoint_type","info")
-        desired_key = command_obj.get("desired_key","all")
-        desired_value = command_obj.get("desired_value","cnng_current")
-        return_value = command_obj.get("return_value", desired_value)
-        specific_ip = command_obj.get("specific_ip",False)
-        spinner = command_obj.get("spinner",False)
-        max_range = command_obj.get("max_range",10)
-        threaded = command_obj.get("threaded", False)
-        cluster_info = []
-        random_node = True
+        # profile = command_obj.get("profile")
+        # caller = command_obj.get("caller",False) # for logging and troubleshooting
+        # api_endpoint_type = command_obj.get("api_endpoint_type","info")
+        # desired_key = command_obj.get("desired_key","all")
+        # desired_value = command_obj.get("desired_value","cnng_current")
+        # return_value = command_obj.get("return_value", desired_value)
+        # specific_ip = command_obj.get("specific_ip",False)
+        # spinner = command_obj.get("spinner",False)
+        # max_range = command_obj.get("max_range",10)
+        # threaded = command_obj.get("threaded", False)
+        # cluster_info = []
+        # random_node = True
 
-        if caller: self._print_log_msg("debug",f"get_info_from_edge_point called from [{caller}]")
+        # if caller: self._print_log_msg("debug",f"get_info_from_edge_point called from [{caller}]")
             
-        api_str = "/cluster/info"
-        if api_endpoint_type == "consensus":
-            if self.config_obj[profile]["layer"] == 0:
-                api_str = "/consensus/latest/peers"
+        # api_str = "/cluster/info"
+        # if api_endpoint_type == "consensus":
+        #     if self.config_obj[profile]["layer"] == 0:
+        #         api_str = "/consensus/latest/peers"
 
-        local_only = ["self","localhost","127.0.0.1"]
-        if specific_ip in local_only:
-            return {
-                "ip": self.get_ext_ip(),
-                "publicPort": self.config_obj[profile]["public_port"],
-                "p2pPort": self.config_obj[profile]["p2p_port"],
-                "cli": self.config_obj[profile]["cli_port"],
-            }
+        # local_only = ["self","localhost","127.0.0.1"]
+        # if specific_ip in local_only:
+        #     return {
+        #         "ip": self.get_ext_ip(),
+        #         "publicPort": self.config_obj[profile]["public_port"],
+        #         "p2pPort": self.config_obj[profile]["p2p_port"],
+        #         "cli": self.config_obj[profile]["cli_port"],
+        #     }
             
-        while True:
-            for n in range(0,3):
-                try:
-                    cluster_info = self.get_cluster_info_list({
-                        "profile": profile,
-                        "ip_address": self.config_obj[profile]["edge_point"],
-                        "port": self.config_obj[profile]["edge_point_tcp_port"],
-                        "api_endpoint": api_str,
-                        "spinner": spinner,
-                        "error_secs": 3,
-                        "attempt_range": 7,
-                    })
-                except Exception as e:
-                    self._print_log_msg("error",f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
+        # while True:
+        #     for n in range(0,3):
+        #         try:
+        #             cluster_info = self.get_cluster_info_list({
+        #                 "profile": profile,
+        #                 "ip_address": self.config_obj[profile]["edge_point"],
+        #                 "port": self.config_obj[profile]["edge_point_tcp_port"],
+        #                 "api_endpoint": api_str,
+        #                 "spinner": spinner,
+        #                 "error_secs": 3,
+        #                 "attempt_range": 7,
+        #             })
+        #         except Exception as e:
+        #             self._print_log_msg("error",f"get_info_from_edge_point -> get_cluster_info_list | error: {e}")
                     
-                if not cluster_info and n > 2:
-                    if self.auto_restart:
-                        return False
-                    if random_node and self.config_obj["global_elements"]["use_offline"]:
-                        self._print_log_msg("warning","get_info_from_edge_point -> LB may not be accessible, trying local.")
-                        random_node = False
-                        self.config_obj[profile]["edge_point"] = self.get_ext_ip()
-                        self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
-                        self.config_obj[profile]["static_peer"] = True 
-                    else:               
-                        self.error_messages.error_code_messages({
-                            "error_code": "fnt-725",
-                            "line_code": "lb_not_up",
-                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
-                            "extra2": self.config_obj[profile]["layer"],
-                        })
-                if not cluster_info and n > 0:
-                    sleep(.8)
-                else:
-                    break
+        #         if not cluster_info and n > 2:
+        #             if self.auto_restart:
+        #                 return False
+        #             if random_node and self.config_obj["global_elements"]["use_offline"]:
+        #                 self._print_log_msg("warning","get_info_from_edge_point -> LB may not be accessible, trying local.")
+        #                 random_node = False
+        #                 self.config_obj[profile]["edge_point"] = self.get_ext_ip()
+        #                 self.config_obj[profile]["edge_point_tcp_port"] = self.config_obj[profile]["public_port"]
+        #                 self.config_obj[profile]["static_peer"] = True 
+        #             else:               
+        #                 self.error_messages.error_code_messages({
+        #                     "error_code": "fnt-725",
+        #                     "line_code": "lb_not_up",
+        #                     "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
+        #                     "extra2": self.config_obj[profile]["layer"],
+        #                 })
+        #         if not cluster_info and n > 0:
+        #             sleep(.8)
+        #         else:
+        #             break
                 
-            cluster_info_tmp = deepcopy(cluster_info)
-            try:
-                self._print_log_msg("debug",f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
-            except:
-                self._print_log_msg("debug",f"get_info_from_edge_point --> edge_point info request no results")
+        #     cluster_info_tmp = deepcopy(cluster_info)
+        #     try:
+        #         self._print_log_msg("debug",f"get_info_from_edge_point --> edge_point info request result size: [{cluster_info[-1]['nodectl_found_peer_count']}]")
+        #     except:
+        #         self._print_log_msg("debug",f"get_info_from_edge_point --> edge_point info request no results")
             
-            try:
-                cluster_info_tmp.pop()
-            except:
-                if threaded: 
-                    self._print_log_msg("error","get_info_from_edge_point reached error while threaded, error skipped")
-                    cprint("  error attempting to reach edge point","red")
-                else:
-                    if self.config_obj["global_elements"]["use_offline"]:
-                        return False
-                    else:
-                        self.error_messages.error_code_messages({
-                            "error_code": "fnt-648",
-                            "line_code": "off_network",
-                            "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
-                            "extra2": self.config_obj[profile]["layer"],
-                        })
+        #     try:
+        #         cluster_info_tmp.pop()
+        #     except:
+        #         if threaded: 
+        #             self._print_log_msg("error","get_info_from_edge_point reached error while threaded, error skipped")
+        #             cprint("  error attempting to reach edge point","red")
+        #         else:
+        #             if self.config_obj["global_elements"]["use_offline"]:
+        #                 return False
+        #             else:
+        #                 self.error_messages.error_code_messages({
+        #                     "error_code": "fnt-648",
+        #                     "line_code": "off_network",
+        #                     "extra": f'{self.config_obj[profile]["edge_point"]}:{self.config_obj[profile]["edge_point_tcp_port"]}',
+        #                     "extra2": self.config_obj[profile]["layer"],
+        #                 })
             
-            for n in range(0,max_range):
-                try:
-                    node = random.choice(cluster_info_tmp)
-                except Exception as e:
-                    self._print_log_msg("error",f"get_info_from_edge_point reached error attempting to set random node [{e}]")
-                    self.error_messages.error_code_messages({
-                        "error_code": "fnt-745",
-                        "line_code": "api_error",
-                        "extra": profile,
-                        "extra2": self.config_obj[profile]["edge_point"],
-                    })
+        #     for n in range(0,max_range):
+        #         try:
+        #             node = random.choice(cluster_info_tmp)
+        #         except Exception as e:
+        #             self._print_log_msg("error",f"get_info_from_edge_point reached error attempting to set random node [{e}]")
+        #             self.error_messages.error_code_messages({
+        #                 "error_code": "fnt-745",
+        #                 "line_code": "api_error",
+        #                 "extra": profile,
+        #                 "extra2": self.config_obj[profile]["edge_point"],
+        #             })
 
-                if specific_ip:
-                    id_ip = "id" if len(specific_ip) > 127 else "ip"
-                    specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
-                    for i_node in cluster_info_tmp:
-                        if specific_ip == i_node[id_ip]:
-                            if caller == "status" and self.config_obj[profile]["public_port"] != i_node["publicPort"]:
-                                continue
-                            node = i_node
-                            break
+        #         if specific_ip:
+        #             id_ip = "id" if len(specific_ip) > 127 else "ip"
+        #             specific_ip = self.ip_address if specific_ip == "127.0.0.1" else specific_ip
+        #             for i_node in cluster_info_tmp:
+        #                 if specific_ip == i_node[id_ip]:
+        #                     if caller == "status" and self.config_obj[profile]["public_port"] != i_node["publicPort"]:
+        #                         continue
+        #                     node = i_node
+        #                     break
 
-                if node == self.ip_address:
-                    self._print_log_msg("debug",f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked was self, trying again: attempt [{n}] of [{max_range}]")
-                    continue # avoid picking "ourself"
+        #         if node == self.ip_address:
+        #             self._print_log_msg("debug",f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked was self, trying again: attempt [{n}] of [{max_range}]")
+        #             continue # avoid picking "ourself"
                 
-                self._print_log_msg("debug",f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked: [{node}]")
+        #         self._print_log_msg("debug",f"get_info_from_edge_point --> api_endpoint: [{api_str}] node picked: [{node}]")
                 
-                node["specific_ip_found"] = False
-                if specific_ip:
-                    node["specific_ip_found"] = (specific_ip,node["ip"])
+        #         node["specific_ip_found"] = False
+        #         if specific_ip:
+        #             node["specific_ip_found"] = (specific_ip,node["ip"])
                         
-                try:
-                    if desired_value == "cnng_current" or desired_value == node[desired_key]:
-                        if desired_key == "all" or return_value == "all":
-                            return node
-                        return node[desired_key]
+        #         try:
+        #             if desired_value == "cnng_current" or desired_value == node[desired_key]:
+        #                 if desired_key == "all" or return_value == "all":
+        #                     return node
+        #                 return node[desired_key]
                     
-                except Exception as e:
-                    self._print_log_msg("warning",f"unable to find a node with a State object, trying again | error {e}")
-                    sleep(1)
-                if n > 9:
-                    self._print_log_msg("error",f"unable to find a node on the current cluster with [{desired_key}] == [{desired_value}]") 
-                    if not self.auto_restart:
-                        print(colored("  WARNING:","yellow",attrs=['bold']),colored(f"unable to find node in [{desired_value}]","red"))
-                        self.print_timer({
-                            "seconds": 10,
-                            "phrase": ""
-                        })
+        #         except Exception as e:
+        #             self._print_log_msg("warning",f"unable to find a node with a State object, trying again | error {e}")
+        #             sleep(1)
+        #         if n > 9:
+        #             self._print_log_msg("error",f"unable to find a node on the current cluster with [{desired_key}] == [{desired_value}]") 
+        #             if not self.auto_restart:
+        #                 print(colored("  WARNING:","yellow",attrs=['bold']),colored(f"unable to find node in [{desired_value}]","red"))
+        #                 self.print_timer({
+        #                     "seconds": 10,
+        #                     "phrase": ""
+        #                 })
 
         
     def get_api_node_info(self,command_obj):
@@ -960,135 +954,139 @@ class Functions():
             return result_list
 
 
-    def get_from_api(self,url,utype):
-        is_json = True if utype == "json" else False
+    # def get_from_api(self,url,utype):
+    #     is_json = True if utype == "json" else False
 
-        session = self.set_request_session(is_json)
-        s_timeout = (5,3)
-        try:
-            self.log.logger[self.log_key].debug(f"get_from_api --> get request --> posting to [{url}].")
-            if utype == "json":
-                response = session.get(url, timeout=s_timeout).json()
-            else:
-                response = session.get(url, timeout=s_timeout)
-        except Exception as e:
-            self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}].")
-            self.error_messages.error_code_messages({
-                "error_code": "fnt-876",
-                "line_code": "api_error",
-                "extra2": url,
-                "extra": None
-            })
-        else:
-            try:
-                if utype == "json":
-                    response = session.get(url, timeout=s_timeout).json()
-                else:
-                    response = session.get(url, timeout=s_timeout)
-            except Exception as e:
-                self._print_log_msg("error",f"unable to reach profiles repo list with error [{e}].")
-                self.error_messages.error_code_messages({
-                    "error_code": "fnt-876",
-                    "line_code": "api_error",
-                    "extra2": url,
-                    "extra": None
-                })
-            else:
-                try:
-                    if response.status_code == 404:
-                        status_code = response.status_code
-                        return response.reason
-                except:
-                    status_code = "n/a"
-                if utype == "yaml_raw":
-                    return response.content.decode("utf-8").replace("\n","").replace(" ","")
-                elif utype == "yaml":
-                    return yaml.safe_load(response.content)
-                self._print_log_msg("debug",f"get_from_api --> status code [{status_code}] url request [{url}]")
-                return response
-            finally:
-                session.close()
+    #     session = self.set_request_session(is_json)
+    #     s_timeout = (5,3)
+    #     try:
+    #         self.log.logger[self.log_key].debug(f"get_from_api --> get request --> posting to [{url}].")
+    #         if utype == "json":
+    #             response = session.get(url, timeout=s_timeout).json()
+    #         else:
+    #             response = session.get(url, timeout=s_timeout)
+    #     except Exception as e:
+    #         self.log.logger[self.log_key].error(f"unable to reach profiles repo list with error [{e}].")
+    #         self.error_messages.error_code_messages({
+    #             "error_code": "fnt-876",
+    #             "line_code": "api_error",
+    #             "extra2": url,
+    #             "extra": None
+    #         })
+    #     else:
+    #         try:
+    #             if utype == "json":
+    #                 response = session.get(url, timeout=s_timeout).json()
+    #             else:
+    #                 response = session.get(url, timeout=s_timeout)
+    #         except Exception as e:
+    #             self._print_log_msg("error",f"unable to reach profiles repo list with error [{e}].")
+    #             self.error_messages.error_code_messages({
+    #                 "error_code": "fnt-876",
+    #                 "line_code": "api_error",
+    #                 "extra2": url,
+    #                 "extra": None
+    #             })
+    #         else:
+    #             try:
+    #                 if response.status_code == 404:
+    #                     status_code = response.status_code
+    #                     return response.reason
+    #             except:
+    #                 status_code = "n/a"
+    #             if utype == "yaml_raw":
+    #                 return response.content.decode("utf-8").replace("\n","").replace(" ","")
+    #             elif utype == "yaml":
+    #                 return yaml.safe_load(response.content)
+    #             self._print_log_msg("debug",f"get_from_api --> status code [{status_code}] url request [{url}]")
+    #             return response
+    #         finally:
+    #             session.close()
                 
                     
     def get_cluster_info_list(self,command_obj):
-        var = SimpleNamespace(**command_obj)
+        print(" get cluster info lise - this is no longer to be used ...")
+        print(" this is no longer to be used ...")
+        exit(0)
+        
+        # var = SimpleNamespace(**command_obj)
 
-        try:
-            results = self.config_obj["global_element"]["cluster_info_lists"][var.profile]
-        except:
-            # ip_address, port, api_endpoint, error_secs, attempt_range
+        # try:
+        #     results = self.config_obj["global_element"]["cluster_info_lists"][var.profile]
+        # except:
+        #     # ip_address, port, api_endpoint, error_secs, attempt_range
 
-            s_timeout = command_obj.get("timeout",(5,3))
-            spinner = command_obj.get("spinner",True)
-            results = False
+        #     s_timeout = command_obj.get("timeout",(5,3))
+        #     spinner = command_obj.get("spinner",True)
+        #     results = False
             
-            uri = f"http://{var.ip_address}:{var.port}{var.api_endpoint}"
-            if var.port == 443:
-                uri = f"https://{var.ip_address}{var.api_endpoint}"
+        #     uri = f"http://{var.ip_address}:{var.port}{var.api_endpoint}"
+        #     if var.port == 443:
+        #         uri = f"https://{var.ip_address}{var.api_endpoint}"
                 
-            # uri = "http://10.255.255.1:80/api/something"
+        #     # uri = "http://10.255.255.1:80/api/something"
 
-            session, ss_timeout = self.set_request_session(True)
-            if not s_timeout:
-                s_timeout = ss_timeout
+        #     session, ss_timeout = self.set_request_session(True)
+        #     if not s_timeout:
+        #         s_timeout = ss_timeout
                 
-            with ThreadPoolExecutor() as executor:
-                do_thread = False # avoid race conditions
-                # self._print_log_msg("debug",f"auto_restart set to [{self.auto_restart}]")
-                if not self.auto_restart:
-                    if not self.event and spinner:
-                        self.event, do_thread = True, True
-                        self.print_clear_line()
-                        _ = executor.submit(self.print_spinner,{
-                            "msg": f"API making call outbound, please wait",
-                            "color": "magenta",
-                        })   
+        #     with ThreadPoolExecutor() as executor:
+        #         do_thread = False # avoid race conditions
+        #         # self._print_log_msg("debug",f"auto_restart set to [{self.auto_restart}]")
+        #         if not self.auto_restart:
+        #             if not self.event and spinner:
+        #                 self.event, do_thread = True, True
+        #                 self.print_clear_line()
+        #                 _ = executor.submit(self.print_spinner,{
+        #                     "msg": f"API making call outbound, please wait",
+        #                     "color": "magenta",
+        #                 })   
 
-                for attempt in range(0,2):
-                    if self.current_cluster_session_info:
-                        results = self.current_cluster_session_info
-                        break
-                    elif attempt < 1:
-                        self.set_session_from_cache(uri,var.profile)
+        #         for attempt in range(0,2):
+        #             if self.current_cluster_session_info:
+        #                 results = self.current_cluster_session_info
+        #                 break
+        #             elif attempt < 1:
+        #                 self.set_session_from_cache(uri,var.profile)
                         
-                if not self.current_cluster_session_info:
-                    for _ in range(0,4):
-                        try:
-                            response = session.get(uri,timeout=s_timeout)
-                            response.raise_for_status()
-                            results = response.json()
+        #         if not self.current_cluster_session_info:
+        #             for _ in range(0,4):
+        #                 try:
+        #                     response = session.get(uri,timeout=s_timeout)
+        #                     response.raise_for_status()
+        #                     results = response.json()
 
-                            if "consensus" in var.api_endpoint:
-                                results = results["peers"]
-                            results.append({
-                                "nodectl_found_peer_count": len(results)
-                            })
+        #                     if "consensus" in var.api_endpoint:
+        #                         results = results["peers"]
+        #                     results.append({
+        #                         "nodectl_found_peer_count": len(results)
+        #                     })
 
-                            self.event = False
+        #                     self.event = False
 
-                        except Timeout as e:
-                            self._print_log_msg("warning",f"get_cluster_info_list --> [Timeout]  {e} for {uri}")
-                            results = False
-                        except ConnectionError as e:
-                            self._print_log_msg("warning",f"get_cluster_info_list --> [ConnectionError] {e} for {uri}")
-                            results = False
-                        except RequestException as e:
-                            self._print_log_msg("warning",f"get_cluster_info_list --> [RequestException] {e} for {uri}")
-                            self.test_response_code(response,e,uri)
-                            results = False
-                        except Exception as e:
-                            self._print_log_msg("warning",f"get_cluster_info_list --> [Unexpected error] {e} for {uri}")
-                            results = False
-                        else:
-                            self._print_log_msg("debug",f"get_cluster_info_list --> from url [{uri}]")
-                            break
-                        sleep(.07)
+        #                 except Timeout as e:
+        #                     self._print_log_msg("warning",f"get_cluster_info_list --> [Timeout]  {e} for {uri}")
+        #                     results = False
+        #                 except ConnectionError as e:
+        #                     self._print_log_msg("warning",f"get_cluster_info_list --> [ConnectionError] {e} for {uri}")
+        #                     results = False
+        #                 except RequestException as e:
+        #                     self._print_log_msg("warning",f"get_cluster_info_list --> [RequestException] {e} for {uri}")
+        #                     self.test_response_code(response,e,uri)
+        #                     results = False
+        #                 except Exception as e:
+        #                     self._print_log_msg("warning",f"get_cluster_info_list --> [Unexpected error] {e} for {uri}")
+        #                     results = False
+        #                 else:
+        #                     self._print_log_msg("debug",f"get_cluster_info_list --> from url [{uri}]")
+        #                     break
+        #                 sleep(.07)
 
-                if do_thread:
-                    self.event = False  
-                session.close()
+        #         if do_thread:
+        #             self.event = False  
+        #         session.close()
             
-        return results
+        # return results
             
         
     def get_dirs_by_profile(self,command_obj):
@@ -1427,9 +1425,12 @@ class Functions():
             exit(0)
 
 
-    def get_includes(self,remote=False):
+    def get_includes(self,command_obj):
+        remote = command_obj.get("remote",False)
+        cn_requests = command_obj.get("cn_requests", False)
+        
         if remote:
-            include_params = self.get_from_api(
+            include_params = cn_requests.get_from_api(
                 self.nodectl_includes_url,
                 "json",
             )["payload"]["tree"]["items"]
@@ -1438,7 +1439,7 @@ class Functions():
             for file in include_params:
                 if "includes" in file["path"] and "yaml" in file["name"]:
                     f_url = f"{self.nodectl_includes_url_raw}/{file['name']}" 
-                    details = self.get_from_api(f_url,"yaml")
+                    details = cn_requests.get_from_api(f_url,"yaml")
                     main_key = list(details.keys())
                     if len(main_key) > 1:
                         self._print_log_msg("warning",f"while handling configuration [includes], an invalid include file was loaded and ignored. [{main_key}]")
@@ -2358,14 +2359,13 @@ class Functions():
                         return
                
         self.error_messages.error_code_messages({
-            "error_code": "fnt-2225",
+            "error_code": "fnt-2362",
             "line_code": "api_error",
             "extra": profile,
             "extra2": self.config_obj[profile]["edge_point"],
         })
 
-            
-            
+
     def check_health_endpoint(self,api_port): 
         session = self.set_request_session()
         s_timeout = (5,3)
@@ -2685,169 +2685,174 @@ class Functions():
                         
                         
     def test_peer_state(self,command_obj):
-        test_address = command_obj.get("test_address","127.0.0.1")
-        caller = command_obj.get("caller","default")
-        profile = command_obj.get("profile")
-        simple = command_obj.get("simple",False)
-        print_output = command_obj.get("print_output",True)
-        current_source_node = command_obj.get("current_source_node",False)
-        skip_thread = command_obj.get("skip_thread",False)
-        threaded = command_obj.get("threaded", False)
-        spinner = command_obj.get("spinner", False)
-        spinner = False if self.auto_restart else spinner
-        api_not_ready_flag = False
-        send_error = False
-
-        def print_test_error(errors):
-            self.set_error_obj()
-            self.error_messages.error_code_messages({
-                "line_code": "api_error",
-                "error_code": f"fnt-{errors[0]}",
-                "extra": None,
-                "extra2": str(errors[1]),
-            })
-
-        results = {
-            "node_on_src": False,
-            "node_on_edge": False,
-            "src_node_color": "red",
-            "edge_node_color": "red",
-            "node_state_src": "ApiNotReady",
-            "node_state_edge": "ApiNotReady",
-            "full_connection": False,
-            "full_connection_color": "red",
-        }
-
-        attempt = 0
-        break_while = False
         
-        if not current_source_node:
-            try:
-                current_source_node = self.get_info_from_edge_point({
-                    "caller": caller,
-                    "threaded": threaded,
-                    "profile": profile,
-                    "spinner": spinner,
-                })
-            except IndexError as e:
-                self._print_log_msg("error",f"test_peer_state --> IndexError retrieving get_info_from_edge_point | caller: [{caller}] current_source_node: [{current_source_node}] | e: {e}")
-            except Exception as e:
-                self._print_log_msg("error",f"test_peer_state --> error retrieving get_info_from_edge_point | caller: [{caller}] | current_source_node: [{current_source_node}] | e: {e}")
-                send_error = (2160,e) # fnt-2160
+        print(" test peer state this is no longer to be used ...")
+        print(" this is no longer to be used ...")
+        exit(0)
         
-        ip_addresses = [test_address,current_source_node]
-        ip_addresses = [x for x in ip_addresses if x]
-        prepare_ip_objs = deepcopy(ip_addresses)
+        # test_address = command_obj.get("test_address","127.0.0.1")
+        # caller = command_obj.get("caller","default")
+        # profile = command_obj.get("profile")
+        # simple = command_obj.get("simple",False)
+        # print_output = command_obj.get("print_output",True)
+        # current_source_node = command_obj.get("current_source_node",False)
+        # skip_thread = command_obj.get("skip_thread",False)
+        # threaded = command_obj.get("threaded", False)
+        # spinner = command_obj.get("spinner", False)
+        # spinner = False if self.auto_restart else spinner
+        # api_not_ready_flag = False
+        # send_error = False
 
-        for n,ip in enumerate(prepare_ip_objs):
-            if not isinstance(ip,dict):
-                try:
-                    ip_addresses[n] = self.get_info_from_edge_point({
-                        "caller": caller,
-                        "threaded": threaded,
-                        "profile": profile,
-                        "specific_ip": ip,
-                        "spinner": spinner,
-                    })
-                except IndexError as e:
-                    self._print_log_msg("error",f"test_peer_state --> IndexError retrieving get_info_from_edge_point | ip_address {ip_addresses[n]} | e: {e}")
-                    send_error = (2184,e) # fnt-2184
-                except Exception as e:
-                    self._print_log_msg("error",f"test_peer_state --> unable to get_info_from_edge_point | ip_address {ip_addresses[n]} | e: [{e}]")
-                    send_error = (2187,e) # fnt-2187
+        # def print_test_error(errors):
+        #     self.set_error_obj()
+        #     self.error_messages.error_code_messages({
+        #         "line_code": "api_error",
+        #         "error_code": f"fnt-{errors[0]}",
+        #         "extra": None,
+        #         "extra2": str(errors[1]),
+        #     })
 
-        if send_error and not self.auto_restart:
-            if caller not in ["versioning","status","quick_status","skip_error"]:
-                print_test_error(send_error)
+        # results = {
+        #     "node_on_src": False,
+        #     "node_on_edge": False,
+        #     "src_node_color": "red",
+        #     "edge_node_color": "red",
+        #     "node_state_src": "ApiNotReady",
+        #     "node_state_edge": "ApiNotReady",
+        #     "full_connection": False,
+        #     "full_connection_color": "red",
+        # }
 
-        if send_error and not self.auto_restart and caller != "skip_error":
-            if caller in ["upgrade","install","quick_install","versioning"]:
-                if caller == "versioning":
-                    return send_error
-                else:
-                    print_test_error(send_error)
+        # attempt = 0
+        # break_while = False
+        
+        # if not current_source_node:
+        #     try:
+        #         current_source_node = self.get_info_from_edge_point({
+        #             "caller": caller,
+        #             "threaded": threaded,
+        #             "profile": profile,
+        #             "spinner": spinner,
+        #         })
+        #     except IndexError as e:
+        #         self._print_log_msg("error",f"test_peer_state --> IndexError retrieving get_info_from_edge_point | caller: [{caller}] current_source_node: [{current_source_node}] | e: {e}")
+        #     except Exception as e:
+        #         self._print_log_msg("error",f"test_peer_state --> error retrieving get_info_from_edge_point | caller: [{caller}] | current_source_node: [{current_source_node}] | e: {e}")
+        #         send_error = (2160,e) # fnt-2160
+        
+        # ip_addresses = [test_address,current_source_node]
+        # ip_addresses = [x for x in ip_addresses if x]
+        # prepare_ip_objs = deepcopy(ip_addresses)
+
+        # for n,ip in enumerate(prepare_ip_objs):
+        #     if not isinstance(ip,dict):
+        #         try:
+        #             ip_addresses[n] = self.get_info_from_edge_point({
+        #                 "caller": caller,
+        #                 "threaded": threaded,
+        #                 "profile": profile,
+        #                 "specific_ip": ip,
+        #                 "spinner": spinner,
+        #             })
+        #         except IndexError as e:
+        #             self._print_log_msg("error",f"test_peer_state --> IndexError retrieving get_info_from_edge_point | ip_address {ip_addresses[n]} | e: {e}")
+        #             send_error = (2184,e) # fnt-2184
+        #         except Exception as e:
+        #             self._print_log_msg("error",f"test_peer_state --> unable to get_info_from_edge_point | ip_address {ip_addresses[n]} | e: [{e}]")
+        #             send_error = (2187,e) # fnt-2187
+
+        # if send_error and not self.auto_restart:
+        #     if caller not in ["versioning","status","quick_status","skip_error"]:
+        #         print_test_error(send_error)
+
+        # if send_error and not self.auto_restart and caller != "skip_error":
+        #     if caller in ["upgrade","install","quick_install","versioning"]:
+        #         if caller == "versioning":
+        #             return send_error
+        #         else:
+        #             print_test_error(send_error)
             
-        with ThreadPoolExecutor() as executor:
-            do_thread = False
-            if not self.auto_restart and threaded:
-                if not self.event and not skip_thread:
-                    if print_output: self.print_clear_line()
-                    self.event, do_thread = True, True
-                    _ = executor.submit(self.print_spinner,{
-                        "msg": f"API making call outbound, please wait",
-                        "color": "magenta",
-                    })           
+        # with ThreadPoolExecutor() as executor:
+        #     do_thread = False
+        #     if not self.auto_restart and threaded:
+        #         if not self.event and not skip_thread:
+        #             if print_output: self.print_clear_line()
+        #             self.event, do_thread = True, True
+        #             _ = executor.submit(self.print_spinner,{
+        #                 "msg": f"API making call outbound, please wait",
+        #                 "color": "magenta",
+        #             })           
                       
-            while True:
-                for n,ip_address in enumerate(ip_addresses):
-                    if api_not_ready_flag: 
-                        ip_address["ip"] = "127.0.0.1"
-                        ip_address["publicPort"] = self.config_obj[profile]["public_port"]
+        #     while True:
+        #         for n,ip_address in enumerate(ip_addresses):
+        #             if api_not_ready_flag: 
+        #                 ip_address["ip"] = "127.0.0.1"
+        #                 ip_address["publicPort"] = self.config_obj[profile]["public_port"]
                         
-                    uri = self.set_api_url(ip_address["ip"], ip_address["publicPort"],"/node/state")
+        #             uri = self.set_api_url(ip_address["ip"], ip_address["publicPort"],"/node/state")
                         
-                    if ip_address["ip"] is not None:
-                        for _ in range(0,4):
-                            session = self.set_request_session()
-                            session.verify = False
-                            s_timeout = (5, 3)
+        #             if ip_address["ip"] is not None:
+        #                 for _ in range(0,4):
+        #                     session = self.set_request_session()
+        #                     session.verify = False
+        #                     s_timeout = (5, 3)
 
-                            try: 
-                                state = session.get(uri, timeout=s_timeout).json()
-                                color = self.change_connection_color(state)
-                                self._print_log_msg("debug",f"test_peer_state -> uri [{uri}]")
+        #                     try: 
+        #                         state = session.get(uri, timeout=s_timeout).json()
+        #                         color = self.change_connection_color(state)
+        #                         self._print_log_msg("debug",f"test_peer_state -> uri [{uri}]")
 
-                                if n == 1:
-                                    results['node_state_src'] = state
-                                    if state != "ReadyToJoin":
-                                        results['node_on_src'] = True
-                                    results['src_node_color'] = color
-                                else:
-                                    results['node_state_edge'] = state
-                                    if state != "ReadyToJoin":
-                                        results['node_on_edge'] = True
-                                    results['edge_node_color'] = color
+        #                         if n == 1:
+        #                             results['node_state_src'] = state
+        #                             if state != "ReadyToJoin":
+        #                                 results['node_on_src'] = True
+        #                             results['src_node_color'] = color
+        #                         else:
+        #                             results['node_state_edge'] = state
+        #                             if state != "ReadyToJoin":
+        #                                 results['node_on_edge'] = True
+        #                             results['edge_node_color'] = color
                                     
-                            except:
-                                if api_not_ready_flag: 
-                                    cpu, mem, _ = self.check_cpu_memory_thresholds()
-                                    if not cpu or not mem: 
-                                        self._print_log_msg("warning","test_peer_state --> test peer state -> setting status to [ApiNotReponding]")
-                                        results['node_state_src'] = "ApiNotResponding"
-                                        results['node_state_edge'] = "ApiNotResponding"
-                                    break_while = True
-                                # try 2 times before passing with ApiNotReady or ApiNotResponding
-                                attempt = attempt+1
-                                if attempt > 1:
-                                    api_not_ready_flag = True
-                                    break
-                                sleep(.5)
-                            else:
-                                self._print_log_msg("debug",f"test_peer_state --> test peer state -> url [{uri}]")
-                                break_while = True
-                                break
-                            finally:
-                                session.close()
+        #                     except:
+        #                         if api_not_ready_flag: 
+        #                             cpu, mem, _ = self.check_cpu_memory_thresholds()
+        #                             if not cpu or not mem: 
+        #                                 self._print_log_msg("warning","test_peer_state --> test peer state -> setting status to [ApiNotReponding]")
+        #                                 results['node_state_src'] = "ApiNotResponding"
+        #                                 results['node_state_edge'] = "ApiNotResponding"
+        #                             break_while = True
+        #                         # try 2 times before passing with ApiNotReady or ApiNotResponding
+        #                         attempt = attempt+1
+        #                         if attempt > 1:
+        #                             api_not_ready_flag = True
+        #                             break
+        #                         sleep(.5)
+        #                     else:
+        #                         self._print_log_msg("debug",f"test_peer_state --> test peer state -> url [{uri}]")
+        #                         break_while = True
+        #                         break
+        #                     finally:
+        #                         session.close()
                                 
-                        if simple: # do not check/update source node
-                            break
+        #                 if simple: # do not check/update source node
+        #                     break
                         
-                if break_while:
-                    break
+        #         if break_while:
+        #             break
                 
-            if do_thread:
-                self.event = False   
+        #     if do_thread:
+        #         self.event = False   
 
-        if simple:
-            self._print_log_msg("debug",f"test peer state - simple - returning [{test_address}] [{ip_addresses[0]['publicPort']}] [{results['node_state_edge']}]")
-            results = results["node_state_edge"]
-        else:
-            if results["node_on_edge"] and results["node_on_src"]:
-                results["full_connection"] = True
-                results["full_connection_color"] = "green"
+        # if simple:
+        #     self._print_log_msg("debug",f"test peer state - simple - returning [{test_address}] [{ip_addresses[0]['publicPort']}] [{results['node_state_edge']}]")
+        #     results = results["node_state_edge"]
+        # else:
+        #     if results["node_on_edge"] and results["node_on_src"]:
+        #         results["full_connection"] = True
+        #         results["full_connection_color"] = "green"
         
-        self._print_log_msg("debug",f"test_peer_state returning [{results}]")
-        return results
+        # self._print_log_msg("debug",f"test_peer_state returning [{results}]")
+        # return results
 
 
     def test_term_type(self):
@@ -3806,8 +3811,8 @@ class Functions():
         
         self._print_log_msg("info",f"{action} completed in [{total_time}]")
         self.print_paragraphs([
-            ["Total",0], [action,0,"yellow","underline"], ["time:",0],
-            [f" {round(total_time,3)} ",0,"grey,on_green","bold"],
+            ["Total",0], [action,0,"yellow",], ["time:",0],
+            [f" {round(total_time,3)} ",0,"white","bold"],
             [f"{unit}",2],
         ])
         self._print_log_msg("info",f"{action} -> functions total time elapsed [{total_time}]")

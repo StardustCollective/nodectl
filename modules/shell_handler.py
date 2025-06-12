@@ -106,8 +106,6 @@ class ShellHandler:
         self.cn_requests.set_self_value("argv", self.argv)
         self.cn_requests.set_parameters()
 
-        self.cli.node_service.set_self_value("cn_requests",self.cn_requests)
-        
            
     def _set_cli_obj(self, skip_check=False):
         build_cli = self.check_non_cli_command() if skip_check == False else True
@@ -219,240 +217,93 @@ class ShellHandler:
             
             # router.handle_direct_node_cache_request()
             if self.cn_requests.get_is_cache_needed():
+                if self.cli.node_service:
+                    self.cli.node_service.set_self_value("cn_requests",self.cn_requests)
                 self.cn_requests.set_self_value("node_file_cache_obj",self.node_file_cache_obj)
                 self.cn_requests.handle_edge_point_cache()
-
+            
+            router.set_cli_cn_requests()
             router.print_ux_clear_line()
+            
             router.handle_console_mobile()
             router.handle_status_command()
-            router.handle_service_commands()
-            router.process_restart_command()
+            router.handle_start_stop_leave()
+            router.handle_restart_command()
             
             router.handle_download_commands()
             router.handle_peers_command()
             router.handle_find_command()
+            router.handle_list_command()
+            router.handle_delegated_staking()
+            router.handle_delegated_sign()
+            router.handle_show_current_rewards()
+            router.handle_whoami()
+            router.handle_remote_access()
+            router.handle_nodeid2dag()
+            router.handle_show_node_states()
+            router.handle_reboot()
+            router.handle_dag()
+            router.handle_ssh_configure()
+            router.handle_clear_files()
+            router.handle_check_consensus()
+            router.handle_minority_fork()
+            router.handle_check_tcp_ports()
+            router.handle_config_backup()
+            router.handle_create_p12()
+            router.handle_show_distro()
+            router.handle_send_logs()
+            router.handle_display_snaphost_chain()
+            router.handle_last_snapshot()
+            router.handle_seedlist_participation()
+            router.handle_download_status()
+            router.handle_check_versions()
+            router.handle_auto_commands()
+            router.handle_service_commands()
+            router.handle_api_service()
+            router.handle_installer()
+            router.handle_upgrader()
+            router.handle_upgrade_path()
+            router.handle_upgrade_vps()
+            router.handle_health()
+            router.handle_show_profile_issues()
+            router.handle_starchiver()
+            router.hanle_user_tests()
+            router.handle_rotate_keys()
+            router.handle_prepare_file_download()
+            router.handle_show_service_logs()
+            router.handle_show_service_status()
+            router.handle_prepare_file_download()
+
+            router.handle_show_cpu_memory()
+            router.handle_sync_time()
+            router.handle_security()
+            router.handle_price()
+            router.handle_show_dip_error()
+            router.handle_show_p12_details()
+            router.handle_ipv6()
+            router.handle_data_migration()
+            router.handle_getting_started()
+            router.handle_test_only()
             
-            if self.called_command == "list":
-                self.cli.show_list(self.argv)  
-            elif self.called_command == "delegate":
-                self.cli.delegated_staking(self.argv)
-            elif self.called_command == "sign":
-                self.cli.sign(self.argv)  
-            elif self.called_command == "show_current_rewards" or self.called_command == "_scr":
-                self.cli.show_current_rewards(self.argv)  
-            elif self.called_command == "whoami":
-                self.cli.show_ip(self.argv)
-            elif self.called_command == "nodeid2dag":
-                self.cli.cli_nodeid2dag(self.argv)
-            elif self.called_command == "show_node_states" or self.called_command == "_sns":
-                self.cli.show_node_states(self.argv)
-            elif self.called_command == "passwd12":
-                return_value = self.cli.passwd12(self.argv)
-            elif self.called_command == "reboot":
-                self.cli.cli_reboot(self.argv)
-            # elif self.called_command == "remote_access" or self.called_command == "_ra":
-            #     self.cli.enable_remote_access(self.argv)
-            elif self.called_command in ["temp_holder"]: # node_id_commands:
-                command = "dag" if self.called_command == "dag" else "nodeid"
-                self.cli.cli_grab_id({
-                    "command": command,
-                    "argv_list": self.argv
-                })
-            elif self.called_command == "upgrade_nodectl_testnet":
-                self.cli.print_removed({
-                    "command": self.called_command,
-                    "version": "v2.8.0",
-                    "new_command": "upgrade_nodectl"
-                })
-            elif self.called_command == "remove_snapshots":
-                self.cli.print_removed({
-                    "command": self.called_command,
-                    "version": "v2.13.1",
-                    "new_command": "display_snapshot_chain",
-                })
-            elif self.called_command == "upgrade_nodectl" or self.called_command == "revision":
-                try:
-                    help_option = self.argv[0]
-                except:
-                    help_option = self.called_command
+            cli_iterative = router.handle_p12_export(cli_iterative)
+            return_value, cli_iterative = router.handle_nodectl_upgrade(return_value, cli_iterative)
+            
+            return_value = router.handle_show_node_proofs(return_value)
+            return_value = router.handle_source_connection(return_value)
+            return_value = router.handle_check_seedlist(return_value)
+            return_value = router.handle_passwd(return_value)
+            return_value = router.handle_source_connection(return_value)
+            return_value = router.handle_show_node_proofs(return_value)
+            return_value = router.handle_logs(return_value)    
+            return_value = router.handle_markets(return_value)
 
-                if self.called_command == "revision":
-                    # mobile iterative double-check
-                    self.cli.primary_command = "revision" 
-                self.set_version_obj_class()
-                self.cli.mobile = True
-                return_value = self.cli.upgrade_nodectl({
-                    "version_class_obj": self.version_class_obj,
-                    "argv_list": self.argv,
-                    "help": help_option,
-                })
-                if return_value and "return_caller" in return_value:
-                    cli_iterative = False
-                    if "mobile" in return_value:
-                        cli_iterative = "mobile_revision"
-                if return_value == "y": # upgrade requested - auto_restart already restarted
-                    return_value = "skip_auto_restart_restart"
-            elif self.called_command in ["temp_holder"]: #ssh_commands:
-                self.cli.ssh_configure({
-                    "command": self.called_command,
-                    "argv_list": self.argv   
-                })
-            elif self.called_command in ["temp_holder"]: #clean_files_list:
-                command_obj = {"argv_list": self.argv, "action": "normal"}
-                self.cli.clean_files(command_obj)
-                
-            elif self.called_command in ["temp_holder"]: #removed_clear_file_cmds:
-                return_value = self.cli.print_removed({
-                    "command": self.called_command,
-                    "version": "v2.0.0",
-                    "new_command": "n/a"
-                })
-                
-            elif self.called_command == "check_seedlist" or self.called_command == "_csl":
-                return_value = self.cli.check_seed_list(self.argv)
-            elif self.called_command == "check_consensus" or self.called_command == "_con":
-                self.cli.cli_check_consensus({"argv_list":self.argv})
-            elif self.called_command == "check_minority_fork" or self.called_command == "_cmf":
-                self.cli.cli_minority_fork_detection({"argv_list":self.argv})
-            elif self.called_command == "check_tcp_ports" or self.called_command == "_ctp":
-                self.cli.cli_check_tcp_ports({"argv_list":self.argv})
-            elif self.called_command == "backup_config":
-                self.cli.backup_config(self.argv)
-            elif self.called_command == "create_p12":
-                self.cli.cli_create_p12(self.argv)
-            elif self.called_command == "export_private_key": 
-                if "mobile" in self.argv:
-                    cli_iterative = "mobile"
-                self.cli.export_private_key(self.argv)
-            elif self.called_command == "check_source_connection" or self.called_command == "_csc":
-                return_value = self.cli.check_source_connection(self.argv)
-            elif self.called_command == "show_node_proofs" or self.called_command == "_snp":
-                return_value = self.cli.show_current_snapshot_proofs(self.argv)
-            elif self.called_command == "check_connection" or self.called_command == "_cc":
-                self.cli.check_connection(self.argv)
-            elif self.called_command == "show_distro":
-                self.cli.show_distro_elements(self.argv)
-            elif self.called_command == "display_snapshot_chain":
-                self.cli.cli_snapshot_chain(self.argv)
-            elif self.called_command == "node_last_snapshot":
-                self.cli.cli_node_last_snapshot(self.argv)
-            elif self.called_command == "send_logs" or self.called_command == "_sl":
-                self.cli.prepare_and_send_logs(self.argv)
-            elif self.called_command == "check_seedlist_participation" or self.called_command == "_cslp":
-                self.cli.show_seedlist_participation(self.argv)
-            elif self.called_command == "download_status" or self.called_command == "_ds":
-                self.functions.print_paragraphs([
-                    ["🚧",0],[" TEMPORARY DISABLEMENT ",0,"blue,on_yellow"], 
-                    ["This feature has been temporarily disabled and will undergo a refactor to improve",0,"yellow"],
-                    ["its accuracy and stability.",2,"yellow"],
-                    ["Thank you for your understanding and patience.",2,"magenta"],
-                ])
-                exit(0)
-                self.cli.show_download_status({
-                    "caller": "download_status",
-                    "command_list": self.argv
-                })
-            elif self.called_command in ["temp_holder"]: #cv_commands:
-                self.set_version_obj_class()
-                self.cli.check_versions({
-                    "command_list": self.argv,
-                    "version_class_obj": self.version_class_obj,
-                })
-            elif "auto_" in self.called_command:
-                if self.called_command == "auto_upgrade":
-                    if "help" not in self.argv:
-                        self.argv.append("help")
-                    self.called_command = "auto_restart"
-                if "help" in self.argv:
-                    self.functions.print_help({
-                        "usage_only": True,
-                        "nodectl_version_only": True,
-                        "extended": "auto_restart",
-                    })
-                else:
-                    self.auto_restart_handler(self.argv[0],True,True)
-                    if not self.mobile:
-                        exit(0)
-            elif self.called_command == "service_restart":
-                if self.argv[0] == "--variable1=enable": self.argv[0] = "enable" # on-boot 
-                if self.argv[0] != "enable":
-                    self._print_log_msg("error",f"start cli --> invalid request [{self.argv[0]}]")
-                    exit(0)
-                self.auto_restart_handler("service_start",True)
-                self._print_log_msg("debug","service_restart -> auto_restart_handler -> service_start - COMPLETED.")
-                exit(0)
-            elif self.called_command == "api_server":
-                self.api_service_handler()
-            elif self.called_command == "log" or self.called_command == "logs":
-                return_value = self.cli.show_logs(self.argv)
-            elif "install" in self.called_command:
-                self.install(self.argv)
-            elif self.called_command == "upgrade":
-                self.upgrade_node(self.argv)
-            elif self.called_command == "upgrade_path" or self.called_command == "_up":
-                self.cli.check_nodectl_upgrade_path({
-                    "called_command": self.called_command,
-                    "argv_list": self.argv,
-                    "version_class_obj": self.version_class_obj,
-                })
-            elif self.called_command == "upgrade_vps":
-                self.cli.cli_upgrade_vps(self.argv)
-            elif self.called_command == "health":
-                self.cli.show_health(self.argv)
-            elif self.called_command == "show_profile_issues":
-                self.cli.show_profile_issues(self.argv)
-            elif self.called_command == "execute_starchiver":
-                self.cli.cli_execute_starchiver(self.argv)
-            elif self.called_command == "execute_tests":
-                self.cli.cli_execute_tests(self.argv)
-            elif self.called_command == "rotate_keys":
-                self.cli.cli_rotate_keys(self.argv)
-            elif self.called_command == "prepare_file_download":
-                self.cli.cli_prepare_file_download(self.argv+["--caller","cli"])
-            elif self.called_command == "show_service_log" or self.called_command == "_ssl":
-                self.cli.show_service_log(self.argv)
-            elif self.called_command == "show_service_status" or self.called_command == "_sss":
-                self.cli.show_service_status(self.argv)
-            elif self.called_command == "show_cpu_memory" or self.called_command == "_scm":
-                self.cli.show_cpu_memory(self.argv)
-            elif self.called_command == "sync_node_time" or self.called_command == "_snt":
-                self.cli.cli_sync_time(self.argv)
-            elif self.called_command == "sec":
-                self.cli.show_security(self.argv)
-            elif self.called_command == "price" or self.called_command == "prices":
-                self.cli.show_prices(self.argv)
-            elif "market" in self.called_command:
-                return_value = self.cli.show_markets(self.argv)
-            elif self.called_command == "show_dip_error" or self.called_command == "_sde":
-                self.cli.show_dip_error(self.argv)
-            elif self.called_command == "show_p12_details" or self.called_command == "_spd":
-                self.cli.show_p12_details(self.argv)
-            elif self.called_command == "ipv6":
-                self.cli.cli_handle_ipv6(self.argv)
-            elif self.called_command == "getting_started":
-                self.functions.check_for_help(["help"],"getting_started")
-            elif self.called_command == "migrate_datadir":
-                self.cli.cli_execute_directory_restructure(self.argv)
-            elif self.called_command == "test_only":
-                self.cli.test_only(self.argv)
-
-            elif self.called_command == "help" or self.called_command == "_h":
-                    self.functions.print_help({
-                        "usage_only": False,
-                    })
-            elif self.called_command == "help_only": 
-                self.functions.print_help({
-                    "usage_only": True,
-                    "hint": False,
-                })
-            elif self.called_command in ["temp_holder"]: # config_list:
-                self.functions.print_help({
-                    "usage_only": True,
-                    "nodectl_version_only": True,
-                    "extended": self.called_command,
-                })
+            # must be at end
+            router.handle_help()
+            router.handle_help_only()
+            router.handle_config_list()
         
             self.handle_exit(return_value)
+            
             if self.mobile: 
                 if cli_iterative in ["mobile_revision", "mobile_success"]:
                     self.called_command = "mobile"

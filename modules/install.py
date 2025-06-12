@@ -1812,7 +1812,9 @@ class Installer():
         else:
             for profile in metagraph_list: # make sure 
                 if self.config_obj[profile]["seed_location"] != "disable":
-                    self.cli.check_seed_list(["-p",profile,"-id",self.cli.nodeid])
+                    self.cli.check_seed_list({
+                        "command_list": ["-p",profile,"-id",self.cli.nodeid]
+                    })
                     break # only need to check once for an installation
 
         self.functions.print_paragraphs([

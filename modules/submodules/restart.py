@@ -7,74 +7,36 @@ from modules.cn_requests import CnRequests
 
 class RestartNode():
     
-    def __init__(self, setter, getter, command_obj):
-        self.setter = setter
-        self.getter = getter
+    def __init__(self, command_obj):
         self.command_obj = command_obj
-        self.restart_type = command_obj["restart_type"]
-        self.argv_list = command_obj["argv_list"]
         
-        self.log = self.getter("log")
-        self.functions = self.getter("functions")
+        self.parent_setter = command_obj["setter"]
+        self.parent_getter = command_obj["getter"]
 
 
     # ==== SETTERS ====
-    
-    def _set_leave_obj(self,delay,profile):
-        self.leave_obj = {
-            "secs": self.secs,
-            "delay": delay,
-            "profile": profile,
-            "reboot_flag": False,
-            "threaded": True,
-            "cn_requests": self.cn_requests,
-        }
-        
-        
-    def _set_stop_obj(self,delay,profile):
-        self.stop_obj = {
-            "show_timer": False,
-            "profile": profile,
-            "delay": delay,
-            "argv_list": []
-        }
-        
-        
-    def _set_start_obj(self, profile, service_name):
-        self.start_obj = {
-            "spinner": False,
-            "profile": profile,
-            "service_name": service_name,
-            "skip_seedlist_title": True,
-            "start_type": "restart"
-        }         
-        
-    
-    def set_self_value(self, name, value):
-        setattr(self, name, value)
-                
-                
+
     def set_parameters(self):
-        self.cn_requests = CnRequests(self.set_self_value, self.get_self_value)
-        self.cn_requests.set_self_value("config_obj",self.getter("config_obj"))
-        self.cn_requests.set_self_value("called_command","restart")
-        self.cn_requests.set_self_value("profile_names",self.getter("profile_names"))
-        self.cn_requests.set_parameters()
+        self.restart_type = self.command_obj["restart_type"]
+        self.argv_list = self.command_obj["argv_list"]
+        self.cn_requests = self.command_obj["cn_requests"]
+                
+        self.log = self.parent_getter("log")
+        self.functions = self.parent_getter("functions")
+
         
-        self.print_title = self.getter("print_title")
-        self.error_messages = self.getter("error_messages")
-        self.show_profile_issues = self.getter("show_profile_issues")
+        self.print_title = self.parent_getter("print_title")
+        self.error_messages = self.parent_getter("error_messages")
+        self.show_profile_issues = self.parent_getter("show_profile_issues")
         
-        self.cli_join = self.getter("cli_join")
-        self.cli_start = self.getter("cli_start")
-        self.cli_leave = self.getter("cli_leave")
-        self.cli_stop = self.getter("cli_stop")
-        self.cli_join = self.getter("cli_join")
-        self.node_service = self.getter("node_service")
+        self.cli_join = self.parent_getter("cli_join")
+        self.cli_start = self.parent_getter("cli_start")
+        self.cli_leave = self.parent_getter("cli_leave")
+        self.cli_stop = self.parent_getter("cli_stop")
+        self.cli_join = self.parent_getter("cli_join")
+        self.node_service = self.parent_getter("node_service")
         
         self.called_profile = self.argv_list[self.argv_list.index("-p")+1]
-
-        self.config_obj = self.getter("config_obj")
         
         self.watch = True if "-w" in self.argv_list else False
         self.interactive = True if "-i" in self.argv_list else False
@@ -105,7 +67,11 @@ class RestartNode():
                 self.option = "r"
                 self.extra2 = f'-r {self.argv_list[self.argv_list.index("-r")+1]}'
                
-                
+               
+    def set_self_value(self, name, value):
+        setattr(self, name, value)
+        
+                        
     def set_performance_start(self):
         self.performance_start = perf_counter()
         
@@ -116,6 +82,35 @@ class RestartNode():
         self.functions.set_default_variables({
             "profile": profile,
         })
+        
+        
+    def _set_leave_obj(self,delay,profile):
+        self.leave_obj = {
+            "secs": self.secs,
+            "delay": delay,
+            "profile": profile,
+            "reboot_flag": False,
+            "threaded": True,
+        }
+        
+        
+    def _set_stop_obj(self,delay,profile):
+        self.stop_obj = {
+            "show_timer": False,
+            "profile": profile,
+            "delay": delay,
+            "argv_list": []
+        }
+        
+        
+    def _set_start_obj(self, profile, service_name):
+        self.start_obj = {
+            "spinner": False,
+            "profile": profile,
+            "service_name": service_name,
+            "skip_seedlist_title": True,
+            "start_type": "restart"
+        }       
         
         
     # ==== GETTERS ====
@@ -144,7 +139,7 @@ class RestartNode():
     def _process_restart_full(self, profile):
         if self.restart_type == "restart_only": return
             
-        environment = self.getter("config_obj")[profile]["environment"]
+        environment = self.parent_getter("config_obj")[profile]["environment"]
         self.print_title(f"JOINING [{environment.upper()}] [{profile.upper()}]")   
 
         if profile not in self.start_failed_list:
@@ -160,7 +155,7 @@ class RestartNode():
                 "non_interactive": self.non_interactive,
                 "single_profile": self.single_profile,
                 "argv_list": ["-p",profile],
-                "action": self.getter("caller"),
+                "action": self.parent_getter("caller"),
             })
         else:
             self._print_join_error(profile)
@@ -227,13 +222,12 @@ class RestartNode():
         
     def process_start_join(self):
         for profile in self.profile_order:
-            self.setter("profile", profile)
-            self.setter("config_obj", self.config_obj)
+            self.parent_setter("profile", profile)
                 
             if self.restart_type == "restart_only":
                 self._process_restart_only()
                         
-            service_name = self.getter("config_obj")[profile]["service"] 
+            service_name = self.parent_getter("config_obj")[profile]["service"] 
             self.start_failed_list = []
             if not service_name.startswith("cnng-"): service_name = f"cnng-{service_name}"
                 
@@ -242,9 +236,9 @@ class RestartNode():
                 self.print_title(f"RESTARTING PROFILE {'SERVICES' if self.called_profile == 'all' else 'SERVICE'}")
                 self._set_start_obj(profile, service_name)
                 self.cli_start(self.start_obj)
-                
+
                 self.cn_requests.set_self_value("use_profile_cache",False)
-                self.cn_requests.set_self_value("config_obj",self.config_obj)
+
                 peer_test_results = self.cn_requests.get_profile_state(profile)
                 # peer_test_results = self._get_profile_state(profile)
                 ready_states = self.functions.get_node_states("ready_states",True)
@@ -275,8 +269,8 @@ class RestartNode():
             self.pos = self.node_service.download_constellation_binaries({
                 "caller": "update_seedlist",
                 "profile": profile,
-                "environment": self.getter("config_obj")[profile]["environment"],
-                "action": self.getter("caller"),
+                "environment": self.parent_getter("config_obj")[profile]["environment"],
+                "action": self.parent_getter("caller"),
             })  
             sleep(.5)      
             
@@ -316,7 +310,10 @@ class RestartNode():
         self.functions.print_paragraphs([
             [profile,0,"red","bold"], ["service failed to start...",1]
         ])
-        ts = Troubleshooter({"config_obj": self.config_obj})
+        ts = Troubleshooter({
+            "cn_requests": self.cn_requests,
+            "log": self.log,
+        })
         self.show_profile_issues(["-p",profile],ts)
         self.functions.print_auto_restart_warning()
         self.start_failed_list.append(profile)
@@ -395,12 +392,7 @@ class RestartNode():
             ["This",0], ["restart_only",0,"magenta"], ["request will be",0], ["skipped",0,"red","bold"],
             [f"for {profile}.",-1]
         ])
-                    
-                    
-    def _print_log_msg(self,log_type,msg):
-        log_method = getattr(self.log, log_type, None)
-        log_method(f"{self.__class__.__name__} request --> {msg}")
-        
+
                             
     def print_restart_init(self):
         self.functions.print_clear_line()
@@ -431,5 +423,10 @@ class RestartNode():
         print("")        
 
 
+    def _print_log_msg(self,log_type,msg):
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} request --> {msg}")
+        
+        
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")  
