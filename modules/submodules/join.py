@@ -27,7 +27,7 @@ class Join():
         self.interactive = self.command_obj.get("interactive",False)
         self.non_interactive = self.command_obj.get("non_interactive",False)
         self.dip_status = self.command_obj.get("dip",False)
-        self.caller = self.command_obj.get("caller",False)
+        self.caller = self.command_obj.get("caller","join")
         self.argv_list = self.command_obj.get("argv_list")
 
         self.log = self.parent_getter("log")
@@ -59,6 +59,7 @@ class Join():
         self.state = None
         self.join_src_public_port = None
         self.first_attempt = True
+        self.exit_join = False
         
         # every 4 seconds updated
         self.wfd_count, self.wfd_max = 0, 5  # WaitingForDownload
@@ -112,9 +113,7 @@ class Join():
     
             
     def _get_peer_state_update(self):
-        self.cn_requests.set_self_value("peer",False)
-        self.cn_requests.set_self_value("use_local",True)
-        self.state = self.cn_requests.get_current_peer_state(self.profile,True)
+        self.state = self.cn_requests.get_current_local_state(self.profile,True)
         
         
     def get_self_value(self, name, default=False):
@@ -135,9 +134,14 @@ class Join():
         
         join_service.set_parameters()
         join_service.set_profile_api_ports()
-        join_service.set_link_obj()
         join_service.print_caller_log()
+                
+        join_service.set_link_obj()
         join_service.get_link_types()
+        self._process_link_peer_not_ready(join_service.get_self_value("link_obj"))
+        if self.exit_join:
+            return
+        
         join_service.handle_static_peer()
         join_service.set_join_data_obj()
         
@@ -162,7 +166,6 @@ class Join():
             if allocated_time % 9 == 0 or allocated_time < 1:  # 8 second mark or first attempt
                 self._process_allocated_time(allocated_time)
                 self.peer_count = self._get_peer_count("peer_count")
-
             
                 self._process_peer_increment()
                 self._get_peer_state_update()
@@ -340,6 +343,16 @@ class Join():
             self._print_tolerance_error()
 
 
+    def _process_link_peer_not_ready(self, link_obj):
+        if link_obj["gl0_linking_enabled"] and not link_obj["gl0_link_ready"]:
+            self.exit_join = True
+            self.color = "red"
+            self.join_result = "Failed"
+        if link_obj["ml0_linking_enabled"] and not link_obj["ml0_link_ready"]:
+            self.exit_join = True
+            self.color = "red"
+            self.join_result = "Failed"
+        
     # ==== INTERNALS ====
 
 
@@ -437,9 +450,15 @@ class Join():
     def handle_bad_join(self):
         if self.color != "red": return
         
-        self.functions.print_paragraphs([
-            ["'sudo nodectl check-connection -p <profile_name>'",2,self.color]
-        ])  
+        if self.exit_join:
+            self.functions.print_paragraphs([
+                [" "],["The node did not find the linking peer to be connected in",0,self.color],
+                ["Ready",0,"magenta"], ["state, please try again later.",1,self.color]
+            ])
+        else:
+            self.functions.print_paragraphs([
+                ["There was an issue with the join process, please try again later.",2,self.color]
+            ])  
         
         
     def handle_help_arg(self):
@@ -580,8 +599,13 @@ class Join():
             "color": "magenta",
             "newline": True,
         })    
-
-
+        
+        
+    def print_caller(self):
+        caller = "direct join requested" if self.caller == "join" else f"{self.caller} requested join"
+        self._print_log_msg("debug",caller)
+        
+        
     def print_completed_join(self,start_timer):
         self.functions.print_clear_line()
         print("")
@@ -593,10 +617,7 @@ class Join():
         })
 
         self.functions.cancel_event = False
-        
-        self.cn_requests.set_self_value("get_state",True)
-        self.cn_requests.set_self_value("use_local",True)
-        self.cn_requests.get_current_peer_state(self.profile)
+        self.cn_requests.get_current_local_state(self.profile)
 
         self.show_system_status({
             "called_command": "join",

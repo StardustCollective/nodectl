@@ -1221,6 +1221,7 @@ class P12Class():
     def _print_log_msg(self,log_type,msg):
         log_method = getattr(self.log, log_type, None)
         log_method(f"{self.__class__.__name__} request --> {msg}")
+        
                      
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")

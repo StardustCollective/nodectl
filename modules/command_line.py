@@ -53,6 +53,9 @@ class CLI():
         self.ip_address = command_obj["ip_address"]
         self.primary_command = command_obj["command"]
 
+        if self.primary_command == "uvos":
+            self.auto_restart = True
+            
         self.set_variables()
     
     
@@ -95,6 +98,7 @@ class CLI():
                 # install command will not have a config_obj
                 self.skip_warning_messages = False
         
+
         if not self.skip_services:
             # try:
             # review and change to spread operator if able
@@ -140,7 +144,7 @@ class CLI():
             })
         self.node_service = Node(command_obj)
         self.node_service.log = self.functions.log
-        self.node_service.functions.set_statics()
+        # self.node_service.functions.set_statics()
 
 
     def set_default_profile(self,node_service):
@@ -176,7 +180,8 @@ class CLI():
             "req": "exists"
         })
         self.profile = profile
-        self.node_service.set_profile(profile)
+        if self.node_service:
+            self.node_service.set_profile(profile)
         self.set_profile_api_ports() 
         
         
@@ -252,6 +257,9 @@ class CLI():
         return return_data    
     
     
+    def _get_version_obj(self):
+        return self.config_obj["global_elements"]["version_obj"]
+        
     # ==========================================
     # show commands
     # ==========================================
@@ -1468,6 +1476,8 @@ class CLI():
         match_true= colored("True","green",attrs=["bold"])
         match_false = colored("False","red",attrs=["bold"])
                 
+        version_obj = self._get_version_obj()
+        
         for n, profile in enumerate(profile_names):
             try:
                 environment = self.config_obj[profile]["environment"]
@@ -1478,36 +1488,23 @@ class CLI():
                     "extra": profile
                 })   
 
-            for n in range(0,2):
-                try:
-                    _ = self.version_obj[environment]["nodectl"]
-                    break
-                except:
-                    if n > 0:
-                        self.error_messages.error_code_messages({
-                            "error_code": "cmd-1962",
-                            "line_code": "version_fetch",
-                        })                           
-                    self.version_obj = self.functions.handle_missing_version(command_obj["version_class_obj"])
-
-                
             nodectl_match = True       
-            if not isinstance(self.version_obj[environment]["nodectl"]["nodectl_uptodate"],bool):
-                if "current" in self.version_obj[environment]["nodectl"]["nodectl_uptodate"]:
+            if not isinstance(version_obj[environment]["nodectl"]["nodectl_uptodate"],bool):
+                if "current" in version_obj[environment]["nodectl"]["nodectl_uptodate"]:
                     nodectl_match = False   
             tess_match = True       
-            if not isinstance(self.version_obj[environment][profile]["tess_uptodate"],bool):
-                if "current" in self.version_obj[environment][profile]["tess_uptodate"]:
+            if not isinstance(version_obj[environment][profile]["tess_uptodate"],bool):
+                if "current" in version_obj[environment][profile]["tess_uptodate"]:
                     tess_match = False   
             yaml_match = True       
-            if not isinstance(self.version_obj[environment][profile]["nodectl_yaml_uptodate"],bool):
-                if "current" in self.version_obj[environment][profile]["nodectl_yaml_uptodate"]:
+            if not isinstance(version_obj[environment][profile]["nodectl_yaml_uptodate"],bool):
+                if "current" in version_obj[environment][profile]["nodectl_yaml_uptodate"]:
                     yaml_match = False   
                      
             prerelease = colored("False","green")
-            if self.version_obj[environment]["nodectl"]["nodectl_prerelease"]:
+            if version_obj[environment]["nodectl"]["nodectl_prerelease"]:
                 prerelease = colored("True","yellow")
-            if self.version_obj[environment]["nodectl"]["nodectl_prerelease"] == "Unknown":
+            if version_obj[environment]["nodectl"]["nodectl_prerelease"] == "Unknown":
                 prerelease = "Unknown"
             
             if n < 1:
@@ -1522,7 +1519,7 @@ class CLI():
                 ])
 
             mc_key = "METAGRAPH"
-            tess_installed = self.version_obj[environment][profile]["node_tess_version"]
+            tess_installed = version_obj[environment][profile]["node_tess_version"]
             if len(tess_installed) > spacing:
                 spacing = len(tess_installed)+1
                 
@@ -1536,23 +1533,23 @@ class CLI():
                     "header_elements" : {
                     "PROFILE": profile,
                     f"{mc_key}": metagraph,
-                    "JAR FILE": self.version_obj[environment][profile]["node_tess_jar"],
+                    "JAR FILE": version_obj[environment][profile]["node_tess_jar"],
                     },
                     "spacing": spacing
                 },
                 {
                     "header_elements" : {
-                    "TESS INSTALLED": self.version_obj[environment][profile]["node_tess_version"],
-                    "NODECTL INSTALLED": self.version_obj["node_nodectl_version"],
-                    "NODECTL CONFIG": self.version_obj["node_nodectl_yaml_version"],
+                    "TESS INSTALLED": version_obj[environment][profile]["node_tess_version"],
+                    "NODECTL INSTALLED": version_obj["node_nodectl_version"],
+                    "NODECTL CONFIG": version_obj["node_nodectl_yaml_version"],
                     },
                     "spacing": spacing
                 },
                 {
                     "header_elements" : {
-                    "TESS LATEST": self.version_obj[environment][profile]["cluster_tess_version"],
-                    "NODECTL LATEST STABLE": self.version_obj[environment]["nodectl"]["current_stable"],
-                    "CONFIG LATEST": self.version_obj[environment]["nodectl"]["nodectl_remote_config"],
+                    "TESS LATEST": version_obj[environment][profile]["cluster_tess_version"],
+                    "NODECTL LATEST STABLE": version_obj[environment]["nodectl"]["current_stable"],
+                    "CONFIG LATEST": version_obj[environment]["nodectl"]["nodectl_remote_config"],
                     },
                     "spacing": spacing
                 },
@@ -1577,7 +1574,7 @@ class CLI():
             if self.config_obj["global_elements"]["metagraph_name"] != "hypergraph":
                 meta_list = [{
                     "header_elements" : {
-                    "METAGRAPH VERSION": self.version_obj[environment][self.profile_names[0]]["cluster_metagraph_version"],
+                    "METAGRAPH VERSION": version_obj[environment][self.profile_names[0]]["cluster_metagraph_version"],
                     },
                     "spacing": spacing                    
                 }]
@@ -1601,44 +1598,39 @@ class CLI():
         self.functions.check_for_help(command_list,"check_source_connection")
         self._print_log_msg("info",f"Check source connection request made.")
         self.set_profile(command_list[command_list.index("-p")+1])
-        self.functions.test_ready_observing(self.profile)
-        
+
+        state = self.cn_requests.get_cached_state_from_cluster_list(False, self.profile)
+        state = "Ready"
+        self.functions.test_ready_observing(state, self.profile)
         self.functions.print_states()
         
         self.functions.print_paragraphs([
-            ["Source:",0,"magenta"], ["Server this node is joined to",1],
-            ["  Edge:",0,"magenta"], ["This node",2],
+            ["Source:",0,"magenta"], ["Peer chosen on same cluster as this node.",1],
+            ["  Edge:",0,"magenta"], ["This node.",2],
             ["Note:",0,"yellow"], ["If the SOURCE is on a different network it will show",0], ["ApiNotReady",2,"cyan","underline"],
         ])
 
-        if not self.functions.check_health_endpoint(self.api_ports["public"]):
-            self.functions.print_paragraphs([
-                ["API endpoint for [",0,"red"], [self.profile,-1,"yellow","bold"], ["] is in state [",-1,"red"],
-                ["ApiNotReady",-1,"yellow","bold"], ["].",-1,"red"],
-                ["",1], ["Unable to process request.",2,"red"],
-            ])
-            return 1
-            
-
-        peer_test_results = self.functions.test_peer_state({"profile": self.profile})
-        peer_test_results = SimpleNamespace(**peer_test_results)   
-
-        source_result = f"{peer_test_results.node_on_src} | {peer_test_results.node_state_src}"
-        edge_result = f"{peer_test_results.node_on_edge} | {peer_test_results.node_state_edge}"
+        source_peer_state, ip = self.cn_requests.get_cached_state_from_cluster_list("api_peer", self.profile, True)
+        local_state_for_source = self.cn_requests.get_cached_state_from_cluster_list(ip, self.profile)
         
+        full_connection = True if local_state_for_source == "Ready" else False
+        full_connection_color = "green" if local_state_for_source == "Ready" else "red"
+        src_node_color = "green" if source_peer_state == "Ready" else "red"
+        local_color = "green" if source_peer_state == "Ready" else "red"
+
         spacing = 27
         print_out_list = [
             {
                 "header_elements" : {
-            "FULL CONNECTION": colored(f"{peer_test_results.full_connection}".ljust(27),peer_test_results.full_connection_color),
+            "FULL CONNECTION": colored(f"{full_connection}".ljust(27),full_connection_color),
             "PROFILE": self.profile.ljust(27),
                 },
                 "spacing": spacing
             },
             {
                 "header_elements" : {
-            "SOURCE -> STATE": colored(f"{source_result.ljust(27)}",peer_test_results.src_node_color),
-            "EDGE -> STATE": colored(f"{edge_result.ljust(27)}",peer_test_results.edge_node_color),
+            "SOURCE -> STATE": colored(f"{source_peer_state.ljust(27)}",src_node_color),
+            "EDGE -> STATE": colored(f"{local_state_for_source.ljust(27)}",local_color),
                 },
                 "spacing": spacing
             },
@@ -2072,44 +2064,35 @@ class CLI():
     def check_nodectl_upgrade_path(self,command_obj):
         called_command = command_obj["called_command"]
         argv_list = command_obj["argv_list"]
-        version_class_obj = command_obj.get("version_class_obj",False)
+        version_obj = command_obj.get("version_obj",False)
 
         try: env = argv_list[argv_list.index('-e')+1]
         except: argv_list.append("help")
+        
+        if not version_obj:
+            version_obj = self._get_version_obj()
             
         self.functions.check_for_help(argv_list,"upgrade_path")
         called_command = "upgrade_path" if called_command == "_up" else called_command
         
         self._print_log_msg("debug","testing for upgrade path requirements")
 
-        try:
-            nodectl_uptodate = getattr(versions,env)
-        except:
-            try:
-                versions = self.functions.handle_missing_version(version_class_obj)
-                versions = SimpleNamespace(**versions)
-                nodectl_uptodate = getattr(versions,env)
-            except:
-                self.error_messages.error_code_messages({
-                    "error_code": "cli-2671",
-                    "line_code": "version_fetch",
-                })
-
-        nodectl_uptodate = nodectl_uptodate["nodectl"]["nodectl_uptodate"]
+        nodectl_uptodate = version_obj[env]["nodectl"]["nodectl_uptodate"]
+        node_nodectl_version = version_obj["node_nodectl_version"]
         
-        upgrade_path = versions.upgrade_path
+        upgrade_path = version_obj["upgrade_path"]
         try:
-            test_next_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1]
+            test_next_version = upgrade_path[upgrade_path.index(node_nodectl_version)-1]
         except:
             test_next_version = upgrade_path[0]
         finally:
-            if versions.node_nodectl_version in upgrade_path and versions.node_nodectl_version != upgrade_path[0] and test_next_version != upgrade_path[0]:
-                upgrade_path_this_version = upgrade_path[upgrade_path.index(versions.node_nodectl_version)-1:]    
+            if node_nodectl_version in upgrade_path and node_nodectl_version != upgrade_path[0] and test_next_version != upgrade_path[0]:
+                upgrade_path_this_version = upgrade_path[upgrade_path.index(node_nodectl_version)-1:]    
                 next_upgrade_path = upgrade_path_this_version[0] 
             else: next_upgrade_path = upgrade_path[0]   
         
         for test_version in reversed(upgrade_path):
-            test = self.functions.is_new_version(versions.node_nodectl_version,test_version,called_command,"nodectl version")
+            test = self.functions.is_new_version(node_nodectl_version, test_version, called_command, "nodectl version")
             if test == "current_less":
                 next_upgrade_path = test_version
                 break
@@ -2132,13 +2115,13 @@ class CLI():
             self.functions.print_paragraphs(upgrade_path_str_list)
                           
                                 
-        if versions.node_nodectl_version != next_upgrade_path:
+        if node_nodectl_version != next_upgrade_path:
             if next_upgrade_path != upgrade_path[0]:
                 self.functions.print_clear_line()
                 self.functions.print_paragraphs([
                     ["",1], [" WARNING !! ",2,"yellow,on_red","bold"],
                     ["nodectl",0,"blue","bold"], ["may",0,"red"], ["not",0,"red","underline,bold"], ["be at the correct version.",2,"red"],
-                    ["Version [",0,"red"], [versions.node_nodectl_version,-1,"yellow"], 
+                    ["Version [",0,"red"], [node_nodectl_version,-1,"yellow"], 
                     ["] was detected. The next required upgrade is to",-1,"red"],
                     ["Version [",0,"red"], [next_upgrade_path,-1,"yellow"], 
                     ["] which should then be followed by the path presented above, if not already the latest.",-1,"red"],["",2],
@@ -2170,7 +2153,7 @@ class CLI():
         if called_command == "upgrade_path":
             self.functions.print_cmd_status({
                 "text_start": "Version found on system",
-                "status": versions.node_nodectl_version,
+                "status": node_nodectl_version,
                 "status_color": "yellow",
                 "newline": True,
             })
@@ -2179,7 +2162,9 @@ class CLI():
                     ["",1],[" POSSIBLE PRE-RELEASE ",0,"red,on_yellow"],
                     ["Use this version of nodectl with caution because it may produce undesired affects.",0,"yellow"],
                     ["If the",0,"yellow"], ["sudo nodectl upgrade",0], ["command was used against this version, you may run",0,"yellow"],
-                    ["into undesired results if you attempt to downgrade to a previous version.  A new installation of nodectl would be",0,"yellow"],
+                    ["into undesired results if you attempt to downgrade to a previous version.",2,"yellow"],
+                    
+                    ["A new installation of nodectl would be",0,"yellow"],
                     ["a better option to resume on a stable release.",2,"yellow"],
 
                     ["Proceed with caution.",2,"magenta"],
@@ -2220,13 +2205,14 @@ class CLI():
         if profile != "default":
             profile_names = [profile]
 
+        version_obj = self._get_version_obj()
         for i_profile in profile_names:
             if not self.config_obj[i_profile]["profile_enable"]: continue
 
             env = self.config_obj[i_profile]["environment"]
 
             try:
-                nodectl_version_check = self.version_obj[env]["nodectl"]["nodectl_uptodate"]
+                nodectl_version_check = version_obj[env]["nodectl"]["nodectl_uptodate"]
             except:
                 self._print_log_msg("warning","check_for_new_version -> unable to determine if [nodectl] version is up to date... skipping")
                 nodectl_version_check = "unknown"
@@ -2242,9 +2228,9 @@ class CLI():
                         ["- malware",1,"magenta"],
                         ["- not an official supported version",2,"magenta"],
                         ["   environment checked:",0],[env,1,"yellow","bold"],
-                        [" version found running:",0],[self.version_obj['node_nodectl_version'],1,"yellow","bold"],
-                        [" required upgrade path:",0],[self.version_obj['upgrade_path'][0],1,"yellow","bold"],
-                        ["current stable version:",0],[self.version_obj[env]["nodectl"]["current_stable"],2,"yellow","bold"],
+                        [" version found running:",0],[version_obj['node_nodectl_version'],1,"yellow","bold"],
+                        [" required upgrade path:",0],[version_obj['upgrade_path'][0],1,"yellow","bold"],
+                        ["current stable version:",0],[version_obj[env]["nodectl"]["current_stable"],2,"yellow","bold"],
                         ["Suggestion:",0],["sudo nodectl verify_nodectl",2,"yellow"],
                     ])
                     self.invalid_version = True
@@ -2255,7 +2241,7 @@ class CLI():
                         "text_start": "A new version of",
                         "brackets": "nodectl",
                         "text_end": "was detected",
-                        "status": self.version_obj[env]['nodectl']['current_stable'],
+                        "status": version_obj[env]['nodectl']['current_stable'],
                         "status_color": "yellow",
                         "newline": True,
                     })
@@ -2264,7 +2250,7 @@ class CLI():
                     ])
                 nodectl_version_shown = True
             try:
-                tess_version_check = self.version_obj[env][i_profile]["tess_uptodate"]
+                tess_version_check = version_obj[env][i_profile]["tess_uptodate"]
             except:
                 self._print_log_msg("warning","check_for_new_version -> unable to determine if [Tessellation] version is up to date... skipping")
                 tess_version_check = "unknown"
@@ -2273,7 +2259,7 @@ class CLI():
                     self.functions.print_paragraphs([
                         [f" {i_profile} ",0,"green,on_blue"],["A",0], ["new",0,"green"], ["version of",0], 
                         ["Tessellation",0,"cyan"], ["was detected:",0],
-                        [f"{self.version_obj[env][i_profile]['cluster_tess_version']}",1,"yellow","bold"],
+                        [f"{version_obj[env][i_profile]['cluster_tess_version']}",1,"yellow","bold"],
                     ])
                     if i_profile == profile_names[-1]:
                         self.functions.print_paragraphs([
@@ -2317,7 +2303,7 @@ class CLI():
         cli_restart.process_start_join()
         cli_restart.print_performance()   
         
-        
+                
     def cli_leave(self,command_obj):
         from modules.submodules.leave import LeaveNode
         
@@ -2325,6 +2311,7 @@ class CLI():
         cli_leave = LeaveNode(command_obj)
     
         cli_leave.set_parameters()
+        cli_leave.print_caller()
         cli_leave.handle_check_for_help()
         
         cli_leave.set_progress_obj()
@@ -2371,6 +2358,7 @@ class CLI():
             cli_leave.set_start_increment() 
         
         if self.primary_command == "leave":
+            print("")
             self.show_system_status(command_obj)                          
     
     
@@ -2381,6 +2369,7 @@ class CLI():
         cli_stop = StopNode(command_obj)
 
         cli_stop.set_parameters()
+        cli_stop.print_caller()
         cli_stop.process_delay()
         cli_stop.handle_help()
         cli_stop.handle_check_for_leave()
@@ -2402,11 +2391,11 @@ class CLI():
     def cli_start(self,command_obj):
         from modules.submodules.start import StartNode
         
-        command_obj["get_self_value"] = self.get_self_value
-        command_obj["set_self_value"] = self.set_self_value
+        command_obj = self._set_command_obj_basics(command_obj)
         cli_start = StartNode(command_obj)
         
         cli_start.set_parameters()
+        cli_start.print_caller()
         cli_start.handle_check_for_help()
         cli_start.set_progress_obj()
         cli_start.print_start_init()
@@ -2445,11 +2434,13 @@ class CLI():
         
         cli_join.process_join_cluster()
         cli_join.handle_link_color()
-        cli_join.process_post_join()
-            
+        
+        if not cli_join.exit_join:
+            cli_join.process_post_join()
+                
         cli_join.parse_snapshot_issues()
         cli_join.parse_tolerance_issues()
-        
+            
         cli_join.handle_offline_state()
         cli_join.handle_join_complete()
 
@@ -2570,7 +2561,8 @@ class CLI():
             
     def cli_grab_id(self,command_obj):
         from modules.submodules.node_id import NodeDAGid
-        nodeid_dag_obj = NodeDAGid(self,command_obj)
+        command_obj = self._set_command_obj_basics(command_obj)
+        nodeid_dag_obj = NodeDAGid(command_obj)
 
         nodeid_dag_obj.set_parameters()
         nodeid_dag_obj.handle_file_request()
@@ -3913,6 +3905,11 @@ class CLI():
         try:
             local_path, repo = set_key_pairs()
         except:
+            self.functions.set_statics()
+            self.functions.set_default_variables({})
+            self.functions.set_self_value("version_obj",self._get_version_obj())
+            self.functions.set_nodectl_static_values()
+        
             self.functions.get_includes({
                 "remote": "remote_only",
                 "cn_requests": cn_requests,
@@ -4198,7 +4195,14 @@ class CLI():
             "status_color": "yellow",
             "newline": False,
         })
+        
         sleep(.5)
+        
+        self.functions.set_statics()
+        self.functions.set_default_variables({})
+        self.functions.set_self_value("version_obj",self._get_version_obj())
+        self.functions.set_nodectl_static_values()
+
         repo = f"{self.functions.nodectl_download_url}/nodectl_tests_x86_64"
         local_path = "/usr/local/bin/nodectl_tests"
         self._print_log_msg("debug",f"execute_tests -> fetching Node Operator tests -> [{repo}] to [{local_path}]")
@@ -4251,7 +4255,9 @@ class CLI():
         _ = self.functions.process_command({
             "bashCommand": bashCommand,
             "proc_action": "subprocess_run",
-        })        
+        }) 
+        
+        exit(0)       
 
 
     def cli_execute_directory_restructure(self, profile_argv,version=False,non_interactive=False,new_install=False):
@@ -5127,6 +5133,7 @@ class CLI():
             "caller": "command_line",
             "action": "private_key",
             "functions": self.functions,
+            "log": self.log
         }
         p12 = P12Class(action_obj)
         p12.export_private_key_from_p12()
@@ -5417,7 +5424,7 @@ class CLI():
 
 
     def delegated_staking(self,command_list):
-        self.functions.check_for_help(command_list,self.command_obj["command"])
+        self.functions.check_for_help(command_list,"delegate")
         self.functions.print_header_title({
             "line1": "DELEGATED STAKING",
             "newline": False
@@ -5495,7 +5502,7 @@ class CLI():
             
 
     def sign(self,command_list):
-        self.functions.check_for_help(command_list,self.command_obj["command"])
+        self.functions.check_for_help(command_list,"sign")
         signed_input_path, signed_output_path = False, False
         error = False
 
@@ -5639,11 +5646,7 @@ class CLI():
                     "extra": e,
                 }) 
 
-        try:
-            version_obj = self.version_obj[environment_name] # readability
-        except:
-            version_obj = self.functions.handle_missing_version(command_obj["version_class_obj"])
-            version_obj = version_obj[environment_name]
+        version_obj = self._get_version_obj()
 
         if self.primary_command == "revision":
             custom_version = self.version_obj["node_nodectl_version"]
@@ -5683,12 +5686,12 @@ class CLI():
         self.functions.print_clear_line()
 
         def print_prerelease():
-            if version_obj["nodectl"]["nodectl_prerelease"] == 'Unknown':
+            if version_obj[environment_name]["nodectl"]["nodectl_prerelease"] == 'Unknown':
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], ["This version may not be valid, or could not be found, cancelling update.",1,"red","bold"],
                 ])   
                 exit(0)             
-            elif version_obj["nodectl"]["nodectl_prerelease"]:
+            elif version_obj[environment_name]["nodectl"]["nodectl_prerelease"]:
                 self.functions.print_paragraphs([
                     [" WARNING ",0,"yellow,on_red"], ["This is a pre-release version and may have developer experimental features, adds or bugs.",1,"red","bold"],
                 ])
@@ -5703,9 +5706,9 @@ class CLI():
                         "error_code": "cli-5903",
                         "line_code": "version_fetch",
                     })
-                self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+                self.version_obj = self._get_version_obj()
 
-        latest_nodectl = version_obj["nodectl"]["current_stable"]
+        latest_nodectl = version_obj[environment_name]["nodectl"]["current_stable"]
         node_nodectl_version = self.version_obj['node_nodectl_version']
 
         if nodectl_uptodate and nodectl_uptodate != "current_less" and not custom_version:
@@ -5803,8 +5806,8 @@ class CLI():
         upgrade_file = self.node_service.create_files({
             "file": "upgrade",
             "environment_name": environment_name,
-            "upgrade_required": True if version_obj["nodectl"]["upgrade"] != "False" else False,
-            "pre_release": version_obj["nodectl"]["nodectl_prerelease"],
+            "upgrade_required": True if version_obj[environment_name]["nodectl"]["upgrade"] != "False" else False,
+            "pre_release": version_obj[environment_name]["nodectl"]["nodectl_prerelease"],
         })
 
         arch = self.arch
@@ -5815,7 +5818,7 @@ class CLI():
             upgrade_file = upgrade_file.replace("NODECTL_OLD",node_nodectl_version)
             upgrade_file = upgrade_file.replace("NODECTL_BACKUP",backup_location)
             upgrade_file = upgrade_file.replace("ARCH",arch)
-            if version_obj["nodectl"]["upgrade"] == "full":
+            if version_obj[environment_name]["nodectl"]["upgrade"] == "full":
                 upgrade_file = upgrade_file.replace("sudo nodectl upgrade --nodectl_only","sudo nodectl upgrade")
                 upgrade_file = upgrade_file.replace("requires a nodectl_only","requires a full upgrade")
         except Exception as e:
@@ -5912,8 +5915,8 @@ class CLI():
 
 
     def _print_log_msg(self,log_type,msg):
-            log_method = getattr(self.log, log_type, None)
-            log_method(f"{self.__class__.__name__} --> {msg}")
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} --> {msg}")
                           
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")      

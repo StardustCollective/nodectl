@@ -74,7 +74,6 @@ class Configuration():
         self.validated = True
         self.profile_check = False
         
-
         skip_validation = ["configure","new_config","install","quick_install","uninstall","restore_config"]
         self.do_validation = False if self.action in skip_validation else True
         if self.action == "new_config_init": self.action = "edit_config"
@@ -92,7 +91,15 @@ class Configuration():
         if execute or self.do_validation:
             self.implement_config()
         
-
+        
+    def get_self_value(self, name, default=False):
+        return getattr(self, name, default)
+    
+    
+    def set_self_value(self, name, value):
+        setattr(self, name, value)
+        
+        
     def build_function_obj(self,config_obj):
         check_sudo = False
         if not config_obj:
@@ -249,8 +256,12 @@ class Configuration():
                 "print_messages": False,
                 "called_cmd": called_cmd,
                 "log_key": "version",
+                "getter": self.get_self_value,
+                "setter": self.set_self_value,
                 "force": True if any(item in self.argv_list for item in ["-f","--force"]) else False
             })
+            self.versioning.set_parameters()
+            
         self.functions.version_obj = self.versioning.get_version_obj()
         self.functions.set_statics()
 

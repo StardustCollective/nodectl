@@ -10,7 +10,6 @@ def pull_valid_command():
         "check_source_connection",
         "check_minority_fork",
         "create_p12",
-        "check_versions",
         "check_consensus",
         "clean_files",
         "check_connection",
@@ -48,6 +47,7 @@ def pull_valid_command():
         "logs",
 
         "market",
+        "markets",
         "migrate_datadir",
         "mobile",
 
@@ -102,8 +102,77 @@ def pull_valid_command():
         "validate_config",
         "verify_nodectl",
         "verify_specs",
+        "version",
 
         "whoami",
+    ]
+    
+    special_disabled = [
+        "install",
+    ]
+    
+    temp_disabled = [
+        "auto_restart",
+
+        "check_minority_fork",
+        "create_p12",
+        "check_consensus",
+
+        "check_connection",
+        "check_seedlist_participation",
+        "change_ssh_port",
+        "console",
+        "clean_files",
+        "dag",
+
+        "download_status",
+        "display_snapshot_chain",
+        
+        "execute_starchiver"
+        
+        "find",
+        
+        "getting_started"
+        
+        "health",
+        "help",
+        
+        "ipv6",
+        "install",
+        
+        "migrate_datadir",
+        "mobile",
+
+        "node_last_snapshot",
+
+        "reboot",
+        "refresh_binaries",
+
+        "restore_config",
+        "revision",
+        "rotate_keys",
+
+        "send_logs",
+        "sign",
+        "show_current_rewards",
+
+        "show_node_states",
+        "show_p12_details",
+        "show_node_proofs",
+        "show_service_status",
+        "show_profile_issues",
+        "sec",
+
+        "upgrade_vps",
+        "uninstall",
+        "uptime",
+        "update_seedlist",
+        "update_version_object",
+
+        "view_config",
+        "validate_config",
+        "verify_nodectl",
+        "verify_specs",
     ]
 
     service_cmds = [
@@ -117,7 +186,7 @@ def pull_valid_command():
         "_vn","_scr","_sns","_h","_csl","_csc","_snp",
         "_cc","_sl","_cslp","_ds","_up","_rtb","_ssl",
         "_sde","_usl","_con","_cmf","_spd", "_ctp",
-        "log","prices","markets","_sss","_snt",
+        "log","prices","markets","_sss","_snt", "_v",
     ]
     
     removed_cmds = [
@@ -127,7 +196,9 @@ def pull_valid_command():
         "upgrade_nodectl_testnet","remove_snapshots",
     ]
     
-    return (valid_commands,valid_short_cuts,service_cmds,removed_cmds)
+    duplicate_cmd_count = 2
+    
+    return (valid_commands,valid_short_cuts,service_cmds,removed_cmds,temp_disabled, special_disabled, duplicate_cmd_count)
     
     
 if __name__ == "__main__":

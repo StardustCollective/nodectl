@@ -86,6 +86,7 @@ class RestartNode():
         
     def _set_leave_obj(self,delay,profile):
         self.leave_obj = {
+            "caller": "restart",
             "secs": self.secs,
             "delay": delay,
             "profile": profile,
@@ -97,6 +98,7 @@ class RestartNode():
     def _set_stop_obj(self,delay,profile):
         self.stop_obj = {
             "show_timer": False,
+            "caller": "restart",
             "profile": profile,
             "delay": delay,
             "argv_list": []
@@ -106,6 +108,7 @@ class RestartNode():
     def _set_start_obj(self, profile, service_name):
         self.start_obj = {
             "spinner": False,
+            "caller": "restart",
             "profile": profile,
             "service_name": service_name,
             "skip_seedlist_title": True,
@@ -170,11 +173,12 @@ class RestartNode():
         })
         for link_type in self.link_types:
             if link_profiles[f"{link_type}_link_enable"]:
-                state = self.functions.test_peer_state({
-                    "profile": link_profiles[f"{link_type}_profile"],
-                    "skip_thread": False,
-                    "simple": True
-                })    
+                state = self.cn_requests.get_current_peer_state(link_profiles[f"{link_type}_profile"], True)
+                # state = self.functions.test_peer_state({
+                #     "profile": link_profiles[f"{link_type}_profile"],
+                #     "skip_thread": False,
+                #     "simple": True
+                # })    
                 
                 if state != "Ready":
                     link_profile = link_profiles[f"{link_type}_profile"]
@@ -225,9 +229,9 @@ class RestartNode():
             self.parent_setter("profile", profile)
                 
             if self.restart_type == "restart_only":
-                self._process_restart_only()
+                self._process_restart_only(profile)
                         
-            service_name = self.parent_getter("config_obj")[profile]["service"] 
+            service_name = self.cn_requests.get_service_name(profile) 
             self.start_failed_list = []
             if not service_name.startswith("cnng-"): service_name = f"cnng-{service_name}"
                 
@@ -239,12 +243,11 @@ class RestartNode():
 
                 self.cn_requests.set_self_value("use_profile_cache",False)
 
-                peer_test_results = self.cn_requests.get_profile_state(profile)
-                # peer_test_results = self._get_profile_state(profile)
+                state = self.cn_requests.get_current_local_state(profile,True)
                 ready_states = self.functions.get_node_states("ready_states",True)
                 
-                if peer_test_results in ready_states:  # ReadyToJoin and Ready
-                    self._print_log_msg("debug",f"found state [{peer_test_results}] profile [{profile}]")
+                if state in ready_states:  # ReadyToJoin and Ready
+                    self._print_log_msg("debug",f"found state [{state}] profile [{profile}]")
                     break
                 else:
                     if n > self.failure_retries-1:
@@ -252,6 +255,7 @@ class RestartNode():
                         self._print_start_error(profile, n)
 
                     self.cli_stop_obj = {
+                        "caller": "restart",
                         "show_timer": False,
                         "profile": profile,
                         "argv_list": []
@@ -313,6 +317,8 @@ class RestartNode():
         ts = Troubleshooter({
             "cn_requests": self.cn_requests,
             "log": self.log,
+            "getter": self.get_self_value,
+            "setter": self.set_self_value,
         })
         self.show_profile_issues(["-p",profile],ts)
         self.functions.print_auto_restart_warning()

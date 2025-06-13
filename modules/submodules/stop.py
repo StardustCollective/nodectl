@@ -31,6 +31,7 @@ class StopNode():
         self.show_timer = self.command_obj.get("show_timer",True)
         self.spinner = self.command_obj.get("spinner",False)
         self.argv_list = self.command_obj.get("argv_list",[])
+        self.caller = self.command_obj.get("caller","stop")
         
         self.static_nodeid = self.command_obj.get("static_nodeid",False)
         self.check_for_leave = self.command_obj.get("check_for_leave",False)
@@ -160,11 +161,6 @@ class StopNode():
                 
         
     # ==== PRINTERS ====
-    
-    def _print_log_msg(self,log_type,msg):
-        log_method = getattr(self.log, log_type, None)
-        log_method(f"{self.__class__.__name__} request --> {msg}")
-
 
     def print_starting(self):
         self._print_log_msg("info",f"stop process commencing | profile [{self.profile}]")
@@ -202,7 +198,7 @@ class StopNode():
             "newline": True
         }) 
         
-        
+    
     def print_final_status(self):
         self.functions.cancel_event = False
         self._get_profile_state()
@@ -217,6 +213,15 @@ class StopNode():
             "argv": ["-p",self.profile],
         })
         
-
+        
+    def print_caller(self):
+        caller = "direct stop requested" if self.caller == "stop" else f"{self.caller} requested stop"
+        self._print_log_msg("debug",caller)
+        
+        
+    def _print_log_msg(self,log_type,msg):
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} request --> {msg}")
+        
 if __name__ == "__main__":
     print("This class module is not designed to be run independently, please refer to the documentation")  

@@ -58,6 +58,17 @@ class ShellHandler:
         self.called_command = None
         self.node_file_cache_obj = None
 
+        self.non_cli_commands = [
+            "install",
+            "auto_restart","service_restart",
+            "uvos","help",
+        ]
+
+        self.service_commands = [
+            "auto_restart","service_restart",
+            "uvos"
+        ]
+        
         try: # install exception
             self.mobile = True if "mobile" in command_obj.argv_list else False
         except:
@@ -67,7 +78,9 @@ class ShellHandler:
         self.node_service = "" #empty
         self.packages = {}
         
-        self.auto_restart_handler("get_pid")
+        if self.called_command is not None:
+            self.auto_restart_handler("get_pid")
+            
         self.userid = geteuid()
         self.groupid = getgid()
 
@@ -102,15 +115,23 @@ class ShellHandler:
         self.set_function_value("called_command",self.called_command)
         
         self.cn_requests = CnRequests(self.set_self_value,self.get_self_value)
-        self.cn_requests.set_self_value("log", self.log)
-        self.cn_requests.set_self_value("argv", self.argv)
         self.cn_requests.set_parameters()
-
+        
+        # router.handle_direct_node_cache_request()
+        if self.cn_requests.get_is_cache_needed():
+            try:
+                if self.cli.node_service:
+                    self.cli.node_service.set_self_value("cn_requests",self.cn_requests)
+            except: 
+                pass
+            self.cn_requests.set_self_value("node_file_cache_obj",self.node_file_cache_obj)
+            self.cn_requests.handle_edge_point_cache()
+            
            
     def _set_cli_obj(self, skip_check=False):
         build_cli = self.check_non_cli_command() if skip_check == False else True
         self.invalid_version = False
-        cli = None
+        cli = False
         if build_cli:
             command_obj = {
                 "caller": "shell_handler",
@@ -133,9 +154,9 @@ class ShellHandler:
             except:
                 self._print_log_msg("debug","shell --> skipped node service versioning, not needed.")
 
-            cli.check_for_new_versions({
-                "caller": self.called_command
-            })
+            # cli.check_for_new_versions({
+            #     "caller": self.called_command
+            # })
             if cli.skip_warning_messages:
                 cli.invalid_version = False
             return cli 
@@ -180,7 +201,9 @@ class ShellHandler:
         )
         
         router.set_parameters()
+        self.check_valid_command()
         router.set_self_value("called_command",self.called_command)
+        
         while True:
             if router.process_main_error(): exit(0)
             if router.handle_version(): exit(0)
@@ -192,36 +215,31 @@ class ShellHandler:
 
             if router.handle_restore_config(): exit(0)
 
-            self.check_valid_command()
-            self.set_version_obj_class()
+            # self.set_version_obj_class()
             self.check_can_use_offline()
             self.setup_profiles()
             self.check_auto_restart()
             self.check_skip_services()
             # self.check_for_static_peer()
-            self.handle_versioning()
+            # self.handle_versioning()
             self.check_fernet_rotation()
             self.check_diskspace()
             self.check_for_profile_requirements()
 
-            router.process_all_profiles()
-
             if not hasattr(self, "cli"):
                 self.cli = self._set_cli_obj()
+                if self.called_command in self.service_commands:
+                    self.cli.set_self_value("auto_restart", True)
                 router.set_self_value("cli",self.cli)
+                
+            router.process_all_profiles()
 
             router.handle_invalid_version()
 
             self._set_node_obj() # needs cli object
+            
             self._set_cn_requests()
-            
-            # router.handle_direct_node_cache_request()
-            if self.cn_requests.get_is_cache_needed():
-                if self.cli.node_service:
-                    self.cli.node_service.set_self_value("cn_requests",self.cn_requests)
-                self.cn_requests.set_self_value("node_file_cache_obj",self.node_file_cache_obj)
-                self.cn_requests.handle_edge_point_cache()
-            
+
             router.set_cli_cn_requests()
             router.print_ux_clear_line()
             
@@ -289,7 +307,6 @@ class ShellHandler:
             return_value, cli_iterative = router.handle_nodectl_upgrade(return_value, cli_iterative)
             
             return_value = router.handle_show_node_proofs(return_value)
-            return_value = router.handle_source_connection(return_value)
             return_value = router.handle_check_seedlist(return_value)
             return_value = router.handle_passwd(return_value)
             return_value = router.handle_source_connection(return_value)
@@ -458,7 +475,7 @@ class ShellHandler:
 
     def check_fernet_rotation(self):
         verbose = True
-        if self.called_command == "install" or not self.config_obj["global_p12"]:
+        if self.called_command == "install" or not self.config_obj.get("global_p12",False):
             return
         if not self.config_obj["global_p12"]["encryption"]: 
             return
@@ -502,18 +519,13 @@ class ShellHandler:
                 
 
     def check_non_cli_command(self):
-        non_cli_commands = [
-            "install",
-            "auto_restart","service_restart",
-            "uvos","help",
-        ]
-        if self.called_command in non_cli_commands:
-            return False
+        # if self.called_command in non_cli_commands:
+        #     return False
         return True
     
 
     def check_developer_only_commands(self):
-        if self.config_obj["global_elements"]["developer_mode"]: return   
+        if self.config_obj.get("global_elements",False).get("developer_mode",False): return   
 
         develop_commands = ["test_only"]
         if self.called_command in develop_commands:
@@ -526,12 +538,36 @@ class ShellHandler:
         valid_short_cuts = cmds[1]
         service_cmds = cmds[2]
         removed_cmds = cmds[3]
+        temp_disabled = cmds[4]
+        special_disabled = cmds[5]
+        duplicate_count = cmds[6]
 
-        self._print_log_msg("debug",f"nodectl feature count [{len(self.valid_commands)}]")
+        do_exit = False
+        command_count = len(self.valid_commands)-duplicate_count
+        self._print_log_msg("debug",f"nodectl feature count [{command_count}]")
         self.functions.valid_commands = self.valid_commands 
         
         all_command_check = self.valid_commands+valid_short_cuts+service_cmds+removed_cmds
 
+        if self.called_command in temp_disabled or self.called_command in special_disabled:
+            self.functions.print_paragraphs([
+                [" IMPORTANT ",1,"yellow,on_red"], 
+                [f"nodectl:",0], [self.called_command,2,"yellow"],
+                [f"The {self.called_command} command is temporarily disabled due to recent refactoring.",0,"magenta"],
+                ["We plan to re-enable this feature in an upcoming release. We apologize for any inconvenience and appreciate your patience.",2,"magenta"],
+            ])
+            do_exit = True
+        
+        if self.called_command in special_disabled:
+            self.functions.print_paragraphs([
+                ["Team Leads and/or Administrators will provide specific instructions on how to implement this command when the need",0,"magenta"],
+                ["to utilize it arises, given its important nature.",2,"magenta"],
+            ])
+            do_exit = True
+        
+        if do_exit:
+            exit(0)    
+                    
         if self.called_command not in all_command_check:
             self.called_command = "help_only"
         
@@ -783,8 +819,12 @@ class ShellHandler:
             
     def handle_versioning(self):
         if self.called_command == "install": called_cmd = "show_version"
-        elif self.called_command in ["version","_v"]: return
+        elif self.called_command in ["version", "_v", "upgrade"]: return
         else: called_cmd = self.called_command
+        
+        if self.called_command in ["check_versions","_cv"]:
+            self.node_service = False
+            self._set_cn_requests()
         
         need_forced_update = [
             "check_versions","_cv",
@@ -809,7 +849,7 @@ class ShellHandler:
         else:
             try:   
                 versioning = Versioning({
-                    "config_obj": self.config_obj,
+                    "cn_requests": self.cn_requests,
                     "show_spinner": show_spinner,
                     "print_messages": print_messages,
                     "called_cmd": called_cmd,
@@ -818,15 +858,17 @@ class ShellHandler:
                     "logging_key": self.log_key,
                     "force": force
                 })
+                versioning.set_parameters()
             except Exception as e:
                 self._print_log_msg("error",f"shell_handler -> unable to process versioning | [{e}]")
                 self.functions.event = False
                 exit(1)
 
+
         if called_cmd == "update_version_object" or called_cmd == "uvos":
             if "help" not in self.argv:
                 exit(0)
-            
+
         self.version_obj = versioning.get_version_obj()  
         self.functions.version_obj = self.version_obj
 
@@ -838,7 +880,7 @@ class ShellHandler:
 
     def _set_node_obj(self):
         invalid = False
-        if self.cli == None: 
+        if not self.cli or self.called_command in ["help_only"]: 
             return
         if isinstance(self.cli,SimpleNamespace):
             return
@@ -937,23 +979,23 @@ class ShellHandler:
             "called_cmd": "show_version",
         })
     
-        
+
     def show_version(self):
         self._print_log_msg("info",f"show version check requested")
-        versioning = self._set_version_obj()
-        version_obj = versioning.version_obj
-        self.functions.print_clear_line()
-        parts = self.functions.cleaner(version_obj["node_nodectl_version"],"remove_char","v")
+        # versioning = self._set_version_obj()
+        # version_obj = versioning.version_obj
+        # self.functions.print_clear_line()
+        parts = self.functions.cleaner(self.functions.nodectl_version,"remove_char","v")
         parts = parts.split(".")
         
         print_out_list = [
             {
                 "header_elements" : {
-                    "VERSION": version_obj["node_nodectl_version"],
+                    "VERSION": self.functions.nodectl_version,
                     "MAJOR": parts[0],
                     "MINOR": parts[1],
                     "PATCH": parts[2],
-                    "CONFIG": version_obj["node_nodectl_yaml_version"],
+                    "CONFIG": self.functions.nodectl_version,
                 },
                 "spacing": 10
             },
@@ -963,6 +1005,7 @@ class ShellHandler:
             self.functions.print_show_output({
                 "header_elements" : header_elements
             })
+        exit(0)
             
 
     def verify_specs(self,command_list):
@@ -1356,7 +1399,7 @@ class ShellHandler:
             print(f'  {colored("WARNING","red",attrs=["bold"])} {colored("You about to turn this VPS or Server into a","red")}')
             cprint("  Constellation Network validator node","green",attrs=['bold'])
         else:
-            if self.auto_restart_pid:
+            if self.auto_restart_enabled:
                 self._print_log_msg("info","terminating auto_restart in order to upgrade")  
                 progress = {
                     "text_start": "Terminating auto_restart",
@@ -1408,9 +1451,9 @@ class ShellHandler:
         # api_server.run()
        
 
-    def auto_restart_handler(self,action,cli=False,manual=False):
+    def auto_restart_handler(self, action, cli=False, manual=False):
         from modules.submodules.auto_restart_handler import AutoRestartHandler
-        ar_handler = AutoRestartHandler(self,action,cli,manual)
+        ar_handler = AutoRestartHandler(self, action, cli, manual)
         ar_handler.set_parameters()
         
         if ar_handler.process_invalid_action():
@@ -1452,12 +1495,13 @@ class ShellHandler:
         self._print_log_msg("debug",f"{self.called_command} request started") 
         performance_start = time.perf_counter()  # keep track of how long
 
-        self.set_version_obj_class()
         self.upgrader = Upgrader({
-            "parent": self,
             "argv_list": argv_list,
+            "setter": self.set_self_value,
+            "getter": self.get_self_value,
         }) 
         self.upgrader.upgrade_process()
+        
         self.functions.print_perftime(performance_start,"upgrade")
         
     
@@ -1508,7 +1552,7 @@ class ShellHandler:
 
     def set_version_obj_class(self):
         self.version_class_obj = Versioning({"called_cmd": "setup_only"})
-
+        self.version_class_obj.set_parameters()
 
     def handle_exit(self,return_value):
         if return_value == "skip_auto_restart_restart":

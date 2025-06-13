@@ -6,8 +6,8 @@ class StartNode():
     def __init__(self,command_obj):
         self.command_obj = command_obj
         
-        self.parent_getter = command_obj["get_self_value"]
-        self.parent_setter = command_obj["set_self_value"]
+        self.parent_getter = command_obj["getter"]
+        self.parent_setter = command_obj["setter"]
 
 
     # ==== SETTERS ====
@@ -18,7 +18,8 @@ class StartNode():
 
         self.profile = self.command_obj.get("profile",self.parent_getter("profile"))    
         self.skip_seedlist_title = self.command_obj.get("skip_title", True)
-
+        self.caller = self.command_obj.get("caller","start")
+        
         self.service_name = self.command_obj.get("service_name",self.parent_getter("service_name"))
         self.node_service = self.parent_getter("node_service")
         
@@ -174,8 +175,13 @@ class StartNode():
         self.node_service.cn_requests.get_current_local_state(self.profile)
         self.show_status_obj["config_obj"] = self.node_service.cn_requests.config_obj
         self.show_system_status(self.show_status_obj)
-
-
+        
+        
+    def print_caller(self):
+        caller = "direct start requested" if self.caller == "start" else f"{self.caller} requested start"
+        self._print_log_msg("debug",caller)
+        
+        
     def _print_log_msg(self,log_type,msg):
             log_method = getattr(self.log, log_type, None)
             log_method(f"{self.__class__.__name__} --> {msg}")

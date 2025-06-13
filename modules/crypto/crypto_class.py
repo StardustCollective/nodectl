@@ -101,12 +101,10 @@ class NodeCtlCryptoClass:
             print("")
 
 
-    def _handle_log_msg(self,level,msg):
+    def _handle_log_msg(self, log_type, msg):
         if not self.log: return
-        msg = f"nodeCtlCrypto --> {msg}"
-        log_method = getattr(self.log.logger[self.log_key], level.lower(), None)
-        if log_method and callable(log_method):
-            log_method(msg)
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} --> {msg}")
 
 
     def hash_data(self):

@@ -21,6 +21,8 @@ class Download():
         self.auto_restart = self.parent_getter("auto_restart")
         self.functions = self.parent_getter("functions")
         self.config_obj = self.parent_getter("config_obj")
+        self.functions.set_self_value("config_obj",self.config_obj)
+        
         self.error_messages = self.parent_getter("error_messages")
         
         self.caller = self.command_obj.get("caller","node_service")
@@ -299,7 +301,7 @@ class Download():
             except Exception as e:
                 if tries < 1:
                     self.functions.set_self_value("cn_requests", self.parent_getter("cn_requests"))
-                    self.functions.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+                    self.functions.version_obj = self.config_obj['global_elements']['version_obj']
                     continue
                 if tries < 2:
                     if not self.auto_restart:
@@ -316,7 +318,7 @@ class Download():
                         "phrase": phrase_str,
                         "status": "Pausing"
                     })
-                    self.functions.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+                    self.functions.version_obj = self.config_obj['global_elements']['version_obj']
                 else:
                     self._print_log_msg("error",f"set_default_version -> unknown error occurred, retry command to continue | error [{e}]")
                     self.error_messages.error_code_messages({

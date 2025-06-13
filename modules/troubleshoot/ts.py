@@ -10,7 +10,7 @@ class Troubleshooter():
         self.parent_setter = command_obj["setter"]
         self.cn_requests = deepcopy(command_obj["cn_requests"])
         
-        self.log = command_obj.parent_getter("log")
+        self.log = command_obj.get("log")
         
         
     def setup_logs(self,command_obj):

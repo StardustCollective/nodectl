@@ -10,20 +10,23 @@ from modules.crypto.crypto_class import NodeCtlCryptoClass
 
 class DelegatedStaking:    
     def __init__(self,command_obj):
+        self.command_obj = command_obj
         self.config_obj = command_obj["config_obj"]
         self.profile = command_obj["profile"]
         self.action = command_obj["action"]
         
         self.ds_config = SimpleNamespace(**self.config_obj["global_elements"]["delegated_staking"])
         self.log = command_obj["log"]
-        self.log_key = "main"
-        self.log.logger[self.log_key].info("Delegated staking class obj initialized.")
+        
 
         self.error_messages = command_obj["error_messages"]
         self.debug = False
         self.error = False
 
         self.functions = command_obj["functions"]
+        self.functions.set_default_variables(command_obj)
+        
+        self._log_msg("info","Delegated staking class obj initialized.")
         
         self.data = None
         self.verbose = False
@@ -39,9 +42,9 @@ class DelegatedStaking:
         self.set_init_values()
 
 
-    def _log_msg(self,level,msg):
-        msg = f"DelegatedStaking --> {msg}"
-        self.functions.handle_log_msg(level,msg)
+    def _log_msg(self,log_type,msg):
+        log_method = getattr(self.log, log_type, None)
+        log_method(f"{self.__class__.__name__} --> {msg}")
 
     # ==== primary actions ====
 
@@ -125,7 +128,7 @@ class DelegatedStaking:
 
 
     def send_payload(self):
-        session, _ = self.functions.set_request_session()
+        session = self.functions.set_request_session()
     
         try:
             response = session.post(self.ds_url, json=self.complete_payload)
@@ -167,7 +170,7 @@ class DelegatedStaking:
             "description": [False,self.ds_config.description],
             "rewardFraction": [False,self.ds_config.rewardFraction],
         }
-        self.ds_url = f"{self.functions.default_edge_point['uri']}/node-params/"
+        self.ds_url = f"{self.functions.default_edge_point[self.profile]['uri']}/node-params/"
 
         try:
             self.wallet = self.config_obj["global_elements"]["nodeid_obj"][f"{self.profile}_wallet"]

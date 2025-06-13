@@ -195,7 +195,11 @@ class Configurator():
             "config_obj": self.config_obj,
             "print_messages": False,
             "called_cmd": "show_version",
+            "getter": self.get_self_value,
+            "setter": self.set_self_value,
         })
+        versioning.set_self_value("configurator", True)
+        versioning.set_parameters()
         
         try:
             self.hypergraph = self.c.config_obj["global_elements"]["metagraph_name"]
@@ -216,8 +220,11 @@ class Configurator():
 
         self.c.config_obj["global_elements"] = {"caller":"config"}
         self.c.functions.log = self.log
+        
         self.c.functions.version_obj = versioning.version_obj
+            
         self.c.functions.set_statics()
+        self.c.functions.set_self_value("log",self.log.logger[self.log_key])
         self.c.functions.pull_profile({"req":"profile_names"})
                 
         self.wrapper = self.c.functions.print_paragraphs("wrapper_only")
@@ -234,6 +241,14 @@ class Configurator():
                 })
 
 
+    def set_self_value(self, name, value):
+        setattr(self, name, value)
+        
+        
+    def get_self_value(self, name, default=False):
+        return getattr(self, name, default)
+    
+    
     def setup(self):
         option = "start"
         while True:

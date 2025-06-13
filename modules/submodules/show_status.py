@@ -155,6 +155,9 @@ class ShowStatus():
                         
             
     def _set_ordinal_dict(self):
+        if self.cn_requests.config_obj[self.called_profile]["layer"] > 0:
+            return        
+        
         self.ordinal_dict = self.cn_requests.get_cached_ordinal_details()
 
         

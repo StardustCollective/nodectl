@@ -79,9 +79,6 @@ class Logging():
         
             log_handler.setFormatter(formatter)
             self.logger[key].addHandler(log_handler)
-        
-        # if self.caller != "init":
-        #     self.logger[self.caller].info(f"Logger module initialized with level [{self.level}]")
 
 
     def check_for_log_file(self):

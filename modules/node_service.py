@@ -120,8 +120,12 @@ class Node():
         action = command_obj.get("action",False)
         if action and not "install" in action:
             if not self.version_obj:
-                self.version_obj = self.functions.handle_missing_version(self.version_class_obj)
+                self.version_obj = self.config_obj['global_elements']['version_obj']
 
+        # self.version_class_obj.set_parameters()
+        # self.version_class_obj.cn_requests["config_obj"] = self.config_obj
+        # self.version_class_obj.execute_versioning()
+                
         download_service = Download({
             "command_obj": command_obj,
             "get_self_value": self.get_self_value,
@@ -444,9 +448,12 @@ class Node():
                 self._print_log_msg("error",f"build_remote_link -> unable to determine the source node links | target_linking_node [{str(link_node)}]")
                 continue # try again... 
 
+            self.cn_requests.set_self_value("peer",link_node["ip"])
+            self.cn_requests.set_self_value("api_public_port",link_node["publicPort"])
+            link_node["state"] = self.cn_requests.get_current_peer_state(link_profile,True)
             if not self.auto_restart:
                 self.functions.print_cmd_status({
-                    "text_start": f"{link_type.upper()} Link Node State:",
+                    "text_start": f"{link_type.upper()} Link State:",
                     "brackets": link_node["state"],
                     "text_end": "" if link_node["state"] == "Ready" else "not",
                     "status": "Ready",
@@ -498,10 +505,10 @@ class Node():
 
             if not self.auto_restart:
                 self.functions.print_timer({
-                    "seconds": 29,
+                    "seconds": 29, # 29
                     "phrase": error_str,
                 })
-                if n > 3 and not user_wait:
+                if n > 3 and not user_wait: # 3
                     break
 
         return False
@@ -509,11 +516,7 @@ class Node():
                                
     def check_for_ReadyToJoin(self,caller):
         for n in range(1,4):
-            state = self.functions.test_peer_state({
-                "caller": "check_for_ReadyToJoin",
-                "profile": self.profile,
-                "simple": True
-            })
+            state = self.cn_requests.get_current_local_state(self.profile, True)
             if state == "ReadyToJoin":
                 return True
             if n < 2: print("")

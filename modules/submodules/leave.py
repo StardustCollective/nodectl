@@ -20,6 +20,8 @@ class LeaveNode():
         self.reboot_flag = self.command_obj.get("reboot_flag", False)
         self.argv_list = self.command_obj.get("argv_list",[])
         self.thread = self.command_obj.get("thread", False)
+        self.caller = self.command_obj.get("caller", "leave")
+        
         self.log = self.parent_getter("log") 
         self.functions = self.parent_getter("functions")
         self.node_service = self.parent_getter("node_service")
@@ -73,7 +75,7 @@ class LeaveNode():
             "caller": "leave",
             "skip_thread": True,
             "simple": True,
-            "treaded": self.threaded,
+            "treaded": self.thread,
         }
         
 
@@ -98,6 +100,7 @@ class LeaveNode():
             self.leave_str = "to allow node to gracefully leave"
             # self.skip_log_lookup = True
             sleep(.5)      
+              
               
     # ==== GETTERS ====
     
@@ -132,7 +135,7 @@ class LeaveNode():
         self.cn_requests.set_self_value("use_profile_cache",True)
         state = self.cn_requests.get_profile_state(self.profile)
 
-        if not state in self.functions.not_on_network_list: 
+        if state not in self.functions.not_on_network_list: 
             return False
         
         self._print_log_msg("debug",f"found out of cluster | profile [{self.profile}] state [{state}] | ip [127.0.0.1]")
@@ -210,17 +213,6 @@ class LeaveNode():
         except Exception as e:
             self._print_log_msg("error",f"leave object exception raised [{e}]")
             self.skip_log_lookup = True
-                
-        # self.get_profile_state()
-        # if self.state not in self.functions.not_on_network_list and self.start > 2: 
-
-        #     self._print_log_msg("warning",f"leave process not out of cluster | profile [{self.profile}] state [{self.state}] | ip [127.0.0.1]")
-        #     sleep(.3) 
-        #     self.skip_log_lookup = True      
-        #     self.backup_line = True  
-        #     return False
-        
-        # return True  
     
     
     def handle_check_for_help(self):
@@ -272,7 +264,18 @@ class LeaveNode():
             "text_start": f"{self.slow}Leaving the cluster for profile",
             "newline": True
         })
+        self.functions.print_cmd_status({
+            "status": "",
+            "text_color": "red",
+            "text_start": f"Please wait patiently",
+            "newline": True
+        })
+
         
+    def print_caller(self):
+        caller = "direct leave requested" if self.caller == "leave" else f"{self.caller} requested leave"
+        self._print_log_msg("debug",caller)
+                
         
     def print_leaving_msg(self):
         self.functions.print_cmd_status({

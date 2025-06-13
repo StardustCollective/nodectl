@@ -11,30 +11,41 @@ from modules.p12 import P12Class
 
 class NodeDAGid():
     
-    def __init__(self,parent,command_obj):
-        self.parent = parent
-        self.argv_list = command_obj.get("argv_list",[None])
-        self.command = command_obj["command"]
-        self.return_success = command_obj.get("return_success",False)
-        self.skip_display = command_obj.get("skip_display",False)
-        self.outside_node_request = command_obj.get("outside_node_request",False)
-        self.dag_addr_only = command_obj.get("dag_addr_only",False)
-        self.ready_state = command_obj.get("ready_state",False)
-        self.threading = command_obj.get("threading",True)
-        self.profile = command_obj.get("profile",self.parent.profile)
-        self.is_global = command_obj.get("is_global",True)
-        self.functions = self.parent.functions
-        self.log = self.parent.log.logger[self.parent.log_key]
-
-        self.functions.check_for_help(self.argv_list,self.command)
-        self._print_log_msg("info",f"Request to display nodeid | type {self.command}")
-
-        self.quiet_install = True if list(command_obj.values()) else False
+    def __init__(self, command_obj):
+        self.command_obj = command_obj
+        
+        self.parent_getter = command_obj["getter"]
+        self.parent_setter = command_obj["setter"]
 
 
     # ==== SETTERS ====
 
     def set_parameters(self):
+        self.cn_requests = self.command_obj["cn_requests"]
+        
+        self.argv_list = self.command_obj.get("argv_list",[None])
+        self.command = self.command_obj["command"]
+        self.return_success = self.command_obj.get("return_success",False)
+        self.skip_display = self.command_obj.get("skip_display",False)
+        self.outside_node_request = self.command_obj.get("outside_node_request",False)
+        self.dag_addr_only = self.command_obj.get("dag_addr_only",False)
+        self.ready_state = self.command_obj.get("ready_state",False)
+        self.threading = self.command_obj.get("threading",True)
+        self.profile = self.command_obj.get("profile",self.parent_getter("profile"))
+        self.is_global = self.command_obj.get("is_global",True)
+        
+        self.functions = self.parent_getter("functions")
+        self.cli_nodeid2dag = self.parent_getter("cli_nodeid2dag")
+        self.log = self.parent_getter("log")
+        self.error_messages = self.parent_getter("error_messages")
+        self.cli_check_consensus = self.parent_getter("cli_check_consensus")
+        self.show_ip = self.parent_getter("show_ip")
+        self.get_and_verify_snapshots = self.parent_getter("get_and_verify_snapshots")
+
+        self.functions.check_for_help(self.argv_list,self.command)
+        self._print_log_msg("info",f"Request to display nodeid | type {self.command}")
+
+        self.quiet_install = True if list(self.command_obj.values()) else False
         self.nodeid = ""
         self.ip_address = "127.0.0.1"
 
@@ -130,7 +141,7 @@ class NodeDAGid():
                 try:
                     self.csv_file_name = path.normalize(csv_file_name)
                 except:
-                    self.parent.error_messages.error_code_messages({
+                    self.error_messages.error_code_messages({
                         "error_code": "cmd-442",
                         "line_code": "invalid_file_or_path",
                         "extra": csv_file_name
@@ -139,7 +150,7 @@ class NodeDAGid():
                 prefix = self.functions.get_date_time({"action": "datetime"})
                 self.csv_file_name = f"{prefix}-{self.nodeid[0:8]}-{self.nodeid[-8:]}-show-dag-data.csv"
             
-            self.csv_path = f"{self.parent.config_obj[self.profile]['directory_uploads']}{csv_file_name}"
+            self.csv_path = f"{self.cn_request.config_obj[self.profile]['directory_uploads']}{csv_file_name}"
 
 
     def _set_dyn_target_ip(self):
@@ -160,7 +171,7 @@ class NodeDAGid():
         try: 
             self.api_port = self.functions.config_obj[self.profile]["public_port"]
         except:
-            self.parent.error_messages.error_code_messages({
+            self.error_messages.error_code_messages({
                 "error_code": "cmd_1953",
                 "line_code": "profile_error",
                 "extra": self.profile
@@ -210,7 +221,7 @@ class NodeDAGid():
             with ThreadPoolExecutor() as executor:
                 if not self.nodeid:
                     try:
-                        nodeid = self.parent.config_obj["global_elements"]["nodeid_obj"][self.profile]
+                        nodeid = self.cn_requests.config_obj["global_elements"]["nodeid_obj"][self.profile]
                     except:
                         self.functions.event = True
                         if self.threading:
@@ -230,9 +241,9 @@ class NodeDAGid():
                 )
                 if self.command == "dag" and not self.wallet_only:
                     try:
-                        self.dag_address = self.parent.config_obj["global_elements"]["nodeid_obj"][f"{self.profile}_wallet"]
+                        self.dag_address = self.cn_requests.config_obj["global_elements"]["nodeid_obj"][f"{self.profile}_wallet"]
                     except:
-                        self.dag_address = self.parent.cli_nodeid2dag({
+                        self.dag_address = self.cli_nodeid2dag({
                             "nodeid": nodeid.strip(),
                             "profile": self.profile,
                         })
@@ -241,7 +252,7 @@ class NodeDAGid():
                         f"The requested the node's DAG address and found | nodeid [{self.nodeid}] | profile [{self.profile}]"
                     )
                 if self.ip_address == "127.0.0.1":
-                    self.ip_address = self.parent.ip_address
+                    self.ip_address = self.cn_requests.local_ip
                     self.is_self = True
                     
                 self.functions.event = False 
@@ -280,7 +291,7 @@ class NodeDAGid():
             if self.ip_address not in false_lookups:
                 false_lookups.append(self.ip_address)
             if self.command != "peers":
-                self.parent.error_messages.error_code_messages({
+                self.error_messages.error_code_messages({
                     "error_code": "cmd-2484",
                     "line_code": "node_id_issue",
                     "extra": "external" if self.outside_node_request else None,
@@ -358,7 +369,7 @@ class NodeDAGid():
         self.functions.print_paragraphs([
             ["CSV created successfully",1,"green","bold"],
             ["filename:",0,], [self.csv_file_name,1,"yellow","bold"],
-            ["location:",0,], [self.parent.config_obj[self.profile]['directory_uploads'],1,"yellow","bold"]
+            ["location:",0,], [self.cn_requests.config_obj[self.profile]['directory_uploads'],1,"yellow","bold"]
         ]) 
 
     # ==== GETTERS ====
@@ -430,7 +441,7 @@ class NodeDAGid():
         usd = []
         usd = self.functions.get_crypto_price()  # position 5 in list
 
-        token = self.parent.config_obj[self.profile]["token_coin_id"].lower()
+        token = self.cn_requests.config_obj[self.profile]["token_coin_id"].lower()
         try:
             return_obj["token_price"] = usd[token]["formatted"]
         except:
@@ -475,13 +486,14 @@ class NodeDAGid():
             action_obj = {
                 "action": self.command,
                 "functions": self.functions,
+                "log": self.log,
             }
             p12 = P12Class(action_obj)
-            p12.config_obj = deepcopy(self.parent.config_obj)
+            p12.config_obj = deepcopy(self.cn_requests.config_obj)
             extract_obj = {
                 "global": self.is_global,
                 "profile": self.profile,
-                "return_success": True if self.parent.primary_command == "install" else False
+                "return_success": True if self.parent_getter("primary_command") == "install" else False
             }  
             if self.file:
                 extract_obj["ext_p12"] = self.file          
@@ -512,7 +524,7 @@ class NodeDAGid():
         if self.wallet_only:
             self.functions.is_valid_address("DAG",False,self.nodeid)
             
-        self.consensus = self.parent.cli_check_consensus({
+        self.consensus = self.cli_check_consensus({
             "caller": "dag",
             "ip_address": self.ip_address,
             "profile": self.profile,
@@ -522,7 +534,7 @@ class NodeDAGid():
             wallet_balance = self.get_node_balance({
                 "ip_address": self.ip_address,
                 "wallet": self.dag_address,
-                "environment": self.parent.config_obj[self.profile]["environment"],
+                "environment": self.cn_requests.config_obj[self.profile]["environment"],
                 "silent": False if n < 1 else True,
             })
 
@@ -559,7 +571,7 @@ class NodeDAGid():
 
         if not self.outside_node_request and not self.create_csv:
             if not self.balance_only:            
-                if not self.file: self.parent.show_ip([None])
+                if not self.file: self.show_ip([None])
                 print_out_list = [
                     {
                         "header_elements" : {
@@ -606,9 +618,9 @@ class NodeDAGid():
                 self.snap_size = self.argv_list[self.argv_list.index("--snapshot-size")+1] if "--snapshot-size" in self.argv_list else self.snap_size
                                     
                 if not "-b" in self.argv_list and not self.balance_only:
-                    data = self.parent.get_and_verify_snapshots({
+                    data = self.get_and_verify_snapshots({
                         "snapshot_size": self.snap_size,
-                        "environment": self.parent.config_obj[self.profile]["environment"],
+                        "environment": self.cn_requests.config_obj[self.profile]["environment"],
                         "profile": self.profile,
                         "return_type": "raw",
                     })
@@ -653,7 +665,7 @@ class NodeDAGid():
                 "IN CONSENSUS": self.consensus,
             }
         ]
-        if self.parent.config_obj[self.profile]["layer"] > 0 or self.balance_only:
+        if self.cn_requests.config_obj[self.profile]["layer"] > 0 or self.balance_only:
             print_out_list[0].pop("IN CONSENSUS", None)
     
         for header_elements in print_out_list:
@@ -748,7 +760,7 @@ class NodeDAGid():
             reward_snaps = self.functions.get_snapshot({
                 "action": "rewards",
                 "history": 1,
-                "environment": self.parent.config_obj[self.profile]["environment"],
+                "environment": self.cn_requests.config_obj[self.profile]["environment"],
                 "profile": self.profile,
                 "ordinal": hash["ordinal"],
                 "return_on_error": True,
