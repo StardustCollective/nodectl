@@ -2570,15 +2570,13 @@ class CLI():
 
         if not nodeid_dag_obj.handle_local_request():
             return False
-        
+
+        nodeid_dag_obj.set_command()
+                
         try:
             nodeid_dag_obj.handle_ext_or_ready_state()
         except Exception as e:
             self._print_log_msg("error","requested nodeid not found.")
-
-
-        nodeid_dag_obj.set_command()        
-        # nodeid_dag_obj.process_node_id()
 
         if nodeid_dag_obj.dag_addr_only:
             return nodeid_dag_obj.nodeid 

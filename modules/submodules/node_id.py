@@ -219,7 +219,7 @@ class NodeDAGid():
     # ==== PARSERS / PROCESSORS ====
 
     def process_node_id(self):
-        if (self.ip_address == "127.0.0.1" and not self.wallet_only) or self.command == "dag":
+        if (self.ip_address == "127.0.0.1" and not self.wallet_only) or self.command == "dag" or self.command == "versioning":
             with ThreadPoolExecutor() as executor:
                 if not self.nodeid:
                     try:
@@ -491,7 +491,13 @@ class NodeDAGid():
                 "log": self.log,
             }
             p12 = P12Class(action_obj)
-            p12.config_obj = deepcopy(self.cn_requests.config_obj)
+            
+            try:
+                config_obj = self.cn_requests.config_obj
+            except:
+                config_obj = self.functions.config_obj
+                
+            p12.config_obj = deepcopy(config_obj)
             extract_obj = {
                 "global": self.is_global,
                 "profile": self.profile,
@@ -527,6 +533,9 @@ class NodeDAGid():
         else:
             self.error_found = True
          
+        if self.error_found:
+            self.process_node_id()
+            
         #     self._set_dyn_target_ip()
         #     self._set_api_port()
         #     self._process_nodeid_request()
