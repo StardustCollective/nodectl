@@ -167,7 +167,6 @@ def pull_valid_command():
         "uninstall",
         "uptime",
         "update_seedlist",
-        "update_version_object",
 
         "view_config",
         "validate_config",
@@ -215,7 +214,7 @@ def pull_valid_command():
     
     duplicate_cmd_count = 2
     
-    return (valid_commands,valid_short_cuts,service_cmds,removed_cmds,temp_disabled, special_disabled, duplicate_cmd_count)
+    return [valid_commands,valid_short_cuts,service_cmds,removed_cmds,temp_disabled, special_disabled, duplicate_cmd_count]
     
     
 if __name__ == "__main__":

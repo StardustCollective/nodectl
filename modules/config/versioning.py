@@ -110,7 +110,7 @@ class Versioning():
         self.version_service.write_distro_details()
         self.version_service.get_cached_version()    
     
-        self.new_creation = self.version_service.get_self_value("new_creation")
+        self.new_version_obj_needed = self.version_service.get_self_value("new_version_obj_needed")
         self.new_version_obj = self.version_service.get_self_value("version_obj") # new because upaded with this nodectl version
         self.version_obj = {
             **self.new_version_obj,
@@ -200,13 +200,13 @@ class Versioning():
                 self.old_version_obj = deepcopy(version_obj)
         except FileNotFoundError:
             self._print_log_msg("info",f"File [{self.version_obj_file}] not found, creating...")
-            self.new_creation = True
+            self.new_version_obj_needed = True
         except json.JSONDecodeError:
             self._print_log_msg("error",f"Versioning Failed to decode JSON in [{self.version_obj_file}].")
             if self.called_cmd != "uvos":
                 self.print_error("ver-126","invalid_file_format")
         
-        if self.new_creation:
+        if self.new_version_obj_needed:
             self._print_log_msg("debug",f"called by [{self.called_cmd}] - new versioning json object file creation.")
             self.write_version_obj_file()
         else:
@@ -225,7 +225,7 @@ class Versioning():
                 self._print_log_msg("debug",f"called by [{self.called_cmd}] - up to date - no action taken.")
 
         if self.auto_restart: return version_obj            
-        if not self.new_creation and not self.force: 
+        if not self.new_version_obj_needed and not self.force: 
             version_obj = {
                 **version_obj,
                 **self.nodectl_static_versions, # pick up new nodectl static variables
@@ -300,7 +300,8 @@ class Versioning():
         # replaced with _set_version_obj_for_write (version service)
         self._print_log_msg("debug",f"called by [{self.called_cmd}] - write_version_obj_file initiated.")
         self.update_required = True
-        self.pull_p12_details()            
+        self.pull_p12_details() 
+        self.set_version_timers()           
         
         try:
             with ThreadPoolExecutor() as executor:

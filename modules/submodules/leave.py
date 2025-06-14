@@ -258,16 +258,20 @@ class LeaveNode():
         })
             
                     
-    def print_leave_init(self):
+    def print_leave_init(self, first=False):
         self.functions.print_cmd_status({
             "status": self.profile,
             "text_start": f"{self.slow}Leaving the cluster for profile",
             "newline": True
         })
+
+        text_start = "Please wait patiently"
+        if not first:
+            text_start = "Please continue to wait patiently"
         self.functions.print_cmd_status({
             "status": "",
             "text_color": "red",
-            "text_start": f"Please wait patiently",
+            "text_start": text_start,
             "newline": True
         })
 

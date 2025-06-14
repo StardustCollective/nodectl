@@ -414,8 +414,11 @@ class Node():
                 
             link_host = self.config_obj[self.profile][f"{link_type}_link_host"]
             link_profile = self.config_obj[self.profile][f"{link_type}_link_profile"]
+            self._print_log_msg("debug",f"found | link_host [{link_host}]")
+            self._print_log_msg("debug",f"found | link_profile [{link_profile}]")
             
             if not self.config_obj["global_elements"]["cluster_info_lists"].get(link_profile):
+                original_profile_names = self.profile_names
                 self.cn_requests.set_self_value("config_obj",self.config_obj)
                 self.cn_requests.set_self_value("peer",False)
                 self.cn_requests.set_self_value("use_local",False)
@@ -425,15 +428,25 @@ class Node():
                 self.cn_requests.set_cluster_cache()
                 self.config_obj = self.cn_requests.get_self_value("config_obj")
                 self.config_obj["global_elements"]["cluster_info_lists"][link_profile].pop()
+                if not self.config_obj["global_elements"]["cluster_info_lists"].get(link_profile):
+                    link_host = False
+                self.cn_requests.set_self_value("profile_names",[original_profile_names])
                 
-            for attempt in range(0,2):
-                link_node = next(
-                    (node for node in self.config_obj["global_elements"]["cluster_info_lists"][link_profile] if node["ip"] == link_host), False
-                )
-                if link_node: 
-                    break
+            if link_host:
+                for attempt in range(0,2):
+                    try:
+                        link_node = next(
+                            (node for node in self.config_obj["global_elements"]["cluster_info_lists"][link_profile] if node["ip"] == link_host), False
+                        )
+                        if link_node: 
+                            self._print_log_msg("debug",f"found | link_node [{link_node}]")
+                            break
+                    except Exception as e:
+                        if attempt < 1:
+                            self._print_log_msg("error",f"unable to find the link host during restart or join.")
+                            self._print_log_msg("debug",self.config_obj["global_elements"]["cluster_info_lists"][link_profile])
 
-            if not link_node: 
+            else: 
                 extra2 = "Is the profile linking configured correctly? nodectl was unable to find "
                 extra2 += "or connect to the linking settings in this configuration. This could also " 
                 extra2 += "indicate that the profile or the external node this node is configured to "

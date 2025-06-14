@@ -295,6 +295,7 @@ class ShellHandler:
 
             router.handle_show_cpu_memory()
             router.handle_sync_time()
+            router.handle_update_version_obj()
             router.handle_security()
             router.handle_price()
             router.handle_show_dip_error()

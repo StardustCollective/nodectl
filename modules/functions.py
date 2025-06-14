@@ -1772,7 +1772,12 @@ class Functions():
         # req=(str) # what do you want to do?
     
         var = SimpleNamespace(**command_obj)
-        self._print_log_msg("debug",f"pull_profile [{var.req}]")
+        
+        req_log_msg = "does profile exist"
+        if var.req == "ports":
+            req_log_msg = "does profile have proper ports"
+            
+        self._print_log_msg("debug",f"pull_profile {req_log_msg} profile [{command_obj}]")
         var.profile = command_obj.get("profile",None)
             
         profile = "empty"

@@ -13,7 +13,9 @@ def ac_build_script(cli):
     auto_complete_file = cli.node_service.create_files({
         "file": "auto_complete",
     })
+
     valid_commands = pull_valid_command()
+    valid_commands.pop() # remove counter
     valid_commands = ' '.join(cmd for sub_cmd in valid_commands for cmd in sub_cmd if not cmd.startswith("_"))
 
     install_options = "--normal --quick-install --user --p12-destination-path --user-password help" # make sure ends with a space

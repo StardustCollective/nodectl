@@ -104,7 +104,9 @@ class StartNode():
 
 
     def handle_seedlist(self):
-        if self.cn_requests.config_obj[self.profile]["seed_path"] != "disable/disable":
+        self._print_log_msg("debug",f"looking for seed list status on [{self.profile}]")
+        
+        if "disable" not in self.cn_requests.config_obj[self.profile]["seed_path"]:
             node_id = self.cn_requests.get_node_id(self.profile)
             check_seed_list_options = ["-p",self.profile,"skip_warnings","-id",node_id]
             
