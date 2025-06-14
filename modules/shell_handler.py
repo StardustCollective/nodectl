@@ -41,6 +41,7 @@ class ShellHandler:
         
         self.error_messages = Error_codes(self.functions)
         self.error_messages.functions = self.functions
+        self.functions.error_messages = self.error_messages
         
         self._set_versioning_obj(command_obj)
         # try:
@@ -543,6 +544,8 @@ class ShellHandler:
         duplicate_count = cmds[6]
 
         do_exit = False
+        print_temp_disable = False
+        
         command_count = len(self.valid_commands)-duplicate_count
         self._print_log_msg("debug",f"nodectl feature count [{command_count}]")
         self.functions.valid_commands = self.valid_commands 
@@ -550,6 +553,11 @@ class ShellHandler:
         all_command_check = self.valid_commands+valid_short_cuts+service_cmds+removed_cmds
 
         if self.called_command in temp_disabled or self.called_command in special_disabled:
+            print_temp_disable = True
+        if self.called_command == "whoami" and "-id" in self.argv:
+            print_temp_disable = True
+            
+        if print_temp_disable:
             self.functions.print_paragraphs([
                 [" IMPORTANT ",1,"yellow,on_red"], 
                 [f"nodectl:",0], [self.called_command,2,"yellow"],

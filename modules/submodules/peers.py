@@ -155,7 +155,7 @@ class Peers():
             self.csv_file_name = self.command_list[self.command_list.index("--output")+1]
             if "/" in self.csv_file_name:
                 self.error_messages.error_code_messages({
-                    "error_code": "cmd-442",
+                    "error_code": "per-442",
                     "line_code": "invalid_file_or_path",
                     "extra": self.csv_file_name
                 })
@@ -225,7 +225,7 @@ class Peers():
 
         if error:
             self.error_messages.error_code_messages({
-                "error_code": "cli-1008",
+                "error_code": "per-1008",
                 "line_code": "invalid_option",
                 "extra": requested_state,
                 "extra2": "supported states: dip, ob, wfd, wfr, wfo, and wfd (or list of [dip,ob])",
@@ -439,47 +439,54 @@ class Peers():
     def print_results(self):
         break_counter = self.more_break
         
-        for item, node in enumerate(self.peer_results):
-            if self.is_basic:
-                pass
-            else:
-                ip, port, id, state, wallet = node
-                ip = f"{ip}:{port}"
-            
-            if self.requested_states and not self.is_extended:
-                wallet = f"{wallet[0:8]}....{wallet[-8:]}"
+        try:
+            for item, node in enumerate(self.peer_results):
+                if self.is_basic:
+                    pass
+                else:
+                    ip, port, id, state, wallet = node
+                    ip = f"{ip}:{port}"
                 
-            if self.do_more and break_counter < 1 and item > 0:
-                more = self.functions.print_any_key({
-                    "quit_option": "q",
-                    "newline": "both",
-                })
-                if more: break
-                self.print_header = True
-                break_counter = self.more_break
+                if self.requested_states and not self.is_extended:
+                    wallet = f"{wallet[0:8]}....{wallet[-8:]}"
+                    
+                if self.do_more and break_counter < 1 and item > 0:
+                    more = self.functions.print_any_key({
+                        "quit_option": "q",
+                        "newline": "both",
+                    })
+                    if more: break
+                    self.print_header = True
+                    break_counter = self.more_break
+                    
+                if self.is_extended:
+                    self._handle_is_extended(node)
+                    self.first_item = False
+                    status_results = self.status_results    
+                                
+                elif self.is_basic:
+                    spacing = 23
+                    self.status_results = f"  {ip: <{spacing}}"                        
+                else:                
+                    spacing = 23
+                    id = f"{id[0:8]}....{id[-8:]}"
+                    status_results = f"  {ip: <{spacing}}"                      
+                    status_results += f"{id: <{spacing}}"                      
+                    status_results += f"{wallet: <{spacing}}"
+                    if self.requested_states:
+                        status_results += f"{state: <{spacing}}"
+                    status_results = status_results 
                 
-            if self.is_extended:
-                self._handle_is_extended(node)
-                self.first_item = False
-                status_results = self.status_results    
-                             
-            elif self.is_basic:
-                spacing = 23
-                self.status_results = f"  {ip: <{spacing}}"                        
-            else:                
-                spacing = 23
-                id = f"{id[0:8]}....{id[-8:]}"
-                status_results = f"  {ip: <{spacing}}"                      
-                status_results += f"{id: <{spacing}}"                      
-                status_results += f"{wallet: <{spacing}}"
-                if self.requested_states:
-                    status_results += f"{state: <{spacing}}"
-                status_results = status_results 
-            
-            break_counter -= self.more_subtrahend+1
+                break_counter -= self.more_subtrahend+1
 
-            if not self.create_csv or self.do_print:
-                print(status_results)            
+                if not self.create_csv or self.do_print:
+                    print(status_results)  
+        except Exception as e:
+            self.error_messages.error_code_messages({
+                "error_code": "per-442",
+                "line_code": "profile_error",
+                "extra": self.profile
+            })     
 
         if self.create_csv and item < 1:
             self.functions.print_cmd_status({

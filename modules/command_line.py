@@ -2402,7 +2402,6 @@ class CLI():
         cli_start.handle_seedlist()
         cli_start.set_service_state()
         cli_start.print_start_complete()        
-        cli_start.print_timer()        
         cli_start.process_start_results()
         cli_start.print_final_status()
 
@@ -2575,11 +2574,11 @@ class CLI():
         try:
             nodeid_dag_obj.handle_ext_or_ready_state()
         except Exception as e:
-            false_lookups = e.args[0] # readability
-            return false_lookups
+            self._print_log_msg("error","requested nodeid not found.")
+
 
         nodeid_dag_obj.set_command()        
-        nodeid_dag_obj.process_node_id()
+        # nodeid_dag_obj.process_node_id()
 
         if nodeid_dag_obj.dag_addr_only:
             return nodeid_dag_obj.nodeid 
@@ -3274,39 +3273,48 @@ class CLI():
         if initial_stats is None:
                 tcp_test_results["data_found"] = False
         else:
-            with ThreadPoolExecutor() as executor:
-                self.functions.event = True
+            try:
+                with ThreadPoolExecutor() as executor:
+                    self.functions.event = True
 
-                self.functions.print_paragraphs([
-                    ["",1],["TCP PORT CHECK ON",0],[f" {profile.upper()} ",0,"white,on_blue"],["TCP PORT ASSIGNMENTS.",1]
-                ])
+                    self.functions.print_paragraphs([
+                        ["",1],["TCP PORT CHECK ON",0],[f" {profile.upper()} ",0,"white,on_blue"],["TCP PORT ASSIGNMENTS.",1]
+                    ])
 
-                int_str = colored(interface,"yellow",attrs=["bold"])
-                int_str_end = colored("]","magenta")
+                    int_str = colored(interface,"yellow",attrs=["bold"])
+                    int_str_end = colored("]","magenta")
 
-                _ = executor.submit(self.functions.print_timer,{
-                    "p_type": "cmd",
-                    "seconds": timeout,
-                    "step": -1,
-                    "status": "sniffing",
-                    "phrase": f"Interface send/receive:",
-                    "end_phrase": f"[{int_str}{int_str_end} ... ",
-                }) 
+                    _ = executor.submit(self.functions.print_timer,{
+                        "p_type": "cmd",
+                        "seconds": timeout,
+                        "step": -1,
+                        "status": "sniffing",
+                        "phrase": f"Interface send/receive:",
+                        "end_phrase": f"[{int_str}{int_str_end} ... ",
+                    }) 
 
-                initial_bytes_sent = initial_stats.bytes_sent
-                initial_bytes_recv = initial_stats.bytes_recv
-                
-                sleep(1.5)
-                
-                current_stats = psutil.net_io_counters(pernic=True).get(interface)
-                if current_stats is None:
-                    tcp_test_results["data_found"] = False
-                else:
-                    if current_stats.bytes_sent > initial_bytes_sent:
-                        tcp_test_results["send_data_found"] = True
-                    if current_stats.bytes_recv > initial_bytes_recv:
-                        tcp_test_results["recv_data_found"] = True
-                self.functions.event = False
+                    initial_bytes_sent = initial_stats.bytes_sent
+                    initial_bytes_recv = initial_stats.bytes_recv
+                    
+                    sleep(1.5)
+                    
+                    current_stats = psutil.net_io_counters(pernic=True).get(interface)
+                    if current_stats is None:
+                        tcp_test_results["data_found"] = False
+                    else:
+                        if current_stats.bytes_sent > initial_bytes_sent:
+                            tcp_test_results["send_data_found"] = True
+                        if current_stats.bytes_recv > initial_bytes_recv:
+                            tcp_test_results["recv_data_found"] = True
+                    self.functions.event = False
+            except Exception as e:
+                self._print_log_msg("error",f"server returned an error during sniff operation.please try again.")
+                self.error_messages.error_code_messages({
+                    "error_code": "cmd-3313",
+                    "line_code": "system_error",
+                    "extra": e,
+                    "extra2": "Please try again."
+                })
 
             self.functions.print_cmd_status({
                 "text_start": f"Please wait",

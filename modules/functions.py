@@ -3417,7 +3417,8 @@ class Functions():
         usage_only = command_obj.get("usage_only",False)
         special_case = command_obj.get("special_case",False)
         extended = command_obj.get("extended",False)
-
+        self.version_obj = self.config_obj['global_elements']['version_obj']
+        
         command_obj = {
             **command_obj,
             "valid_commands": self.valid_commands

@@ -128,11 +128,11 @@ def pull_valid_command():
         "download_status",
         "display_snapshot_chain",
         
-        "execute_starchiver"
+        "execute_starchiver",
         
         "find",
         
-        "getting_started"
+        "getting_started",
         
         "health",
         "help",
@@ -173,6 +173,23 @@ def pull_valid_command():
         "validate_config",
         "verify_nodectl",
         "verify_specs",
+        
+        "_cmf",
+        "_cc",
+        "_cf",
+        "_cslp",
+        "_ds",
+        "_dsc",
+        "_f",
+        "_h",
+        "_rtb",
+        "_sl",
+        "_scr",
+        "_snp",
+        "_spi",
+        "_usl",
+        "_vc",
+        "_vs",
     ]
 
     service_cmds = [

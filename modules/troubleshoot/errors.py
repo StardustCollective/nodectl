@@ -811,7 +811,8 @@ class Error_codes():
             if var.extra is None: var.extra = "unknown"
             self.log.logger[self.log_key].critical(f"invalid profile entered for execution [{var.extra}]")
             self.functions.print_paragraphs([
-                ["Tessellation attempted load a non-existent profile -",0,"red","bold"], [var.extra,2,"yellow,on_red","bold"],
+                ["Tessellation attempted load a non-existent or",0,"red","bold"],["disabled",0,"yellow"],
+                ["profile:",0,"red","bold"], [f" {var.extra} ",2,"yellow,on_red","bold"],
                 ["Network configuration may be incorrect, please check profile or configuration",2,"red","bold"],
                 ["Are you should you have a",0,"magenta"],["valid",0,"magenta","underline"], ["profile loaded or configured?",2,"magenta"]
             ])
@@ -974,7 +975,8 @@ class Error_codes():
             return
         
         self.functions.print_paragraphs([
-            ["If you feel this message is in error, please contact an administrator for support.",2,"blue","bold"],
+            ["Try the requested operation again, if issue persists,",0,"blue"],
+            ["please contact an administrator for support.",2,"blue","bold"],
             [" TERMINATING ",0,"yellow,on_red","bold"], ["nodectl",1,"yellow","bold"]                           
         ])
 

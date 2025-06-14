@@ -90,9 +90,10 @@ class ShowStatus():
         sessions = self.sessions
         
         on_network = colored("False","red")
-        cluster_session = sessions["cluster_session"]
-        node_session = sessions["node_session"]
-        join_state = sessions['node_state']
+        
+        cluster_session = sessions.get("cluster_session", 0)
+        node_session = sessions.get("node_session", 0)
+        join_state = sessions.get('node_state', "UnbleToDerive")
         
         consensus_match = colored(f"False","red",attrs=["bold"])
         if self.consensus_match:

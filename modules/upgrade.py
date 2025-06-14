@@ -1157,6 +1157,7 @@ class Upgrader():
         self.functions.print_cmd_status(progress)
         
         self.cli.node_service.build_service(True) # True to rebuild restart_service
+        
         self.functions.print_cmd_status({
             **progress,
             "status": "complete",
@@ -1298,25 +1299,33 @@ class Upgrader():
         })
         
         # version 2.10.0 requirement
-        self._print_log_msg("info","starting systemctl versioning service")
-        progress = {
-            "text_start": "Starting versioning updater",
-            "status": "running",
-        }
-        self.functions.print_cmd_status(progress)
+        # temp removal of version service because it can slow down the server
+        # self._print_log_msg("info","starting systemctl versioning service")
+        # progress = {
+        #     "text_start": "Starting versioning updater",
+        #     "status": "running",
+        # }
+        # self.functions.print_cmd_status(progress)
 
-        for cmd in ["enable node_version_updater.service","restart node_version_updater.service"]:
+        for cmd in ["disable node_version_updater.service","stop node_version_updater.service"]:
             _ = self.functions.process_command({
                 "bashCommand": f"sudo systemctl {cmd}",
                 "proc_action": "subprocess_devnull",
             })            
             sleep(.5)
+        
+        # for cmd in ["enable node_version_updater.service","restart node_version_updater.service"]:
+        #     _ = self.functions.process_command({
+        #         "bashCommand": f"sudo systemctl {cmd}",
+        #         "proc_action": "subprocess_devnull",
+        #     })            
+        #     sleep(.5)
 
-        self.functions.print_cmd_status({
-            **progress,
-            "status": "complete",
-            "newline": True
-        })
+        # self.functions.print_cmd_status({
+        #     **progress,
+        #     "status": "complete",
+        #     "newline": True
+        # })
         
         
     def start_node_service(self,profile):

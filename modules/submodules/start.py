@@ -1,5 +1,6 @@
 from sys import exit
 from concurrent.futures import ThreadPoolExecutor
+from time import sleep
 
 class StartNode():
     
@@ -151,6 +152,7 @@ class StartNode():
 
 
     def print_start_complete(self):
+        self.print_timer("before starting")
         self._print_log_msg("info",f"service request completed.")
         self.functions.print_cmd_status({
             **self.progress,
@@ -158,20 +160,20 @@ class StartNode():
         })
         
         
-    def print_timer(self):
+    def print_timer(self, end_phrase):
         self.functions.print_timer({
             "p_type": "cmd",
             "seconds": 6,
             "step": -1,
             "phrase": "Waiting",
-            "end_phrase": "before starting",
+            "end_phrase": end_phrase,
         })
         
         
     def print_final_status(self, rebuild=False):
         self.show_status_obj["rebuild"] = rebuild
         self.show_status_obj["print_auto_restart_status"] = False
-
+        sleep(1)
         self.node_service.cn_requests.get_current_local_state(self.profile)
         self.show_status_obj["config_obj"] = self.node_service.cn_requests.config_obj
         self.show_system_status(self.show_status_obj)

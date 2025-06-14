@@ -63,7 +63,8 @@ class NodeDAGid():
         self.create_csv = False
         self.consensus = False
         self.dag_address = False
-
+        self.error_found = False
+        
         self.wallet_only = True if "-w" in self.argv_list or "--wallet" in self.argv_list else False
          
         if self.command == "nodeid": 
@@ -155,6 +156,7 @@ class NodeDAGid():
 
     def _set_dyn_target_ip(self):
         if self.target or self.ready_state: 
+            
             target_ip = self.functions.get_info_from_edge_point({
                 "profile": self.profile,
                 "caller": "cli_grab_id",
@@ -508,10 +510,26 @@ class NodeDAGid():
 
 
     def handle_ext_or_ready_state(self):
-        if self.ip_address != "127.0.0.1" or self.ready_state: 
-            self._set_dyn_target_ip()
-            self._set_api_port()
-            self._process_nodeid_request()
+        if self.ip_address == "127.0.0.1":
+            self.ip_address = self.functions.get_ext_ip()
+            self.is_self = True
+
+        node = self.cn_requests.get_node_from_list_by_key("ip", self.ip_address, self.profile)  
+        if node:
+            self.api_port = node["publicPort"]
+            self.nodeid = node["id"]
+            self.target_ip = node
+        
+            if "-t" not in self.argv_list and self.command == "nodeid":
+                return
+            if "-l" not in self.argv_list: 
+                self.nodeid = f"{self.nodeid[0:8]}....{self.nodeid[-8:]}"
+        else:
+            self.error_found = True
+         
+        #     self._set_dyn_target_ip()
+        #     self._set_api_port()
+        #     self._process_nodeid_request()
 
 
     def handle_dag_command(self):
@@ -649,6 +667,41 @@ class NodeDAGid():
                         self.functions.print_clear_line()
                         cprint("  No rewards found for this node.","magenta")
 
+
+            return
+                
+        if self.error_found:
+            self.functions.print_paragraphs([
+                [" NODECTL ERROR ", 1, "yellow,on_red", "bold"],
+                [f"Unable to find requested nodeid by [ { self.ip_address} ] from [ {self.profile} ].",1,"red"],
+                ["This node may not be online at the moment.  Please try again later.",1,"magenta"],
+            ])
+            return False     
+                                
+        print_out_list = [
+            {
+                "header_elements": {
+                    "PROFILE": self.profile,
+                    "IP ADDRESS": self.ip_address,
+                },
+            },
+            {
+                "header_elements": {
+                    "STATE": self.target_ip["state"],
+                },
+            },
+            {
+                "header_elements": {
+                    "NODE ID": self.target_ip["id"],
+                },
+            },
+        ]
+        
+        for header_elements in print_out_list:
+            self.functions.print_show_output({
+                "header_elements" : header_elements
+            })
+            
 
     def print_clear_or_pass(self):
         if self.quiet_install: return
