@@ -407,15 +407,18 @@ class Node():
         not_ready_option = None
         n = -1
         try_again = True
-
+        link_host = False
+        link_node = False
+        
         while True:
             n += 1
             user_wait = False
-                
-            link_host = self.config_obj[self.profile][f"{link_type}_link_host"]
-            link_profile = self.config_obj[self.profile][f"{link_type}_link_profile"]
-            self._print_log_msg("debug",f"found | link_host [{link_host}]")
-            self._print_log_msg("debug",f"found | link_profile [{link_profile}]")
+            
+            if not link_host:   
+                link_host = self.config_obj[self.profile][f"{link_type}_link_host"]
+                link_profile = self.config_obj[self.profile][f"{link_type}_link_profile"]
+                self._print_log_msg("debug",f"found | link_host [{link_host}]")
+                self._print_log_msg("debug",f"found | link_profile [{link_profile}]")
             
             if not self.config_obj["global_elements"]["cluster_info_lists"].get(link_profile):
                 original_profile_names = self.profile_names
@@ -432,7 +435,7 @@ class Node():
                     link_host = False
                 self.cn_requests.set_self_value("profile_names",[original_profile_names])
                 
-            if link_host:
+            if link_host and not link_node:
                 for attempt in range(0,2):
                     try:
                         link_node = next(
@@ -446,12 +449,12 @@ class Node():
                             self._print_log_msg("error",f"unable to find the link host during restart or join.")
                             self._print_log_msg("debug",self.config_obj["global_elements"]["cluster_info_lists"][link_profile])
 
-            else: 
-                extra2 = "Is the profile linking configured correctly? nodectl was unable to find "
-                extra2 += "or connect to the linking settings in this configuration. This could also " 
-                extra2 += "indicate that the profile or the external node this node is configured to "
-                extra2 += "link to is not part of the cluster."
+            if not link_node: 
                 if n > 2:                    
+                    extra2 = "Is the profile linking configured correctly? nodectl was unable to find "
+                    extra2 += "or connect to the linking settings in this configuration. This could also " 
+                    extra2 += "indicate that the profile or the external node this node is configured to "
+                    extra2 += "link to is not part of the cluster."
                     self.error_messages.error_code_messages({
                         "error_code": "ns-634",
                         "line_code": "config_error",
@@ -459,11 +462,13 @@ class Node():
                         "extra2": extra2,
                     })
                 self._print_log_msg("error",f"build_remote_link -> unable to determine the source node links | target_linking_node [{str(link_node)}]")
+                link_node = self.cn_requests.get_random_static_api_peers(False, self.profile)
                 continue # try again... 
 
             self.cn_requests.set_self_value("peer",link_node["ip"])
             self.cn_requests.set_self_value("api_public_port",link_node["publicPort"])
             link_node["state"] = self.cn_requests.get_current_peer_state(link_profile,True)
+            
             if not self.auto_restart:
                 self.functions.print_cmd_status({
                     "text_start": f"{link_type.upper()} Link State:",

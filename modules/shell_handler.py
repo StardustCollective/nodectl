@@ -238,9 +238,8 @@ class ShellHandler:
             router.handle_invalid_version()
 
             self._set_node_obj() # needs cli object
-            
             self._set_cn_requests()
-
+            
             router.set_cli_cn_requests()
             router.print_ux_clear_line()
             
@@ -896,25 +895,39 @@ class ShellHandler:
         for _ in range(0,2):
             add_forced = False
             node_id_obj_org = self.functions.get_nodeid_from_file()
-            if node_id_obj_org:
-                self.cli.node_id_obj = deepcopy(node_id_obj_org)
-                for key, value in node_id_obj_org.items():
-                    if "short" not in key:
-                        self.cli.node_id_obj[f"{key}_wallet"] = self.cli.cli_nodeid2dag({
-                            "nodeid": value,
-                            "profile": self.profile,
-                        })
-                self.config_obj["global_elements"]["nodeid_obj"] = self.cli.node_id_obj
-                for value in node_id_obj_org.values():
-                    if value == None or value == "":
-                        invalid = True
-                if not invalid:
-                    return
+
+            try:
+                if node_id_obj_org:
+                    self.cli.node_id_obj = deepcopy(node_id_obj_org)
+                    
+                    for profile, value in node_id_obj_org.items():
+                        if "short" not in profile:
+                            self.cli.node_id_obj[f"{profile}_wallet"] = self.cli.cli_nodeid2dag({
+                                "nodeid": value,
+                                "profile": profile,
+                            })
+                        self.cli.node_id_obj[profile] = self.cli.nodeid
+                        short_nodeid = f"{self.cli.nodeid[0:8]}...{self.cli.nodeid[-8:]}".strip()
+                        self.cli.node_id_obj[profile] = short_nodeid
+                        
+                    self.config_obj["global_elements"]["nodeid_obj"] = self.cli.node_id_obj
+                    
+                    for value in node_id_obj_org.values():
+                        if value == None or value == "":
+                            invalid = True
+                    if not invalid:
+                        return
+            except Exception as e:
+                self._print_log_msg("error",f"attempting to load cn-nodeid.json, rebuilding [{e}]")
+                
             if "--force" not in self.argv:
                 add_forced = True
                 self.argv.append("--force")
-            self.handle_versioning()
-            self.cli.node_id_obj = False    
+                
+            # self.handle_versioning()
+            
+            self.cli.node_id_obj = False 
+               
             if add_forced:      
                 self.argv.remove("--force")
         

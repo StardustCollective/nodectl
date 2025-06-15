@@ -2579,6 +2579,7 @@ class CLI():
             self._print_log_msg("error","requested nodeid not found.")
 
         if nodeid_dag_obj.dag_addr_only:
+            self.nodeid = nodeid_dag_obj.nodeid 
             return nodeid_dag_obj.nodeid 
 
         nodeid_dag_obj.handle_dag_command()
@@ -2662,12 +2663,21 @@ class CLI():
                         return "UnableToRetrieve"
                     raise
             except:
-                self.error_messages.error_code_messages({
-                    "error_code": "cmd-2735",
-                    "line_code": "node_id_issue",
-                    "extra": "invalid",
-                    "extra2": "nodeid2dag"
-                })
+                try:
+                    nodeid = self.cli_grab_id({
+                        "command": "command_line",
+                        "argv_list": ["-l"],
+                        "dag_addr_only": True,
+                        "threading": False,
+                        "profile": profile,                        
+                    })
+                except:
+                    self.error_messages.error_code_messages({
+                        "error_code": "cmd-2735",
+                        "line_code": "node_id_issue",
+                        "extra": "invalid",
+                        "extra2": "nodeid2dag"
+                    })
 
             nodeid = sha256( bytes.fromhex(nodeid)).hexdigest()
             nodeid = base58.b58encode(bytes.fromhex(nodeid)).decode()

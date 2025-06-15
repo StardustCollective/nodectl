@@ -91,7 +91,12 @@ class ShowStatus():
         
         on_network = colored("False","red")
         
-        cluster_session = sessions.get("cluster_session", 0)
+        try:
+            cluster_session = sessions.get("cluster_session", 0)
+        except:
+            sessions = {}
+            cluster_session = 0
+            
         node_session = sessions.get("node_session", 0)
         join_state = sessions.get('node_state', "UnbleToDerive")
         

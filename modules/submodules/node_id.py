@@ -219,7 +219,8 @@ class NodeDAGid():
     # ==== PARSERS / PROCESSORS ====
 
     def process_node_id(self):
-        if (self.ip_address == "127.0.0.1" and not self.wallet_only) or self.command == "dag" or self.command == "versioning":
+        # if (self.ip_address == "127.0.0.1" and not self.wallet_only) or self.command == "dag" or self.command == "versioning":
+        if not self.wallet_only or self.command == "dag" or self.command == "versioning":
             with ThreadPoolExecutor() as executor:
                 if not self.nodeid:
                     try:
@@ -515,22 +516,34 @@ class NodeDAGid():
         return True
 
 
+    def set_self_value(self, name, value):
+        setattr(self, name, value)
+    
+        
+    def get_self_value(self, name, default=False):
+        return getattr(self, name, default)
+    
+
     def handle_ext_or_ready_state(self):
         if self.ip_address == "127.0.0.1":
             self.ip_address = self.functions.get_ext_ip()
             self.is_self = True
 
-        node = self.cn_requests.get_node_from_list_by_key("ip", self.ip_address, self.profile)  
-        if node:
-            self.api_port = node["publicPort"]
-            self.nodeid = node["id"]
-            self.target_ip = node
-        
-            if "-t" not in self.argv_list and self.command == "nodeid":
-                return
-            if "-l" not in self.argv_list: 
-                self.nodeid = f"{self.nodeid[0:8]}....{self.nodeid[-8:]}"
-        else:
+        try:
+            node = self.cn_requests.get_node_from_list_by_key("ip", self.ip_address, self.profile)  
+            if node and node != '':
+                self.api_port = node["publicPort"]
+                self.nodeid = node["id"]
+                self.target_ip = node
+            
+                if "-t" not in self.argv_list and self.command == "nodeid":
+                    return
+                if "-l" not in self.argv_list: 
+                    self.nodeid = f"{self.nodeid[0:8]}....{self.nodeid[-8:]}"
+            else:
+                self.error_found = True
+        except Exception as e:
+            self._print_log_msg("error",f"unable to pull nodeid [{e}]")
             self.error_found = True
          
         if self.error_found:

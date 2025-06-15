@@ -92,10 +92,13 @@ class AutoRestart():
         self.log.logger[self.log_key].info(f"auto_restart - thread [{self.thread_profile}] -> build node services class obj")
 
         self.functions = Functions() 
-        self.functions.set_parameters()
         self.functions.set_self_value("config_obj",self.config_obj)
-        self.functions.set_self_value.value("auto_restart",True)
-        self.functions.set_self_value.value("log",self.log.logger[self.log_key])
+        self.functions.set_parameters()
+        self.functions.set_statics()
+        self.functions.set_default_variables({})
+
+        self.functions.set_self_value("auto_restart",True)
+        self.functions.set_self_value("log",self.log.logger[self.log_key])
         # self.functions.auto_restart = True
         
         # versioning update is handled by nodectl's versioning service

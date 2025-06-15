@@ -44,7 +44,7 @@ class Versioning():
         self.spec_path = f'https://raw.githubusercontent.com/stardustCollective/nodectl/main/admin/specs.json'
 
 
-    def set_parameters(self,argv_list=False):
+    def set_parameters(self):
         self._set_log_obj()
         
         self.called_cmd = self.command_obj.get("called_cmd","default")
