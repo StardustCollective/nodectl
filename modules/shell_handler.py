@@ -1576,6 +1576,7 @@ class ShellHandler:
         self.version_class_obj = Versioning({"called_cmd": "setup_only"})
         self.version_class_obj.set_parameters()
 
+
     def handle_exit(self,return_value):
         if return_value == "skip_auto_restart_restart":
             return_value = 0
